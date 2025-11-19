@@ -1,0 +1,38 @@
+[
+  {
+    "id": "food_bowl",
+    "display_name": "Food Bowl",
+    "sprite": "placeholders/images/food_bowl.png",
+    "footprint": {"w": 1, "h": 1},
+    "walk_blocking": false,
+    "interact_slot": {"x": 0, "y": -1},
+    "effects": {"Hunger": 35},
+    "use_time_secs": 4.0,
+    "cooldown_secs": 2.0,
+    "categories": ["food"]
+  },
+  {
+    "id": "toy_ball",
+    "display_name": "Toy Ball",
+    "sprite": "placeholders/images/toy_ball.png",
+    "footprint": {"w": 1, "h": 1},
+    "walk_blocking": false,
+    "interact_slot": {"x": 0, "y": -1},
+    "effects": {"Fun": 20},
+    "use_time_secs": 5.0,
+    "cooldown_secs": 10.0,
+    "categories": ["toy"]
+  },
+  {
+    "id": "bed_small",
+    "display_name": "Small Bed",
+    "sprite": "placeholders/images/bed_small.png",
+    "footprint": {"w": 2, "h": 1},
+    "walk_blocking": true,
+    "interact_slot": {"x": 0, "y": 0},
+    "effects": {"Energy": 50},
+    "use_time_secs": 8.0,
+    "cooldown_secs": 0.0,
+    "categories": ["furniture"]
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "tag": "greeting",
+    "lines": [
+      "Take it easy!",
+      "Hello~!",
+      "Nice to see you!"
+    ],
+    "cooldown_secs": 10
+  },
+  {
+    "tag": "idle",
+    "lines": [
+      "...",
+      "What a nice day.",
+      "I'm feeling relaxed."
+    ],
+    "cooldown_secs": 20
+  },
+  {
+    "tag": "reacting",
+    "lines": [
+      "Wow!",
+      "Oh!",
+      "Hehe."
+    ],
+    "cooldown_secs": 5
+  }
+]

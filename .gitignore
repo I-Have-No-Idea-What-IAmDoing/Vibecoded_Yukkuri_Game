@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Virtual environment
+venv/
+env/
+
+# User-generated content
+screenshots/
+
+# Misc
+.DS_Store
+savegame.json
+test_save.json

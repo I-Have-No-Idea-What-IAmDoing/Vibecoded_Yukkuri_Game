@@ -1,0 +1,20 @@
+[
+  {
+    "id": "basic_yukkuri",
+    "display_name": "Yukkuri (Basic)",
+    "portrait": "placeholders/images/yukkuri.png",
+    "stats": {
+      "speed": 1.0,
+      "interaction_range": 1
+    },
+    "needs": [
+      {"name": "Hunger", "min": 0, "max": 100, "initial": 60, "decay_per_min": 6},
+      {"name": "Energy", "min": 0, "max": 100, "initial": 80, "decay_per_min": 4},
+      {"name": "Social", "min": 0, "max": 100, "initial": 50, "decay_per_min": 5},
+      {"name": "Fun", "min": 0, "max": 100, "initial": 50, "decay_per_min": 5},
+      {"name": "Cleanliness", "min": 0, "max": 100, "initial": 70, "decay_per_min": 3}
+    ],
+    "actions": ["Eat", "Sleep", "Chat", "Play", "CleanSelf"],
+    "dialogue_tags": ["greeting", "idle", "reacting"]
+  }
+]

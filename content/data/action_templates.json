@@ -1,0 +1,90 @@
+[
+  {
+    "name": "Eat",
+    "preconditions": [
+      {"type": "near_item_category", "category": "food", "radius": 3},
+      {"type": "need_below", "need": "Hunger", "threshold": 70}
+    ],
+    "effects": [
+      {"type": "modify_need", "need": "Hunger", "delta": 35}
+    ],
+    "duration_secs": 4.0,
+    "score": {
+      "type": "weighted_sum",
+      "terms": [
+        {"signal": "need_inverse", "need": "Hunger", "weight": 1.0}
+      ],
+      "bias": 0.0
+    },
+    "cooldown_secs": 5.0
+  },
+  {
+    "name": "Sleep",
+    "preconditions": [
+      {"type": "near_item_category", "category": "furniture", "radius": 3},
+      {"type": "need_below", "need": "Energy", "threshold": 50}
+    ],
+    "effects": [
+      {"type": "modify_need", "need": "Energy", "delta": 50}
+    ],
+    "duration_secs": 8.0,
+    "score": {
+      "type": "weighted_sum",
+      "terms": [
+        {"signal": "need_inverse", "need": "Energy", "weight": 1.0}
+      ],
+      "bias": 0.0
+    },
+    "cooldown_secs": 5.0
+  },
+  {
+    "name": "Play",
+    "preconditions": [
+      {"type": "near_item_category", "category": "toy", "radius": 3}
+    ],
+    "effects": [
+      {"type": "modify_need", "need": "Fun", "delta": 20}
+    ],
+    "duration_secs": 5.0,
+    "score": {
+      "type": "weighted_sum",
+      "terms": [
+        {"signal": "need_inverse", "need": "Fun", "weight": 0.7}
+      ],
+      "bias": 0.0
+    },
+    "cooldown_secs": 10.0
+  },
+    {
+    "name": "Chat",
+    "preconditions": [],
+    "effects": [
+      {"type": "modify_need", "need": "Social", "delta": 15}
+    ],
+    "duration_secs": 3.0,
+    "score": {
+      "type": "weighted_sum",
+      "terms": [
+        {"signal": "need_inverse", "need": "Social", "weight": 0.5}
+      ],
+      "bias": 0.0
+    },
+    "cooldown_secs": 15.0
+  },
+  {
+    "name": "CleanSelf",
+    "preconditions": [],
+    "effects": [
+      {"type": "modify_need", "need": "Cleanliness", "delta": 40}
+    ],
+    "duration_secs": 6.0,
+    "score": {
+      "type": "weighted_sum",
+      "terms": [
+        {"signal": "need_inverse", "need": "Cleanliness", "weight": 0.3}
+      ],
+      "bias": 0.0
+    },
+    "cooldown_secs": 20.0
+  }
+]
