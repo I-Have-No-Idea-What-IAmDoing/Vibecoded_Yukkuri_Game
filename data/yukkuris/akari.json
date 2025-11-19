@@ -1,0 +1,7 @@
+{
+  "id": "akari",
+  "display_name_key": "yukkuri.akari",
+  "base_needs": {"hunger": 0.2, "energy": 0.8, "fun": 0.5},
+  "personality": {"sociability": 0.7, "curiosity": 0.5},
+  "ai_profile": "default_small"
+}

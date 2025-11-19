@@ -1,0 +1,7 @@
+{
+  "id": "toy_ball",
+  "display_name_key": "item.toy_ball",
+  "size": {"w": 1, "h": 1},
+  "tags": ["toy"],
+  "effects": {"fun": {"rate": 0.15}}
+}

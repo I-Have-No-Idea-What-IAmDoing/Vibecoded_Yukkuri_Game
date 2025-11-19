@@ -1,0 +1,7 @@
+{
+  "id": "food_snack",
+  "display_name_key": "item.food_snack",
+  "size": {"w": 1, "h": 1},
+  "tags": ["food"],
+  "effects": {"hunger": {"rate": -0.25}}
+}

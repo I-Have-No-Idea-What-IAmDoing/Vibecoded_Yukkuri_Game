@@ -1,0 +1,7 @@
+{
+  "id": "bed_simple",
+  "display_name_key": "item.bed_simple",
+  "size": {"w": 2, "h": 1},
+  "tags": ["resting_spot"],
+  "effects": {"energy": {"rate": 0.08}}
+}

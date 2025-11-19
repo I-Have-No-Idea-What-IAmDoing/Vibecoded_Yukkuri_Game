@@ -1,0 +1,26 @@
+{
+  "actions": [
+    {
+      "id": "rest",
+      "cooldown": 1.0,
+      "considerations": [
+        {"type": "need_inverse", "need": "energy", "curve": "quadratic", "weight": 1.0}
+      ]
+    },
+    {
+      "id": "eat_snack",
+      "cooldown": 1.0,
+      "considerations": [
+        {"type": "need_level", "need": "hunger", "curve": "linear", "weight": 1.0},
+        {"type": "proximity_to_item_with_tag", "tag": "food", "weight": 0.8}
+      ]
+    },
+    {
+      "id": "wander",
+      "cooldown": 5.0,
+      "considerations": [
+        {"type": "constant", "value": 0.1, "weight": 1.0}
+      ]
+    }
+  ]
+}

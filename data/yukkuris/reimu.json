@@ -1,0 +1,7 @@
+{
+  "id": "reimu",
+  "display_name_key": "yukkuri.reimu",
+  "base_needs": {"hunger": 0.3, "energy": 0.7, "fun": 0.6},
+  "personality": {"sociability": 0.8, "curiosity": 0.6},
+  "ai_profile": "default_small"
+}

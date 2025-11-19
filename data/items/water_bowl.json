@@ -1,0 +1,7 @@
+{
+  "id": "water_bowl",
+  "display_name_key": "item.water_bowl",
+  "size": {"w": 1, "h": 1},
+  "tags": ["drink"],
+  "effects": {}
+}
