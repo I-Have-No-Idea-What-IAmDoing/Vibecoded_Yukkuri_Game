@@ -1,4 +1,17 @@
 from dataclasses import dataclass
+import pymunk
+
+@dataclass
+class PhysicsBody:
+    """
+    Component representing the physical body of an entity in the pymunk space.
+
+    Attributes:
+        body (pymunk.Body): The physics body.
+        shape (pymunk.Shape): The physics shape.
+    """
+    body: pymunk.Body
+    shape: pymunk.Shape
 
 @dataclass
 class Transform:

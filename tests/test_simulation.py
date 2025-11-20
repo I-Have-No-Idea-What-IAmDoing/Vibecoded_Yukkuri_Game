@@ -67,28 +67,28 @@ def test_simulation_action_eat(simulation_world, ai_system):
 
     ai = world.get_component(yukkuri, AIState)
     assert ai.current_action == "Eat"
+
+    # In new system, target is set by FindFood which runs inside the BT.
+    # BT structure: Eat Seq -> Goal=Eat? -> Eat Exec -> (Target Exists? -> Move -> Interact) OR Find Food
+    # 1st Tick: Goal=Eat (True). Target Exists? (False). Find Food (Success, sets target).
+    # So after 1.1s update, target should be set.
     assert ai.current_target_id == item
 
-    # Update again to move/interact
-    # Distance is 100. Speed is 100 * dt.
-    # Need enough time to reach. 1.0s is enough (moves 100).
-    # But we also need 1 more frame to interact (as logic is move -> check dist).
-    # If dist < 20, interact.
+    # Note: py_trees might require multiple ticks to traverse and execute sequences properly,
+    # especially if nodes return RUNNING.
 
-    # Move closer
-    ai_system.update(world, 0.8) # Move 80 units. Pos ~ 80. Dist 20.
+    # Tick 2: Move closer. Dist 100 -> 20 (Speed 100 * 0.8)
+    ai_system.update(world, 0.8)
 
-    # Interact range is < 20.
-    # If exactly 20, might not interact.
+    # Tick 3: Move closer. Dist 20 -> 0 (Speed 100 * 0.3 = 30 > 20)
+    # MoveToTarget should return SUCCESS.
+    # Interact might run in same tick or next.
+    ai_system.update(world, 0.3)
 
-    ai_system.update(world, 0.3) # Move more. Should be close enough.
-
-    # Need one more update to trigger interaction logic because interaction check happens before movement
-    # Note: Movement logic consumes remaining speed if waypoint reached, so it might take more frames/time.
-    ai_system.update(world, 0.5)
-
-    # One final update to trigger the interaction now that we are close enough
-    ai_system.update(world, 0.1)
+    # Tick 4-10: Allow interaction to complete.
+    # Interact checks distance <= 30. Current dist should be 0.
+    for _ in range(10):
+        ai_system.update(world, 0.1)
 
     # Item should be consumed (destroyed)
     assert item not in world._entities
