@@ -23,10 +23,14 @@ class InputSystem(System):
     def update(self, world: World, dt: float):
         pass
 
-    def handle_event(self, event, world: World, screen_w, screen_h):
+    def handle_event(self, event, world: World, screen_w, screen_h, ui_manager=None):
         self.yukkurrium.handle_input(event, screen_w, screen_h)
 
         if event.type == pygame.MOUSEBUTTONDOWN:
+            # Check if UI is handling the event
+            if ui_manager and ui_manager.get_hovering_any_element():
+                return
+
             if event.button == 1: # Left Click
                 mx, my = event.pos
                 wx, wy = self.yukkurrium.screen_to_world(mx, my, screen_w, screen_h)

@@ -64,7 +64,7 @@ class YukkuriGame(GameLoop):
                 elif event.key == pygame.K_F12:
                     self.take_screenshot()
 
-            self.input_system.handle_event(event, self.world, self.width, self.height)
+            self.input_system.handle_event(event, self.world, self.width, self.height, self.ui_manager)
             self.hud.process_event(event)
 
     def update(self):
