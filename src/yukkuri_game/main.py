@@ -36,7 +36,8 @@ class YukkuriGame(GameLoop):
 
         if not self.headless:
             self.render_system = RenderSystem(self.screen, self.yukkurrium, self.resources)
-            self.world.add_system(self.render_system)
+            # RenderSystem is not added to world updates because it should be called in render_world
+            # self.world.add_system(self.render_system)
 
             # UI
             self.hud = HUD(self.ui_manager, self.gm, self.world, self.factory)
@@ -47,7 +48,13 @@ class YukkuriGame(GameLoop):
         # Initial Population
         if not self.headless:
             # Create a starting Reimu
-            self.factory.create_yukkuri("reimu", 1500, 1500)
+            start_x = self.yukkurrium.width / 2
+            start_y = self.yukkurrium.height / 2
+            self.factory.create_yukkuri("reimu", start_x, start_y)
+
+            # Center camera on start
+            self.yukkurrium.camera_x = start_x
+            self.yukkurrium.camera_y = start_y
 
     def on_event(self, event):
         if not self.headless:
@@ -65,9 +72,15 @@ class YukkuriGame(GameLoop):
             self.gm.time_elapsed += self.dt * self.time_scale
 
         super().update()
+        self.yukkurrium.update(self.dt)
+
         if not self.headless:
             self.hud.fps = self.clock.get_fps()
             self.hud.update(self.dt)
+
+    def render_world(self):
+        if not self.headless and self.render_system:
+            self.render_system.update(self.world, self.dt)
 
     def toggle_pause(self):
         self.paused = not self.paused
