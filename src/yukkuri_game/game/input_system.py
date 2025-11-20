@@ -98,10 +98,15 @@ class InputSystem(System):
 
                 for ent in entities:
                     trans = world.get_component(ent, Transform)
+                    if not trans:
+                        continue
                     # Assume 32px radius roughly
                     dist = ((trans.x - wx)**2 + (trans.y - wy)**2)**0.5
 
                     selectable = world.get_component(ent, Selectable)
+                    if not selectable:
+                        continue
+
                     if dist < 32:
                         selectable.selected = True
                         clicked_something = True
@@ -112,7 +117,9 @@ class InputSystem(System):
                 if not clicked_something:
                      # Deselect all if clicked ground
                      for ent in entities:
-                         world.get_component(ent, Selectable).selected = False
+                         selectable = world.get_component(ent, Selectable)
+                         if selectable:
+                             selectable.selected = False
             elif event.button == 3: # Right Click cancels placement
                 if self.placing_mode:
                     self.placing_mode = False

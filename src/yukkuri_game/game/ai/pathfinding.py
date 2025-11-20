@@ -67,15 +67,15 @@ class Pathfinding:
         """
         step = 50
         # Snap start/goal to grid for A*
-        start_node = (round(start[0]/step)*step, round(start[1]/step)*step)
-        goal_node = (round(goal[0]/step)*step, round(goal[1]/step)*step)
+        start_node: Tuple[float, float] = (float(round(start[0]/step)*step), float(round(start[1]/step)*step))
+        goal_node: Tuple[float, float] = (float(round(goal[0]/step)*step), float(round(goal[1]/step)*step))
 
-        frontier = []
-        heapq.heappush(frontier, (0, start_node))
-        came_from = {}
-        cost_so_far = {}
+        frontier: List[Tuple[float, Tuple[float, float]]] = []
+        heapq.heappush(frontier, (0.0, start_node))
+        came_from: dict[Tuple[float, float], Optional[Tuple[float, float]]] = {}
+        cost_so_far: dict[Tuple[float, float], float] = {}
         came_from[start_node] = None
-        cost_so_far[start_node] = 0
+        cost_so_far[start_node] = 0.0
 
         while frontier:
             _, current = heapq.heappop(frontier)
@@ -92,18 +92,17 @@ class Pathfinding:
                     came_from[next_node] = current
 
         # Reconstruct path
-        current = goal_node
+        path_current: Optional[Tuple[float, float]] = goal_node
         # Find closest node in came_from if goal wasn't reached exactly
-        if current not in came_from:
+        if path_current not in came_from:
              # Fallback to closest visited
-             current = min(came_from.keys(), key=lambda k: Pathfinding.heuristic(k, goal_node))
+             path_current = min(came_from.keys(), key=lambda k: Pathfinding.heuristic(k, goal_node))
 
         path = []
-        while current != start_node:
-            path.append(current)
-            current = came_from.get(current)
-            if current is None: # Should not happen if start_node is correct
-                break
+        while path_current is not None and path_current != start_node:
+            path.append(path_current)
+            path_current = came_from.get(path_current)
+
         path.append(start_node)
         path.reverse()
 

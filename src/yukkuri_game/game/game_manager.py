@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Any, Dict
 from loguru import logger
 from ..engine.ecs import World
 from .components import Transform, Sprite
@@ -45,7 +46,7 @@ class GameManager:
             int: The calculated value in money.
         """
         # Base score
-        score = 100
+        score = 100.0
 
         # Happiness factor
         score += yukkuri_stats.happiness * 2
@@ -91,7 +92,7 @@ class GameManager:
         Args:
             filename: The name of the save file. Defaults to "savegame.json".
         """
-        data = {
+        data: dict[str, int | float | list] = {
             "money": self.money,
             "time": self.time_elapsed,
             "entities": []
@@ -106,12 +107,12 @@ class GameManager:
         # except via internal list.
 
         for entity in self.world._entities:
-            ent_data = {}
+            ent_data: Dict[str, Any] = {}
 
             # Transform
             trans = self.world.get_component(entity, Transform)
             if trans:
-                ent_data["transform"] = {"x": trans.x, "y": trans.y}
+                ent_data["transform"] = {"x": float(trans.x), "y": float(trans.y)}
 
             # Yukkuri Stats
             y_stats = self.world.get_component(entity, YukkuriStats)
@@ -119,11 +120,11 @@ class GameManager:
                 ent_data["yukkuri"] = {
                     "type_id": y_stats.type_id,
                     "name": y_stats.name,
-                    "health": y_stats.health,
-                    "hunger": y_stats.hunger,
-                    "happiness": y_stats.happiness,
-                    "badges": y_stats.badges,
-                    "age": y_stats.age
+                    "health": float(y_stats.health),
+                    "hunger": float(y_stats.hunger),
+                    "happiness": float(y_stats.happiness),
+                    "badges": int(y_stats.badges),
+                    "age": float(y_stats.age)
                 }
 
             # Item Stats
@@ -132,9 +133,14 @@ class GameManager:
                 ent_data["item"] = {
                     "type_id": i_stats.type_id
                 }
+                # We can verify it conforms to expected structure, but simple assignment is fine for now
+                # since mypy only complains if we try to put incompatible types into data["entities"] if it was typed more strictly.
+                # The real issue is the previous dict items for ent_data being incompatible with a strict TypedDict if we were using one.
+                # Since ent_data is just Dict[str, Any] effectively, it should be fine, but mypy inferred the dict type from first assignment.
 
             if "yukkuri" in ent_data or "item" in ent_data:
-                data["entities"].append(ent_data)
+                 if isinstance(data["entities"], list):
+                    data["entities"].append(ent_data)
 
         path = os.path.join(self.save_dir, filename)
         with open(path, "w") as f:
@@ -173,18 +179,19 @@ class GameManager:
 
         for ent_data in data.get("entities", []):
             trans = ent_data.get("transform")
-            x, y = trans["x"], trans["y"]
+            x, y = float(trans["x"]), float(trans["y"])
 
             if "yukkuri" in ent_data:
                 y_data = ent_data["yukkuri"]
                 eid = self.factory.create_yukkuri(y_data["type_id"], x, y)
                 stats = self.world.get_component(eid, YukkuriStats)
-                stats.name = y_data["name"]
-                stats.health = y_data["health"]
-                stats.hunger = y_data["hunger"]
-                stats.happiness = y_data["happiness"]
-                stats.badges = y_data["badges"]
-                stats.age = y_data["age"]
+                if stats:
+                    stats.name = y_data["name"]
+                    stats.health = float(y_data["health"])
+                    stats.hunger = float(y_data["hunger"])
+                    stats.happiness = float(y_data["happiness"])
+                    stats.badges = int(y_data["badges"])
+                    stats.age = float(y_data["age"])
 
             elif "item" in ent_data:
                 i_data = ent_data["item"]
