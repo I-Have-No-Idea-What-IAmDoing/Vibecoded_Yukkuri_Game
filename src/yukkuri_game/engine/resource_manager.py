@@ -67,6 +67,28 @@ class ResourceManager:
             logger.error(f"Failed to load TOML {filepath}: {e}")
             return None
 
+    def load_toml(self, filepath: str) -> Dict[str, Any]:
+        """
+        Loads a TOML file relative to the data directory and returns a dictionary.
+        (For backward compatibility/testing)
+
+        Args:
+            filepath: The relative path to the TOML file.
+
+        Returns:
+            Dict[str, Any]: The parsed data or empty dict on failure.
+        """
+        full_path = os.path.join(self.data_dir, filepath)
+        try:
+            with open(full_path, "rb") as f:
+                data = f.read()
+            decoded = msgspec.toml.decode(data)
+            logger.info(f"Loaded TOML (dict): {filepath}")
+            return decoded
+        except Exception as e:
+            logger.error(f"Failed to load TOML {filepath}: {e}")
+            return {}
+
     def load_image(self, filename: str) -> pygame.Surface:
         """
         Loads an image relative to the assets/images directory.

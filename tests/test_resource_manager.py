@@ -69,11 +69,20 @@ def test_load_image_not_found(mock_exists):
 def test_load_all_data():
     rm = ResourceManager()
 
-    mock_yukkuri = {"yukkuris": {"Reimu": {}}}
-    mock_items = {"items": {"Cookie": {}}}
-    mock_ai = {"actions": {"Eat": {}}}
+    # Mock return values need to simulate objects that match what load_toml_model returns (Structs)
+    # But load_all_data uses load_toml_model now, not load_toml.
+    # We should update the test to patch load_toml_model.
 
-    with patch.object(rm, 'load_toml', side_effect=[mock_yukkuri, mock_items, mock_ai]) as mock_load:
+    mock_yukkuri_data = MagicMock()
+    mock_yukkuri_data.yukkuris = {"Reimu": {}}
+
+    mock_item_data = MagicMock()
+    mock_item_data.items = {"Cookie": {}}
+
+    mock_ai_data = MagicMock()
+    mock_ai_data.actions = {"Eat": {}}
+
+    with patch.object(rm, 'load_toml_model', side_effect=[mock_yukkuri_data, mock_item_data, mock_ai_data]) as mock_load:
         rm.load_all_data()
 
         assert rm.yukkuri_types == {"Reimu": {}}
