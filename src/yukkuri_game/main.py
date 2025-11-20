@@ -48,10 +48,13 @@ class YukkuriGame(GameLoop):
         # Initial Population
         if not self.headless:
             # Create a starting Reimu
-            self.factory.create_yukkuri("reimu", 1500, 1500)
+            start_x = self.yukkurrium.width / 2
+            start_y = self.yukkurrium.height / 2
+            self.factory.create_yukkuri("reimu", start_x, start_y)
+
             # Center camera on start
-            self.yukkurrium.camera_x = 1500
-            self.yukkurrium.camera_y = 1500
+            self.yukkurrium.camera_x = start_x
+            self.yukkurrium.camera_y = start_y
 
     def on_event(self, event):
         if not self.headless:
