@@ -1,26 +1,33 @@
 import pytest
 from unittest.mock import MagicMock, patch, mock_open
 import os
+import msgspec
 from src.yukkuri_game.engine.resource_manager import ResourceManager
+from src.yukkuri_game.engine.data_models import YukkuriData, ItemData, AIData
 
-def test_load_toml_success():
+class SimpleModel(msgspec.Struct):
+    key: str
+    section: dict
+
+def test_load_toml_model_success():
     rm = ResourceManager()
     toml_content = b'key = "value"\n[section]\nsub = 123'
 
     with patch("builtins.open", mock_open(read_data=toml_content)):
-        data = rm.load_toml("test.toml")
+        data = rm.load_toml_model("test.toml", SimpleModel)
 
-    assert data["key"] == "value"
-    assert data["section"]["sub"] == 123
+    assert data is not None
+    assert data.key == "value"
+    assert data.section["sub"] == 123
 
-def test_load_toml_failure():
+def test_load_toml_model_failure():
     rm = ResourceManager()
 
     # Simulate file not found or read error
     with patch("builtins.open", side_effect=FileNotFoundError):
-        data = rm.load_toml("nonexistent.toml")
+        data = rm.load_toml_model("nonexistent.toml", SimpleModel)
 
-    assert data == {}
+    assert data is None
 
 @patch("src.yukkuri_game.engine.resource_manager.pygame.image.load")
 @patch("src.yukkuri_game.engine.resource_manager.os.path.exists")
@@ -49,31 +56,20 @@ def test_load_image_not_found(mock_exists):
     img = rm.load_image("missing.png")
 
     assert img.get_size() == (32, 32)
-    # Checking color is tricky with mocks unless we inspect calls,
-    # but the code creates a Surface and fills it.
-    # Since pygame.Surface is real (we didn't mock pygame.Surface constructor), we can check it?
-    # But we imported pygame in the module.
-    # If we didn't mock pygame, it needs a display for convert_alpha usually, but
-    # here the code does `pygame.Surface((32, 32))` which works without display.
-    # But `convert_alpha` calls usually need display initialized.
-    # The code: `img = pygame.image.load(full_path).convert_alpha()`
-    # This line is skipped if not exists.
-
-    # The placeholder creation:
-    # surf = pygame.Surface((32, 32))
-    # surf.fill((255, 0, 255))
-
-    # This should work headless if SDL_VIDEODRIVER is dummy, but let's see.
-    pass
 
 def test_load_all_data():
     rm = ResourceManager()
 
-    mock_yukkuri = {"yukkuris": {"Reimu": {}}}
-    mock_items = {"items": {"Cookie": {}}}
-    mock_ai = {"actions": {"Eat": {}}}
+    mock_yukkuri = MagicMock(spec=YukkuriData)
+    mock_yukkuri.yukkuris = {"Reimu": {}}
 
-    with patch.object(rm, 'load_toml', side_effect=[mock_yukkuri, mock_items, mock_ai]) as mock_load:
+    mock_items = MagicMock(spec=ItemData)
+    mock_items.items = {"Cookie": {}}
+
+    mock_ai = MagicMock(spec=AIData)
+    mock_ai.actions = {"Eat": {}}
+
+    with patch.object(rm, 'load_toml_model', side_effect=[mock_yukkuri, mock_items, mock_ai]) as mock_load:
         rm.load_all_data()
 
         assert rm.yukkuri_types == {"Reimu": {}}
