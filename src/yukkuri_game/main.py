@@ -1,4 +1,6 @@
 import sys
+import os
+from datetime import datetime
 import argparse
 import pygame
 from .engine.core import GameLoop
@@ -52,6 +54,8 @@ class YukkuriGame(GameLoop):
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F3:
                     self.hud.toggle_debug()
+                elif event.key == pygame.K_F12:
+                    self.take_screenshot()
 
             self.input_system.handle_event(event, self.world, self.width, self.height)
             self.hud.process_event(event)
@@ -82,6 +86,14 @@ class YukkuriGame(GameLoop):
 
     def start_placement(self, type_id, cost, entity_type):
         self.input_system.start_placement(type_id, cost, entity_type, self.gm, self.factory)
+
+    def take_screenshot(self):
+        if not os.path.exists("screenshots"):
+            os.makedirs("screenshots")
+
+        filename = f"screenshots/screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        pygame.image.save(self.screen, filename)
+        print(f"Screenshot saved to {filename}")
 
 def main():
     parser = argparse.ArgumentParser(description="Yukkuri Raising Game")
