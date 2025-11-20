@@ -14,6 +14,11 @@ dependencies = [
     "pymunk>=6.6.0",
 ]
 
+[dependency-groups.dev]
+dependencies = [
+    "pytest>=7.0",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
