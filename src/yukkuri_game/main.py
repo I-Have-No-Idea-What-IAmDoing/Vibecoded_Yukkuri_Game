@@ -64,7 +64,8 @@ class YukkuriGame(GameLoop):
                 elif event.key == pygame.K_F12:
                     self.take_screenshot()
 
-            self.input_system.handle_event(event, self.world, self.width, self.height)
+            ui_hovered = self.ui_manager.get_hovering_any_element()
+            self.input_system.handle_event(event, self.world, self.width, self.height, ui_consumed=ui_hovered)
             self.hud.process_event(event)
 
     def update(self):
