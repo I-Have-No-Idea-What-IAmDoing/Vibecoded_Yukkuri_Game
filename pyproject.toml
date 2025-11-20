@@ -1,0 +1,16 @@
+[project]
+name = "yukkuri-raising-game"
+version = "0.1.0"
+description = "A modern reimagining of the classic fan game Yukkuri Hakkei"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pygame-ce>=2.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]

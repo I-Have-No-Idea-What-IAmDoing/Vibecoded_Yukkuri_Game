@@ -1,0 +1,108 @@
+# AI Actions and Utility Curves
+
+# Action: Eat
+# Considerations: Hunger (Curve: S-Curve or Linear)
+[action.eat]
+name = "Eat"
+type = "survival"
+cooldown = 5.0
+duration = 2.0
+
+[[action.eat.considerations]]
+input = "hunger" # The stat to evaluate (0-100, normalized to 0-1)
+curve = "logistic" # type of curve
+m = 10.0 # slope
+k = 0.7  # midpoint (start getting hungry at 70% hunger / 30% fullness? No, let's say hunger increases. 0 is full, 100 is starving.)
+# Assuming hunger: 0 (Full) -> 100 (Starving). Normalized: 0.0 -> 1.0
+# Logistic curve will go from low to high as hunger increases.
+b = 0.0 # y-intercept offset
+
+[[action.eat.considerations]]
+input = "food_available"
+curve = "boolean" # 1.0 if food exists, 0.0 if not
+
+
+# Action: Sleep
+# Considerations: Energy (Low energy -> High score)
+[action.sleep]
+name = "Sleep"
+type = "survival"
+cooldown = 10.0
+duration = 5.0
+
+[[action.sleep.considerations]]
+input = "energy" # 100 (Full energy) -> 0 (Exhausted)
+curve = "inverse_logistic"
+m = 10.0
+k = 0.3 # Start getting tired around 30% energy
+
+
+# Action: Play
+# Considerations: Happiness (Low happiness -> High desire to play)
+[action.play]
+name = "Play"
+type = "leisure"
+cooldown = 5.0
+duration = 3.0
+
+[[action.play.considerations]]
+input = "happiness"
+curve = "inverse_linear" # Lower happiness = Higher utility
+m = 1.0
+k = 0.0
+b = 1.0
+
+[[action.play.considerations]]
+input = "toy_available"
+curve = "boolean"
+
+# Action: Talk
+# Considerations: Happiness (Socializing improves happiness), Partner Available
+[action.talk]
+name = "Talk"
+type = "social"
+cooldown = 3.0
+duration = 2.0
+
+[[action.talk.considerations]]
+input = "happiness"
+curve = "inverse_linear" # Talk when sad
+m = 0.8
+k = 0.0
+b = 0.5
+
+[[action.talk.considerations]]
+input = "partner_available"
+curve = "boolean"
+
+# Action: Breed (Stub)
+[action.breed]
+name = "Breed"
+type = "social"
+cooldown = 60.0
+duration = 5.0
+
+[[action.breed.considerations]]
+input = "health"
+curve = "logistic"
+m = 20.0
+k = 0.9 # Only when very healthy
+
+[[action.breed.considerations]]
+input = "happiness"
+curve = "logistic"
+m = 20.0
+k = 0.9 # Only when very happy
+
+[[action.breed.considerations]]
+input = "partner_available"
+curve = "boolean"
+
+# Action: Wander
+# Default action if nothing else is pressing
+[action.wander]
+name = "Wander"
+type = "idle"
+cooldown = 2.0
+duration = 1.0
+base_score = 0.1 # Always has a small base score

@@ -1,0 +1,38 @@
+# Items Definition
+
+[item.food_pellet]
+name = "Food Pellet"
+type = "food"
+value = 10
+cost = 5
+restore_hunger = 20
+description = "Basic food for Yukkuris."
+image_color = "139, 69, 19"
+
+[item.premium_food]
+name = "Sweet Sweet"
+type = "food"
+value = 30
+cost = 50
+restore_hunger = 50
+restore_happiness = 10
+description = "High quality sweets. Yukkuris love it!"
+image_color = "255, 192, 203"
+
+[item.bed]
+name = "Soft Bed"
+type = "furniture"
+value = 50
+cost = 100
+restore_energy = 10
+description = "A comfortable place to sleep."
+image_color = "200, 200, 200"
+
+[item.toy]
+name = "Bouncy Ball"
+type = "toy"
+value = 20
+cost = 30
+restore_happiness = 15
+description = "A fun toy to play with."
+image_color = "0, 255, 0"

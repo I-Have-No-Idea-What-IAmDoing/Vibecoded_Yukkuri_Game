@@ -1,0 +1,19 @@
+[game]
+screen_width = 1280
+screen_height = 720
+fps = 60
+simulation_speed = 1.0
+starting_money = 1000
+
+[simulation]
+day_length_seconds = 300 # 5 minutes per day
+hunger_decay_rate = 1.0 # per second
+energy_decay_rate = 0.5 # per second
+happiness_decay_rate = 0.2 # per second
+growth_threshold_child = 300 # seconds
+growth_threshold_adult = 900 # seconds
+
+[ui]
+font_size = 20
+panel_color = "50, 50, 50, 200"
+text_color = "255, 255, 255"
