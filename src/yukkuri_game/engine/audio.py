@@ -3,7 +3,22 @@ from loguru import logger
 import os
 
 class AudioManager:
+    """
+    Manages audio playback for the game, including sound effects and music.
+
+    Attributes:
+        enabled (bool): Whether audio is enabled (initialized successfully).
+        sounds (dict): A dictionary mapping sound names to pygame.mixer.Sound objects.
+        music (pygame.mixer.Music): The current background music (not currently used).
+        volume (float): The global volume level (0.0 to 1.0).
+    """
+
     def __init__(self):
+        """
+        Initializes the AudioManager.
+
+        Attempts to initialize the pygame mixer. If it fails, audio is disabled.
+        """
         try:
             pygame.mixer.init()
             self.enabled = True
@@ -15,7 +30,14 @@ class AudioManager:
         self.music = None
         self.volume = 0.5
 
-    def load_sound(self, name, filepath):
+    def load_sound(self, name: str, filepath: str) -> None:
+        """
+        Loads a sound effect from a file.
+
+        Args:
+            name: The name to assign to the sound.
+            filepath: The path to the sound file.
+        """
         if not self.enabled:
             return
 
@@ -26,14 +48,26 @@ class AudioManager:
             except Exception as e:
                 logger.error(f"Failed to load sound {filepath}: {e}")
 
-    def play_sound(self, name):
+    def play_sound(self, name: str) -> None:
+        """
+        Plays a loaded sound effect.
+
+        Args:
+            name: The name of the sound to play.
+        """
         if not self.enabled:
             return
 
         if name in self.sounds:
             self.sounds[name].play()
 
-    def set_volume(self, volume):
+    def set_volume(self, volume: float) -> None:
+        """
+        Sets the global volume for all sounds.
+
+        Args:
+            volume: The volume level between 0.0 (mute) and 1.0 (max).
+        """
         self.volume = max(0.0, min(1.0, volume))
         for s in self.sounds.values():
             s.set_volume(self.volume)

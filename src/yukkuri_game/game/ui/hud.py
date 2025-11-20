@@ -8,7 +8,33 @@ from ..components import Selectable, Transform
 from ..yukkuri_components import YukkuriStats, ItemStats, AIState
 
 class HUD:
+    """
+    The Heads-Up Display (HUD) system for the game.
+
+    Manages the UI elements such as the top status bar, bottom action bar,
+    and selection windows.
+
+    Attributes:
+        manager (pygame_gui.UIManager): The UI manager instance.
+        gm (GameManager): The game manager instance.
+        world (World): The ECS World.
+        factory (EntityFactory): The entity factory.
+        width (int): Screen width.
+        height (int): Screen height.
+        selection_window (UIWindow): The currently active selection window.
+        selected_entity (int): The ID of the currently selected entity.
+    """
+
     def __init__(self, ui_manager, game_manager, world, factory):
+        """
+        Initializes the HUD.
+
+        Args:
+            ui_manager: The pygame_gui UIManager.
+            game_manager: The GameManager instance.
+            world: The ECS World.
+            factory: The EntityFactory instance.
+        """
         self.manager = ui_manager
         self.gm = game_manager
         self.world = world
@@ -95,7 +121,15 @@ class HUD:
         self.debug_window = None
         self.debug_text_box = None
 
-    def update(self, dt):
+    def update(self, dt: float) -> None:
+        """
+        Updates the HUD elements.
+
+        Refreshes labels, checks for selection changes, and updates debug info.
+
+        Args:
+            dt: Delta time.
+        """
         self.money_label.set_text(f"Money: ${self.gm.money}")
 
         minutes = int(self.gm.time_elapsed / 60)
@@ -121,7 +155,12 @@ class HUD:
         if self.selection_window and self.selected_entity != -1:
             self.update_stats_display()
 
-    def update_selection_window(self):
+    def update_selection_window(self) -> None:
+        """
+        Updates the entity selection window.
+
+        Recreates the window if the selection has changed.
+        """
         if self.selection_window:
             self.selection_window.kill()
             self.selection_window = None
@@ -160,7 +199,10 @@ class HUD:
                     container=self.selection_window
                 )
 
-    def update_stats_display(self):
+    def update_stats_display(self) -> None:
+        """
+        Updates the stats text in the selection window.
+        """
         text = "Unknown"
         stats = self.world.get_component(self.selected_entity, YukkuriStats)
         if stats:
@@ -179,7 +221,10 @@ class HUD:
 
         self.info_label.set_text(text)
 
-    def toggle_debug(self):
+    def toggle_debug(self) -> None:
+        """
+        Toggles the visibility of the debug window.
+        """
         self.show_debug = not self.show_debug
         if self.show_debug:
             self.create_debug_window()
@@ -187,7 +232,10 @@ class HUD:
             self.debug_window.kill()
             self.debug_window = None
 
-    def create_debug_window(self):
+    def create_debug_window(self) -> None:
+        """
+        Creates the debug information window.
+        """
         if self.debug_window:
             self.debug_window.kill()
 
@@ -206,13 +254,19 @@ class HUD:
             anchors={'top': 'top', 'bottom': 'bottom', 'left': 'left', 'right': 'right'}
         )
 
-    def update_debug_window(self, dt):
+    def update_debug_window(self, dt: float) -> None:
+        """
+        Updates the content of the debug window.
+
+        Args:
+            dt: Delta time.
+        """
         if not self.debug_window or not self.debug_text_box:
             return
 
         # Gather debug info
         fps = self.gm.time_elapsed # Placeholder, need actual FPS
-        entity_count = len(self.world.entities)
+        entity_count = len(self.world._entities) # Accessing private _entities for debug
 
         # We can get FPS from clock if passed, but for now let's show what we have
         debug_text = (
@@ -229,7 +283,13 @@ class HUD:
 
         self.debug_text_box.set_text(debug_text)
 
-    def show_error(self, message):
+    def show_error(self, message: str) -> None:
+        """
+        Displays an error message in a popup window.
+
+        Args:
+            message: The error message to display.
+        """
         UIMessageWindow(
             rect=pygame.Rect((self.width - 400) // 2, (self.height - 250) // 2, 400, 250),
             html_message=message,
@@ -237,7 +297,13 @@ class HUD:
             window_title="Error"
         )
 
-    def process_event(self, event):
+    def process_event(self, event: pygame.event.Event) -> None:
+        """
+        Processes UI events (button clicks).
+
+        Args:
+            event: The Pygame event.
+        """
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             if event.ui_element == self.save_btn:
                 self.gm.save_game()

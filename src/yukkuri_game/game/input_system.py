@@ -3,7 +3,28 @@ from ..engine.ecs import System, World
 from .components import Transform, Selectable
 
 class InputSystem(System):
+    """
+    System responsible for handling user input related to the game world.
+
+    Handles entity selection and placement of new entities.
+
+    Attributes:
+        yukkurrium (Yukkurrium): The game world view manager.
+        placing_mode (bool): Whether the game is currently in placement mode.
+        place_type (str): The type ID of the entity being placed.
+        place_cost (int): The cost of the entity being placed.
+        place_entity_type (str): The category of the entity ("yukkuri" or "item").
+        gm (GameManager): Reference to the GameManager.
+        factory (EntityFactory): Reference to the EntityFactory.
+    """
+
     def __init__(self, yukkurrium):
+        """
+        Initializes the InputSystem.
+
+        Args:
+            yukkurrium: The Yukkurrium instance.
+        """
         self.yukkurrium = yukkurrium
         self.placing_mode = False
         self.place_type = None
@@ -12,7 +33,17 @@ class InputSystem(System):
         self.gm = None
         self.factory = None
 
-    def start_placement(self, type_id, cost, entity_type, gm, factory):
+    def start_placement(self, type_id: str, cost: int, entity_type: str, gm, factory) -> None:
+        """
+        Enters placement mode for a specific entity.
+
+        Args:
+            type_id: The ID of the entity type to place.
+            cost: The cost to deduct upon placement.
+            entity_type: The category ("yukkuri" or "item").
+            gm: The GameManager instance.
+            factory: The EntityFactory instance.
+        """
         self.placing_mode = True
         self.place_type = type_id
         self.place_cost = cost
@@ -20,10 +51,29 @@ class InputSystem(System):
         self.gm = gm
         self.factory = factory
 
-    def update(self, world: World, dt: float):
+    def update(self, world: World, dt: float) -> None:
+        """
+        Updates the input system.
+
+        Does nothing each frame as this system reacts to events.
+
+        Args:
+            world: The ECS World.
+            dt: Delta time.
+        """
         pass
 
-    def handle_event(self, event, world: World, screen_w, screen_h, ui_manager=None):
+    def handle_event(self, event: pygame.event.Event, world: World, screen_w: int, screen_h: int, ui_manager=None) -> None:
+        """
+        Handles a single Pygame event.
+
+        Args:
+            event: The Pygame event.
+            world: The ECS World.
+            screen_w: The width of the screen.
+            screen_h: The height of the screen.
+            ui_manager: The UI manager (optional) to check for UI interaction.
+        """
         self.yukkurrium.handle_input(event, screen_w, screen_h)
 
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -67,7 +117,16 @@ class InputSystem(System):
                 if self.placing_mode:
                     self.placing_mode = False
 
-    def handle_placement(self, wx, wy):
+    def handle_placement(self, wx: float, wy: float) -> None:
+        """
+        Executes the placement of an entity at world coordinates.
+
+        Deducts money and creates the entity if funds are sufficient.
+
+        Args:
+            wx: The world x-coordinate.
+            wy: The world y-coordinate.
+        """
         if self.gm.money >= self.place_cost:
             self.gm.money -= self.place_cost
             if self.place_entity_type == "yukkuri":

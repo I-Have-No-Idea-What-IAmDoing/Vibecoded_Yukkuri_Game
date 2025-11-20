@@ -4,16 +4,43 @@ import math
 
 @dataclass
 class Consideration:
+    """
+    A consideration evaluates a single aspect of the world state to produce a score.
+
+    Attributes:
+        name (str): The name of the consideration.
+        input_key (str): The key to look up in the context dictionary (e.g., "hunger").
+        curve_type (str): The type of response curve ("linear", "inverse_linear", "logit", "threshold").
+        params (Dict[str, float]): Parameters for the curve function.
+    """
     name: str
     input_key: str  # e.g., "hunger", "tiredness"
     curve_type: str # "linear", "logit", "threshold"
     params: Dict[str, float]
 
     def score(self, context: Dict[str, Any]) -> float:
+        """
+        Calculates the score for this consideration based on the context.
+
+        Args:
+            context: A dictionary containing the current world state/context.
+
+        Returns:
+            float: A score between 0.0 and 1.0.
+        """
         val = context.get(self.input_key, 0.0)
         return self.evaluate_curve(val)
 
     def evaluate_curve(self, x: float) -> float:
+        """
+        Evaluates the configured curve function for a given input value.
+
+        Args:
+            x: The input value.
+
+        Returns:
+            float: The mapped output value between 0.0 and 1.0.
+        """
         # Normalize x usually expected between 0 and 100, map to 0-1
         v = max(0, min(100, x)) / 100.0
 
@@ -40,12 +67,32 @@ class Consideration:
 
 @dataclass
 class Action:
+    """
+    An action that an AI agent can perform.
+
+    Attributes:
+        name (str): The name of the action.
+        considerations (List[Consideration]): A list of considerations that determine the utility of this action.
+        weight (float): A base weight multiplier for the action's utility. Defaults to 1.0.
+        effects (Dict[str, Any]): A dictionary defining the effects of the action.
+    """
     name: str
     considerations: List[Consideration]
     weight: float = 1.0
     effects: Dict[str, Any] = None
 
     def calculate_utility(self, context: Dict[str, Any]) -> float:
+        """
+        Calculates the total utility score for this action.
+
+        Multiplies the scores of all considerations and the base weight.
+
+        Args:
+            context: A dictionary containing the current world state/context.
+
+        Returns:
+            float: The calculated utility score.
+        """
         if not self.considerations:
             return 0.0
 
@@ -73,12 +120,29 @@ class Action:
         return final_score
 
 class UtilityAIEngine:
+    """
+    The engine responsible for loading AI actions and selecting the best action based on utility.
+
+    Attributes:
+        rm (ResourceManager): The resource manager used to load AI definitions.
+        actions (Dict[str, Action]): A dictionary of available actions.
+    """
+
     def __init__(self, resource_manager):
+        """
+        Initializes the UtilityAIEngine.
+
+        Args:
+            resource_manager: The ResourceManager instance.
+        """
         self.rm = resource_manager
         self.actions: Dict[str, Action] = {}
         self.load_actions()
 
-    def load_actions(self):
+    def load_actions(self) -> None:
+        """
+        Loads AI actions from the resource manager's loaded data.
+        """
         data = self.rm.ai_actions
         for act_name, act_data in data.items():
             considerations = []
@@ -99,6 +163,15 @@ class UtilityAIEngine:
             )
 
     def select_action(self, context: Dict[str, Any]) -> str:
+        """
+        Selects the action with the highest utility score.
+
+        Args:
+            context: A dictionary containing the current world state/context.
+
+        Returns:
+            str: The name of the selected action.
+        """
         best_action = "Idle"
         best_score = -1.0
 
