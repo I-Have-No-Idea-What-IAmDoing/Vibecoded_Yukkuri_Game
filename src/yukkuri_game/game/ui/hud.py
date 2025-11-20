@@ -1,4 +1,5 @@
 import pygame
+from typing import Optional, Callable
 import pygame_gui
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox
 from pygame_gui.core import ObjectID
@@ -25,7 +26,7 @@ class HUD:
         selected_entity (int): The ID of the currently selected entity.
     """
 
-    def __init__(self, ui_manager, game_manager, world, factory):
+    def __init__(self, ui_manager, game_manager, world: World, factory):
         """
         Initializes the HUD.
 
@@ -42,6 +43,12 @@ class HUD:
 
         self.width = 1280
         self.height = 720
+
+        self.fps: float = 0.0
+
+        self.toggle_pause_callback: Optional[Callable[[], None]] = None
+        self.cycle_speed_callback: Optional[Callable[[], None]] = None
+        self.start_placement_callback: Optional[Callable[[str, int, str], None]] = None
 
         # Top Bar
         self.top_panel = UIPanel(
@@ -113,13 +120,17 @@ class HUD:
         )
 
         # Selection Panel
-        self.selection_window = None
+        self.selection_window: Optional[UIWindow] = None
         self.selected_entity = -1
 
         # Debug Overlay
         self.show_debug = False
-        self.debug_window = None
-        self.debug_text_box = None
+        self.debug_window: Optional[UIWindow] = None
+        self.debug_text_box: Optional[UITextBox] = None
+
+        # Buttons in selection window
+        self.sell_btn: Optional[UIButton] = None
+        self.train_btn: Optional[UIButton] = None
 
     def update(self, dt: float) -> None:
         """
@@ -144,7 +155,7 @@ class HUD:
         current_selected = -1
         for ent in selected:
             sel = self.world.get_component(ent, Selectable)
-            if sel.selected:
+            if sel and sel.selected:
                 current_selected = ent
                 break
 
@@ -315,22 +326,22 @@ class HUD:
                 # We can emit an event or use a callback. For MVP, let's assume game_manager can handle or we pass a callback.
                 # Actually HUD is initialized in YukkuriGame.setup.
                 # We can pass a callback in __init__.
-                if hasattr(self, 'toggle_pause_callback'):
+                if self.toggle_pause_callback:
                     self.toggle_pause_callback()
 
             elif event.ui_element == self.speed_btn:
-                if hasattr(self, 'cycle_speed_callback'):
+                if self.cycle_speed_callback:
                     self.cycle_speed_callback()
 
             elif event.ui_element == self.add_reimu_btn:
                 if self.gm.money >= 100:
                     # Enable placement mode instead of instant spawn
-                    if hasattr(self, 'start_placement_callback'):
+                    if self.start_placement_callback:
                         self.start_placement_callback("reimu", 100, "yukkuri")
 
             elif event.ui_element == self.add_cookie_btn:
                 if self.gm.money >= 10:
-                    if hasattr(self, 'start_placement_callback'):
+                    if self.start_placement_callback:
                         self.start_placement_callback("cookie", 10, "item")
             elif hasattr(self, 'sell_btn') and event.ui_element == self.sell_btn:
                 self.gm.sell_yukkuri(self.selected_entity)

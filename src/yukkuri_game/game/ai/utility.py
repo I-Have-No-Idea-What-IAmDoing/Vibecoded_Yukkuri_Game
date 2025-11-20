@@ -79,7 +79,7 @@ class Action:
     name: str
     considerations: List[Consideration]
     weight: float = 1.0
-    effects: Dict[str, Any] = None
+    effects: Dict[str, Any] | None = None
 
     def calculate_utility(self, context: Dict[str, Any]) -> float:
         """

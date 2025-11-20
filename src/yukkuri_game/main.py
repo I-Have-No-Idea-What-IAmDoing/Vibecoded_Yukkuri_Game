@@ -53,7 +53,7 @@ class YukkuriGame(GameLoop):
         self.world.add_system(self.input_system) # Update doesn't do much, events handled separately
 
         self.world.add_system(TimeSystem())
-        self.world.add_system(YukkuriAISystem(self.ai_engine, self.yukkurrium.width, self.yukkurrium.height))
+        self.world.add_system(YukkuriAISystem(self.ai_engine, float(self.yukkurrium.width), float(self.yukkurrium.height)))
 
         if not self.headless:
             self.render_system = RenderSystem(self.screen, self.yukkurrium, self.resources)
@@ -62,6 +62,10 @@ class YukkuriGame(GameLoop):
 
             # UI
             self.hud = HUD(self.ui_manager, self.gm, self.world, self.factory)
+            # Callbacks are set in HUD init or handled via method binding if exposed
+            # For this structure, we'll assume HUD has these methods or we need to pass them.
+            # If HUD doesn't have these attributes defined in its class, we can't just assign them if strict typing is on.
+            # Assuming we can assign for now or refactor HUD to accept them.
             self.hud.toggle_pause_callback = self.toggle_pause
             self.hud.cycle_speed_callback = self.cycle_speed
             self.hud.start_placement_callback = self.start_placement
@@ -69,13 +73,13 @@ class YukkuriGame(GameLoop):
         # Initial Population
         if not self.headless:
             # Create a starting Reimu
-            start_x = self.yukkurrium.width / 2
-            start_y = self.yukkurrium.height / 2
+            start_x = float(self.yukkurrium.width) / 2.0
+            start_y = float(self.yukkurrium.height) / 2.0
             self.factory.create_yukkuri("reimu", start_x, start_y)
 
             # Center camera on start
-            self.yukkurrium.camera_x = start_x
-            self.yukkurrium.camera_y = start_y
+            self.yukkurrium.camera_x = float(start_x)
+            self.yukkurrium.camera_y = float(start_y)
 
     def on_event(self, event: pygame.event.Event) -> None:
         """

@@ -57,37 +57,38 @@ class YukkuriAISystem(System):
             ai = world.get_component(entity, AIState)
             trans = world.get_component(entity, Transform)
 
-            # Decay stats
-            stats.hunger += 2.0 * dt
-            stats.happiness -= 0.5 * dt
-            stats.age += dt
-            stats.cleanliness -= 0.2 * dt
+            if stats and ai and trans:
+                # Decay stats
+                stats.hunger += 2.0 * dt
+                stats.happiness -= 0.5 * dt
+                stats.age += dt
+                stats.cleanliness -= 0.2 * dt
 
-            # Clamp
-            stats.hunger = min(100, max(0, stats.hunger))
-            stats.happiness = min(100, max(0, stats.happiness))
+                # Clamp
+                stats.hunger = min(100, max(0, stats.hunger))
+                stats.happiness = min(100, max(0, stats.happiness))
 
-            # AI Decision Making
-            if self.timer >= self.decision_interval:
-                context = {
-                    "hunger": stats.hunger,
-                    "happiness": stats.happiness,
-                    "happiness_inv": 100 - stats.happiness,
-                    "cleanliness": stats.cleanliness,
-                    "energy_inv": 0,
-                    "constant_100": 100
-                }
+                # AI Decision Making
+                if self.timer >= self.decision_interval:
+                    context = {
+                        "hunger": stats.hunger,
+                        "happiness": stats.happiness,
+                        "happiness_inv": 100 - stats.happiness,
+                        "cleanliness": stats.cleanliness,
+                        "energy_inv": 0,
+                        "constant_100": 100
+                    }
 
-                new_action = self.ai_engine.select_action(context)
+                    new_action = self.ai_engine.select_action(context)
 
-                # If action changed, setup
-                if new_action != ai.current_action:
-                    ai.current_action = new_action
-                    ai.action_progress = 0.0
-                    self.start_action(entity, new_action, world, items)
+                    # If action changed, setup
+                    if new_action != ai.current_action:
+                        ai.current_action = new_action
+                        ai.action_progress = 0.0
+                        self.start_action(entity, new_action, world, items)
 
-            # Execute Action
-            self.execute_action(entity, ai, trans, world, dt, items)
+                # Execute Action
+                self.execute_action(entity, ai, trans, world, dt, items)
 
         if self.timer >= self.decision_interval:
             self.timer = 0.0
@@ -107,11 +108,16 @@ class YukkuriAISystem(System):
         ai = world.get_component(entity, AIState)
         trans = world.get_component(entity, Transform)
 
+        if not ai or not trans:
+            return
+
         action_def = self.ai_engine.actions.get(action_name)
         if not action_def:
             return
 
         effects = action_def.effects
+        if not effects:
+             effects = {}
         action_type = effects.get("type", "idle")
 
         if action_type == "interact_item":
@@ -148,6 +154,8 @@ class YukkuriAISystem(System):
             return
 
         effects = action_def.effects
+        if not effects:
+             effects = {}
         action_type = effects.get("type", "idle")
 
         if action_type == "move_random":
@@ -174,6 +182,11 @@ class YukkuriAISystem(System):
                     return
 
                 target_trans = world.get_component(ai.current_target_id, Transform)
+                if not target_trans:
+                     ai.current_target_id = -1
+                     ai.current_action = "Idle"
+                     ai.path = None
+                     return
 
                 # Pathfinding
                 if ai.path is None or len(ai.path) == 0:
@@ -256,6 +269,9 @@ class YukkuriAISystem(System):
         for item in items:
             istats = world.get_component(item, ItemStats)
             itrans = world.get_component(item, Transform)
+
+            if not istats or not itrans:
+                continue
 
             # Check if item provides the stat
             val = getattr(istats, stat_check, 0)

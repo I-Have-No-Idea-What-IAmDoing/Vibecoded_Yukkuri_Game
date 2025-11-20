@@ -34,9 +34,9 @@ class ResourceManager:
         self.configs: Dict[str, Any] = {}
 
         # Cache for loaded data
-        self.yukkuri_types = {}
-        self.item_types = {}
-        self.ai_actions = {}
+        self.yukkuri_types: Dict[str, Any] = {}
+        self.item_types: Dict[str, Any] = {}
+        self.ai_actions: Dict[str, Any] = {}
 
     def load_toml(self, filepath: str) -> Dict[str, Any]:
         """

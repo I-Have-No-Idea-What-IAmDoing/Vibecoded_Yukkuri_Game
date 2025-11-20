@@ -29,8 +29,8 @@ class Yukkurrium:
         self.width = width
         self.height = height
         # Camera properties
-        self.camera_x = 0
-        self.camera_y = 0
+        self.camera_x = 0.0
+        self.camera_y = 0.0
         self.zoom = 1.0
         self.target_zoom = 1.0
 
@@ -137,13 +137,16 @@ class RenderSystem(System):
         # Render entities
         entities = world.get_entities_with(Transform, Sprite)
         # Sort by Y for depth
-        entities.sort(key=lambda e: world.get_component(e, Transform).y)
+        entities.sort(key=lambda e: world.get_component(e, Transform).y) # type: ignore
 
         sw, sh = self.screen.get_size()
 
         for ent in entities:
             transform = world.get_component(ent, Transform)
             sprite = world.get_component(ent, Sprite)
+
+            if not transform or not sprite:
+                continue
 
             img = self.rm.load_image(sprite.image_name)
 
@@ -165,7 +168,7 @@ class RenderSystem(System):
                 scaled_img = img
 
             # Center the sprite
-            rect = scaled_img.get_rect(center=(screen_x, screen_y))
+            rect = scaled_img.get_rect(center=(int(screen_x), int(screen_y)))
 
             # Culling
             if rect.colliderect(self.screen.get_rect()):
