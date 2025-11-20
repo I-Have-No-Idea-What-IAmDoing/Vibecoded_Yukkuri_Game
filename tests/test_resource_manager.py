@@ -3,24 +3,31 @@ from unittest.mock import MagicMock, patch, mock_open
 import os
 from src.yukkuri_game.engine.resource_manager import ResourceManager
 
+from typing import Dict
+import msgspec
+
+class MockModel(msgspec.Struct):
+    key: str
+    section: Dict[str, int]
+
 def test_load_toml_success():
     rm = ResourceManager()
     toml_content = b'key = "value"\n[section]\nsub = 123'
 
     with patch("builtins.open", mock_open(read_data=toml_content)):
-        data = rm.load_toml("test.toml")
+        data = rm.load_toml_model("test.toml", MockModel)
 
-    assert data["key"] == "value"
-    assert data["section"]["sub"] == 123
+    assert data.key == "value"
+    assert data.section["sub"] == 123
 
 def test_load_toml_failure():
     rm = ResourceManager()
 
     # Simulate file not found or read error
     with patch("builtins.open", side_effect=FileNotFoundError):
-        data = rm.load_toml("nonexistent.toml")
+        data = rm.load_toml_model("nonexistent.toml", MockModel)
 
-    assert data == {}
+    assert data is None
 
 @patch("src.yukkuri_game.engine.resource_manager.pygame.image.load")
 @patch("src.yukkuri_game.engine.resource_manager.os.path.exists")
@@ -69,11 +76,17 @@ def test_load_image_not_found(mock_exists):
 def test_load_all_data():
     rm = ResourceManager()
 
-    mock_yukkuri = {"yukkuris": {"Reimu": {}}}
-    mock_items = {"items": {"Cookie": {}}}
-    mock_ai = {"actions": {"Eat": {}}}
+    # Create mock data objects that match the expected return types of load_toml_model
+    mock_yukkuri_data = MagicMock()
+    mock_yukkuri_data.yukkuris = {"Reimu": {}}
 
-    with patch.object(rm, 'load_toml', side_effect=[mock_yukkuri, mock_items, mock_ai]) as mock_load:
+    mock_item_data = MagicMock()
+    mock_item_data.items = {"Cookie": {}}
+
+    mock_ai_data = MagicMock()
+    mock_ai_data.actions = {"Eat": {}}
+
+    with patch.object(rm, 'load_toml_model', side_effect=[mock_yukkuri_data, mock_item_data, mock_ai_data]) as mock_load:
         rm.load_all_data()
 
         assert rm.yukkuri_types == {"Reimu": {}}

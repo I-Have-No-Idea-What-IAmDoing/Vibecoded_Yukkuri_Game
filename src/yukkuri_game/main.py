@@ -10,6 +10,7 @@ from .game.game_manager import GameManager
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
 from .game.systems.simulation import YukkuriAISystem
+from .game.systems.physics import PhysicsSystem
 from .game.ui.hud import HUD
 from .game.input_system import InputSystem
 from .game.yukkuri_components import AIState # Fix import for HUD string check if needed
@@ -41,8 +42,10 @@ class YukkuriGame(GameLoop):
         self.yukkurrium = Yukkurrium(width=3000, height=3000)
         self.audio = AudioManager()
 
+        self.physics_system = PhysicsSystem()
+
         # Factory & Game Manager
-        self.factory = EntityFactory(self.world, self.resources)
+        self.factory = EntityFactory(self.world, self.resources, self.physics_system)
         self.gm = GameManager(self.world, self.factory)
 
         # AI
@@ -53,6 +56,7 @@ class YukkuriGame(GameLoop):
         self.world.add_system(self.input_system) # Update doesn't do much, events handled separately
 
         self.world.add_system(TimeSystem())
+        self.world.add_system(self.physics_system)
         self.world.add_system(YukkuriAISystem(self.ai_engine, float(self.yukkurrium.width), float(self.yukkurrium.height)))
 
         if not self.headless:

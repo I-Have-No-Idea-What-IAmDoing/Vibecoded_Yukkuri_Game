@@ -6,6 +6,8 @@ from ..components import Transform, Velocity
 from ..yukkuri_components import YukkuriStats, AIState, ItemStats
 from ..ai.utility import UtilityAIEngine
 from ..ai.pathfinding import Pathfinding
+from ..ai.behavior import create_yukkuri_behavior_tree
+import py_trees
 
 class YukkuriAISystem(System):
     """
@@ -19,6 +21,7 @@ class YukkuriAISystem(System):
         decision_interval (float): Time in seconds between AI decisions.
         world_w (float): Width of the world for random movement.
         world_h (float): Height of the world for random movement.
+        trees (dict): A dictionary mapping entity IDs to their behavior trees.
     """
 
     def __init__(self, ai_engine: UtilityAIEngine, world_width: float, world_height: float):
@@ -35,6 +38,7 @@ class YukkuriAISystem(System):
         self.decision_interval = 1.0
         self.world_w = world_width
         self.world_h = world_height
+        self.trees = {}
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -80,175 +84,24 @@ class YukkuriAISystem(System):
                     }
 
                     new_action = self.ai_engine.select_action(context)
-
-                    # If action changed, setup
                     if new_action != ai.current_action:
                         ai.current_action = new_action
                         ai.action_progress = 0.0
-                        self.start_action(entity, new_action, world, items)
+                        # We don't need start_action anymore as BT handles it, or we keep it for initialization
 
-                # Execute Action
-                self.execute_action(entity, ai, trans, world, dt, items)
+                # Create BT if not exists
+                if entity not in self.trees:
+                    self.trees[entity] = create_yukkuri_behavior_tree(entity, world, self.world_w, self.world_h)
+                    self.trees[entity].setup(timeout=15)
+
+                # Set dt in Blackboard
+                py_trees.blackboard.Blackboard().set("dt", dt)
+
+                # Tick Behavior Tree
+                self.trees[entity].tick_once()
 
         if self.timer >= self.decision_interval:
             self.timer = 0.0
-
-    def start_action(self, entity: int, action_name: str, world: World, items: list) -> None:
-        """
-        Initializes a new action for an entity.
-
-        Sets up targets and paths based on the action type.
-
-        Args:
-            entity: The ID of the entity starting the action.
-            action_name: The name of the action.
-            world: The ECS World.
-            items: A list of item entity IDs.
-        """
-        ai = world.get_component(entity, AIState)
-        trans = world.get_component(entity, Transform)
-
-        if not ai or not trans:
-            return
-
-        action_def = self.ai_engine.actions.get(action_name)
-        if not action_def:
-            return
-
-        effects = action_def.effects
-        if not effects:
-             effects = {}
-        action_type = effects.get("type", "idle")
-
-        if action_type == "interact_item":
-            target_stat = effects.get("target_stat", "nutrition")
-            target = self.find_nearest_item(trans, items, world, target_stat)
-            ai.current_target_id = target if target is not None else -1
-            ai.path = None
-
-        elif action_type == "move_random":
-             # Pick random point
-            tx = random.uniform(0, self.world_w)
-            ty = random.uniform(0, self.world_h)
-            ai.state_data = {"target_x": tx, "target_y": ty}
-            ai.path = None
-
-    def execute_action(self, entity: int, ai: AIState, trans: Transform, world: World, dt: float, items: list) -> None:
-        """
-        Executes the current frame logic for an entity's action.
-
-        Handles movement along paths and interaction with targets.
-
-        Args:
-            entity: The ID of the entity.
-            ai: The AIState component.
-            trans: The Transform component.
-            world: The ECS World.
-            dt: Delta time.
-            items: A list of item entity IDs.
-        """
-        speed = 100.0 * dt
-
-        action_def = self.ai_engine.actions.get(ai.current_action)
-        if not action_def:
-            return
-
-        effects = action_def.effects
-        if not effects:
-             effects = {}
-        action_type = effects.get("type", "idle")
-
-        if action_type == "move_random":
-            if ai.state_data:
-                tx, ty = ai.state_data["target_x"], ai.state_data["target_y"]
-
-                # Pathfinding check
-                if ai.path is None:
-                    ai.path = Pathfinding.find_path((trans.x, trans.y), (tx, ty), self.world_w, self.world_h)
-
-                self.follow_path(trans, ai, speed)
-
-                if math.hypot(tx - trans.x, ty - trans.y) < 5:
-                    ai.current_action = "Idle"
-                    ai.path = None
-
-        elif action_type == "interact_item":
-            if ai.current_target_id != -1:
-                # Check if target still exists
-                if not world.has_component(ai.current_target_id, Transform):
-                    ai.current_target_id = -1
-                    ai.current_action = "Idle"
-                    ai.path = None
-                    return
-
-                target_trans = world.get_component(ai.current_target_id, Transform)
-                if not target_trans:
-                     ai.current_target_id = -1
-                     ai.current_action = "Idle"
-                     ai.path = None
-                     return
-
-                # Pathfinding
-                if ai.path is None or len(ai.path) == 0:
-                     ai.path = Pathfinding.find_path((trans.x, trans.y), (target_trans.x, target_trans.y), self.world_w, self.world_h)
-
-                dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
-
-                if dist < 20:
-                    # Interact
-                    item_stats = world.get_component(ai.current_target_id, ItemStats)
-                    yukkuri_stats = world.get_component(entity, YukkuriStats)
-
-                    if item_stats:
-                        # Apply changes from effects
-                        changes = effects.get("stat_changes", {})
-                        for stat, val in changes.items():
-                            if hasattr(yukkuri_stats, stat):
-                                current_val = getattr(yukkuri_stats, stat)
-                                setattr(yukkuri_stats, stat, current_val + val)
-
-                    # Consume if needed
-                    if effects.get("consume", False):
-                        world.destroy_entity(ai.current_target_id)
-                        ai.current_target_id = -1
-                        ai.current_action = "Idle"
-                    else:
-                        # Just stay doing it? Or finish?
-                        # For Sleep/Play, maybe stay for a while.
-                        # For now, finish immediately to keep it simple
-                         ai.current_action = "Idle" # Or "Doing"
-
-                    ai.path = None
-                else:
-                    # Update path target if moving target (not really needed for static items)
-                    self.follow_path(trans, ai, speed)
-            else:
-                ai.current_action = "Wander"
-
-    def follow_path(self, trans: Transform, ai: AIState, speed: float) -> None:
-        """
-        Moves an entity along its current path.
-
-        Args:
-            trans: The entity's Transform component.
-            ai: The entity's AIState component.
-            speed: The movement distance for this frame.
-        """
-        if not ai.path:
-            return
-
-        # Get next point
-        next_point = ai.path[0]
-        dist = math.hypot(next_point[0] - trans.x, next_point[1] - trans.y)
-
-        if dist < speed:
-            trans.x = next_point[0]
-            trans.y = next_point[1]
-            ai.path.pop(0)
-        else:
-            angle = math.atan2(next_point[1] - trans.y, next_point[0] - trans.x)
-            trans.x += math.cos(angle) * speed
-            trans.y += math.sin(angle) * speed
 
     def find_nearest_item(self, trans: Transform, items: list, world: World, stat_check: str) -> Optional[int]:
         """
