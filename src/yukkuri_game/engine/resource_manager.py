@@ -1,8 +1,14 @@
 import os
-import tomllib
+import msgspec
 import pygame
 from loguru import logger
-from typing import Any, Dict
+from typing import Any, Dict, Type, TypeVar
+
+from yukkuri_game.engine.data_models import (
+    YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction
+)
+
+T = TypeVar("T")
 
 class ResourceManager:
     """
@@ -14,9 +20,9 @@ class ResourceManager:
         images (Dict[str, pygame.Surface]): A cache of loaded images.
         sounds (Dict[str, pygame.mixer.Sound]): A cache of loaded sounds.
         configs (Dict[str, Any]): A cache of loaded configurations.
-        yukkuri_types (Dict[str, Any]): Loaded Yukkuri type definitions.
-        item_types (Dict[str, Any]): Loaded Item type definitions.
-        ai_actions (Dict[str, Any]): Loaded AI action definitions.
+        yukkuri_types (Dict[str, YukkuriType]): Loaded Yukkuri type definitions.
+        item_types (Dict[str, ItemType]): Loaded Item type definitions.
+        ai_actions (Dict[str, AIAction]): Loaded AI action definitions.
     """
 
     def __init__(self, data_dir: str = "data", assets_dir: str = "assets"):
@@ -34,29 +40,32 @@ class ResourceManager:
         self.configs: Dict[str, Any] = {}
 
         # Cache for loaded data
-        self.yukkuri_types: Dict[str, Any] = {}
-        self.item_types: Dict[str, Any] = {}
-        self.ai_actions: Dict[str, Any] = {}
+        self.yukkuri_types: Dict[str, YukkuriType] = {}
+        self.item_types: Dict[str, ItemType] = {}
+        self.ai_actions: Dict[str, AIAction] = {}
 
-    def load_toml(self, filepath: str) -> Dict[str, Any]:
+    def load_toml_model(self, filepath: str, model: Type[T]) -> T | None:
         """
-        Loads a TOML file relative to the data directory.
+        Loads a TOML file relative to the data directory and parses it into a msgspec Struct.
 
         Args:
             filepath: The relative path to the TOML file within the data directory.
+            model: The msgspec.Struct type to parse into.
 
         Returns:
-            Dict[str, Any]: The parsed TOML data, or an empty dictionary if loading fails.
+            T: The parsed data object, or None if loading fails.
         """
         full_path = os.path.join(self.data_dir, filepath)
         try:
             with open(full_path, "rb") as f:
-                data = tomllib.load(f)
+                data = f.read()
+
+            decoded = msgspec.toml.decode(data, type=model)
             logger.info(f"Loaded TOML: {filepath}")
-            return data
+            return decoded
         except Exception as e:
             logger.error(f"Failed to load TOML {filepath}: {e}")
-            return {}
+            return None
 
     def load_image(self, filename: str) -> pygame.Surface:
         """
@@ -100,15 +109,24 @@ class ResourceManager:
         This includes Yukkuri types, Item types, and AI actions.
         """
         # Load Yukkuri Types
-        yukkuri_data = self.load_toml("yukkuris/types.toml")
-        self.yukkuri_types = yukkuri_data.get("yukkuris", {})
+        yukkuri_data = self.load_toml_model("yukkuris/types.toml", YukkuriData)
+        if yukkuri_data:
+            self.yukkuri_types = yukkuri_data.yukkuris
+        else:
+            self.yukkuri_types = {}
 
         # Load Items
-        item_data = self.load_toml("items/items.toml")
-        self.item_types = item_data.get("items", {})
+        item_data = self.load_toml_model("items/items.toml", ItemData)
+        if item_data:
+            self.item_types = item_data.items
+        else:
+            self.item_types = {}
 
         # Load AI Actions
-        ai_data = self.load_toml("ai/actions.toml")
-        self.ai_actions = ai_data.get("actions", {})
+        ai_data = self.load_toml_model("ai/actions.toml", AIData)
+        if ai_data:
+            self.ai_actions = ai_data.actions
+        else:
+            self.ai_actions = {}
 
         logger.info("All data loaded.")
