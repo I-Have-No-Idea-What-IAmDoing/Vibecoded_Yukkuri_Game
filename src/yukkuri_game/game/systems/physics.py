@@ -41,12 +41,7 @@ class PhysicsSystem(System):
             self.accumulator -= self.time_step
 
         # Sync PhysicsBody -> Transform
-        entities = world.get_entities_with(PhysicsBody, Transform)
-        for entity in entities:
-            phys = world.get_component(entity, PhysicsBody)
-            trans = world.get_component(entity, Transform)
-
-            if phys and trans:
-                trans.x = phys.body.position.x
-                trans.y = phys.body.position.y
-                # Rotation could also be synced if Transform supported it
+        for entity, (phys, trans) in world.get_components_tuple(PhysicsBody, Transform):
+            trans.x = phys.body.position.x
+            trans.y = phys.body.position.y
+            # Rotation could also be synced if Transform supported it

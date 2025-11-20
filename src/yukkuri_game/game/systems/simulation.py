@@ -53,15 +53,8 @@ class YukkuriAISystem(System):
         self.timer += dt
 
         # Update Yukkuri Stats (Needs, Growth)
-        yukkuris = world.get_entities_with(YukkuriStats, AIState, Transform)
-        items = world.get_entities_with(ItemStats, Transform)
-
-        for entity in yukkuris:
-            stats = world.get_component(entity, YukkuriStats)
-            ai = world.get_component(entity, AIState)
-            trans = world.get_component(entity, Transform)
-
-            if stats and ai and trans:
+        # Optimized iteration using tuple unpacking
+        for entity, (stats, ai, trans) in world.get_components_tuple(YukkuriStats, AIState, Transform):
                 # Decay stats
                 stats.hunger += 2.0 * dt
                 stats.happiness -= 0.5 * dt

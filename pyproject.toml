@@ -12,6 +12,7 @@ dependencies = [
     "pathfinding>=1.0.0",
     "py_trees>=2.2.3",
     "pymunk>=6.6.0",
+    "esper>=3.0",
 ]
 
 [dependency-groups.dev]
