@@ -1,5 +1,6 @@
 import sys
 import argparse
+import pygame
 from .engine.core import GameLoop
 from .engine.audio import AudioManager
 from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
@@ -48,6 +49,10 @@ class YukkuriGame(GameLoop):
 
     def on_event(self, event):
         if not self.headless:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_F3:
+                    self.hud.toggle_debug()
+
             self.input_system.handle_event(event, self.world, self.width, self.height)
             self.hud.process_event(event)
 
@@ -57,6 +62,7 @@ class YukkuriGame(GameLoop):
 
         super().update()
         if not self.headless:
+            self.hud.fps = self.clock.get_fps()
             self.hud.update(self.dt)
 
     def toggle_pause(self):
