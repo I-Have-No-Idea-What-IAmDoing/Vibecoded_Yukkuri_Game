@@ -69,24 +69,29 @@ class RenderSystem(System):
 
             # Scale
             scale = transform.scale * self.yukkurrium.zoom
+
             if scale != 1.0:
                 # Simple optimization: check if size is reasonable
                 w = int(sprite.width * scale)
                 h = int(sprite.height * scale)
-                if w > 0 and h > 0:
-                    scaled_img = pygame.transform.scale(img, (w, h))
+                if w <= 0 or h <= 0:
+                    continue
 
-                    # Center the sprite
-                    rect = scaled_img.get_rect(center=(screen_x, screen_y))
+                scaled_img = pygame.transform.scale(img, (w, h))
+            else:
+                scaled_img = img
 
-                    # Culling
-                    if rect.colliderect(self.screen.get_rect()):
-                        self.screen.blit(scaled_img, rect)
+            # Center the sprite
+            rect = scaled_img.get_rect(center=(screen_x, screen_y))
 
-                        # Selection highlight
-                        selectable = world.get_component(ent, Selectable)
-                        if selectable and selectable.selected:
-                            pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
+            # Culling
+            if rect.colliderect(self.screen.get_rect()):
+                self.screen.blit(scaled_img, rect)
+
+                # Selection highlight
+                selectable = world.get_component(ent, Selectable)
+                if selectable and selectable.selected:
+                    pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
 
     def draw_grid(self):
         # Draw a grid to show movement
