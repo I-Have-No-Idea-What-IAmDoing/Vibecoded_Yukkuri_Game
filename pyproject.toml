@@ -1,0 +1,9 @@
+[project]
+name = "yukkuri-raising-game"
+version = "0.1.0"
+description = "A modern reimagining of the classic fan game 'Yukkuri Hakkei'."
+dependencies = [
+    "pygame-ce",
+    "toml",
+    "pyyaml",
+]

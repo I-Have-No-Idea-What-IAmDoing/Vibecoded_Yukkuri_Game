@@ -1,0 +1,17 @@
+[food_pellet]
+name = "Food Pellet"
+type = "food"
+value = 20 # Hunger restored
+price = 10
+
+[toy_ball]
+name = "Toy Ball"
+type = "toy"
+value = 10 # Happiness restored
+price = 50
+
+[yukkuri_bed]
+name = "Yukkuri Bed"
+type = "furniture"
+value = 5 # Health restored per tick
+price = 100

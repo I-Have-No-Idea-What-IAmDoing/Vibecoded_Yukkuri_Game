@@ -1,0 +1,38 @@
+# AI Configuration for Yukkuri Raising Game
+
+[eat]
+# Eat action is driven by the 'hunger' consideration.
+# The more hunger, the higher the utility.
+[eat.considerations.hunger]
+curve = "linear"
+params = { m = 0.01, b = 0 } # Score = 0.01 * hunger + 0
+
+[sleep]
+# Sleep action is driven by the 'health' consideration.
+# The lower the health, the higher the utility.
+[sleep.considerations.health]
+curve = "linear"
+params = { m = -0.01, b = 1 } # Score = -0.01 * health + 1
+
+[play]
+# Play action is driven by the 'happiness' consideration.
+# The lower the happiness, the higher the utility.
+[play.considerations.happiness]
+curve = "linear"
+params = { m = -0.01, b = 1 } # Score = -0.01 * happiness + 1
+
+[talk]
+# A social action, also driven by happiness but less urgently.
+[talk.considerations.happiness]
+curve = "linear"
+params = { m = -0.005, b = 0.8 } # Less steep than play
+
+[breed]
+# Breeding requires high health and high happiness.
+[breed.considerations.health]
+curve = "linear"
+params = { m = 0.01, b = 0 } # High utility when health is high
+
+[breed.considerations.happiness]
+curve = "linear"
+params = { m = 0.01, b = 0 } # High utility when happiness is high

@@ -1,0 +1,9 @@
+[reimu]
+name = "Reimu"
+base_health = 100
+base_happiness = 100
+
+[marisa]
+name = "Marisa"
+base_health = 80
+base_happiness = 120
