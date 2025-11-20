@@ -120,14 +120,15 @@ class HUD:
             self.train_btn = None
 
         if self.selected_entity != -1:
+            # Increased width to prevent text cutoff
             self.selection_window = UIWindow(
-                rect=pygame.Rect(self.width - 300, 60, 280, 400),
+                rect=pygame.Rect(self.width - 350, 60, 330, 400),
                 manager=self.manager,
                 window_display_title="Entity Info"
             )
 
             self.info_label = UILabel(
-                relative_rect=pygame.Rect(10, 10, 240, 200),
+                relative_rect=pygame.Rect(10, 10, 290, 200),
                 text="",
                 manager=self.manager,
                 container=self.selection_window
@@ -136,13 +137,13 @@ class HUD:
             # Actions for Yukkuri
             if self.world.has_component(self.selected_entity, YukkuriStats):
                 self.sell_btn = UIButton(
-                    relative_rect=pygame.Rect(10, 220, 240, 40),
+                    relative_rect=pygame.Rect(10, 220, 290, 40),
                     text="Sell",
                     manager=self.manager,
                     container=self.selection_window
                 )
                 self.train_btn = UIButton(
-                    relative_rect=pygame.Rect(10, 270, 240, 40),
+                    relative_rect=pygame.Rect(10, 270, 290, 40),
                     text="Train (+Badge)",
                     manager=self.manager,
                     container=self.selection_window
