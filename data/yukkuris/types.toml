@@ -1,0 +1,15 @@
+[yukkuris.reimu]
+name = "Reimu"
+image = "reimu.png"
+width = 64
+height = 64
+max_health = 100
+base_happiness = 50
+
+[yukkuris.marisa]
+name = "Marisa"
+image = "marisa.png"
+width = 64
+height = 64
+max_health = 120
+base_happiness = 40
