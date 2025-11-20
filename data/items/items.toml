@@ -1,0 +1,26 @@
+[items.cookie]
+name = "Cookie"
+image = "cookie.png"
+width = 32
+height = 32
+cost = 10
+nutrition = 20
+is_portable = true
+
+[items.bed]
+name = "Soft Bed"
+image = "bed.png"
+width = 64
+height = 64
+cost = 100
+comfort = 50
+is_portable = false
+
+[items.toy]
+name = "Ball"
+image = "ball.png"
+width = 32
+height = 32
+cost = 25
+fun = 30
+is_portable = true

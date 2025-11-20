@@ -1,0 +1,50 @@
+[actions.Eat]
+weight = 2.0
+[actions.Eat.effects]
+type = "interact_item"
+target_stat = "nutrition"
+consume = true
+stat_changes = { hunger = -20.0, happiness = 5.0 }
+
+[[actions.Eat.considerations]]
+name = "Hunger"
+input = "hunger"
+curve = "linear"
+params = { m = 1.0, b = 0.0 }
+
+[actions.Sleep]
+weight = 1.5
+[actions.Sleep.effects]
+type = "interact_item"
+target_stat = "comfort"
+consume = false
+stat_changes = { energy = 10.0 } # Per second? Or one shot? Let's assume per second while doing it.
+
+[[actions.Sleep.considerations]]
+name = "Tiredness"
+input = "energy_inv"
+curve = "logit"
+params = { k = 10.0, x0 = 0.7 }
+
+[actions.Play]
+weight = 1.0
+[actions.Play.effects]
+type = "interact_item"
+target_stat = "fun"
+consume = false # Toys aren't consumed immediately
+stat_changes = { happiness = 10.0 }
+
+[[actions.Play.considerations]]
+name = "Boredom"
+input = "happiness_inv"
+curve = "linear"
+
+[actions.Wander]
+weight = 0.5
+[actions.Wander.effects]
+type = "move_random"
+
+[[actions.Wander.considerations]]
+name = "Base"
+input = "constant_100"
+curve = "linear"
