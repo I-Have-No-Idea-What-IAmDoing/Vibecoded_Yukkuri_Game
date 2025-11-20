@@ -4,7 +4,7 @@ from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow
 from pygame_gui.core import ObjectID
 from ...engine.ecs import World
 from ..components import Selectable, Transform
-from ..yukkuri_components import YukkuriStats, ItemStats
+from ..yukkuri_components import YukkuriStats, ItemStats, AIState
 
 class HUD:
     def __init__(self, ui_manager, game_manager, world, factory):
@@ -152,12 +152,14 @@ class HUD:
         text = "Unknown"
         stats = self.world.get_component(self.selected_entity, YukkuriStats)
         if stats:
+            ai_state = self.world.get_component(self.selected_entity, AIState)
+            action = ai_state.current_action if ai_state else "None"
             text = (f"Name: {stats.name}\n"
                     f"Hunger: {int(stats.hunger)}\n"
                     f"Happiness: {int(stats.happiness)}\n"
                     f"Health: {int(stats.health)}\n"
                     f"Badges: {stats.badges}\n"
-                    f"Action: {self.world.get_component(self.selected_entity, 'AIState').current_action if self.world.has_component(self.selected_entity, 'AIState') else 'None'}") # Fix AIState access
+                    f"Action: {action}")
         else:
             istats = self.world.get_component(self.selected_entity, ItemStats)
             if istats:
