@@ -1,0 +1,28 @@
+# Yukkuri Types Definition
+
+[yukkuri.marisa]
+name = "Marisa"
+base_health = 100
+base_hunger = 100
+base_happiness = 100
+growth_rate = 1.0
+description = "A common Yukkuri type. Energetic and easy to raise."
+image_color = "255, 255, 0"  # Yellow-ish
+
+[yukkuri.reimu]
+name = "Reimu"
+base_health = 100
+base_hunger = 100
+base_happiness = 100
+growth_rate = 0.9
+description = "A laid-back Yukkuri. Likes to take it easy."
+image_color = "255, 0, 0"    # Red-ish
+
+[yukkuri.alice]
+name = "Alice"
+base_health = 80
+base_hunger = 80
+base_happiness = 90
+growth_rate = 1.1
+description = "A slightly more demanding Yukkuri. Very tsundere."
+image_color = "100, 100, 255" # Blue-ish
