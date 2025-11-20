@@ -3,11 +3,42 @@ from .components import Transform, Sprite, Selectable
 from .yukkuri_components import YukkuriStats, AIState, ItemStats
 
 class EntityFactory:
+    """
+    Factory class for creating game entities.
+
+    Handles the creation of Yukkuris and Items, attaching necessary components.
+
+    Attributes:
+        world (World): The ECS World instance where entities are created.
+        rm (ResourceManager): The resource manager to fetch entity data.
+    """
+
     def __init__(self, world: World, resource_manager):
+        """
+        Initializes the EntityFactory.
+
+        Args:
+            world: The ECS World instance.
+            resource_manager: The ResourceManager instance.
+        """
         self.world = world
         self.rm = resource_manager
 
     def create_yukkuri(self, type_id: str, x: float, y: float) -> int:
+        """
+        Creates a Yukkuri entity.
+
+        Args:
+            type_id: The type identifier for the Yukkuri (e.g., "reimu").
+            x: The initial x-coordinate.
+            y: The initial y-coordinate.
+
+        Returns:
+            int: The ID of the created entity.
+
+        Raises:
+            ValueError: If the yukkuri type_id is unknown.
+        """
         data = self.rm.yukkuri_types.get(type_id)
         if not data:
             raise ValueError(f"Unknown yukkuri type: {type_id}")
@@ -38,6 +69,20 @@ class EntityFactory:
         return entity
 
     def create_item(self, type_id: str, x: float, y: float) -> int:
+        """
+        Creates an Item entity.
+
+        Args:
+            type_id: The type identifier for the Item (e.g., "cookie").
+            x: The initial x-coordinate.
+            y: The initial y-coordinate.
+
+        Returns:
+            int: The ID of the created entity.
+
+        Raises:
+            ValueError: If the item type_id is unknown.
+        """
         data = self.rm.item_types.get(type_id)
         if not data:
             raise ValueError(f"Unknown item type: {type_id}")

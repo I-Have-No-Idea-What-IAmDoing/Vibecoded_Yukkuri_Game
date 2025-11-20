@@ -4,7 +4,28 @@ from .components import Transform, Sprite, Selectable
 from ..engine.resource_manager import ResourceManager
 
 class Yukkurrium:
-    def __init__(self, width=2000, height=2000):
+    """
+    Manages the game world view, including coordinate conversion and camera control.
+
+    Attributes:
+        width (int): The total width of the game world.
+        height (int): The total height of the game world.
+        camera_x (float): The x-coordinate of the camera focus point.
+        camera_y (float): The y-coordinate of the camera focus point.
+        zoom (float): The current zoom level.
+        target_zoom (float): The target zoom level for smooth transitions.
+        min_zoom (float): Minimum allowed zoom level.
+        max_zoom (float): Maximum allowed zoom level.
+    """
+
+    def __init__(self, width: int = 2000, height: int = 2000):
+        """
+        Initializes the Yukkurrium.
+
+        Args:
+            width: The width of the world.
+            height: The height of the world.
+        """
         self.width = width
         self.height = height
         # Camera properties
@@ -17,17 +38,49 @@ class Yukkurrium:
         self.min_zoom = 0.5
         self.max_zoom = 2.0
 
-    def world_to_screen(self, wx, wy, screen_w, screen_h):
+    def world_to_screen(self, wx: float, wy: float, screen_w: int, screen_h: int):
+        """
+        Converts world coordinates to screen coordinates.
+
+        Args:
+            wx: World x-coordinate.
+            wy: World y-coordinate.
+            screen_w: Screen width.
+            screen_h: Screen height.
+
+        Returns:
+            tuple: (screen_x, screen_y)
+        """
         sx = (wx - self.camera_x) * self.zoom + screen_w / 2
         sy = (wy - self.camera_y) * self.zoom + screen_h / 2
         return sx, sy
 
-    def screen_to_world(self, sx, sy, screen_w, screen_h):
+    def screen_to_world(self, sx: float, sy: float, screen_w: int, screen_h: int):
+        """
+        Converts screen coordinates to world coordinates.
+
+        Args:
+            sx: Screen x-coordinate.
+            sy: Screen y-coordinate.
+            screen_w: Screen width.
+            screen_h: Screen height.
+
+        Returns:
+            tuple: (world_x, world_y)
+        """
         wx = (sx - screen_w / 2) / self.zoom + self.camera_x
         wy = (sy - screen_h / 2) / self.zoom + self.camera_y
         return wx, wy
 
-    def handle_input(self, event, screen_w, screen_h):
+    def handle_input(self, event: pygame.event.Event, screen_w: int, screen_h: int) -> None:
+        """
+        Handles input for camera control (zoom and pan).
+
+        Args:
+            event: The Pygame event.
+            screen_w: Screen width.
+            screen_h: Screen height.
+        """
         if event.type == pygame.MOUSEWHEEL:
             self.target_zoom += event.y * 0.1
             self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
@@ -37,17 +90,47 @@ class Yukkurrium:
                 self.camera_x -= dx / self.zoom
                 self.camera_y -= dy / self.zoom
 
-    def update(self, dt):
+    def update(self, dt: float) -> None:
+        """
+        Updates the camera state (e.g., smooth zoom).
+
+        Args:
+            dt: Delta time.
+        """
         # Smooth zoom
         self.zoom += (self.target_zoom - self.zoom) * 5.0 * dt
 
 class RenderSystem(System):
+    """
+    System responsible for rendering the game world and entities.
+
+    Attributes:
+        screen (pygame.Surface): The surface to render to.
+        yukkurrium (Yukkurrium): The world view manager.
+        rm (ResourceManager): The resource manager for fetching assets.
+    """
+
     def __init__(self, screen: pygame.Surface, yukkurrium: Yukkurrium, resource_manager: ResourceManager):
+        """
+        Initializes the RenderSystem.
+
+        Args:
+            screen: The target Pygame surface.
+            yukkurrium: The Yukkurrium instance.
+            resource_manager: The ResourceManager instance.
+        """
         self.screen = screen
         self.yukkurrium = yukkurrium
         self.rm = resource_manager
 
-    def update(self, world: World, dt: float):
+    def update(self, world: World, dt: float) -> None:
+        """
+        Renders the world grid and all visible entities.
+
+        Args:
+            world: The ECS World.
+            dt: Delta time.
+        """
         # Render background grid
         self.draw_grid()
 
@@ -93,7 +176,10 @@ class RenderSystem(System):
                 if selectable and selectable.selected:
                     pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
 
-    def draw_grid(self):
+    def draw_grid(self) -> None:
+        """
+        Draws a grid on the screen to visualize the world space.
+        """
         # Draw a grid to show movement
         grid_size = 100
         sw, sh = self.screen.get_size()
@@ -117,9 +203,25 @@ class RenderSystem(System):
             pygame.draw.line(self.screen, (50, 50, 50), (0, sy), (sw, sy))
 
 class TimeSystem(System):
+    """
+    System that tracks the total elapsed game time.
+
+    Attributes:
+        total_time (float): The total accumulated time.
+        game_speed (float): The speed multiplier for time.
+    """
+
     def __init__(self):
+        """Initializes the TimeSystem."""
         self.total_time = 0.0
         self.game_speed = 1.0
 
-    def update(self, world: World, dt: float):
+    def update(self, world: World, dt: float) -> None:
+        """
+        Updates the total time.
+
+        Args:
+            world: The ECS World.
+            dt: Delta time.
+        """
         self.total_time += dt * self.game_speed

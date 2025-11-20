@@ -1,5 +1,6 @@
 import random
 import math
+from typing import Optional
 from ...engine.ecs import System, World
 from ..components import Transform, Velocity
 from ..yukkuri_components import YukkuriStats, AIState, ItemStats
@@ -7,14 +8,44 @@ from ..ai.utility import UtilityAIEngine
 from ..ai.pathfinding import Pathfinding
 
 class YukkuriAISystem(System):
-    def __init__(self, ai_engine: UtilityAIEngine, world_width, world_height):
+    """
+    System responsible for simulating Yukkuri behavior and stats.
+
+    Handles stats decay, decision making via Utility AI, and action execution (movement, interaction).
+
+    Attributes:
+        ai_engine (UtilityAIEngine): The AI engine used for decision making.
+        timer (float): Timer for controlling decision frequency.
+        decision_interval (float): Time in seconds between AI decisions.
+        world_w (float): Width of the world for random movement.
+        world_h (float): Height of the world for random movement.
+    """
+
+    def __init__(self, ai_engine: UtilityAIEngine, world_width: float, world_height: float):
+        """
+        Initializes the YukkuriAISystem.
+
+        Args:
+            ai_engine: The UtilityAIEngine instance.
+            world_width: The width of the world.
+            world_height: The height of the world.
+        """
         self.ai_engine = ai_engine
         self.timer = 0.0
         self.decision_interval = 1.0
         self.world_w = world_width
         self.world_h = world_height
 
-    def update(self, world: World, dt: float):
+    def update(self, world: World, dt: float) -> None:
+        """
+        Updates the simulation.
+
+        Decays stats, triggers AI decisions, and executes current actions.
+
+        Args:
+            world: The ECS World.
+            dt: Delta time.
+        """
         self.timer += dt
 
         # Update Yukkuri Stats (Needs, Growth)
@@ -61,7 +92,18 @@ class YukkuriAISystem(System):
         if self.timer >= self.decision_interval:
             self.timer = 0.0
 
-    def start_action(self, entity, action_name, world, items):
+    def start_action(self, entity: int, action_name: str, world: World, items: list) -> None:
+        """
+        Initializes a new action for an entity.
+
+        Sets up targets and paths based on the action type.
+
+        Args:
+            entity: The ID of the entity starting the action.
+            action_name: The name of the action.
+            world: The ECS World.
+            items: A list of item entity IDs.
+        """
         ai = world.get_component(entity, AIState)
         trans = world.get_component(entity, Transform)
 
@@ -85,7 +127,20 @@ class YukkuriAISystem(System):
             ai.state_data = {"target_x": tx, "target_y": ty}
             ai.path = None
 
-    def execute_action(self, entity, ai, trans, world, dt, items):
+    def execute_action(self, entity: int, ai: AIState, trans: Transform, world: World, dt: float, items: list) -> None:
+        """
+        Executes the current frame logic for an entity's action.
+
+        Handles movement along paths and interaction with targets.
+
+        Args:
+            entity: The ID of the entity.
+            ai: The AIState component.
+            trans: The Transform component.
+            world: The ECS World.
+            dt: Delta time.
+            items: A list of item entity IDs.
+        """
         speed = 100.0 * dt
 
         action_def = self.ai_engine.actions.get(ai.current_action)
@@ -157,7 +212,15 @@ class YukkuriAISystem(System):
             else:
                 ai.current_action = "Wander"
 
-    def follow_path(self, trans, ai, speed):
+    def follow_path(self, trans: Transform, ai: AIState, speed: float) -> None:
+        """
+        Moves an entity along its current path.
+
+        Args:
+            trans: The entity's Transform component.
+            ai: The entity's AIState component.
+            speed: The movement distance for this frame.
+        """
         if not ai.path:
             return
 
@@ -174,7 +237,19 @@ class YukkuriAISystem(System):
             trans.x += math.cos(angle) * speed
             trans.y += math.sin(angle) * speed
 
-    def find_nearest_item(self, trans, items, world, stat_check):
+    def find_nearest_item(self, trans: Transform, items: list, world: World, stat_check: str) -> Optional[int]:
+        """
+        Finds the nearest item that satisfies a specific stat requirement.
+
+        Args:
+            trans: The position of the seeker.
+            items: A list of item entity IDs.
+            world: The ECS World.
+            stat_check: The name of the stat the item must have (e.g., "nutrition").
+
+        Returns:
+            Optional[int]: The ID of the nearest matching item, or None if none found.
+        """
         best_dist = float('inf')
         best_item = None
 

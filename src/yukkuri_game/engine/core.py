@@ -5,7 +5,35 @@ from .resource_manager import ResourceManager
 from .ecs import World
 
 class GameLoop:
-    def __init__(self, width=1280, height=720, title="Yukkuri Raising Game"):
+    """
+    The main game loop class.
+
+    Handles initialization, the main loop, event handling, updating, and drawing.
+
+    Attributes:
+        width (int): The width of the game window.
+        height (int): The height of the game window.
+        screen (pygame.Surface): The main display surface.
+        clock (pygame.time.Clock): The game clock for managing frame rate.
+        running (bool): Flag indicating if the game loop is running.
+        headless (bool): Flag indicating if the game is running in headless mode (no window).
+        resources (ResourceManager): The resource manager instance.
+        ui_manager (pygame_gui.UIManager): The UI manager instance.
+        world (World): The ECS world instance.
+        time_scale (float): The scale factor for game time (e.g., 2.0 for 2x speed).
+        paused (bool): Flag indicating if the game simulation is paused.
+        dt (float): The time elapsed since the last frame in seconds.
+    """
+
+    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game"):
+        """
+        Initializes the GameLoop.
+
+        Args:
+            width: The width of the window. Defaults to 1280.
+            height: The height of the window. Defaults to 720.
+            title: The title of the window. Defaults to "Yukkuri Raising Game".
+        """
         pygame.init()
         self.width = width
         self.height = height
@@ -31,11 +59,20 @@ class GameLoop:
         self.paused = False
         self.dt = 0.0
 
-    def setup(self):
-        """Override to add systems and initial entities."""
+    def setup(self) -> None:
+        """
+        Sets up the game state.
+
+        Override this method to add systems and initial entities.
+        """
         pass
 
-    def handle_events(self):
+    def handle_events(self) -> None:
+        """
+        Handles Pygame events.
+
+        Processes quit events, UI events, and calls on_event for custom handling.
+        """
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -43,11 +80,23 @@ class GameLoop:
             self.ui_manager.process_events(event)
             self.on_event(event)
 
-    def on_event(self, event):
-        """Override for specific input handling."""
+    def on_event(self, event: pygame.event.Event) -> None:
+        """
+        Callback for handling specific input events.
+
+        Override this method to implement custom input handling.
+
+        Args:
+            event: The Pygame event to handle.
+        """
         pass
 
-    def update(self):
+    def update(self) -> None:
+        """
+        Updates the game state.
+
+        Calculates delta time, updates the UI manager, and updates the ECS world.
+        """
         time_delta = self.clock.tick(60) / 1000.0
         self.dt = time_delta
 
@@ -60,7 +109,12 @@ class GameLoop:
             sim_dt = self.dt * self.time_scale
             self.world.update(sim_dt)
 
-    def draw(self):
+    def draw(self) -> None:
+        """
+        Draws the game frame.
+
+        Clears the screen, renders the world, draws the UI, and flips the display.
+        """
         self.screen.fill((30, 30, 30)) # Dark background
 
         # Draw Game World (Placeholder for now, systems should draw)
@@ -72,11 +126,20 @@ class GameLoop:
         self.ui_manager.draw_ui(self.screen)
         pygame.display.flip()
 
-    def render_world(self):
-        """Override to render game entities."""
+    def render_world(self) -> None:
+        """
+        Renders the game entities.
+
+        Override this method to implement custom rendering logic.
+        """
         pass
 
-    def run(self):
+    def run(self) -> None:
+        """
+        Runs the main game loop.
+
+        Calls setup, then enters the loop calling handle_events, update, and draw until running becomes False.
+        """
         self.setup()
         logger.info("Game Loop Started")
         while self.running:
@@ -88,5 +151,11 @@ class GameLoop:
         pygame.quit()
         logger.info("Game Loop Ended")
 
-    def set_headless(self, headless: bool):
+    def set_headless(self, headless: bool) -> None:
+        """
+        Sets the headless mode.
+
+        Args:
+            headless: True to enable headless mode, False otherwise.
+        """
         self.headless = headless

@@ -6,7 +6,25 @@ from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats
 
 class GameManager:
+    """
+    Manages high-level game logic, including economy, time, and save/load functionality.
+
+    Attributes:
+        world (World): The ECS World instance.
+        factory (EntityFactory): The factory used to recreate entities during load.
+        money (int): The player's current money.
+        time_elapsed (float): Total game time elapsed in seconds.
+        save_dir (str): Directory where save files are stored.
+    """
+
     def __init__(self, world: World, entity_factory):
+        """
+        Initializes the GameManager.
+
+        Args:
+            world: The ECS World instance.
+            entity_factory: The EntityFactory instance.
+        """
         self.world = world
         self.factory = entity_factory
         self.money = 1000
@@ -17,6 +35,15 @@ class GameManager:
             os.makedirs(self.save_dir)
 
     def calculate_quality_score(self, yukkuri_stats: YukkuriStats) -> int:
+        """
+        Calculates the quality score (value) of a Yukkuri.
+
+        Args:
+            yukkuri_stats: The stats component of the Yukkuri.
+
+        Returns:
+            int: The calculated value in money.
+        """
         # Base score
         score = 100
 
@@ -36,7 +63,18 @@ class GameManager:
         yukkuri_stats.quality_score = score
         return int(score)
 
-    def sell_yukkuri(self, entity: int):
+    def sell_yukkuri(self, entity: int) -> int:
+        """
+        Sells a Yukkuri entity.
+
+        Calculates its value, adds to player money, and destroys the entity.
+
+        Args:
+            entity: The ID of the Yukkuri entity to sell.
+
+        Returns:
+            int: The amount of money gained, or 0 if the entity is not a Yukkuri.
+        """
         stats = self.world.get_component(entity, YukkuriStats)
         if stats:
             value = self.calculate_quality_score(stats)
@@ -46,7 +84,13 @@ class GameManager:
             return value
         return 0
 
-    def save_game(self, filename="savegame.json"):
+    def save_game(self, filename: str = "savegame.json") -> None:
+        """
+        Saves the current game state to a JSON file.
+
+        Args:
+            filename: The name of the save file. Defaults to "savegame.json".
+        """
         data = {
             "money": self.money,
             "time": self.time_elapsed,
@@ -97,7 +141,18 @@ class GameManager:
             json.dump(data, f, indent=4)
         logger.info(f"Game saved to {path}")
 
-    def load_game(self, filename="savegame.json"):
+    def load_game(self, filename: str = "savegame.json") -> bool:
+        """
+        Loads a game state from a JSON file.
+
+        Clears the current world and recreates entities from the save data.
+
+        Args:
+            filename: The name of the save file. Defaults to "savegame.json".
+
+        Returns:
+            bool: True if loading was successful, False otherwise.
+        """
         path = os.path.join(self.save_dir, filename)
         if not os.path.exists(path):
             logger.warning("Save file not found.")

@@ -1,13 +1,40 @@
 import heapq
 import math
+from typing import List, Tuple, Optional
 
 class Pathfinding:
+    """
+    Provides static methods for pathfinding operations.
+    """
+
     @staticmethod
-    def heuristic(a, b):
+    def heuristic(a: Tuple[float, float], b: Tuple[float, float]) -> float:
+        """
+        Calculates the Euclidean distance heuristic between two points.
+
+        Args:
+            a: The starting point (x, y).
+            b: The target point (x, y).
+
+        Returns:
+            float: The distance between points a and b.
+        """
         return math.hypot(b[0] - a[0], b[1] - a[1])
 
     @staticmethod
-    def get_neighbors(node, grid_w, grid_h, step=50):
+    def get_neighbors(node: Tuple[float, float], grid_w: float, grid_h: float, step: int = 50) -> List[Tuple[float, float]]:
+        """
+        Generates valid neighboring points on a grid.
+
+        Args:
+            node: The current point (x, y).
+            grid_w: The width of the grid boundary.
+            grid_h: The height of the grid boundary.
+            step: The step size between grid points. Defaults to 50.
+
+        Returns:
+            List[Tuple[float, float]]: A list of valid neighbor coordinates.
+        """
         x, y = node
         neighbors = [
             (x + step, y), (x - step, y),
@@ -22,11 +49,21 @@ class Pathfinding:
         return valid
 
     @staticmethod
-    def find_path(start, goal, grid_w, grid_h):
+    def find_path(start: Tuple[float, float], goal: Tuple[float, float], grid_w: float, grid_h: float) -> List[Tuple[float, float]]:
         """
-        Implements A* pathfinding.
-        For a continuous world without obstacles, this basically finds the straight line,
-        but broken into grid steps.
+        Finds a path from start to goal using the A* algorithm.
+
+        Since the world is continuous, this method discretizes the space into a grid
+        to perform the search.
+
+        Args:
+            start: The starting coordinates (x, y).
+            goal: The target coordinates (x, y).
+            grid_w: The width of the world.
+            grid_h: The height of the world.
+
+        Returns:
+            List[Tuple[float, float]]: A list of points representing the path.
         """
         step = 50
         # Snap start/goal to grid for A*

@@ -6,6 +6,22 @@ from ..engine.ecs import Component
 
 @dataclass
 class YukkuriStats:
+    """
+    Component containing the statistics and state of a Yukkuri.
+
+    Attributes:
+        name (str): The name of the Yukkuri.
+        type_id (str): The type identifier (e.g., "reimu").
+        health (float): Current health. Defaults to 100.0.
+        max_health (float): Maximum health. Defaults to 100.0.
+        hunger (float): Hunger level (0 = full, 100 = starving). Defaults to 0.0.
+        happiness (float): Happiness level (0 = sad, 100 = happy). Defaults to 50.0.
+        cleanliness (float): Cleanliness level (0 = dirty, 100 = clean). Defaults to 100.0.
+        age (float): Age in game seconds/ticks. Defaults to 0.0.
+        growth_stage (str): Current growth stage ("Baby", "Child", "Adult"). Defaults to "Baby".
+        badges (int): Number of badges earned. Defaults to 0.
+        quality_score (float): Calculated quality score/value. Defaults to 0.0.
+    """
     name: str
     type_id: str
     health: float = 100.0
@@ -20,6 +36,16 @@ class YukkuriStats:
 
 @dataclass
 class AIState:
+    """
+    Component maintaining the AI state of an entity.
+
+    Attributes:
+        current_action (str): The name of the current action being performed. Defaults to "Idle".
+        current_target_id (int): The ID of the target entity for the current action. Defaults to -1.
+        path (list): A list of points representing the current movement path.
+        action_progress (float): Progress counter for the current action. Defaults to 0.0.
+        state_data (Dict[str, Any]): Additional data for the current state.
+    """
     current_action: str = "Idle"
     current_target_id: int = -1
     path: list = None
@@ -28,6 +54,18 @@ class AIState:
 
 @dataclass
 class ItemStats:
+    """
+    Component containing statistics for an Item.
+
+    Attributes:
+        name (str): The name of the item.
+        type_id (str): The type identifier.
+        cost (int): The purchase cost of the item.
+        nutrition (float): Nutritional value provided when consumed. Defaults to 0.0.
+        fun (float): Fun value provided when interacted with. Defaults to 0.0.
+        comfort (float): Comfort value provided. Defaults to 0.0.
+        is_portable (bool): Whether the item can be carried. Defaults to False.
+    """
     name: str
     type_id: str
     cost: int
