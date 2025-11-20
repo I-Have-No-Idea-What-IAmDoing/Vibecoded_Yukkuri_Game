@@ -1,0 +1,26 @@
+# Yukkuri Types
+# Defines the base stats and decay rates for different Yukkuri types.
+
+Reimu:
+  name: "Reimu"
+  base_health: 100
+  base_hunger: 100
+  base_happiness: 100
+  hunger_decay: 0.5
+  happiness_decay: 0.2
+  growth_rate: 0.1
+  max_age: 1000
+  color: [255, 0, 0] # RGB
+  description: "Easy to raise, but demanding."
+
+Marisa:
+  name: "Marisa"
+  base_health: 110
+  base_hunger: 100
+  base_happiness: 100
+  hunger_decay: 0.6
+  happiness_decay: 0.1
+  growth_rate: 0.12
+  max_age: 1100
+  color: [255, 255, 0] # RGB
+  description: "Active and energetic."

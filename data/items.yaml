@@ -1,0 +1,34 @@
+# Items
+# Defines items that can be placed in the Yukkurrium.
+
+BeanPaste:
+  name: "Bean Paste"
+  type: "food"
+  nutrition: 30
+  cost: 10
+  color: [139, 69, 19]
+  description: "Basic food for Yukkuris."
+
+SweetBun:
+  name: "Sweet Bun"
+  type: "food"
+  nutrition: 50
+  cost: 25
+  color: [255, 228, 181]
+  description: "A tasty treat."
+
+Bed:
+  name: "Soft Bed"
+  type: "furniture"
+  comfort: 20
+  cost: 100
+  color: [200, 200, 255]
+  description: "Improves sleep quality."
+
+Toy:
+  name: "Ball"
+  type: "toy"
+  fun: 15
+  cost: 50
+  color: [0, 255, 0]
+  description: "A simple ball to play with."

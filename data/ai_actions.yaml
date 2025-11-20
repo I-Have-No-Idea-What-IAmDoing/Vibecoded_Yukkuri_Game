@@ -1,0 +1,54 @@
+# AI Actions
+# Defines actions available to the Utility AI.
+
+Eat:
+  name: "Eat"
+  description: "Consume food to reduce hunger."
+  type: "interaction"
+  target: "food"
+  base_score: 0
+  considerations:
+    - type: "Curve"
+      input: "hunger"
+      curve_type: "logit" # Simple curve mapping: low hunger -> low score, high hunger -> high score
+      slope: 1.0
+      shift: 0.0
+
+Sleep:
+  name: "Sleep"
+  description: "Sleep to recover energy."
+  type: "state_change"
+  base_score: 0
+  considerations:
+    - type: "Curve"
+      input: "energy"
+      curve_type: "inverse_linear" # Low energy -> High score
+      slope: 1.0
+      shift: 0.0
+
+Play:
+  name: "Play"
+  description: "Play with a toy to increase happiness."
+  type: "interaction"
+  target: "toy"
+  base_score: 10
+  considerations:
+    - type: "Curve"
+      input: "happiness"
+      curve_type: "inverse_linear" # Low happiness -> High score
+      slope: 0.8
+      shift: 0.0
+
+Wander:
+  name: "Wander"
+  description: "Move around randomly."
+  type: "movement"
+  base_score: 5 # Default low score fallback
+  considerations: []
+
+Sell:
+  name: "Sell"
+  description: "Being sold (Player trigger only usually, but here for completeness)"
+  type: "system"
+  base_score: -100 # Never choose autonomously
+  considerations: []
