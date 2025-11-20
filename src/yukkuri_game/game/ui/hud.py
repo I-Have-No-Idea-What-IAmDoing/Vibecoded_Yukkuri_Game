@@ -1,7 +1,8 @@
 import pygame
 import pygame_gui
-from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow
+from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox
 from pygame_gui.core import ObjectID
+from pygame_gui.windows import UIMessageWindow
 from ...engine.ecs import World
 from ..components import Selectable, Transform
 from ..yukkuri_components import YukkuriStats, ItemStats, AIState
@@ -89,12 +90,20 @@ class HUD:
         self.selection_window = None
         self.selected_entity = -1
 
+        # Debug Overlay
+        self.show_debug = False
+        self.debug_window = None
+        self.debug_text_box = None
+
     def update(self, dt):
         self.money_label.set_text(f"Money: ${self.gm.money}")
 
         minutes = int(self.gm.time_elapsed / 60)
         seconds = int(self.gm.time_elapsed % 60)
         self.time_label.set_text(f"Time: {minutes:02d}:{seconds:02d}")
+
+        if self.show_debug:
+            self.update_debug_window(dt)
 
         # Check selection
         selected = self.world.get_entities_with(Selectable)
@@ -124,14 +133,16 @@ class HUD:
             self.selection_window = UIWindow(
                 rect=pygame.Rect(self.width - 350, 60, 330, 400),
                 manager=self.manager,
-                window_display_title="Entity Info"
+                window_display_title="Entity Info",
+                resizable=True
             )
 
-            self.info_label = UILabel(
+            self.info_label = UITextBox(
+                html_text="",
                 relative_rect=pygame.Rect(10, 10, 290, 200),
-                text="",
                 manager=self.manager,
-                container=self.selection_window
+                container=self.selection_window,
+                anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'right'}
             )
 
             # Actions for Yukkuri
@@ -155,18 +166,76 @@ class HUD:
         if stats:
             ai_state = self.world.get_component(self.selected_entity, AIState)
             action = ai_state.current_action if ai_state else "None"
-            text = (f"Name: {stats.name}\n"
-                    f"Hunger: {int(stats.hunger)}\n"
-                    f"Happiness: {int(stats.happiness)}\n"
-                    f"Health: {int(stats.health)}\n"
-                    f"Badges: {stats.badges}\n"
-                    f"Action: {action}")
+            text = (f"<b>Name:</b> {stats.name}<br>"
+                    f"<b>Hunger:</b> {int(stats.hunger)}<br>"
+                    f"<b>Happiness:</b> {int(stats.happiness)}<br>"
+                    f"<b>Health:</b> {int(stats.health)}<br>"
+                    f"<b>Badges:</b> {stats.badges}<br>"
+                    f"<b>Action:</b> {action}")
         else:
             istats = self.world.get_component(self.selected_entity, ItemStats)
             if istats:
-                text = f"Item: {istats.name}\nVal: {istats.cost}"
+                text = f"<b>Item:</b> {istats.name}<br><b>Val:</b> {istats.cost}"
 
         self.info_label.set_text(text)
+
+    def toggle_debug(self):
+        self.show_debug = not self.show_debug
+        if self.show_debug:
+            self.create_debug_window()
+        elif self.debug_window:
+            self.debug_window.kill()
+            self.debug_window = None
+
+    def create_debug_window(self):
+        if self.debug_window:
+            self.debug_window.kill()
+
+        self.debug_window = UIWindow(
+            rect=pygame.Rect(10, 60, 300, 200),
+            manager=self.manager,
+            window_display_title="Debug Info",
+            resizable=True
+        )
+
+        self.debug_text_box = UITextBox(
+            html_text="Debug info...",
+            relative_rect=pygame.Rect(10, 10, 260, 140),
+            manager=self.manager,
+            container=self.debug_window,
+            anchors={'top': 'top', 'bottom': 'bottom', 'left': 'left', 'right': 'right'}
+        )
+
+    def update_debug_window(self, dt):
+        if not self.debug_window or not self.debug_text_box:
+            return
+
+        # Gather debug info
+        fps = self.gm.time_elapsed # Placeholder, need actual FPS
+        entity_count = len(self.world.entities)
+
+        # We can get FPS from clock if passed, but for now let's show what we have
+        debug_text = (
+            f"<b>Entities:</b> {entity_count}<br>"
+            f"<b>Money:</b> {self.gm.money}<br>"
+            f"<b>Time Scale:</b> {self.gm.time_scale if hasattr(self.gm, 'time_scale') else 'N/A'}<br>"
+        )
+
+        # If we have extra info passed from game loop, we could use it.
+        # But since we are inside HUD update which is called from game loop,
+        # we might need to pass fps separately.
+        if hasattr(self, 'fps'):
+             debug_text = f"<b>FPS:</b> {self.fps:.2f}<br>" + debug_text
+
+        self.debug_text_box.set_text(debug_text)
+
+    def show_error(self, message):
+        UIMessageWindow(
+            rect=pygame.Rect((self.width - 400) // 2, (self.height - 250) // 2, 400, 250),
+            html_message=message,
+            manager=self.manager,
+            window_title="Error"
+        )
 
     def process_event(self, event):
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
