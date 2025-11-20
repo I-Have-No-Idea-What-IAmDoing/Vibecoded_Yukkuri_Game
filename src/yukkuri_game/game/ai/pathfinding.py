@@ -1,23 +1,19 @@
-import heapq
 import math
-from typing import List, Tuple, Optional
+from typing import List, Tuple
+from pathfinding.core.grid import Grid
+from pathfinding.finder.a_star import AStarFinder
+from pathfinding.core.diagonal_movement import DiagonalMovement
 
 class Pathfinding:
     """
-    Provides static methods for pathfinding operations.
+    Provides static methods for pathfinding operations using the 'pathfinding' library.
     """
 
     @staticmethod
     def heuristic(a: Tuple[float, float], b: Tuple[float, float]) -> float:
         """
         Calculates the Euclidean distance heuristic between two points.
-
-        Args:
-            a: The starting point (x, y).
-            b: The target point (x, y).
-
-        Returns:
-            float: The distance between points a and b.
+        Kept for backward compatibility/testing, though not used internally by the library wrapper.
         """
         return math.hypot(b[0] - a[0], b[1] - a[1])
 
@@ -25,15 +21,8 @@ class Pathfinding:
     def get_neighbors(node: Tuple[float, float], grid_w: float, grid_h: float, step: int = 50) -> List[Tuple[float, float]]:
         """
         Generates valid neighboring points on a grid.
-
-        Args:
-            node: The current point (x, y).
-            grid_w: The width of the grid boundary.
-            grid_h: The height of the grid boundary.
-            step: The step size between grid points. Defaults to 50.
-
-        Returns:
-            List[Tuple[float, float]]: A list of valid neighbor coordinates.
+        Deprecated: Internal logic is handled by the pathfinding library.
+        Kept for backward compatibility/testing.
         """
         x, y = node
         neighbors = [
@@ -51,10 +40,7 @@ class Pathfinding:
     @staticmethod
     def find_path(start: Tuple[float, float], goal: Tuple[float, float], grid_w: float, grid_h: float) -> List[Tuple[float, float]]:
         """
-        Finds a path from start to goal using the A* algorithm.
-
-        Since the world is continuous, this method discretizes the space into a grid
-        to perform the search.
+        Finds a path from start to goal using the A* algorithm from the pathfinding library.
 
         Args:
             start: The starting coordinates (x, y).
@@ -66,48 +52,58 @@ class Pathfinding:
             List[Tuple[float, float]]: A list of points representing the path.
         """
         step = 50
-        # Snap start/goal to grid for A*
-        start_node: Tuple[float, float] = (float(round(start[0]/step)*step), float(round(start[1]/step)*step))
-        goal_node: Tuple[float, float] = (float(round(goal[0]/step)*step), float(round(goal[1]/step)*step))
 
-        frontier: List[Tuple[float, Tuple[float, float]]] = []
-        heapq.heappush(frontier, (0.0, start_node))
-        came_from: dict[Tuple[float, float], Optional[Tuple[float, float]]] = {}
-        cost_so_far: dict[Tuple[float, float], float] = {}
-        came_from[start_node] = None
-        cost_so_far[start_node] = 0.0
+        # Determine grid dimensions
+        # Adding step to width/height to ensure coverage for edge cases
+        matrix_w = int(math.ceil(grid_w / step)) + 1
+        matrix_h = int(math.ceil(grid_h / step)) + 1
 
-        while frontier:
-            _, current = heapq.heappop(frontier)
+        # Create a grid (all walkable by default)
+        grid = Grid(width=matrix_w, height=matrix_h)
 
-            if math.hypot(current[0]-goal_node[0], current[1]-goal_node[1]) < step:
-                break
+        # Convert world coordinates to grid indices
+        start_x_idx = int(round(start[0] / step))
+        start_y_idx = int(round(start[1] / step))
 
-            for next_node in Pathfinding.get_neighbors(current, grid_w, grid_h, step):
-                new_cost = cost_so_far[current] + math.hypot(next_node[0]-current[0], next_node[1]-current[1])
-                if next_node not in cost_so_far or new_cost < cost_so_far[next_node]:
-                    cost_so_far[next_node] = new_cost
-                    priority = new_cost + Pathfinding.heuristic(next_node, goal_node)
-                    heapq.heappush(frontier, (priority, next_node))
-                    came_from[next_node] = current
+        goal_x_idx = int(round(goal[0] / step))
+        goal_y_idx = int(round(goal[1] / step))
 
-        # Reconstruct path
-        path_current: Optional[Tuple[float, float]] = goal_node
-        # Find closest node in came_from if goal wasn't reached exactly
-        if path_current not in came_from:
-             # Fallback to closest visited
-             path_current = min(came_from.keys(), key=lambda k: Pathfinding.heuristic(k, goal_node))
+        # Clamp indices to be within grid bounds
+        start_x_idx = max(0, min(start_x_idx, matrix_w - 1))
+        start_y_idx = max(0, min(start_y_idx, matrix_h - 1))
 
-        path = []
-        while path_current is not None and path_current != start_node:
-            path.append(path_current)
-            path_current = came_from.get(path_current)
+        goal_x_idx = max(0, min(goal_x_idx, matrix_w - 1))
+        goal_y_idx = max(0, min(goal_y_idx, matrix_h - 1))
 
-        path.append(start_node)
-        path.reverse()
+        start_node = grid.node(start_x_idx, start_y_idx)
+        goal_node = grid.node(goal_x_idx, goal_y_idx)
 
-        # Append exact goal if different
+        finder = AStarFinder(diagonal_movement=DiagonalMovement.always)
+
+        # find_path returns path (list of nodes) and runs (number of steps)
+        path_nodes, _ = finder.find_path(start_node, goal_node, grid)
+
+        # Convert grid nodes back to world coordinates
+        path: List[Tuple[float, float]] = []
+
+        for node in path_nodes:
+            wx = float(node.x * step)
+            wy = float(node.y * step)
+            path.append((wx, wy))
+
+        if not path:
+            # Fallback: ensure we return at least start
+            path.append(start)
+
+        # Ensure the exact start point is the first element
+        path[0] = start
+
+        clamped_goal_x = max(0.0, min(goal[0], grid_w))
+        clamped_goal_y = max(0.0, min(goal[1], grid_h))
+        clamped_goal = (clamped_goal_x, clamped_goal_y)
+
         if path[-1] != goal:
-            path.append(goal)
+             if clamped_goal != path[-1]:
+                 path.append(clamped_goal)
 
         return path
