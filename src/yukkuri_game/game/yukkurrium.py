@@ -1,4 +1,5 @@
 import pygame
+from typing import List, Tuple
 from ..engine.ecs import System, World
 from .components import Transform, Sprite, Selectable
 from ..engine.resource_manager import ResourceManager
@@ -119,35 +120,32 @@ class RenderSystem(System):
             yukkurrium: The Yukkurrium instance.
             resource_manager: The ResourceManager instance.
         """
+        super().__init__()
         self.screen = screen
         self.yukkurrium = yukkurrium
         self.rm = resource_manager
 
-    def update(self, world: World, dt: float) -> None:
+    def process(self, dt: float) -> None:
         """
         Renders the world grid and all visible entities.
 
         Args:
-            world: The ECS World.
             dt: Delta time.
         """
         # Render background grid
         self.draw_grid()
 
         # Render entities
-        entities = world.get_entities_with(Transform, Sprite)
+        # esper.get_components returns list of (entity_id, component_instance, ...)
+        components: List[Tuple[int, Transform, Sprite]] = self.world.get_components(Transform, Sprite)
+
         # Sort by Y for depth
-        entities.sort(key=lambda e: world.get_component(e, Transform).y) # type: ignore
+        # components is list of tuples (ent, transform, sprite)
+        components.sort(key=lambda x: x[1].y)
 
         sw, sh = self.screen.get_size()
 
-        for ent in entities:
-            transform = world.get_component(ent, Transform)
-            sprite = world.get_component(ent, Sprite)
-
-            if not transform or not sprite:
-                continue
-
+        for ent, transform, sprite in components:
             img = self.rm.load_image(sprite.image_name)
 
             # Calculate screen position
@@ -175,7 +173,13 @@ class RenderSystem(System):
                 self.screen.blit(scaled_img, rect)
 
                 # Selection highlight
-                selectable = world.get_component(ent, Selectable)
+                # Use try_component (or similar check) if Selectable is optional, or check if it has it.
+                # esper's try_component returns None if not found
+                try:
+                    selectable = self.world.component_for_entity(ent, Selectable)
+                except KeyError:
+                    selectable = None
+
                 if selectable and selectable.selected:
                     pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
 
@@ -216,15 +220,15 @@ class TimeSystem(System):
 
     def __init__(self):
         """Initializes the TimeSystem."""
+        super().__init__()
         self.total_time = 0.0
         self.game_speed = 1.0
 
-    def update(self, world: World, dt: float) -> None:
+    def process(self, dt: float) -> None:
         """
         Updates the total time.
 
         Args:
-            world: The ECS World.
             dt: Delta time.
         """
         self.total_time += dt * self.game_speed

@@ -48,17 +48,21 @@ class YukkuriGame(GameLoop):
         # AI
         self.ai_engine = UtilityAIEngine(self.resources)
 
-        # Add Systems
+        # Add Systems (Processors in esper)
         self.input_system = InputSystem(self.yukkurrium)
-        self.world.add_system(self.input_system) # Update doesn't do much, events handled separately
+        self.world.add_processor(self.input_system) # Update doesn't do much, events handled separately
 
-        self.world.add_system(TimeSystem())
-        self.world.add_system(YukkuriAISystem(self.ai_engine, float(self.yukkurrium.width), float(self.yukkurrium.height)))
+        self.world.add_processor(TimeSystem())
+        self.world.add_processor(YukkuriAISystem(self.ai_engine, float(self.yukkurrium.width), float(self.yukkurrium.height)))
 
         if not self.headless:
             self.render_system = RenderSystem(self.screen, self.yukkurrium, self.resources)
             # RenderSystem is not added to world updates because it should be called in render_world
-            # self.world.add_system(self.render_system)
+            # But RenderSystem is an esper.Processor now, so we could add it and control priority,
+            # but we want to control WHEN it runs (during render_world).
+            # esper.process() runs all processors.
+            # We can manually call process on render_system instead of adding it to the world.
+            # This is what we did before.
 
             # UI
             self.hud = HUD(self.ui_manager, self.gm, self.world, self.factory)
@@ -95,7 +99,7 @@ class YukkuriGame(GameLoop):
                 elif event.key == pygame.K_F12:
                     self.take_screenshot()
 
-            self.input_system.handle_event(event, self.world, self.width, self.height, self.ui_manager)
+            self.input_system.handle_event(event, self.width, self.height, self.ui_manager)
             self.hud.process_event(event)
 
     def update(self) -> None:
@@ -119,7 +123,14 @@ class YukkuriGame(GameLoop):
         Renders the game world using the RenderSystem.
         """
         if not self.headless and self.render_system:
-            self.render_system.update(self.world, self.dt)
+            # Manually run the render system
+            # We need to set the world for the processor if we didn't add it to the world?
+            # esper.Processor.world is set when added to world.
+            # But we are not adding it. We can manually set it or just pass it if we kept the old signature?
+            # No, I changed the signature to process(dt).
+            # So I need to set .world manually.
+            self.render_system.world = self.world
+            self.render_system.process(self.dt)
 
     def toggle_pause(self) -> None:
         """

@@ -40,16 +40,16 @@ def test_create_yukkuri(entity_factory):
     entity_id = factory.create_yukkuri("reimu", 100, 200)
 
     world = factory.world
-    assert entity_id in world._entities
+    assert world.entity_exists(entity_id)
 
     # Check Transform
-    transform = world.get_component(entity_id, Transform)
+    transform = world.component_for_entity(entity_id, Transform)
     assert transform is not None
     assert transform.x == 100
     assert transform.y == 200
 
     # Check Sprite
-    sprite = world.get_component(entity_id, Sprite)
+    sprite = world.component_for_entity(entity_id, Sprite)
     assert sprite.image_name == "reimu.png"
     assert sprite.width == 64
     assert sprite.height == 64
@@ -58,7 +58,7 @@ def test_create_yukkuri(entity_factory):
     assert world.has_component(entity_id, Selectable)
 
     # Check Stats
-    stats = world.get_component(entity_id, YukkuriStats)
+    stats = world.component_for_entity(entity_id, YukkuriStats)
     assert stats.type_id == "reimu"
     assert stats.max_health == 150
     assert stats.health == 150
@@ -78,16 +78,16 @@ def test_create_item(entity_factory):
     world = factory.world
 
     # Check Transform
-    transform = world.get_component(entity_id, Transform)
+    transform = world.component_for_entity(entity_id, Transform)
     assert transform.x == 50
     assert transform.y == 50
 
     # Check Sprite
-    sprite = world.get_component(entity_id, Sprite)
+    sprite = world.component_for_entity(entity_id, Sprite)
     assert sprite.image_name == "cookie.png"
 
     # Check Stats
-    stats = world.get_component(entity_id, ItemStats)
+    stats = world.component_for_entity(entity_id, ItemStats)
     assert stats.name == "Sweet Cookie"
     assert stats.nutrition == 20
     assert stats.is_portable is True

@@ -76,12 +76,16 @@ class GameManager:
         Returns:
             int: The amount of money gained, or 0 if the entity is not a Yukkuri.
         """
-        stats = self.world.get_component(entity, YukkuriStats)
+        try:
+            stats = self.world.component_for_entity(entity, YukkuriStats)
+        except KeyError:
+            stats = None
+
         if stats:
             value = self.calculate_quality_score(stats)
             self.money += value
             logger.info(f"Sold {stats.name} for {value}. Total Money: {self.money}")
-            self.world.destroy_entity(entity)
+            self.world.delete_entity(entity)
             return value
         return 0
 
@@ -102,20 +106,23 @@ class GameManager:
         # We need to iterate all entities and save their components
         # For MVP, we only care about Yukkuri and Items with Transforms and Stats
 
-        # Get all entities
-        # This is a bit tricky in our simple ECS as we don't have a list of all entities readily available
-        # except via internal list.
+        # Get all entities with Transform (base requirement for persistent entity here)
+        # esper.get_components returns [(entity, component), ...]
+        # But we might have entities with just YukkuriStats and Transform, or ItemStats and Transform.
 
-        for entity in self.world._entities:
+        # Let's get all entities that have Transform.
+        transforms = self.world.get_component(Transform) # list of (entity, Transform)
+
+        for entity, trans in transforms:
             ent_data: Dict[str, Any] = {}
-
-            # Transform
-            trans = self.world.get_component(entity, Transform)
-            if trans:
-                ent_data["transform"] = {"x": float(trans.x), "y": float(trans.y)}
+            ent_data["transform"] = {"x": float(trans.x), "y": float(trans.y)}
 
             # Yukkuri Stats
-            y_stats = self.world.get_component(entity, YukkuriStats)
+            try:
+                y_stats = self.world.component_for_entity(entity, YukkuriStats)
+            except KeyError:
+                y_stats = None
+
             if y_stats:
                 ent_data["yukkuri"] = {
                     "type_id": y_stats.type_id,
@@ -128,15 +135,15 @@ class GameManager:
                 }
 
             # Item Stats
-            i_stats = self.world.get_component(entity, ItemStats)
+            try:
+                i_stats = self.world.component_for_entity(entity, ItemStats)
+            except KeyError:
+                i_stats = None
+
             if i_stats:
                 ent_data["item"] = {
                     "type_id": i_stats.type_id
                 }
-                # We can verify it conforms to expected structure, but simple assignment is fine for now
-                # since mypy only complains if we try to put incompatible types into data["entities"] if it was typed more strictly.
-                # The real issue is the previous dict items for ent_data being incompatible with a strict TypedDict if we were using one.
-                # Since ent_data is just Dict[str, Any] effectively, it should be fine, but mypy inferred the dict type from first assignment.
 
             if "yukkuri" in ent_data or "item" in ent_data:
                  if isinstance(data["entities"], list):
@@ -171,11 +178,7 @@ class GameManager:
         self.time_elapsed = data.get("time", 0)
 
         # Clear existing entities
-        # In a real game we might want to reset the world properly
-        # For MVP, we assume load is done at start or we clear manually.
-        # Let's clear.
-        for entity in list(self.world._entities):
-            self.world.destroy_entity(entity)
+        self.world.clear_database()
 
         for ent_data in data.get("entities", []):
             trans = ent_data.get("transform")
@@ -184,14 +187,17 @@ class GameManager:
             if "yukkuri" in ent_data:
                 y_data = ent_data["yukkuri"]
                 eid = self.factory.create_yukkuri(y_data["type_id"], x, y)
-                stats = self.world.get_component(eid, YukkuriStats)
-                if stats:
-                    stats.name = y_data["name"]
-                    stats.health = float(y_data["health"])
-                    stats.hunger = float(y_data["hunger"])
-                    stats.happiness = float(y_data["happiness"])
-                    stats.badges = int(y_data["badges"])
-                    stats.age = float(y_data["age"])
+                try:
+                    stats = self.world.component_for_entity(eid, YukkuriStats)
+                    if stats:
+                        stats.name = y_data["name"]
+                        stats.health = float(y_data["health"])
+                        stats.hunger = float(y_data["hunger"])
+                        stats.happiness = float(y_data["happiness"])
+                        stats.badges = int(y_data["badges"])
+                        stats.age = float(y_data["age"])
+                except KeyError:
+                    pass
 
             elif "item" in ent_data:
                 i_data = ent_data["item"]

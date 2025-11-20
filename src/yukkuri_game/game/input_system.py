@@ -1,4 +1,5 @@
 import pygame
+from typing import List, Tuple
 from ..engine.ecs import System, World
 from .components import Transform, Selectable
 
@@ -25,6 +26,7 @@ class InputSystem(System):
         Args:
             yukkurrium: The Yukkurrium instance.
         """
+        super().__init__()
         self.yukkurrium = yukkurrium
         self.placing_mode = False
         self.place_type = None
@@ -51,25 +53,23 @@ class InputSystem(System):
         self.gm = gm
         self.factory = factory
 
-    def update(self, world: World, dt: float) -> None:
+    def process(self, dt: float) -> None:
         """
         Updates the input system.
 
         Does nothing each frame as this system reacts to events.
 
         Args:
-            world: The ECS World.
             dt: Delta time.
         """
         pass
 
-    def handle_event(self, event: pygame.event.Event, world: World, screen_w: int, screen_h: int, ui_manager=None) -> None:
+    def handle_event(self, event: pygame.event.Event, screen_w: int, screen_h: int, ui_manager=None) -> None:
         """
         Handles a single Pygame event.
 
         Args:
             event: The Pygame event.
-            world: The ECS World.
             screen_w: The width of the screen.
             screen_h: The height of the screen.
             ui_manager: The UI manager (optional) to check for UI interaction.
@@ -93,19 +93,17 @@ class InputSystem(System):
 
                 # Check clicks on entities
                 # Simple point check for MVP
-                entities = world.get_entities_with(Transform, Selectable)
+                # esper.get_components returns list of (entity_id, compA, compB)
+                # We use self.world which is injected by World.add_processor
+                if self.world is None:
+                    return
+
+                entities: List[Tuple[int, Transform, Selectable]] = self.world.get_components(Transform, Selectable)
                 clicked_something = False
 
-                for ent in entities:
-                    trans = world.get_component(ent, Transform)
-                    if not trans:
-                        continue
+                for ent, trans, selectable in entities:
                     # Assume 32px radius roughly
                     dist = ((trans.x - wx)**2 + (trans.y - wy)**2)**0.5
-
-                    selectable = world.get_component(ent, Selectable)
-                    if not selectable:
-                        continue
 
                     if dist < 32:
                         selectable.selected = True
@@ -116,10 +114,8 @@ class InputSystem(System):
 
                 if not clicked_something:
                      # Deselect all if clicked ground
-                     for ent in entities:
-                         selectable = world.get_component(ent, Selectable)
-                         if selectable:
-                             selectable.selected = False
+                     for ent, trans, selectable in entities:
+                         selectable.selected = False
             elif event.button == 3: # Right Click cancels placement
                 if self.placing_mode:
                     self.placing_mode = False

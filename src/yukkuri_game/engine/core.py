@@ -107,7 +107,8 @@ class GameLoop:
             # In a real game we might separate logic update tick from render tick
             # and use accumulation for fixed time steps, but for MVP simple dt is fine.
             sim_dt = self.dt * self.time_scale
-            self.world.update(sim_dt)
+            # esper.World.process runs all Processors
+            self.world.process(sim_dt)
 
     def draw(self) -> None:
         """

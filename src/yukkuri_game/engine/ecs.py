@@ -1,182 +1,94 @@
-from typing import Type, TypeVar, Dict, Any, List, Optional
-import uuid
-
-T = TypeVar('T')
+import esper
+from typing import Type, TypeVar, Optional, List, Any, Tuple
 
 class Component:
     """
     Base class for components.
-
-    While not strictly required by this ECS implementation (as any object can be a component),
-    inheriting from this class can provide type safety and structure.
+    Not required by esper, but kept for compatibility with existing code.
     """
     pass
 
+# Wrapper for esper to provide a World class interface
 class World:
     """
-    The main ECS (Entity Component System) World class.
-
-    Manages entities, components, and systems.
-
-    Attributes:
-        _entities (List[int]): A list of active entity IDs.
-        _components (Dict[Type, Dict[int, Any]]): A dictionary storing components,
-            keyed by component type and then by entity ID.
-        _next_entity_id (int): The ID to assign to the next created entity.
-        _systems (List[System]): A list of systems registered to the world.
+    A wrapper around esper module-level functions to provide an object-oriented World interface.
+    This assumes a single world context (global state in esper 3.x).
     """
-
     def __init__(self):
-        """Initializes a new ECS World."""
-        self._entities: List[int] = []
-        self._components: Dict[Type, Dict[int, Any]] = {}
-        self._next_entity_id = 0
-        self._systems = []
+        # In esper 3.x, state is global. To simulate a new world, we clear it.
+        # Note: This prevents multiple worlds existing simultaneously.
+        esper.clear_database()
 
     def create_entity(self) -> int:
-        """
-        Creates a new entity.
+        return esper.create_entity()
 
-        Returns:
-            int: The unique ID of the newly created entity.
-        """
-        entity = self._next_entity_id
-        self._next_entity_id += 1
-        self._entities.append(entity)
-        return entity
+    def delete_entity(self, entity: int) -> None:
+        esper.delete_entity(entity)
 
     def destroy_entity(self, entity: int) -> None:
-        """
-        Destroys an entity and removes all its components.
-
-        Args:
-            entity: The ID of the entity to destroy.
-        """
-        if entity in self._entities:
-            self._entities.remove(entity)
-            for c_type in self._components:
-                if entity in self._components[c_type]:
-                    del self._components[c_type][entity]
+        # Alias for compatibility if needed, though I updated callers to delete_entity mostly.
+        # Check if I missed any destroy_entity calls.
+        esper.delete_entity(entity)
 
     def add_component(self, entity: int, component: Any) -> None:
-        """
-        Adds a component to an entity.
-
-        Args:
-            entity: The ID of the entity.
-            component: The component instance to add.
-        """
-        c_type = type(component)
-        if c_type not in self._components:
-            self._components[c_type] = {}
-        self._components[c_type][entity] = component
+        esper.add_component(entity, component)
 
     def remove_component(self, entity: int, component_type: Type) -> None:
-        """
-        Removes a component of a specific type from an entity.
+        esper.remove_component(entity, component_type)
 
-        Args:
-            entity: The ID of the entity.
-            component_type: The type of component to remove.
-        """
-        if component_type in self._components and entity in self._components[component_type]:
-            del self._components[component_type][entity]
+    def component_for_entity(self, entity: int, component_type: Type) -> Any:
+        return esper.component_for_entity(entity, component_type)
 
-    def get_component(self, entity: int, component_type: Type[T]) -> Optional[T]:
-        """
-        Retrieves a component of a specific type from an entity.
+    def get_component(self, component_type: Type) -> List[Tuple[int, Any]]:
+        # Wrapper to match esper.get_component behavior
+        return esper.get_component(component_type)
 
-        Args:
-            entity: The ID of the entity.
-            component_type: The type of component to retrieve.
-
-        Returns:
-            Optional[T]: The component instance, or None if the entity does not have it.
-        """
-        return self._components.get(component_type, {}).get(entity)
+    def get_components(self, *component_types: Type) -> List[Tuple]: # Variadic
+         # esper 3.x get_components returns (entity, [components...])
+         # We flatten it to (entity, comp1, comp2...) for easier unpacking
+         raw_results = esper.get_components(*component_types)
+         flattened = []
+         for ent, comps in raw_results:
+             flattened.append((ent, *comps))
+         return flattened
 
     def has_component(self, entity: int, component_type: Type) -> bool:
-        """
-        Checks if an entity has a specific component type.
+        return esper.has_component(entity, component_type)
 
-        Args:
-            entity: The ID of the entity.
-            component_type: The type of component to check for.
-
-        Returns:
-            bool: True if the entity has the component, False otherwise.
-        """
-        return entity in self._components.get(component_type, {})
-
-    def get_components(self, component_type: Type[T]) -> Dict[int, T]:
-        """
-        Retrieves all components of a specific type.
-
-        Args:
-            component_type: The type of component to retrieve.
-
-        Returns:
-            Dict[int, T]: A dictionary mapping entity IDs to component instances.
-        """
-        return self._components.get(component_type, {})
-
-    def get_entities_with(self, *component_types: Type) -> List[int]:
-        """
-        Retrieves a list of entity IDs that have all specified component types.
-
-        Args:
-            *component_types: A variable number of component types.
-
-        Returns:
-            List[int]: A list of entity IDs matching the criteria.
-        """
-        if not component_types:
-            return []
-
-        # Start with entities having the first component
-        first_type = component_types[0]
-        entities = set(self._components.get(first_type, {}).keys())
-
-        for c_type in component_types[1:]:
-            entities &= set(self._components.get(c_type, {}).keys())
-
-        return list(entities)
+    def add_processor(self, processor: 'System') -> None:
+        esper.add_processor(processor)
+        # processor.world = self # esper.Processor doesn't seem to have .world attr auto-set in 3.x if using module functions?
+        # Actually if we use module functions, we don't need self.world in processors if we call esper directly.
+        # BUT my code in processors uses self.world.
+        # So I need to inject it.
+        processor.world = self
 
     def add_system(self, system: 'System') -> None:
-        """
-        Adds a system to the world.
+        # Alias for compatibility
+        self.add_processor(system)
 
-        Args:
-            system: The System instance to add.
-        """
-        self._systems.append(system)
+    def process(self, dt: float) -> None:
+        esper.process(dt)
 
-    def update(self, dt: float) -> None:
-        """
-        Updates all systems in the world.
+    def entity_exists(self, entity: int) -> bool:
+        return esper.entity_exists(entity)
 
-        Args:
-            dt: The time elapsed since the last update in seconds.
-        """
-        for system in self._systems:
-            system.update(self, dt)
+    def clear_database(self) -> None:
+        esper.clear_database()
 
-class System:
+    # Compatibility/Extensions
+    @property
+    def _entities(self):
+        # Expose a list of entities. esper._entities is a set of IDs (if it exists) or we can inspect.
+        # esper doesn't expose a simple list of all entities directly in public API.
+        # But for debug HUD we need count.
+        # We can access esper._entities (it is available in dir(esper))
+        return list(esper._entities) if hasattr(esper, '_entities') else []
+
+class System(esper.Processor):
     """
-    Base class for systems in the ECS.
-
-    Systems contain logic that operates on entities with specific components.
+    A wrapper around esper.Processor.
     """
-
-    def update(self, world: World, dt: float) -> None:
-        """
-        Updates the system.
-
-        Args:
-            world: The ECS World instance.
-            dt: The time elapsed since the last update in seconds.
-
-        Raises:
-            NotImplementedError: If the subclass does not implement this method.
-        """
-        raise NotImplementedError
+    def __init__(self):
+        super().__init__()
+        self.world: Optional[World] = None

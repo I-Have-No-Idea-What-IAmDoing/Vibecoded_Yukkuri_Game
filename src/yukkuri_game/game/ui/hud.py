@@ -1,5 +1,5 @@
 import pygame
-from typing import Optional, Callable
+from typing import Optional, Callable, List, Tuple
 import pygame_gui
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox
 from pygame_gui.core import ObjectID
@@ -151,11 +151,11 @@ class HUD:
             self.update_debug_window(dt)
 
         # Check selection
-        selected = self.world.get_entities_with(Selectable)
+        # esper.get_component(Type) returns [(entity, instance), ...]
+        selected: List[Tuple[int, Selectable]] = self.world.get_component(Selectable)
         current_selected = -1
-        for ent in selected:
-            sel = self.world.get_component(ent, Selectable)
-            if sel and sel.selected:
+        for ent, sel in selected:
+            if sel.selected:
                 current_selected = ent
                 break
 
@@ -215,10 +215,18 @@ class HUD:
         Updates the stats text in the selection window.
         """
         text = "Unknown"
-        stats = self.world.get_component(self.selected_entity, YukkuriStats)
+        try:
+            stats = self.world.component_for_entity(self.selected_entity, YukkuriStats)
+        except KeyError:
+            stats = None
+
         if stats:
-            ai_state = self.world.get_component(self.selected_entity, AIState)
-            action = ai_state.current_action if ai_state else "None"
+            try:
+                ai_state = self.world.component_for_entity(self.selected_entity, AIState)
+                action = ai_state.current_action if ai_state else "None"
+            except KeyError:
+                action = "None"
+
             text = (f"<b>Name:</b> {stats.name}<br>"
                     f"<b>Hunger:</b> {int(stats.hunger)}<br>"
                     f"<b>Happiness:</b> {int(stats.happiness)}<br>"
@@ -226,7 +234,11 @@ class HUD:
                     f"<b>Badges:</b> {stats.badges}<br>"
                     f"<b>Action:</b> {action}")
         else:
-            istats = self.world.get_component(self.selected_entity, ItemStats)
+            try:
+                istats = self.world.component_for_entity(self.selected_entity, ItemStats)
+            except KeyError:
+                istats = None
+
             if istats:
                 text = f"<b>Item:</b> {istats.name}<br><b>Val:</b> {istats.cost}"
 
@@ -277,7 +289,12 @@ class HUD:
 
         # Gather debug info
         fps = self.gm.time_elapsed # Placeholder, need actual FPS
-        entity_count = len(self.world._entities) # Accessing private _entities for debug
+        # esper does not expose internal list of entities directly in a public API that is guaranteed to be just a list of IDs in the same way
+        # but it has _entities.
+        # Or we can use get_component(Component) to count.
+        # self.world._entities is available in esper but it's private.
+        # However, looking at esper source, it uses _entities.
+        entity_count = len(self.world._entities)
 
         # We can get FPS from clock if passed, but for now let's show what we have
         debug_text = (
@@ -350,7 +367,10 @@ class HUD:
                     self.selection_window.kill()
                     self.selection_window = None
             elif hasattr(self, 'train_btn') and event.ui_element == self.train_btn:
-                stats = self.world.get_component(self.selected_entity, YukkuriStats)
-                if stats:
-                    stats.badges += 1
-                    stats.happiness += 10
+                try:
+                    stats = self.world.component_for_entity(self.selected_entity, YukkuriStats)
+                    if stats:
+                        stats.badges += 1
+                        stats.happiness += 10
+                except KeyError:
+                    pass
