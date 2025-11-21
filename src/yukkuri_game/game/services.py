@@ -318,3 +318,83 @@ class InputService:
         self._place_type = ""
         self._place_cost = 0
         self._place_entity_type = ""
+
+
+class GameService:
+    """
+    Service providing game-specific logic and utilities.
+    """
+    def __init__(self, world: World):
+        self.world = world
+
+    def find_best_item(self, position: tuple[float, float], item_type_filter: Any = None) -> int:
+        """
+        Finds the best item (closest and relevant) for the entity at the given position.
+
+        Args:
+            position (tuple[float, float]): The (x, y) position of the searching entity.
+            item_type_filter: Optional filter for item types (not fully implemented yet).
+
+        Returns:
+            int: The entity ID of the best item, or -1 if none found.
+        """
+        import math
+        best_dist = float('inf')
+        best_item = -1
+
+        # Assuming ItemStats and Transform are imported or available via world queries
+        # We need to import them inside methods or ensure they are available
+        from .components import Transform
+        from .yukkuri_components import ItemStats
+
+        items = self.world.get_entities_with(ItemStats, Transform)
+
+        for item in items:
+            istats = self.world.get_component(item, ItemStats)
+            itrans = self.world.get_component(item, Transform)
+            if istats and itrans and istats.nutrition > 0:
+                d = math.hypot(itrans.x - position[0], itrans.y - position[1])
+                if d < best_dist:
+                    best_dist = d
+                    best_item = item
+
+        return best_item
+
+    def consume_item(self, consumer_id: int, item_id: int) -> bool:
+        """
+        Handles the logic of a consumer entity consuming an item entity.
+
+        Args:
+            consumer_id (int): The ID of the consumer entity.
+            item_id (int): The ID of the item entity.
+
+        Returns:
+            bool: True if consumption was successful, False otherwise.
+        """
+        from .components import Transform
+        from .yukkuri_components import YukkuriStats, ItemStats, AIState
+
+        if not self.world.entity_exists(consumer_id) or not self.world.entity_exists(item_id):
+            return False
+
+        item_stats = self.world.get_component(item_id, ItemStats)
+        yukkuri_stats = self.world.get_component(consumer_id, YukkuriStats)
+
+        if item_stats and yukkuri_stats:
+            yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
+            yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
+
+            # Destroy the item
+            self.world.destroy_entity(item_id)
+            # Clean up components that might linger if delayed destruction
+            if self.world.has_component(item_id, Transform):
+                self.world.remove_component(item_id, Transform)
+
+            # Update consumer AI state if needed (e.g. reset target)
+            ai = self.world.get_component(consumer_id, AIState)
+            if ai and ai.current_target_id == item_id:
+                ai.current_target_id = -1
+
+            return True
+
+        return False

@@ -60,10 +60,10 @@ class BehaviorSystem(System):
         # For now, let's do a simple cleanup pass or rely on weakrefs if keys allow (ints don't).
 
         # Basic cleanup (naive)
-        # active_entities = set(world.get_entities_with(AIState))
-        # for entity_id in list(self.trees.keys()):
-        #     if entity_id not in active_entities:
-        #         del self.trees[entity_id]
-        # This might be slow if many entities.
-        # Given the current scope, I'll skip aggressive cleanup unless requested,
-        # or do it less frequently. But I'll stick to the original implementation's behavior for now.
+        # We perform cleanup to prevent memory leaks from destroyed entities
+        active_entities = set(world.get_entities_with(AIState))
+        for entity_id in list(self.trees.keys()):
+            if entity_id not in active_entities:
+                # destroy the tree properly? py_trees might have cleanup
+                # For now just remove reference
+                del self.trees[entity_id]

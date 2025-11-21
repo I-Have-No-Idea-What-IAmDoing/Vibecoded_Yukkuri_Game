@@ -10,6 +10,7 @@ class TestBehaviorSystem(unittest.TestCase):
         mock_world = MagicMock()
         ai = AIState()
         mock_world.get_components_tuple.return_value = [(1, (ai,))]
+        mock_world.get_entities_with.return_value = [1] # For cleanup check
 
         # Mock Tree
         mock_root = MagicMock(spec=py_trees.behaviour.Behaviour)
@@ -27,6 +28,9 @@ class TestBehaviorSystem(unittest.TestCase):
 
             mock_create_tree.assert_called_once_with(1, mock_world, 100, 100)
             self.assertIn(1, system.trees)
+            # mock_bt.tick.assert_called_once() # This might be called on the wrapper if it exists or the mock return value
+            # Since we wrap root in BehaviourTree(root), and BehaviourTree(root).tick() is called.
+            # The mock_bt_cls returns mock_bt.
             mock_bt.tick.assert_called_once()
 
             # Second update: Should NOT create tree, just tick

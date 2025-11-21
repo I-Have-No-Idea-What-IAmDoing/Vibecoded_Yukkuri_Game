@@ -7,10 +7,12 @@ from src.yukkuri_game.game.systems.decision import DecisionSystem
 from src.yukkuri_game.game.systems.behavior import BehaviorSystem
 from src.yukkuri_game.game.systems.stat_decay import StatDecaySystem
 from src.yukkuri_game.config import StatDecaySettings
+from src.yukkuri_game.game.services import GameService
 
 @pytest.fixture
 def simulation_world():
     world = World()
+    world.services.register(GameService(world))
 
     # Create Yukkuri
     yukkuri = world.create_entity()
