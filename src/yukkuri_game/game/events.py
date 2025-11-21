@@ -87,3 +87,19 @@ class SellEntityRequest(Event):
         entity_id (int): The ID of the entity to sell.
     """
     entity_id: int
+
+@dataclass(frozen=True)
+class AnimationEvent(Event):
+    """
+    Event published when an animation triggers a specific event.
+
+    Attributes:
+        entity_id (int): The ID of the entity.
+        event_name (str): The name of the trigger event (e.g., "step", "attack_hit").
+        animation_name (str): The name of the animation playing.
+        frame_index (int): The frame index where the event occurred.
+    """
+    entity_id: int
+    event_name: str
+    animation_name: str
+    frame_index: int

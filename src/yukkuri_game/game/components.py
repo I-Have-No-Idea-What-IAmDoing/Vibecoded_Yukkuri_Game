@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 import pymunk
 from ..engine.data_models import AnimationDefinition
 
@@ -84,6 +84,9 @@ class Animator:
     current_frame_index: int = 0
     timer: float = 0.0
     finished: bool = False
+    speed: float = 1.0
+    next_animation: Optional[str] = None
+    forward: bool = True  # Direction for ping-pong loops
 
 @dataclass
 class Selectable:

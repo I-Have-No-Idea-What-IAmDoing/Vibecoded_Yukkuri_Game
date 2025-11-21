@@ -50,6 +50,8 @@ class AnimationDefinition(AnimationDefinitionBase):
     frames: List[int]
     frame_duration: float
     loop: bool = True
+    ping_pong: bool = False
+    events: Dict[int, str] = msgspec.field(default_factory=dict)
     image: Optional[str] = None
     width: Optional[int] = None
     height: Optional[int] = None
