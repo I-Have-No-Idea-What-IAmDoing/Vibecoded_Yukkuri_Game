@@ -3,7 +3,7 @@ from typing import Any
 from typing import Any, Optional, TYPE_CHECKING
 from ..engine.ecs import World
 from .components import Transform, Sprite, Selectable, PhysicsBody
-from .yukkuri_components import YukkuriStats, AIState, ItemStats
+from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop
 
 if TYPE_CHECKING:
     from ..engine.resource_manager import ResourceManager
@@ -147,6 +147,47 @@ class EntityFactory:
             shape.elasticity = 0.5
             shape.friction = 0.5
 
+            self.physics_system.space.add(body, shape)
+            self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
+
+        return entity
+
+    def create_poop(self, x: float, y: float) -> int:
+        """
+        Creates a Poop entity.
+
+        Args:
+            x (float): The x-coordinate.
+            y (float): The y-coordinate.
+
+        Returns:
+            int: The ID of the created entity.
+        """
+        entity = self.world.create_entity()
+
+        self.world.add_component(entity, Transform(x=x, y=y))
+
+        # Use a placeholder image if "poop.png" doesn't exist (handled by Sprite/ResourceManager if robust,
+        # but here we hardcode a name. Assuming asset exists or will fallback)
+        # Ideally this should be in data, but for now hardcoded is fine as per instructions.
+        self.world.add_component(entity, Sprite(
+            image_name="poop.png",
+            width=32,
+            height=32
+        ))
+        self.world.add_component(entity, Selectable())
+        self.world.add_component(entity, Poop())
+
+        # Physics
+        if self.physics_system:
+            mass = 1
+            radius = 10
+            inertia = pymunk.moment_for_circle(mass, 0, radius)
+            body = pymunk.Body(mass, inertia)
+            body.position = x, y
+            shape = pymunk.Circle(body, radius)
+            shape.elasticity = 0.2
+            shape.friction = 0.8
             self.physics_system.space.add(body, shape)
             self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 

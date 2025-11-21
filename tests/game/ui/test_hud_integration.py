@@ -60,7 +60,7 @@ def test_on_entity_selected(hud, mock_world):
 
     assert hud.selected_entities == [10]
     hud.events.set_selected_entities.assert_called_with([10])
-    hud.layout.create_selection_window.assert_called_with(True)
+    hud.layout.create_selection_window.assert_called_with(True, 1)
 
 def test_on_entity_selected_none(hud):
     event = EntitySelectedEvent(entity_ids=[])

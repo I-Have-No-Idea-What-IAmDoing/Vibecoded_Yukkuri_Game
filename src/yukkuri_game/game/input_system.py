@@ -3,8 +3,9 @@ from typing import Optional, TYPE_CHECKING
 from ..engine.ecs import System, World
 from ..engine.event_bus import EventBus
 from ..engine.audio import AudioManager
-from .events import PlacementStartedEvent, EntitySelectedEvent, PlacementRequestedEvent, PlacementCancelledEvent
+from .events import PlacementStartedEvent, EntitySelectedEvent, PlacementRequestedEvent, PlacementCancelledEvent, CleanToolRequestedEvent
 from .components import Transform, Selectable
+from .yukkuri_components import Poop
 from .services import InputService
 
 if TYPE_CHECKING:
@@ -48,6 +49,16 @@ class InputSystem(System):
         if self.input_service:
             self.input_service.start_placement(event.type_id, event.cost, event.entity_type)
 
+    def on_clean_tool_requested(self, event: CleanToolRequestedEvent) -> None:
+        """
+        Handles the CleanToolRequestedEvent.
+
+        Args:
+            event (CleanToolRequestedEvent): The clean tool requested event.
+        """
+        if self.input_service:
+            self.input_service.start_cleaning()
+
     def update(self, world: World, dt: float) -> None:
         """
         Updates the input system.
@@ -62,6 +73,7 @@ class InputSystem(System):
         if self.event_bus is None:
             self.event_bus = world.services.get(EventBus)
             self.event_bus.subscribe(PlacementStartedEvent, self.on_placement_started)
+            self.event_bus.subscribe(CleanToolRequestedEvent, self.on_clean_tool_requested)
         if self.audio is None:
             self.audio = world.services.try_get(AudioManager)
 
@@ -108,6 +120,10 @@ class InputSystem(System):
                     self.input_service.cancel_placement()
                     return
 
+                if self.input_service and self.input_service.is_cleaning:
+                    self._handle_cleaning(world, wx, wy)
+                    return
+
                 if self.audio:
                     self.audio.play_sound("click")
 
@@ -118,13 +134,18 @@ class InputSystem(System):
                 if self.input_service:
                     self.input_service.selection_rect = pygame.Rect(mx, my, 0, 0) # Use screen coords for rect
 
-            elif event.button == 3: # Right Click cancels placement
+            elif event.button == 3: # Right Click cancels placement/cleaning
                 if self.input_service and self.input_service.is_placing:
                     if self.audio:
                         self.audio.play_sound("cancel")
                     self.input_service.cancel_placement()
                     if self.event_bus:
                         self.event_bus.publish(PlacementCancelledEvent())
+
+                if self.input_service and self.input_service.is_cleaning:
+                    if self.audio:
+                        self.audio.play_sound("cancel")
+                    self.input_service.stop_cleaning()
 
         elif event.type == pygame.MOUSEMOTION:
             if self.drag_start_pos:
@@ -256,3 +277,30 @@ class InputSystem(System):
 
         if self.event_bus:
             self.event_bus.publish(EntitySelectedEvent(final_selection))
+
+    def _handle_cleaning(self, world: World, wx: float, wy: float) -> None:
+        """
+        Handles logic when clicking in cleaning mode.
+        """
+        click_radius = 32.0
+        # Find Poop entities near click
+        # Optimization: Spatial query if available, else iterate Poop entities
+        poop_entities = world.get_entities_with(Poop, Transform)
+
+        found = False
+        for entity in poop_entities:
+            transform = world.get_component(entity, Transform)
+            dist = ((transform.x - wx)**2 + (transform.y - wy)**2)**0.5
+            if dist < click_radius:
+                # Clean it
+                world.destroy_entity(entity)
+                found = True
+                # We can clean multiple if stacked, or just one. Let's clean all in radius.
+
+        if found:
+            if self.audio:
+                self.audio.play_sound("click") # Or a cleaning sound if available
+        else:
+             # If nothing found, maybe stop cleaning? Or just allow clicking around.
+             # Let's keep cleaning mode active until right click or button press.
+             pass

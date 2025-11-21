@@ -10,7 +10,7 @@ from ..yukkuri_components import AIState, ItemStats, YukkuriStats
 from .navigation_service import NavigationService
 from .steering import Steering
 from ..services import GameService
-from ..config import GameConfig
+from ...config import GameConfig
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
