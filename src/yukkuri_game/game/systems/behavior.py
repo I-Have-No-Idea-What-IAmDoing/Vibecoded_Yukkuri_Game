@@ -59,11 +59,11 @@ class BehaviorSystem(System):
         # Cleanup logic could be here or in a separate cleanup method.
         # For now, let's do a simple cleanup pass or rely on weakrefs if keys allow (ints don't).
 
-        # Basic cleanup (naive)
-        # We perform cleanup to prevent memory leaks from destroyed entities
-        active_entities = set(world.get_entities_with(AIState))
+        # Robust cleanup
+        # We perform cleanup to prevent memory leaks from destroyed entities or entities that lost AIState
+        # We iterate over existing trees and check if the entity still has AIState component.
         for entity_id in list(self.trees.keys()):
-            if entity_id not in active_entities:
+            if not world.entity_exists(entity_id) or not world.has_component(entity_id, AIState):
                 # destroy the tree properly? py_trees might have cleanup
                 # For now just remove reference
                 del self.trees[entity_id]
