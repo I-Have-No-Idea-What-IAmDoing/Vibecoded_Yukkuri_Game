@@ -1,5 +1,6 @@
 import pygame
 import pygame_gui
+from typing import Optional
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox
 
 class HudLayout:
@@ -41,31 +42,31 @@ class HudLayout:
         self.height = height
 
         # Elements
-        self.top_panel = None
-        self.money_label = None
-        self.time_label = None
-        self.save_btn = None
-        self.load_btn = None
-        self.pause_btn = None
-        self.speed_btn = None
-        self.bottom_panel = None
-        self.add_reimu_btn = None
-        self.add_cookie_btn = None
+        self.top_panel: Optional[UIPanel] = None
+        self.money_label: Optional[UILabel] = None
+        self.time_label: Optional[UILabel] = None
+        self.save_btn: Optional[UIButton] = None
+        self.load_btn: Optional[UIButton] = None
+        self.pause_btn: Optional[UIButton] = None
+        self.speed_btn: Optional[UIButton] = None
+        self.bottom_panel: Optional[UIPanel] = None
+        self.add_reimu_btn: Optional[UIButton] = None
+        self.add_cookie_btn: Optional[UIButton] = None
 
         # Selection Window Elements
-        self.selection_window = None
-        self.info_label = None
-        self.sell_btn = None
-        self.train_btn = None
+        self.selection_window: Optional[UIWindow] = None
+        self.info_label: Optional[UITextBox] = None
+        self.sell_btn: Optional[UIButton] = None
+        self.train_btn: Optional[UIButton] = None
 
         # Debug Window Elements
-        self.debug_window = None
-        self.debug_text_box = None
+        self.debug_window: Optional[UIWindow] = None
+        self.debug_text_box: Optional[UITextBox] = None
 
         self._create_top_bar()
         self._create_bottom_bar()
 
-    def _create_top_bar(self):
+    def _create_top_bar(self) -> None:
         """
         Creates the top UI panel and its children.
         """
@@ -116,7 +117,7 @@ class HudLayout:
             container=self.top_panel
         )
 
-    def _create_bottom_bar(self):
+    def _create_bottom_bar(self) -> None:
         """
         Creates the bottom UI panel and its children.
         """
@@ -139,7 +140,7 @@ class HudLayout:
             container=self.bottom_panel
         )
 
-    def create_selection_window(self, has_stats: bool):
+    def create_selection_window(self, has_stats: bool) -> None:
         """
         Creates or recreates the selection window.
 
@@ -177,7 +178,7 @@ class HudLayout:
                 container=self.selection_window
             )
 
-    def close_selection_window(self):
+    def close_selection_window(self) -> None:
         """
         Closes and cleans up the selection window.
         """
@@ -188,7 +189,7 @@ class HudLayout:
             self.sell_btn = None
             self.train_btn = None
 
-    def create_debug_window(self):
+    def create_debug_window(self) -> None:
         """
         Creates the debug window.
         """
@@ -210,7 +211,7 @@ class HudLayout:
             anchors={'top': 'top', 'bottom': 'bottom', 'left': 'left', 'right': 'right'}
         )
 
-    def close_debug_window(self):
+    def close_debug_window(self) -> None:
         """
         Closes the debug window.
         """

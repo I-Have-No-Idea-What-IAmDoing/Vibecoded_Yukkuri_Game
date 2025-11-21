@@ -1,6 +1,13 @@
 import pygame
+from typing import Optional, Any, TYPE_CHECKING
 from ..engine.ecs import System, World
 from .components import Transform, Selectable
+
+if TYPE_CHECKING:
+    from .yukkurrium import Yukkurrium
+    from .game_manager import GameManager
+    from .entity_factory import EntityFactory
+    import pygame_gui
 
 class InputSystem(System):
     """
@@ -18,7 +25,7 @@ class InputSystem(System):
         factory (EntityFactory): Reference to the EntityFactory.
     """
 
-    def __init__(self, yukkurrium):
+    def __init__(self, yukkurrium: 'Yukkurrium'):
         """
         Initializes the InputSystem.
 
@@ -27,13 +34,13 @@ class InputSystem(System):
         """
         self.yukkurrium = yukkurrium
         self.placing_mode = False
-        self.place_type = None
+        self.place_type: Optional[str] = None
         self.place_cost = 0
-        self.place_entity_type = None # "yukkuri" or "item"
-        self.gm = None
-        self.factory = None
+        self.place_entity_type: Optional[str] = None # "yukkuri" or "item"
+        self.gm: Optional['GameManager'] = None
+        self.factory: Optional['EntityFactory'] = None
 
-    def start_placement(self, type_id: str, cost: int, entity_type: str, gm, factory) -> None:
+    def start_placement(self, type_id: str, cost: int, entity_type: str, gm: 'GameManager', factory: 'EntityFactory') -> None:
         """
         Enters placement mode for a specific entity.
 
@@ -63,7 +70,7 @@ class InputSystem(System):
         """
         pass
 
-    def handle_event(self, event: pygame.event.Event, world: World, screen_w: int, screen_h: int, ui_manager=None) -> None:
+    def handle_event(self, event: pygame.event.Event, world: World, screen_w: int, screen_h: int, ui_manager: Optional['pygame_gui.UIManager'] = None) -> None:
         """
         Handles a single Pygame event.
 
@@ -134,9 +141,10 @@ class InputSystem(System):
             wx: The world x-coordinate.
             wy: The world y-coordinate.
         """
-        if self.gm.money >= self.place_cost:
-            self.gm.money -= self.place_cost
-            if self.place_entity_type == "yukkuri":
-                self.factory.create_yukkuri(self.place_type, wx, wy)
-            elif self.place_entity_type == "item":
-                self.factory.create_item(self.place_type, wx, wy)
+        if self.gm and self.factory and self.place_type:
+            if self.gm.money >= self.place_cost:
+                self.gm.money -= self.place_cost
+                if self.place_entity_type == "yukkuri":
+                    self.factory.create_yukkuri(self.place_type, wx, wy)
+                elif self.place_entity_type == "item":
+                    self.factory.create_item(self.place_type, wx, wy)

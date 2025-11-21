@@ -1,10 +1,13 @@
 import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
 from loguru import logger
 from ..engine.ecs import World
 from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats
+
+if TYPE_CHECKING:
+    from .entity_factory import EntityFactory
 
 class GameManager:
     """
@@ -18,7 +21,7 @@ class GameManager:
         save_dir (str): Directory where save files are stored.
     """
 
-    def __init__(self, world: World, entity_factory):
+    def __init__(self, world: World, entity_factory: 'EntityFactory'):
         """
         Initializes the GameManager.
 
@@ -92,7 +95,7 @@ class GameManager:
         Args:
             filename: The name of the save file. Defaults to "savegame.json".
         """
-        data: dict[str, int | float | list] = {
+        data: dict[str, int | float | list[Any]] = {
             "money": self.money,
             "time": self.time_elapsed,
             "entities": []

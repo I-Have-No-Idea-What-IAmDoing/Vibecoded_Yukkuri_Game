@@ -120,7 +120,7 @@ class UtilityAIEngine:
         actions (Dict[str, Action]): A dictionary of available actions.
     """
 
-    def __init__(self, resource_manager):
+    def __init__(self, resource_manager: Any) -> None:
         """
         Initializes the UtilityAIEngine.
 

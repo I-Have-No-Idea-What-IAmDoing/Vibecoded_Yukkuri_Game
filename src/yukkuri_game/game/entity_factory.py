@@ -1,8 +1,13 @@
 import pymunk
 from typing import Any
+from typing import Any, Optional, TYPE_CHECKING
 from ..engine.ecs import World
 from .components import Transform, Sprite, Selectable, PhysicsBody
 from .yukkuri_components import YukkuriStats, AIState, ItemStats
+
+if TYPE_CHECKING:
+    from ..engine.resource_manager import ResourceManager
+    from .systems.physics import PhysicsSystem
 
 class EntityFactory:
     """
@@ -16,7 +21,7 @@ class EntityFactory:
         physics_system (PhysicsSystem): The physics system instance, used to add bodies to the space.
     """
 
-    def __init__(self, world: World, resource_manager, physics_system=None):
+    def __init__(self, world: World, resource_manager: 'ResourceManager', physics_system: Optional['PhysicsSystem'] = None):
         """
         Initializes the EntityFactory.
 

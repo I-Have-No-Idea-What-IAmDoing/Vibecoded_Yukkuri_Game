@@ -62,7 +62,11 @@ class ResourceManager:
 
             decoded = msgspec.toml.decode(data, type=model)
             logger.info(f"Loaded TOML: {filepath}")
-            return decoded
+            # We know decoded matches type=model, but mypy sees decode return as Any
+            # because of the msgspec issues we saw earlier or because decode is generic
+            # and sometimes returns Any if type is not fully known.
+            # Since we pass `type=model`, msgspec returns an instance of `model` (T).
+            return decoded  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Failed to load TOML {filepath}: {e}")
             return None

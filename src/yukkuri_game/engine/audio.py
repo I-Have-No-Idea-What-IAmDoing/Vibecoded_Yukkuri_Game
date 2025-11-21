@@ -13,7 +13,7 @@ class AudioManager:
         volume (float): The global volume level (0.0 to 1.0).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the AudioManager.
 
@@ -26,7 +26,7 @@ class AudioManager:
             logger.warning(f"Audio initialization failed (likely no device): {e}")
             self.enabled = False
 
-        self.sounds = {}
+        self.sounds: dict[str, pygame.mixer.Sound] = {}
         self.music = None
         self.volume = 0.5
 
