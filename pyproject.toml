@@ -13,10 +13,11 @@ dependencies = [
     "py_trees>=2.2.3",
     "pymunk>=6.6.0",
     "esper>=3.0",
+    "msgspec>=0.19.0",
 ]
 
-[dependency-groups.dev]
-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=7.0",
 ]
 
