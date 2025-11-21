@@ -74,12 +74,13 @@ class GameManager:
         """
         self.world.services.get(EconomyService).set_money(value)
 
-    def calculate_quality_score(self, yukkuri_stats: YukkuriStats) -> int:
+    def calculate_quality_score(self, yukkuri_stats: YukkuriStats, update_stats: bool = False) -> int:
         """
         Calculates the quality score (value) of a Yukkuri.
 
         Args:
             yukkuri_stats (YukkuriStats): The stats component of the Yukkuri.
+            update_stats (bool): Whether to update the stats with the calculated score.
 
         Returns:
             int: The calculated value in money.
@@ -100,7 +101,8 @@ class GameManager:
         # Age bonus
         score += int(yukkuri_stats.age / 60) * 10 # 10 points per minute alive
 
-        yukkuri_stats.quality_score = score
+        if update_stats:
+            yukkuri_stats.quality_score = score
         return int(score)
 
     def sell_yukkuri(self, entity: int) -> int:
