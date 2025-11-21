@@ -76,6 +76,19 @@ def test_handle_input_pan(yukkurrium):
         assert yukkurrium.camera_x == initial_cam_x - 10
         assert yukkurrium.camera_y == initial_cam_y - 20
 
+def test_handle_input_other(yukkurrium):
+    # Test other events are ignored
+    event = MagicMock()
+    event.type = pygame.KEYDOWN
+
+    initial_zoom = yukkurrium.target_zoom
+    initial_cam_x = yukkurrium.camera_x
+
+    yukkurrium.handle_input(event, 800, 600)
+
+    assert yukkurrium.target_zoom == initial_zoom
+    assert yukkurrium.camera_x == initial_cam_x
+
 def test_update_zoom_smoothing(yukkurrium):
     yukkurrium.zoom = 1.0
     yukkurrium.target_zoom = 2.0
@@ -108,19 +121,17 @@ def test_render_system_update():
 
     # RenderSystem takes screen and world, fetches yukkurrium and rm from world services
     world = MagicMock()
-    world.services.get.side_effect = lambda service_type: yukkurrium if service_type == Yukkurrium else (rm if service_type == MagicMock else rm)
-
-    # Since we need to pass classes to get, and in test we used MagicMock for rm, we need to align.
-    # The actual code uses world.services.get(ResourceManager) and world.services.get(Yukkurrium)
-    # So we need to set up the mock world services correctly.
-
+    # Mock services.get behavior for multiple types
     from yukkuri_game.engine.resource_manager import ResourceManager
 
-    services_map = {
-        Yukkurrium: yukkurrium,
-        ResourceManager: rm
-    }
-    world.services.get.side_effect = lambda t: services_map.get(t)
+    def get_service(service_type):
+        if service_type == Yukkurrium:
+            return yukkurrium
+        if service_type == ResourceManager:
+            return rm
+        return None
+
+    world.services.get.side_effect = get_service
 
     rs = RenderSystem(screen, world)
 
@@ -185,11 +196,15 @@ def test_render_system_update_scaling_and_culling():
 
         world = MagicMock()
         from yukkuri_game.engine.resource_manager import ResourceManager
-        services_map = {
-            Yukkurrium: yukkurrium,
-            ResourceManager: rm
-        }
-        world.services.get.side_effect = lambda t: services_map.get(t)
+
+        def get_service(service_type):
+            if service_type == Yukkurrium:
+                return yukkurrium
+            if service_type == ResourceManager:
+                return rm
+            return None
+
+        world.services.get.side_effect = get_service
 
         rs = RenderSystem(screen, world)
 
@@ -237,11 +252,15 @@ def test_render_system_update_culling():
 
     world = MagicMock()
     from yukkuri_game.engine.resource_manager import ResourceManager
-    services_map = {
-        Yukkurrium: yukkurrium,
-        ResourceManager: rm
-    }
-    world.services.get.side_effect = lambda t: services_map.get(t)
+
+    def get_service(service_type):
+        if service_type == Yukkurrium:
+            return yukkurrium
+        if service_type == ResourceManager:
+            return rm
+        return None
+
+    world.services.get.side_effect = get_service
 
     rs = RenderSystem(screen, world)
 
@@ -271,11 +290,15 @@ def test_render_system_update_invalid_size():
 
     world = MagicMock()
     from yukkuri_game.engine.resource_manager import ResourceManager
-    services_map = {
-        Yukkurrium: yukkurrium,
-        ResourceManager: rm
-    }
-    world.services.get.side_effect = lambda t: services_map.get(t)
+
+    def get_service(service_type):
+        if service_type == Yukkurrium:
+            return yukkurrium
+        if service_type == ResourceManager:
+            return rm
+        return None
+
+    world.services.get.side_effect = get_service
 
     rs = RenderSystem(screen, world)
 
@@ -301,11 +324,15 @@ def test_render_system_missing_components():
 
     world = MagicMock()
     from yukkuri_game.engine.resource_manager import ResourceManager
-    services_map = {
-        Yukkurrium: yukkurrium,
-        ResourceManager: rm
-    }
-    world.services.get.side_effect = lambda t: services_map.get(t)
+
+    def get_service(service_type):
+        if service_type == Yukkurrium:
+            return yukkurrium
+        if service_type == ResourceManager:
+            return rm
+        return None
+
+    world.services.get.side_effect = get_service
 
     rs = RenderSystem(screen, world)
 
@@ -320,8 +347,6 @@ def test_render_system_missing_components():
         # The sort calls get_component(e, Transform)
         # The loop also calls get_component(e, Transform) and get_component(e, Sprite)
         # We want the sort to succeed, but the loop check to fail.
-        # Since we can't easily distinguish the caller, we can use a counter or state.
-        # Or we can just return Transform but return None for Sprite.
         if c == Transform:
             return transform
         if c == Sprite:
