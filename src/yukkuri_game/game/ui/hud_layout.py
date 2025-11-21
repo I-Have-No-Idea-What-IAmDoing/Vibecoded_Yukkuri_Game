@@ -165,12 +165,13 @@ class HudLayout:
             self.buy_buttons[btn] = {"type_id": type_id, "category": "item", "cost": cost, "name": name}
             x_offset += btn_width + spacing
 
-    def create_selection_window(self, has_stats: bool) -> None:
+    def create_selection_window(self, has_stats: bool, selection_count: int = 1) -> None:
         """
         Creates or recreates the selection window.
 
         Args:
             has_stats (bool): True if the selected entity has stats (is a Yukkuri), False otherwise.
+            selection_count (int): The number of selected entities. Defaults to 1.
         """
         self.close_selection_window()
 
@@ -190,15 +191,18 @@ class HudLayout:
         )
 
         if has_stats:
+            sell_text = "Sell All" if selection_count > 1 else "Sell"
+            train_text = "Train All (+Badge)" if selection_count > 1 else "Train (+Badge)"
+
             self.sell_btn = UIButton(
                 relative_rect=pygame.Rect(10, 220, 290, 40),
-                text="Sell",
+                text=sell_text,
                 manager=self.manager,
                 container=self.selection_window
             )
             self.train_btn = UIButton(
                 relative_rect=pygame.Rect(10, 270, 290, 40),
-                text="Train (+Badge)",
+                text=train_text,
                 manager=self.manager,
                 container=self.selection_window
             )

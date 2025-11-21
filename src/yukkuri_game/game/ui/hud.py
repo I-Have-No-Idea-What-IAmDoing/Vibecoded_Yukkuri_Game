@@ -122,7 +122,7 @@ class HUD:
         elif len(self.selected_entities) == 1:
             entity_id = self.selected_entities[0]
             has_stats = self.world.has_component(entity_id, YukkuriStats)
-            self.layout.create_selection_window(has_stats)
+            self.layout.create_selection_window(has_stats, 1)
         else:
             # Multiple selection
             # Check if all have stats or mixed?
@@ -131,7 +131,7 @@ class HUD:
             # but if all are yukkuris we can show bulk actions.
 
             all_yukkuris = all(self.world.has_component(eid, YukkuriStats) for eid in self.selected_entities)
-            self.layout.create_selection_window(all_yukkuris) # Pass True if we want to show buttons for bulk actions
+            self.layout.create_selection_window(all_yukkuris, len(self.selected_entities)) # Pass True if we want to show buttons for bulk actions
 
     def toggle_debug(self) -> None:
         """

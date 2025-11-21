@@ -69,7 +69,21 @@ class HudRenderer:
         text = "Unknown"
 
         if len(selected_entities) > 1:
-            text = f"<b>{len(selected_entities)} entities selected</b>"
+            yukkuris = 0
+            items = 0
+            for eid in selected_entities:
+                if self.world.has_component(eid, YukkuriStats):
+                    yukkuris += 1
+                elif self.world.has_component(eid, ItemStats):
+                    items += 1
+
+            summary = []
+            if yukkuris > 0:
+                summary.append(f"{yukkuris} Yukkuri{'s' if yukkuris > 1 else ''}")
+            if items > 0:
+                summary.append(f"{items} Item{'s' if items > 1 else ''}")
+
+            text = f"<b>Selection:</b><br>" + ", ".join(summary)
         elif len(selected_entities) == 1:
             selected_entity = selected_entities[0]
             stats = self.world.get_component(selected_entity, YukkuriStats)
