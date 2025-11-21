@@ -8,6 +8,11 @@ class DecisionSystem(System):
     System responsible for AI decision making using Utility AI.
 
     Runs periodically to update the current action of entities.
+
+    Attributes:
+        ai_engine (UtilityAIEngine): The UtilityAIEngine instance.
+        decision_interval (float): Time in seconds between AI decisions.
+        timer (float): Timer to track time since last decision.
     """
 
     def __init__(self, ai_engine: UtilityAIEngine, decision_interval: float = 1.0):
@@ -15,8 +20,8 @@ class DecisionSystem(System):
         Initializes the DecisionSystem.
 
         Args:
-            ai_engine: The UtilityAIEngine instance.
-            decision_interval: Time in seconds between AI decisions.
+            ai_engine (UtilityAIEngine): The UtilityAIEngine instance.
+            decision_interval (float): Time in seconds between AI decisions. Defaults to 1.0.
         """
         self.ai_engine = ai_engine
         self.decision_interval = decision_interval
@@ -27,8 +32,8 @@ class DecisionSystem(System):
         Updates the decision timer and triggers AI decisions.
 
         Args:
-            world: The ECS World.
-            dt: Delta time.
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         self.timer += dt
         if self.timer >= self.decision_interval:
@@ -38,6 +43,9 @@ class DecisionSystem(System):
     def make_decisions(self, world: World) -> None:
         """
         Runs the utility AI for all eligible entities.
+
+        Args:
+            world (World): The ECS World.
         """
         for entity, (stats, ai) in world.get_components_tuple(YukkuriStats, AIState):
             context = {

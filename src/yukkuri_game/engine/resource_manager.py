@@ -30,8 +30,8 @@ class ResourceManager:
         Initializes the ResourceManager.
 
         Args:
-            data_dir: The directory path for data files. Defaults to "data".
-            assets_dir: The directory path for asset files. Defaults to "assets".
+            data_dir (str): The directory path for data files. Defaults to "data".
+            assets_dir (str): The directory path for asset files. Defaults to "assets".
         """
         self.data_dir = data_dir
         self.assets_dir = assets_dir
@@ -49,11 +49,11 @@ class ResourceManager:
         Loads a TOML file relative to the data directory and parses it into a msgspec Struct.
 
         Args:
-            filepath: The relative path to the TOML file within the data directory.
-            model: The msgspec.Struct type to parse into.
+            filepath (str): The relative path to the TOML file within the data directory.
+            model (Type[T]): The msgspec.Struct type to parse into.
 
         Returns:
-            T: The parsed data object, or None if loading fails.
+            T | None: The parsed data object, or None if loading fails.
         """
         full_path = os.path.join(self.data_dir, filepath)
         try:
@@ -79,7 +79,7 @@ class ResourceManager:
         If the file is missing, a placeholder surface is returned.
 
         Args:
-            filename: The filename of the image to load.
+            filename (str): The filename of the image to load.
 
         Returns:
             pygame.Surface: The loaded image surface or a placeholder.

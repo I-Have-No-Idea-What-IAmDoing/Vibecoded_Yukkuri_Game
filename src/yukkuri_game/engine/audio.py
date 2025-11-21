@@ -8,7 +8,7 @@ class AudioManager:
 
     Attributes:
         enabled (bool): Whether audio is enabled (initialized successfully).
-        sounds (dict): A dictionary mapping sound names to pygame.mixer.Sound objects.
+        sounds (dict[str, pygame.mixer.Sound]): A dictionary mapping sound names to pygame.mixer.Sound objects.
         music (pygame.mixer.Music): The current background music (not currently used).
         volume (float): The global volume level (0.0 to 1.0).
     """
@@ -35,8 +35,8 @@ class AudioManager:
         Loads a sound effect from a file.
 
         Args:
-            name: The name to assign to the sound.
-            filepath: The path to the sound file.
+            name (str): The name to assign to the sound.
+            filepath (str): The path to the sound file.
         """
         if not self.enabled:
             return
@@ -53,7 +53,7 @@ class AudioManager:
         Plays a loaded sound effect.
 
         Args:
-            name: The name of the sound to play.
+            name (str): The name of the sound to play.
         """
         if not self.enabled:
             return
@@ -66,7 +66,7 @@ class AudioManager:
         Sets the global volume for all sounds.
 
         Args:
-            volume: The volume level between 0.0 (mute) and 1.0 (max).
+            volume (float): The volume level between 0.0 (mute) and 1.0 (max).
         """
         self.volume = max(0.0, min(1.0, volume))
         for s in self.sounds.values():

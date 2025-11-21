@@ -5,6 +5,9 @@ from ...config import StatDecaySettings
 class StatDecaySystem(System):
     """
     System responsible for decaying Yukkuri stats over time.
+
+    Attributes:
+        settings (StatDecaySettings): The configuration settings for decay rates.
     """
 
     def __init__(self, settings: StatDecaySettings | None = None):
@@ -12,7 +15,7 @@ class StatDecaySystem(System):
         Initializes the StatDecaySystem.
 
         Args:
-            settings: Stat decay settings configuration.
+            settings (StatDecaySettings | None): Stat decay settings configuration.
         """
         self.settings = settings if settings is not None else StatDecaySettings()
 
@@ -21,8 +24,8 @@ class StatDecaySystem(System):
         Decays stats for all entities with YukkuriStats component.
 
         Args:
-            world: The ECS World.
-            dt: Delta time.
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         # Iterate over entities with YukkuriStats
         # Note: unpack the tuple returned by get_components_tuple

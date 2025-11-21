@@ -10,9 +10,13 @@ class ServiceLocator:
     """
     A simple service locator registry.
     Allows registering and retrieving service instances by their class type.
+
+    Attributes:
+        _services (Dict[Type[Any], Any]): A dictionary mapping service types to service instances.
     """
 
     def __init__(self) -> None:
+        """Initializes the ServiceLocator."""
         self._services: Dict[Type[Any], Any] = {}
 
     def register(self, instance: Any, service_type: Optional[Type[Any]] = None, replace: bool = False) -> None:
@@ -20,9 +24,9 @@ class ServiceLocator:
         Registers a service instance.
 
         Args:
-            instance: The service instance to register.
-            service_type: The type key to use for registration. If None, the instance's type is used.
-            replace: If True, allows overwriting an existing service of the same type.
+            instance (Any): The service instance to register.
+            service_type (Optional[Type[Any]]): The type key to use for registration. If None, the instance's type is used.
+            replace (bool): If True, allows overwriting an existing service of the same type.
 
         Raises:
             ValueError: If the service is already registered and replace is False.
@@ -39,10 +43,10 @@ class ServiceLocator:
         Retrieves a service instance by its type.
 
         Args:
-            service_type: The type of the service to retrieve.
+            service_type (Type[T]): The type of the service to retrieve.
 
         Returns:
-            The registered service instance.
+            T: The registered service instance.
 
         Raises:
             ServiceNotFoundError: If the service is not registered.
@@ -57,9 +61,9 @@ class ServiceLocator:
         Tries to retrieve a service instance by its type.
 
         Args:
-            service_type: The type of the service to retrieve.
+            service_type (Type[T]): The type of the service to retrieve.
 
         Returns:
-            The registered service instance, or None if not found.
+            Optional[T]: The registered service instance, or None if not found.
         """
         return self._services.get(service_type) # type: ignore
