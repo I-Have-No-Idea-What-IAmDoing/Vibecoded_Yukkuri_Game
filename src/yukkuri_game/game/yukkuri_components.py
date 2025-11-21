@@ -28,6 +28,7 @@ class YukkuriStats:
     max_health: float = 100.0
     hunger: float = 0.0      # 0 = full, 100 = starving
     happiness: float = 50.0  # 0 = sad, 100 = happy
+    energy: float = 100.0    # 0 = exhausted, 100 = full energy
     cleanliness: float = 100.0
     age: float = 0.0         # In game seconds/ticks
     growth_stage: str = "Baby" # Baby, Child, Adult

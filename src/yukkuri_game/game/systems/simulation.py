@@ -58,12 +58,14 @@ class YukkuriAISystem(System):
                 # Decay stats
                 stats.hunger += 2.0 * dt
                 stats.happiness -= 0.5 * dt
+                stats.energy -= 0.5 * dt
                 stats.age += dt
                 stats.cleanliness -= 0.2 * dt
 
                 # Clamp
                 stats.hunger = min(100, max(0, stats.hunger))
                 stats.happiness = min(100, max(0, stats.happiness))
+                stats.energy = min(100, max(0, stats.energy))
 
                 # AI Decision Making
                 if self.timer >= self.decision_interval:
@@ -72,7 +74,7 @@ class YukkuriAISystem(System):
                         "happiness": stats.happiness,
                         "happiness_inv": 100 - stats.happiness,
                         "cleanliness": stats.cleanliness,
-                        "energy_inv": 0,
+                        "energy_inv": 100 - stats.energy,
                         "constant_100": 100
                     }
 
