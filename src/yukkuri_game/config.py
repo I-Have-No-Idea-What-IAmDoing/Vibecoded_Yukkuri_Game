@@ -39,14 +39,35 @@ class StatDecaySettings(msgspec.Struct):
     cleanliness: float = 0.2
     age: float = 1.0
 
+class LifecycleSettings(msgspec.Struct):
+    """
+    Configuration settings for lifecycle events (birth, growth, death).
+
+    Attributes:
+        baby_age_threshold (float): Age until becoming a child.
+        child_age_threshold (float): Age until becoming an adult.
+        breeding_happiness_threshold (float): Happiness required to breed.
+        breeding_energy_threshold (float): Energy required to breed.
+        breeding_cost (float): Energy cost of breeding.
+        breeding_chance (float): Probability of breeding per tick if conditions met.
+    """
+    baby_age_threshold: float = 100.0
+    child_age_threshold: float = 300.0
+    breeding_happiness_threshold: float = 80.0
+    breeding_energy_threshold: float = 80.0
+    breeding_cost: float = 50.0
+    breeding_chance: float = 0.001
+
 class RulesFile(msgspec.Struct):
     """
     Represents the structure of the rules.toml file.
 
     Attributes:
         stat_decay (StatDecaySettings): The stat decay configuration.
+        lifecycle (LifecycleSettings): The lifecycle configuration.
     """
     stat_decay: StatDecaySettings = msgspec.field(default_factory=StatDecaySettings)
+    lifecycle: LifecycleSettings = msgspec.field(default_factory=LifecycleSettings)
 
 class GameConfig(msgspec.Struct):
     """
