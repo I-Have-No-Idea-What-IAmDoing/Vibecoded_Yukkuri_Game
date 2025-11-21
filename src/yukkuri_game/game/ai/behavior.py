@@ -9,6 +9,7 @@ from ..components import Transform, PhysicsBody, Velocity
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats
 from ..ai.pathfinding import Pathfinding
 from ..services import GameService
+from ..config import GameConfig
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -119,7 +120,17 @@ class MoveToTarget(Action):
              if math.hypot(target_pos[0] - trans.x, target_pos[1] - trans.y) < 15.0:
                  return Status.SUCCESS
 
-             ai.path = Pathfinding.find_path((trans.x, trans.y), target_pos, 3000, 3000) # Using hardcoded world size for now or need to pass it
+             game_config = self.world.services.try_get(GameConfig)
+             world_width = 3000
+             world_height = 3000
+             grid_step_size = 50
+
+             if game_config:
+                 world_width = game_config.world.width
+                 world_height = game_config.world.height
+                 grid_step_size = game_config.world.grid_step_size
+
+             ai.path = Pathfinding.find_path((trans.x, trans.y), target_pos, world_width, world_height, grid_step_size)
              if not ai.path:
                  return Status.FAILURE
 

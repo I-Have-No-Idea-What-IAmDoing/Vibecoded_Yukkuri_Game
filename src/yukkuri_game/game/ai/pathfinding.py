@@ -56,7 +56,7 @@ class Pathfinding:
         return valid
 
     @staticmethod
-    def find_path(start: Tuple[float, float], goal: Tuple[float, float], grid_w: float, grid_h: float) -> List[Tuple[float, float]]:
+    def find_path(start: Tuple[float, float], goal: Tuple[float, float], grid_w: float, grid_h: float, step: int = 50) -> List[Tuple[float, float]]:
         """
         Finds a path from start to goal using the A* algorithm from the pathfinding library.
 
@@ -65,12 +65,11 @@ class Pathfinding:
             goal: The target coordinates (x, y).
             grid_w: The width of the world.
             grid_h: The height of the world.
+            step: The grid step size. Defaults to 50.
 
         Returns:
             List[Tuple[float, float]]: A list of points (x, y) representing the path.
         """
-        step = 50
-
         # Determine grid dimensions
         # Adding step to width/height to ensure coverage for edge cases
         matrix_w = int(math.ceil(grid_w / step)) + 1
