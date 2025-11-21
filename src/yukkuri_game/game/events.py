@@ -27,6 +27,24 @@ class PlacementStartedEvent(Event):
     entity_type: str # "yukkuri" or "item"
 
 @dataclass(frozen=True)
+class PlacementRequestedEvent(Event):
+    """
+    Event published when the user requests to place an entity at a location.
+    """
+    x: float
+    y: float
+    type_id: str
+    cost: int
+    entity_type: str # "yukkuri" or "item"
+
+@dataclass(frozen=True)
+class PlacementCancelledEvent(Event):
+    """
+    Event published when placement mode is cancelled.
+    """
+    pass
+
+@dataclass(frozen=True)
 class GamePausedEvent(Event):
     """
     Event published when the game paused state changes.

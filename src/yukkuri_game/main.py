@@ -10,13 +10,14 @@ from .engine.event_bus import EventBus
 from .game.events import GamePausedEvent
 from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from .game.game_manager import GameManager
-from .game.services import EconomyService, PersistenceService, TimeService
+from .game.services import EconomyService, PersistenceService, TimeService, InputService
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
 from .game.systems.stat_decay import StatDecaySystem
 from .game.systems.decision import DecisionSystem
 from .game.systems.behavior import BehaviorSystem
 from .game.systems.physics import PhysicsSystem
+from .game.systems.construction_system import ConstructionSystem
 from .game.ui.hud import HUD
 from .game.input_system import InputSystem
 from .game.yukkuri_components import AIState # Fix import for HUD string check if needed
@@ -69,6 +70,9 @@ class YukkuriGame(GameLoop):
         self.time_service = TimeService()
         self.world.services.register(self.time_service)
 
+        self.input_service = InputService()
+        self.world.services.register(self.input_service)
+
         self.persistence_service = PersistenceService(self.world)
         self.world.services.register(self.persistence_service)
 
@@ -94,6 +98,7 @@ class YukkuriGame(GameLoop):
         self.world.add_system(StatDecaySystem(settings=self.game_config.rules.stat_decay))
         self.world.add_system(DecisionSystem(self.ai_engine, decision_interval=1.0))
         self.world.add_system(BehaviorSystem(float(self.yukkurrium.width), float(self.yukkurrium.height)))
+        self.world.add_system(ConstructionSystem())
 
         if not self.headless:
             self.render_system = RenderSystem(self.screen, self.world)

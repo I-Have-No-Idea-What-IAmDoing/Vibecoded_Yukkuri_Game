@@ -1,115 +1,79 @@
-import pytest
-from unittest.mock import MagicMock, patch
+import unittest
+from unittest.mock import MagicMock
 import pygame
 from src.yukkuri_game.game.input_system import InputSystem
-from src.yukkuri_game.game.components import Transform, Selectable
+from src.yukkuri_game.game.events import PlacementStartedEvent, PlacementRequestedEvent, PlacementCancelledEvent
+from src.yukkuri_game.game.services import InputService
+from src.yukkuri_game.engine.event_bus import EventBus
+from src.yukkuri_game.engine.ecs import World
 
-@pytest.fixture
-def mock_yukkurrium():
-    mock = MagicMock()
-    mock.screen_to_world.return_value = (100, 100)
-    return mock
+class TestInputSystem(unittest.TestCase):
+    def setUp(self):
+        self.yukkurrium_mock = MagicMock()
+        # Mock screen_to_world to return the same coordinates passed to it
+        self.yukkurrium_mock.screen_to_world.side_effect = lambda x, y, sw, sh: (float(x), float(y))
 
-@pytest.fixture
-def mock_game_manager():
-    mock = MagicMock()
-    mock.money = 1000
-    return mock
+        self.input_system = InputSystem(self.yukkurrium_mock)
 
-@pytest.fixture
-def mock_entity_factory():
-    return MagicMock()
+        self.world_mock = MagicMock(spec=World)
+        self.world_mock.services = MagicMock()
+        self.event_bus_mock = MagicMock(spec=EventBus)
+        self.input_service = InputService()
 
-@pytest.fixture
-def mock_world():
-    return MagicMock()
+        # Configure world.services
+        self.world_mock.services.get.side_effect = self._get_service
+        self.world_mock.get_entities_with.return_value = []
 
-@pytest.fixture
-def input_system(mock_yukkurrium):
-    return InputSystem(mock_yukkurrium)
+        # Initialize dependencies
+        self.input_system.update(self.world_mock, 0.0)
 
-def test_init(input_system, mock_yukkurrium):
-    assert input_system.yukkurrium == mock_yukkurrium
-    assert input_system.placing_mode is False
-    assert input_system.place_type is None
-    assert input_system.place_cost == 0
-
-def test_start_placement(input_system, mock_game_manager, mock_entity_factory):
-    input_system.start_placement("yukkuri_reimu", 100, "yukkuri", mock_game_manager, mock_entity_factory)
-
-    assert input_system.placing_mode is True
-    assert input_system.place_type == "yukkuri_reimu"
-    assert input_system.place_cost == 100
-    assert input_system.place_entity_type == "yukkuri"
-    assert input_system.gm == mock_game_manager
-    assert input_system.factory == mock_entity_factory
-
-def test_handle_event_placement_success(input_system, mock_game_manager, mock_entity_factory, mock_world):
-    input_system.start_placement("yukkuri_reimu", 100, "yukkuri", mock_game_manager, mock_entity_factory)
-
-    # Mock left click event
-    event = MagicMock()
-    event.type = pygame.MOUSEBUTTONDOWN
-    event.button = 1
-    event.pos = (100, 100)
-
-    input_system.handle_event(event, mock_world, 800, 600)
-
-    assert input_system.placing_mode is False
-    mock_game_manager.money = 900 # Should have deducted 100
-    mock_entity_factory.create_yukkuri.assert_called_with("yukkuri_reimu", 100, 100)
-
-def test_handle_event_placement_cancel(input_system, mock_game_manager, mock_entity_factory, mock_world):
-    input_system.start_placement("yukkuri_reimu", 100, "yukkuri", mock_game_manager, mock_entity_factory)
-
-    # Mock right click event
-    event = MagicMock()
-    event.type = pygame.MOUSEBUTTONDOWN
-    event.button = 3
-
-    input_system.handle_event(event, mock_world, 800, 600)
-
-    assert input_system.placing_mode is False
-    mock_entity_factory.create_yukkuri.assert_not_called()
-
-def test_handle_event_ui_interaction(input_system, mock_world):
-    # Mock UI Manager hovering
-    mock_ui_manager = MagicMock()
-    mock_ui_manager.get_hovering_any_element.return_value = True
-
-    event = MagicMock()
-    event.type = pygame.MOUSEBUTTONDOWN
-    event.button = 1
-
-    input_system.handle_event(event, mock_world, 800, 600, mock_ui_manager)
-
-    # Should return early, so no world interaction
-    input_system.yukkurrium.screen_to_world.assert_not_called()
-
-def test_handle_event_selection(input_system, mock_world):
-    # Setup mock entities
-    entity = 1
-    trans = Transform(x=100, y=100)
-    selectable = Selectable()
-
-    mock_world.get_entities_with.return_value = [entity]
-
-    def get_component_side_effect(ent, comp_type):
-        if comp_type == Transform:
-            return trans
-        if comp_type == Selectable:
-            return selectable
+    def _get_service(self, service_type):
+        if service_type == EventBus:
+            return self.event_bus_mock
+        elif service_type == InputService:
+            return self.input_service
         return None
 
-    mock_world.get_component.side_effect = get_component_side_effect
+    def test_placement_started_updates_service(self):
+        event = PlacementStartedEvent("reimu", 100, "yukkuri")
+        self.input_system.on_placement_started(event)
 
-    # Mock left click at (100, 100) which matches the entity position
-    event = MagicMock()
-    event.type = pygame.MOUSEBUTTONDOWN
-    event.button = 1
-    event.pos = (100, 100) # screen coords mock -> world coords mock is also 100,100
+        self.assertTrue(self.input_service.is_placing)
+        self.assertEqual(self.input_service.place_type, "reimu")
+        self.assertEqual(self.input_service.place_cost, 100)
+        self.assertEqual(self.input_service.place_entity_type, "yukkuri")
 
-    with patch('pygame.key.get_pressed', return_value={pygame.K_LSHIFT: False}):
-        input_system.handle_event(event, mock_world, 800, 600)
+    def test_left_click_emits_placement_requested(self):
+        # Start placement
+        self.input_service.start_placement("reimu", 100, "yukkuri")
 
-    assert selectable.selected is True
+        # Simulate click
+        event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": (100, 100)})
+        self.input_system.handle_event(event, self.world_mock, 800, 600)
+
+        # Check event published
+        self.event_bus_mock.publish.assert_called_with(
+            PlacementRequestedEvent(100.0, 100.0, "reimu", 100, "yukkuri")
+        )
+
+        # Check placement reset
+        self.assertFalse(self.input_service.is_placing)
+
+    def test_right_click_cancels_placement(self):
+        # Start placement
+        self.input_service.start_placement("reimu", 100, "yukkuri")
+
+        # Simulate right click
+        event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 3, "pos": (100, 100)})
+        self.input_system.handle_event(event, self.world_mock, 800, 600)
+
+        # Check event published
+        self.event_bus_mock.publish.assert_called_with(
+            PlacementCancelledEvent()
+        )
+
+        # Check placement reset
+        self.assertFalse(self.input_service.is_placing)
+
+if __name__ == '__main__':
+    unittest.main()

@@ -279,3 +279,42 @@ class EconomyService:
              self._money = 0
         else:
              self._money = amount
+
+
+class InputService:
+    """
+    Service responsible for managing input state, specifically placement mode.
+    """
+    def __init__(self):
+        self._placing_mode = False
+        self._place_type: str = ""
+        self._place_cost: int = 0
+        self._place_entity_type: str = "" # "yukkuri" or "item"
+
+    @property
+    def is_placing(self) -> bool:
+        return self._placing_mode
+
+    @property
+    def place_type(self) -> str:
+        return self._place_type
+
+    @property
+    def place_cost(self) -> int:
+        return self._place_cost
+
+    @property
+    def place_entity_type(self) -> str:
+        return self._place_entity_type
+
+    def start_placement(self, type_id: str, cost: int, entity_type: str) -> None:
+        self._placing_mode = True
+        self._place_type = type_id
+        self._place_cost = cost
+        self._place_entity_type = entity_type
+
+    def cancel_placement(self) -> None:
+        self._placing_mode = False
+        self._place_type = ""
+        self._place_cost = 0
+        self._place_entity_type = ""
