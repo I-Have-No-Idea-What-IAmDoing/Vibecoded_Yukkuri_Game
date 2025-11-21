@@ -9,7 +9,9 @@ from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from .game.game_manager import GameManager
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
-from .game.systems.simulation import YukkuriAISystem
+from .game.systems.stat_decay import StatDecaySystem
+from .game.systems.decision import DecisionSystem
+from .game.systems.behavior import BehaviorSystem
 from .game.systems.physics import PhysicsSystem
 from .game.ui.hud import HUD
 from .game.input_system import InputSystem
@@ -57,7 +59,9 @@ class YukkuriGame(GameLoop):
 
         self.world.add_system(TimeSystem())
         self.world.add_system(self.physics_system)
-        self.world.add_system(YukkuriAISystem(self.ai_engine, float(self.yukkurrium.width), float(self.yukkurrium.height)))
+        self.world.add_system(StatDecaySystem())
+        self.world.add_system(DecisionSystem(self.ai_engine, decision_interval=1.0))
+        self.world.add_system(BehaviorSystem(float(self.yukkurrium.width), float(self.yukkurrium.height)))
 
         if not self.headless:
             self.render_system = RenderSystem(self.screen, self.yukkurrium, self.resources)
