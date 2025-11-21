@@ -60,7 +60,8 @@ class HUD:
         self.height = 720
 
         # Initialize Components
-        self.layout = HudLayout(self.manager, self.width, self.height)
+        rm = self.factory.rm
+        self.layout = HudLayout(self.manager, self.width, self.height, rm.yukkuri_types, rm.item_types)
 
         self.events = HudEvents(self.layout, self.gm, self.event_bus, self.show_error)
 

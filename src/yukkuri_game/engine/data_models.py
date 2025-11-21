@@ -48,6 +48,7 @@ class YukkuriType(YukkuriTypeBase):
     height: int
     max_health: int
     base_happiness: int
+    cost: int = 100
 
 class ItemType(ItemTypeBase):
     """
