@@ -3,6 +3,7 @@ import json
 from typing import Dict, Any, List, TYPE_CHECKING
 from loguru import logger
 from ..engine.ecs import World
+from ..engine.audio import AudioManager
 from .components import Transform
 from .yukkuri_components import YukkuriStats, ItemStats
 from ..engine.service_locator import ServiceLocator
@@ -394,7 +395,11 @@ class GameService:
             if item_stats.comfort > 0:
                 yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
 
+            audio = self.world.services.try_get(AudioManager)
+
             if consume:
+                if audio:
+                    audio.play_sound("eat")
                 # Destroy the item
                 self.world.destroy_entity(item_id)
                 # Clean up components that might linger if delayed destruction

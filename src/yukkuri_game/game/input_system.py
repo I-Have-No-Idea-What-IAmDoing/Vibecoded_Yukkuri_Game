@@ -2,6 +2,7 @@ import pygame
 from typing import Optional, TYPE_CHECKING
 from ..engine.ecs import System, World
 from ..engine.event_bus import EventBus
+from ..engine.audio import AudioManager
 from .events import PlacementStartedEvent, EntitySelectedEvent, PlacementRequestedEvent, PlacementCancelledEvent
 from .components import Transform, Selectable
 from .services import InputService
@@ -32,6 +33,7 @@ class InputSystem(System):
         self.yukkurrium = yukkurrium
         self.event_bus: Optional[EventBus] = None
         self.input_service: Optional[InputService] = None
+        self.audio: Optional[AudioManager] = None
         self.drag_start_pos: Optional[tuple[float, float]] = None
         self.drag_end_pos: Optional[tuple[float, float]] = None
         self.drag_start_screen_pos: Optional[tuple[int, int]] = None
@@ -60,6 +62,8 @@ class InputSystem(System):
         if self.event_bus is None:
             self.event_bus = world.services.get(EventBus)
             self.event_bus.subscribe(PlacementStartedEvent, self.on_placement_started)
+        if self.audio is None:
+            self.audio = world.services.try_get(AudioManager)
 
     def handle_event(self, event: pygame.event.Event, world: World, screen_w: int, screen_h: int, ui_manager: Optional['pygame_gui.UIManager'] = None) -> None:
         """
@@ -74,7 +78,15 @@ class InputSystem(System):
         """
         self.yukkurrium.handle_input(event, screen_w, screen_h)
 
-        mx, my = pygame.mouse.get_pos()
+        # Retrieve mouse position from event if possible, or fall back to get_pos but be safe for headless/tests
+        if hasattr(event, "pos"):
+            mx, my = event.pos
+        else:
+             if pygame.display.get_init():
+                 mx, my = pygame.mouse.get_pos()
+             else:
+                 mx, my = (0, 0)
+
         wx, wy = self.yukkurrium.screen_to_world(mx, my, screen_w, screen_h)
 
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -91,8 +103,13 @@ class InputSystem(System):
                             self.input_service.place_cost,
                             self.input_service.place_entity_type
                         ))
+                    if self.audio:
+                        self.audio.play_sound("place")
                     self.input_service.cancel_placement()
                     return
+
+                if self.audio:
+                    self.audio.play_sound("click")
 
                 # Start dragging
                 self.drag_start_pos = (wx, wy)
@@ -103,6 +120,8 @@ class InputSystem(System):
 
             elif event.button == 3: # Right Click cancels placement
                 if self.input_service and self.input_service.is_placing:
+                    if self.audio:
+                        self.audio.play_sound("cancel")
                     self.input_service.cancel_placement()
                     if self.event_bus:
                         self.event_bus.publish(PlacementCancelledEvent())

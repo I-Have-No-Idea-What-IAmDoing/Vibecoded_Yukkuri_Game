@@ -6,9 +6,13 @@ from src.yukkuri_game.game.events import PlacementStartedEvent, PlacementRequest
 from src.yukkuri_game.game.services import InputService
 from src.yukkuri_game.engine.event_bus import EventBus
 from src.yukkuri_game.engine.ecs import World
+from src.yukkuri_game.engine.audio import AudioManager
 
 class TestInputSystem(unittest.TestCase):
     def setUp(self):
+        # Initialize pygame for event handling
+        pygame.init()
+
         self.yukkurrium_mock = MagicMock()
         # Mock screen_to_world to return the same coordinates passed to it
         self.yukkurrium_mock.screen_to_world.side_effect = lambda x, y, sw, sh: (float(x), float(y))
@@ -19,19 +23,31 @@ class TestInputSystem(unittest.TestCase):
         self.world_mock.services = MagicMock()
         self.event_bus_mock = MagicMock(spec=EventBus)
         self.input_service = InputService()
+        self.audio_mock = MagicMock(spec=AudioManager)
 
         # Configure world.services
         self.world_mock.services.get.side_effect = self._get_service
+        self.world_mock.services.try_get.side_effect = self._try_get_service
         self.world_mock.get_entities_with.return_value = []
 
         # Initialize dependencies
         self.input_system.update(self.world_mock, 0.0)
+        # Also manually inject audio if update didn't catch it because try_get wasn't mocked yet
+        # (Actually I added try_get mock above, so update should work if it calls try_get)
+
+    def tearDown(self):
+        pygame.quit()
 
     def _get_service(self, service_type):
         if service_type == EventBus:
             return self.event_bus_mock
         elif service_type == InputService:
             return self.input_service
+        return None
+
+    def _try_get_service(self, service_type):
+        if service_type == AudioManager:
+            return self.audio_mock
         return None
 
     def test_placement_started_updates_service(self):
