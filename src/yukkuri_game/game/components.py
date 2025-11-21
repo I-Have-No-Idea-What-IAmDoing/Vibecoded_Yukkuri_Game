@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+from typing import Dict
 import pymunk
+from ..engine.data_models import AnimationDefinition
 
 @dataclass
 class PhysicsBody:
@@ -54,14 +56,34 @@ class Sprite:
     width: int
     height: int
     layer: int = 0
+    flip_x: bool = False
+    flip_y: bool = False
 
-    # Animation support
+    # Animation support (Legacy / Simple)
     frame_count: int = 1
     frame_duration: float = 0.1
     current_frame: int = 0
     timer: float = 0.0
     loop: bool = True
     is_animating: bool = True
+
+@dataclass
+class Animator:
+    """
+    Component for handling advanced animations.
+
+    Attributes:
+        animations (Dict[str, AnimationDefinition]): Available animations.
+        current_animation (str): Name of the currently playing animation.
+        current_frame_index (int): Index in the animation's frame list.
+        timer (float): Timer for the current frame.
+        finished (bool): Whether the animation has finished (for non-looping).
+    """
+    animations: Dict[str, AnimationDefinition]
+    current_animation: str = "default"
+    current_frame_index: int = 0
+    timer: float = 0.0
+    finished: bool = False
 
 @dataclass
 class Selectable:

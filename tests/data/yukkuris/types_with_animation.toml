@@ -1,0 +1,20 @@
+[yukkuris.test_yukkuri]
+name = "Test Yukkuri"
+image = "test_yukkuri.png"
+width = 32
+height = 32
+max_health = 100
+base_happiness = 50
+cost = 10
+
+[yukkuris.test_yukkuri.animations.walk]
+name = "walk"
+frames = [0, 1, 2, 3]
+frame_duration = 0.1
+loop = true
+
+[yukkuris.test_yukkuri.animations.idle]
+name = "idle"
+frames = [0]
+frame_duration = 1.0
+loop = true
