@@ -56,11 +56,20 @@ class AnimationSystem(System):
         """
         Updates the Animator component and syncs it to the Sprite.
         """
-        if animator.finished:
-            return
-
         current_anim_def = animator.animations.get(animator.current_animation)
         if not current_anim_def:
+            return
+
+        # Apply animation properties to sprite (one-time or continuous check)
+        # To avoid constant assignment, we could check if changed, but assignment is cheap.
+        if current_anim_def.image:
+            sprite.image_name = current_anim_def.image
+        if current_anim_def.width is not None:
+            sprite.width = current_anim_def.width
+        if current_anim_def.height is not None:
+            sprite.height = current_anim_def.height
+
+        if animator.finished:
             return
 
         animator.timer += dt

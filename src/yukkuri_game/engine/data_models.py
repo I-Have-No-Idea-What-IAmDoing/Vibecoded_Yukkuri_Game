@@ -42,11 +42,17 @@ class AnimationDefinition(AnimationDefinitionBase):
         frames (List[int]): The sequence of frame indices.
         frame_duration (float): Duration of each frame in seconds.
         loop (bool): Whether the animation should loop. Defaults to True.
+        image (Optional[str]): Override image for this animation.
+        width (Optional[int]): Override width for this animation.
+        height (Optional[int]): Override height for this animation.
     """
     name: str
     frames: List[int]
     frame_duration: float
     loop: bool = True
+    image: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
 
 
 class YukkuriType(YukkuriTypeBase):
