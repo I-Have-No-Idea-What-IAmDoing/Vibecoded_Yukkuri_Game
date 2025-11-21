@@ -6,6 +6,8 @@ import pygame
 from .engine.core import GameLoop
 from .engine.audio import AudioManager
 from .engine.resource_manager import ResourceManager
+from .engine.event_bus import EventBus
+from .game.events import GamePausedEvent
 from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from .game.game_manager import GameManager
 from .game.entity_factory import EntityFactory
@@ -45,10 +47,12 @@ class YukkuriGame(GameLoop):
         self.yukkurrium = Yukkurrium(width=3000, height=3000)
         self.audio = AudioManager()
         self.physics_system = PhysicsSystem()
+        self.event_bus = EventBus()
 
         self.world.services.register(self.resources, ResourceManager)
         self.world.services.register(self.yukkurrium)
         self.world.services.register(self.physics_system)
+        self.world.services.register(self.event_bus)
 
         # Factory & Game Manager
         self.factory = EntityFactory(self.world)
@@ -86,7 +90,7 @@ class YukkuriGame(GameLoop):
             # Assuming we can assign for now or refactor HUD to accept them.
             self.hud.toggle_pause_callback = self.toggle_pause
             self.hud.cycle_speed_callback = self.cycle_speed
-            self.hud.start_placement_callback = self.start_placement
+            # self.hud.start_placement_callback = self.start_placement # Removed in favor of EventBus
 
         # Initial Population
         if not self.headless:
@@ -144,8 +148,7 @@ class YukkuriGame(GameLoop):
         Toggles the paused state of the simulation.
         """
         self.paused = not self.paused
-        if self.hud.pause_btn:
-            self.hud.pause_btn.set_text("Resume" if self.paused else "Pause")
+        self.event_bus.publish(GamePausedEvent(self.paused))
 
     def cycle_speed(self) -> None:
         """
@@ -161,17 +164,6 @@ class YukkuriGame(GameLoop):
         self.time_scale = speeds[next_idx]
         if self.hud.speed_btn:
             self.hud.speed_btn.set_text(f"{self.time_scale}x")
-
-    def start_placement(self, type_id: str, cost: int, entity_type: str) -> None:
-        """
-        Initiates the placement mode for an entity.
-
-        Args:
-            type_id: The ID of the entity type.
-            cost: The cost of the entity.
-            entity_type: The category ("yukkuri" or "item").
-        """
-        self.input_system.start_placement(type_id, cost, entity_type, self.gm, self.factory)
 
     def take_screenshot(self) -> None:
         """

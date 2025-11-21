@@ -1,6 +1,8 @@
 import pygame
 from typing import Optional, Any, TYPE_CHECKING
 from ..engine.ecs import System, World
+from ..engine.event_bus import EventBus
+from .events import PlacementStartedEvent, EntitySelectedEvent
 from .components import Transform, Selectable
 
 if TYPE_CHECKING:
@@ -23,6 +25,7 @@ class InputSystem(System):
         place_entity_type (str): The category of the entity ("yukkuri" or "item").
         gm (GameManager): Reference to the GameManager.
         factory (EntityFactory): Reference to the EntityFactory.
+        event_bus (EventBus): The event bus for publishing and subscribing to events.
     """
 
     def __init__(self, yukkurrium: 'Yukkurrium'):
@@ -39,36 +42,35 @@ class InputSystem(System):
         self.place_entity_type: Optional[str] = None # "yukkuri" or "item"
         self.gm: Optional['GameManager'] = None
         self.factory: Optional['EntityFactory'] = None
+        self.event_bus: Optional[EventBus] = None
 
-    def start_placement(self, type_id: str, cost: int, entity_type: str, gm: 'GameManager', factory: 'EntityFactory') -> None:
+    def on_placement_started(self, event: PlacementStartedEvent) -> None:
         """
-        Enters placement mode for a specific entity.
-
-        Args:
-            type_id: The ID of the entity type to place.
-            cost: The cost to deduct upon placement.
-            entity_type: The category ("yukkuri" or "item").
-            gm: The GameManager instance.
-            factory: The EntityFactory instance.
+        Handles the PlacementStartedEvent.
         """
         self.placing_mode = True
-        self.place_type = type_id
-        self.place_cost = cost
-        self.place_entity_type = entity_type
-        self.gm = gm
-        self.factory = factory
+        self.place_type = event.type_id
+        self.place_cost = event.cost
+        self.place_entity_type = event.entity_type
 
     def update(self, world: World, dt: float) -> None:
         """
         Updates the input system.
 
-        Does nothing each frame as this system reacts to events.
-
         Args:
             world: The ECS World.
             dt: Delta time.
         """
-        pass
+        # Lazy initialization of dependencies
+        if self.gm is None:
+            from .game_manager import GameManager
+            self.gm = world.services.get(GameManager)
+        if self.factory is None:
+            from .entity_factory import EntityFactory
+            self.factory = world.services.get(EntityFactory)
+        if self.event_bus is None:
+            self.event_bus = world.services.get(EventBus)
+            self.event_bus.subscribe(PlacementStartedEvent, self.on_placement_started)
 
     def handle_event(self, event: pygame.event.Event, world: World, screen_w: int, screen_h: int, ui_manager: Optional['pygame_gui.UIManager'] = None) -> None:
         """
@@ -102,6 +104,7 @@ class InputSystem(System):
                 # Simple point check for MVP
                 entities = world.get_entities_with(Transform, Selectable)
                 clicked_something = False
+                selected_entity = -1
 
                 for ent in entities:
                     trans = world.get_component(ent, Transform)
@@ -117,16 +120,22 @@ class InputSystem(System):
                     if dist < 32:
                         selectable.selected = True
                         clicked_something = True
+                        selected_entity = ent
                     else:
                         if not pygame.key.get_pressed()[pygame.K_LSHIFT]: # Shift adds to selection
                             selectable.selected = False
 
-                if not clicked_something:
+                if clicked_something:
+                    if self.event_bus:
+                        self.event_bus.publish(EntitySelectedEvent(selected_entity))
+                else:
                      # Deselect all if clicked ground
                      for ent in entities:
                          selectable = world.get_component(ent, Selectable)
                          if selectable:
                              selectable.selected = False
+                     if self.event_bus:
+                        self.event_bus.publish(EntitySelectedEvent(-1))
             elif event.button == 3: # Right Click cancels placement
                 if self.placing_mode:
                     self.placing_mode = False

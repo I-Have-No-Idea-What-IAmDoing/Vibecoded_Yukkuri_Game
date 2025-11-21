@@ -2,6 +2,8 @@ import pygame
 from typing import Optional, Callable, Any, Dict, TYPE_CHECKING
 import pygame_gui
 from ...engine.ecs import World
+from ...engine.event_bus import EventBus
+from ..events import EntitySelectedEvent, GamePausedEvent, PlacementStartedEvent
 from ..components import Selectable, Transform
 from ..yukkuri_components import YukkuriStats
 
@@ -51,6 +53,7 @@ class HUD:
         from ..entity_factory import EntityFactory
         self.gm = world.services.get(GameManager)
         self.factory = world.services.get(EntityFactory)
+        self.event_bus = world.services.get(EventBus)
 
         self.width = 1280
         self.height = 720
@@ -58,7 +61,7 @@ class HUD:
         # Callbacks
         self.toggle_pause_callback: Optional[Callable[[], None]] = None
         self.cycle_speed_callback: Optional[Callable[[], None]] = None
-        self.start_placement_callback: Optional[Callable[[str, int, str], None]] = None
+        # self.start_placement_callback: Optional[Callable[[str, int, str], None]] = None # Removed
 
         # Initialize Components
         self.layout = HudLayout(self.manager, self.width, self.height)
@@ -68,7 +71,7 @@ class HUD:
         # or update the events component when callbacks are set.
         # For now, we pass a dict that we can update.
         self._callbacks_store: Dict[str, Optional[Callable[..., Any]]] = {}
-        self.events = HudEvents(self.layout, self.gm, self._callbacks_store) # type: ignore[arg-type]
+        self.events = HudEvents(self.layout, self.gm, self._callbacks_store, self.event_bus) # type: ignore[arg-type]
 
         self.renderer = HudRenderer(self.layout, self.gm, self.world)
 
@@ -76,6 +79,25 @@ class HUD:
         self.selected_entity = -1
         self.show_debug = False
         self.fps = 0.0
+
+        # Subscribe to events
+        self.event_bus.subscribe(EntitySelectedEvent, self.on_entity_selected)
+        self.event_bus.subscribe(GamePausedEvent, self.on_game_paused)
+
+    def on_entity_selected(self, event: EntitySelectedEvent) -> None:
+        """
+        Handles the EntitySelectedEvent.
+        """
+        self.selected_entity = event.entity_id
+        self.events.set_selected_entity(self.selected_entity)
+        self._update_selection_window_layout()
+
+    def on_game_paused(self, event: GamePausedEvent) -> None:
+        """
+        Handles the GamePausedEvent.
+        """
+        if self.pause_btn:
+             self.pause_btn.set_text("Resume" if event.paused else "Pause")
 
     # Delegate property access for backward compatibility/convenience
     @property
@@ -139,32 +161,10 @@ class HUD:
         """
         self.renderer.fps = self.fps # Sync FPS
 
-        # Check selection logic
-        current_selected = self._get_current_selected_entity()
-
-        if current_selected != self.selected_entity:
-            self.selected_entity = current_selected
-            self.events.set_selected_entity(self.selected_entity)
-            self._update_selection_window_layout()
-
-        # Update Layout if needed (e.g. if selection changed, we already did it)
+        # Selection is now handled via events, so we don't need to poll
 
         # Render Updates
         self.renderer.update(dt, self.selected_entity, self.show_debug)
-
-    def _get_current_selected_entity(self) -> int:
-        """
-        Finds the currently selected entity in the ECS world.
-
-        Returns:
-            int: The ID of the selected entity, or -1 if none are selected.
-        """
-        selected = self.world.get_entities_with(Selectable)
-        for ent in selected:
-            sel = self.world.get_component(ent, Selectable)
-            if sel and sel.selected:
-                return ent
-        return -1
 
     def _update_selection_window_layout(self) -> None:
         """
@@ -207,7 +207,7 @@ class HUD:
         # Update callbacks dict before processing (in case they were set after init)
         self._callbacks_store['toggle_pause'] = self.toggle_pause_callback
         self._callbacks_store['cycle_speed'] = self.cycle_speed_callback
-        self._callbacks_store['start_placement'] = self.start_placement_callback
+        # self._callbacks_store['start_placement'] = self.start_placement_callback # Removed
 
         # Add a special callback for training which was inline before
         self._callbacks_store['train_entity'] = self._train_entity
