@@ -231,7 +231,7 @@ class Interact(Action):
     """
     Handles interaction with a target entity (e.g., eating food).
     """
-    def __init__(self, name: str = "Interact", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None):
+    def __init__(self, name: str = "Interact", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None, consume: bool = True):
         """
         Initializes the Interact action.
 
@@ -240,8 +240,10 @@ class Interact(Action):
             entity_id (Optional[int]): The ID of the entity.
             world (Optional[World]): The ECS World instance.
             blackboard (Optional[Any]): The Behavior Tree blackboard.
+            consume (bool): Whether the interaction should consume the target.
         """
         super().__init__(name, entity_id, world, blackboard)
+        self.consume = consume
 
     def update(self) -> Status:
         """
@@ -275,7 +277,7 @@ class Interact(Action):
             game_service = self.world.services.try_get(GameService)
             if game_service:
                 # Use GameService to handle consumption
-                success = game_service.consume_item(self.entity_id, ai.current_target_id)
+                success = game_service.interact_with_item(self.entity_id, ai.current_target_id, self.consume)
                 return Status.SUCCESS if success else Status.FAILURE
             else:
                 # Fallback if GameService is missing (though it should be there)
@@ -284,10 +286,16 @@ class Interact(Action):
                 yukkuri_stats = self.world.get_component(self.entity_id, YukkuriStats)
 
                 if item_stats and yukkuri_stats:
-                    yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
-                    yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
-
                     if item_stats.nutrition > 0:
+                        yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
+
+                    if item_stats.fun > 0:
+                        yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
+
+                    if item_stats.comfort > 0:
+                        yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
+
+                    if self.consume:
                         self.world.destroy_entity(ai.current_target_id)
                         if self.world.has_component(ai.current_target_id, Transform):
                             self.world.remove_component(ai.current_target_id, Transform)
@@ -387,35 +395,88 @@ def build_eat_behavior(entity_id: int, world: 'World', width: int, height: int, 
     have_target_seq.add_children([check_target, move_to_food, interact_food])
 
     # 2b. If no target, Find Food
-    class FindFood(Action):
-        def update(self) -> Status:
-            super().update()
-            if self.world is None or self.entity_id is None:
-                return Status.FAILURE
-
-            ai = self.world.get_component(self.entity_id, AIState)
-            trans = self.world.get_component(self.entity_id, Transform)
-
-            if not ai or not trans:
-                    return Status.FAILURE
-
-            game_service = self.world.services.try_get(GameService)
-            best_item = -1
-
-            if game_service:
-                best_item = game_service.find_best_item((trans.x, trans.y))
-
-            if best_item != -1:
-                ai.current_target_id = best_item
-                ai.path = None
-                return Status.SUCCESS
-            return Status.FAILURE
-
-    find_food = FindFood(name="Find Food", entity_id=entity_id, world=world)
+    find_food = FindItem(name="Find Food", entity_id=entity_id, world=world, stat_criteria="nutrition")
 
     eat_execution.add_children([have_target_seq, find_food])
     eat_sequence.add_children([is_eating, eat_execution])
     return eat_sequence
+
+class FindItem(Action):
+    """
+    Action to find an item based on criteria.
+    """
+    def __init__(self, name: str, entity_id: int, world: 'World', stat_criteria: str):
+        super().__init__(name, entity_id, world)
+        self.stat_criteria = stat_criteria
+
+    def update(self) -> Status:
+        super().update()
+        if self.world is None or self.entity_id is None:
+            return Status.FAILURE
+
+        ai = self.world.get_component(self.entity_id, AIState)
+        trans = self.world.get_component(self.entity_id, Transform)
+
+        if not ai or not trans:
+                return Status.FAILURE
+
+        game_service = self.world.services.try_get(GameService)
+        best_item = -1
+
+        if game_service:
+            best_item = game_service.find_best_item((trans.x, trans.y), self.stat_criteria)
+
+        if best_item != -1:
+            ai.current_target_id = best_item
+            ai.path = None
+            return Status.SUCCESS
+        return Status.FAILURE
+
+def build_sleep_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    sleep_sequence = py_trees.composites.Sequence(name="Sleep Sequence", memory=True)
+
+    is_sleeping = Check(name="Goal=Sleep?", check_fn=lambda: check_goal_fn("Sleep"))
+
+    sleep_execution = py_trees.composites.Selector(name="Sleep Execution", memory=True)
+
+    # 1. If we have a target (bed), Go to it and Sleep
+    have_target_seq = py_trees.composites.Sequence(name="Have Bed?", memory=True)
+    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+
+    move_to_bed = MoveToTarget(name="Move To Bed", entity_id=entity_id, world=world)
+    interact_bed = Interact(name="Sleep In Bed", entity_id=entity_id, world=world, consume=False)
+
+    have_target_seq.add_children([check_target, move_to_bed, interact_bed])
+
+    # 2. If no target, Find Bed
+    find_bed = FindItem(name="Find Bed", entity_id=entity_id, world=world, stat_criteria="comfort")
+
+    sleep_execution.add_children([have_target_seq, find_bed])
+    sleep_sequence.add_children([is_sleeping, sleep_execution])
+    return sleep_sequence
+
+def build_play_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    play_sequence = py_trees.composites.Sequence(name="Play Sequence", memory=True)
+
+    is_playing = Check(name="Goal=Play?", check_fn=lambda: check_goal_fn("Play"))
+
+    play_execution = py_trees.composites.Selector(name="Play Execution", memory=True)
+
+    # 1. If we have a target (toy), Go to it and Play
+    have_target_seq = py_trees.composites.Sequence(name="Have Toy?", memory=True)
+    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+
+    move_to_toy = MoveToTarget(name="Move To Toy", entity_id=entity_id, world=world)
+    interact_toy = Interact(name="Play With Toy", entity_id=entity_id, world=world, consume=False)
+
+    have_target_seq.add_children([check_target, move_to_toy, interact_toy])
+
+    # 2. If no target, Find Toy
+    find_toy = FindItem(name="Find Toy", entity_id=entity_id, world=world, stat_criteria="fun")
+
+    play_execution.add_children([have_target_seq, find_toy])
+    play_sequence.add_children([is_playing, play_execution])
+    return play_sequence
 
 def build_wander_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
     wander_sequence = py_trees.composites.Sequence(name="Wander Sequence", memory=True)
@@ -426,6 +487,8 @@ def build_wander_behavior(entity_id: int, world: 'World', width: int, height: in
 
 # Register default behaviors
 BehaviorRegistry.register_goal("Eat", build_eat_behavior)
+BehaviorRegistry.register_goal("Sleep", build_sleep_behavior)
+BehaviorRegistry.register_goal("Play", build_play_behavior)
 BehaviorRegistry.register_goal("Wander", build_wander_behavior)
 
 
