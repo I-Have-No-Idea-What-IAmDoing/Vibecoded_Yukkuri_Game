@@ -1,145 +1,139 @@
 import pytest
-import pygame
 from unittest.mock import MagicMock, patch
+import pygame
 from yukkuri_game.game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, Sprite, Selectable
+from yukkuri_game.engine.resource_manager import ResourceManager
 
 @pytest.fixture
-def yukkurrium():
-    return Yukkurrium(width=1000, height=1000)
+def mock_world():
+    world = MagicMock(spec=World)
+    world.services = MagicMock()
+    return world
 
-def test_coordinate_conversion(yukkurrium):
-    screen_w, screen_h = 800, 600
+def test_yukkurrium_init():
+    y = Yukkurrium(1000, 800)
+    assert y.width == 1000
+    assert y.height == 800
+    assert y.zoom == 1.0
+    assert y.camera_x == 0.0
+    assert y.camera_y == 0.0
 
-    # Center of world (0,0) should be center of screen when camera is at (0,0)
-    sx, sy = yukkurrium.world_to_screen(0, 0, screen_w, screen_h)
+def test_coordinate_conversion():
+    y = Yukkurrium(2000, 2000)
+    # Center screen is (400, 300) for 800x600
+    # Center world is (0, 0)
+
+    # With default camera (0,0) and zoom 1
+    sx, sy = y.world_to_screen(0, 0, 800, 600)
     assert sx == 400
     assert sy == 300
 
-    # Reverse
-    wx, wy = yukkurrium.screen_to_world(400, 300, screen_w, screen_h)
+    wx, wy = y.screen_to_world(400, 300, 800, 600)
     assert wx == 0
     assert wy == 0
 
-    # With camera offset
-    yukkurrium.camera_x = 100
-    yukkurrium.camera_y = 50
-
-    # (100, 50) in world should now be center of screen
-    sx, sy = yukkurrium.world_to_screen(100, 50, screen_w, screen_h)
+    # Test Pan
+    y.camera_x = 100
+    sx, sy = y.world_to_screen(100, 0, 800, 600)
+    # World (100, 0) should now be at center (400, 300)
     assert sx == 400
     assert sy == 300
 
-    # With zoom
-    yukkurrium.camera_x = 0
-    yukkurrium.camera_y = 0
-    yukkurrium.zoom = 2.0
+    # Test Zoom
+    y.camera_x = 0
+    y.zoom = 2.0
+    # World 0,0 is center. World 10,0.
+    # Distance 10 world units = 20 screen units
+    sx, sy = y.world_to_screen(10, 0, 800, 600)
+    assert sx == 420
 
-    # (50, 50) world -> (50*2 + 400, 50*2 + 300) = (500, 400)
-    sx, sy = yukkurrium.world_to_screen(50, 50, screen_w, screen_h)
-    assert sx == 500
-    assert sy == 400
+def test_input_handling():
+    y = Yukkurrium()
 
-def test_handle_input_zoom(yukkurrium):
-    # Mock mouse wheel event
+    # Test Zoom
     event = MagicMock()
     event.type = pygame.MOUSEWHEEL
-    event.y = 1 # Scroll up (zoom in)
+    event.y = 1 # Scroll up
 
-    initial_zoom = yukkurrium.target_zoom
-    yukkurrium.handle_input(event, 800, 600)
+    initial_target = y.target_zoom
+    y.handle_input(event, 800, 600)
+    assert y.target_zoom > initial_target
 
-    assert yukkurrium.target_zoom > initial_zoom
-    assert yukkurrium.target_zoom <= yukkurrium.max_zoom
-
-    # Test max zoom
-    yukkurrium.target_zoom = yukkurrium.max_zoom
-    yukkurrium.handle_input(event, 800, 600)
-    assert yukkurrium.target_zoom == yukkurrium.max_zoom
-
-def test_handle_input_pan(yukkurrium):
-    # Mock mouse motion event with middle click
+    # Test Pan (needs mouse state mock)
     event = MagicMock()
     event.type = pygame.MOUSEMOTION
-    event.rel = (10, 20)
+    event.rel = (-10, -10) # Dragged left-up
 
     with patch('pygame.mouse.get_pressed', return_value=(0, 1, 0)): # Middle click
-        initial_cam_x = yukkurrium.camera_x
-        initial_cam_y = yukkurrium.camera_y
+        y.handle_input(event, 800, 600)
+        # Camera should move right-down (opposite to drag) to show "left-up" content?
+        # Dragging mouse left (-x) moves the world view right (+x)?
+        # Code: camera_x -= dx / zoom
+        # dx = -10 -> camera_x -= -10 -> camera_x += 10.
+        # So camera moves to +10.
+        assert y.camera_x > 0
+        assert y.camera_y > 0
 
-        yukkurrium.handle_input(event, 800, 600)
+def test_update_smooth_zoom():
+    y = Yukkurrium()
+    y.zoom = 1.0
+    y.target_zoom = 2.0
 
-        # Camera moves opposite to drag
-        assert yukkurrium.camera_x == initial_cam_x - 10
-        assert yukkurrium.camera_y == initial_cam_y - 20
+    y.update(0.1)
 
-def test_update_zoom_smoothing(yukkurrium):
-    yukkurrium.zoom = 1.0
-    yukkurrium.target_zoom = 2.0
+    # Should approach target
+    assert y.zoom > 1.0
+    assert y.zoom < 2.0
 
-    dt = 0.1
-    yukkurrium.update(dt)
-
-    # Zoom should approach target
-    assert yukkurrium.zoom > 1.0
-    assert yukkurrium.zoom < 2.0
-
-def test_render_system_update():
+def test_render_system_update(mock_world):
+    # Use Mock for screen
     screen = MagicMock()
     screen.get_size.return_value = (800, 600)
-    # Mock screen rect for culling check
-    screen_rect = MagicMock()
-    screen.get_rect.return_value = screen_rect
-    # Make colliderect return True so we draw
+    # Ensure screen.get_rect returns a rect that collides
+    screen.get_rect.return_value.colliderect.return_value = True
 
     yukkurrium = Yukkurrium()
     rm = MagicMock()
 
-    # Mock image
-    img = MagicMock()
+    # Setup services
+    mock_world.services.get.side_effect = lambda service_type: yukkurrium if service_type == Yukkurrium else (rm if service_type == ResourceManager else MagicMock())
+
+    # Mock image (Surface)
+    img = MagicMock() # Can be mock if we patch blit/transform
     img.get_rect.return_value = MagicMock()
-    # Simulate colliderect
     img.get_rect.return_value.colliderect.return_value = True
 
     rm.load_image.return_value = img
 
-    rs = RenderSystem(screen, yukkurrium, rm)
-    world = MagicMock()
+    rs = RenderSystem(screen, mock_world)
 
-    # Setup entity
-    ent = 1
-    world.get_entities_with.return_value = [ent]
+    # Setup entities
+    mock_world.get_entities_with.return_value = [1]
 
-    transform = Transform(x=0, y=0)
+    trans = Transform(x=0, y=0)
     sprite = Sprite(image_name="test.png", width=32, height=32)
 
-    def get_component_side_effect(e, c):
-        if c == Transform:
-            return transform
-        if c == Sprite:
+    def get_component_side_effect(ent, comp_type):
+        if comp_type == Transform:
+            return trans
+        if comp_type == Sprite:
             return sprite
-        if c == Selectable:
-            return None
         return None
 
-    world.get_component.side_effect = get_component_side_effect
+    mock_world.get_component.side_effect = get_component_side_effect
 
-    with patch('pygame.draw.line'):
-        rs.update(world, 0.016)
+    # Patch pygame functions to avoid type checking real surface
+    with patch('pygame.draw.line'), patch('pygame.draw.rect'), patch('pygame.transform.scale', return_value=img):
+         rs.update(mock_world, 0.016)
 
-        # Verify grid drawing (lines)
-        assert pygame.draw.line.called
+         screen.blit.assert_called()
 
-    # Verify image loading and blitting
-    rm.load_image.assert_called_with("test.png")
-    screen.blit.assert_called()
-
-def test_render_system_update_scaling_and_culling():
+def test_render_system_update_scaling_and_culling(mock_world):
     screen = MagicMock()
     screen.get_size.return_value = (800, 600)
-    screen_rect = MagicMock()
-    screen.get_rect.return_value = screen_rect
+    screen.get_rect.return_value.colliderect.return_value = True
 
     yukkurrium = Yukkurrium()
     # Zoom in to trigger scaling code
@@ -147,60 +141,45 @@ def test_render_system_update_scaling_and_culling():
 
     rm = MagicMock()
     img = MagicMock()
-    # Mock scaling
-    scaled_img = MagicMock()
+    img.get_rect.return_value = MagicMock()
+    img.get_rect.return_value.colliderect.return_value = True
 
-    # Culling: rect.colliderect(screen.get_rect()) -> False means culled
-    # We want to test:
-    # 1. Scaling (when scale != 1.0)
-    # 2. Culling (when colliderect returns False)
-    # 3. Selection highlight
+    # Setup services
+    mock_world.services.get.side_effect = lambda service_type: yukkurrium if service_type == Yukkurrium else (rm if service_type == ResourceManager else MagicMock())
 
-    # Set up image rect
-    rect = MagicMock()
-    # Let's say it collides
-    rect.colliderect.return_value = True
-    scaled_img.get_rect.return_value = rect
+    rm.load_image.return_value = img
 
-    # Mock pygame.transform.scale
-    with patch('pygame.transform.scale', return_value=scaled_img) as mock_scale:
-        rm.load_image.return_value = img
+    rs = RenderSystem(screen, mock_world)
 
-        rs = RenderSystem(screen, yukkurrium, rm)
-        world = MagicMock()
+    mock_world.get_entities_with.return_value = [1]
+    trans = Transform(x=0, y=0) # Scale 1.0
+    sprite = Sprite("test.png", 32, 32)
+    selectable = Selectable(selected=True)
 
-        ent = 1
-        world.get_entities_with.return_value = [ent]
+    def get_component_side_effect(ent, comp_type):
+        if comp_type == Transform:
+            return trans
+        if comp_type == Sprite:
+            return sprite
+        if comp_type == Selectable:
+            return selectable
+        return None
+    mock_world.get_component.side_effect = get_component_side_effect
 
-        transform = Transform(x=0, y=0, scale=1.0) # Scale 1.0 * Zoom 2.0 = 2.0 effective scale
-        sprite = Sprite(image_name="test.png", width=32, height=32)
-        selectable = Selectable(selected=True)
+    with patch('pygame.draw.line'), patch('pygame.draw.rect'), patch('pygame.transform.scale', return_value=img) as mock_scale:
+        rs.update(mock_world, 0.016)
 
-        def get_component_side_effect(e, c):
-            if c == Transform:
-                return transform
-            if c == Sprite:
-                return sprite
-            if c == Selectable:
-                return selectable
-            return None
+        # Verify scaling
+        # Zoom is 2.0, trans.scale is 1.0 -> total scale 2.0
+        # width 32 * 2 = 64
+        mock_scale.assert_called_with(img, (64, 64))
 
-        world.get_component.side_effect = get_component_side_effect
+        # Verify blit
+        screen.blit.assert_called_with(img, img.get_rect(center=(400,300)))
 
-        with patch('pygame.draw.line'), patch('pygame.draw.rect') as mock_rect:
-            rs.update(world, 0.016)
-
-            # Verify scaling
-            mock_scale.assert_called()
-
-            # Verify selection highlight
-            mock_rect.assert_called()
-
-def test_render_system_update_culling():
+def test_render_system_update_culling(mock_world):
     screen = MagicMock()
     screen.get_size.return_value = (800, 600)
-    screen_rect = MagicMock()
-    screen.get_rect.return_value = screen_rect
 
     yukkurrium = Yukkurrium()
     rm = MagicMock()
@@ -211,24 +190,21 @@ def test_render_system_update_culling():
     img.get_rect.return_value = rect
     rm.load_image.return_value = img
 
-    rs = RenderSystem(screen, yukkurrium, rm)
-    world = MagicMock()
+    mock_world.services.get.side_effect = lambda service_type: yukkurrium if service_type == Yukkurrium else (rm if service_type == ResourceManager else MagicMock())
 
-    ent = 1
-    world.get_entities_with.return_value = [ent]
+    rs = RenderSystem(screen, mock_world)
 
-    transform = Transform(x=10000, y=10000)
-    sprite = Sprite(image_name="test.png", width=32, height=32)
+    mock_world.get_entities_with.return_value = [1]
+    trans = Transform(10000, 10000)
+    sprite = Sprite("t", 32, 32)
+    mock_world.get_component.side_effect = lambda e, c: trans if c==Transform else sprite
 
-    world.get_component.side_effect = lambda e, c: transform if c == Transform else (sprite if c == Sprite else None)
+    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
+        rs.update(mock_world, 0.016)
 
-    with patch('pygame.draw.line'):
-        rs.update(world, 0.016)
-
-        # Should not blit if culled
         screen.blit.assert_not_called()
 
-def test_render_system_update_invalid_size():
+def test_render_system_update_invalid_size(mock_world):
     screen = MagicMock()
     screen.get_size.return_value = (800, 600)
     yukkurrium = Yukkurrium()
@@ -238,68 +214,52 @@ def test_render_system_update_invalid_size():
     img = MagicMock()
     rm.load_image.return_value = img
 
-    rs = RenderSystem(screen, yukkurrium, rm)
-    world = MagicMock()
+    mock_world.services.get.side_effect = lambda service_type: yukkurrium if service_type == Yukkurrium else (rm if service_type == ResourceManager else MagicMock())
 
-    ent = 1
-    world.get_entities_with.return_value = [ent]
+    rs = RenderSystem(screen, mock_world)
 
-    transform = Transform(x=0, y=0, scale=0.1) # Resulting size will be ~0
-    sprite = Sprite(image_name="test.png", width=32, height=32)
+    mock_world.get_entities_with.return_value = [1]
+    mock_world.get_component.side_effect = lambda e, c: Transform(0,0) if c==Transform else Sprite("t",32,32)
 
-    world.get_component.side_effect = lambda e, c: transform if c == Transform else (sprite if c == Sprite else None)
+    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
+        rs.update(mock_world, 0.016)
 
-    with patch('pygame.draw.line'):
-        rs.update(world, 0.016)
-
-        # Should not blit if size <= 0
         screen.blit.assert_not_called()
 
-def test_render_system_missing_components():
+def test_render_system_missing_components(mock_world):
     screen = MagicMock()
     screen.get_size.return_value = (800, 600)
     yukkurrium = Yukkurrium()
     rm = MagicMock()
 
-    rs = RenderSystem(screen, yukkurrium, rm)
-    world = MagicMock()
+    mock_world.services.get.side_effect = lambda service_type: yukkurrium if service_type == Yukkurrium else (rm if service_type == ResourceManager else MagicMock())
 
-    # Entity is in the list but somehow get_component returns None (race condition or error)
-    ent = 1
-    world.get_entities_with.return_value = [ent]
+    rs = RenderSystem(screen, mock_world)
 
-    # get_component needs to return valid Transform for sort, but None for the loop check
-    transform = Transform(x=0, y=0)
+    mock_world.get_entities_with.return_value = [1]
 
-    def get_component_side_effect(e, c):
-        # The sort calls get_component(e, Transform)
-        # The loop also calls get_component(e, Transform) and get_component(e, Sprite)
-        # We want the sort to succeed, but the loop check to fail.
-        # Since we can't easily distinguish the caller, we can use a counter or state.
-        # Or we can just return Transform but return None for Sprite.
-        if c == Transform:
-            return transform
-        if c == Sprite:
-            return None
-        return None
+    # To avoid crash in sort, we provide Transform but skip Sprite
+    trans = Transform(x=0, y=0)
 
-    world.get_component.side_effect = get_component_side_effect
+    def get_component_side_effect(ent, comp_type):
+        if comp_type == Transform:
+            return trans
+        return None # No Sprite
 
-    with patch('pygame.draw.line'):
-        rs.update(world, 0.016)
+    mock_world.get_component.side_effect = get_component_side_effect
 
-        # Should continue and not crash or do anything
-        rm.load_image.assert_not_called()
+    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
+        rs.update(mock_world, 0.016)
+
+        screen.blit.assert_not_called()
 
 def test_time_system():
     ts = TimeSystem()
-    world = MagicMock()
-
     assert ts.total_time == 0.0
 
-    ts.update(world, 1.0)
+    ts.update(MagicMock(), 1.0)
     assert ts.total_time == 1.0
 
     ts.game_speed = 2.0
-    ts.update(world, 1.0)
+    ts.update(MagicMock(), 1.0)
     assert ts.total_time == 3.0

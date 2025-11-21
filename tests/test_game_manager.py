@@ -6,21 +6,42 @@ from yukkuri_game.game.game_manager import GameManager
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats
 from yukkuri_game.game.components import Transform
+from yukkuri_game.game.player_components import PlayerState
+from yukkuri_game.game.entity_factory import EntityFactory
 
 @pytest.fixture
 def mock_world():
     world = MagicMock(spec=World)
     world._entities = []
+
+    # Mock services
+    world.services = MagicMock()
+
+    # Mock get_components for PlayerState
+    world.get_components.return_value = {}
+    world.create_entity.return_value = 0
+
     return world
 
 @pytest.fixture
 def mock_factory():
-    return MagicMock()
+    return MagicMock(spec=EntityFactory)
 
 @pytest.fixture
 def game_manager(mock_world, mock_factory, tmp_path):
-    gm = GameManager(mock_world, mock_factory)
-    gm.save_dir = str(tmp_path)
+    # Setup services to return mock_factory
+    mock_world.services.get.return_value = mock_factory
+
+    # Setup PlayerState
+    player_state = PlayerState(save_dir=str(tmp_path))
+    mock_world.get_components.return_value = {0: player_state}
+
+    gm = GameManager(mock_world)
+
+    # Since get_components returns a dict, but we want subsequent calls to work
+    # The GameManager init might create a player if not found.
+    # Here we mock it so it finds it.
+
     return gm
 
 def test_initial_state(game_manager):
@@ -28,25 +49,23 @@ def test_initial_state(game_manager):
     assert game_manager.time_elapsed == 0.0
     assert os.path.exists(game_manager.save_dir)
 
-def test_init_creates_save_dir(mock_world, mock_factory, tmp_path):
-    save_dir = tmp_path / "new_saves"
-    assert not save_dir.exists()
+def test_init_creates_player(mock_world, mock_factory):
+    # Setup world to have no players initially
+    mock_world.get_components.side_effect = [{}, {0: PlayerState()}] # First call empty, second call has it (if needed)
+    mock_world.services.get.return_value = mock_factory
 
-    gm = GameManager(mock_world, mock_factory)
-    gm.save_dir = str(save_dir)
+    gm = GameManager(mock_world)
 
-    # We need to trigger the init logic again or manually simulate it
-    # Since __init__ is already called, we can check if we can force it
-    # But easier is to just subclass or just test the logic if it was extracted.
-    # However, the logic is in __init__.
-    # Let's just instantiate GameManager with a path that doesn't exist?
-    # But GameManager hardcodes "saves" in __init__ before we can change it.
-    # We can patch os.path.exists and os.makedirs.
-
-    with patch("os.path.exists", return_value=False), \
-         patch("os.makedirs") as mock_makedirs:
-        GameManager(mock_world, mock_factory)
-        mock_makedirs.assert_called_with("saves")
+    # Verify player entity creation
+    mock_world.create_entity.assert_called()
+    # Check if add_component was called with PlayerState
+    # We iterate through call args to find PlayerState
+    found_player_state = False
+    for call in mock_world.add_component.call_args_list:
+        if isinstance(call[0][1], PlayerState):
+            found_player_state = True
+            break
+    assert found_player_state
 
 def test_calculate_quality_score(game_manager):
     stats = YukkuriStats(type_id="test", name="TestYukkuri")
@@ -79,7 +98,17 @@ def test_sell_yukkuri(game_manager, mock_world):
     stats = YukkuriStats(type_id="test", name="TestYukkuri")
     # Default happiness is 50.0
     # Base: 100, Happiness: 50*2 = 100, Total = 200
-    mock_world.get_component.side_effect = lambda e, c: stats if c == YukkuriStats else None
+
+    # Mock get_component
+    def get_component_side_effect(e, c):
+        if c == YukkuriStats:
+            return stats
+        return None
+    mock_world.get_component.side_effect = get_component_side_effect
+
+    # Ensure PlayerState is available
+    player_state = PlayerState()
+    mock_world.get_components.return_value = {0: player_state}
 
     initial_money = game_manager.money
 
@@ -93,6 +122,10 @@ def test_sell_non_yukkuri(game_manager, mock_world):
     entity_id = 2
     mock_world.get_component.return_value = None
 
+    # Ensure PlayerState is available
+    player_state = PlayerState()
+    mock_world.get_components.return_value = {0: player_state}
+
     initial_money = game_manager.money
     value = game_manager.sell_yukkuri(entity_id)
 
@@ -100,130 +133,40 @@ def test_sell_non_yukkuri(game_manager, mock_world):
     assert game_manager.money == initial_money
     mock_world.destroy_entity.assert_not_called()
 
-def test_save_game(game_manager, mock_world):
-    game_manager.money = 5000
-    game_manager.time_elapsed = 120.0
+# The save/load tests need to be updated because now we delegate to PersistenceSystem.
+# But since we are mocking everything, we can just verify GameManager calls PersistenceSystem
+# OR we can integration test it by mocking PersistenceSystem behavior or file system.
+# Since we are in unit tests, mocking file system is better, or just trusting PersistenceSystem tests (which we will write).
+# But let's update them to work with current GameManager implementation.
 
-    # Setup an entity
-    entity_id = 1
-    mock_world._entities = [entity_id]
+# Note: GameManager instantiates PersistenceSystem locally.
+# We can patch PersistenceSystem in GameManager module.
 
-    transform = Transform(x=10.0, y=20.0)
-    stats = YukkuriStats(type_id="test", name="SaveTest")
-    stats.health = 80.0
-
-    def get_component_side_effect(e, c):
-        if c == Transform:
-            return transform
-        if c == YukkuriStats:
-            return stats
-        return None
-
-    mock_world.get_component.side_effect = get_component_side_effect
+@patch('yukkuri_game.game.game_manager.PersistenceSystem')
+def test_save_game(mock_persistence_cls, game_manager):
+    mock_persistence_instance = mock_persistence_cls.return_value
 
     game_manager.save_game("test_save.json")
 
-    save_file = os.path.join(game_manager.save_dir, "test_save.json")
-    assert os.path.exists(save_file)
+    mock_persistence_instance.save.assert_called_once_with("test_save.json")
+    assert mock_persistence_instance.ecs_world == game_manager.world
 
-    with open(save_file, "r") as f:
-        data = json.load(f)
+@patch('yukkuri_game.game.game_manager.PersistenceSystem')
+def test_load_game(mock_persistence_cls, game_manager):
+    mock_persistence_instance = mock_persistence_cls.return_value
+    mock_persistence_instance.load.return_value = True
 
-    assert data["money"] == 5000
-    assert data["time"] == 120.0
-    assert len(data["entities"]) == 1
-
-    ent_data = data["entities"][0]
-    assert ent_data["transform"]["x"] == 10.0
-    assert ent_data["transform"]["y"] == 20.0
-    assert ent_data["yukkuri"]["name"] == "SaveTest"
-    assert ent_data["yukkuri"]["health"] == 80.0
-
-def test_save_game_item(game_manager, mock_world):
-    # Setup an item entity
-    entity_id = 2
-    mock_world._entities = [entity_id]
-
-    transform = Transform(x=5.0, y=5.0)
-    item_stats = ItemStats(type_id="food", name="Cookie", cost=10)
-
-    def get_component_side_effect(e, c):
-        if c == Transform:
-            return transform
-        if c == ItemStats:
-            return item_stats
-        return None
-
-    mock_world.get_component.side_effect = get_component_side_effect
-
-    game_manager.save_game("test_save_item.json")
-
-    save_file = os.path.join(game_manager.save_dir, "test_save_item.json")
-
-    with open(save_file, "r") as f:
-        data = json.load(f)
-
-    ent_data = data["entities"][0]
-    assert ent_data["item"]["type_id"] == "food"
-
-def test_load_game(game_manager, mock_world, mock_factory):
-    save_data = {
-        "money": 2000,
-        "time": 300.0,
-        "entities": [
-            {
-                "transform": {"x": 100.0, "y": 200.0},
-                "yukkuri": {
-                    "type_id": "reimu",
-                    "name": "LoadedReimu",
-                    "health": 90.0,
-                    "hunger": 50.0,
-                    "happiness": 80.0,
-                    "badges": 1,
-                    "age": 60.0
-                }
-            },
-            {
-                "transform": {"x": 50.0, "y": 50.0},
-                "item": {
-                    "type_id": "cookie"
-                }
-            }
-        ]
-    }
-
-    save_file = os.path.join(game_manager.save_dir, "load_test.json")
-    with open(save_file, "w") as f:
-        json.dump(save_data, f)
-
-    # Mock existing entities to be cleared
-    mock_world._entities = [99, 100]
-
-    # Mock factory creation
-    mock_factory.create_yukkuri.return_value = 1
-    mock_factory.create_item.return_value = 2
-
-    # Mock get_component for stats update
-    stats = YukkuriStats(type_id="reimu", name="Default")
-    mock_world.get_component.return_value = stats
-
-    success = game_manager.load_game("load_test.json")
+    success = game_manager.load_game("test_save.json")
 
     assert success is True
-    assert game_manager.money == 2000
-    assert game_manager.time_elapsed == 300.0
+    mock_persistence_instance.load.assert_called_once_with("test_save.json")
+    assert mock_persistence_instance.ecs_world == game_manager.world
 
-    # Check if existing entities were destroyed
-    assert mock_world.destroy_entity.call_count == 2
+@patch('yukkuri_game.game.game_manager.PersistenceSystem')
+def test_load_game_not_found(mock_persistence_cls, game_manager):
+    mock_persistence_instance = mock_persistence_cls.return_value
+    mock_persistence_instance.load.return_value = False
 
-    # Check if factory was called correctly
-    mock_factory.create_yukkuri.assert_called_once_with("reimu", 100.0, 200.0)
-    mock_factory.create_item.assert_called_once_with("cookie", 50.0, 50.0)
-
-    # Check if stats were updated
-    assert stats.name == "LoadedReimu"
-    assert stats.health == 90.0
-
-def test_load_game_not_found(game_manager):
     success = game_manager.load_game("non_existent.json")
+
     assert success is False

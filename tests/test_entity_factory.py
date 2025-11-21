@@ -2,14 +2,19 @@ import pytest
 from unittest.mock import MagicMock
 from src.yukkuri_game.game.entity_factory import EntityFactory
 from src.yukkuri_game.engine.ecs import World
+from src.yukkuri_game.engine.resource_manager import ResourceManager
+from src.yukkuri_game.game.systems.physics import PhysicsSystem
 from src.yukkuri_game.game.components import Transform, Sprite, Selectable
 from src.yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
 
 @pytest.fixture
-def entity_factory():
+def mock_world():
     world = World()
-    rm = MagicMock()
+    return world
 
+@pytest.fixture
+def mock_rm():
+    rm = MagicMock()
     rm.yukkuri_types = {
         "reimu": {
             "image": "reimu.png",
@@ -32,15 +37,25 @@ def entity_factory():
             "is_portable": True
         }
     }
+    return rm
 
-    return EntityFactory(world, rm)
+@pytest.fixture
+def entity_factory(mock_world, mock_rm):
+    # Inject services correctly: instance, then type
+    mock_world.services.register(mock_rm, service_type=ResourceManager)
+    # Note: PhysicsSystem is optional, so we don't register it for basic tests
+    # If we needed it, we would register a mock.
+
+    return EntityFactory(mock_world)
 
 def test_create_yukkuri(entity_factory):
     factory = entity_factory
     entity_id = factory.create_yukkuri("reimu", 100, 200)
 
     world = factory.world
-    assert entity_id in world._entities
+    # ecs.py Wrapper uses esper.
+    # To check existence we use entity_exists or check components
+    assert world.entity_exists(entity_id)
 
     # Check Transform
     transform = world.get_component(entity_id, Transform)
