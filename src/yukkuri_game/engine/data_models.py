@@ -13,6 +13,8 @@ if TYPE_CHECKING:
         pass
     class AIActionBase:
         pass
+    class AnimationDefinitionBase:
+        pass
     class YukkuriDataBase:
         pass
     class ItemDataBase:
@@ -25,9 +27,26 @@ else:
     ActionEffectBase = msgspec.Struct
     ActionConsiderationBase = msgspec.Struct
     AIActionBase = msgspec.Struct
+    AnimationDefinitionBase = msgspec.Struct
     YukkuriDataBase = msgspec.Struct
     ItemDataBase = msgspec.Struct
     AIDataBase = msgspec.Struct
+
+
+class AnimationDefinition(AnimationDefinitionBase):
+    """
+    Data model representing an animation sequence.
+
+    Attributes:
+        name (str): The name of the animation.
+        frames (List[int]): The sequence of frame indices.
+        frame_duration (float): Duration of each frame in seconds.
+        loop (bool): Whether the animation should loop. Defaults to True.
+    """
+    name: str
+    frames: List[int]
+    frame_duration: float
+    loop: bool = True
 
 
 class YukkuriType(YukkuriTypeBase):
@@ -41,6 +60,7 @@ class YukkuriType(YukkuriTypeBase):
         height (int): The height of the sprite in pixels.
         max_health (int): The maximum health of this Yukkuri type.
         base_happiness (int): The starting happiness level.
+        animations (Dict[str, AnimationDefinition]): Animation definitions for this Yukkuri.
     """
     name: str
     image: str
@@ -49,6 +69,7 @@ class YukkuriType(YukkuriTypeBase):
     max_health: int
     base_happiness: int
     cost: int = 100
+    animations: Dict[str, AnimationDefinition] = {}
 
 class ItemType(ItemTypeBase):
     """

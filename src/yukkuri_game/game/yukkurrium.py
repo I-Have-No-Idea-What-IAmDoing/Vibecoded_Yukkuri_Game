@@ -192,6 +192,10 @@ class WorldRenderer:
             else:
                 frame_img = img.subsurface(source_rect)
 
+            # Apply flips
+            if sprite.flip_x or sprite.flip_y:
+                frame_img = pygame.transform.flip(frame_img, sprite.flip_x, sprite.flip_y)
+
             if scale != 1.0:
                 # Simple optimization: check if size is reasonable
                 w = int(sprite.width * scale)
