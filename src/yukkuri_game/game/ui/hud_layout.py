@@ -28,7 +28,7 @@ class HudLayout:
         debug_window (Optional[UIWindow]): The debug info window.
         debug_text_box (Optional[UITextBox]): Text box within the debug window.
     """
-    def __init__(self, ui_manager: pygame_gui.UIManager, width: int, height: int):
+    def __init__(self, ui_manager: pygame_gui.UIManager, width: int, height: int, yukkuri_types: dict = None, item_types: dict = None):
         """
         Initializes the HudLayout.
 
@@ -36,10 +36,14 @@ class HudLayout:
             ui_manager (pygame_gui.UIManager): The pygame_gui UIManager.
             width (int): The width of the screen.
             height (int): The height of the screen.
+            yukkuri_types (dict): Dictionary of available Yukkuri types.
+            item_types (dict): Dictionary of available Item types.
         """
         self.manager = ui_manager
         self.width = width
         self.height = height
+        self.yukkuri_types = yukkuri_types if yukkuri_types is not None else {}
+        self.item_types = item_types if item_types is not None else {}
 
         # Elements
         self.top_panel: Optional[UIPanel] = None
@@ -50,8 +54,9 @@ class HudLayout:
         self.pause_btn: Optional[UIButton] = None
         self.speed_btn: Optional[UIButton] = None
         self.bottom_panel: Optional[UIPanel] = None
-        self.add_reimu_btn: Optional[UIButton] = None
-        self.add_cookie_btn: Optional[UIButton] = None
+
+        # Buy Buttons Map: {button: {"type_id": str, "category": str, "cost": int}}
+        self.buy_buttons: dict = {}
 
         # Selection Window Elements
         self.selection_window: Optional[UIWindow] = None
@@ -126,19 +131,39 @@ class HudLayout:
             manager=self.manager
         )
 
-        self.add_reimu_btn = UIButton(
-            relative_rect=pygame.Rect(10, 10, 120, 40),
-            text="Buy Reimu ($100)",
-            manager=self.manager,
-            container=self.bottom_panel
-        )
+        x_offset = 10
+        y_offset = 10
+        btn_width = 140
+        btn_height = 40
+        spacing = 10
 
-        self.add_cookie_btn = UIButton(
-            relative_rect=pygame.Rect(140, 10, 120, 40),
-            text="Buy Cookie ($10)",
-            manager=self.manager,
-            container=self.bottom_panel
-        )
+        # Create buttons for Yukkuris
+        for type_id, data in self.yukkuri_types.items():
+            cost = getattr(data, 'cost', 100)
+            name = getattr(data, 'name', type_id.capitalize())
+
+            btn = UIButton(
+                relative_rect=pygame.Rect(x_offset, y_offset, btn_width, btn_height),
+                text=f"Buy {name} (${cost})",
+                manager=self.manager,
+                container=self.bottom_panel
+            )
+            self.buy_buttons[btn] = {"type_id": type_id, "category": "yukkuri", "cost": cost, "name": name}
+            x_offset += btn_width + spacing
+
+        # Create buttons for Items
+        for type_id, data in self.item_types.items():
+            cost = getattr(data, 'cost', 10)
+            name = getattr(data, 'name', type_id.capitalize())
+
+            btn = UIButton(
+                relative_rect=pygame.Rect(x_offset, y_offset, btn_width, btn_height),
+                text=f"Buy {name} (${cost})",
+                manager=self.manager,
+                container=self.bottom_panel
+            )
+            self.buy_buttons[btn] = {"type_id": type_id, "category": "item", "cost": cost, "name": name}
+            x_offset += btn_width + spacing
 
     def create_selection_window(self, has_stats: bool) -> None:
         """

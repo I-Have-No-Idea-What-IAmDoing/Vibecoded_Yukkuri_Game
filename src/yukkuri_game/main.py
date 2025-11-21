@@ -56,10 +56,46 @@ class YukkuriGame(GameLoop):
         # Core Systems & Service Registration
         self.yukkurrium = Yukkurrium(settings=self.game_config.world)
         self.audio = AudioManager()
+
+        # Load sounds
+        if os.path.exists("data/sounds.toml"):
+            try:
+                import tomllib # python 3.11
+            except ImportError:
+                try:
+                    import tomli as tomllib
+                except ImportError:
+                    tomllib = None
+
+            if tomllib:
+                with open("data/sounds.toml", "rb") as f:
+                    sounds = tomllib.load(f)
+                    for name, path in sounds.get("sounds", {}).items():
+                        self.audio.load_sound(name, path)
+            else:
+                # Fallback if no toml parser
+                self.audio.load_sound("click", "data/audio/click.wav")
+                self.audio.load_sound("place", "data/audio/place.wav")
+                self.audio.load_sound("cancel", "data/audio/cancel.wav")
+                self.audio.load_sound("sell", "data/audio/sell.wav")
+                self.audio.load_sound("train", "data/audio/train.wav")
+                self.audio.load_sound("eat", "data/audio/eat.wav")
+                self.audio.load_sound("cry", "data/audio/cry.wav")
+        else:
+             # Hardcoded fallback
+            self.audio.load_sound("click", "data/audio/click.wav")
+            self.audio.load_sound("place", "data/audio/place.wav")
+            self.audio.load_sound("cancel", "data/audio/cancel.wav")
+            self.audio.load_sound("sell", "data/audio/sell.wav")
+            self.audio.load_sound("train", "data/audio/train.wav")
+            self.audio.load_sound("eat", "data/audio/eat.wav")
+            self.audio.load_sound("cry", "data/audio/cry.wav")
+
         self.physics_system = PhysicsSystem()
         self.event_bus = EventBus()
 
         self.world.services.register(self.resources, ResourceManager)
+        self.world.services.register(self.audio, AudioManager)
         self.world.services.register(self.yukkurrium)
         self.world.services.register(self.physics_system)
         self.world.services.register(self.event_bus)

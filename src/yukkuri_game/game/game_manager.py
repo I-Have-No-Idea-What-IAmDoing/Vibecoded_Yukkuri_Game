@@ -4,6 +4,7 @@ from typing import Any, Dict, TYPE_CHECKING
 from loguru import logger
 from ..engine.ecs import World
 from ..engine.event_bus import EventBus
+from ..engine.audio import AudioManager
 from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats
 from .services import EconomyService, PersistenceService, TimeService
@@ -37,6 +38,8 @@ class GameManager:
         if self.event_bus:
             self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
             self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
+
+        self.audio = world.services.try_get(AudioManager)
 
     @property
     def time_elapsed(self) -> float:
@@ -130,6 +133,8 @@ class GameManager:
             economy = self.world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}")
+            if self.audio:
+                self.audio.play_sound("sell")
             self.world.destroy_entity(entity)
             return value
         return 0
@@ -154,6 +159,8 @@ class GameManager:
         if stats:
             stats.badges += 1
             stats.happiness += 10
+            if self.audio:
+                self.audio.play_sound("train")
             logger.info(f"Trained entity {event.entity_id}. Badges: {stats.badges}")
 
     def save_game(self, filename: str = "savegame.json") -> None:

@@ -82,18 +82,18 @@ class HudEvents:
             self.event_bus.publish(CycleSpeedRequest())
             return True
 
-        if ui_element == self.layout.add_reimu_btn:
-            if self.gm.money >= 100:
-                self.event_bus.publish(PlacementStartedEvent("reimu", 100, "yukkuri"))
-            elif self.on_error:
-                self.on_error("Not enough money to buy Reimu! Needed: $100")
-            return True
+        # Dynamic Buy Buttons
+        if ui_element in self.layout.buy_buttons:
+            data = self.layout.buy_buttons[ui_element]
+            type_id = data["type_id"]
+            cost = data["cost"]
+            category = data["category"]
+            name = data["name"]
 
-        if ui_element == self.layout.add_cookie_btn:
-            if self.gm.money >= 10:
-                self.event_bus.publish(PlacementStartedEvent("cookie", 10, "item"))
+            if self.gm.money >= cost:
+                self.event_bus.publish(PlacementStartedEvent(type_id, cost, category))
             elif self.on_error:
-                self.on_error("Not enough money to buy Cookie! Needed: $10")
+                self.on_error(f"Not enough money to buy {name}! Needed: ${cost}")
             return True
 
         if self.layout.selection_window:

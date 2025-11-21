@@ -14,8 +14,13 @@ class TestHudEvents(unittest.TestCase):
         self.on_error = Mock()
 
         # Setup mock buttons
-        self.layout.add_reimu_btn = Mock()
-        self.layout.add_cookie_btn = Mock()
+        self.layout.buy_buttons = {}
+
+        self.reimu_btn = Mock()
+        self.layout.buy_buttons[self.reimu_btn] = {"type_id": "reimu", "cost": 100, "category": "yukkuri", "name": "Reimu"}
+
+        self.cookie_btn = Mock()
+        self.layout.buy_buttons[self.cookie_btn] = {"type_id": "cookie", "cost": 10, "category": "item", "name": "Cookie"}
 
         self.hud_events = HudEvents(self.layout, self.gm, self.event_bus, self.on_error)
 
@@ -24,7 +29,7 @@ class TestHudEvents(unittest.TestCase):
         self.gm.money = 1000
         event = Mock(spec=pygame.event.Event)
         event.type = pygame_gui.UI_BUTTON_PRESSED
-        event.ui_element = self.layout.add_reimu_btn
+        event.ui_element = self.reimu_btn
 
         # Execute
         result = self.hud_events.process_event(event)
@@ -42,7 +47,7 @@ class TestHudEvents(unittest.TestCase):
         self.gm.money = 50
         event = Mock(spec=pygame.event.Event)
         event.type = pygame_gui.UI_BUTTON_PRESSED
-        event.ui_element = self.layout.add_reimu_btn
+        event.ui_element = self.reimu_btn
 
         # Execute
         result = self.hud_events.process_event(event)
@@ -57,7 +62,7 @@ class TestHudEvents(unittest.TestCase):
         self.gm.money = 100
         event = Mock(spec=pygame.event.Event)
         event.type = pygame_gui.UI_BUTTON_PRESSED
-        event.ui_element = self.layout.add_cookie_btn
+        event.ui_element = self.cookie_btn
 
         # Execute
         result = self.hud_events.process_event(event)
@@ -75,7 +80,7 @@ class TestHudEvents(unittest.TestCase):
         self.gm.money = 5
         event = Mock(spec=pygame.event.Event)
         event.type = pygame_gui.UI_BUTTON_PRESSED
-        event.ui_element = self.layout.add_cookie_btn
+        event.ui_element = self.cookie_btn
 
         # Execute
         result = self.hud_events.process_event(event)

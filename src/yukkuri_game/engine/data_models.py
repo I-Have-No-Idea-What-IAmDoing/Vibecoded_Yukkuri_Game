@@ -52,6 +52,7 @@ class YukkuriType(YukkuriTypeBase):
     frame_height: int = 0
     frame_count: int = 1
     animation_speed: float = 0.1
+    cost: int = 100
 
 class ItemType(ItemTypeBase):
     """
