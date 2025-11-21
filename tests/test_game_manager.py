@@ -5,6 +5,7 @@ from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
 from src.yukkuri_game.game.yukkuri_components import YukkuriStats
 from src.yukkuri_game.game.entity_factory import EntityFactory
+from src.yukkuri_game.engine.event_bus import EventBus
 
 @pytest.fixture
 def game_manager_world():
@@ -15,32 +16,19 @@ def game_manager_world():
     time_svc = TimeService()
     persistence = MagicMock(spec=PersistenceService)
     factory = MagicMock(spec=EntityFactory)
-
-    # Use a real service locator or mock it properly?
-    # World has real services locator.
-    # Register services manually if needed, but World usually has empty services.
-    # World doesn't expose register directly on self.services (it's ServiceLocator).
+    event_bus = MagicMock(spec=EventBus)
 
     # register(instance, service_type=Type)
     world.services.register(economy, EconomyService)
     world.services.register(time_svc, TimeService)
     world.services.register(persistence, PersistenceService)
-    # EntityFactory class itself is used as key in GameManager, not the instance.
-    # But ServiceLocator.register takes Type[T] and T.
-    # GameManager does: self.factory = world.services.get(EntityFactory)
-    # So we must register with EntityFactory type.
-    # The method signature for register is: register(self, instance: Any, service_type: Optional[Type[Any]] = None, replace: bool = False)
-    # But in the test code above, I am calling: world.services.register(EntityFactory, factory)
-    # which maps to register(instance=EntityFactory, service_type=factory)
-    # This is WRONG. EntityFactory is the type (key), factory is the instance.
-    # It should be: world.services.register(factory, EntityFactory)
-
     world.services.register(factory, EntityFactory)
+    world.services.register(event_bus, EventBus)
 
-    return world, economy, time_svc, persistence, factory
+    return world, economy, time_svc, persistence, factory, event_bus
 
 def test_game_manager_properties(game_manager_world):
-    world, economy, time_svc, _, _ = game_manager_world
+    world, economy, time_svc, _, _, _ = game_manager_world
     gm = GameManager(world)
 
     # Test money property delegation
@@ -56,7 +44,7 @@ def test_game_manager_properties(game_manager_world):
     assert time_svc.time_elapsed == 10.0
 
 def test_game_manager_sell_yukkuri(game_manager_world):
-    world, economy, _, _, _ = game_manager_world
+    world, economy, _, _, _, _ = game_manager_world
     gm = GameManager(world)
 
     # Create mock yukkuri
@@ -92,7 +80,7 @@ def test_game_manager_sell_yukkuri(game_manager_world):
     assert not world.entity_exists(yukkuri)
 
 def test_game_manager_sell_invalid_entity(game_manager_world):
-    world, economy, _, _, _ = game_manager_world
+    world, economy, _, _, _, _ = game_manager_world
     gm = GameManager(world)
 
     # Entity without stats
@@ -108,7 +96,7 @@ def test_game_manager_sell_invalid_entity(game_manager_world):
     assert world.entity_exists(item)
 
 def test_game_manager_save_load_delegation(game_manager_world):
-    world, _, _, persistence, _ = game_manager_world
+    world, _, _, persistence, _, _ = game_manager_world
     gm = GameManager(world)
 
     gm.save_game("mysave.json")

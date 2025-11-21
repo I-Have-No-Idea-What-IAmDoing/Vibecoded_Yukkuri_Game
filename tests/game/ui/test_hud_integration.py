@@ -102,13 +102,7 @@ def test_process_event_integration(hud):
     event = MagicMock()
     event.type = pygame_gui.UI_BUTTON_PRESSED
 
-    # Callbacks
-    hud.toggle_pause_callback = MagicMock()
-
     hud.process_event(event)
-
-    # Verify callbacks are passed to events store
-    assert hud._callbacks_store['toggle_pause'] == hud.toggle_pause_callback
 
     # Verify events process_event is called
     hud.events.process_event.assert_called_with(event)
@@ -127,18 +121,3 @@ def test_process_event_sell_logic(hud):
     assert hud.selected_entity == -1
     hud.layout.close_selection_window.assert_called()
     hud.events.set_selected_entity.assert_called_with(-1)
-
-def test_train_entity_callback(hud, mock_world):
-    # Test the internal _train_entity callback
-
-    stats = YukkuriStats(name="Test", type_id="test")
-    stats.badges = 0
-    stats.happiness = 0
-
-    mock_world.get_component.return_value = stats
-
-    hud._train_entity(123)
-
-    assert stats.badges == 1
-    assert stats.happiness == 10
-    mock_world.get_component.assert_called_with(123, YukkuriStats)

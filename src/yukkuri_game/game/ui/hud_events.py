@@ -2,7 +2,13 @@ import pygame
 import pygame_gui
 from typing import Optional, Callable, Dict, Any, TYPE_CHECKING
 from ...engine.event_bus import EventBus
-from ..events import PlacementStartedEvent
+from ..events import (
+    PlacementStartedEvent,
+    TogglePauseRequest,
+    CycleSpeedRequest,
+    TrainEntityRequest,
+    SellEntityRequest
+)
 
 if TYPE_CHECKING:
     from .hud_layout import HudLayout
@@ -15,23 +21,20 @@ class HudEvents:
     Attributes:
         layout (HudLayout): The layout component containing UI elements.
         gm (GameManager): The GameManager instance for game logic.
-        callbacks (Dict[str, Callable]): A dictionary of callback functions for various actions.
         event_bus (EventBus): The event bus.
         selected_entity (int): The ID of the currently selected entity.
     """
-    def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', callbacks: Dict[str, Callable[..., Any]], event_bus: EventBus):
+    def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', event_bus: EventBus):
         """
         Initializes the HudEvents handler.
 
         Args:
             layout (HudLayout): The HudLayout component.
             game_manager (GameManager): The GameManager instance.
-            callbacks (Dict[str, Callable]): Dictionary of callback functions.
             event_bus (EventBus): The event bus.
         """
         self.layout = layout
         self.gm = game_manager
-        self.callbacks = callbacks
         self.event_bus = event_bus
         self.selected_entity = -1
 
@@ -70,13 +73,11 @@ class HudEvents:
             return True
 
         if ui_element == self.layout.pause_btn:
-            if self.callbacks.get('toggle_pause'):
-                self.callbacks['toggle_pause']()
+            self.event_bus.publish(TogglePauseRequest())
             return True
 
         if ui_element == self.layout.speed_btn:
-            if self.callbacks.get('cycle_speed'):
-                self.callbacks['cycle_speed']()
+            self.event_bus.publish(CycleSpeedRequest())
             return True
 
         if ui_element == self.layout.add_reimu_btn:
@@ -91,21 +92,12 @@ class HudEvents:
 
         if self.layout.selection_window:
             if hasattr(self.layout, 'sell_btn') and ui_element == self.layout.sell_btn:
-                self.gm.sell_yukkuri(self.selected_entity)
-                # Signal that selection should be cleared or handled by caller,
-                # but for now, we can't easily clear it here without callbacks or returning a signal.
-                # The original code cleared it locally.
-                # We can return a specific signal or handle it via callback.
-                # For now let's assume the main HUD loop handles the state update after this.
-                return True # Special handling might be needed for clearing selection
+                # self.gm.sell_yukkuri(self.selected_entity)
+                self.event_bus.publish(SellEntityRequest(self.selected_entity))
+                return True
 
             if hasattr(self.layout, 'train_btn') and ui_element == self.layout.train_btn:
-                # This logic requires access to World to modify components.
-                # Ideally this should be in GameManager or a dedicated system.
-                # But since we have the logic here in original code, we need to support it.
-                # We can delegate to a callback 'train_entity'.
-                if self.callbacks.get('train_entity'):
-                    self.callbacks['train_entity'](self.selected_entity)
+                self.event_bus.publish(TrainEntityRequest(self.selected_entity))
                 return True
 
         return False

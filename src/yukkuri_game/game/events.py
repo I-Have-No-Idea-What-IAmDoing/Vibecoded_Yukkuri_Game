@@ -53,3 +53,37 @@ class GamePausedEvent(Event):
         paused (bool): True if the game is now paused, False otherwise.
     """
     paused: bool
+
+@dataclass(frozen=True)
+class TogglePauseRequest(Event):
+    """
+    Event published when a request to toggle the game pause state is made.
+    """
+    pass
+
+@dataclass(frozen=True)
+class CycleSpeedRequest(Event):
+    """
+    Event published when a request to cycle the game speed is made.
+    """
+    pass
+
+@dataclass(frozen=True)
+class TrainEntityRequest(Event):
+    """
+    Event published when a request to train an entity is made.
+
+    Attributes:
+        entity_id (int): The ID of the entity to train.
+    """
+    entity_id: int
+
+@dataclass(frozen=True)
+class SellEntityRequest(Event):
+    """
+    Event published when a request to sell an entity is made.
+
+    Attributes:
+        entity_id (int): The ID of the entity to sell.
+    """
+    entity_id: int

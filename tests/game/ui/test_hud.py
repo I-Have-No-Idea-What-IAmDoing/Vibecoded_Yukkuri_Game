@@ -10,7 +10,7 @@ from yukkuri_game.game.game_manager import GameManager
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
-from yukkuri_game.game.events import PlacementStartedEvent
+from yukkuri_game.game.events import PlacementStartedEvent, TogglePauseRequest, CycleSpeedRequest, TrainEntityRequest, SellEntityRequest
 
 @pytest.fixture
 def mock_ui_manager():
@@ -42,12 +42,7 @@ def hud_layout(mock_ui_manager):
 
 @pytest.fixture
 def hud_events(hud_layout, mock_game_manager, mock_event_bus):
-    callbacks = {
-        'toggle_pause': MagicMock(),
-        'cycle_speed': MagicMock(),
-        'train_entity': MagicMock()
-    }
-    return HudEvents(hud_layout, mock_game_manager, callbacks, mock_event_bus)
+    return HudEvents(hud_layout, mock_game_manager, mock_event_bus)
 
 @pytest.fixture
 def hud_renderer(hud_layout, mock_game_manager, mock_world):
@@ -130,23 +125,25 @@ class TestHudEvents:
         assert hud_events.process_event(event) is True
         mock_game_manager.load_game.assert_called_once()
 
-    def test_process_event_pause(self, hud_events, hud_layout):
+    def test_process_event_pause(self, hud_events, hud_layout, mock_event_bus):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
         hud_layout.pause_btn = MagicMock()
         event.ui_element = hud_layout.pause_btn
 
         assert hud_events.process_event(event) is True
-        hud_events.callbacks['toggle_pause'].assert_called_once()
+        # Check that TogglePauseRequest was published
+        mock_event_bus.publish.assert_called_with(TogglePauseRequest())
 
-    def test_process_event_speed(self, hud_events, hud_layout):
+    def test_process_event_speed(self, hud_events, hud_layout, mock_event_bus):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
         hud_layout.speed_btn = MagicMock()
         event.ui_element = hud_layout.speed_btn
 
         assert hud_events.process_event(event) is True
-        hud_events.callbacks['cycle_speed'].assert_called_once()
+        # Check that CycleSpeedRequest was published
+        mock_event_bus.publish.assert_called_with(CycleSpeedRequest())
 
     def test_process_event_buy_reimu(self, hud_events, hud_layout, mock_game_manager, mock_event_bus):
         event = MagicMock()
@@ -174,7 +171,7 @@ class TestHudEvents:
         assert hud_events.process_event(event) is True # Handled, but no action
         mock_event_bus.publish.assert_not_called()
 
-    def test_process_event_sell_entity(self, hud_events, hud_layout, mock_game_manager):
+    def test_process_event_sell_entity(self, hud_events, hud_layout, mock_event_bus):
         # Setup selection window elements
         hud_layout.selection_window = MagicMock()
         hud_layout.sell_btn = MagicMock()
@@ -186,9 +183,10 @@ class TestHudEvents:
         event.ui_element = hud_layout.sell_btn
 
         assert hud_events.process_event(event) is True
-        mock_game_manager.sell_yukkuri.assert_called_with(123)
+        # Check that SellEntityRequest was published
+        mock_event_bus.publish.assert_called_with(SellEntityRequest(123))
 
-    def test_process_event_train_entity(self, hud_events, hud_layout):
+    def test_process_event_train_entity(self, hud_events, hud_layout, mock_event_bus):
         # Setup selection window elements
         hud_layout.selection_window = MagicMock()
         hud_layout.train_btn = MagicMock()
@@ -200,7 +198,8 @@ class TestHudEvents:
         event.ui_element = hud_layout.train_btn
 
         assert hud_events.process_event(event) is True
-        hud_events.callbacks['train_entity'].assert_called_with(123)
+        # Check that TrainEntityRequest was published
+        mock_event_bus.publish.assert_called_with(TrainEntityRequest(123))
 
 class TestHudRenderer:
     def test_update_top_bar(self, hud_renderer, hud_layout):

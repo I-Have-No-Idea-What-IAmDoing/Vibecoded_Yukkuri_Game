@@ -35,10 +35,6 @@ class TestIntegration(unittest.TestCase):
         # Mock ui_manager methods that are called in HudLayout init
         self.ui_manager.get_theme.return_value.get_font.return_value = Mock()
         self.ui_manager.get_root_container.return_value = Mock()
-        # The specific error was Mock object is not subscriptable in _create_valid_ids
-        # This is likely because of how pygame_gui generates IDs.
-        # It's hard to mock pygame_gui properly without a real one.
-        # Let's try to mock HudLayout instead in the HUD test since we are testing logic.
 
     def test_input_system_publishes_selection_event(self):
         input_system = InputSystem(self.yukkurrium)
