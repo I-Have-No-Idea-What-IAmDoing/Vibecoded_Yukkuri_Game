@@ -2,6 +2,7 @@ import pygame
 from ..engine.ecs import System, World
 from .components import Transform, Sprite, Selectable
 from ..engine.resource_manager import ResourceManager
+from ..config import WorldSettings
 
 class Yukkurrium:
     """
@@ -18,16 +19,16 @@ class Yukkurrium:
         max_zoom (float): Maximum allowed zoom level.
     """
 
-    def __init__(self, width: int = 2000, height: int = 2000):
+    def __init__(self, settings: WorldSettings | None = None):
         """
         Initializes the Yukkurrium.
 
         Args:
-            width: The width of the world.
-            height: The height of the world.
+            settings: World settings configuration.
         """
-        self.width = width
-        self.height = height
+        _settings = settings if settings is not None else WorldSettings()
+        self.width = _settings.width
+        self.height = _settings.height
         # Camera properties
         self.camera_x = 0.0
         self.camera_y = 0.0
