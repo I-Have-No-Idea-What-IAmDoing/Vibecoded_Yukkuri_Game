@@ -27,7 +27,7 @@ class InputSystem(System):
         Initializes the InputSystem.
 
         Args:
-            yukkurrium: The Yukkurrium instance.
+            yukkurrium (Yukkurrium): The Yukkurrium instance.
         """
         self.yukkurrium = yukkurrium
         self.event_bus: Optional[EventBus] = None
@@ -36,6 +36,9 @@ class InputSystem(System):
     def on_placement_started(self, event: PlacementStartedEvent) -> None:
         """
         Handles the PlacementStartedEvent.
+
+        Args:
+            event (PlacementStartedEvent): The placement started event.
         """
         if self.input_service:
             self.input_service.start_placement(event.type_id, event.cost, event.entity_type)
@@ -45,8 +48,8 @@ class InputSystem(System):
         Updates the input system.
 
         Args:
-            world: The ECS World.
-            dt: Delta time.
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         # Lazy initialization of dependencies
         if self.input_service is None:
@@ -60,11 +63,11 @@ class InputSystem(System):
         Handles a single Pygame event.
 
         Args:
-            event: The Pygame event.
-            world: The ECS World.
-            screen_w: The width of the screen.
-            screen_h: The height of the screen.
-            ui_manager: The UI manager (optional) to check for UI interaction.
+            event (pygame.event.Event): The Pygame event.
+            world (World): The ECS World.
+            screen_w (int): The width of the screen.
+            screen_h (int): The height of the screen.
+            ui_manager (Optional[pygame_gui.UIManager]): The UI manager (optional) to check for UI interaction.
         """
         self.yukkurrium.handle_input(event, screen_w, screen_h)
 

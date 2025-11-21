@@ -24,9 +24,9 @@ class HudRenderer:
         Initializes the HudRenderer.
 
         Args:
-            layout: The HudLayout component.
-            game_manager: The GameManager instance.
-            world: The ECS World instance.
+            layout (HudLayout): The HudLayout component.
+            game_manager (GameManager): The GameManager instance.
+            world (World): The ECS World instance.
         """
         self.layout = layout
         self.gm = game_manager
@@ -38,9 +38,9 @@ class HudRenderer:
         Updates all HUD elements with current game data.
 
         Args:
-            dt: Delta time.
-            selected_entity: The ID of the selected entity.
-            show_debug: Whether to show debug information.
+            dt (float): Delta time.
+            selected_entity (int): The ID of the selected entity.
+            show_debug (bool): Whether to show debug information.
         """
         # Update Top Bar
         if self.layout.money_label:
@@ -62,6 +62,9 @@ class HudRenderer:
     def _update_stats_display(self, selected_entity: int) -> None:
         """
         Updates the stats display for the selected entity.
+
+        Args:
+            selected_entity (int): The ID of the selected entity.
         """
         text = "Unknown"
         stats = self.world.get_component(selected_entity, YukkuriStats)
@@ -85,6 +88,9 @@ class HudRenderer:
     def _update_debug_window(self, dt: float) -> None:
         """
         Updates the debug window with performance stats.
+
+        Args:
+            dt (float): Delta time.
         """
         if not self.layout.debug_window or not self.layout.debug_text_box:
             return
@@ -105,7 +111,7 @@ class HudRenderer:
         Displays an error message in a popup window.
 
         Args:
-            message: The error message to display.
+            message (str): The error message to display.
         """
         UIMessageWindow(
             rect=pygame.Rect((self.layout.width - 400) // 2, (self.layout.height - 250) // 2, 400, 250),

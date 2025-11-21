@@ -18,19 +18,19 @@ class Action(Behaviour): # type: ignore[misc]
     Base class for AI actions in the Behavior Tree.
 
     Attributes:
-        entity_id (int): The ID of the entity performing the action.
-        world (World): The ECS World instance.
-        blackboard (py_trees.blackboard.Blackboard): The Behavior Tree blackboard.
+        entity_id (Optional[int]): The ID of the entity performing the action.
+        world (Optional[World]): The ECS World instance.
+        blackboard (Optional[Any]): The Behavior Tree blackboard.
     """
     def __init__(self, name: str = "Action", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None):
         """
         Initializes the Action.
 
         Args:
-            name: The name of the behavior node.
-            entity_id: The ID of the entity.
-            world: The ECS World instance.
-            blackboard: The Behavior Tree blackboard.
+            name (str): The name of the behavior node.
+            entity_id (Optional[int]): The ID of the entity.
+            world (Optional[World]): The ECS World instance.
+            blackboard (Optional[Any]): The Behavior Tree blackboard.
         """
         super().__init__(name)
         self.entity_id = entity_id
@@ -53,17 +53,20 @@ class MoveToTarget(Action):
     Moves the entity towards the current target set in AIState or a specific coordinate.
 
     This implementation uses PhysicsBody if available, or direct Transform manipulation.
+
+    Attributes:
+        speed (float): The movement speed in pixels per second.
     """
     def __init__(self, name: str = "Move To Target", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None, speed: float = 100.0):
         """
         Initializes the MoveToTarget action.
 
         Args:
-            name: The name of the behavior node.
-            entity_id: The ID of the entity.
-            world: The ECS World instance.
-            blackboard: The Behavior Tree blackboard.
-            speed: The movement speed in pixels per second.
+            name (str): The name of the behavior node.
+            entity_id (Optional[int]): The ID of the entity.
+            world (Optional[World]): The ECS World instance.
+            blackboard (Optional[Any]): The Behavior Tree blackboard.
+            speed (float): The movement speed in pixels per second.
         """
         super().__init__(name, entity_id, world, blackboard)
         self.speed = speed
@@ -170,18 +173,23 @@ class MoveToTarget(Action):
 class Wander(Action):
     """
     Causes the entity to wander to a random location.
+
+    Attributes:
+        width (int): The width of the area to wander within.
+        height (int): The height of the area to wander within.
+        move_action (Optional[MoveToTarget]): The underlying move action used to reach the random target.
     """
     def __init__(self, name: str = "Wander", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None, width: int = 3000, height: int = 3000):
         """
         Initializes the Wander action.
 
         Args:
-            name: The name of the behavior node.
-            entity_id: The ID of the entity.
-            world: The ECS World instance.
-            blackboard: The Behavior Tree blackboard.
-            width: The width of the area to wander within.
-            height: The height of the area to wander within.
+            name (str): The name of the behavior node.
+            entity_id (Optional[int]): The ID of the entity.
+            world (Optional[World]): The ECS World instance.
+            blackboard (Optional[Any]): The Behavior Tree blackboard.
+            width (int): The width of the area to wander within.
+            height (int): The height of the area to wander within.
         """
         super().__init__(name, entity_id, world, blackboard)
         self.width = width
@@ -211,7 +219,7 @@ class Wander(Action):
         Updates the move action.
 
         Returns:
-            Status: The status of the move action.
+            Status: The status of the move action (RUNNING, SUCCESS, FAILURE).
         """
         if self.move_action:
             return self.move_action.update()
@@ -226,10 +234,10 @@ class Interact(Action):
         Initializes the Interact action.
 
         Args:
-            name: The name of the behavior node.
-            entity_id: The ID of the entity.
-            world: The ECS World instance.
-            blackboard: The Behavior Tree blackboard.
+            name (str): The name of the behavior node.
+            entity_id (Optional[int]): The ID of the entity.
+            world (Optional[World]): The ECS World instance.
+            blackboard (Optional[Any]): The Behavior Tree blackboard.
         """
         super().__init__(name, entity_id, world, blackboard)
 
@@ -299,10 +307,10 @@ class Idle(Action):
         Initializes the Idle action.
 
         Args:
-            name: The name of the behavior node.
-            entity_id: The ID of the entity.
-            world: The ECS World instance.
-            blackboard: The Behavior Tree blackboard.
+            name (str): The name of the behavior node.
+            entity_id (Optional[int]): The ID of the entity.
+            world (Optional[World]): The ECS World instance.
+            blackboard (Optional[Any]): The Behavior Tree blackboard.
         """
         super().__init__(name, entity_id, world, blackboard)
 
@@ -330,10 +338,10 @@ def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, hei
     The tree structure prioritizes eating when hungry, then wandering, then idling.
 
     Args:
-        entity_id: The ID of the Yukkuri entity.
-        world: The ECS World instance.
-        width: The width of the world boundary.
-        height: The height of the world boundary.
+        entity_id (int): The ID of the Yukkuri entity.
+        world (World): The ECS World instance.
+        width (int): The width of the world boundary.
+        height (int): The height of the world boundary.
 
     Returns:
         py_trees.composites.Selector: The root node of the behavior tree.

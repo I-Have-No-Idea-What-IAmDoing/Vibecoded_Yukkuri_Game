@@ -13,27 +13,60 @@ if TYPE_CHECKING:
 class TimeService:
     """
     Service responsible for tracking game time.
+
+    Attributes:
+        _time_elapsed (float): The total elapsed game time in seconds.
     """
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initializes the TimeService."""
         self._time_elapsed = 0.0
 
     @property
     def time_elapsed(self) -> float:
+        """
+        Gets the total elapsed game time.
+
+        Returns:
+            float: The time elapsed in seconds.
+        """
         return self._time_elapsed
 
     @time_elapsed.setter
     def time_elapsed(self, value: float) -> None:
+        """
+        Sets the total elapsed game time.
+
+        Args:
+            value (float): The new time elapsed in seconds.
+        """
         self._time_elapsed = value
 
     def add_time(self, dt: float) -> None:
+        """
+        Advances the game time.
+
+        Args:
+            dt (float): The amount of time to add in seconds.
+        """
         self._time_elapsed += dt
 
 
 class PersistenceService:
     """
     Service responsible for saving and loading game state.
+
+    Attributes:
+        world (World): The ECS World instance.
+        save_dir (str): The directory where save files are stored.
     """
     def __init__(self, world: World, save_dir: str = "saves"):
+        """
+        Initializes the PersistenceService.
+
+        Args:
+            world (World): The ECS World instance.
+            save_dir (str): The directory to store save files. Defaults to "saves".
+        """
         self.world = world
         self.save_dir = save_dir
         if not os.path.exists(self.save_dir):
@@ -42,6 +75,9 @@ class PersistenceService:
     def save_game(self, filename: str = "savegame.json") -> None:
         """
         Saves the current game state to a JSON file.
+
+        Args:
+            filename (str): The name of the save file. Defaults to "savegame.json".
         """
         economy_service = self.world.services.try_get(EconomyService)
         money = economy_service.get_money() if economy_service else 0
@@ -103,6 +139,12 @@ class PersistenceService:
     def load_game(self, filename: str = "savegame.json") -> bool:
         """
         Loads a game state from a JSON file.
+
+        Args:
+            filename (str): The name of the save file. Defaults to "savegame.json".
+
+        Returns:
+            bool: True if loading was successful, False otherwise.
         """
         path = os.path.join(self.save_dir, filename)
         if not os.path.exists(path):
@@ -170,21 +212,54 @@ class PersistenceService:
 class EconomyService:
     """
     Service responsible for managing the player's economy.
+
+    Attributes:
+        _money (int): The current amount of money.
     """
     def __init__(self, initial_money: int = 1000):
+        """
+        Initializes the EconomyService.
+
+        Args:
+            initial_money (int): The starting amount of money. Defaults to 1000.
+        """
         self._money = initial_money
 
     def get_money(self) -> int:
+        """
+        Gets the current amount of money.
+
+        Returns:
+            int: The current money.
+        """
         return self._money
 
     def add_money(self, amount: int) -> None:
+        """
+        Adds money to the player's balance.
+
+        Args:
+            amount (int): The amount to add. Must be non-negative.
+
+        Raises:
+            ValueError: If amount is negative.
+        """
         if amount < 0:
             raise ValueError("Cannot add negative money.")
         self._money += amount
 
     def remove_money(self, amount: int) -> bool:
         """
-        Removes money. Returns True if successful, False if insufficient funds.
+        Removes money from the player's balance.
+
+        Args:
+            amount (int): The amount to remove. Must be non-negative.
+
+        Returns:
+            bool: True if successful, False if insufficient funds.
+
+        Raises:
+            ValueError: If amount is negative.
         """
         if amount < 0:
              raise ValueError("Cannot remove negative money.")
@@ -194,6 +269,12 @@ class EconomyService:
         return False
 
     def set_money(self, amount: int) -> None:
+        """
+        Sets the player's balance to a specific amount.
+
+        Args:
+            amount (int): The new balance. If negative, sets to 0.
+        """
         if amount < 0:
              self._money = 0
         else:

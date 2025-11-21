@@ -7,6 +7,11 @@ from ..ai.behavior import create_yukkuri_behavior_tree
 class BehaviorSystem(System):
     """
     System responsible for ticking Behavior Trees.
+
+    Attributes:
+        world_w (float): The width of the world boundary.
+        world_h (float): The height of the world boundary.
+        trees (Dict[int, py_trees.trees.BehaviourTree]): A dictionary mapping entity IDs to their behavior trees.
     """
 
     def __init__(self, world_width: float, world_height: float):
@@ -14,8 +19,8 @@ class BehaviorSystem(System):
         Initializes the BehaviorSystem.
 
         Args:
-            world_width: The width of the world.
-            world_height: The height of the world.
+            world_width (float): The width of the world.
+            world_height (float): The height of the world.
         """
         self.world_w = world_width
         self.world_h = world_height
@@ -26,8 +31,8 @@ class BehaviorSystem(System):
         Ticks behavior trees for all entities with AIState.
 
         Args:
-            world: The ECS World.
-            dt: Delta time.
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         # Set dt in Blackboard
         py_trees.blackboard.Blackboard().set("dt", dt)

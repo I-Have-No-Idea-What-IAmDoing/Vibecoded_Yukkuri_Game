@@ -45,6 +45,9 @@ class YukkuriGame(GameLoop):
         Sets up the game environment, systems, and initial state.
 
         Initializes ECS systems, UI, and initial entities.
+
+        Returns:
+            None
         """
         # Load Config
         self.game_config = load_config()
@@ -129,6 +132,9 @@ class YukkuriGame(GameLoop):
 
         Args:
             event: The Pygame event.
+
+        Returns:
+            None
         """
         if not self.headless:
             if event.type == pygame.KEYDOWN:
@@ -145,6 +151,9 @@ class YukkuriGame(GameLoop):
         Updates the game state each frame.
 
         Advances time in the GameManager and updates the Yukkurrium (camera).
+
+        Returns:
+            None
         """
         if not self.paused:
             self.gm.time_elapsed += self.dt * self.time_scale
@@ -159,6 +168,9 @@ class YukkuriGame(GameLoop):
     def render_world(self) -> None:
         """
         Renders the game world using the RenderSystem.
+
+        Returns:
+            None
         """
         if not self.headless and self.render_system:
             self.render_system.update(self.world, self.dt)
@@ -166,6 +178,9 @@ class YukkuriGame(GameLoop):
     def toggle_pause(self) -> None:
         """
         Toggles the paused state of the simulation.
+
+        Returns:
+            None
         """
         self.paused = not self.paused
         self.event_bus.publish(GamePausedEvent(self.paused))
@@ -173,6 +188,9 @@ class YukkuriGame(GameLoop):
     def cycle_speed(self) -> None:
         """
         Cycles through available game simulation speeds (1.0, 2.0, 5.0, 0.5).
+
+        Returns:
+            None
         """
         speeds = [1.0, 2.0, 5.0, 0.5]
         try:
@@ -188,6 +206,9 @@ class YukkuriGame(GameLoop):
     def take_screenshot(self) -> None:
         """
         Captures a screenshot and saves it to the 'screenshots' directory.
+
+        Returns:
+            None
         """
         if not os.path.exists("screenshots"):
             os.makedirs("screenshots")
@@ -201,6 +222,9 @@ def main() -> None:
     The entry point for the application.
 
     Parses command-line arguments and starts the game loop.
+
+    Returns:
+        None
     """
     parser = argparse.ArgumentParser(description="Yukkuri Raising Game")
     parser.add_argument("--headless", action="store_true", help="Run in headless mode (no window)")

@@ -37,6 +37,9 @@ class HUD:
         selected_entity (int): The ID of the currently selected entity.
         show_debug (bool): Whether to show the debug window.
         fps (float): The current frames per second.
+        event_bus (EventBus): The event bus.
+        toggle_pause_callback (Optional[Callable[[], None]]): Callback for toggling pause.
+        cycle_speed_callback (Optional[Callable[[], None]]): Callback for cycling game speed.
     """
 
     def __init__(self, ui_manager: pygame_gui.UIManager, world: World):
@@ -44,8 +47,8 @@ class HUD:
         Initializes the HUD.
 
         Args:
-            ui_manager: The pygame_gui UIManager.
-            world: The ECS World instance.
+            ui_manager (pygame_gui.UIManager): The pygame_gui UIManager.
+            world (World): The ECS World instance.
         """
         self.manager = ui_manager
         self.world = world
@@ -87,6 +90,9 @@ class HUD:
     def on_entity_selected(self, event: EntitySelectedEvent) -> None:
         """
         Handles the EntitySelectedEvent.
+
+        Args:
+            event (EntitySelectedEvent): The entity selected event.
         """
         self.selected_entity = event.entity_id
         self.events.set_selected_entity(self.selected_entity)
@@ -95,6 +101,9 @@ class HUD:
     def on_game_paused(self, event: GamePausedEvent) -> None:
         """
         Handles the GamePausedEvent.
+
+        Args:
+            event (GamePausedEvent): The game paused event.
         """
         if self.pause_btn:
              self.pause_btn.set_text("Resume" if event.paused else "Pause")
@@ -102,52 +111,102 @@ class HUD:
     # Delegate property access for backward compatibility/convenience
     @property
     def money_label(self) -> Optional[pygame_gui.elements.UILabel]:
-        """Returns the money label UI element."""
+        """
+        Returns the money label UI element.
+
+        Returns:
+            Optional[pygame_gui.elements.UILabel]: The money label.
+        """
         return self.layout.money_label
 
     @property
     def time_label(self) -> Optional[pygame_gui.elements.UILabel]:
-        """Returns the time label UI element."""
+        """
+        Returns the time label UI element.
+
+        Returns:
+            Optional[pygame_gui.elements.UILabel]: The time label.
+        """
         return self.layout.time_label
 
     @property
     def save_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """Returns the save button UI element."""
+        """
+        Returns the save button UI element.
+
+        Returns:
+            Optional[pygame_gui.elements.UIButton]: The save button.
+        """
         return self.layout.save_btn
 
     @property
     def load_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """Returns the load button UI element."""
+        """
+        Returns the load button UI element.
+
+        Returns:
+            Optional[pygame_gui.elements.UIButton]: The load button.
+        """
         return self.layout.load_btn
 
     @property
     def pause_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """Returns the pause button UI element."""
+        """
+        Returns the pause button UI element.
+
+        Returns:
+            Optional[pygame_gui.elements.UIButton]: The pause button.
+        """
         return self.layout.pause_btn
 
     @property
     def speed_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """Returns the speed button UI element."""
+        """
+        Returns the speed button UI element.
+
+        Returns:
+            Optional[pygame_gui.elements.UIButton]: The speed button.
+        """
         return self.layout.speed_btn
 
     @property
     def add_reimu_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """Returns the add Reimu button UI element."""
+        """
+        Returns the add Reimu button UI element.
+
+        Returns:
+            Optional[pygame_gui.elements.UIButton]: The add Reimu button.
+        """
         return self.layout.add_reimu_btn
 
     @property
     def add_cookie_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """Returns the add cookie button UI element."""
+        """
+        Returns the add cookie button UI element.
+
+        Returns:
+            Optional[pygame_gui.elements.UIButton]: The add cookie button.
+        """
         return self.layout.add_cookie_btn
 
     @property
     def selection_window(self) -> Optional[pygame_gui.elements.UIWindow]:
-        """Returns the selection window UI element."""
+        """
+        Returns the selection window UI element.
+
+        Returns:
+            Optional[pygame_gui.elements.UIWindow]: The selection window.
+        """
         return self.layout.selection_window
 
     @property
     def debug_window(self) -> Optional[pygame_gui.elements.UIWindow]:
-        """Returns the debug window UI element."""
+        """
+        Returns the debug window UI element.
+
+        Returns:
+            Optional[pygame_gui.elements.UIWindow]: The debug window.
+        """
         return self.layout.debug_window
 
     def update(self, dt: float) -> None:
@@ -157,7 +216,7 @@ class HUD:
         Checks for selection changes and delegates rendering updates to HudRenderer.
 
         Args:
-            dt: Delta time since last frame.
+            dt (float): Delta time since last frame.
         """
         self.renderer.fps = self.fps # Sync FPS
 
@@ -191,7 +250,7 @@ class HUD:
         Displays an error message (currently logged via renderer).
 
         Args:
-            message: The error message to display.
+            message (str): The error message to display.
         """
         self.renderer.show_error(message)
 
@@ -202,7 +261,7 @@ class HUD:
         Updates internal callback references and delegates to HudEvents.
 
         Args:
-            event: The Pygame event to process.
+            event (pygame.event.Event): The Pygame event to process.
         """
         # Update callbacks dict before processing (in case they were set after init)
         self._callbacks_store['toggle_pause'] = self.toggle_pause_callback
@@ -228,7 +287,7 @@ class HUD:
         Internal callback to train a Yukkuri.
 
         Args:
-            entity_id: The ID of the entity to train.
+            entity_id (int): The ID of the entity to train.
         """
         stats = self.world.get_component(entity_id, YukkuriStats)
         if stats:

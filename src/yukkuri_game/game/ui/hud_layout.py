@@ -11,31 +11,31 @@ class HudLayout:
         manager (pygame_gui.UIManager): The UI manager instance.
         width (int): The width of the screen.
         height (int): The height of the screen.
-        top_panel (UIPanel): The top panel container.
-        money_label (UILabel): Label displaying player money.
-        time_label (UILabel): Label displaying game time.
-        save_btn (UIButton): Button to save the game.
-        load_btn (UIButton): Button to load the game.
-        pause_btn (UIButton): Button to pause/resume the game.
-        speed_btn (UIButton): Button to cycle game speed.
-        bottom_panel (UIPanel): The bottom panel container.
-        add_reimu_btn (UIButton): Button to buy a Reimu.
-        add_cookie_btn (UIButton): Button to buy a Cookie.
-        selection_window (UIWindow): The window displaying selected entity info.
-        info_label (UITextBox): Text box within the selection window showing stats.
-        sell_btn (UIButton): Button to sell the selected entity.
-        train_btn (UIButton): Button to train the selected entity.
-        debug_window (UIWindow): The debug info window.
-        debug_text_box (UITextBox): Text box within the debug window.
+        top_panel (Optional[UIPanel]): The top panel container.
+        money_label (Optional[UILabel]): Label displaying player money.
+        time_label (Optional[UILabel]): Label displaying game time.
+        save_btn (Optional[UIButton]): Button to save the game.
+        load_btn (Optional[UIButton]): Button to load the game.
+        pause_btn (Optional[UIButton]): Button to pause/resume the game.
+        speed_btn (Optional[UIButton]): Button to cycle game speed.
+        bottom_panel (Optional[UIPanel]): The bottom panel container.
+        add_reimu_btn (Optional[UIButton]): Button to buy a Reimu.
+        add_cookie_btn (Optional[UIButton]): Button to buy a Cookie.
+        selection_window (Optional[UIWindow]): The window displaying selected entity info.
+        info_label (Optional[UITextBox]): Text box within the selection window showing stats.
+        sell_btn (Optional[UIButton]): Button to sell the selected entity.
+        train_btn (Optional[UIButton]): Button to train the selected entity.
+        debug_window (Optional[UIWindow]): The debug info window.
+        debug_text_box (Optional[UITextBox]): Text box within the debug window.
     """
     def __init__(self, ui_manager: pygame_gui.UIManager, width: int, height: int):
         """
         Initializes the HudLayout.
 
         Args:
-            ui_manager: The pygame_gui UIManager.
-            width: The width of the screen.
-            height: The height of the screen.
+            ui_manager (pygame_gui.UIManager): The pygame_gui UIManager.
+            width (int): The width of the screen.
+            height (int): The height of the screen.
         """
         self.manager = ui_manager
         self.width = width
@@ -145,7 +145,7 @@ class HudLayout:
         Creates or recreates the selection window.
 
         Args:
-            has_stats: True if the selected entity has stats (is a Yukkuri), False otherwise.
+            has_stats (bool): True if the selected entity has stats (is a Yukkuri), False otherwise.
         """
         self.close_selection_window()
 
