@@ -21,16 +21,16 @@ class GameManager:
         save_dir (str): Directory where save files are stored.
     """
 
-    def __init__(self, world: World, entity_factory: 'EntityFactory'):
+    def __init__(self, world: World):
         """
         Initializes the GameManager.
 
         Args:
             world: The ECS World instance.
-            entity_factory: The EntityFactory instance.
         """
         self.world = world
-        self.factory = entity_factory
+        from .entity_factory import EntityFactory
+        self.factory = world.services.get(EntityFactory)
         self.money = 1000
         self.time_elapsed = 0.0
         self.save_dir = "saves"

@@ -1,6 +1,7 @@
 from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 import esper
 import uuid
+from .service_locator import ServiceLocator
 
 T = TypeVar('T')
 
@@ -26,6 +27,7 @@ class World:
         esper.switch_world(self.name)
         self._entities: List[int] = [] # Maintain list for backward compatibility
         # Note: esper doesn't have explicit world creation, switching to a new name creates it.
+        self.services = ServiceLocator()
 
     def _switch(self) -> None:
         """Switches to this world's context."""
