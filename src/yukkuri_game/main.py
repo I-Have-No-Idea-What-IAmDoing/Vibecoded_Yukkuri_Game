@@ -19,6 +19,7 @@ from .game.systems.physics import PhysicsSystem
 from .game.ui.hud import HUD
 from .game.input_system import InputSystem
 from .game.yukkuri_components import AIState # Fix import for HUD string check if needed
+from .config import load_config
 
 class YukkuriGame(GameLoop):
     """
@@ -43,8 +44,11 @@ class YukkuriGame(GameLoop):
 
         Initializes ECS systems, UI, and initial entities.
         """
+        # Load Config
+        self.game_config = load_config()
+
         # Core Systems & Service Registration
-        self.yukkurrium = Yukkurrium(width=3000, height=3000)
+        self.yukkurrium = Yukkurrium(settings=self.game_config.world)
         self.audio = AudioManager()
         self.physics_system = PhysicsSystem()
         self.event_bus = EventBus()
@@ -73,7 +77,7 @@ class YukkuriGame(GameLoop):
 
         self.world.add_system(TimeSystem())
         self.world.add_system(self.physics_system)
-        self.world.add_system(StatDecaySystem())
+        self.world.add_system(StatDecaySystem(settings=self.game_config.rules.stat_decay))
         self.world.add_system(DecisionSystem(self.ai_engine, decision_interval=1.0))
         self.world.add_system(BehaviorSystem(float(self.yukkurrium.width), float(self.yukkurrium.height)))
 
