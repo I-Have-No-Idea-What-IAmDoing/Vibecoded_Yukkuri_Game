@@ -25,13 +25,13 @@ class World:
         """Initializes a new ECS World."""
         self.name = str(uuid.uuid4())
         esper.switch_world(self.name)
-        self._entities: List[int] = [] # Maintain list for backward compatibility
         # Note: esper doesn't have explicit world creation, switching to a new name creates it.
         self.services = ServiceLocator()
 
     def _switch(self) -> None:
         """Switches to this world's context."""
-        esper.switch_world(self.name)
+        if esper.current_world != self.name:
+            esper.switch_world(self.name)
 
     def create_entity(self, *components: Any) -> int:
         """
@@ -41,9 +41,7 @@ class World:
             int: The unique ID of the newly created entity.
         """
         self._switch()
-        entity = esper.create_entity(*components)
-        self._entities.append(entity)
-        return entity  # type: ignore[no-any-return]
+        return esper.create_entity(*components)  # type: ignore[no-any-return]
 
     def destroy_entity(self, entity: int) -> None:
         """
@@ -53,8 +51,6 @@ class World:
             entity: The ID of the entity to destroy.
         """
         self._switch()
-        if entity in self._entities:
-             self._entities.remove(entity)
         try:
             esper.delete_entity(entity, immediate=True)
         except KeyError:
@@ -70,7 +66,8 @@ class World:
         Returns:
             bool: True if the entity exists, False otherwise.
         """
-        return entity in self._entities
+        self._switch()
+        return esper.entity_exists(entity)  # type: ignore[no-any-return]
 
     def add_component(self, entity: int, component: Any) -> None:
         """
