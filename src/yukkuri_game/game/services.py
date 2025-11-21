@@ -157,17 +157,7 @@ class PersistenceService:
 
         economy_service = self.world.services.try_get(EconomyService)
         if economy_service:
-            # We need a way to set money. I'll add set_money to EconomyService.
-            if hasattr(economy_service, 'set_money'):
-                economy_service.set_money(data.get("money", 1000))
-            else:
-                # If no set_money, maybe add/remove to match?
-                current = economy_service.get_money()
-                target = data.get("money", 1000)
-                if target > current:
-                    economy_service.add_money(target - current)
-                elif target < current:
-                    economy_service.remove_money(current - target)
+            economy_service.set_money(data.get("money", 1000))
 
         time_service = self.world.services.try_get(TimeService)
         if time_service:
