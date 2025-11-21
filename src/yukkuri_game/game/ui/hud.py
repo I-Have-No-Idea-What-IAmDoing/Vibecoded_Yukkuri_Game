@@ -38,8 +38,6 @@ class HUD:
         show_debug (bool): Whether to show the debug window.
         fps (float): The current frames per second.
         event_bus (EventBus): The event bus.
-        toggle_pause_callback (Optional[Callable[[], None]]): Callback for toggling pause.
-        cycle_speed_callback (Optional[Callable[[], None]]): Callback for cycling game speed.
     """
 
     def __init__(self, ui_manager: pygame_gui.UIManager, world: World):
@@ -61,20 +59,10 @@ class HUD:
         self.width = 1280
         self.height = 720
 
-        # Callbacks
-        self.toggle_pause_callback: Optional[Callable[[], None]] = None
-        self.cycle_speed_callback: Optional[Callable[[], None]] = None
-        # self.start_placement_callback: Optional[Callable[[str, int, str], None]] = None # Removed
-
         # Initialize Components
         self.layout = HudLayout(self.manager, self.width, self.height)
 
-        # Events component needs callbacks, which are set later.
-        # We can pass a lambda or method that resolves them dynamically,
-        # or update the events component when callbacks are set.
-        # For now, we pass a dict that we can update.
-        self._callbacks_store: Dict[str, Optional[Callable[..., Any]]] = {}
-        self.events = HudEvents(self.layout, self.gm, self._callbacks_store, self.event_bus) # type: ignore[arg-type]
+        self.events = HudEvents(self.layout, self.gm, self.event_bus)
 
         self.renderer = HudRenderer(self.layout, self.gm, self.world)
 
@@ -105,109 +93,8 @@ class HUD:
         Args:
             event (GamePausedEvent): The game paused event.
         """
-        if self.pause_btn:
-             self.pause_btn.set_text("Resume" if event.paused else "Pause")
-
-    # Delegate property access for backward compatibility/convenience
-    @property
-    def money_label(self) -> Optional[pygame_gui.elements.UILabel]:
-        """
-        Returns the money label UI element.
-
-        Returns:
-            Optional[pygame_gui.elements.UILabel]: The money label.
-        """
-        return self.layout.money_label
-
-    @property
-    def time_label(self) -> Optional[pygame_gui.elements.UILabel]:
-        """
-        Returns the time label UI element.
-
-        Returns:
-            Optional[pygame_gui.elements.UILabel]: The time label.
-        """
-        return self.layout.time_label
-
-    @property
-    def save_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """
-        Returns the save button UI element.
-
-        Returns:
-            Optional[pygame_gui.elements.UIButton]: The save button.
-        """
-        return self.layout.save_btn
-
-    @property
-    def load_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """
-        Returns the load button UI element.
-
-        Returns:
-            Optional[pygame_gui.elements.UIButton]: The load button.
-        """
-        return self.layout.load_btn
-
-    @property
-    def pause_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """
-        Returns the pause button UI element.
-
-        Returns:
-            Optional[pygame_gui.elements.UIButton]: The pause button.
-        """
-        return self.layout.pause_btn
-
-    @property
-    def speed_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """
-        Returns the speed button UI element.
-
-        Returns:
-            Optional[pygame_gui.elements.UIButton]: The speed button.
-        """
-        return self.layout.speed_btn
-
-    @property
-    def add_reimu_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """
-        Returns the add Reimu button UI element.
-
-        Returns:
-            Optional[pygame_gui.elements.UIButton]: The add Reimu button.
-        """
-        return self.layout.add_reimu_btn
-
-    @property
-    def add_cookie_btn(self) -> Optional[pygame_gui.elements.UIButton]:
-        """
-        Returns the add cookie button UI element.
-
-        Returns:
-            Optional[pygame_gui.elements.UIButton]: The add cookie button.
-        """
-        return self.layout.add_cookie_btn
-
-    @property
-    def selection_window(self) -> Optional[pygame_gui.elements.UIWindow]:
-        """
-        Returns the selection window UI element.
-
-        Returns:
-            Optional[pygame_gui.elements.UIWindow]: The selection window.
-        """
-        return self.layout.selection_window
-
-    @property
-    def debug_window(self) -> Optional[pygame_gui.elements.UIWindow]:
-        """
-        Returns the debug window UI element.
-
-        Returns:
-            Optional[pygame_gui.elements.UIWindow]: The debug window.
-        """
-        return self.layout.debug_window
+        if self.layout.pause_btn:
+             self.layout.pause_btn.set_text("Resume" if event.paused else "Pause")
 
     def update(self, dt: float) -> None:
         """
@@ -258,19 +145,11 @@ class HUD:
         """
         Processes UI events.
 
-        Updates internal callback references and delegates to HudEvents.
+        Delegates to HudEvents.
 
         Args:
             event (pygame.event.Event): The Pygame event to process.
         """
-        # Update callbacks dict before processing (in case they were set after init)
-        self._callbacks_store['toggle_pause'] = self.toggle_pause_callback
-        self._callbacks_store['cycle_speed'] = self.cycle_speed_callback
-        # self._callbacks_store['start_placement'] = self.start_placement_callback # Removed
-
-        # Add a special callback for training which was inline before
-        self._callbacks_store['train_entity'] = self._train_entity
-
         handled = self.events.process_event(event)
 
         # Check if event processing resulted in state changes we need to react to immediately
@@ -281,15 +160,3 @@ class HUD:
                 self.selected_entity = -1
                 self.layout.close_selection_window()
                 self.events.set_selected_entity(-1)
-
-    def _train_entity(self, entity_id: int) -> None:
-        """
-        Internal callback to train a Yukkuri.
-
-        Args:
-            entity_id (int): The ID of the entity to train.
-        """
-        stats = self.world.get_component(entity_id, YukkuriStats)
-        if stats:
-            stats.badges += 1
-            stats.happiness += 10

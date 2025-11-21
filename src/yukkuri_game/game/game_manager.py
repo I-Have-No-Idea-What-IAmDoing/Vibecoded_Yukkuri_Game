@@ -3,9 +3,11 @@ import os
 from typing import Any, Dict, TYPE_CHECKING
 from loguru import logger
 from ..engine.ecs import World
+from ..engine.event_bus import EventBus
 from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats
 from .services import EconomyService, PersistenceService, TimeService
+from .events import TrainEntityRequest, SellEntityRequest
 
 if TYPE_CHECKING:
     from .entity_factory import EntityFactory
@@ -30,6 +32,11 @@ class GameManager:
         self.world = world
         from .entity_factory import EntityFactory
         self.factory = world.services.get(EntityFactory)
+
+        self.event_bus = world.services.get(EventBus)
+        if self.event_bus:
+            self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
+            self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
 
     @property
     def time_elapsed(self) -> float:
@@ -126,6 +133,28 @@ class GameManager:
             self.world.destroy_entity(entity)
             return value
         return 0
+
+    def on_sell_entity(self, event: SellEntityRequest) -> None:
+        """
+        Handles the SellEntityRequest event.
+
+        Args:
+            event (SellEntityRequest): The event containing the entity ID to sell.
+        """
+        self.sell_yukkuri(event.entity_id)
+
+    def on_train_entity(self, event: TrainEntityRequest) -> None:
+        """
+        Handles the TrainEntityRequest event.
+
+        Args:
+            event (TrainEntityRequest): The event containing the entity ID to train.
+        """
+        stats = self.world.get_component(event.entity_id, YukkuriStats)
+        if stats:
+            stats.badges += 1
+            stats.happiness += 10
+            logger.info(f"Trained entity {event.entity_id}. Badges: {stats.badges}")
 
     def save_game(self, filename: str = "savegame.json") -> None:
         """

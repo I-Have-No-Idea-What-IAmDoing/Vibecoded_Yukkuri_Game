@@ -10,6 +10,7 @@ from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.game.yukkurrium import Yukkurrium
 from src.yukkuri_game.game.game_manager import GameManager
 from src.yukkuri_game.game.entity_factory import EntityFactory
+from src.yukkuri_game.game.services import InputService
 
 class TestIntegration(unittest.TestCase):
     def setUp(self):
@@ -27,14 +28,14 @@ class TestIntegration(unittest.TestCase):
         self.factory = Mock(spec=EntityFactory)
         self.world.services.register(self.factory, EntityFactory)
 
+        # Register InputService
+        self.input_service = InputService()
+        self.world.services.register(self.input_service)
+
         self.ui_manager = Mock()
         # Mock ui_manager methods that are called in HudLayout init
         self.ui_manager.get_theme.return_value.get_font.return_value = Mock()
         self.ui_manager.get_root_container.return_value = Mock()
-        # The specific error was Mock object is not subscriptable in _create_valid_ids
-        # This is likely because of how pygame_gui generates IDs.
-        # It's hard to mock pygame_gui properly without a real one.
-        # Let's try to mock HudLayout instead in the HUD test since we are testing logic.
 
     def test_input_system_publishes_selection_event(self):
         input_system = InputSystem(self.yukkurrium)
@@ -83,9 +84,9 @@ class TestIntegration(unittest.TestCase):
         event = PlacementStartedEvent("test_type", 100, "yukkuri")
         self.event_bus.publish(event)
 
-        self.assertTrue(input_system.placing_mode)
-        self.assertEqual(input_system.place_type, "test_type")
-        self.assertEqual(input_system.place_cost, 100)
+        self.assertTrue(self.input_service.is_placing)
+        self.assertEqual(self.input_service.place_type, "test_type")
+        self.assertEqual(self.input_service.place_cost, 100)
 
 if __name__ == '__main__':
     unittest.main()

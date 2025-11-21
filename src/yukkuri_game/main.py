@@ -7,7 +7,7 @@ from .engine.core import GameLoop
 from .engine.audio import AudioManager
 from .engine.resource_manager import ResourceManager
 from .engine.event_bus import EventBus
-from .game.events import GamePausedEvent
+from .game.events import GamePausedEvent, TogglePauseRequest, CycleSpeedRequest
 from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from .game.game_manager import GameManager
 from .game.services import EconomyService, PersistenceService, TimeService, InputService
@@ -107,13 +107,10 @@ class YukkuriGame(GameLoop):
 
             # UI
             self.hud = HUD(self.ui_manager, self.world)
-            # Callbacks are set in HUD init or handled via method binding if exposed
-            # For this structure, we'll assume HUD has these methods or we need to pass them.
-            # If HUD doesn't have these attributes defined in its class, we can't just assign them if strict typing is on.
-            # Assuming we can assign for now or refactor HUD to accept them.
-            self.hud.toggle_pause_callback = self.toggle_pause
-            self.hud.cycle_speed_callback = self.cycle_speed
-            # self.hud.start_placement_callback = self.start_placement # Removed in favor of EventBus
+
+            # Subscribe to events for game control
+            self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
+            self.event_bus.subscribe(CycleSpeedRequest, lambda e: self.cycle_speed())
 
         # Initial Population
         if not self.headless:
@@ -200,8 +197,8 @@ class YukkuriGame(GameLoop):
             next_idx = 0
 
         self.time_scale = speeds[next_idx]
-        if self.hud.speed_btn:
-            self.hud.speed_btn.set_text(f"{self.time_scale}x")
+        if self.hud.layout.speed_btn:
+            self.hud.layout.speed_btn.set_text(f"{self.time_scale}x")
 
     def take_screenshot(self) -> None:
         """

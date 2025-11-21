@@ -13,9 +13,8 @@ class TestHudEvents(unittest.TestCase):
         self.layout_mock = MagicMock(spec=HudLayout)
         self.gm_mock = MagicMock(spec=GameManager)
         self.event_bus_mock = MagicMock(spec=EventBus)
-        self.callbacks = {}
 
-        self.hud_events = HudEvents(self.layout_mock, self.gm_mock, self.callbacks, self.event_bus_mock)
+        self.hud_events = HudEvents(self.layout_mock, self.gm_mock, self.event_bus_mock)
 
         # Setup mock buttons
         self.layout_mock.add_reimu_btn = MagicMock()
