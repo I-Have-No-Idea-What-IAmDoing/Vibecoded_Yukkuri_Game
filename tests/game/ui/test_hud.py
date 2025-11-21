@@ -64,7 +64,8 @@ class TestHudLayout:
             # Check if critical buttons were created
             assert layout.save_btn is not None
             assert layout.load_btn is not None
-            assert layout.add_reimu_btn is not None
+            # add_reimu_btn is removed, check buy_buttons instead but mocked init doesn't populate it unless we pass types
+            assert layout.buy_buttons is not None
 
     def test_create_selection_window(self, hud_layout, mock_ui_manager):
         with patch('yukkuri_game.game.ui.hud_layout.UIWindow') as MockWindow, \
@@ -148,8 +149,11 @@ class TestHudEvents:
     def test_process_event_buy_reimu(self, hud_events, hud_layout, mock_game_manager, mock_event_bus):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
-        hud_layout.add_reimu_btn = MagicMock()
-        event.ui_element = hud_layout.add_reimu_btn
+
+        reimu_btn = MagicMock()
+        hud_layout.buy_buttons = {reimu_btn: {"type_id": "reimu", "cost": 100, "category": "yukkuri", "name": "Reimu"}}
+
+        event.ui_element = reimu_btn
         mock_game_manager.money = 200 # Enough money
 
         assert hud_events.process_event(event) is True
@@ -165,7 +169,11 @@ class TestHudEvents:
     def test_process_event_buy_reimu_insufficient_funds(self, hud_events, hud_layout, mock_game_manager, mock_event_bus):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
-        event.ui_element = hud_layout.add_reimu_btn
+
+        reimu_btn = MagicMock()
+        hud_layout.buy_buttons = {reimu_btn: {"type_id": "reimu", "cost": 100, "category": "yukkuri", "name": "Reimu"}}
+
+        event.ui_element = reimu_btn
         mock_game_manager.money = 50 # Not enough money
 
         assert hud_events.process_event(event) is True # Handled, but no action
@@ -176,7 +184,7 @@ class TestHudEvents:
         hud_layout.selection_window = MagicMock()
         hud_layout.sell_btn = MagicMock()
 
-        hud_events.selected_entity = 123
+        hud_events.selected_entities = [123]
 
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
@@ -191,7 +199,7 @@ class TestHudEvents:
         hud_layout.selection_window = MagicMock()
         hud_layout.train_btn = MagicMock()
 
-        hud_events.selected_entity = 123
+        hud_events.selected_entities = [123]
 
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
@@ -228,7 +236,7 @@ class TestHudRenderer:
 
         mock_world.get_component.side_effect = lambda e, t: stats if t == YukkuriStats else (ai if t == AIState else None)
 
-        hud_renderer.update(0.1, 1, False)
+        hud_renderer.update(0.1, [1], False)
 
         assert hud_layout.info_label.set_text.called
         text = hud_layout.info_label.set_text.call_args[0][0]
@@ -251,7 +259,7 @@ class TestHudRenderer:
 
         mock_world.get_component.side_effect = get_comp
 
-        hud_renderer.update(0.1, 1, False)
+        hud_renderer.update(0.1, [1], False)
 
         assert hud_layout.info_label.set_text.called
         text = hud_layout.info_label.set_text.call_args[0][0]
