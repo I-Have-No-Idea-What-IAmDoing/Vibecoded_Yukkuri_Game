@@ -64,6 +64,8 @@ class HudLayout:
         self.sell_btn: Optional[UIButton] = None
         self.train_btn: Optional[UIButton] = None
 
+        self.clean_btn: Optional[UIButton] = None
+
         # Debug Window Elements
         self.debug_window: Optional[UIWindow] = None
         self.debug_text_box: Optional[UITextBox] = None
@@ -164,6 +166,14 @@ class HudLayout:
             )
             self.buy_buttons[btn] = {"type_id": type_id, "category": "item", "cost": cost, "name": name}
             x_offset += btn_width + spacing
+
+        # Create Clean Button
+        self.clean_btn = UIButton(
+            relative_rect=pygame.Rect(self.width - 150, y_offset, btn_width, btn_height),
+            text="Clean Tool",
+            manager=self.manager,
+            container=self.bottom_panel
+        )
 
     def create_selection_window(self, has_stats: bool, selection_count: int = 1) -> None:
         """

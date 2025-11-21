@@ -7,7 +7,8 @@ from ..events import (
     TogglePauseRequest,
     CycleSpeedRequest,
     TrainEntityRequest,
-    SellEntityRequest
+    SellEntityRequest,
+    CleanToolRequestedEvent
 )
 
 if TYPE_CHECKING:
@@ -80,6 +81,10 @@ class HudEvents:
 
         if ui_element == self.layout.speed_btn:
             self.event_bus.publish(CycleSpeedRequest())
+            return True
+
+        if ui_element == self.layout.clean_btn:
+            self.event_bus.publish(CleanToolRequestedEvent())
             return True
 
         # Dynamic Buy Buttons

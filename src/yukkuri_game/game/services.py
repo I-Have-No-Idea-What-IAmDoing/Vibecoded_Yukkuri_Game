@@ -292,10 +292,15 @@ class InputService:
         self._place_cost: int = 0
         self._place_entity_type: str = "" # "yukkuri" or "item"
         self.selection_rect: Any = None # pygame.Rect or tuple, initialized to None
+        self._cleaning_mode = False
 
     @property
     def is_placing(self) -> bool:
         return self._placing_mode
+
+    @property
+    def is_cleaning(self) -> bool:
+        return self._cleaning_mode
 
     @property
     def place_type(self) -> str:
@@ -311,6 +316,7 @@ class InputService:
 
     def start_placement(self, type_id: str, cost: int, entity_type: str) -> None:
         self._placing_mode = True
+        self._cleaning_mode = False
         self._place_type = type_id
         self._place_cost = cost
         self._place_entity_type = entity_type
@@ -320,6 +326,13 @@ class InputService:
         self._place_type = ""
         self._place_cost = 0
         self._place_entity_type = ""
+
+    def start_cleaning(self) -> None:
+        self._cleaning_mode = True
+        self._placing_mode = False
+
+    def stop_cleaning(self) -> None:
+        self._cleaning_mode = False
 
 
 class GameService:

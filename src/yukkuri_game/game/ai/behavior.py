@@ -9,7 +9,7 @@ from ..components import Transform, PhysicsBody, Velocity
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats
 from ..ai.pathfinding import Pathfinding
 from ..services import GameService
-from ..config import GameConfig
+from ...config import GameConfig
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
