@@ -52,8 +52,11 @@ class World:
         """
         self._switch()
         try:
+            # print(f"DEBUG: destroy_entity {entity} in world {self.name}")
             esper.delete_entity(entity, immediate=True)
+            # print(f"DEBUG: exists after delete? {esper.entity_exists(entity)}")
         except KeyError:
+            # print(f"DEBUG: destroy_entity {entity} KeyError")
             pass
 
     def entity_exists(self, entity: int) -> bool:

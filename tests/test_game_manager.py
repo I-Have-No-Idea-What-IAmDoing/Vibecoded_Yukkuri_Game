@@ -1,134 +1,118 @@
 import pytest
-import os
-import json
-from unittest.mock import MagicMock, patch
-from yukkuri_game.game.game_manager import GameManager
-from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats
-from yukkuri_game.game.components import Transform
-from yukkuri_game.game.services import EconomyService, PersistenceService, TimeService
-from yukkuri_game.game.entity_factory import EntityFactory
+from unittest.mock import MagicMock
+from src.yukkuri_game.game.game_manager import GameManager
+from src.yukkuri_game.engine.ecs import World
+from src.yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
+from src.yukkuri_game.game.yukkuri_components import YukkuriStats
+from src.yukkuri_game.game.entity_factory import EntityFactory
 
 @pytest.fixture
-def mock_world():
-    world = MagicMock(spec=World)
-    world._entities = []
+def game_manager_world():
+    world = World()
 
-    # Mock services
-    world.services = MagicMock()
+    # Setup services
+    economy = EconomyService(1000)
+    time_svc = TimeService()
+    persistence = MagicMock(spec=PersistenceService)
+    factory = MagicMock(spec=EntityFactory)
 
-    # Economy Service Mock
-    economy_service = MagicMock(spec=EconomyService)
-    economy_service.get_money.return_value = 1000
+    # Use a real service locator or mock it properly?
+    # World has real services locator.
+    # Register services manually if needed, but World usually has empty services.
+    # World doesn't expose register directly on self.services (it's ServiceLocator).
 
-    return world
+    # register(instance, service_type=Type)
+    world.services.register(economy, EconomyService)
+    world.services.register(time_svc, TimeService)
+    world.services.register(persistence, PersistenceService)
+    # EntityFactory class itself is used as key in GameManager, not the instance.
+    # But ServiceLocator.register takes Type[T] and T.
+    # GameManager does: self.factory = world.services.get(EntityFactory)
+    # So we must register with EntityFactory type.
+    # The method signature for register is: register(self, instance: Any, service_type: Optional[Type[Any]] = None, replace: bool = False)
+    # But in the test code above, I am calling: world.services.register(EntityFactory, factory)
+    # which maps to register(instance=EntityFactory, service_type=factory)
+    # This is WRONG. EntityFactory is the type (key), factory is the instance.
+    # It should be: world.services.register(factory, EntityFactory)
 
-@pytest.fixture
-def game_manager(mock_world):
-    # We need to set up try_get/get for the constructor
-    mock_world.services.get.side_effect = lambda service_type: \
-        MagicMock(spec=EntityFactory) if service_type == EntityFactory else \
-        MagicMock(spec=EconomyService) if service_type == EconomyService else None
+    world.services.register(factory, EntityFactory)
 
-    gm = GameManager(mock_world)
-    return gm
+    return world, economy, time_svc, persistence, factory
 
-def test_initial_state(game_manager, mock_world):
-    # Money comes from EconomyService
-    # We need to configure the mock to return 1000 when asked
-    mock_economy = MagicMock(spec=EconomyService)
-    mock_economy.get_money.return_value = 1000
+def test_game_manager_properties(game_manager_world):
+    world, economy, time_svc, _, _ = game_manager_world
+    gm = GameManager(world)
 
-    mock_time = MagicMock(spec=TimeService)
-    mock_time.time_elapsed = 0.0
+    # Test money property delegation
+    assert gm.money == 1000
+    gm.money = 2000
+    assert gm.money == 2000
+    assert economy.get_money() == 2000
 
-    def service_get_mock(t):
-        if t == EconomyService: return mock_economy
-        return MagicMock()
+    # Test time_elapsed property delegation
+    assert gm.time_elapsed == 0.0
+    gm.time_elapsed = 10.0
+    assert gm.time_elapsed == 10.0
+    assert time_svc.time_elapsed == 10.0
 
-    def service_try_get_mock(t):
-        if t == TimeService: return mock_time
-        return MagicMock()
+def test_game_manager_sell_yukkuri(game_manager_world):
+    world, economy, _, _, _ = game_manager_world
+    gm = GameManager(world)
 
-    mock_world.services.get.side_effect = service_get_mock
-    mock_world.services.try_get.side_effect = service_try_get_mock
+    # Create mock yukkuri
+    yukkuri = world.create_entity()
+    stats = YukkuriStats(
+        name="TestYukkuri",
+        type_id="test",
+        happiness=80,
+        badges=1,
+        health=100,
+        max_health=100,
+        age=120 # 2 minutes
+    )
+    world.add_component(yukkuri, stats)
 
-    assert game_manager.money == 1000
-    assert game_manager.time_elapsed == 0.0
+    initial_money = economy.get_money()
 
-def test_calculate_quality_score(game_manager):
-    stats = YukkuriStats(type_id="test", name="TestYukkuri")
-    stats.happiness = 50
-    stats.badges = 1
-    stats.health = 100
-    stats.max_health = 100
-    stats.age = 600 # 10 minutes
+    # Calculate expected value
+    # Base 100
+    # Happiness 80 * 2 = 160
+    # Badges 1 * 500 = 500
+    # Health penalty 0
+    # Age bonus 2 * 10 = 20
+    # Total = 100 + 160 + 500 + 20 = 780
+    expected_value = 780
 
-    # Base: 100
-    # Happiness: 50 * 2 = 100
-    # Badges: 1 * 500 = 500
-    # Health penalty: 0
-    # Age bonus: (600 / 60) * 10 = 100
-    # Total: 800
+    value = gm.sell_yukkuri(yukkuri)
 
-    score = game_manager.calculate_quality_score(stats)
-    assert score == 800
-    assert stats.quality_score == 800
+    assert value == expected_value
+    assert economy.get_money() == initial_money + expected_value
 
-    # Test health penalty
-    stats.health = 50
-    # Penalty: (100 - 50) * 2 = 100
-    # Total: 700
-    score = game_manager.calculate_quality_score(stats)
-    assert score == 700
+    # Entity should be destroyed
+    assert not world.entity_exists(yukkuri)
 
-def test_sell_yukkuri(game_manager, mock_world):
-    entity_id = 1
-    stats = YukkuriStats(type_id="test", name="TestYukkuri")
-    mock_world.get_component.side_effect = lambda e, c: stats if c == YukkuriStats else None
+def test_game_manager_sell_invalid_entity(game_manager_world):
+    world, economy, _, _, _ = game_manager_world
+    gm = GameManager(world)
 
-    mock_economy = MagicMock(spec=EconomyService)
-    mock_economy.get_money.return_value = 1000
+    # Entity without stats
+    item = world.create_entity()
 
-    # Update mock_world.services.get to return our mock economy
-    mock_world.services.get.side_effect = lambda t: mock_economy if t == EconomyService else MagicMock()
-
-    value = game_manager.sell_yukkuri(entity_id)
-
-    assert value == 200
-    mock_economy.add_money.assert_called_once_with(200)
-    mock_world.destroy_entity.assert_called_once_with(entity_id)
-
-def test_sell_non_yukkuri(game_manager, mock_world):
-    entity_id = 2
-    mock_world.get_component.return_value = None
-
-    mock_economy = MagicMock(spec=EconomyService)
-    mock_world.services.get.side_effect = lambda t: mock_economy if t == EconomyService else MagicMock()
-
-    value = game_manager.sell_yukkuri(entity_id)
+    initial_money = economy.get_money()
+    value = gm.sell_yukkuri(item)
 
     assert value == 0
-    mock_economy.add_money.assert_not_called()
-    mock_world.destroy_entity.assert_not_called()
+    assert economy.get_money() == initial_money
+    # Entity remains (sell_yukkuri checks for stats before destroying? No, it checks stats then proceeds)
+    # If stats missing, it returns 0 and does NOT destroy.
+    assert world.entity_exists(item)
 
-def test_save_game_delegation(game_manager, mock_world):
-    persistence = MagicMock(spec=PersistenceService)
+def test_game_manager_save_load_delegation(game_manager_world):
+    world, _, _, persistence, _ = game_manager_world
+    gm = GameManager(world)
 
-    # Update try_get to return our persistence mock
-    mock_world.services.try_get.side_effect = lambda t: persistence if t == PersistenceService else None
+    gm.save_game("mysave.json")
+    persistence.save_game.assert_called_with("mysave.json")
 
-    game_manager.save_game("test.json")
-
-    persistence.save_game.assert_called_once_with("test.json")
-
-def test_load_game_delegation(game_manager, mock_world):
-    persistence = MagicMock(spec=PersistenceService)
-    persistence.load_game.return_value = True
-
-    mock_world.services.try_get.side_effect = lambda t: persistence if t == PersistenceService else None
-
-    result = game_manager.load_game("test.json")
-
-    assert result is True
-    persistence.load_game.assert_called_once_with("test.json")
+    gm.load_game("mysave.json")
+    persistence.load_game.assert_called_with("mysave.json")

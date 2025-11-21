@@ -10,6 +10,23 @@ def entity_factory():
     world = World()
     rm = MagicMock()
 
+    # Mock ResourceManager in world services
+    from src.yukkuri_game.engine.resource_manager import ResourceManager
+    from src.yukkuri_game.game.systems.physics import PhysicsSystem
+
+    # Setup services mock
+    world.services = MagicMock()
+
+    def get_service(service_type):
+        if service_type == ResourceManager:
+            return rm
+        if service_type == PhysicsSystem:
+            return None
+        return None
+
+    world.services.get.side_effect = get_service
+    world.services.try_get.side_effect = get_service
+
     rm.yukkuri_types = {
         "reimu": {
             "image": "reimu.png",
@@ -33,14 +50,14 @@ def entity_factory():
         }
     }
 
-    return EntityFactory(world, rm)
+    return EntityFactory(world)
 
 def test_create_yukkuri(entity_factory):
     factory = entity_factory
     entity_id = factory.create_yukkuri("reimu", 100, 200)
 
     world = factory.world
-    assert entity_id in world._entities
+    assert world.entity_exists(entity_id)
 
     # Check Transform
     transform = world.get_component(entity_id, Transform)

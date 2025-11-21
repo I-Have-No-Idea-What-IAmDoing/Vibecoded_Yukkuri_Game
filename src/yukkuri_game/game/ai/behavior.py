@@ -110,6 +110,10 @@ class MoveToTarget(Action):
         if ai.path is None or len(ai.path) == 0:
              # Simple check to see if we need pathfinding or just straight line
              # For now, assuming pathfinding is always needed or available
+             # Check if we are already at the target before calling pathfinding
+             if math.hypot(target_pos[0] - trans.x, target_pos[1] - trans.y) < 15.0:
+                 return Status.SUCCESS
+
              ai.path = Pathfinding.find_path((trans.x, trans.y), target_pos, 3000, 3000) # Using hardcoded world size for now or need to pass it
              if not ai.path:
                  return Status.FAILURE
@@ -147,6 +151,7 @@ class MoveToTarget(Action):
                     # Fallback to direct transform manipulation
                     # We read delta time from blackboard if available
                     dt = py_trees.blackboard.Blackboard().get("dt")
+                    # Check if dt is None or invalid
                     if dt is None:
                          dt = 0.016 # Fallback to ~60FPS
 
@@ -277,6 +282,8 @@ class Interact(Action):
                      # For tests, world._entities is used to check existence, but destroy_entity should remove it.
                      # Assuming destroy_entity handles it correctly.
                      self.world.destroy_entity(ai.current_target_id)
+                     # Also remove components just in case esper takes time to cleanup or for testing
+                     self.world.remove_component(ai.current_target_id, Transform)
                      ai.current_target_id = -1
 
             return Status.SUCCESS

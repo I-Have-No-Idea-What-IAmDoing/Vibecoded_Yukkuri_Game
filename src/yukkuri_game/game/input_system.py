@@ -44,6 +44,24 @@ class InputSystem(System):
         self.factory: Optional['EntityFactory'] = None
         self.event_bus: Optional[EventBus] = None
 
+    def start_placement(self, type_id: str, cost: int, entity_type: str, gm: 'GameManager', factory: 'EntityFactory') -> None:
+        """
+        Directly starts placement mode. Used for testing or direct calls.
+
+        Args:
+            type_id: The type ID of the entity to place.
+            cost: The cost of the entity.
+            entity_type: "yukkuri" or "item".
+            gm: GameManager instance.
+            factory: EntityFactory instance.
+        """
+        self.placing_mode = True
+        self.place_type = type_id
+        self.place_cost = cost
+        self.place_entity_type = entity_type
+        self.gm = gm
+        self.factory = factory
+
     def on_placement_started(self, event: PlacementStartedEvent) -> None:
         """
         Handles the PlacementStartedEvent.
