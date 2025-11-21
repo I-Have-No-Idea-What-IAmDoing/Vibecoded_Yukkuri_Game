@@ -85,6 +85,7 @@ class YukkuriGame(GameLoop):
 
         # AI
         self.ai_engine = UtilityAIEngine(self.resources)
+        self.ai_engine.validate_actions()
         # Could register AI engine if needed by others, e.g. YukkuriAISystem might fetch it?
         # For now YukkuriAISystem takes it in constructor, but let's register it just in case.
         self.world.services.register(self.ai_engine)
