@@ -7,7 +7,9 @@ from yukkuri_game.game.components import Transform, Sprite, Selectable
 
 @pytest.fixture
 def yukkurrium():
-    return Yukkurrium(width=1000, height=1000)
+    from yukkuri_game.config import WorldSettings
+    settings = WorldSettings(width=1000, height=1000)
+    return Yukkurrium(settings)
 
 def test_coordinate_conversion(yukkurrium):
     screen_w, screen_h = 800, 600
@@ -104,8 +106,23 @@ def test_render_system_update():
 
     rm.load_image.return_value = img
 
-    rs = RenderSystem(screen, yukkurrium, rm)
+    # RenderSystem takes screen and world, fetches yukkurrium and rm from world services
     world = MagicMock()
+    world.services.get.side_effect = lambda service_type: yukkurrium if service_type == Yukkurrium else (rm if service_type == MagicMock else rm)
+
+    # Since we need to pass classes to get, and in test we used MagicMock for rm, we need to align.
+    # The actual code uses world.services.get(ResourceManager) and world.services.get(Yukkurrium)
+    # So we need to set up the mock world services correctly.
+
+    from yukkuri_game.engine.resource_manager import ResourceManager
+
+    services_map = {
+        Yukkurrium: yukkurrium,
+        ResourceManager: rm
+    }
+    world.services.get.side_effect = lambda t: services_map.get(t)
+
+    rs = RenderSystem(screen, world)
 
     # Setup entity
     ent = 1
@@ -166,8 +183,15 @@ def test_render_system_update_scaling_and_culling():
     with patch('pygame.transform.scale', return_value=scaled_img) as mock_scale:
         rm.load_image.return_value = img
 
-        rs = RenderSystem(screen, yukkurrium, rm)
         world = MagicMock()
+        from yukkuri_game.engine.resource_manager import ResourceManager
+        services_map = {
+            Yukkurrium: yukkurrium,
+            ResourceManager: rm
+        }
+        world.services.get.side_effect = lambda t: services_map.get(t)
+
+        rs = RenderSystem(screen, world)
 
         ent = 1
         world.get_entities_with.return_value = [ent]
@@ -211,8 +235,15 @@ def test_render_system_update_culling():
     img.get_rect.return_value = rect
     rm.load_image.return_value = img
 
-    rs = RenderSystem(screen, yukkurrium, rm)
     world = MagicMock()
+    from yukkuri_game.engine.resource_manager import ResourceManager
+    services_map = {
+        Yukkurrium: yukkurrium,
+        ResourceManager: rm
+    }
+    world.services.get.side_effect = lambda t: services_map.get(t)
+
+    rs = RenderSystem(screen, world)
 
     ent = 1
     world.get_entities_with.return_value = [ent]
@@ -238,8 +269,15 @@ def test_render_system_update_invalid_size():
     img = MagicMock()
     rm.load_image.return_value = img
 
-    rs = RenderSystem(screen, yukkurrium, rm)
     world = MagicMock()
+    from yukkuri_game.engine.resource_manager import ResourceManager
+    services_map = {
+        Yukkurrium: yukkurrium,
+        ResourceManager: rm
+    }
+    world.services.get.side_effect = lambda t: services_map.get(t)
+
+    rs = RenderSystem(screen, world)
 
     ent = 1
     world.get_entities_with.return_value = [ent]
@@ -261,8 +299,15 @@ def test_render_system_missing_components():
     yukkurrium = Yukkurrium()
     rm = MagicMock()
 
-    rs = RenderSystem(screen, yukkurrium, rm)
     world = MagicMock()
+    from yukkuri_game.engine.resource_manager import ResourceManager
+    services_map = {
+        Yukkurrium: yukkurrium,
+        ResourceManager: rm
+    }
+    world.services.get.side_effect = lambda t: services_map.get(t)
+
+    rs = RenderSystem(screen, world)
 
     # Entity is in the list but somehow get_component returns None (race condition or error)
     ent = 1
