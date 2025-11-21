@@ -25,7 +25,15 @@ class TestUIEvents(unittest.TestCase):
         # Need to run update once to initialize lazy dependencies
         self.system.update(self.world, 0.0)
 
-    def test_entity_selection_event(self):
+    @patch('pygame.key.get_pressed')
+    def test_entity_selection_event(self, mock_get_pressed):
+        # Mock key pressed return (array of 0s, length 512 usually, or just accessible by index)
+        # pygame.key.get_pressed() returns a ScancodeWrapper which behaves like a list
+        # We can just return a mock that returns False for K_LSHIFT
+        mock_keys = MagicMock()
+        mock_keys.__getitem__.return_value = False
+        mock_get_pressed.return_value = mock_keys
+
         # Mock screen to world conversion
         self.yukkurrium.screen_to_world.return_value = (100, 100)
 
@@ -47,9 +55,14 @@ class TestUIEvents(unittest.TestCase):
         # Handle event
         self.system.handle_event(event, self.world, 800, 600)
 
+        # Need MOUSEBUTTONUP to trigger selection logic
+        event_up = pygame.event.Event(pygame.MOUSEBUTTONUP, {"button": 1, "pos": (100, 100)})
+        self.system.handle_event(event_up, self.world, 800, 600)
+
         self.assertIsNotNone(captured_event)
         self.assertIsInstance(captured_event, EntitySelectedEvent)
-        self.assertEqual(captured_event.entity_id, entity_id)
+        # Check if list contains the entity
+        self.assertIn(entity_id, captured_event.entity_ids)
 
     @patch('pygame.key.get_pressed')
     def test_entity_deselection_event(self, mock_get_pressed):
@@ -59,6 +72,10 @@ class TestUIEvents(unittest.TestCase):
         mock_keys = MagicMock()
         mock_keys.__getitem__.return_value = False
         mock_get_pressed.return_value = mock_keys
+
+        # Ensure we are not clicking the entity
+        # Entity is at 100, 100.
+        # Click is at 500, 500.
 
         # Mock screen to world conversion
         self.yukkurrium.screen_to_world.return_value = (500, 500) # Click far away
@@ -79,8 +96,13 @@ class TestUIEvents(unittest.TestCase):
 
         self.system.handle_event(event, self.world, 800, 600)
 
+        # Need MOUSEBUTTONUP to trigger selection logic
+        event_up = pygame.event.Event(pygame.MOUSEBUTTONUP, {"button": 1, "pos": (500, 500)})
+        self.system.handle_event(event_up, self.world, 800, 600)
+
         self.assertIsNotNone(captured_event)
-        self.assertEqual(captured_event.entity_id, -1)
+        # Should be empty list for deselection
+        self.assertEqual(captured_event.entity_ids, [])
 
     def test_placement_requested_event(self):
         # Start placement mode
@@ -110,6 +132,9 @@ class TestUIEvents(unittest.TestCase):
     def test_placement_cancellation_on_right_click(self):
          # Start placement mode
         self.input_service.start_placement("reimu", 100, "yukkuri")
+
+        # Mock screen to world for this test too, as handle_event calls it
+        self.yukkurrium.screen_to_world.return_value = (0, 0)
 
         # Mock right click
         event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 3, "pos": (0, 0)})
