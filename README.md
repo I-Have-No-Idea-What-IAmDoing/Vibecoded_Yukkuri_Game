@@ -97,6 +97,9 @@ nutrition = 10
 fun = 5
 ```
 
+### Animation Configuration
+Animations can be defined with advanced features like ping-pong loops and frame events. See [docs/animation.md](docs/animation.md) for details.
+
 ### AI Behavior
 Edit `data/ai/actions.toml` to define new Utility Actions, Considerations, and Effects.
 
