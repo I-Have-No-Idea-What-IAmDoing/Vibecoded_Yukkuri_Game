@@ -52,7 +52,7 @@ def test_stat_decay_integration():
 
 def test_stat_decay_integration_default():
     """Test that StatDecaySystem uses default rates if no settings provided."""
-    system = StatDecaySystem() # Default settings
+    system = StatDecaySystem(settings=StatDecaySettings()) # Default settings
     world = World()
 
     entity = world.create_entity()

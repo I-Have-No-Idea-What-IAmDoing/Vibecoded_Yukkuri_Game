@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 from src.yukkuri_game.game.systems.stat_decay import StatDecaySystem
 from src.yukkuri_game.game.yukkuri_components import YukkuriStats
+from src.yukkuri_game.config import StatDecaySettings
 
 class TestStatDecaySystem(unittest.TestCase):
     def test_stat_decay(self):
@@ -18,7 +19,7 @@ class TestStatDecaySystem(unittest.TestCase):
         # Setup mock return
         mock_world.get_components_tuple.return_value = [(1, (stats,))]
 
-        system = StatDecaySystem()
+        system = StatDecaySystem(settings=StatDecaySettings())
         dt = 1.0
         system.update(mock_world, dt)
 
@@ -44,7 +45,7 @@ class TestStatDecaySystem(unittest.TestCase):
 
         mock_world.get_components_tuple.return_value = [(1, (stats,))]
 
-        system = StatDecaySystem()
+        system = StatDecaySystem(settings=StatDecaySettings())
         dt = 10.0
         system.update(mock_world, dt)
 
@@ -63,7 +64,7 @@ class TestStatDecaySystem(unittest.TestCase):
 
         mock_world.get_components_tuple.return_value = [(1, (stats,))]
 
-        system = StatDecaySystem()
+        system = StatDecaySystem(settings=StatDecaySettings())
         # Cleanliness decay is 0.2 per second (default).
         # dt = 10.0 -> decay = 2.0
         # 1.0 - 2.0 = -1.0. Should be clamped to 0.0
