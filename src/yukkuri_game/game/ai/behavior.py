@@ -7,50 +7,20 @@ from py_trees.common import Status
 from typing import Optional, Callable, Any, TYPE_CHECKING, Dict
 from ..components import Transform, PhysicsBody, Velocity
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats
+from .utility_selector import UtilitySelector
+from .base_action import Action
+from ..ai.pathfinding import Pathfinding
+from ..services import GameService
 from .navigation_service import NavigationService
 from .steering import Steering
 from ..services import GameService
 from ...config import GameConfig
 
 if TYPE_CHECKING:
+    from ..config import GameConfig
     from yukkuri_game.engine.ecs import World
 
 # --- Behavior Tree Leaves (Actions) ---
-
-class Action(Behaviour): # type: ignore[misc]
-    """
-    Base class for AI actions in the Behavior Tree.
-
-    Attributes:
-        entity_id (Optional[int]): The ID of the entity performing the action.
-        world (Optional[World]): The ECS World instance.
-        blackboard (Optional[Any]): The Behavior Tree blackboard.
-    """
-    def __init__(self, name: str = "Action", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None):
-        """
-        Initializes the Action.
-
-        Args:
-            name (str): The name of the behavior node.
-            entity_id (Optional[int]): The ID of the entity.
-            world (Optional[World]): The ECS World instance.
-            blackboard (Optional[Any]): The Behavior Tree blackboard.
-        """
-        super().__init__(name)
-        self.entity_id = entity_id
-        self.world = world
-        self.blackboard = blackboard
-
-    def update(self) -> Status:
-        """
-        Updates the behavior.
-
-        Returns:
-            Status: The status of the behavior (SUCCESS, FAILURE, RUNNING).
-        """
-        if not self.world or self.entity_id is None:
-             return Status.FAILURE
-        return Status.RUNNING
 
 class MoveToTarget(Action):
     """
@@ -531,11 +501,11 @@ BehaviorRegistry.register_goal("Play", build_play_behavior)
 BehaviorRegistry.register_goal("Wander", build_wander_behavior)
 
 
-def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, height: int) -> py_trees.composites.Selector:
+def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, height: int) -> py_trees.composites.Sequence:
     """
     Builds the behavior tree for a Yukkuri.
 
-    The tree structure prioritizes eating when hungry, then wandering, then idling.
+    The tree structure uses a UtilitySelector to pick a goal, then executes that goal.
 
     Args:
         entity_id (int): The ID of the Yukkuri entity.
@@ -544,7 +514,7 @@ def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, hei
         height (int): The height of the world boundary.
 
     Returns:
-        py_trees.composites.Selector: The root node of the behavior tree.
+        py_trees.composites.Sequence: The root node of the behavior tree.
     """
 
     # Check Goal Condition
@@ -561,33 +531,31 @@ def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, hei
             return False
         return world.has_component(ai.current_target_id, Transform)
 
-    # --- Root ---
-    root = py_trees.composites.Selector(name="Root", memory=False)
+    # --- Root Sequence ---
+    # 1. Select Goal (UtilitySelector)
+    # 2. Execute Goal (Selector)
+    root = py_trees.composites.Sequence(name="Root Sequence", memory=False)
 
-    # Dynamically add registered goal behaviors
-    # Note: The order matters. For now, dict iteration order is insertion order in recent Python.
-    # Ideally we'd have a priority system.
+    # 1. Utility Selector
+    utility_selector = UtilitySelector(entity_id=entity_id, world=world)
+    root.add_child(utility_selector)
 
-    # For now, we manually prioritize "Eat" and "Wander" if we want strict ordering,
-    # or just iterate. The original code had Eat -> Wander -> Idle.
-    # Let's iterate but maybe prioritize Eat first if it's there.
+    # 2. Execution Selector
+    execution_selector = py_trees.composites.Selector(name="Execution Selector", memory=False)
 
     goals = BehaviorRegistry.get_goals()
 
-    # Priority goals (hardcoded for now to maintain behavior)
-    if "Eat" in goals:
-        root.add_child(goals["Eat"](entity_id, world, width, height, check_goal, check_target_exists))
+    # Add all registered goals to the execution selector
+    # The order here matters less because each goal starts with a Check(Goal=X)
+    # However, we should ensure we cover all potential goals returned by UtilitySelector
 
-    if "Wander" in goals:
-        root.add_child(goals["Wander"](entity_id, world, width, height, check_goal, check_target_exists))
-
-    # Other goals
     for name, builder in goals.items():
-        if name not in ["Eat", "Wander"]:
-            root.add_child(builder(entity_id, world, width, height, check_goal, check_target_exists))
+        execution_selector.add_child(builder(entity_id, world, width, height, check_goal, check_target_exists))
 
-    # Always add Idle at the end
+    # Always add Idle at the end as a fallback
     idle = Idle(entity_id=entity_id, world=world)
-    root.add_child(idle)
+    execution_selector.add_child(idle)
+
+    root.add_child(execution_selector)
 
     return root
