@@ -4,7 +4,7 @@ import pygame
 from loguru import logger
 from typing import Any, Dict, Type, TypeVar
 
-from yukkuri_game.engine.data_models import (
+from .data_models import (
     YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction
 )
 
