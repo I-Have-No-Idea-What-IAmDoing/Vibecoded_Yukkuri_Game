@@ -63,8 +63,8 @@ class TestHudLayout(unittest.TestCase):
         # Note: If patched classes return the same mock instance, using it as a dictionary key
         # will overwrite previous entries. We need to ensure each call returns a new mock.
         self.assertEqual(len(layout.buy_buttons), 2)
-        # 4 top buttons (pause, speed, save, load) + 2 buy buttons = 6
-        self.assertEqual(self.MockButton.call_count, 4 + 2)
+        # 4 top buttons (pause, speed, save, load) + 2 buy buttons + 1 clean button = 7
+        self.assertEqual(self.MockButton.call_count, 4 + 2 + 1)
 
     def test_initialization_no_types(self):
         layout = HudLayout(self.mock_ui_manager, self.width, self.height)

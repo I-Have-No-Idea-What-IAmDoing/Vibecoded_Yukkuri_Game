@@ -3,7 +3,7 @@ from typing import Any
 from typing import Any, Optional, TYPE_CHECKING
 from ..engine.ecs import World
 from .components import Transform, Sprite, Selectable, PhysicsBody
-from .yukkuri_components import YukkuriStats, AIState, ItemStats
+from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop
 
 if TYPE_CHECKING:
     from ..engine.resource_manager import ResourceManager
@@ -50,7 +50,7 @@ class EntityFactory:
             return data.get(key, default)
         return getattr(data, key, default)
 
-    def create_yukkuri(self, type_id: str, x: float, y: float) -> int:
+    def create_yukkuri(self, type_id: str, x: float, y: float, age: float = 0.0) -> int:
         """
         Creates a Yukkuri entity.
 
@@ -58,6 +58,7 @@ class EntityFactory:
             type_id (str): The type identifier for the Yukkuri (e.g., "reimu").
             x (float): The initial x-coordinate.
             y (float): The initial y-coordinate.
+            age (float): The initial age of the Yukkuri. Defaults to 0.0 (Baby).
 
         Returns:
             int: The ID of the created entity.
@@ -76,13 +77,41 @@ class EntityFactory:
         height = self._get_attr(data, 'height', 64)
         max_health = self._get_attr(data, 'max_health', 100)
 
+        # Determine growth stage and scale based on age
+        # Note: These thresholds should match LifecycleSettings, but we don't have access to config here easily without dependency injection.
+        # Ideally, pass config or use constants. For now, assuming Baby < 100, Child < 300
+        # Wait, if we create an adult directly, we should scale it.
+        # But if the sprite is for an adult (usually), we should scale DOWN for babies.
+
+        scale = 1.0
+        radius = 20
+        growth_stage = "Baby"
+
+        # Simple logic: if age > 300 -> Adult. If age > 100 -> Child. Else Baby.
+        # Baby: scale 0.5. Child: scale 0.75. Adult: scale 1.0.
+        if age >= 300:
+            growth_stage = "Adult"
+            scale = 1.0
+            radius = 20
+        elif age >= 100:
+            growth_stage = "Child"
+            scale = 0.75
+            radius = 15
+        else:
+            growth_stage = "Baby"
+            scale = 0.5
+            radius = 10
+
+            # Reduce stats for babies
+            max_health *= 0.5
+
         # Animation properties
         frame_count = self._get_attr(data, 'frame_count', 1)
         frame_duration = self._get_attr(data, 'frame_duration', 0.1)
         loop = self._get_attr(data, 'loop', True)
 
         # Core Components
-        self.world.add_component(entity, Transform(x=x, y=y))
+        self.world.add_component(entity, Transform(x=x, y=y, scale=scale))
         self.world.add_component(entity, Sprite(
             image_name=image,
             width=width,
@@ -99,7 +128,9 @@ class EntityFactory:
             name=f"{type_id}_{entity}",
             type_id=type_id,
             max_health=max_health,
-            health=max_health
+            health=max_health,
+            age=age,
+            growth_stage=growth_stage
         )
         self.world.add_component(entity, stats)
 
@@ -109,7 +140,6 @@ class EntityFactory:
         # Physics
         if self.physics_system:
             mass = 10
-            radius = 20
             inertia = pymunk.moment_for_circle(mass, 0, radius)
             body = pymunk.Body(mass, inertia)
             body.position = x, y
@@ -117,6 +147,47 @@ class EntityFactory:
             shape.elasticity = 0.5
             shape.friction = 0.5
 
+            self.physics_system.space.add(body, shape)
+            self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
+
+        return entity
+
+    def create_poop(self, x: float, y: float) -> int:
+        """
+        Creates a Poop entity.
+
+        Args:
+            x (float): The x-coordinate.
+            y (float): The y-coordinate.
+
+        Returns:
+            int: The ID of the created entity.
+        """
+        entity = self.world.create_entity()
+
+        self.world.add_component(entity, Transform(x=x, y=y))
+
+        # Use a placeholder image if "poop.png" doesn't exist (handled by Sprite/ResourceManager if robust,
+        # but here we hardcode a name. Assuming asset exists or will fallback)
+        # Ideally this should be in data, but for now hardcoded is fine as per instructions.
+        self.world.add_component(entity, Sprite(
+            image_name="poop.png",
+            width=32,
+            height=32
+        ))
+        self.world.add_component(entity, Selectable())
+        self.world.add_component(entity, Poop())
+
+        # Physics
+        if self.physics_system:
+            mass = 1
+            radius = 10
+            inertia = pymunk.moment_for_circle(mass, 0, radius)
+            body = pymunk.Body(mass, inertia)
+            body.position = x, y
+            shape = pymunk.Circle(body, radius)
+            shape.elasticity = 0.2
+            shape.friction = 0.8
             self.physics_system.space.add(body, shape)
             self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 

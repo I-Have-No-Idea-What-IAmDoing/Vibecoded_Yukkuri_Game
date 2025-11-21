@@ -74,3 +74,16 @@ class ItemStats:
     fun: float = 0.0
     comfort: float = 0.0
     is_portable: bool = False
+
+@dataclass
+class Poop:
+    """
+    Tag component identifying an entity as Poop.
+    """
+    pass
+
+class Dead:
+    """
+    Tag component for dead entities.
+    """
+    pass
