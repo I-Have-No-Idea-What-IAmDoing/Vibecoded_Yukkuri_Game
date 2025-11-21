@@ -143,6 +143,27 @@ class World:
         # esper.get_component returns List[Tuple[int, T]]
         return {entity: component for entity, component in esper.get_component(component_type)}
 
+    def get_all_entities(self) -> List[int]:
+        """
+        Retrieves all entity IDs in the current world context.
+
+        Returns:
+            List[int]: A list of all entity IDs.
+        """
+        self._switch()
+        # esper._entities is a dictionary {entity_id: {component_type: component_instance}}
+        # Since esper doesn't provide a public method to get all entities, we access the internal storage.
+        # This is safe because we are wrapping esper and this class is the designated interface.
+        # Note: 'esper._entities' is a module-level variable that points to the entity map of the
+        # currently active world context (managed by switch_world).
+        try:
+            # Accessing the internal _entities attribute of esper.
+            # Note: This depends on esper's internal implementation.
+            return list(esper._entities.keys())
+        except AttributeError:
+            # Fallback if internal implementation changes (unlikely for stable esper)
+            return []
+
     def get_entities_with(self, *component_types: Type[Any]) -> List[int]:
         """
         Retrieves a list of entity IDs that have all specified component types.

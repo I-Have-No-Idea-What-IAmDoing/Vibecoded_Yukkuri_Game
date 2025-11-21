@@ -10,6 +10,7 @@ from .engine.event_bus import EventBus
 from .game.events import GamePausedEvent
 from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from .game.game_manager import GameManager
+from .game.services import EconomyService, PersistenceService, TimeService
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
 from .game.systems.stat_decay import StatDecaySystem
@@ -57,6 +58,16 @@ class YukkuriGame(GameLoop):
         self.world.services.register(self.yukkurrium)
         self.world.services.register(self.physics_system)
         self.world.services.register(self.event_bus)
+
+        # Services
+        self.economy_service = EconomyService()
+        self.world.services.register(self.economy_service)
+
+        self.time_service = TimeService()
+        self.world.services.register(self.time_service)
+
+        self.persistence_service = PersistenceService(self.world)
+        self.world.services.register(self.persistence_service)
 
         # Factory & Game Manager
         self.factory = EntityFactory(self.world)
