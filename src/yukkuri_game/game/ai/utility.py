@@ -173,7 +173,7 @@ class UtilityAIEngine:
             str: The name of the selected action.
         """
         best_action = "Idle"
-        best_score = -1.0
+        best_score = 0.0
 
         for name, action in self.actions.items():
             score = action.calculate_utility(context)
