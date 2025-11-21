@@ -62,7 +62,7 @@ class HUD:
         # Initialize Components
         self.layout = HudLayout(self.manager, self.width, self.height)
 
-        self.events = HudEvents(self.layout, self.gm, self.event_bus)
+        self.events = HudEvents(self.layout, self.gm, self.event_bus, self.show_error)
 
         self.renderer = HudRenderer(self.layout, self.gm, self.world)
 
