@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Dict, Any, Callable, Optional, Union
 import math
+from loguru import logger
 
 @dataclass
 class Consideration:
@@ -212,3 +213,28 @@ class UtilityAIEngine:
                 best_action = name
 
         return best_action
+
+    def validate_actions(self) -> None:
+        """
+        Validates that all loaded utility actions have corresponding implementations
+        in the Behavior Tree system. Logs warnings for missing implementations.
+        """
+        try:
+            # Import here to avoid circular dependency
+            from .behavior import BehaviorRegistry
+
+            registered_behaviors = BehaviorRegistry.get_goals()
+
+            for action_name in self.actions.keys():
+                # Skip validation for Idle as it's the default fallback
+                if action_name == "Idle":
+                    continue
+
+                if action_name not in registered_behaviors:
+                    logger.warning(
+                        f"Utility AI Action '{action_name}' defined in actions.toml "
+                        f"has no corresponding behavior implementation in BehaviorRegistry."
+                    )
+
+        except ImportError:
+            logger.error("Could not import BehaviorRegistry for validation.")
