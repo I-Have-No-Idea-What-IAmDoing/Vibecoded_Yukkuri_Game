@@ -81,3 +81,9 @@ class Poop:
     Tag component identifying an entity as Poop.
     """
     pass
+
+class Dead:
+    """
+    Tag component for dead entities.
+    """
+    pass

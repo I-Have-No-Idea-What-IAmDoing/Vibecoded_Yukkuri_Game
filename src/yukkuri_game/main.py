@@ -14,6 +14,7 @@ from .game.services import EconomyService, PersistenceService, TimeService, Inpu
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
 from .game.systems.stat_decay import StatDecaySystem
+from .game.systems.lifecycle import LifecycleSystem
 from .game.systems.decision import DecisionSystem
 from .game.systems.behavior import BehaviorSystem
 from .game.systems.physics import PhysicsSystem
@@ -135,6 +136,7 @@ class YukkuriGame(GameLoop):
         self.world.add_system(TimeSystem())
         self.world.add_system(self.physics_system)
         self.world.add_system(StatDecaySystem(settings=self.game_config.rules.stat_decay))
+        self.world.add_system(LifecycleSystem(settings=self.game_config.rules.lifecycle, entity_factory=self.factory))
         self.world.add_system(DecisionSystem(self.ai_engine, decision_interval=1.0))
         self.world.add_system(BehaviorSystem(float(self.yukkurrium.width), float(self.yukkurrium.height)))
         self.world.add_system(ConstructionSystem())
