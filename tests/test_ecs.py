@@ -32,12 +32,12 @@ def test_create_destroy_entity():
     entity2 = world.create_entity()
 
     assert entity1 != entity2
-    assert entity1 in world._entities
-    assert entity2 in world._entities
+    assert world.entity_exists(entity1)
+    assert world.entity_exists(entity2)
 
     world.destroy_entity(entity1)
-    assert entity1 not in world._entities
-    assert entity2 in world._entities
+    assert not world.entity_exists(entity1)
+    assert world.entity_exists(entity2)
 
 def test_add_get_remove_component():
     world = World()
