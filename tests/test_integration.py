@@ -28,9 +28,8 @@ class TestIntegration(unittest.TestCase):
         self.factory = Mock(spec=EntityFactory)
         self.world.services.register(self.factory, EntityFactory)
 
-        # Register InputService
         self.input_service = InputService()
-        self.world.services.register(self.input_service)
+        self.world.services.register(self.input_service, InputService)
 
         self.ui_manager = Mock()
         # Mock ui_manager methods that are called in HudLayout init
@@ -84,9 +83,9 @@ class TestIntegration(unittest.TestCase):
         event = PlacementStartedEvent("test_type", 100, "yukkuri")
         self.event_bus.publish(event)
 
-        self.assertTrue(self.input_service.is_placing)
-        self.assertEqual(self.input_service.place_type, "test_type")
-        self.assertEqual(self.input_service.place_cost, 100)
+        self.assertTrue(input_system.input_service.is_placing)
+        self.assertEqual(input_system.input_service.place_type, "test_type")
+        self.assertEqual(input_system.input_service.place_cost, 100)
 
 if __name__ == '__main__':
     unittest.main()

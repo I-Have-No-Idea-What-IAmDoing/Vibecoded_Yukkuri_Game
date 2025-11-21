@@ -4,9 +4,11 @@ import random
 from typing import Optional, Callable, Any, TYPE_CHECKING
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
+from typing import Optional, Callable, Any, TYPE_CHECKING, Dict
 from ..components import Transform, PhysicsBody, Velocity
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats
 from ..ai.pathfinding import Pathfinding
+from ..services import GameService
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -270,31 +272,27 @@ class Interact(Action):
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
         # print(f"Interact Check: Dist={dist}")
         if dist <= 30.0: # Interaction range
-            # Perform Interaction Logic
-            # We need to know WHAT to do. Usually defined by the "Current Action" name or similar.
-            # Or we just trigger the effect.
+            game_service = self.world.services.try_get(GameService)
+            if game_service:
+                # Use GameService to handle consumption
+                success = game_service.consume_item(self.entity_id, ai.current_target_id)
+                return Status.SUCCESS if success else Status.FAILURE
+            else:
+                # Fallback if GameService is missing (though it should be there)
+                # This logic was previously in execute_action
+                item_stats = self.world.get_component(ai.current_target_id, ItemStats)
+                yukkuri_stats = self.world.get_component(self.entity_id, YukkuriStats)
 
-            # This logic was previously in execute_action
-            item_stats = self.world.get_component(ai.current_target_id, ItemStats)
-            yukkuri_stats = self.world.get_component(self.entity_id, YukkuriStats)
+                if item_stats and yukkuri_stats:
+                    yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
+                    yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
 
-            # Retrieve action definition from Utility AI via blackboard or some other way
-            # For now, we can just apply generic item effects if available
-            if item_stats and yukkuri_stats:
-                yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
-                yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
-
-                # Simple consume logic
-                if item_stats.nutrition > 0:
-                     # Destroy the entity properly in the world
-                     # For tests, world._entities is used to check existence, but destroy_entity should remove it.
-                     # Assuming destroy_entity handles it correctly.
-                     self.world.destroy_entity(ai.current_target_id)
-                     # Also remove components just in case esper takes time to cleanup or for testing
-                     self.world.remove_component(ai.current_target_id, Transform)
-                     ai.current_target_id = -1
-
-            return Status.SUCCESS
+                    if item_stats.nutrition > 0:
+                        self.world.destroy_entity(ai.current_target_id)
+                        if self.world.has_component(ai.current_target_id, Transform):
+                            self.world.remove_component(ai.current_target_id, Transform)
+                        ai.current_target_id = -1
+                return Status.SUCCESS
 
         return Status.RUNNING
 
@@ -329,7 +327,107 @@ class Idle(Action):
             phys.body.velocity = (0, 0)
         return Status.SUCCESS
 
+class Check(Action):
+    """
+    A behavior node that checks a condition function.
+
+    Attributes:
+        check_fn (Callable[[], bool]): The function to check.
+    """
+    def __init__(self, name: str, check_fn: Callable[[], bool]):
+            """
+            Initializes the Check behavior.
+
+            Args:
+                name: The name of the behavior node.
+                check_fn: The function to call. Should return True for success.
+            """
+            super().__init__(name)
+            self.check_fn = check_fn
+
+    def update(self) -> Status:
+        """
+        Evaluates the check function.
+
+        Returns:
+            Status: SUCCESS if check_fn returns True, else FAILURE.
+        """
+        if self.check_fn():
+            return Status.SUCCESS
+        return Status.FAILURE
+
 # --- Behavior Tree Builder ---
+
+class BehaviorRegistry:
+    _goals: Dict[str, Callable[[int, 'World', int, int, Callable, Callable], Behaviour]] = {}
+
+    @classmethod
+    def register_goal(cls, goal_name: str, builder: Callable[[int, 'World', int, int, Callable, Callable], Behaviour]):
+        cls._goals[goal_name] = builder
+
+    @classmethod
+    def get_goals(cls) -> Dict[str, Callable]:
+        return cls._goals
+
+
+def build_eat_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    eat_sequence = py_trees.composites.Sequence(name="Eat Sequence", memory=True)
+
+    is_eating = Check(name="Goal=Eat?", check_fn=lambda: check_goal_fn("Eat"))
+
+    eat_execution = py_trees.composites.Selector(name="Eat Execution", memory=True)
+
+    # 2a. If we have a target, Go to it and Eat
+    have_target_seq = py_trees.composites.Sequence(name="Have Target?", memory=True)
+    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+
+    move_to_food = MoveToTarget(name="Move To Food", entity_id=entity_id, world=world)
+    interact_food = Interact(name="Interact Food", entity_id=entity_id, world=world)
+
+    have_target_seq.add_children([check_target, move_to_food, interact_food])
+
+    # 2b. If no target, Find Food
+    class FindFood(Action):
+        def update(self) -> Status:
+            super().update()
+            if self.world is None or self.entity_id is None:
+                return Status.FAILURE
+
+            ai = self.world.get_component(self.entity_id, AIState)
+            trans = self.world.get_component(self.entity_id, Transform)
+
+            if not ai or not trans:
+                    return Status.FAILURE
+
+            game_service = self.world.services.try_get(GameService)
+            best_item = -1
+
+            if game_service:
+                best_item = game_service.find_best_item((trans.x, trans.y))
+
+            if best_item != -1:
+                ai.current_target_id = best_item
+                ai.path = None
+                return Status.SUCCESS
+            return Status.FAILURE
+
+    find_food = FindFood(name="Find Food", entity_id=entity_id, world=world)
+
+    eat_execution.add_children([have_target_seq, find_food])
+    eat_sequence.add_children([is_eating, eat_execution])
+    return eat_sequence
+
+def build_wander_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    wander_sequence = py_trees.composites.Sequence(name="Wander Sequence", memory=True)
+    is_wandering = Check(name="Goal=Wander?", check_fn=lambda: check_goal_fn("Wander") or check_goal_fn("move_random"))
+    wander = Wander(entity_id=entity_id, world=world, width=width, height=height)
+    wander_sequence.add_children([is_wandering, wander])
+    return wander_sequence
+
+# Register default behaviors
+BehaviorRegistry.register_goal("Eat", build_eat_behavior)
+BehaviorRegistry.register_goal("Wander", build_wander_behavior)
+
 
 def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, height: int) -> py_trees.composites.Selector:
     """
@@ -361,110 +459,33 @@ def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, hei
             return False
         return world.has_component(ai.current_target_id, Transform)
 
-    # Leaves
-    move_to = MoveToTarget(entity_id=entity_id, world=world)
-    interact = Interact(entity_id=entity_id, world=world)
-    wander = Wander(entity_id=entity_id, world=world, width=width, height=height)
-    idle = Idle(entity_id=entity_id, world=world)
-
-    # --- Eat Branch ---
-    eat_sequence = py_trees.composites.Sequence(name="Eat Sequence", memory=True)
-
-    # 1. Check if we should be eating
-    class Check(Action):
-        """
-        A behavior node that checks a condition function.
-
-        Attributes:
-            check_fn (Callable[[], bool]): The function to check.
-        """
-        def __init__(self, name: str, check_fn: Callable[[], bool]):
-             """
-             Initializes the Check behavior.
-
-             Args:
-                 name: The name of the behavior node.
-                 check_fn: The function to call. Should return True for success.
-             """
-             super().__init__(name)
-             self.check_fn = check_fn
-
-        def update(self) -> Status:
-            """
-            Evaluates the check function.
-
-            Returns:
-                Status: SUCCESS if check_fn returns True, else FAILURE.
-            """
-            if self.check_fn():
-                return Status.SUCCESS
-            return Status.FAILURE
-
-    is_eating = Check(name="Goal=Eat?", check_fn=lambda: check_goal("Eat"))
-
-    # 2. Execution
-    eat_execution = py_trees.composites.Selector(name="Eat Execution", memory=True)
-
-    # 2a. If we have a target, Go to it and Eat
-    have_target_seq = py_trees.composites.Sequence(name="Have Target?", memory=True)
-    check_target = Check(name="Target Exists?", check_fn=check_target_exists)
-
-    # Create specific instances for this sequence
-    move_to_food = MoveToTarget(name="Move To Food", entity_id=entity_id, world=world)
-    interact_food = Interact(name="Interact Food", entity_id=entity_id, world=world)
-
-    have_target_seq.add_children([check_target, move_to_food, interact_food])
-
-    # 2b. If no target, Find Food (This needs to be an action that sets target)
-    # We'll implement a simple FindTarget action here or inline class
-    class FindFood(Action):
-        def update(self) -> Status:
-            super().update()
-            if self.world is None or self.entity_id is None:
-                return Status.FAILURE
-
-            ai = self.world.get_component(self.entity_id, AIState)
-            trans = self.world.get_component(self.entity_id, Transform)
-
-            if not ai or not trans:
-                 return Status.FAILURE
-
-            # Reuse logic from System or reimplement
-            # For brevity, simple search
-            best_dist = float('inf')
-            best_item = -1
-            items = self.world.get_entities_with(ItemStats, Transform)
-
-            for item in items:
-                istats = self.world.get_component(item, ItemStats)
-                itrans = self.world.get_component(item, Transform)
-                if istats and itrans and istats.nutrition > 0:
-                    d = math.hypot(itrans.x - trans.x, itrans.y - trans.y)
-                    if d < best_dist:
-                        best_dist = d
-                        best_item = item
-
-            if best_item != -1:
-                ai.current_target_id = best_item
-                ai.path = None
-                return Status.SUCCESS
-            return Status.FAILURE
-
-    find_food = FindFood(name="Find Food", entity_id=entity_id, world=world)
-
-    eat_execution.add_children([have_target_seq, find_food])
-    eat_sequence.add_children([is_eating, eat_execution])
-
-    # --- Wander Branch ---
-    wander_sequence = py_trees.composites.Sequence(name="Wander Sequence", memory=True)
-    is_wandering = Check(name="Goal=Wander?", check_fn=lambda: check_goal("Wander") or check_goal("move_random")) # Handle legacy naming
-
-    # We should check if we are already moving to a target from Wander action
-    # Wander Action inside creates a target and moves.
-    wander_sequence.add_children([is_wandering, wander])
-
     # --- Root ---
     root = py_trees.composites.Selector(name="Root", memory=False)
-    root.add_children([eat_sequence, wander_sequence, idle])
+
+    # Dynamically add registered goal behaviors
+    # Note: The order matters. For now, dict iteration order is insertion order in recent Python.
+    # Ideally we'd have a priority system.
+
+    # For now, we manually prioritize "Eat" and "Wander" if we want strict ordering,
+    # or just iterate. The original code had Eat -> Wander -> Idle.
+    # Let's iterate but maybe prioritize Eat first if it's there.
+
+    goals = BehaviorRegistry.get_goals()
+
+    # Priority goals (hardcoded for now to maintain behavior)
+    if "Eat" in goals:
+        root.add_child(goals["Eat"](entity_id, world, width, height, check_goal, check_target_exists))
+
+    if "Wander" in goals:
+        root.add_child(goals["Wander"](entity_id, world, width, height, check_goal, check_target_exists))
+
+    # Other goals
+    for name, builder in goals.items():
+        if name not in ["Eat", "Wander"]:
+            root.add_child(builder(entity_id, world, width, height, check_goal, check_target_exists))
+
+    # Always add Idle at the end
+    idle = Idle(entity_id=entity_id, world=world)
+    root.add_child(idle)
 
     return root
