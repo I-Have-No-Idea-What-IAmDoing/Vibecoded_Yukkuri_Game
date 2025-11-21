@@ -1,6 +1,8 @@
 import pygame
 import pygame_gui
 from typing import Optional, Callable, Dict, Any, TYPE_CHECKING
+from ...engine.event_bus import EventBus
+from ..events import PlacementStartedEvent
 
 if TYPE_CHECKING:
     from .hud_layout import HudLayout
@@ -15,8 +17,9 @@ class HudEvents:
         gm (GameManager): The GameManager instance for game logic.
         callbacks (Dict[str, Callable]): A dictionary of callback functions for various actions.
         selected_entity (int): The ID of the currently selected entity.
+        event_bus (EventBus): The event bus.
     """
-    def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', callbacks: Dict[str, Callable[..., Any]]):
+    def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', callbacks: Dict[str, Callable[..., Any]], event_bus: EventBus):
         """
         Initializes the HudEvents handler.
 
@@ -24,10 +27,12 @@ class HudEvents:
             layout: The HudLayout component.
             game_manager: The GameManager instance.
             callbacks: Dictionary of callback functions.
+            event_bus: The event bus.
         """
         self.layout = layout
         self.gm = game_manager
         self.callbacks = callbacks
+        self.event_bus = event_bus
         self.selected_entity = -1
 
     def set_selected_entity(self, entity_id: int) -> None:
@@ -76,14 +81,12 @@ class HudEvents:
 
         if ui_element == self.layout.add_reimu_btn:
             if self.gm.money >= 100:
-                if self.callbacks.get('start_placement'):
-                    self.callbacks['start_placement']("reimu", 100, "yukkuri")
+                self.event_bus.publish(PlacementStartedEvent("reimu", 100, "yukkuri"))
             return True
 
         if ui_element == self.layout.add_cookie_btn:
             if self.gm.money >= 10:
-                if self.callbacks.get('start_placement'):
-                    self.callbacks['start_placement']("cookie", 10, "item")
+                self.event_bus.publish(PlacementStartedEvent("cookie", 10, "item"))
             return True
 
         if self.layout.selection_window:
