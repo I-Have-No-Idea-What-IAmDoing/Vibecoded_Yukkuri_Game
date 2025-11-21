@@ -5,8 +5,37 @@ from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox
 class HudLayout:
     """
     Manages the layout and creation of HUD elements.
+
+    Attributes:
+        manager (pygame_gui.UIManager): The UI manager instance.
+        width (int): The width of the screen.
+        height (int): The height of the screen.
+        top_panel (UIPanel): The top panel container.
+        money_label (UILabel): Label displaying player money.
+        time_label (UILabel): Label displaying game time.
+        save_btn (UIButton): Button to save the game.
+        load_btn (UIButton): Button to load the game.
+        pause_btn (UIButton): Button to pause/resume the game.
+        speed_btn (UIButton): Button to cycle game speed.
+        bottom_panel (UIPanel): The bottom panel container.
+        add_reimu_btn (UIButton): Button to buy a Reimu.
+        add_cookie_btn (UIButton): Button to buy a Cookie.
+        selection_window (UIWindow): The window displaying selected entity info.
+        info_label (UITextBox): Text box within the selection window showing stats.
+        sell_btn (UIButton): Button to sell the selected entity.
+        train_btn (UIButton): Button to train the selected entity.
+        debug_window (UIWindow): The debug info window.
+        debug_text_box (UITextBox): Text box within the debug window.
     """
     def __init__(self, ui_manager: pygame_gui.UIManager, width: int, height: int):
+        """
+        Initializes the HudLayout.
+
+        Args:
+            ui_manager: The pygame_gui UIManager.
+            width: The width of the screen.
+            height: The height of the screen.
+        """
         self.manager = ui_manager
         self.width = width
         self.height = height
@@ -37,6 +66,9 @@ class HudLayout:
         self._create_bottom_bar()
 
     def _create_top_bar(self):
+        """
+        Creates the top UI panel and its children.
+        """
         self.top_panel = UIPanel(
             relative_rect=pygame.Rect(0, 0, self.width, 50),
             manager=self.manager
@@ -85,6 +117,9 @@ class HudLayout:
         )
 
     def _create_bottom_bar(self):
+        """
+        Creates the bottom UI panel and its children.
+        """
         self.bottom_panel = UIPanel(
             relative_rect=pygame.Rect(0, self.height - 100, self.width, 100),
             manager=self.manager
@@ -107,6 +142,9 @@ class HudLayout:
     def create_selection_window(self, has_stats: bool):
         """
         Creates or recreates the selection window.
+
+        Args:
+            has_stats: True if the selected entity has stats (is a Yukkuri), False otherwise.
         """
         self.close_selection_window()
 
@@ -140,6 +178,9 @@ class HudLayout:
             )
 
     def close_selection_window(self):
+        """
+        Closes and cleans up the selection window.
+        """
         if self.selection_window:
             self.selection_window.kill()
             self.selection_window = None
@@ -148,6 +189,9 @@ class HudLayout:
             self.train_btn = None
 
     def create_debug_window(self):
+        """
+        Creates the debug window.
+        """
         if self.debug_window:
             self.debug_window.kill()
 
@@ -167,6 +211,9 @@ class HudLayout:
         )
 
     def close_debug_window(self):
+        """
+        Closes the debug window.
+        """
         if self.debug_window:
             self.debug_window.kill()
             self.debug_window = None

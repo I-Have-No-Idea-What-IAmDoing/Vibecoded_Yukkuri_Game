@@ -10,13 +10,36 @@ from ..ai.pathfinding import Pathfinding
 # --- Behavior Tree Leaves (Actions) ---
 
 class Action(Behaviour):
+    """
+    Base class for AI actions in the Behavior Tree.
+
+    Attributes:
+        entity_id (int): The ID of the entity performing the action.
+        world (World): The ECS World instance.
+        blackboard (py_trees.blackboard.Blackboard): The Behavior Tree blackboard.
+    """
     def __init__(self, name="Action", entity_id=None, world=None, blackboard=None):
+        """
+        Initializes the Action.
+
+        Args:
+            name: The name of the behavior node.
+            entity_id: The ID of the entity.
+            world: The ECS World instance.
+            blackboard: The Behavior Tree blackboard.
+        """
         super().__init__(name)
         self.entity_id = entity_id
         self.world = world
         self.blackboard = blackboard
 
     def update(self):
+        """
+        Updates the behavior.
+
+        Returns:
+            Status: The status of the behavior (SUCCESS, FAILURE, RUNNING).
+        """
         if not self.world or self.entity_id is None:
              return Status.FAILURE
         return Status.RUNNING
@@ -24,13 +47,33 @@ class Action(Behaviour):
 class MoveToTarget(Action):
     """
     Moves the entity towards the current target set in AIState or a specific coordinate.
+
     This implementation uses PhysicsBody if available, or direct Transform manipulation.
     """
     def __init__(self, name="Move To Target", entity_id=None, world=None, blackboard=None, speed=100.0):
+        """
+        Initializes the MoveToTarget action.
+
+        Args:
+            name: The name of the behavior node.
+            entity_id: The ID of the entity.
+            world: The ECS World instance.
+            blackboard: The Behavior Tree blackboard.
+            speed: The movement speed in pixels per second.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self.speed = speed
 
     def update(self):
+        """
+        Updates the movement logic.
+
+        Calculates the direction to the target, applies velocity or transform changes,
+        and handles pathfinding along waypoints.
+
+        Returns:
+            Status: RUNNING if moving, SUCCESS if reached target, FAILURE if target lost or unreachable.
+        """
         super().update()
         ai = self.world.get_component(self.entity_id, AIState)
         trans = self.world.get_component(self.entity_id, Transform)
@@ -113,13 +156,30 @@ class MoveToTarget(Action):
         return Status.SUCCESS
 
 class Wander(Action):
+    """
+    Causes the entity to wander to a random location.
+    """
     def __init__(self, name="Wander", entity_id=None, world=None, blackboard=None, width=3000, height=3000):
+        """
+        Initializes the Wander action.
+
+        Args:
+            name: The name of the behavior node.
+            entity_id: The ID of the entity.
+            world: The ECS World instance.
+            blackboard: The Behavior Tree blackboard.
+            width: The width of the area to wander within.
+            height: The height of the area to wander within.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self.width = width
         self.height = height
         self.move_action = None
 
     def initialise(self):
+        """
+        Selects a random target location and initializes the move action.
+        """
         ai = self.world.get_component(self.entity_id, AIState)
         if ai:
             # Pick a random point
@@ -132,15 +192,39 @@ class Wander(Action):
         self.move_action = MoveToTarget(entity_id=self.entity_id, world=self.world, blackboard=self.blackboard)
 
     def update(self):
+        """
+        Updates the move action.
+
+        Returns:
+            Status: The status of the move action.
+        """
         if self.move_action:
             return self.move_action.update()
         return Status.FAILURE
 
 class Interact(Action):
+    """
+    Handles interaction with a target entity (e.g., eating food).
+    """
     def __init__(self, name="Interact", entity_id=None, world=None, blackboard=None):
+        """
+        Initializes the Interact action.
+
+        Args:
+            name: The name of the behavior node.
+            entity_id: The ID of the entity.
+            world: The ECS World instance.
+            blackboard: The Behavior Tree blackboard.
+        """
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self):
+        """
+        Checks distance to target and performs interaction if close enough.
+
+        Returns:
+            Status: SUCCESS if interaction complete, RUNNING if waiting/moving closer (though MoveToTarget handles moving), FAILURE if target invalid.
+        """
         super().update()
         ai = self.world.get_component(self.entity_id, AIState)
         trans = self.world.get_component(self.entity_id, Transform)
@@ -187,10 +271,28 @@ class Interact(Action):
         return Status.RUNNING
 
 class Idle(Action):
+    """
+    Makes the entity idle (stop moving).
+    """
     def __init__(self, name="Idle", entity_id=None, world=None, blackboard=None):
+        """
+        Initializes the Idle action.
+
+        Args:
+            name: The name of the behavior node.
+            entity_id: The ID of the entity.
+            world: The ECS World instance.
+            blackboard: The Behavior Tree blackboard.
+        """
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self):
+        """
+        Stops the entity's physics velocity.
+
+        Returns:
+            Status: Always returns SUCCESS.
+        """
         phys = self.world.get_component(self.entity_id, PhysicsBody)
         if phys:
             phys.body.velocity = (0, 0)
@@ -202,23 +304,16 @@ def create_yukkuri_behavior_tree(entity_id, world, width, height):
     """
     Builds the behavior tree for a Yukkuri.
 
-    Root
-    |-- Selector
-        |-- Sequence (Eat)
-        |   |-- Check Goal == "Eat"
-        |   |-- Selector (Find or Move)
-        |       |-- Sequence (Target Exists?)
-        |       |   |-- Check Target Valid
-        |       |   |-- Selector (Close Enough?)
-        |       |       |-- Sequence (Interact)
-        |       |       |   |-- MoveToTarget (Close range) -> Actually MoveToTarget handles moving.
-        |       |       |   |   If MoveToTarget succeeds (arrived), then Interact.
-        |       |       |   |-- Interact
-        |       |-- Find Food (Leaf that searches and sets target)
-        |-- Sequence (Wander)
-        |   |-- Check Goal == "Wander"
-        |   |-- Wander
-        |-- Idle
+    The tree structure prioritizes eating when hungry, then wandering, then idling.
+
+    Args:
+        entity_id: The ID of the Yukkuri entity.
+        world: The ECS World instance.
+        width: The width of the world boundary.
+        height: The height of the world boundary.
+
+    Returns:
+        py_trees.composites.Selector: The root node of the behavior tree.
     """
 
     # Check Goal Condition
@@ -243,23 +338,31 @@ def create_yukkuri_behavior_tree(entity_id, world, width, height):
     eat_sequence = py_trees.composites.Sequence(name="Eat Sequence", memory=True)
 
     # 1. Check if we should be eating
-    # Use a generic Check behavior if py_trees version differences (older versions had Check, newer use Decorators or specific classes)
-    # Actually Check exists in 2.2.3 but structure might be different.
-    # Let's check `py_trees` version. The installed is 2.4.0.
-    # In 2.x, `py_trees.behaviours.Check` is indeed present. Wait, let me check docs/source if I can.
-    # It seems `Check` was removed or I am misremembering.
-    # Usually one uses a custom behaviour or a decorator.
-    # Let's use a Functional Behaviour for simple checks.
-
-    # Update: Check is NOT in standard behaviours list in recent versions.
-    # We can implement a simple functional behaviour.
-
     class Check(Action):
+        """
+        A behavior node that checks a condition function.
+
+        Attributes:
+            check_fn (Callable[[], bool]): The function to check.
+        """
         def __init__(self, name, check_fn):
+             """
+             Initializes the Check behavior.
+
+             Args:
+                 name: The name of the behavior node.
+                 check_fn: The function to call. Should return True for success.
+             """
              super().__init__(name)
              self.check_fn = check_fn
 
         def update(self):
+            """
+            Evaluates the check function.
+
+            Returns:
+                Status: SUCCESS if check_fn returns True, else FAILURE.
+            """
             if self.check_fn():
                 return Status.SUCCESS
             return Status.FAILURE

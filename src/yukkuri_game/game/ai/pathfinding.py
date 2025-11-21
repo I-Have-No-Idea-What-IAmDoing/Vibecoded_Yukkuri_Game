@@ -13,7 +13,15 @@ class Pathfinding:
     def heuristic(a: Tuple[float, float], b: Tuple[float, float]) -> float:
         """
         Calculates the Euclidean distance heuristic between two points.
+
         Kept for backward compatibility/testing, though not used internally by the library wrapper.
+
+        Args:
+            a: The first point (x, y).
+            b: The second point (x, y).
+
+        Returns:
+            float: The Euclidean distance between points a and b.
         """
         return math.hypot(b[0] - a[0], b[1] - a[1])
 
@@ -21,8 +29,18 @@ class Pathfinding:
     def get_neighbors(node: Tuple[float, float], grid_w: float, grid_h: float, step: int = 50) -> List[Tuple[float, float]]:
         """
         Generates valid neighboring points on a grid.
+
         Deprecated: Internal logic is handled by the pathfinding library.
         Kept for backward compatibility/testing.
+
+        Args:
+            node: The current point (x, y).
+            grid_w: The width of the grid/world.
+            grid_h: The height of the grid/world.
+            step: The grid step size. Defaults to 50.
+
+        Returns:
+            List[Tuple[float, float]]: A list of valid neighbor coordinates.
         """
         x, y = node
         neighbors = [
@@ -49,7 +67,7 @@ class Pathfinding:
             grid_h: The height of the world.
 
         Returns:
-            List[Tuple[float, float]]: A list of points representing the path.
+            List[Tuple[float, float]]: A list of points (x, y) representing the path.
         """
         step = 50
 

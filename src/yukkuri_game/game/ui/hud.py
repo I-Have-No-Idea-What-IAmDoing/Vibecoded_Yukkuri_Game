@@ -14,10 +14,35 @@ class HUD:
     """
     The Heads-Up Display (HUD) system for the game.
 
-    Refactored to use specialized components for Layout, Events, and Rendering.
+    Manages the UI layout, event handling, and rendering of game status and entity information.
+    This class acts as a facade, delegating responsibilities to specialized sub-components:
+    HudLayout, HudEvents, and HudRenderer.
+
+    Attributes:
+        manager (pygame_gui.UIManager): The UI manager instance.
+        gm (GameManager): The game manager instance.
+        world (World): The ECS World instance.
+        factory (EntityFactory): The entity factory.
+        width (int): The width of the screen.
+        height (int): The height of the screen.
+        layout (HudLayout): Manages the arrangement of UI elements.
+        events (HudEvents): Manages UI event handling.
+        renderer (HudRenderer): Manages the updating of UI element content.
+        selected_entity (int): The ID of the currently selected entity.
+        show_debug (bool): Whether to show the debug window.
+        fps (float): The current frames per second.
     """
 
     def __init__(self, ui_manager, game_manager, world: World, factory):
+        """
+        Initializes the HUD.
+
+        Args:
+            ui_manager: The pygame_gui UIManager.
+            game_manager: The GameManager instance.
+            world: The ECS World instance.
+            factory: The EntityFactory instance.
+        """
         self.manager = ui_manager
         self.gm = game_manager
         self.world = world
@@ -50,27 +75,64 @@ class HUD:
 
     # Delegate property access for backward compatibility/convenience
     @property
-    def money_label(self): return self.layout.money_label
+    def money_label(self):
+        """Returns the money label UI element."""
+        return self.layout.money_label
+
     @property
-    def time_label(self): return self.layout.time_label
+    def time_label(self):
+        """Returns the time label UI element."""
+        return self.layout.time_label
+
     @property
-    def save_btn(self): return self.layout.save_btn
+    def save_btn(self):
+        """Returns the save button UI element."""
+        return self.layout.save_btn
+
     @property
-    def load_btn(self): return self.layout.load_btn
+    def load_btn(self):
+        """Returns the load button UI element."""
+        return self.layout.load_btn
+
     @property
-    def pause_btn(self): return self.layout.pause_btn
+    def pause_btn(self):
+        """Returns the pause button UI element."""
+        return self.layout.pause_btn
+
     @property
-    def speed_btn(self): return self.layout.speed_btn
+    def speed_btn(self):
+        """Returns the speed button UI element."""
+        return self.layout.speed_btn
+
     @property
-    def add_reimu_btn(self): return self.layout.add_reimu_btn
+    def add_reimu_btn(self):
+        """Returns the add Reimu button UI element."""
+        return self.layout.add_reimu_btn
+
     @property
-    def add_cookie_btn(self): return self.layout.add_cookie_btn
+    def add_cookie_btn(self):
+        """Returns the add cookie button UI element."""
+        return self.layout.add_cookie_btn
+
     @property
-    def selection_window(self): return self.layout.selection_window
+    def selection_window(self):
+        """Returns the selection window UI element."""
+        return self.layout.selection_window
+
     @property
-    def debug_window(self): return self.layout.debug_window
+    def debug_window(self):
+        """Returns the debug window UI element."""
+        return self.layout.debug_window
 
     def update(self, dt: float) -> None:
+        """
+        Updates the HUD state.
+
+        Checks for selection changes and delegates rendering updates to HudRenderer.
+
+        Args:
+            dt: Delta time since last frame.
+        """
         self.renderer.fps = self.fps # Sync FPS
 
         # Check selection logic
@@ -87,6 +149,12 @@ class HUD:
         self.renderer.update(dt, self.selected_entity, self.show_debug)
 
     def _get_current_selected_entity(self) -> int:
+        """
+        Finds the currently selected entity in the ECS world.
+
+        Returns:
+            int: The ID of the selected entity, or -1 if none are selected.
+        """
         selected = self.world.get_entities_with(Selectable)
         for ent in selected:
             sel = self.world.get_component(ent, Selectable)
@@ -95,6 +163,9 @@ class HUD:
         return -1
 
     def _update_selection_window_layout(self):
+        """
+        Updates the layout of the selection window based on the selected entity type.
+        """
         if self.selected_entity == -1:
             self.layout.close_selection_window()
         else:
@@ -102,6 +173,9 @@ class HUD:
             self.layout.create_selection_window(has_stats)
 
     def toggle_debug(self) -> None:
+        """
+        Toggles the visibility of the debug window.
+        """
         self.show_debug = not self.show_debug
         if self.show_debug:
             self.layout.create_debug_window()
@@ -109,9 +183,23 @@ class HUD:
             self.layout.close_debug_window()
 
     def show_error(self, message: str) -> None:
+        """
+        Displays an error message (currently logged via renderer).
+
+        Args:
+            message: The error message to display.
+        """
         self.renderer.show_error(message)
 
     def process_event(self, event: pygame.event.Event) -> None:
+        """
+        Processes UI events.
+
+        Updates internal callback references and delegates to HudEvents.
+
+        Args:
+            event: The Pygame event to process.
+        """
         # Update callbacks dict before processing (in case they were set after init)
         self._callbacks_store['toggle_pause'] = self.toggle_pause_callback
         self._callbacks_store['cycle_speed'] = self.cycle_speed_callback
@@ -132,6 +220,12 @@ class HUD:
                 self.events.set_selected_entity(-1)
 
     def _train_entity(self, entity_id: int):
+        """
+        Internal callback to train a Yukkuri.
+
+        Args:
+            entity_id: The ID of the entity to train.
+        """
         stats = self.world.get_component(entity_id, YukkuriStats)
         if stats:
             stats.badges += 1

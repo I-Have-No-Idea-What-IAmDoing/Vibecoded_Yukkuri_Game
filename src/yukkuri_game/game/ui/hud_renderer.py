@@ -7,8 +7,22 @@ from pygame_gui.windows import UIMessageWindow
 class HudRenderer:
     """
     Handles updating the visual state of the HUD.
+
+    Attributes:
+        layout (HudLayout): The layout component.
+        gm (GameManager): The GameManager instance.
+        world (World): The ECS World instance.
+        fps (float): The current FPS value to display.
     """
     def __init__(self, layout, game_manager, world: World):
+        """
+        Initializes the HudRenderer.
+
+        Args:
+            layout: The HudLayout component.
+            game_manager: The GameManager instance.
+            world: The ECS World instance.
+        """
         self.layout = layout
         self.gm = game_manager
         self.world = world
@@ -16,7 +30,12 @@ class HudRenderer:
 
     def update(self, dt: float, selected_entity: int, show_debug: bool) -> None:
         """
-        Updates all HUD elements.
+        Updates all HUD elements with current game data.
+
+        Args:
+            dt: Delta time.
+            selected_entity: The ID of the selected entity.
+            show_debug: Whether to show debug information.
         """
         # Update Top Bar
         self.layout.money_label.set_text(f"Money: ${self.gm.money}")
@@ -34,6 +53,9 @@ class HudRenderer:
             self._update_debug_window(dt)
 
     def _update_stats_display(self, selected_entity: int) -> None:
+        """
+        Updates the stats display for the selected entity.
+        """
         text = "Unknown"
         stats = self.world.get_component(selected_entity, YukkuriStats)
         if stats:
@@ -54,6 +76,9 @@ class HudRenderer:
             self.layout.info_label.set_text(text)
 
     def _update_debug_window(self, dt: float) -> None:
+        """
+        Updates the debug window with performance stats.
+        """
         if not self.layout.debug_window or not self.layout.debug_text_box:
             return
 
@@ -71,6 +96,9 @@ class HudRenderer:
     def show_error(self, message: str) -> None:
         """
         Displays an error message in a popup window.
+
+        Args:
+            message: The error message to display.
         """
         UIMessageWindow(
             rect=pygame.Rect((self.layout.width - 400) // 2, (self.layout.height - 250) // 2, 400, 250),
