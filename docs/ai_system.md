@@ -1,6 +1,6 @@
 # Utility-Based AI System
 
-The Yukkuri Game now uses a Utility-Based AI system to determine entity behaviors. This system replaces static decision logic with a dynamic, data-driven approach where actions are scored based on current world state and entity statistics.
+The Yukkuri Game now uses a Utility-Based AI system to determine entity behaviors. This system replaces static decision logic with a dynamic, data-driven approach where actions are scored based on current world state and entity statistics. The Utility-Based AI selects high-level goals the entity can pursue which selects the correct behavior tree to execute the action.
 
 ## Overview
 
