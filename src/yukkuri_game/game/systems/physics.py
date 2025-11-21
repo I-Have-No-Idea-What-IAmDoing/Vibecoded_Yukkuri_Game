@@ -17,7 +17,7 @@ class PhysicsSystem(System):
         Initializes the PhysicsSystem.
 
         Args:
-            gravity: The gravity vector (x, y). Defaults to (0, 0) for top-down.
+            gravity (tuple[float, float]): The gravity vector (x, y). Defaults to (0, 0) for top-down.
         """
         self.space = pymunk.Space()
         self.space.gravity = gravity
@@ -32,8 +32,8 @@ class PhysicsSystem(System):
         Steps the pymunk space and syncs PhysicsBody positions to Transform components.
 
         Args:
-            world: The ECS World.
-            dt: Delta time.
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         self.accumulator += dt
         while self.accumulator >= self.time_step:

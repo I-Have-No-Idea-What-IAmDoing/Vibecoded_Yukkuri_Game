@@ -26,7 +26,7 @@ class EntityFactory:
         Initializes the EntityFactory.
 
         Args:
-            world: The ECS World instance.
+            world (World): The ECS World instance.
         """
         self.world = world
         from ..engine.resource_manager import ResourceManager
@@ -39,12 +39,12 @@ class EntityFactory:
         Helper to get an attribute from either a dict or an object (msgspec struct).
 
         Args:
-            data: The data object (dict or struct).
-            key: The key/attribute name.
-            default: Default value if not found.
+            data (Any): The data object (dict or struct).
+            key (str): The key/attribute name.
+            default (Any): Default value if not found.
 
         Returns:
-            The value of the attribute.
+            Any: The value of the attribute.
         """
         if isinstance(data, dict):
             return data.get(key, default)
@@ -55,9 +55,9 @@ class EntityFactory:
         Creates a Yukkuri entity.
 
         Args:
-            type_id: The type identifier for the Yukkuri (e.g., "reimu").
-            x: The initial x-coordinate.
-            y: The initial y-coordinate.
+            type_id (str): The type identifier for the Yukkuri (e.g., "reimu").
+            x (float): The initial x-coordinate.
+            y (float): The initial y-coordinate.
 
         Returns:
             int: The ID of the created entity.
@@ -118,9 +118,9 @@ class EntityFactory:
         Creates an Item entity.
 
         Args:
-            type_id: The type identifier for the Item (e.g., "cookie").
-            x: The initial x-coordinate.
-            y: The initial y-coordinate.
+            type_id (str): The type identifier for the Item (e.g., "cookie").
+            x (float): The initial x-coordinate.
+            y (float): The initial y-coordinate.
 
         Returns:
             int: The ID of the created entity.

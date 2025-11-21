@@ -25,7 +25,7 @@ class GameManager:
         Initializes the GameManager.
 
         Args:
-            world: The ECS World instance.
+            world (World): The ECS World instance.
         """
         self.world = world
         from .entity_factory import EntityFactory
@@ -33,25 +33,45 @@ class GameManager:
 
     @property
     def time_elapsed(self) -> float:
-        """Legacy property to access time from TimeService."""
+        """
+        Gets the total elapsed game time.
+
+        Returns:
+            float: The time elapsed in seconds.
+        """
         ts = self.world.services.try_get(TimeService)
         return ts.time_elapsed if ts else 0.0
 
     @time_elapsed.setter
     def time_elapsed(self, value: float) -> None:
-        """Legacy setter to set time in TimeService."""
+        """
+        Sets the total elapsed game time.
+
+        Args:
+            value (float): The new time elapsed in seconds.
+        """
         ts = self.world.services.try_get(TimeService)
         if ts:
             ts.time_elapsed = value
 
     @property
     def money(self) -> int:
-        """Legacy property to access money from EconomyService."""
+        """
+        Gets the current amount of money.
+
+        Returns:
+            int: The current money.
+        """
         return self.world.services.get(EconomyService).get_money()
 
     @money.setter
     def money(self, value: int) -> None:
-        """Legacy setter to set money in EconomyService."""
+        """
+        Sets the amount of money.
+
+        Args:
+            value (int): The new money amount.
+        """
         self.world.services.get(EconomyService).set_money(value)
 
     def calculate_quality_score(self, yukkuri_stats: YukkuriStats) -> int:
@@ -59,7 +79,7 @@ class GameManager:
         Calculates the quality score (value) of a Yukkuri.
 
         Args:
-            yukkuri_stats: The stats component of the Yukkuri.
+            yukkuri_stats (YukkuriStats): The stats component of the Yukkuri.
 
         Returns:
             int: The calculated value in money.
@@ -90,7 +110,7 @@ class GameManager:
         Calculates its value, adds to player money, and destroys the entity.
 
         Args:
-            entity: The ID of the Yukkuri entity to sell.
+            entity (int): The ID of the Yukkuri entity to sell.
 
         Returns:
             int: The amount of money gained, or 0 if the entity is not a Yukkuri.
@@ -111,7 +131,7 @@ class GameManager:
         Delegates to PersistenceService.
 
         Args:
-            filename: The name of the save file. Defaults to "savegame.json".
+            filename (str): The name of the save file. Defaults to "savegame.json".
         """
         persistence = self.world.services.try_get(PersistenceService)
         if persistence:
@@ -126,7 +146,7 @@ class GameManager:
         Delegates to PersistenceService.
 
         Args:
-            filename: The name of the save file. Defaults to "savegame.json".
+            filename (str): The name of the save file. Defaults to "savegame.json".
 
         Returns:
             bool: True if loading was successful, False otherwise.

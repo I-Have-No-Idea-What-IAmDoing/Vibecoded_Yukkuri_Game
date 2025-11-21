@@ -19,6 +19,10 @@ class World:
     The main ECS (Entity Component System) World class, wrapping esper's context-based API.
 
     Each instance of this class manages a separate esper World context.
+
+    Attributes:
+        name (str): The unique name of the world context.
+        services (ServiceLocator): The service locator associated with this world.
     """
 
     def __init__(self) -> None:
@@ -35,7 +39,10 @@ class World:
 
     def create_entity(self, *components: Any) -> int:
         """
-        Creates a new entity.
+        Creates a new entity with the given components.
+
+        Args:
+            *components (Any): The components to add to the entity.
 
         Returns:
             int: The unique ID of the newly created entity.
@@ -48,7 +55,7 @@ class World:
         Destroys an entity and removes all its components.
 
         Args:
-            entity: The ID of the entity to destroy.
+            entity (int): The ID of the entity to destroy.
         """
         self._switch()
         try:
@@ -64,7 +71,7 @@ class World:
         Checks if an entity exists.
 
         Args:
-            entity: The ID of the entity.
+            entity (int): The ID of the entity.
 
         Returns:
             bool: True if the entity exists, False otherwise.
@@ -77,8 +84,8 @@ class World:
         Adds a component to an entity.
 
         Args:
-            entity: The ID of the entity.
-            component: The component instance to add.
+            entity (int): The ID of the entity.
+            component (Any): The component instance to add.
         """
         self._switch()
         esper.add_component(entity, component)
@@ -88,8 +95,8 @@ class World:
         Removes a component of a specific type from an entity.
 
         Args:
-            entity: The ID of the entity.
-            component_type: The type of component to remove.
+            entity (int): The ID of the entity.
+            component_type (Type[Any]): The type of component to remove.
         """
         self._switch()
         try:
@@ -102,8 +109,8 @@ class World:
         Retrieves a component of a specific type from an entity.
 
         Args:
-            entity: The ID of the entity.
-            component_type: The type of component to retrieve.
+            entity (int): The ID of the entity.
+            component_type (Type[T]): The type of component to retrieve.
 
         Returns:
             Optional[T]: The component instance, or None if the entity does not have it.
@@ -120,8 +127,8 @@ class World:
         Checks if an entity has a specific component type.
 
         Args:
-            entity: The ID of the entity.
-            component_type: The type of component to check for.
+            entity (int): The ID of the entity.
+            component_type (Type[Any]): The type of component to check for.
 
         Returns:
             bool: True if the entity has the component, False otherwise.
@@ -137,7 +144,7 @@ class World:
         Retrieves all components of a specific type.
 
         Args:
-            component_type: The type of component to retrieve.
+            component_type (Type[T]): The type of component to retrieve.
 
         Returns:
             Dict[int, T]: A dictionary mapping entity IDs to component instances.
@@ -172,7 +179,7 @@ class World:
         Retrieves a list of entity IDs that have all specified component types.
 
         Args:
-            *component_types: A variable number of component types.
+            *component_types (Type[Any]): A variable number of component types.
 
         Returns:
             List[int]: A list of entity IDs matching the criteria.
@@ -190,7 +197,7 @@ class World:
         This maps directly to esper.get_components for efficient iteration.
 
         Args:
-            *component_types: The component types to retrieve.
+            *component_types (Type[Any]): The component types to retrieve.
 
         Returns:
             List[Tuple[int, Tuple[Any, ...]]]: A list of (entity, (component1, component2, ...)).
@@ -203,7 +210,7 @@ class World:
         Adds a system to the world.
 
         Args:
-            system: The System instance to add.
+            system (System): The System instance to add.
         """
         self._switch()
         # Inject world reference into system
@@ -216,7 +223,7 @@ class World:
         Updates all systems in the world.
 
         Args:
-            dt: The time elapsed since the last update in seconds.
+            dt (float): The time elapsed since the last update in seconds.
         """
         self._switch()
         esper.process(dt)
@@ -232,12 +239,18 @@ class System(ProcessorBase):
     Base class for systems in the ECS.
 
     Systems contain logic that operates on entities with specific components.
+
+    Attributes:
+        ecs_world (World): The ECS World instance the system belongs to.
     """
     ecs_world: World
 
     def process(self, dt: float) -> None:
         """
         Esper calls this method. We delegate to the update method for backward compatibility.
+
+        Args:
+            dt (float): The time elapsed since the last update in seconds.
         """
         # We need to ensure we are operating on the correct world context
         # esper.process is called within the context, so global esper calls are safe.
@@ -253,8 +266,8 @@ class System(ProcessorBase):
         Updates the system.
 
         Args:
-            world: The ECS World instance.
-            dt: The time elapsed since the last update in seconds.
+            world (World): The ECS World instance.
+            dt (float): The time elapsed since the last update in seconds.
 
         Raises:
             NotImplementedError: If the subclass does not implement this method.

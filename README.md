@@ -133,7 +133,22 @@ params = { m = 1.0, b = 0.0 }
 
 ## Development
 
-The codebase uses Google Style Python Docstrings for all public functions, methods, and classes.
+The codebase is fully documented using **Google Style Python Docstrings**. Every public function, method, and class includes a docstring detailing its purpose, arguments, and return values.
+
+### Documentation Style
+Example:
+```python
+def calculate_quality_score(self, yukkuri_stats: YukkuriStats) -> int:
+    """
+    Calculates the quality score (value) of a Yukkuri.
+
+    Args:
+        yukkuri_stats (YukkuriStats): The stats component of the Yukkuri.
+
+    Returns:
+        int: The calculated value in money.
+    """
+```
 
 ### Testing
 To run tests (if available):

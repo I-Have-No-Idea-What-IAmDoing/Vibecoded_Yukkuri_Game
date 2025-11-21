@@ -24,7 +24,7 @@ class Yukkurrium:
         Initializes the Yukkurrium.
 
         Args:
-            settings: World settings configuration.
+            settings (WorldSettings | None): World settings configuration.
         """
         _settings = settings if settings is not None else WorldSettings()
         self.width = _settings.width
@@ -44,13 +44,13 @@ class Yukkurrium:
         Converts world coordinates to screen coordinates.
 
         Args:
-            wx: World x-coordinate.
-            wy: World y-coordinate.
-            screen_w: Screen width.
-            screen_h: Screen height.
+            wx (float): World x-coordinate.
+            wy (float): World y-coordinate.
+            screen_w (int): Screen width.
+            screen_h (int): Screen height.
 
         Returns:
-            tuple: (screen_x, screen_y)
+            tuple[float, float]: (screen_x, screen_y)
         """
         sx = (wx - self.camera_x) * self.zoom + screen_w / 2
         sy = (wy - self.camera_y) * self.zoom + screen_h / 2
@@ -61,13 +61,13 @@ class Yukkurrium:
         Converts screen coordinates to world coordinates.
 
         Args:
-            sx: Screen x-coordinate.
-            sy: Screen y-coordinate.
-            screen_w: Screen width.
-            screen_h: Screen height.
+            sx (float): Screen x-coordinate.
+            sy (float): Screen y-coordinate.
+            screen_w (int): Screen width.
+            screen_h (int): Screen height.
 
         Returns:
-            tuple: (world_x, world_y)
+            tuple[float, float]: (world_x, world_y)
         """
         wx = (sx - screen_w / 2) / self.zoom + self.camera_x
         wy = (sy - screen_h / 2) / self.zoom + self.camera_y
@@ -78,9 +78,9 @@ class Yukkurrium:
         Handles input for camera control (zoom and pan).
 
         Args:
-            event: The Pygame event.
-            screen_w: Screen width.
-            screen_h: Screen height.
+            event (pygame.event.Event): The Pygame event.
+            screen_w (int): Screen width.
+            screen_h (int): Screen height.
         """
         if event.type == pygame.MOUSEWHEEL:
             self.target_zoom += event.y * 0.1
@@ -96,7 +96,7 @@ class Yukkurrium:
         Updates the camera state (e.g., smooth zoom).
 
         Args:
-            dt: Delta time.
+            dt (float): Delta time.
         """
         # Smooth zoom
         self.zoom += (self.target_zoom - self.zoom) * 5.0 * dt
@@ -116,8 +116,8 @@ class RenderSystem(System):
         Initializes the RenderSystem.
 
         Args:
-            screen: The target Pygame surface.
-            world: The ECS World instance (used to locate services).
+            screen (pygame.Surface): The target Pygame surface.
+            world (World): The ECS World instance (used to locate services).
         """
         self.screen = screen
         self.yukkurrium = world.services.get(Yukkurrium)
@@ -128,8 +128,8 @@ class RenderSystem(System):
         Renders the world grid and all visible entities.
 
         Args:
-            world: The ECS World.
-            dt: Delta time.
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         # Render background grid
         self.draw_grid()
@@ -224,7 +224,7 @@ class TimeSystem(System):
         Updates the total time.
 
         Args:
-            world: The ECS World.
-            dt: Delta time.
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         self.total_time += dt * self.game_speed

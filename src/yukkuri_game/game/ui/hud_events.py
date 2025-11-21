@@ -16,18 +16,18 @@ class HudEvents:
         layout (HudLayout): The layout component containing UI elements.
         gm (GameManager): The GameManager instance for game logic.
         callbacks (Dict[str, Callable]): A dictionary of callback functions for various actions.
-        selected_entity (int): The ID of the currently selected entity.
         event_bus (EventBus): The event bus.
+        selected_entity (int): The ID of the currently selected entity.
     """
     def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', callbacks: Dict[str, Callable[..., Any]], event_bus: EventBus):
         """
         Initializes the HudEvents handler.
 
         Args:
-            layout: The HudLayout component.
-            game_manager: The GameManager instance.
-            callbacks: Dictionary of callback functions.
-            event_bus: The event bus.
+            layout (HudLayout): The HudLayout component.
+            game_manager (GameManager): The GameManager instance.
+            callbacks (Dict[str, Callable]): Dictionary of callback functions.
+            event_bus (EventBus): The event bus.
         """
         self.layout = layout
         self.gm = game_manager
@@ -40,7 +40,7 @@ class HudEvents:
         Sets the ID of the currently selected entity.
 
         Args:
-            entity_id: The entity ID.
+            entity_id (int): The entity ID.
         """
         self.selected_entity = entity_id
 
@@ -51,7 +51,7 @@ class HudEvents:
         Handles button presses for main HUD controls and selection window actions.
 
         Args:
-            event: The Pygame event.
+            event (pygame.event.Event): The Pygame event.
 
         Returns:
             bool: True if an event was handled, False otherwise.

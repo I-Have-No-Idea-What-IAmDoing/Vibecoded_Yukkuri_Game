@@ -30,9 +30,9 @@ class GameLoop:
         Initializes the GameLoop.
 
         Args:
-            width: The width of the window. Defaults to 1280.
-            height: The height of the window. Defaults to 720.
-            title: The title of the window. Defaults to "Yukkuri Raising Game".
+            width (int, optional): The width of the window. Defaults to 1280.
+            height (int, optional): The height of the window. Defaults to 720.
+            title (str, optional): The title of the window. Defaults to "Yukkuri Raising Game".
         """
         pygame.init()
         self.width = width
@@ -87,7 +87,7 @@ class GameLoop:
         Override this method to implement custom input handling.
 
         Args:
-            event: The Pygame event to handle.
+            event (pygame.event.Event): The Pygame event to handle.
         """
         pass
 
@@ -156,6 +156,6 @@ class GameLoop:
         Sets the headless mode.
 
         Args:
-            headless: True to enable headless mode, False otherwise.
+            headless (bool): True to enable headless mode, False otherwise.
         """
         self.headless = headless

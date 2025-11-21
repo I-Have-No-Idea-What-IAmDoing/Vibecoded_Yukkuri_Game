@@ -20,12 +20,12 @@ class InputSystem(System):
     Attributes:
         yukkurrium (Yukkurrium): The game world view manager.
         placing_mode (bool): Whether the game is currently in placement mode.
-        place_type (str): The type ID of the entity being placed.
+        place_type (Optional[str]): The type ID of the entity being placed.
         place_cost (int): The cost of the entity being placed.
-        place_entity_type (str): The category of the entity ("yukkuri" or "item").
-        gm (GameManager): Reference to the GameManager.
-        factory (EntityFactory): Reference to the EntityFactory.
-        event_bus (EventBus): The event bus for publishing and subscribing to events.
+        place_entity_type (Optional[str]): The category of the entity ("yukkuri" or "item").
+        gm (Optional[GameManager]): Reference to the GameManager.
+        factory (Optional[EntityFactory]): Reference to the EntityFactory.
+        event_bus (Optional[EventBus]): The event bus for publishing and subscribing to events.
     """
 
     def __init__(self, yukkurrium: 'Yukkurrium'):
@@ -33,7 +33,7 @@ class InputSystem(System):
         Initializes the InputSystem.
 
         Args:
-            yukkurrium: The Yukkurrium instance.
+            yukkurrium (Yukkurrium): The Yukkurrium instance.
         """
         self.yukkurrium = yukkurrium
         self.placing_mode = False
@@ -49,11 +49,11 @@ class InputSystem(System):
         Directly starts placement mode. Used for testing or direct calls.
 
         Args:
-            type_id: The type ID of the entity to place.
-            cost: The cost of the entity.
-            entity_type: "yukkuri" or "item".
-            gm: GameManager instance.
-            factory: EntityFactory instance.
+            type_id (str): The type ID of the entity to place.
+            cost (int): The cost of the entity.
+            entity_type (str): "yukkuri" or "item".
+            gm (GameManager): GameManager instance.
+            factory (EntityFactory): EntityFactory instance.
         """
         self.placing_mode = True
         self.place_type = type_id
@@ -65,6 +65,9 @@ class InputSystem(System):
     def on_placement_started(self, event: PlacementStartedEvent) -> None:
         """
         Handles the PlacementStartedEvent.
+
+        Args:
+            event (PlacementStartedEvent): The placement started event.
         """
         self.placing_mode = True
         self.place_type = event.type_id
@@ -76,8 +79,8 @@ class InputSystem(System):
         Updates the input system.
 
         Args:
-            world: The ECS World.
-            dt: Delta time.
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         # Lazy initialization of dependencies
         if self.gm is None:
@@ -95,11 +98,11 @@ class InputSystem(System):
         Handles a single Pygame event.
 
         Args:
-            event: The Pygame event.
-            world: The ECS World.
-            screen_w: The width of the screen.
-            screen_h: The height of the screen.
-            ui_manager: The UI manager (optional) to check for UI interaction.
+            event (pygame.event.Event): The Pygame event.
+            world (World): The ECS World.
+            screen_w (int): The width of the screen.
+            screen_h (int): The height of the screen.
+            ui_manager (Optional[pygame_gui.UIManager]): The UI manager (optional) to check for UI interaction.
         """
         self.yukkurrium.handle_input(event, screen_w, screen_h)
 
@@ -165,8 +168,8 @@ class InputSystem(System):
         Deducts money and creates the entity if funds are sufficient.
 
         Args:
-            wx: The world x-coordinate.
-            wy: The world y-coordinate.
+            wx (float): The world x-coordinate.
+            wy (float): The world y-coordinate.
         """
         if self.gm and self.factory and self.place_type:
             if self.gm.money >= self.place_cost:
