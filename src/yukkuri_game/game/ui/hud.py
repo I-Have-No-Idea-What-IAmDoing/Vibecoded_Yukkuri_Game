@@ -37,20 +37,20 @@ class HUD:
         fps (float): The current frames per second.
     """
 
-    def __init__(self, ui_manager: pygame_gui.UIManager, game_manager: 'GameManager', world: World, factory: 'EntityFactory'):
+    def __init__(self, ui_manager: pygame_gui.UIManager, world: World):
         """
         Initializes the HUD.
 
         Args:
             ui_manager: The pygame_gui UIManager.
-            game_manager: The GameManager instance.
             world: The ECS World instance.
-            factory: The EntityFactory instance.
         """
         self.manager = ui_manager
-        self.gm = game_manager
         self.world = world
-        self.factory = factory
+        from ..game_manager import GameManager
+        from ..entity_factory import EntityFactory
+        self.gm = world.services.get(GameManager)
+        self.factory = world.services.get(EntityFactory)
 
         self.width = 1280
         self.height = 720

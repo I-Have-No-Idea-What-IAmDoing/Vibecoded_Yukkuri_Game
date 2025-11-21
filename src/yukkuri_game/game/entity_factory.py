@@ -21,18 +21,18 @@ class EntityFactory:
         physics_system (PhysicsSystem): The physics system instance, used to add bodies to the space.
     """
 
-    def __init__(self, world: World, resource_manager: 'ResourceManager', physics_system: Optional['PhysicsSystem'] = None):
+    def __init__(self, world: World):
         """
         Initializes the EntityFactory.
 
         Args:
             world: The ECS World instance.
-            resource_manager: The ResourceManager instance.
-            physics_system: Optional PhysicsSystem to add bodies to the space.
         """
         self.world = world
-        self.rm = resource_manager
-        self.physics_system = physics_system
+        from ..engine.resource_manager import ResourceManager
+        from .systems.physics import PhysicsSystem
+        self.rm = world.services.get(ResourceManager)
+        self.physics_system = world.services.try_get(PhysicsSystem)
 
     def _get_attr(self, data: Any, key: str, default: Any = None) -> Any:
         """

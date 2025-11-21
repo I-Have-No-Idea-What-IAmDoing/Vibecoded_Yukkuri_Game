@@ -110,18 +110,17 @@ class RenderSystem(System):
         rm (ResourceManager): The resource manager for fetching assets.
     """
 
-    def __init__(self, screen: pygame.Surface, yukkurrium: Yukkurrium, resource_manager: ResourceManager):
+    def __init__(self, screen: pygame.Surface, world: World):
         """
         Initializes the RenderSystem.
 
         Args:
             screen: The target Pygame surface.
-            yukkurrium: The Yukkurrium instance.
-            resource_manager: The ResourceManager instance.
+            world: The ECS World instance (used to locate services).
         """
         self.screen = screen
-        self.yukkurrium = yukkurrium
-        self.rm = resource_manager
+        self.yukkurrium = world.services.get(Yukkurrium)
+        self.rm = world.services.get(ResourceManager)
 
     def update(self, world: World, dt: float) -> None:
         """
