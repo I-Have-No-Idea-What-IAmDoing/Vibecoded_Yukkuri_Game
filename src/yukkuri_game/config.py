@@ -11,6 +11,7 @@ class WorldSettings(msgspec.Struct):
     """
     width: int = 3000
     height: int = 3000
+    grid_step_size: int = 50
 
 class ConfigFile(msgspec.Struct):
     """
