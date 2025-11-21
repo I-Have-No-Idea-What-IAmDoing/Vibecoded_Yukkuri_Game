@@ -10,14 +10,14 @@ class StatDecaySystem(System):
         settings (StatDecaySettings): The configuration settings for decay rates.
     """
 
-    def __init__(self, settings: StatDecaySettings | None = None):
+    def __init__(self, settings: StatDecaySettings):
         """
         Initializes the StatDecaySystem.
 
         Args:
-            settings (StatDecaySettings | None): Stat decay settings configuration.
+            settings (StatDecaySettings): Stat decay settings configuration.
         """
-        self.settings = settings if settings is not None else StatDecaySettings()
+        self.settings = settings
 
     def update(self, world: World, dt: float) -> None:
         """
