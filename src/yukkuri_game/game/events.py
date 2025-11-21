@@ -5,12 +5,12 @@ from ..engine.event_bus import Event
 @dataclass(frozen=True)
 class EntitySelectedEvent(Event):
     """
-    Event published when an entity is selected or deselected.
+    Event published when entities are selected or deselected.
 
     Attributes:
-        entity_id (int): The ID of the selected entity, or -1 if deselected.
+        entity_ids (list[int]): The IDs of the selected entities. Empty list if deselected.
     """
-    entity_id: int # -1 if deselected
+    entity_ids: list[int]
 
 @dataclass(frozen=True)
 class PlacementStartedEvent(Event):

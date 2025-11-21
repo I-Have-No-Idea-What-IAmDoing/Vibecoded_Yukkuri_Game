@@ -44,23 +44,23 @@ def test_hud_init(hud, mock_world):
     hud.event_bus.subscribe.assert_any_call(GamePausedEvent, hud.on_game_paused)
 
 def test_on_entity_selected(hud, mock_world):
-    event = EntitySelectedEvent(entity_id=10)
+    event = EntitySelectedEvent(entity_ids=[10])
 
     # Mock has_component for selection window update
     mock_world.has_component.return_value = True
 
     hud.on_entity_selected(event)
 
-    assert hud.selected_entity == 10
-    hud.events.set_selected_entity.assert_called_with(10)
+    assert hud.selected_entities == [10]
+    hud.events.set_selected_entities.assert_called_with([10])
     hud.layout.create_selection_window.assert_called_with(True)
 
 def test_on_entity_selected_none(hud):
-    event = EntitySelectedEvent(entity_id=-1)
+    event = EntitySelectedEvent(entity_ids=[])
 
     hud.on_entity_selected(event)
 
-    assert hud.selected_entity == -1
+    assert hud.selected_entities == []
     hud.layout.close_selection_window.assert_called()
 
 def test_on_game_paused(hud):
@@ -91,7 +91,7 @@ def test_update(hud):
     hud.update(0.1)
 
     assert hud.renderer.fps == 60.0
-    hud.renderer.update.assert_called_with(0.1, -1, False)
+    hud.renderer.update.assert_called_with(0.1, [], False)
 
 def test_show_error(hud):
     hud.show_error("Error!")
@@ -114,10 +114,10 @@ def test_process_event_sell_logic(hud):
     hud.layout.sell_btn = MagicMock()
     event.ui_element = hud.layout.sell_btn
 
-    hud.selected_entity = 10
+    hud.selected_entities = [10]
 
     hud.process_event(event)
 
-    assert hud.selected_entity == -1
+    assert hud.selected_entities == []
     hud.layout.close_selection_window.assert_called()
-    hud.events.set_selected_entity.assert_called_with(-1)
+    hud.events.set_selected_entities.assert_called_with([])
