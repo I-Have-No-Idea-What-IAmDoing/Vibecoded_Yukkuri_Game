@@ -76,12 +76,21 @@ class EntityFactory:
         height = self._get_attr(data, 'height', 64)
         max_health = self._get_attr(data, 'max_health', 100)
 
+        # Animation properties
+        frame_count = self._get_attr(data, 'frame_count', 1)
+        frame_duration = self._get_attr(data, 'frame_duration', 0.1)
+        loop = self._get_attr(data, 'loop', True)
+
         # Core Components
         self.world.add_component(entity, Transform(x=x, y=y))
         self.world.add_component(entity, Sprite(
             image_name=image,
             width=width,
-            height=height
+            height=height,
+            frame_count=frame_count,
+            frame_duration=frame_duration,
+            loop=loop,
+            is_animating=(frame_count > 1)
         ))
         self.world.add_component(entity, Selectable())
 
@@ -140,6 +149,11 @@ class EntityFactory:
         width = self._get_attr(data, 'width', 32)
         height = self._get_attr(data, 'height', 32)
 
+        # Animation properties
+        frame_count = self._get_attr(data, 'frame_count', 1)
+        frame_duration = self._get_attr(data, 'frame_duration', 0.1)
+        loop = self._get_attr(data, 'loop', True)
+
         name = self._get_attr(data, 'name', "Item")
         cost = self._get_attr(data, 'cost', 10)
 
@@ -158,7 +172,11 @@ class EntityFactory:
         self.world.add_component(entity, Sprite(
             image_name=image,
             width=width,
-            height=height
+            height=height,
+            frame_count=frame_count,
+            frame_duration=frame_duration,
+            loop=loop,
+            is_animating=(frame_count > 1)
         ))
         self.world.add_component(entity, Selectable())
 

@@ -157,6 +157,41 @@ class WorldRenderer:
             # Scale
             scale = transform.scale * self.yukkurrium.zoom
 
+            # Handle animation (assume horizontal strip)
+            frame_width = sprite.width
+            frame_height = sprite.height
+
+            # If the image is a sprite sheet, select the current frame
+            # Note: If the image is not a sprite sheet (just a single image),
+            # sprite.current_frame should be 0.
+
+            # Check if we need to subsurface
+            # This assumes the loaded image contains all frames horizontally
+            # We need to make sure we don't go out of bounds if image is just one frame
+            # but frame_count > 1 (configuration error) or if width is wrong.
+
+            img_width = img.get_width()
+            img_height = img.get_height()
+
+            # Default to full image
+            source_rect = pygame.Rect(0, 0, img_width, img_height)
+
+            # If sprite says it has frames and the image is wide enough, crop it
+            if sprite.frame_count > 1:
+                # Calculate x offset
+                sx = sprite.current_frame * sprite.width
+                if sx + sprite.width <= img_width:
+                     source_rect = pygame.Rect(sx, 0, sprite.width, sprite.height)
+
+            # Now create a subsurface or just use the image if it matches
+            # But wait, if we scale, we should scale the cropped part.
+
+            # Optimization: if we don't need to crop, don't subsurface
+            if source_rect.width == img_width and source_rect.height == img_height:
+                frame_img = img
+            else:
+                frame_img = img.subsurface(source_rect)
+
             if scale != 1.0:
                 # Simple optimization: check if size is reasonable
                 w = int(sprite.width * scale)
@@ -164,9 +199,9 @@ class WorldRenderer:
                 if w <= 0 or h <= 0:
                     continue
 
-                scaled_img = pygame.transform.scale(img, (w, h))
+                scaled_img = pygame.transform.scale(frame_img, (w, h))
             else:
-                scaled_img = img
+                scaled_img = frame_img
 
             # Center the sprite
             rect = scaled_img.get_rect(center=(int(screen_x), int(screen_y)))

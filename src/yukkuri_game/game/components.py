@@ -55,6 +55,14 @@ class Sprite:
     height: int
     layer: int = 0
 
+    # Animation support
+    frame_count: int = 1
+    frame_duration: float = 0.1
+    current_frame: int = 0
+    timer: float = 0.0
+    loop: bool = True
+    is_animating: bool = True
+
 @dataclass
 class Selectable:
     """
