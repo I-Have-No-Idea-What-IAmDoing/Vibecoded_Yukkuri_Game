@@ -76,12 +76,22 @@ class EntityFactory:
         height = self._get_attr(data, 'height', 64)
         max_health = self._get_attr(data, 'max_health', 100)
 
+        # Animation
+        frame_width = self._get_attr(data, 'frame_width', 0)
+        frame_height = self._get_attr(data, 'frame_height', 0)
+        frame_count = self._get_attr(data, 'frame_count', 1)
+        animation_speed = self._get_attr(data, 'animation_speed', 0.1)
+
         # Core Components
         self.world.add_component(entity, Transform(x=x, y=y))
         self.world.add_component(entity, Sprite(
             image_name=image,
             width=width,
-            height=height
+            height=height,
+            frame_width=frame_width,
+            frame_height=frame_height,
+            frame_count=frame_count,
+            animation_speed=animation_speed
         ))
         self.world.add_component(entity, Selectable())
 
@@ -155,10 +165,20 @@ class EntityFactory:
 
         is_portable = self._get_attr(data, 'is_portable', False)
 
+        # Animation
+        frame_width = self._get_attr(data, 'frame_width', 0)
+        frame_height = self._get_attr(data, 'frame_height', 0)
+        frame_count = self._get_attr(data, 'frame_count', 1)
+        animation_speed = self._get_attr(data, 'animation_speed', 0.1)
+
         self.world.add_component(entity, Sprite(
             image_name=image,
             width=width,
-            height=height
+            height=height,
+            frame_width=frame_width,
+            frame_height=frame_height,
+            frame_count=frame_count,
+            animation_speed=animation_speed
         ))
         self.world.add_component(entity, Selectable())
 

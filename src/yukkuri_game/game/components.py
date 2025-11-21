@@ -54,6 +54,12 @@ class Sprite:
     width: int
     height: int
     layer: int = 0
+    frame_width: int = 0
+    frame_height: int = 0
+    frame_count: int = 1
+    current_frame: int = 0
+    animation_speed: float = 0.1
+    timer: float = 0.0
 
 @dataclass
 class Selectable:

@@ -157,14 +157,32 @@ class WorldRenderer:
             # Scale
             scale = transform.scale * self.yukkurrium.zoom
 
-            if scale != 1.0:
+            # Handle Animation
+            if sprite.frame_count > 1:
+                frame_w = sprite.frame_width if sprite.frame_width > 0 else sprite.width
+                frame_h = sprite.frame_height if sprite.frame_height > 0 else sprite.height
+
+                # Calculate source rect
+                src_x = sprite.current_frame * frame_w
+                src_rect = pygame.Rect(src_x, 0, frame_w, frame_h)
+
+                # Create a subsurface for the frame (optimization)
+                img = img.subsurface(src_rect)
+
+                # Update target dimensions
+                # Use entity sprite size (scaled) rather than frame size to allow independent scaling
+                target_w = int(sprite.width * scale)
+                target_h = int(sprite.height * scale)
+            else:
+                target_w = int(sprite.width * scale)
+                target_h = int(sprite.height * scale)
+
+            if scale != 1.0 or sprite.frame_count > 1:
                 # Simple optimization: check if size is reasonable
-                w = int(sprite.width * scale)
-                h = int(sprite.height * scale)
-                if w <= 0 or h <= 0:
+                if target_w <= 0 or target_h <= 0:
                     continue
 
-                scaled_img = pygame.transform.scale(img, (w, h))
+                scaled_img = pygame.transform.scale(img, (target_w, target_h))
             else:
                 scaled_img = img
 

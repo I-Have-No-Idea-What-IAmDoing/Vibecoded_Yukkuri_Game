@@ -48,6 +48,10 @@ class YukkuriType(YukkuriTypeBase):
     height: int
     max_health: int
     base_happiness: int
+    frame_width: int = 0
+    frame_height: int = 0
+    frame_count: int = 1
+    animation_speed: float = 0.1
 
 class ItemType(ItemTypeBase):
     """
@@ -73,6 +77,10 @@ class ItemType(ItemTypeBase):
     nutrition: Optional[int] = None
     comfort: Optional[int] = None
     fun: Optional[int] = None
+    frame_width: int = 0
+    frame_height: int = 0
+    frame_count: int = 1
+    animation_speed: float = 0.1
 
 class ActionEffect(ActionEffectBase):
     """
