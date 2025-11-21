@@ -38,3 +38,4 @@ class StatDecaySystem(System):
             stats.hunger = min(100, max(0, stats.hunger))
             stats.happiness = min(100, max(0, stats.happiness))
             stats.energy = min(100, max(0, stats.energy))
+            stats.cleanliness = min(100, max(0, stats.cleanliness))

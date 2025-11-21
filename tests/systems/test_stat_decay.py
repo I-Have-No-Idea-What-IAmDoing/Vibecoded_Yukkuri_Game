@@ -55,3 +55,20 @@ class TestStatDecaySystem(unittest.TestCase):
         self.assertEqual(stats.hunger, 100.0)
         self.assertEqual(stats.happiness, 0.0)
         self.assertEqual(stats.energy, 0.0)
+
+    def test_cleanliness_clamping(self):
+        mock_world = MagicMock()
+        stats = YukkuriStats(name="Test", type_id="test")
+        stats.cleanliness = 1.0
+
+        mock_world.get_components_tuple.return_value = [(1, (stats,))]
+
+        system = StatDecaySystem()
+        # Cleanliness decay is 0.2 per second (default).
+        # dt = 10.0 -> decay = 2.0
+        # 1.0 - 2.0 = -1.0. Should be clamped to 0.0
+        dt = 10.0
+        system.update(mock_world, dt)
+
+        self.assertGreaterEqual(stats.cleanliness, 0.0)
+        self.assertEqual(stats.cleanliness, 0.0)
