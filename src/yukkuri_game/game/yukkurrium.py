@@ -101,9 +101,9 @@ class Yukkurrium:
         # Smooth zoom
         self.zoom += (self.target_zoom - self.zoom) * 5.0 * dt
 
-class RenderSystem(System):
+class WorldRenderer:
     """
-    System responsible for rendering the game world and entities.
+    Handles the pure drawing logic for the game world.
 
     Attributes:
         screen (pygame.Surface): The surface to render to.
@@ -111,25 +111,25 @@ class RenderSystem(System):
         rm (ResourceManager): The resource manager for fetching assets.
     """
 
-    def __init__(self, screen: pygame.Surface, world: World):
+    def __init__(self, screen: pygame.Surface, yukkurrium: Yukkurrium, resource_manager: ResourceManager):
         """
-        Initializes the RenderSystem.
+        Initializes the WorldRenderer.
 
         Args:
             screen (pygame.Surface): The target Pygame surface.
-            world (World): The ECS World instance (used to locate services).
+            yukkurrium (Yukkurrium): The world view manager.
+            resource_manager (ResourceManager): The resource manager.
         """
         self.screen = screen
-        self.yukkurrium = world.services.get(Yukkurrium)
-        self.rm = world.services.get(ResourceManager)
+        self.yukkurrium = yukkurrium
+        self.rm = resource_manager
 
-    def update(self, world: World, dt: float) -> None:
+    def render(self, world: World) -> None:
         """
         Renders the world grid and all visible entities.
 
         Args:
             world (World): The ECS World.
-            dt (float): Delta time.
         """
         # Render background grid
         self.draw_grid()
@@ -204,6 +204,36 @@ class RenderSystem(System):
             y = row * grid_size
             _, sy = self.yukkurrium.world_to_screen(0, y, sw, sh)
             pygame.draw.line(self.screen, (50, 50, 50), (0, int(sy)), (sw, int(sy)))
+
+class RenderSystem(System):
+    """
+    System responsible for rendering the game world and entities.
+
+    Attributes:
+        renderer (WorldRenderer): The world renderer.
+    """
+
+    def __init__(self, screen: pygame.Surface, world: World):
+        """
+        Initializes the RenderSystem.
+
+        Args:
+            screen (pygame.Surface): The target Pygame surface.
+            world (World): The ECS World instance (used to locate services).
+        """
+        yukkurrium = world.services.get(Yukkurrium)
+        rm = world.services.get(ResourceManager)
+        self.renderer = WorldRenderer(screen, yukkurrium, rm)
+
+    def update(self, world: World, dt: float) -> None:
+        """
+        Renders the world grid and all visible entities.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+        """
+        self.renderer.render(world)
 
 class TimeSystem(System):
     """
