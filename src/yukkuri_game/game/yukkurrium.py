@@ -177,11 +177,15 @@ class WorldRenderer:
             source_rect = pygame.Rect(0, 0, img_width, img_height)
 
             # If sprite says it has frames and the image is wide enough, crop it
-            if sprite.frame_count > 1:
-                # Calculate x offset
-                sx = sprite.current_frame * sprite.width
-                if sx + sprite.width <= img_width:
-                     source_rect = pygame.Rect(sx, 0, sprite.width, sprite.height)
+            if sprite.frame_count > 1 or sprite.row > 0 or sprite.start_frame > 0:
+                # Calculate offsets
+                # Include start_frame offset
+                sx = (sprite.current_frame + sprite.start_frame) * sprite.width
+                sy = sprite.row * sprite.height
+
+                # Check bounds
+                if sx + sprite.width <= img_width and sy + sprite.height <= img_height:
+                     source_rect = pygame.Rect(sx, sy, sprite.width, sprite.height)
 
             # Now create a subsurface or just use the image if it matches
             # But wait, if we scale, we should scale the cropped part.

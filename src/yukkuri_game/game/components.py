@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Dict, Optional
 import pymunk
 
 @dataclass
@@ -40,6 +41,26 @@ class Velocity:
     dy: float
 
 @dataclass
+class Animation:
+    """
+    Data class defining an animation sequence.
+
+    Attributes:
+        name (str): The name of the animation.
+        start_frame (int): The starting frame index in the sprite sheet.
+        frame_count (int): The number of frames in this animation.
+        frame_duration (float): Duration of each frame in seconds.
+        loop (bool): Whether the animation should loop.
+        row (int): The row index in the sprite sheet (default 0).
+    """
+    name: str
+    start_frame: int
+    frame_count: int
+    frame_duration: float
+    loop: bool = True
+    row: int = 0
+
+@dataclass
 class Sprite:
     """
     Component representing the graphical sprite of an entity.
@@ -62,6 +83,15 @@ class Sprite:
     timer: float = 0.0
     loop: bool = True
     is_animating: bool = True
+
+    # Advanced Animation support
+    animations: Dict[str, Animation] = field(default_factory=dict)
+    current_animation: Optional[str] = None
+    row: int = 0
+    start_frame: int = 0 # Starting frame offset in the sprite sheet
+
+    # Internal state for animation switching
+    _last_animation: Optional[str] = None
 
 @dataclass
 class Selectable:
