@@ -5,7 +5,8 @@ from loguru import logger
 from typing import Any, Dict, Type, TypeVar
 
 from .data_models import (
-    YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction
+    YukkuriData, ItemData, AIData, AnimationData,
+    YukkuriType, ItemType, AIAction, AnimationDefinition
 )
 
 T = TypeVar("T")
@@ -23,6 +24,7 @@ class ResourceManager:
         yukkuri_types (Dict[str, YukkuriType]): Loaded Yukkuri type definitions.
         item_types (Dict[str, ItemType]): Loaded Item type definitions.
         ai_actions (Dict[str, AIAction]): Loaded AI action definitions.
+        animations (Dict[str, AnimationDefinition]): Loaded Animation definitions.
     """
 
     def __init__(self, data_dir: str = "data", assets_dir: str = "assets"):
@@ -43,6 +45,7 @@ class ResourceManager:
         self.yukkuri_types: Dict[str, YukkuriType] = {}
         self.item_types: Dict[str, ItemType] = {}
         self.ai_actions: Dict[str, AIAction] = {}
+        self.animations: Dict[str, AnimationDefinition] = {}
 
     def load_toml_model(self, filepath: str, model: Type[T]) -> T | None:
         """
@@ -132,5 +135,12 @@ class ResourceManager:
             self.ai_actions = ai_data.actions
         else:
             self.ai_actions = {}
+
+        # Load Animations
+        anim_data = self.load_toml_model("animations.toml", AnimationData)
+        if anim_data:
+            self.animations = anim_data.animations
+        else:
+            self.animations = {}
 
         logger.info("All data loaded.")

@@ -19,6 +19,10 @@ if TYPE_CHECKING:
         pass
     class AIDataBase:
         pass
+    class AnimationDefinitionBase:
+        pass
+    class AnimationDataBase:
+        pass
 else:
     YukkuriTypeBase = msgspec.Struct
     ItemTypeBase = msgspec.Struct
@@ -28,6 +32,8 @@ else:
     YukkuriDataBase = msgspec.Struct
     ItemDataBase = msgspec.Struct
     AIDataBase = msgspec.Struct
+    AnimationDefinitionBase = msgspec.Struct
+    AnimationDataBase = msgspec.Struct
 
 
 class YukkuriType(YukkuriTypeBase):
@@ -118,6 +124,27 @@ class AIAction(AIActionBase):
     effects: ActionEffect
     considerations: List[ActionConsideration] = []
 
+class AnimationDefinition(AnimationDefinitionBase):
+    """
+    Data model representing an animation definition.
+
+    Attributes:
+        name (str): The name of the animation (e.g., "idle", "walk").
+        image (str): The filename of the sprite sheet.
+        frame_count (int): The number of frames in the animation.
+        frame_duration (float): The duration of each frame in seconds.
+        width (int): The width of a single frame in pixels.
+        height (int): The height of a single frame in pixels.
+        loop (bool): Whether the animation should loop. Defaults to True.
+    """
+    name: str
+    image: str
+    frame_count: int
+    frame_duration: float
+    width: int
+    height: int
+    loop: bool = True
+
 # Root containers for the TOML structure
 class YukkuriData(YukkuriDataBase):
     """
@@ -145,3 +172,12 @@ class AIData(AIDataBase):
         actions (Dict[str, AIAction]): A dictionary mapping action IDs to AIAction objects.
     """
     actions: Dict[str, AIAction]
+
+class AnimationData(AnimationDataBase):
+    """
+    Root container for Animation definitions loaded from TOML.
+
+    Attributes:
+        animations (Dict[str, AnimationDefinition]): A dictionary mapping animation IDs to AnimationDefinition objects.
+    """
+    animations: Dict[str, AnimationDefinition]
