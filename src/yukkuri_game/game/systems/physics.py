@@ -1,6 +1,6 @@
 import pymunk
-from ..engine.ecs import System, World
-from .components import Transform, PhysicsBody
+from ...engine.ecs import System, World
+from ..components import Transform, PhysicsBody
 
 class PhysicsSystem(System):
     """
