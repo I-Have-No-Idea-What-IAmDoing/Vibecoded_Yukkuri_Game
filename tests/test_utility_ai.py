@@ -135,3 +135,33 @@ def test_utility_ai_engine_select_action():
     mock_rm.ai_actions = {}
     engine_empty = UtilityAIEngine(mock_rm)
     assert engine_empty.select_action({}) == "Idle"
+
+def test_select_action_defaults_to_idle_when_scores_are_zero():
+    mock_rm = MagicMock()
+    # Define two actions that will both evaluate to 0.0 given the context
+    # "Eat" comes first in the dictionary
+    mock_rm.ai_actions = {
+        "Eat": {
+            "weight": 1.0,
+            "considerations": [
+                {"name": "Hunger", "input": "hunger", "curve": "linear", "params": {"m": 1.0}}
+            ]
+        },
+        "Sleep": {
+            "weight": 1.0,
+            "considerations": [
+                {"name": "Tiredness", "input": "tiredness", "curve": "linear", "params": {"m": 1.0}}
+            ]
+        }
+    }
+
+    engine = UtilityAIEngine(mock_rm)
+
+    # Context where both hunger and tiredness are 0
+    context = {"hunger": 0, "tiredness": 0}
+
+    # Expectation: Should return "Idle" because scores are 0
+    # If best_score starts at -1.0, it returns "Eat" (bug).
+    selected_action = engine.select_action(context)
+
+    assert selected_action == "Idle", f"Expected 'Idle', but got '{selected_action}'"
