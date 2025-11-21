@@ -33,13 +33,13 @@ class HudRenderer:
         self.world = world
         self.fps = 0.0
 
-    def update(self, dt: float, selected_entity: int, show_debug: bool) -> None:
+    def update(self, dt: float, selected_entities: list[int], show_debug: bool) -> None:
         """
         Updates all HUD elements with current game data.
 
         Args:
             dt (float): Delta time.
-            selected_entity (int): The ID of the selected entity.
+            selected_entities (list[int]): The IDs of the selected entities.
             show_debug (bool): Whether to show debug information.
         """
         # Update Top Bar
@@ -52,35 +52,40 @@ class HudRenderer:
             self.layout.time_label.set_text(f"Time: {minutes:02d}:{seconds:02d}")
 
         # Update Selection Window
-        if self.layout.selection_window and selected_entity != -1:
-            self._update_stats_display(selected_entity)
+        if self.layout.selection_window and selected_entities:
+            self._update_stats_display(selected_entities)
 
         # Update Debug Window
         if show_debug:
             self._update_debug_window(dt)
 
-    def _update_stats_display(self, selected_entity: int) -> None:
+    def _update_stats_display(self, selected_entities: list[int]) -> None:
         """
         Updates the stats display for the selected entity.
 
         Args:
-            selected_entity (int): The ID of the selected entity.
+            selected_entities (list[int]): The IDs of the selected entities.
         """
         text = "Unknown"
-        stats = self.world.get_component(selected_entity, YukkuriStats)
-        if stats:
-            ai_state = self.world.get_component(selected_entity, AIState)
-            action = ai_state.current_action if ai_state else "None"
-            text = (f"<b>Name:</b> {stats.name}<br>"
-                    f"<b>Hunger:</b> {int(stats.hunger)}<br>"
-                    f"<b>Happiness:</b> {int(stats.happiness)}<br>"
-                    f"<b>Health:</b> {int(stats.health)}<br>"
-                    f"<b>Badges:</b> {stats.badges}<br>"
-                    f"<b>Action:</b> {action}")
-        else:
-            istats = self.world.get_component(selected_entity, ItemStats)
-            if istats:
-                text = f"<b>Item:</b> {istats.name}<br><b>Val:</b> {istats.cost}"
+
+        if len(selected_entities) > 1:
+            text = f"<b>{len(selected_entities)} entities selected</b>"
+        elif len(selected_entities) == 1:
+            selected_entity = selected_entities[0]
+            stats = self.world.get_component(selected_entity, YukkuriStats)
+            if stats:
+                ai_state = self.world.get_component(selected_entity, AIState)
+                action = ai_state.current_action if ai_state else "None"
+                text = (f"<b>Name:</b> {stats.name}<br>"
+                        f"<b>Hunger:</b> {int(stats.hunger)}<br>"
+                        f"<b>Happiness:</b> {int(stats.happiness)}<br>"
+                        f"<b>Health:</b> {int(stats.health)}<br>"
+                        f"<b>Badges:</b> {stats.badges}<br>"
+                        f"<b>Action:</b> {action}")
+            else:
+                istats = self.world.get_component(selected_entity, ItemStats)
+                if istats:
+                    text = f"<b>Item:</b> {istats.name}<br><b>Val:</b> {istats.cost}"
 
         if self.layout.info_label:
             self.layout.info_label.set_text(text)

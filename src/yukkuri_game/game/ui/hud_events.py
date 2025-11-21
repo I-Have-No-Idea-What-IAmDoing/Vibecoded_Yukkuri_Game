@@ -36,16 +36,16 @@ class HudEvents:
         self.layout = layout
         self.gm = game_manager
         self.event_bus = event_bus
-        self.selected_entity = -1
+        self.selected_entities: list[int] = []
 
-    def set_selected_entity(self, entity_id: int) -> None:
+    def set_selected_entities(self, entity_ids: list[int]) -> None:
         """
-        Sets the ID of the currently selected entity.
+        Sets the IDs of the currently selected entities.
 
         Args:
-            entity_id (int): The entity ID.
+            entity_ids (list[int]): The entity IDs.
         """
-        self.selected_entity = entity_id
+        self.selected_entities = entity_ids
 
     def process_event(self, event: pygame.event.Event) -> bool:
         """
@@ -92,12 +92,13 @@ class HudEvents:
 
         if self.layout.selection_window:
             if hasattr(self.layout, 'sell_btn') and ui_element == self.layout.sell_btn:
-                # self.gm.sell_yukkuri(self.selected_entity)
-                self.event_bus.publish(SellEntityRequest(self.selected_entity))
+                for entity_id in self.selected_entities:
+                     self.event_bus.publish(SellEntityRequest(entity_id))
                 return True
 
             if hasattr(self.layout, 'train_btn') and ui_element == self.layout.train_btn:
-                self.event_bus.publish(TrainEntityRequest(self.selected_entity))
+                for entity_id in self.selected_entities:
+                    self.event_bus.publish(TrainEntityRequest(entity_id))
                 return True
 
         return False

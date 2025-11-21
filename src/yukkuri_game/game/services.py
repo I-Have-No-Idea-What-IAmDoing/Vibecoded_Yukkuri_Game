@@ -283,13 +283,14 @@ class EconomyService:
 
 class InputService:
     """
-    Service responsible for managing input state, specifically placement mode.
+    Service responsible for managing input state, specifically placement mode and selection.
     """
     def __init__(self):
         self._placing_mode = False
         self._place_type: str = ""
         self._place_cost: int = 0
         self._place_entity_type: str = "" # "yukkuri" or "item"
+        self.selection_rect: Any = None # pygame.Rect or tuple, initialized to None
 
     @property
     def is_placing(self) -> bool:

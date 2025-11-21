@@ -55,12 +55,29 @@ class TestIntegration(unittest.TestCase):
         # Mock screen_to_world to return 0,0
         self.yukkurrium.screen_to_world.return_value = (0, 0)
 
-        # Simulate click event
-        event = MagicMock(type=pygame.MOUSEBUTTONDOWN, button=1, pos=(100, 100))
-        input_system.handle_event(event, self.world, 800, 600)
+        # Simulate click event sequence (Down -> Up for drag logic)
+        # We need to simulate mouse position via pygame.mouse.get_pos which we can't easily mock globally here without patching
+        # But input_system.handle_event calls pygame.mouse.get_pos()
+
+        with unittest.mock.patch('pygame.mouse.get_pos', return_value=(100, 100)), \
+             unittest.mock.patch('pygame.key.get_pressed') as mock_get_pressed:
+
+            # Mock key pressed to return dict with LSHIFT as False
+            # pygame.key.get_pressed() returns a sequence of booleans indexed by K_ constants
+            mock_keys = MagicMock()
+            mock_keys.__getitem__.return_value = False # Default false
+            mock_get_pressed.return_value = mock_keys
+
+            # Mouse Down
+            event_down = MagicMock(type=pygame.MOUSEBUTTONDOWN, button=1, pos=(100, 100))
+            input_system.handle_event(event_down, self.world, 800, 600)
+
+            # Mouse Up
+            event_up = MagicMock(type=pygame.MOUSEBUTTONUP, button=1, pos=(100, 100))
+            input_system.handle_event(event_up, self.world, 800, 600)
 
         # Check if event was published with correct entity
-        mock_subscriber.assert_called_with(EntitySelectedEvent(entity))
+        mock_subscriber.assert_called_with(EntitySelectedEvent([entity]))
 
     def test_hud_subscribes_to_selection_event(self):
         with unittest.mock.patch('src.yukkuri_game.game.ui.hud.HudLayout') as MockLayout, \
@@ -70,10 +87,10 @@ class TestIntegration(unittest.TestCase):
             hud = HUD(self.ui_manager, self.world)
 
             # Publish event
-            event = EntitySelectedEvent(123)
+            event = EntitySelectedEvent([123])
             self.event_bus.publish(event)
 
-            self.assertEqual(hud.selected_entity, 123)
+            self.assertEqual(hud.selected_entities, [123])
 
     def test_placement_event_flow(self):
         input_system = InputSystem(self.yukkurrium)

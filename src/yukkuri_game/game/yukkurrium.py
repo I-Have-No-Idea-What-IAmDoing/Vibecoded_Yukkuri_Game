@@ -3,6 +3,7 @@ from ..engine.ecs import System, World
 from .components import Transform, Sprite, Selectable
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
+from .services import InputService
 
 class Yukkurrium:
     """
@@ -178,6 +179,11 @@ class WorldRenderer:
                 selectable = world.get_component(ent, Selectable)
                 if selectable and selectable.selected:
                     pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
+
+        # Draw selection box if active
+        input_service = world.services.try_get(InputService)
+        if input_service and input_service.selection_rect:
+            pygame.draw.rect(self.screen, (0, 255, 0), input_service.selection_rect, 1)
 
     def draw_grid(self) -> None:
         """

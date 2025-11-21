@@ -67,7 +67,7 @@ class HUD:
         self.renderer = HudRenderer(self.layout, self.gm, self.world)
 
         # State
-        self.selected_entity = -1
+        self.selected_entities = []
         self.show_debug = False
         self.fps = 0.0
 
@@ -82,8 +82,8 @@ class HUD:
         Args:
             event (EntitySelectedEvent): The entity selected event.
         """
-        self.selected_entity = event.entity_id
-        self.events.set_selected_entity(self.selected_entity)
+        self.selected_entities = event.entity_ids
+        self.events.set_selected_entities(self.selected_entities)
         self._update_selection_window_layout()
 
     def on_game_paused(self, event: GamePausedEvent) -> None:
@@ -110,17 +110,27 @@ class HUD:
         # Selection is now handled via events, so we don't need to poll
 
         # Render Updates
-        self.renderer.update(dt, self.selected_entity, self.show_debug)
+        self.renderer.update(dt, self.selected_entities, self.show_debug)
 
     def _update_selection_window_layout(self) -> None:
         """
         Updates the layout of the selection window based on the selected entity type.
         """
-        if self.selected_entity == -1:
+        if not self.selected_entities:
             self.layout.close_selection_window()
-        else:
-            has_stats = self.world.has_component(self.selected_entity, YukkuriStats)
+        elif len(self.selected_entities) == 1:
+            entity_id = self.selected_entities[0]
+            has_stats = self.world.has_component(entity_id, YukkuriStats)
             self.layout.create_selection_window(has_stats)
+        else:
+            # Multiple selection
+            # Check if all have stats or mixed?
+            # For now, just enable bulk actions if possible, or generic window
+            # Assuming mixed selection might not have specific actions yet,
+            # but if all are yukkuris we can show bulk actions.
+
+            all_yukkuris = all(self.world.has_component(eid, YukkuriStats) for eid in self.selected_entities)
+            self.layout.create_selection_window(all_yukkuris) # Pass True if we want to show buttons for bulk actions
 
     def toggle_debug(self) -> None:
         """
@@ -157,6 +167,6 @@ class HUD:
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             if hasattr(self.layout, 'sell_btn') and event.ui_element == self.layout.sell_btn:
                 # The event handler called sell, we need to clear selection locally
-                self.selected_entity = -1
+                self.selected_entities = []
                 self.layout.close_selection_window()
-                self.events.set_selected_entity(-1)
+                self.events.set_selected_entities([])
