@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict, Any, Callable
+from typing import List, Dict, Any, Callable, Optional, Union
 import math
 
 @dataclass
@@ -74,12 +74,12 @@ class Action:
         name (str): The name of the action.
         considerations (List[Consideration]): A list of considerations that determine the utility of this action.
         weight (float): A base weight multiplier for the action's utility. Defaults to 1.0.
-        effects (Dict[str, Any]): A dictionary defining the effects of the action.
+        effects (Optional[Dict[str, Any]]): A dictionary defining the effects of the action.
     """
     name: str
     considerations: List[Consideration]
     weight: float = 1.0
-    effects: Dict[str, Any] | None = None
+    effects: Optional[Dict[str, Any]] = None
 
     def calculate_utility(self, context: Dict[str, Any]) -> float:
         """
@@ -96,17 +96,9 @@ class Action:
         if not self.considerations:
             return 0.0
 
-        score = 1.0
         # Simple multiplication (fuzzy AND) - if any consideration is 0, action is 0
         # Or average? Usually multiplication is best for "ALL must be good"
         # But for MVP let's do average of scores * weight
-
-        total_score = 0.0
-        count = 0
-
-        # "Dual Utility" approach often multiplies them.
-        # Let's multiply them. 0.9 * 0.9 = 0.81.
-        # But we also need to normalize inputs.
 
         final_score = self.weight
         for cons in self.considerations:
@@ -145,22 +137,60 @@ class UtilityAIEngine:
         """
         data = self.rm.ai_actions
         for act_name, act_data in data.items():
-            considerations = []
-            for cons_data in act_data.get("considerations", []):
-                c = Consideration(
+            self.actions[act_name] = self._parse_action(act_name, act_data)
+
+    def _parse_action(self, name: str, data: Any) -> Action:
+        """
+        Parses action data (either from dict or msgspec struct) into an Action object.
+
+        Args:
+            name: The name of the action.
+            data: The action data (dict or msgspec struct).
+
+        Returns:
+            Action: The parsed Action object.
+        """
+        considerations = []
+
+        if isinstance(data, dict):
+            # Handle dict input
+            cons_list = data.get("considerations", [])
+            for cons_data in cons_list:
+                considerations.append(Consideration(
                     name=cons_data.get("name", "unknown"),
                     input_key=cons_data.get("input"),
                     curve_type=cons_data.get("curve"),
                     params=cons_data.get("params", {})
-                )
-                considerations.append(c)
+                ))
 
-            self.actions[act_name] = Action(
-                name=act_name,
-                considerations=considerations,
-                weight=act_data.get("weight", 1.0),
-                effects=act_data.get("effects", {})
-            )
+            weight = data.get("weight", 1.0)
+            effects = data.get("effects", {})
+        else:
+            # Handle msgspec struct
+            for cons_obj in data.considerations:
+                considerations.append(Consideration(
+                    name=cons_obj.name,
+                    input_key=cons_obj.input,
+                    curve_type=cons_obj.curve,
+                    params=cons_obj.params
+                ))
+
+            weight = data.weight
+            effects = None
+            if data.effects:
+                effects = {
+                    "type": data.effects.type,
+                    "target_stat": data.effects.target_stat,
+                    "consume": data.effects.consume,
+                    "stat_changes": data.effects.stat_changes
+                }
+
+        return Action(
+            name=name,
+            considerations=considerations,
+            weight=weight,
+            effects=effects
+        )
 
     def select_action(self, context: Dict[str, Any]) -> str:
         """

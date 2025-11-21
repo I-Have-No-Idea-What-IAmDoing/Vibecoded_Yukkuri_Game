@@ -1,17 +1,25 @@
 import pygame
 import pygame_gui
-from typing import Optional, Callable
+from typing import Optional, Callable, Dict, Any
 
 class HudEvents:
     """
-    Handles UI events for the HUD.
+    Handles UI events for the HUD, such as button clicks.
+
+    Attributes:
+        layout (HudLayout): The layout component containing UI elements.
+        gm (GameManager): The GameManager instance for game logic.
+        callbacks (Dict[str, Callable]): A dictionary of callback functions for various actions.
+        selected_entity (int): The ID of the currently selected entity.
     """
-    def __init__(self, layout, game_manager, callbacks: dict):
+    def __init__(self, layout, game_manager, callbacks: Dict[str, Callable]):
         """
+        Initializes the HudEvents handler.
+
         Args:
-            layout (HudLayout): The layout component.
+            layout: The HudLayout component.
             game_manager: The GameManager instance.
-            callbacks (dict): Dictionary of callback functions.
+            callbacks: Dictionary of callback functions.
         """
         self.layout = layout
         self.gm = game_manager
@@ -19,11 +27,25 @@ class HudEvents:
         self.selected_entity = -1
 
     def set_selected_entity(self, entity_id: int):
+        """
+        Sets the ID of the currently selected entity.
+
+        Args:
+            entity_id: The entity ID.
+        """
         self.selected_entity = entity_id
 
     def process_event(self, event: pygame.event.Event) -> bool:
         """
-        Processes UI events. Returns True if an event was handled.
+        Processes UI events.
+
+        Handles button presses for main HUD controls and selection window actions.
+
+        Args:
+            event: The Pygame event.
+
+        Returns:
+            bool: True if an event was handled, False otherwise.
         """
         if event.type != pygame_gui.UI_BUTTON_PRESSED:
             return False

@@ -1,4 +1,5 @@
 import pymunk
+from typing import Any
 from ..engine.ecs import World
 from .components import Transform, Sprite, Selectable, PhysicsBody
 from .yukkuri_components import YukkuriStats, AIState, ItemStats
@@ -12,6 +13,7 @@ class EntityFactory:
     Attributes:
         world (World): The ECS World instance where entities are created.
         rm (ResourceManager): The resource manager to fetch entity data.
+        physics_system (PhysicsSystem): The physics system instance, used to add bodies to the space.
     """
 
     def __init__(self, world: World, resource_manager, physics_system=None):
@@ -26,6 +28,22 @@ class EntityFactory:
         self.world = world
         self.rm = resource_manager
         self.physics_system = physics_system
+
+    def _get_attr(self, data: Any, key: str, default: Any = None) -> Any:
+        """
+        Helper to get an attribute from either a dict or an object (msgspec struct).
+
+        Args:
+            data: The data object (dict or struct).
+            key: The key/attribute name.
+            default: Default value if not found.
+
+        Returns:
+            The value of the attribute.
+        """
+        if isinstance(data, dict):
+            return data.get(key, default)
+        return getattr(data, key, default)
 
     def create_yukkuri(self, type_id: str, x: float, y: float) -> int:
         """
@@ -48,12 +66,17 @@ class EntityFactory:
 
         entity = self.world.create_entity()
 
+        image = self._get_attr(data, 'image', "yukkuri_default.png")
+        width = self._get_attr(data, 'width', 64)
+        height = self._get_attr(data, 'height', 64)
+        max_health = self._get_attr(data, 'max_health', 100)
+
         # Core Components
         self.world.add_component(entity, Transform(x=x, y=y))
         self.world.add_component(entity, Sprite(
-            image_name=data.get("image", "yukkuri_default.png"),
-            width=data.get("width", 64),
-            height=data.get("height", 64)
+            image_name=image,
+            width=width,
+            height=height
         ))
         self.world.add_component(entity, Selectable())
 
@@ -61,8 +84,8 @@ class EntityFactory:
         stats = YukkuriStats(
             name=f"{type_id}_{entity}",
             type_id=type_id,
-            max_health=data.get("max_health", 100),
-            health=data.get("max_health", 100)
+            max_health=max_health,
+            health=max_health
         )
         self.world.add_component(entity, stats)
 
@@ -107,29 +130,47 @@ class EntityFactory:
         entity = self.world.create_entity()
 
         self.world.add_component(entity, Transform(x=x, y=y))
+
+        image = self._get_attr(data, 'image', "item_default.png")
+        width = self._get_attr(data, 'width', 32)
+        height = self._get_attr(data, 'height', 32)
+
+        name = self._get_attr(data, 'name', "Item")
+        cost = self._get_attr(data, 'cost', 10)
+
+        nutrition = self._get_attr(data, 'nutrition', 0)
+        # Ensure None is treated as 0 if key exists but is None (msgspec optional)
+        if nutrition is None: nutrition = 0
+
+        fun = self._get_attr(data, 'fun', 0)
+        if fun is None: fun = 0
+
+        comfort = self._get_attr(data, 'comfort', 0)
+        if comfort is None: comfort = 0
+
+        is_portable = self._get_attr(data, 'is_portable', False)
+
         self.world.add_component(entity, Sprite(
-            image_name=data.get("image", "item_default.png"),
-            width=data.get("width", 32),
-            height=data.get("height", 32)
+            image_name=image,
+            width=width,
+            height=height
         ))
         self.world.add_component(entity, Selectable())
 
         stats = ItemStats(
-            name=data.get("name", "Item"),
+            name=name,
             type_id=type_id,
-            cost=data.get("cost", 10),
-            nutrition=data.get("nutrition", 0),
-            fun=data.get("fun", 0),
-            comfort=data.get("comfort", 0),
-            is_portable=data.get("is_portable", False)
+            cost=cost,
+            nutrition=nutrition,
+            fun=fun,
+            comfort=comfort,
+            is_portable=is_portable
         )
         self.world.add_component(entity, stats)
 
         # Physics
         if self.physics_system:
             mass = 1
-            width = data.get("width", 32)
-            height = data.get("height", 32)
             # Use a box for items? or circle? Box is simpler for now given width/height
             inertia = pymunk.moment_for_box(mass, (width, height))
             body = pymunk.Body(mass, inertia)

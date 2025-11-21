@@ -9,6 +9,7 @@ A simulation game where you raise "Yukkuri" creatures in a virtual environment. 
 - [Gameplay Guide](#gameplay-guide)
 - [Customization](#customization)
 - [Project Structure](#project-structure)
+- [Development](#development)
 
 ## Setup
 
@@ -120,10 +121,22 @@ params = { m = 1.0, b = 0.0 }
 
 -   `src/yukkuri_game/engine/`: Core engine components (Audio, ECS, GameLoop, ResourceManager).
 -   `src/yukkuri_game/game/`: Game-specific logic.
-    -   `ai/`: Utility AI and Pathfinding.
-    -   `systems/`: ECS Systems (Simulation).
-    -   `ui/`: HUD and UI management.
-    -   `components.py`: ECS Components.
-    -   `entity_factory.py`: Creator for game entities.
+    -   `ai/`: Utility AI (Behavior Trees & Utility Scoring) and Pathfinding.
+    -   `systems/`: ECS Systems (Physics, Simulation, etc.).
+    -   `ui/`: HUD and UI management using `pygame_gui`.
+    -   `components.py`: Generic ECS Components (Transform, Sprite, etc.).
+    -   `yukkuri_components.py`: Game-specific components (YukkuriStats, AIState).
+    -   `entity_factory.py`: Factory for creating game entities.
+    -   `game_manager.py`: Manages global game state (Money, Time, Save/Load).
 -   `data/`: Configuration files (TOML).
 -   `assets/`: Game assets (Images, Sounds).
+
+## Development
+
+The codebase uses Google Style Python Docstrings for all public functions, methods, and classes.
+
+### Testing
+To run tests (if available):
+```bash
+pytest
+```
