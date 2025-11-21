@@ -1,112 +1,117 @@
-import pytest
+import unittest
 from unittest.mock import MagicMock, patch
 import pygame
-from yukkuri_game.engine.audio import AudioManager
+from src.yukkuri_game.engine.audio import AudioManager
 
-@pytest.fixture
-def mock_pygame_mixer():
-    with patch('pygame.mixer') as mock_mixer:
-        mock_mixer.Sound = MagicMock()
-        yield mock_mixer
+class TestAudio(unittest.TestCase):
+    def setUp(self):
+        # Patch pygame.mixer.init to control successful initialization
+        self.mixer_init_patcher = patch('pygame.mixer.init')
+        self.mock_mixer_init = self.mixer_init_patcher.start()
 
-@pytest.fixture
-def audio_manager(mock_pygame_mixer):
-    return AudioManager()
+    def tearDown(self):
+        self.mixer_init_patcher.stop()
 
-def test_audio_manager_init_success(mock_pygame_mixer):
-    """Test successful initialization of AudioManager."""
-    am = AudioManager()
-    assert am.enabled is True
-    mock_pygame_mixer.init.assert_called_once()
-    assert am.volume == 0.5
-    assert am.sounds == {}
+    def test_init_success(self):
+        audio = AudioManager()
+        self.assertTrue(audio.enabled)
+        self.mock_mixer_init.assert_called_once()
 
-def test_audio_manager_init_failure():
-    """Test initialization failure when pygame.error is raised."""
-    with patch('pygame.mixer.init', side_effect=pygame.error("No device")):
-        am = AudioManager()
-        assert am.enabled is False
+    def test_init_failure(self):
+        self.mock_mixer_init.side_effect = pygame.error("No device")
+        audio = AudioManager()
+        self.assertFalse(audio.enabled)
 
-def test_load_sound_success(audio_manager, mock_pygame_mixer):
-    """Test loading a sound successfully."""
-    with patch('os.path.exists', return_value=True):
-        audio_manager.load_sound("test_sound", "path/to/sound.wav")
+    @patch('pygame.mixer.Sound')
+    @patch('os.path.exists')
+    def test_load_sound_success(self, mock_exists, mock_sound_class):
+        mock_exists.return_value = True
+        mock_sound_instance = MagicMock()
+        mock_sound_class.return_value = mock_sound_instance
 
-        assert "test_sound" in audio_manager.sounds
-        mock_pygame_mixer.Sound.assert_called_with("path/to/sound.wav")
-        audio_manager.sounds["test_sound"].set_volume.assert_called_with(0.5)
+        audio = AudioManager()
+        audio.load_sound("test", "test.wav")
 
-def test_load_sound_file_not_found(audio_manager):
-    """Test loading a sound that does not exist."""
-    with patch('os.path.exists', return_value=False):
-        audio_manager.load_sound("test_sound", "nonexistent.wav")
-        assert "test_sound" not in audio_manager.sounds
+        self.assertIn("test", audio.sounds)
+        self.assertEqual(audio.sounds["test"], mock_sound_instance)
+        mock_sound_instance.set_volume.assert_called_with(audio.volume)
 
-def test_load_sound_disabled(mock_pygame_mixer):
-    """Test loading sound when audio is disabled."""
-    with patch('pygame.mixer.init', side_effect=pygame.error("No device")):
-        am = AudioManager()
-        am.load_sound("test", "path.wav")
-        assert "test" not in am.sounds
+    @patch('pygame.mixer.Sound')
+    @patch('os.path.exists')
+    def test_load_sound_file_not_found(self, mock_exists, mock_sound_class):
+        mock_exists.return_value = False
 
-def test_load_sound_exception(audio_manager):
-    """Test exception handling during sound loading."""
-    with patch('os.path.exists', return_value=True):
-        # We need to mock AudioManager.sounds before calling load_sound,
-        # or ensure we are patching where it's used.
-        # In `audio.py`: `self.sounds[name] = pygame.mixer.Sound(filepath)`
-        # The exception happens at `pygame.mixer.Sound`.
+        audio = AudioManager()
+        audio.load_sound("test", "test.wav")
 
-        # The issue might be that I am using `audio_manager` fixture which uses `mock_pygame_mixer` fixture.
-        # `mock_pygame_mixer` patches `pygame.mixer` and sets `Sound` to a MagicMock.
-        # Here I am trying to patch `pygame.mixer.Sound` again.
+        self.assertNotIn("test", audio.sounds)
+        mock_sound_class.assert_not_called()
 
-        # Instead of patching again, let's configure the existing mock.
-        pygame.mixer.Sound.side_effect = Exception("Load error")
+    @patch('pygame.mixer.Sound')
+    @patch('os.path.exists')
+    def test_load_sound_exception(self, mock_exists, mock_sound_class):
+        mock_exists.return_value = True
+        mock_sound_class.side_effect = Exception("Load error")
 
-        audio_manager.load_sound("broken", "path.wav")
-        assert "broken" not in audio_manager.sounds
+        audio = AudioManager()
+        audio.load_sound("test", "test.wav")
 
-        # Reset side effect for other tests if shared (though fixtures scope function usually)
-        pygame.mixer.Sound.side_effect = None
+        self.assertNotIn("test", audio.sounds)
 
-def test_play_sound(audio_manager, mock_pygame_mixer):
-    """Test playing a sound."""
-    mock_sound = MagicMock()
-    audio_manager.sounds["test"] = mock_sound
+    def test_load_sound_disabled(self):
+        self.mock_mixer_init.side_effect = pygame.error("No device")
+        audio = AudioManager()
 
-    audio_manager.play_sound("test")
-    mock_sound.play.assert_called_once()
+        with patch('os.path.exists') as mock_exists:
+             audio.load_sound("test", "test.wav")
+             mock_exists.assert_not_called()
 
-def test_play_sound_not_found(audio_manager):
-    """Test playing a sound that hasn't been loaded."""
-    audio_manager.play_sound("missing")
-    # Should not raise error
+    @patch('pygame.mixer.Sound')
+    @patch('os.path.exists')
+    def test_play_sound(self, mock_exists, mock_sound_class):
+        mock_exists.return_value = True
+        mock_sound_instance = MagicMock()
+        mock_sound_class.return_value = mock_sound_instance
 
-def test_play_sound_disabled(mock_pygame_mixer):
-    """Test playing sound when disabled."""
-    with patch('pygame.mixer.init', side_effect=pygame.error("No device")):
-        am = AudioManager()
-        am.play_sound("test")
-        # Should do nothing
+        audio = AudioManager()
+        audio.load_sound("test", "test.wav")
 
-def test_set_volume(audio_manager):
-    """Test setting volume."""
-    mock_sound1 = MagicMock()
-    mock_sound2 = MagicMock()
-    audio_manager.sounds["s1"] = mock_sound1
-    audio_manager.sounds["s2"] = mock_sound2
+        audio.play_sound("test")
+        mock_sound_instance.play.assert_called_once()
 
-    audio_manager.set_volume(0.8)
+        audio.play_sound("missing")
+        # Should not raise error
 
-    assert audio_manager.volume == 0.8
-    mock_sound1.set_volume.assert_called_with(0.8)
-    mock_sound2.set_volume.assert_called_with(0.8)
+    def test_play_sound_disabled(self):
+        self.mock_mixer_init.side_effect = pygame.error("No device")
+        audio = AudioManager()
+        # Manually inject sound to verify play logic is skipped
+        mock_sound = MagicMock()
+        audio.sounds["test"] = mock_sound
 
-def test_set_volume_clamping(audio_manager):
-    """Test that volume is clamped between 0.0 and 1.0."""
-    audio_manager.set_volume(1.5)
-    assert audio_manager.volume == 1.0
+        audio.play_sound("test")
+        mock_sound.play.assert_not_called()
 
-    audio_manager.set_volume(-0.5)
-    assert audio_manager.volume == 0.0
+    @patch('pygame.mixer.Sound')
+    @patch('os.path.exists')
+    def test_set_volume(self, mock_exists, mock_sound_class):
+        mock_exists.return_value = True
+        mock_sound_instance = MagicMock()
+        mock_sound_class.return_value = mock_sound_instance
+
+        audio = AudioManager()
+        audio.load_sound("test", "test.wav")
+
+        audio.set_volume(0.8)
+        self.assertEqual(audio.volume, 0.8)
+        mock_sound_instance.set_volume.assert_called_with(0.8)
+
+        # Test clamping
+        audio.set_volume(1.5)
+        self.assertEqual(audio.volume, 1.0)
+
+        audio.set_volume(-0.5)
+        self.assertEqual(audio.volume, 0.0)
+
+if __name__ == '__main__':
+    unittest.main()

@@ -84,6 +84,12 @@ class TestIntegration(unittest.TestCase):
              unittest.mock.patch('src.yukkuri_game.game.ui.hud.HudRenderer') as MockRenderer, \
              unittest.mock.patch('src.yukkuri_game.game.ui.hud.HudEvents') as MockEvents:
 
+            # The factory mock needs an 'rm' attribute which has yukkuri_types and item_types
+            rm_mock = Mock()
+            rm_mock.yukkuri_types = {}
+            rm_mock.item_types = {}
+            self.factory.rm = rm_mock
+
             hud = HUD(self.ui_manager, self.world)
 
             # Publish event

@@ -22,6 +22,13 @@ def hud(mock_ui_manager, mock_world):
     # Mock services used in HUD init
     gm = MagicMock(spec=GameManager)
     factory = MagicMock(spec=EntityFactory)
+
+    # Add rm mock to factory
+    rm_mock = MagicMock()
+    rm_mock.yukkuri_types = {}
+    rm_mock.item_types = {}
+    factory.rm = rm_mock
+
     event_bus = MagicMock(spec=EventBus)
 
     mock_world.services.get.side_effect = lambda t: gm if t == GameManager else (factory if t == EntityFactory else (event_bus if t == EventBus else None))

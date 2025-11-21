@@ -153,7 +153,7 @@ def test_render_system_update():
 
     world.get_component.side_effect = get_component_side_effect
 
-    with patch('pygame.draw.line'):
+    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
         rs.update(world, 0.016)
 
         # Verify grid drawing (lines)
@@ -247,7 +247,14 @@ def test_render_system_update_culling():
     rect = MagicMock()
     # Not colliding -> Culled
     rect.colliderect.return_value = False
+
+    # img.subsurface() returns a mock, we need that mock's get_rect to return our rect
+    subsurface = MagicMock()
+    subsurface.get_rect.return_value = rect
+    img.subsurface.return_value = subsurface
+    # Also if no subsurface is done (optimization), it uses img directly
     img.get_rect.return_value = rect
+
     rm.load_image.return_value = img
 
     world = MagicMock()
@@ -272,7 +279,7 @@ def test_render_system_update_culling():
 
     world.get_component.side_effect = lambda e, c: transform if c == Transform else (sprite if c == Sprite else None)
 
-    with patch('pygame.draw.line'):
+    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
         rs.update(world, 0.016)
 
         # Should not blit if culled
@@ -310,7 +317,7 @@ def test_render_system_update_invalid_size():
 
     world.get_component.side_effect = lambda e, c: transform if c == Transform else (sprite if c == Sprite else None)
 
-    with patch('pygame.draw.line'):
+    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
         rs.update(world, 0.016)
 
         # Should not blit if size <= 0
@@ -355,7 +362,7 @@ def test_render_system_missing_components():
 
     world.get_component.side_effect = get_component_side_effect
 
-    with patch('pygame.draw.line'):
+    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
         rs.update(world, 0.016)
 
         # Should continue and not crash or do anything
