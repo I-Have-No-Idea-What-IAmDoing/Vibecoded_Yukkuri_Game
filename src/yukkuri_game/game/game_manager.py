@@ -8,7 +8,9 @@ from ..engine.audio import AudioManager
 from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats
 from .services import EconomyService, PersistenceService, TimeService
+from .ai.navigation_service import NavigationService
 from .events import TrainEntityRequest, SellEntityRequest
+from ..config import GameConfig
 
 if TYPE_CHECKING:
     from .entity_factory import EntityFactory
@@ -40,6 +42,21 @@ class GameManager:
             self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
 
         self.audio = world.services.try_get(AudioManager)
+
+        # Initialize Navigation Service
+        game_config = world.services.try_get(GameConfig)
+        if game_config:
+             world.services.register(
+                 NavigationService(
+                     world_width=game_config.world.width,
+                     world_height=game_config.world.height,
+                     grid_step_size=game_config.world.grid_step_size
+                 )
+             )
+        else:
+             # Fallback if no config (mainly for testing or if config loaded later)
+             world.services.register(NavigationService(3000, 3000))
+
 
     @property
     def time_elapsed(self) -> float:

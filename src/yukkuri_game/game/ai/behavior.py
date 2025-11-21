@@ -7,7 +7,8 @@ from py_trees.common import Status
 from typing import Optional, Callable, Any, TYPE_CHECKING, Dict
 from ..components import Transform, PhysicsBody, Velocity
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats
-from ..ai.pathfinding import Pathfinding
+from .navigation_service import NavigationService
+from .steering import Steering
 from ..services import GameService
 from ..config import GameConfig
 
@@ -73,6 +74,9 @@ class MoveToTarget(Action):
         """
         super().__init__(name, entity_id, world, blackboard)
         self.speed = speed
+        self.last_position: Optional[Tuple[float, float]] = None
+        self.stuck_timer: float = 0.0
+        self.stuck_threshold: float = 1.0 # Seconds
 
     def update(self) -> Status:
         """
@@ -112,6 +116,33 @@ class MoveToTarget(Action):
         if target_pos is None:
             return Status.FAILURE
 
+        dt = py_trees.blackboard.Blackboard().get("dt")
+        if dt is None:
+             dt = 0.016
+        dt = float(dt)
+
+        # Stuck Detection
+        if self.last_position:
+            moved_dist = math.hypot(trans.x - self.last_position[0], trans.y - self.last_position[1])
+            if moved_dist < (self.speed * dt * 0.1): # Moved less than 10% of expected speed
+                 self.stuck_timer += dt
+            else:
+                 self.stuck_timer = 0.0
+
+        self.last_position = (trans.x, trans.y)
+
+        if self.stuck_timer > self.stuck_threshold:
+             # Wiggle or repath
+             self.stuck_timer = 0.0
+             ai.path = None # Force repath
+             # Apply random force
+             if phys:
+                  angle = random.uniform(0, math.pi * 2)
+                  force = 5000.0
+                  phys.body.apply_impulse_at_local_point((math.cos(angle) * force, math.sin(angle) * force))
+             return Status.RUNNING
+
+
         # Pathfinding
         if ai.path is None or len(ai.path) == 0:
              # Simple check to see if we need pathfinding or just straight line
@@ -120,17 +151,13 @@ class MoveToTarget(Action):
              if math.hypot(target_pos[0] - trans.x, target_pos[1] - trans.y) < 15.0:
                  return Status.SUCCESS
 
-             game_config = self.world.services.try_get(GameConfig)
-             world_width = 3000
-             world_height = 3000
-             grid_step_size = 50
+             nav_service = self.world.services.try_get(NavigationService)
+             if nav_service:
+                 ai.path = nav_service.find_path((trans.x, trans.y), target_pos)
+             else:
+                 # Fallback if service not available (shouldn't happen)
+                 return Status.FAILURE
 
-             if game_config:
-                 world_width = game_config.world.width
-                 world_height = game_config.world.height
-                 grid_step_size = game_config.world.grid_step_size
-
-             ai.path = Pathfinding.find_path((trans.x, trans.y), target_pos, world_width, world_height, grid_step_size)
              if not ai.path:
                  return Status.FAILURE
 
@@ -148,36 +175,37 @@ class MoveToTarget(Action):
                 ai.path = []
                 return Status.SUCCESS
 
-            if dist < 5.0: # Reached waypoint
+            if dist < 15.0: # Reached waypoint (increased threshold for smoother cornering)
                 ai.path.pop(0)
                 if not ai.path: # Reached end of path
                     return Status.SUCCESS
-            else:
-                # Normalize direction
-                dx /= dist
-                dy /= dist
+                # Recalculate next point
+                next_point = ai.path[0]
 
-                # Apply movement
-                if phys:
-                    # Use physics velocity
-                    phys.body.velocity = (dx * self.speed, dy * self.speed)
-                    # Wake up body just in case
-                    phys.body.activate()
+            # Steering
+            if phys:
+                # Use Arrive for the last point, Seek for others
+                if len(ai.path) == 1:
+                    velocity = Steering.arrive((trans.x, trans.y), next_point, self.speed)
                 else:
-                    # Fallback to direct transform manipulation
-                    # We read delta time from blackboard if available
-                    dt = py_trees.blackboard.Blackboard().get("dt")
-                    # Check if dt is None or invalid
-                    if dt is None:
-                         dt = 0.016 # Fallback to ~60FPS
+                    current_vel = (phys.body.velocity.x, phys.body.velocity.y)
+                    velocity = Steering.seek((trans.x, trans.y), next_point, self.speed, current_vel)
 
-                    step = self.speed * float(dt)
-                    if step > dist:
-                        trans.x = next_point[0]
-                        trans.y = next_point[1]
-                    else:
-                        trans.x += dx * step
-                        trans.y += dy * step
+                phys.body.velocity = velocity
+                phys.body.activate()
+            else:
+                # Fallback to direct transform manipulation
+                step = self.speed * dt
+                if step > dist:
+                    trans.x = next_point[0]
+                    trans.y = next_point[1]
+                else:
+                    # Normalize
+                    if dist > 0:
+                         dx /= dist
+                         dy /= dist
+                         trans.x += dx * step
+                         trans.y += dy * step
 
             return Status.RUNNING
 
