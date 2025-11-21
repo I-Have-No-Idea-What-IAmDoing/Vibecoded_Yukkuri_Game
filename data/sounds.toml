@@ -1,0 +1,9 @@
+# Sound mapping configuration
+[sounds]
+click = "data/audio/click.wav"
+place = "data/audio/place.wav"
+cancel = "data/audio/cancel.wav"
+sell = "data/audio/sell.wav"
+train = "data/audio/train.wav"
+eat = "data/audio/eat.wav"
+cry = "data/audio/cry.wav"

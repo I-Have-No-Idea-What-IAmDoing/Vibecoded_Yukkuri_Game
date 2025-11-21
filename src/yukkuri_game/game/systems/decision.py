@@ -1,5 +1,7 @@
 from typing import Dict, Any
+import random
 from ...engine.ecs import System, World
+from ...engine.audio import AudioManager
 from ..yukkuri_components import YukkuriStats, AIState
 from ..ai.utility import UtilityAIEngine
 
@@ -47,6 +49,7 @@ class DecisionSystem(System):
         Args:
             world (World): The ECS World.
         """
+        audio = world.services.try_get(AudioManager)
         for entity, (stats, ai) in world.get_components_tuple(YukkuriStats, AIState):
             context = {
                 "hunger": stats.hunger,
@@ -64,3 +67,11 @@ class DecisionSystem(System):
                 # Reset target if action changes? Not necessarily, behavior tree handles target selection usually.
                 # But maybe we should reset it if the new action doesn't use it?
                 # For now, keeping behavior identical to original YukkuriAISystem.
+
+            # Randomly trigger a cry if happiness is low or just rarely
+            if audio:
+                if stats.happiness < 30:
+                    if random.random() < 0.1: # 10% chance per decision interval (1 sec)
+                         audio.play_sound("cry")
+                elif random.random() < 0.01: # 1% chance otherwise
+                     audio.play_sound("cry")
