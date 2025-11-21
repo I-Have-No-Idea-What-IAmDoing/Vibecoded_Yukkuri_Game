@@ -5,6 +5,7 @@ import argparse
 import pygame
 from .engine.core import GameLoop
 from .engine.audio import AudioManager
+from .engine.resource_manager import ResourceManager
 from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from .game.game_manager import GameManager
 from .game.entity_factory import EntityFactory
@@ -38,18 +39,27 @@ class YukkuriGame(GameLoop):
 
         Initializes ECS systems, UI, and initial entities.
         """
-        # Systems
+        # Core Systems & Service Registration
         self.yukkurrium = Yukkurrium(width=3000, height=3000)
         self.audio = AudioManager()
-
         self.physics_system = PhysicsSystem()
 
+        self.world.services.register(self.resources, ResourceManager)
+        self.world.services.register(self.yukkurrium)
+        self.world.services.register(self.physics_system)
+
         # Factory & Game Manager
-        self.factory = EntityFactory(self.world, self.resources, self.physics_system)
-        self.gm = GameManager(self.world, self.factory)
+        self.factory = EntityFactory(self.world)
+        self.world.services.register(self.factory)
+
+        self.gm = GameManager(self.world)
+        self.world.services.register(self.gm)
 
         # AI
         self.ai_engine = UtilityAIEngine(self.resources)
+        # Could register AI engine if needed by others, e.g. YukkuriAISystem might fetch it?
+        # For now YukkuriAISystem takes it in constructor, but let's register it just in case.
+        self.world.services.register(self.ai_engine)
 
         # Add Systems
         self.input_system = InputSystem(self.yukkurrium)
@@ -60,12 +70,12 @@ class YukkuriGame(GameLoop):
         self.world.add_system(YukkuriAISystem(self.ai_engine, float(self.yukkurrium.width), float(self.yukkurrium.height)))
 
         if not self.headless:
-            self.render_system = RenderSystem(self.screen, self.yukkurrium, self.resources)
+            self.render_system = RenderSystem(self.screen, self.world)
             # RenderSystem is not added to world updates because it should be called in render_world
             # self.world.add_system(self.render_system)
 
             # UI
-            self.hud = HUD(self.ui_manager, self.gm, self.world, self.factory)
+            self.hud = HUD(self.ui_manager, self.world)
             # Callbacks are set in HUD init or handled via method binding if exposed
             # For this structure, we'll assume HUD has these methods or we need to pass them.
             # If HUD doesn't have these attributes defined in its class, we can't just assign them if strict typing is on.
