@@ -1,47 +1,89 @@
+
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 import pygame
 import pygame_gui
 from src.yukkuri_game.game.ui.hud_events import HudEvents
-from src.yukkuri_game.game.ui.hud_layout import HudLayout
-from src.yukkuri_game.game.game_manager import GameManager
-from src.yukkuri_game.engine.event_bus import EventBus
 from src.yukkuri_game.game.events import PlacementStartedEvent
 
 class TestHudEvents(unittest.TestCase):
     def setUp(self):
-        self.layout_mock = MagicMock(spec=HudLayout)
-        self.gm_mock = MagicMock(spec=GameManager)
-        self.event_bus_mock = MagicMock(spec=EventBus)
-
-        self.hud_events = HudEvents(self.layout_mock, self.gm_mock, self.event_bus_mock)
+        self.layout = Mock()
+        self.gm = Mock()
+        self.event_bus = Mock()
+        self.on_error = Mock()
 
         # Setup mock buttons
-        self.layout_mock.add_reimu_btn = MagicMock()
-        self.layout_mock.add_cookie_btn = MagicMock()
-        self.layout_mock.save_btn = MagicMock()
-        self.layout_mock.load_btn = MagicMock()
-        self.layout_mock.pause_btn = MagicMock()
-        self.layout_mock.speed_btn = MagicMock()
-        self.layout_mock.selection_window = None
+        self.layout.add_reimu_btn = Mock()
+        self.layout.add_cookie_btn = Mock()
 
-    def test_add_reimu_emits_event(self):
-        # Setup money
-        self.gm_mock.money = 200
+        self.hud_events = HudEvents(self.layout, self.gm, self.event_bus, self.on_error)
 
-        event = pygame.event.Event(pygame_gui.UI_BUTTON_PRESSED, {'ui_element': self.layout_mock.add_reimu_btn})
-        self.hud_events.process_event(event)
+    def test_buy_reimu_success(self):
+        # Setup
+        self.gm.money = 1000
+        event = Mock(spec=pygame.event.Event)
+        event.type = pygame_gui.UI_BUTTON_PRESSED
+        event.ui_element = self.layout.add_reimu_btn
 
-        self.event_bus_mock.publish.assert_called_with(PlacementStartedEvent("reimu", 100, "yukkuri"))
+        # Execute
+        result = self.hud_events.process_event(event)
 
-    def test_add_cookie_emits_event(self):
-        # Setup money
-        self.gm_mock.money = 20
+        # Verify
+        self.assertTrue(result)
+        self.event_bus.publish.assert_called_once()
+        args, _ = self.event_bus.publish.call_args
+        self.assertIsInstance(args[0], PlacementStartedEvent)
+        self.assertEqual(args[0].type_id, "reimu")
+        self.on_error.assert_not_called()
 
-        event = pygame.event.Event(pygame_gui.UI_BUTTON_PRESSED, {'ui_element': self.layout_mock.add_cookie_btn})
-        self.hud_events.process_event(event)
+    def test_buy_reimu_not_enough_money(self):
+        # Setup
+        self.gm.money = 50
+        event = Mock(spec=pygame.event.Event)
+        event.type = pygame_gui.UI_BUTTON_PRESSED
+        event.ui_element = self.layout.add_reimu_btn
 
-        self.event_bus_mock.publish.assert_called_with(PlacementStartedEvent("cookie", 10, "item"))
+        # Execute
+        result = self.hud_events.process_event(event)
+
+        # Verify
+        self.assertTrue(result) # Still returns True as event was handled
+        self.event_bus.publish.assert_not_called()
+        self.on_error.assert_called_once_with("Not enough money to buy Reimu! Needed: $100")
+
+    def test_buy_cookie_success(self):
+        # Setup
+        self.gm.money = 100
+        event = Mock(spec=pygame.event.Event)
+        event.type = pygame_gui.UI_BUTTON_PRESSED
+        event.ui_element = self.layout.add_cookie_btn
+
+        # Execute
+        result = self.hud_events.process_event(event)
+
+        # Verify
+        self.assertTrue(result)
+        self.event_bus.publish.assert_called_once()
+        args, _ = self.event_bus.publish.call_args
+        self.assertIsInstance(args[0], PlacementStartedEvent)
+        self.assertEqual(args[0].type_id, "cookie")
+        self.on_error.assert_not_called()
+
+    def test_buy_cookie_not_enough_money(self):
+        # Setup
+        self.gm.money = 5
+        event = Mock(spec=pygame.event.Event)
+        event.type = pygame_gui.UI_BUTTON_PRESSED
+        event.ui_element = self.layout.add_cookie_btn
+
+        # Execute
+        result = self.hud_events.process_event(event)
+
+        # Verify
+        self.assertTrue(result)
+        self.event_bus.publish.assert_not_called()
+        self.on_error.assert_called_once_with("Not enough money to buy Cookie! Needed: $10")
 
 if __name__ == '__main__':
     unittest.main()

@@ -24,7 +24,7 @@ class HudEvents:
         event_bus (EventBus): The event bus.
         selected_entity (int): The ID of the currently selected entity.
     """
-    def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', event_bus: EventBus):
+    def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', event_bus: EventBus, on_error: Optional[Callable[[str], None]] = None):
         """
         Initializes the HudEvents handler.
 
@@ -32,10 +32,12 @@ class HudEvents:
             layout (HudLayout): The HudLayout component.
             game_manager (GameManager): The GameManager instance.
             event_bus (EventBus): The event bus.
+            on_error (Callable[[str], None], optional): Callback for error reporting.
         """
         self.layout = layout
         self.gm = game_manager
         self.event_bus = event_bus
+        self.on_error = on_error
         self.selected_entities: list[int] = []
 
     def set_selected_entities(self, entity_ids: list[int]) -> None:
@@ -83,11 +85,15 @@ class HudEvents:
         if ui_element == self.layout.add_reimu_btn:
             if self.gm.money >= 100:
                 self.event_bus.publish(PlacementStartedEvent("reimu", 100, "yukkuri"))
+            elif self.on_error:
+                self.on_error("Not enough money to buy Reimu! Needed: $100")
             return True
 
         if ui_element == self.layout.add_cookie_btn:
             if self.gm.money >= 10:
                 self.event_bus.publish(PlacementStartedEvent("cookie", 10, "item"))
+            elif self.on_error:
+                self.on_error("Not enough money to buy Cookie! Needed: $10")
             return True
 
         if self.layout.selection_window:
