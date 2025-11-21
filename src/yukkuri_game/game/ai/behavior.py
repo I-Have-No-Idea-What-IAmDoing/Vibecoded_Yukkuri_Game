@@ -1,15 +1,19 @@
 import py_trees
 import math
 import random
+from typing import Optional, Callable, Any, TYPE_CHECKING
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
 from ..components import Transform, PhysicsBody, Velocity
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats
 from ..ai.pathfinding import Pathfinding
 
+if TYPE_CHECKING:
+    from yukkuri_game.engine.ecs import World
+
 # --- Behavior Tree Leaves (Actions) ---
 
-class Action(Behaviour):
+class Action(Behaviour): # type: ignore[misc]
     """
     Base class for AI actions in the Behavior Tree.
 
@@ -18,7 +22,7 @@ class Action(Behaviour):
         world (World): The ECS World instance.
         blackboard (py_trees.blackboard.Blackboard): The Behavior Tree blackboard.
     """
-    def __init__(self, name="Action", entity_id=None, world=None, blackboard=None):
+    def __init__(self, name: str = "Action", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None):
         """
         Initializes the Action.
 
@@ -33,7 +37,7 @@ class Action(Behaviour):
         self.world = world
         self.blackboard = blackboard
 
-    def update(self):
+    def update(self) -> Status:
         """
         Updates the behavior.
 
@@ -50,7 +54,7 @@ class MoveToTarget(Action):
 
     This implementation uses PhysicsBody if available, or direct Transform manipulation.
     """
-    def __init__(self, name="Move To Target", entity_id=None, world=None, blackboard=None, speed=100.0):
+    def __init__(self, name: str = "Move To Target", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None, speed: float = 100.0):
         """
         Initializes the MoveToTarget action.
 
@@ -64,7 +68,7 @@ class MoveToTarget(Action):
         super().__init__(name, entity_id, world, blackboard)
         self.speed = speed
 
-    def update(self):
+    def update(self) -> Status:
         """
         Updates the movement logic.
 
@@ -75,6 +79,9 @@ class MoveToTarget(Action):
             Status: RUNNING if moving, SUCCESS if reached target, FAILURE if target lost or unreachable.
         """
         super().update()
+        if self.world is None or self.entity_id is None:
+            return Status.FAILURE
+
         ai = self.world.get_component(self.entity_id, AIState)
         trans = self.world.get_component(self.entity_id, Transform)
         phys = self.world.get_component(self.entity_id, PhysicsBody)
@@ -143,7 +150,7 @@ class MoveToTarget(Action):
                     if dt is None:
                          dt = 0.016 # Fallback to ~60FPS
 
-                    step = self.speed * dt
+                    step = self.speed * float(dt)
                     if step > dist:
                         trans.x = next_point[0]
                         trans.y = next_point[1]
@@ -159,7 +166,7 @@ class Wander(Action):
     """
     Causes the entity to wander to a random location.
     """
-    def __init__(self, name="Wander", entity_id=None, world=None, blackboard=None, width=3000, height=3000):
+    def __init__(self, name: str = "Wander", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None, width: int = 3000, height: int = 3000):
         """
         Initializes the Wander action.
 
@@ -174,12 +181,15 @@ class Wander(Action):
         super().__init__(name, entity_id, world, blackboard)
         self.width = width
         self.height = height
-        self.move_action = None
+        self.move_action: Optional[MoveToTarget] = None
 
-    def initialise(self):
+    def initialise(self) -> None:
         """
         Selects a random target location and initializes the move action.
         """
+        if self.world is None or self.entity_id is None:
+            return
+
         ai = self.world.get_component(self.entity_id, AIState)
         if ai:
             # Pick a random point
@@ -191,7 +201,7 @@ class Wander(Action):
         # Create a temporary MoveToTarget to handle the actual movement logic
         self.move_action = MoveToTarget(entity_id=self.entity_id, world=self.world, blackboard=self.blackboard)
 
-    def update(self):
+    def update(self) -> Status:
         """
         Updates the move action.
 
@@ -206,7 +216,7 @@ class Interact(Action):
     """
     Handles interaction with a target entity (e.g., eating food).
     """
-    def __init__(self, name="Interact", entity_id=None, world=None, blackboard=None):
+    def __init__(self, name: str = "Interact", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None):
         """
         Initializes the Interact action.
 
@@ -218,7 +228,7 @@ class Interact(Action):
         """
         super().__init__(name, entity_id, world, blackboard)
 
-    def update(self):
+    def update(self) -> Status:
         """
         Checks distance to target and performs interaction if close enough.
 
@@ -226,6 +236,9 @@ class Interact(Action):
             Status: SUCCESS if interaction complete, RUNNING if waiting/moving closer (though MoveToTarget handles moving), FAILURE if target invalid.
         """
         super().update()
+        if self.world is None or self.entity_id is None:
+            return Status.FAILURE
+
         ai = self.world.get_component(self.entity_id, AIState)
         trans = self.world.get_component(self.entity_id, Transform)
 
@@ -274,7 +287,7 @@ class Idle(Action):
     """
     Makes the entity idle (stop moving).
     """
-    def __init__(self, name="Idle", entity_id=None, world=None, blackboard=None):
+    def __init__(self, name: str = "Idle", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None):
         """
         Initializes the Idle action.
 
@@ -286,13 +299,16 @@ class Idle(Action):
         """
         super().__init__(name, entity_id, world, blackboard)
 
-    def update(self):
+    def update(self) -> Status:
         """
         Stops the entity's physics velocity.
 
         Returns:
             Status: Always returns SUCCESS.
         """
+        if self.world is None or self.entity_id is None:
+            return Status.SUCCESS # Or failure?
+
         phys = self.world.get_component(self.entity_id, PhysicsBody)
         if phys:
             phys.body.velocity = (0, 0)
@@ -300,7 +316,7 @@ class Idle(Action):
 
 # --- Behavior Tree Builder ---
 
-def create_yukkuri_behavior_tree(entity_id, world, width, height):
+def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, height: int) -> py_trees.composites.Selector:
     """
     Builds the behavior tree for a Yukkuri.
 
@@ -317,12 +333,14 @@ def create_yukkuri_behavior_tree(entity_id, world, width, height):
     """
 
     # Check Goal Condition
-    def check_goal(goal_name):
+    def check_goal(goal_name: str) -> bool:
         ai = world.get_component(entity_id, AIState)
-        return ai and ai.current_action == goal_name
+        if not ai:
+            return False
+        return bool(ai.current_action == goal_name)
 
     # Check Target Condition
-    def check_target_exists():
+    def check_target_exists() -> bool:
         ai = world.get_component(entity_id, AIState)
         if not ai or ai.current_target_id == -1:
             return False
@@ -345,7 +363,7 @@ def create_yukkuri_behavior_tree(entity_id, world, width, height):
         Attributes:
             check_fn (Callable[[], bool]): The function to check.
         """
-        def __init__(self, name, check_fn):
+        def __init__(self, name: str, check_fn: Callable[[], bool]):
              """
              Initializes the Check behavior.
 
@@ -356,7 +374,7 @@ def create_yukkuri_behavior_tree(entity_id, world, width, height):
              super().__init__(name)
              self.check_fn = check_fn
 
-        def update(self):
+        def update(self) -> Status:
             """
             Evaluates the check function.
 
@@ -385,10 +403,16 @@ def create_yukkuri_behavior_tree(entity_id, world, width, height):
     # 2b. If no target, Find Food (This needs to be an action that sets target)
     # We'll implement a simple FindTarget action here or inline class
     class FindFood(Action):
-        def update(self):
+        def update(self) -> Status:
             super().update()
+            if self.world is None or self.entity_id is None:
+                return Status.FAILURE
+
             ai = self.world.get_component(self.entity_id, AIState)
             trans = self.world.get_component(self.entity_id, Transform)
+
+            if not ai or not trans:
+                 return Status.FAILURE
 
             # Reuse logic from System or reimplement
             # For brevity, simple search
@@ -399,7 +423,7 @@ def create_yukkuri_behavior_tree(entity_id, world, width, height):
             for item in items:
                 istats = self.world.get_component(item, ItemStats)
                 itrans = self.world.get_component(item, Transform)
-                if istats.nutrition > 0:
+                if istats and itrans and istats.nutrition > 0:
                     d = math.hypot(itrans.x - trans.x, itrans.y - trans.y)
                     if d < best_dist:
                         best_dist = d

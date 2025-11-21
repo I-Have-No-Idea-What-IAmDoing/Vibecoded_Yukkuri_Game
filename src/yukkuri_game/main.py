@@ -130,7 +130,8 @@ class YukkuriGame(GameLoop):
         Toggles the paused state of the simulation.
         """
         self.paused = not self.paused
-        self.hud.pause_btn.set_text("Resume" if self.paused else "Pause")
+        if self.hud.pause_btn:
+            self.hud.pause_btn.set_text("Resume" if self.paused else "Pause")
 
     def cycle_speed(self) -> None:
         """
@@ -144,7 +145,8 @@ class YukkuriGame(GameLoop):
             next_idx = 0
 
         self.time_scale = speeds[next_idx]
-        self.hud.speed_btn.set_text(f"{self.time_scale}x")
+        if self.hud.speed_btn:
+            self.hud.speed_btn.set_text(f"{self.time_scale}x")
 
     def start_placement(self, type_id: str, cost: int, entity_type: str) -> None:
         """
@@ -168,7 +170,7 @@ class YukkuriGame(GameLoop):
         pygame.image.save(self.screen, filename)
         print(f"Screenshot saved to {filename}")
 
-def main():
+def main() -> None:
     """
     The entry point for the application.
 

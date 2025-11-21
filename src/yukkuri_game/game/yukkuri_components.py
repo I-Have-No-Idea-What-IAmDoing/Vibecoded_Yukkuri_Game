@@ -49,7 +49,7 @@ class AIState:
     """
     current_action: str = "Idle"
     current_target_id: int = -1
-    path: list | None = None
+    path: list[Any] | None = None
     action_progress: float = 0.0
     state_data: Dict[str, Any] | None = None
 

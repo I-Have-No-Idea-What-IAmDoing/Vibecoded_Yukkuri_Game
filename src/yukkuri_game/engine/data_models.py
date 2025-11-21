@@ -1,7 +1,36 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 import msgspec
 
-class YukkuriType(msgspec.Struct):
+if TYPE_CHECKING:
+    # Mypy doesn't play nice with msgspec extension types sometimes
+    class YukkuriTypeBase:
+        pass
+    class ItemTypeBase:
+        pass
+    class ActionEffectBase:
+        pass
+    class ActionConsiderationBase:
+        pass
+    class AIActionBase:
+        pass
+    class YukkuriDataBase:
+        pass
+    class ItemDataBase:
+        pass
+    class AIDataBase:
+        pass
+else:
+    YukkuriTypeBase = msgspec.Struct
+    ItemTypeBase = msgspec.Struct
+    ActionEffectBase = msgspec.Struct
+    ActionConsiderationBase = msgspec.Struct
+    AIActionBase = msgspec.Struct
+    YukkuriDataBase = msgspec.Struct
+    ItemDataBase = msgspec.Struct
+    AIDataBase = msgspec.Struct
+
+
+class YukkuriType(YukkuriTypeBase):
     """
     Data model representing a type of Yukkuri.
 
@@ -20,7 +49,7 @@ class YukkuriType(msgspec.Struct):
     max_health: int
     base_happiness: int
 
-class ItemType(msgspec.Struct):
+class ItemType(ItemTypeBase):
     """
     Data model representing a type of Item.
 
@@ -45,7 +74,7 @@ class ItemType(msgspec.Struct):
     comfort: Optional[int] = None
     fun: Optional[int] = None
 
-class ActionEffect(msgspec.Struct):
+class ActionEffect(ActionEffectBase):
     """
     Data model representing the effects of an AI action.
 
@@ -60,7 +89,7 @@ class ActionEffect(msgspec.Struct):
     consume: bool = False
     stat_changes: Dict[str, float] = {}
 
-class ActionConsideration(msgspec.Struct):
+class ActionConsideration(ActionConsiderationBase):
     """
     Data model representing a consideration (input factor) for an AI action.
 
@@ -75,7 +104,7 @@ class ActionConsideration(msgspec.Struct):
     curve: str
     params: Dict[str, float] = {}
 
-class AIAction(msgspec.Struct):
+class AIAction(AIActionBase):
     """
     Data model representing an AI action definition.
 
@@ -89,7 +118,7 @@ class AIAction(msgspec.Struct):
     considerations: List[ActionConsideration] = []
 
 # Root containers for the TOML structure
-class YukkuriData(msgspec.Struct):
+class YukkuriData(YukkuriDataBase):
     """
     Root container for Yukkuri type definitions loaded from TOML.
 
@@ -98,7 +127,7 @@ class YukkuriData(msgspec.Struct):
     """
     yukkuris: Dict[str, YukkuriType]
 
-class ItemData(msgspec.Struct):
+class ItemData(ItemDataBase):
     """
     Root container for Item type definitions loaded from TOML.
 
@@ -107,7 +136,7 @@ class ItemData(msgspec.Struct):
     """
     items: Dict[str, ItemType]
 
-class AIData(msgspec.Struct):
+class AIData(AIDataBase):
     """
     Root container for AI action definitions loaded from TOML.
 

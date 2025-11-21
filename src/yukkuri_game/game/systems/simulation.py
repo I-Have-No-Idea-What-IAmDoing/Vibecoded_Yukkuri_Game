@@ -1,6 +1,7 @@
 import random
 import math
 from typing import Optional
+from typing import Any, Dict
 from ...engine.ecs import System, World
 from ..components import Transform, Velocity
 from ..yukkuri_components import YukkuriStats, AIState, ItemStats
@@ -38,7 +39,7 @@ class YukkuriAISystem(System):
         self.decision_interval = 1.0
         self.world_w = world_width
         self.world_h = world_height
-        self.trees = {}
+        self.trees: Dict[int, py_trees.trees.BehaviourTree] = {}
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -86,19 +87,21 @@ class YukkuriAISystem(System):
 
                 # Create BT if not exists
                 if entity not in self.trees:
-                    self.trees[entity] = create_yukkuri_behavior_tree(entity, world, self.world_w, self.world_h)
+                    # Cast float to int for width/height as behavior tree expects ints
+                    root = create_yukkuri_behavior_tree(entity, world, int(self.world_w), int(self.world_h))
+                    self.trees[entity] = py_trees.trees.BehaviourTree(root)
                     self.trees[entity].setup(timeout=15)
 
                 # Set dt in Blackboard
                 py_trees.blackboard.Blackboard().set("dt", dt)
 
                 # Tick Behavior Tree
-                self.trees[entity].tick_once()
+                self.trees[entity].tick()
 
         if self.timer >= self.decision_interval:
             self.timer = 0.0
 
-    def find_nearest_item(self, trans: Transform, items: list, world: World, stat_check: str) -> Optional[int]:
+    def find_nearest_item(self, trans: Transform, items: list[int], world: World, stat_check: str) -> Optional[int]:
         """
         Finds the nearest item that satisfies a specific stat requirement.
 

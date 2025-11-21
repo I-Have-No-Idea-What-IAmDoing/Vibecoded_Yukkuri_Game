@@ -38,7 +38,7 @@ class Yukkurrium:
         self.min_zoom = 0.5
         self.max_zoom = 2.0
 
-    def world_to_screen(self, wx: float, wy: float, screen_w: int, screen_h: int):
+    def world_to_screen(self, wx: float, wy: float, screen_w: int, screen_h: int) -> tuple[float, float]:
         """
         Converts world coordinates to screen coordinates.
 
@@ -55,7 +55,7 @@ class Yukkurrium:
         sy = (wy - self.camera_y) * self.zoom + screen_h / 2
         return sx, sy
 
-    def screen_to_world(self, sx: float, sy: float, screen_w: int, screen_h: int):
+    def screen_to_world(self, sx: float, sy: float, screen_w: int, screen_h: int) -> tuple[float, float]:
         """
         Converts screen coordinates to world coordinates.
 
@@ -198,12 +198,12 @@ class RenderSystem(System):
         for col in range(start_col, end_col):
             x = col * grid_size
             sx, _ = self.yukkurrium.world_to_screen(x, 0, sw, sh)
-            pygame.draw.line(self.screen, (50, 50, 50), (sx, 0), (sx, sh))
+            pygame.draw.line(self.screen, (50, 50, 50), (int(sx), 0), (int(sx), sh))
 
         for row in range(start_row, end_row):
             y = row * grid_size
             _, sy = self.yukkurrium.world_to_screen(0, y, sw, sh)
-            pygame.draw.line(self.screen, (50, 50, 50), (0, sy), (sw, sy))
+            pygame.draw.line(self.screen, (50, 50, 50), (0, int(sy)), (sw, int(sy)))
 
 class TimeSystem(System):
     """
@@ -214,7 +214,7 @@ class TimeSystem(System):
         game_speed (float): The speed multiplier for time.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the TimeSystem."""
         self.total_time = 0.0
         self.game_speed = 1.0

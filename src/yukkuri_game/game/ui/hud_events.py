@@ -1,6 +1,10 @@
 import pygame
 import pygame_gui
-from typing import Optional, Callable, Dict, Any
+from typing import Optional, Callable, Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .hud_layout import HudLayout
+    from ..game_manager import GameManager
 
 class HudEvents:
     """
@@ -12,7 +16,7 @@ class HudEvents:
         callbacks (Dict[str, Callable]): A dictionary of callback functions for various actions.
         selected_entity (int): The ID of the currently selected entity.
     """
-    def __init__(self, layout, game_manager, callbacks: Dict[str, Callable]):
+    def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', callbacks: Dict[str, Callable[..., Any]]):
         """
         Initializes the HudEvents handler.
 
@@ -26,7 +30,7 @@ class HudEvents:
         self.callbacks = callbacks
         self.selected_entity = -1
 
-    def set_selected_entity(self, entity_id: int):
+    def set_selected_entity(self, entity_id: int) -> None:
         """
         Sets the ID of the currently selected entity.
 

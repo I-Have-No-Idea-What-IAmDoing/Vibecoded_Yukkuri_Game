@@ -1,8 +1,13 @@
 import pygame
+from typing import TYPE_CHECKING
 from ...engine.ecs import World
 from ..components import Selectable
 from ..yukkuri_components import YukkuriStats, ItemStats, AIState
 from pygame_gui.windows import UIMessageWindow
+
+if TYPE_CHECKING:
+    from .hud_layout import HudLayout
+    from ..game_manager import GameManager
 
 class HudRenderer:
     """
@@ -14,7 +19,7 @@ class HudRenderer:
         world (World): The ECS World instance.
         fps (float): The current FPS value to display.
     """
-    def __init__(self, layout, game_manager, world: World):
+    def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', world: World):
         """
         Initializes the HudRenderer.
 
@@ -38,11 +43,13 @@ class HudRenderer:
             show_debug: Whether to show debug information.
         """
         # Update Top Bar
-        self.layout.money_label.set_text(f"Money: ${self.gm.money}")
+        if self.layout.money_label:
+            self.layout.money_label.set_text(f"Money: ${self.gm.money}")
 
         minutes = int(self.gm.time_elapsed / 60)
         seconds = int(self.gm.time_elapsed % 60)
-        self.layout.time_label.set_text(f"Time: {minutes:02d}:{seconds:02d}")
+        if self.layout.time_label:
+            self.layout.time_label.set_text(f"Time: {minutes:02d}:{seconds:02d}")
 
         # Update Selection Window
         if self.layout.selection_window and selected_entity != -1:

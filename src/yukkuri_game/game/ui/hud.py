@@ -1,5 +1,5 @@
 import pygame
-from typing import Optional, Callable
+from typing import Optional, Callable, Any, Dict, TYPE_CHECKING
 import pygame_gui
 from ...engine.ecs import World
 from ..components import Selectable, Transform
@@ -9,6 +9,10 @@ from ..yukkuri_components import YukkuriStats
 from .hud_layout import HudLayout
 from .hud_events import HudEvents
 from .hud_renderer import HudRenderer
+
+if TYPE_CHECKING:
+    from ..game_manager import GameManager
+    from ..entity_factory import EntityFactory
 
 class HUD:
     """
@@ -33,7 +37,7 @@ class HUD:
         fps (float): The current frames per second.
     """
 
-    def __init__(self, ui_manager, game_manager, world: World, factory):
+    def __init__(self, ui_manager: pygame_gui.UIManager, game_manager: 'GameManager', world: World, factory: 'EntityFactory'):
         """
         Initializes the HUD.
 
@@ -63,8 +67,8 @@ class HUD:
         # We can pass a lambda or method that resolves them dynamically,
         # or update the events component when callbacks are set.
         # For now, we pass a dict that we can update.
-        self._callbacks_store = {}
-        self.events = HudEvents(self.layout, self.gm, self._callbacks_store)
+        self._callbacks_store: Dict[str, Optional[Callable[..., Any]]] = {}
+        self.events = HudEvents(self.layout, self.gm, self._callbacks_store) # type: ignore[arg-type]
 
         self.renderer = HudRenderer(self.layout, self.gm, self.world)
 
@@ -75,52 +79,52 @@ class HUD:
 
     # Delegate property access for backward compatibility/convenience
     @property
-    def money_label(self):
+    def money_label(self) -> Optional[pygame_gui.elements.UILabel]:
         """Returns the money label UI element."""
         return self.layout.money_label
 
     @property
-    def time_label(self):
+    def time_label(self) -> Optional[pygame_gui.elements.UILabel]:
         """Returns the time label UI element."""
         return self.layout.time_label
 
     @property
-    def save_btn(self):
+    def save_btn(self) -> Optional[pygame_gui.elements.UIButton]:
         """Returns the save button UI element."""
         return self.layout.save_btn
 
     @property
-    def load_btn(self):
+    def load_btn(self) -> Optional[pygame_gui.elements.UIButton]:
         """Returns the load button UI element."""
         return self.layout.load_btn
 
     @property
-    def pause_btn(self):
+    def pause_btn(self) -> Optional[pygame_gui.elements.UIButton]:
         """Returns the pause button UI element."""
         return self.layout.pause_btn
 
     @property
-    def speed_btn(self):
+    def speed_btn(self) -> Optional[pygame_gui.elements.UIButton]:
         """Returns the speed button UI element."""
         return self.layout.speed_btn
 
     @property
-    def add_reimu_btn(self):
+    def add_reimu_btn(self) -> Optional[pygame_gui.elements.UIButton]:
         """Returns the add Reimu button UI element."""
         return self.layout.add_reimu_btn
 
     @property
-    def add_cookie_btn(self):
+    def add_cookie_btn(self) -> Optional[pygame_gui.elements.UIButton]:
         """Returns the add cookie button UI element."""
         return self.layout.add_cookie_btn
 
     @property
-    def selection_window(self):
+    def selection_window(self) -> Optional[pygame_gui.elements.UIWindow]:
         """Returns the selection window UI element."""
         return self.layout.selection_window
 
     @property
-    def debug_window(self):
+    def debug_window(self) -> Optional[pygame_gui.elements.UIWindow]:
         """Returns the debug window UI element."""
         return self.layout.debug_window
 
@@ -162,7 +166,7 @@ class HUD:
                 return ent
         return -1
 
-    def _update_selection_window_layout(self):
+    def _update_selection_window_layout(self) -> None:
         """
         Updates the layout of the selection window based on the selected entity type.
         """
@@ -219,7 +223,7 @@ class HUD:
                 self.layout.close_selection_window()
                 self.events.set_selected_entity(-1)
 
-    def _train_entity(self, entity_id: int):
+    def _train_entity(self, entity_id: int) -> None:
         """
         Internal callback to train a Yukkuri.
 

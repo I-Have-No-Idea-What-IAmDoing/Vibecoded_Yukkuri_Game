@@ -1,4 +1,4 @@
-from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple
+from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 import esper
 import uuid
 
@@ -20,14 +20,14 @@ class World:
     Each instance of this class manages a separate esper World context.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes a new ECS World."""
         self.name = str(uuid.uuid4())
         esper.switch_world(self.name)
         self._entities: List[int] = [] # Maintain list for backward compatibility
         # Note: esper doesn't have explicit world creation, switching to a new name creates it.
 
-    def _switch(self):
+    def _switch(self) -> None:
         """Switches to this world's context."""
         esper.switch_world(self.name)
 
@@ -41,7 +41,7 @@ class World:
         self._switch()
         entity = esper.create_entity(*components)
         self._entities.append(entity)
-        return entity
+        return entity  # type: ignore[no-any-return]
 
     def destroy_entity(self, entity: int) -> None:
         """
@@ -81,7 +81,7 @@ class World:
         self._switch()
         esper.add_component(entity, component)
 
-    def remove_component(self, entity: int, component_type: Type) -> None:
+    def remove_component(self, entity: int, component_type: Type[Any]) -> None:
         """
         Removes a component of a specific type from an entity.
 
@@ -108,11 +108,12 @@ class World:
         """
         self._switch()
         try:
-            return esper.component_for_entity(entity, component_type)
+            # Cast because esper might return Any or not be fully typed
+            return esper.component_for_entity(entity, component_type) # type: ignore[no-any-return]
         except KeyError:
             return None
 
-    def has_component(self, entity: int, component_type: Type) -> bool:
+    def has_component(self, entity: int, component_type: Type[Any]) -> bool:
         """
         Checks if an entity has a specific component type.
 
@@ -125,7 +126,7 @@ class World:
         """
         self._switch()
         try:
-            return esper.has_component(entity, component_type)
+            return esper.has_component(entity, component_type) # type: ignore[no-any-return]
         except KeyError:
             return False
 
@@ -143,7 +144,7 @@ class World:
         # esper.get_component returns List[Tuple[int, T]]
         return {entity: component for entity, component in esper.get_component(component_type)}
 
-    def get_entities_with(self, *component_types: Type) -> List[int]:
+    def get_entities_with(self, *component_types: Type[Any]) -> List[int]:
         """
         Retrieves a list of entity IDs that have all specified component types.
 
@@ -159,7 +160,7 @@ class World:
         # esper.get_components returns Iterable[Tuple[int, Tuple[Any, ...]]]
         return [entity for entity, _ in esper.get_components(*component_types)]
 
-    def get_components_tuple(self, *component_types: Type) -> List[Tuple[int, Tuple[Any, ...]]]:
+    def get_components_tuple(self, *component_types: Type[Any]) -> List[Tuple[int, Tuple[Any, ...]]]:
         """
         Retrieves entities and their components for the specified types.
 
@@ -172,7 +173,7 @@ class World:
             List[Tuple[int, Tuple[Any, ...]]]: A list of (entity, (component1, component2, ...)).
         """
         self._switch()
-        return esper.get_components(*component_types)
+        return esper.get_components(*component_types) # type: ignore[no-any-return]
 
     def add_system(self, system: 'System') -> None:
         """
@@ -197,7 +198,13 @@ class World:
         self._switch()
         esper.process(dt)
 
-class System(esper.Processor):
+if TYPE_CHECKING:
+    class ProcessorBase:
+        def process(self, dt: float) -> None: ...
+else:
+    ProcessorBase = esper.Processor
+
+class System(ProcessorBase):
     """
     Base class for systems in the ECS.
 
