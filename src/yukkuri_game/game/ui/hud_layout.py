@@ -66,6 +66,9 @@ class HudLayout:
 
         self.clean_btn: Optional[UIButton] = None
 
+        # Log Box
+        self.log_box: Optional[UITextBox] = None
+
         # Debug Window Elements
         self.debug_window: Optional[UIWindow] = None
         self.debug_text_box: Optional[UITextBox] = None
@@ -141,9 +144,17 @@ class HudLayout:
             manager=self.manager
         )
 
-        x_offset = 10
+        # Log Box Area (Left side)
+        self.log_box = UITextBox(
+            html_text="Welcome to Yukkuri Game!<br>",
+            relative_rect=pygame.Rect(10, 10, 300, 80),
+            manager=self.manager,
+            container=self.bottom_panel
+        )
+
+        x_offset = 320
         y_offset = 10
-        btn_width = 140
+        btn_width = 120
         btn_height = 40
         spacing = 10
 

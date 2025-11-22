@@ -9,7 +9,12 @@ from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats
 from .services import EconomyService, PersistenceService, TimeService
 from .ai.navigation_service import NavigationService
-from .events import TrainEntityRequest, SellEntityRequest
+from .events import (
+    TrainEntityRequest,
+    SellEntityRequest,
+    EntitySoldEvent,
+    EntityTrainedEvent
+)
 from ..config import GameConfig
 
 if TYPE_CHECKING:
@@ -150,8 +155,17 @@ class GameManager:
             economy = self.world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}")
+
+            # Get position for visual feedback
+            transform = self.world.get_component(entity, Transform)
+            position = (transform.x, transform.y) if transform else (0, 0)
+
             if self.audio:
                 self.audio.play_sound("sell")
+
+            # Emit Event before destroying
+            self.event_bus.publish(EntitySoldEvent(entity, value, position))
+
             self.world.destroy_entity(entity)
             return value
         return 0
@@ -176,8 +190,16 @@ class GameManager:
         if stats:
             stats.badges += 1
             stats.happiness += 10
+
+            # Get position for visual feedback
+            transform = self.world.get_component(event.entity_id, Transform)
+            position = (transform.x, transform.y) if transform else (0, 0)
+
             if self.audio:
                 self.audio.play_sound("train")
+
+            self.event_bus.publish(EntityTrainedEvent(event.entity_id, position))
+
             logger.info(f"Trained entity {event.entity_id}. Badges: {stats.badges}")
 
     def save_game(self, filename: str = "savegame.json") -> None:

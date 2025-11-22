@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 import pygame
 import pygame_gui
+from pygame_gui.core.interfaces import IContainerLikeInterface
 from yukkuri_game.game.ui.hud import HUD
 from yukkuri_game.game.ui.hud_events import HudEvents
 from yukkuri_game.game.ui.hud_layout import HudLayout
@@ -10,7 +11,7 @@ from yukkuri_game.game.game_manager import GameManager
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
-from yukkuri_game.game.events import PlacementStartedEvent, TogglePauseRequest, CycleSpeedRequest, TrainEntityRequest, SellEntityRequest
+from yukkuri_game.game.events import PlacementStartedEvent, TogglePauseRequest, CycleSpeedRequest, TrainEntityRequest, SellEntityRequest, LogMessageEvent
 
 @pytest.fixture
 def mock_ui_manager():
@@ -44,9 +45,12 @@ def mock_event_bus():
 
 @pytest.fixture
 def hud_layout(mock_ui_manager):
-    with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
+    # Mock UIPanel to adhere to IContainerLikeInterface
+    MockPanel = MagicMock(spec=IContainerLikeInterface)
+    with patch('yukkuri_game.game.ui.hud_layout.UIPanel', return_value=MockPanel), \
          patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
-         patch('yukkuri_game.game.ui.hud_layout.UIButton'):
+         patch('yukkuri_game.game.ui.hud_layout.UIButton'), \
+         patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
         layout = HudLayout(mock_ui_manager, 800, 600)
     return layout
 
@@ -60,9 +64,12 @@ def hud_renderer(hud_layout, mock_game_manager, mock_world):
 
 class TestHudLayout:
     def test_init(self, mock_ui_manager):
-        with patch('yukkuri_game.game.ui.hud_layout.UIPanel') as MockPanel, \
+        MockPanel = MagicMock(spec=IContainerLikeInterface)
+
+        with patch('yukkuri_game.game.ui.hud_layout.UIPanel', return_value=MockPanel) as MockPanelCls, \
              patch('yukkuri_game.game.ui.hud_layout.UILabel') as MockLabel, \
-             patch('yukkuri_game.game.ui.hud_layout.UIButton') as MockButton:
+             patch('yukkuri_game.game.ui.hud_layout.UIButton') as MockButton, \
+             patch('yukkuri_game.game.ui.hud_layout.UITextBox') as MockTextBox:
 
             layout = HudLayout(mock_ui_manager, 800, 600)
 
@@ -74,8 +81,7 @@ class TestHudLayout:
             # Check if critical buttons were created
             assert layout.save_btn is not None
             assert layout.load_btn is not None
-            # add_reimu_btn is removed, check buy_buttons instead but mocked init doesn't populate it unless we pass types
-            assert layout.buy_buttons is not None
+            assert layout.log_box is not None
 
     def test_create_selection_window(self, hud_layout, mock_ui_manager):
         with patch('yukkuri_game.game.ui.hud_layout.UIWindow') as MockWindow, \
@@ -228,7 +234,7 @@ class TestHudRenderer:
         with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
              patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
              patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
-            hud_renderer.update(0.1, -1, False)
+            hud_renderer.update(0.1, [], False)
 
         hud_layout.money_label.set_text.assert_called_with("Money: $1000")
         # 125 sec = 2 min 5 sec
@@ -249,6 +255,7 @@ class TestHudRenderer:
         ai.current_action = "Eating"
 
         mock_world.get_component.side_effect = lambda e, t: stats if t == YukkuriStats else (ai if t == AIState else None)
+        mock_world.has_component.side_effect = lambda e, t: t == YukkuriStats
 
         with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
              patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
@@ -275,6 +282,7 @@ class TestHudRenderer:
             return None
 
         mock_world.get_component.side_effect = get_comp
+        mock_world.has_component.side_effect = lambda e, t: t == ItemStats
 
         with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
              patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
@@ -295,7 +303,7 @@ class TestHudRenderer:
         with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
              patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
              patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
-            hud_renderer.update(0.1, -1, True)
+            hud_renderer.update(0.1, [], True)
 
         assert hud_layout.debug_text_box.set_text.called
         text = hud_layout.debug_text_box.set_text.call_args[0][0]

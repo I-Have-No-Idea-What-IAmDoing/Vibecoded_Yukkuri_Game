@@ -97,3 +97,22 @@ class Selectable:
         selected (bool): Whether the entity is currently selected. Defaults to False.
     """
     selected: bool = False
+
+
+@dataclass
+class FloatingText:
+    """
+    Component representing floating text for visual feedback.
+
+    Attributes:
+        text (str): The text to display.
+        color (tuple[int, int, int]): The color of the text.
+        lifetime (float): The remaining time to live in seconds.
+        velocity_y (float): The speed at which the text floats up (pixels/second).
+        size (int): The font size.
+    """
+    text: str
+    color: tuple[int, int, int]
+    lifetime: float
+    velocity_y: float
+    size: int = 20

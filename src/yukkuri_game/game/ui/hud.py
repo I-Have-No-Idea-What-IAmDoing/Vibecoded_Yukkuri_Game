@@ -3,7 +3,7 @@ from typing import Optional, Callable, Any, Dict, TYPE_CHECKING
 import pygame_gui
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
-from ..events import EntitySelectedEvent, GamePausedEvent, PlacementStartedEvent
+from ..events import EntitySelectedEvent, GamePausedEvent, PlacementStartedEvent, LogMessageEvent
 from ..components import Selectable, Transform
 from ..yukkuri_components import YukkuriStats
 
@@ -75,6 +75,23 @@ class HUD:
         # Subscribe to events
         self.event_bus.subscribe(EntitySelectedEvent, self.on_entity_selected)
         self.event_bus.subscribe(GamePausedEvent, self.on_game_paused)
+        self.event_bus.subscribe(LogMessageEvent, self.on_log_message)
+
+    def on_log_message(self, event: LogMessageEvent) -> None:
+        """
+        Handles LogMessageEvent.
+        """
+        if self.layout.log_box:
+            # Convert color tuple to hex string
+            hex_color = "#{:02x}{:02x}{:02x}".format(*event.color)
+            message = f"<font color='{hex_color}'>{event.message}</font><br>"
+            self.layout.log_box.append_html_text(message)
+
+            # Scroll to bottom (simple approximation, appending usually handles it or we might need to auto-scroll)
+            # pygame_gui UITextBox auto-scrolls if configured, but let's see.
+            # If we need to force scroll:
+            if hasattr(self.layout.log_box, "scroll_bar") and self.layout.log_box.scroll_bar:
+                self.layout.log_box.scroll_bar.scroll_position = self.layout.log_box.scroll_bar.scrollable_height
 
     def on_entity_selected(self, event: EntitySelectedEvent) -> None:
         """

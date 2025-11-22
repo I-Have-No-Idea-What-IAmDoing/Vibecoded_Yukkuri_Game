@@ -1,6 +1,6 @@
 import pygame
 from ..engine.ecs import System, World
-from .components import Transform, Sprite, Selectable
+from .components import Transform, Sprite, Selectable, FloatingText
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
 from .services import InputService
@@ -124,6 +124,21 @@ class WorldRenderer:
         self.screen = screen
         self.yukkurrium = yukkurrium
         self.rm = resource_manager
+        self.font_cache = {}
+
+    def _get_font(self, size: int) -> pygame.font.Font:
+        """
+        Retrieves a font of the specified size from the cache, or creates it.
+
+        Args:
+            size (int): The font size.
+
+        Returns:
+            pygame.font.Font: The requested font.
+        """
+        if size not in self.font_cache:
+            self.font_cache[size] = pygame.font.SysFont(None, size)
+        return self.font_cache[size]
 
     def render(self, world: World) -> None:
         """
@@ -223,6 +238,27 @@ class WorldRenderer:
         input_service = world.services.try_get(InputService)
         if input_service and input_service.selection_rect:
             pygame.draw.rect(self.screen, (0, 255, 0), input_service.selection_rect, 1)
+
+        # Render Floating Text
+        self.render_floating_text(world, sw, sh)
+
+    def render_floating_text(self, world: World, screen_w: int, screen_h: int) -> None:
+        """
+        Renders floating text entities.
+        """
+        for entity, (transform, text_comp) in world.get_components_tuple(Transform, FloatingText):
+            font = self._get_font(text_comp.size)
+
+            # Render text surface
+            text_surface = font.render(text_comp.text, True, text_comp.color)
+
+            # Calculate screen position
+            screen_x, screen_y = self.yukkurrium.world_to_screen(transform.x, transform.y, screen_w, screen_h)
+
+            # Center text
+            rect = text_surface.get_rect(center=(int(screen_x), int(screen_y)))
+
+            self.screen.blit(text_surface, rect)
 
     def draw_grid(self) -> None:
         """
