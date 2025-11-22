@@ -1,5 +1,5 @@
 from ...engine.ecs import System, World
-from ..yukkuri_components import YukkuriStats
+from ..yukkuri_components import YukkuriStats, Dead
 from ...config import StatDecaySettings
 
 class StatDecaySystem(System):
@@ -30,6 +30,9 @@ class StatDecaySystem(System):
         # Iterate over entities with YukkuriStats
         # Note: unpack the tuple returned by get_components_tuple
         for entity, (stats,) in world.get_components_tuple(YukkuriStats):
+            if world.has_component(entity, Dead):
+                continue
+
             # Decay stats
             stats.hunger += self.settings.hunger * dt
             stats.happiness -= self.settings.happiness * dt
