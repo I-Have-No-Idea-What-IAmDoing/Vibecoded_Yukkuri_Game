@@ -70,8 +70,45 @@ class HudLayout:
         self.debug_window: Optional[UIWindow] = None
         self.debug_text_box: Optional[UITextBox] = None
 
+        # Notification Log Elements
+        self.notification_log: Optional[UITextBox] = None
+        self.notification_buffer = []
+
         self._create_top_bar()
         self._create_bottom_bar()
+        self._create_notification_log()
+
+    def _create_notification_log(self) -> None:
+        """
+        Creates the notification log area.
+        """
+        self.notification_log = UITextBox(
+            html_text="",
+            relative_rect=pygame.Rect(10, self.height - 250, 300, 140),
+            manager=self.manager
+        )
+
+    def add_notification(self, message: str, color: Optional[tuple[int, int, int]] = None) -> None:
+        """
+        Adds a message to the notification log.
+
+        Args:
+            message (str): The message to add.
+            color (tuple[int, int, int]): The color of the message.
+        """
+        if color:
+            hex_color = '#%02x%02x%02x' % color
+            message = f"<font color='{hex_color}'>{message}</font>"
+
+        self.notification_buffer.append(message)
+        if len(self.notification_buffer) > 10:
+            self.notification_buffer.pop(0)
+
+        full_text = "<br>".join(self.notification_buffer)
+        if self.notification_log:
+            self.notification_log.set_text(full_text)
+            # scroll to bottom? UITextBox handles basic text, might need scrolling container if we want it strictly at bottom.
+            # But simple join is fine for now.
 
     def _create_top_bar(self) -> None:
         """

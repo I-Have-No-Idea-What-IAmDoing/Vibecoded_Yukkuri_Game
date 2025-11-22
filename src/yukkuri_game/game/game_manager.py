@@ -147,6 +147,18 @@ class GameManager:
         stats = self.world.get_component(entity, YukkuriStats)
         if stats:
             value = self.calculate_quality_score(stats)
+
+            # Spawn Floating Text
+            transform = self.world.get_component(entity, Transform)
+            if transform:
+                 self.factory.create_floating_text(
+                     text=f"+${value}",
+                     x=transform.x,
+                     y=transform.y,
+                     color=(255, 215, 0), # Gold
+                     lifetime=2.0
+                 )
+
             economy = self.world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}")
@@ -176,6 +188,18 @@ class GameManager:
         if stats:
             stats.badges += 1
             stats.happiness += 10
+
+            # Spawn Floating Text
+            transform = self.world.get_component(event.entity_id, Transform)
+            if transform:
+                 self.factory.create_floating_text(
+                     text="+Badge",
+                     x=transform.x,
+                     y=transform.y - 30, # Slightly higher
+                     color=(0, 255, 0), # Green
+                     lifetime=2.0
+                 )
+
             if self.audio:
                 self.audio.play_sound("train")
             logger.info(f"Trained entity {event.entity_id}. Badges: {stats.badges}")

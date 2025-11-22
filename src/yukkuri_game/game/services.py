@@ -453,14 +453,25 @@ class GameService:
         yukkuri_stats = self.world.get_component(consumer_id, YukkuriStats)
 
         if item_stats and yukkuri_stats:
+            # Floating Text Logic
+            from .entity_factory import EntityFactory
+            factory = self.world.services.try_get(EntityFactory)
+            transform = self.world.get_component(consumer_id, Transform)
+
             if item_stats.nutrition > 0:
                 yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
+                if factory and transform:
+                    factory.create_floating_text("Yummy!", transform.x, transform.y - 20, (255, 105, 180), 2.0)
 
             if item_stats.fun > 0:
                 yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
+                if factory and transform:
+                     factory.create_floating_text("Happy!", transform.x, transform.y - 40, (255, 182, 193), 2.0)
 
             if item_stats.comfort > 0:
                 yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
+                if factory and transform:
+                    factory.create_floating_text("Relaxed...", transform.x, transform.y - 20, (173, 216, 230), 2.0)
 
             audio = self.world.services.try_get(AudioManager)
 

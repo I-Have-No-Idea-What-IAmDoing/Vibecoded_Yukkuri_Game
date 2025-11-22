@@ -97,3 +97,20 @@ class Selectable:
         selected (bool): Whether the entity is currently selected. Defaults to False.
     """
     selected: bool = False
+
+@dataclass
+class FloatingText:
+    """
+    Component for floating text effects.
+
+    Attributes:
+        text (str): The text to display.
+        color (tuple[int, int, int]): The RGB color of the text.
+        lifetime (float): Remaining time in seconds before the text disappears.
+        velocity (tuple[float, float]): The velocity (dx, dy) of the text.
+    """
+    text: str
+    color: tuple[int, int, int]
+    lifetime: float
+    max_lifetime: float
+    velocity: tuple[float, float]

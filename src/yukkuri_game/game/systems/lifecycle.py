@@ -3,6 +3,8 @@ from ...engine.ecs import System, World
 from ..yukkuri_components import YukkuriStats, AIState, Dead
 from ..components import Sprite, Transform, PhysicsBody
 from ...config import LifecycleSettings
+from ...engine.event_bus import EventBus
+from ..events import GlobalNotificationEvent
 from typing import TYPE_CHECKING
 from loguru import logger
 
@@ -28,8 +30,11 @@ class LifecycleSystem(System):
         """
         self.settings = settings
         self.factory = entity_factory
+        self.event_bus = None
 
     def update(self, world: World, dt: float) -> None:
+        if self.event_bus is None:
+            self.event_bus = world.services.try_get(EventBus)
         """
         Updates the lifecycle state of entities.
 
@@ -53,6 +58,24 @@ class LifecycleSystem(System):
             if stats.health <= 0:
                 stats.health = 0
                 logger.info(f"{stats.name} has died.")
+
+                if self.event_bus:
+                    self.event_bus.publish(GlobalNotificationEvent(
+                        message=f"{stats.name} has died.",
+                        color=(255, 0, 0) # Red
+                    ))
+
+                # Floating Text
+                transform = world.get_component(entity, Transform)
+                if transform:
+                     self.factory.create_floating_text(
+                         text="Dead...",
+                         x=transform.x,
+                         y=transform.y - 20,
+                         color=(100, 100, 100), # Gray
+                         lifetime=3.0,
+                         velocity=(0, -10)
+                     )
 
                 # Tag as Dead
                 world.add_component(entity, Dead())
@@ -95,6 +118,21 @@ class LifecycleSystem(System):
         Performs the growth transition.
         """
         logger.info(f"{stats.name} is growing from {stats.growth_stage} to {new_stage}!")
+        if self.event_bus:
+            self.event_bus.publish(GlobalNotificationEvent(
+                message=f"{stats.name} grew into a {new_stage}!",
+                color=(0, 255, 0) # Green
+            ))
+
+        # Floating Text
+        self.factory.create_floating_text(
+             text="Level Up!",
+             x=transform.x,
+             y=transform.y - 30,
+             color=(255, 255, 0), # Yellow
+             lifetime=3.0
+        )
+
         stats.growth_stage = new_stage
 
         # Scale Transform

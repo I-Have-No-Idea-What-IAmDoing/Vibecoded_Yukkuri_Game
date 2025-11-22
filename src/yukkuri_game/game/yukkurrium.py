@@ -1,6 +1,6 @@
 import pygame
 from ..engine.ecs import System, World
-from .components import Transform, Sprite, Selectable
+from .components import Transform, Sprite, Selectable, FloatingText
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
 from .services import InputService
@@ -124,6 +124,8 @@ class WorldRenderer:
         self.screen = screen
         self.yukkurrium = yukkurrium
         self.rm = resource_manager
+        # Initialize font once
+        self.floating_text_font = pygame.font.SysFont("Arial", 20, bold=True)
 
     def render(self, world: World) -> None:
         """
@@ -219,10 +221,42 @@ class WorldRenderer:
                 if selectable and selectable.selected:
                     pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
 
+        # Draw floating text
+        self.draw_floating_text(world, sw, sh)
+
         # Draw selection box if active
         input_service = world.services.try_get(InputService)
         if input_service and input_service.selection_rect:
             pygame.draw.rect(self.screen, (0, 255, 0), input_service.selection_rect, 1)
+
+    def draw_floating_text(self, world: World, sw: int, sh: int) -> None:
+        """
+        Draws floating text entities.
+
+        Args:
+            world (World): The ECS World.
+            sw (int): Screen width.
+            sh (int): Screen height.
+        """
+        for ent, (transform, text_comp) in world.get_components(Transform, FloatingText):
+            screen_x, screen_y = self.yukkurrium.world_to_screen(transform.x, transform.y, sw, sh)
+
+            # Simple fade out
+            if text_comp.max_lifetime > 0:
+                alpha = int(255 * (text_comp.lifetime / text_comp.max_lifetime))
+            else:
+                alpha = 255
+            alpha = max(0, min(255, alpha))
+
+            if alpha == 0:
+                continue
+
+            # Render text surface
+            text_surf = self.floating_text_font.render(text_comp.text, True, text_comp.color)
+            text_surf.set_alpha(alpha)
+
+            rect = text_surf.get_rect(center=(int(screen_x), int(screen_y)))
+            self.screen.blit(text_surf, rect)
 
     def draw_grid(self) -> None:
         """

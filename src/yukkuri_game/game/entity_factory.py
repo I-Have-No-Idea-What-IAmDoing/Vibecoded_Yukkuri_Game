@@ -2,7 +2,7 @@ import pymunk
 from typing import Any
 from typing import Any, Optional, TYPE_CHECKING
 from ..engine.ecs import World
-from .components import Transform, Sprite, Selectable, PhysicsBody
+from .components import Transform, Sprite, Selectable, PhysicsBody, FloatingText
 from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop
 
 if TYPE_CHECKING:
@@ -78,17 +78,10 @@ class EntityFactory:
         max_health = self._get_attr(data, 'max_health', 100)
 
         # Determine growth stage and scale based on age
-        # Note: These thresholds should match LifecycleSettings, but we don't have access to config here easily without dependency injection.
-        # Ideally, pass config or use constants. For now, assuming Baby < 100, Child < 300
-        # Wait, if we create an adult directly, we should scale it.
-        # But if the sprite is for an adult (usually), we should scale DOWN for babies.
-
         scale = 1.0
         radius = 20
         growth_stage = "Baby"
 
-        # Simple logic: if age > 300 -> Adult. If age > 100 -> Child. Else Baby.
-        # Baby: scale 0.5. Child: scale 0.75. Adult: scale 1.0.
         if age >= 300:
             growth_stage = "Adult"
             scale = 1.0
@@ -101,8 +94,6 @@ class EntityFactory:
             growth_stage = "Baby"
             scale = 0.5
             radius = 10
-
-            # Reduce stats for babies
             max_health *= 0.5
 
         # Animation properties
@@ -167,9 +158,6 @@ class EntityFactory:
 
         self.world.add_component(entity, Transform(x=x, y=y))
 
-        # Use a placeholder image if "poop.png" doesn't exist (handled by Sprite/ResourceManager if robust,
-        # but here we hardcode a name. Assuming asset exists or will fallback)
-        # Ideally this should be in data, but for now hardcoded is fine as per instructions.
         self.world.add_component(entity, Sprite(
             image_name="poop.png",
             width=32,
@@ -229,7 +217,6 @@ class EntityFactory:
         cost = self._get_attr(data, 'cost', 10)
 
         nutrition = self._get_attr(data, 'nutrition', 0)
-        # Ensure None is treated as 0 if key exists but is None (msgspec optional)
         if nutrition is None: nutrition = 0
 
         fun = self._get_attr(data, 'fun', 0)
@@ -265,16 +252,42 @@ class EntityFactory:
         # Physics
         if self.physics_system:
             mass = 1
-            # Use a box for items? or circle? Box is simpler for now given width/height
             inertia = pymunk.moment_for_box(mass, (width, height))
             body = pymunk.Body(mass, inertia)
             body.position = x, y
-            # Create a box shape
             shape = pymunk.Poly.create_box(body, (width, height))
             shape.elasticity = 0.5
             shape.friction = 0.5
 
             self.physics_system.space.add(body, shape)
             self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
+
+        return entity
+
+    def create_floating_text(self, text: str, x: float, y: float, color: tuple[int, int, int] = (255, 255, 255), lifetime: float = 2.0, velocity: tuple[float, float] = (0, -20)) -> int:
+        """
+        Creates a floating text entity.
+
+        Args:
+            text (str): The text to display.
+            x (float): The x-coordinate.
+            y (float): The y-coordinate.
+            color (tuple[int, int, int]): The text color.
+            lifetime (float): How long the text lasts.
+            velocity (tuple[float, float]): The velocity (dx, dy).
+
+        Returns:
+            int: The ID of the created entity.
+        """
+        entity = self.world.create_entity()
+
+        self.world.add_component(entity, Transform(x=x, y=y))
+        self.world.add_component(entity, FloatingText(
+            text=text,
+            color=color,
+            lifetime=lifetime,
+            max_lifetime=lifetime,
+            velocity=velocity
+        ))
 
         return entity

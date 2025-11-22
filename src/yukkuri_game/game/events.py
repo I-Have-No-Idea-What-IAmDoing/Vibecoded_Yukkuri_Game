@@ -110,3 +110,15 @@ class AnimationEvent(Event):
     event_name: str
     animation_name: str
     frame_index: int
+
+@dataclass(frozen=True)
+class GlobalNotificationEvent(Event):
+    """
+    Event published for global notifications (e.g., entity death, level up).
+
+    Attributes:
+        message (str): The notification message.
+        color (Optional[tuple[int, int, int]]): The color of the notification text.
+    """
+    message: str
+    color: Optional[tuple[int, int, int]] = None
