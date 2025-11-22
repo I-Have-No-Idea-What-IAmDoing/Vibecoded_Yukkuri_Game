@@ -553,3 +553,62 @@ class GameService:
             return True
 
         return False
+
+    def interact_social(self, initiator_id: int, target_id: int, interaction_type: str) -> bool:
+        """
+        Handles social interaction between two Yukkuris.
+
+        Args:
+            initiator_id (int): The ID of the initiating Yukkuri.
+            target_id (int): The ID of the target Yukkuri.
+            interaction_type (str): "Talk", "Fight", "Dance".
+
+        Returns:
+            bool: True if interaction happened.
+        """
+        if not self.world.entity_exists(initiator_id) or not self.world.entity_exists(target_id):
+            return False
+
+        init_stats = self.world.get_component(initiator_id, YukkuriStats)
+        target_stats = self.world.get_component(target_id, YukkuriStats)
+
+        if not init_stats or not target_stats:
+            return False
+
+        audio = self.world.services.try_get(AudioManager)
+
+        if interaction_type == "Talk":
+            # Talk increases happiness and social for both
+            init_stats.happiness = min(100.0, init_stats.happiness + 5.0)
+            init_stats.social = min(100.0, init_stats.social + 15.0)
+            target_stats.happiness = min(100.0, target_stats.happiness + 5.0)
+            target_stats.social = min(100.0, target_stats.social + 15.0)
+            if audio:
+                 # Use duck typing check or try/except to handle mocks
+                 if hasattr(audio, 'play_sound'):
+                     audio.play_sound("talk")
+
+        elif interaction_type == "Fight":
+            # Fight decreases health, happiness, increases stress
+            damage = 5.0
+            init_stats.health = max(0.0, init_stats.health - damage)
+            init_stats.happiness = max(0.0, init_stats.happiness - 10.0)
+            init_stats.stress = min(100.0, init_stats.stress + 10.0)
+
+            target_stats.health = max(0.0, target_stats.health - damage)
+            target_stats.happiness = max(0.0, target_stats.happiness - 10.0)
+            target_stats.stress = min(100.0, target_stats.stress + 10.0)
+
+            if audio:
+                 if hasattr(audio, 'play_sound'):
+                    audio.play_sound("hit")
+
+        elif interaction_type == "Dance":
+            # Dance increases fun/happiness
+            init_stats.happiness = min(100.0, init_stats.happiness + 10.0)
+            target_stats.happiness = min(100.0, target_stats.happiness + 10.0)
+            init_stats.social = min(100.0, init_stats.social + 10.0)
+            target_stats.social = min(100.0, target_stats.social + 10.0)
+            # Maybe trigger animation if possible
+
+        return True

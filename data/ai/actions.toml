@@ -48,3 +48,63 @@ type = "move_random"
 name = "Base"
 input = "constant_100"
 curve = "linear"
+
+[actions.Talk]
+weight = 1.2
+[actions.Talk.effects]
+type = "interact_social"
+target_stat = "social"
+consume = false
+stat_changes = { happiness = 5.0, social = 15.0 }
+
+[[actions.Talk.considerations]]
+name = "Loneliness"
+input = "social_inv"
+curve = "logit"
+params = { k = 10.0, x0 = 0.5 }
+
+[[actions.Talk.considerations]]
+name = "HasFriends"
+input = "nearby_friends"
+curve = "threshold"
+params = { threshold = 1.0 }
+
+[actions.Fight]
+weight = 2.5
+[actions.Fight.effects]
+type = "interact_social"
+target_stat = "stress"
+consume = false
+stat_changes = { happiness = -10.0, health = -5.0 }
+
+[[actions.Fight.considerations]]
+name = "Stress"
+input = "stress"
+curve = "logit"
+params = { k = 10.0, x0 = 0.7 }
+
+[[actions.Fight.considerations]]
+name = "HasEnemies"
+input = "nearby_enemies"
+curve = "threshold"
+params = { threshold = 1.0 }
+
+[actions.Dance]
+weight = 0.8
+[actions.Dance.effects]
+type = "interact_social"
+target_stat = "happiness"
+consume = false
+stat_changes = { happiness = 10.0, social = 10.0 }
+
+[[actions.Dance.considerations]]
+name = "HighSpirit"
+input = "happiness"
+curve = "logit"
+params = { k = 10.0, x0 = 0.8 }
+
+[[actions.Dance.considerations]]
+name = "HasPartner"
+input = "nearby_friends"
+curve = "threshold"
+params = { threshold = 1.0 }
