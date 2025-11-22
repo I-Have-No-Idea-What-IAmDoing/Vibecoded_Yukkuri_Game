@@ -8,11 +8,14 @@ from src.yukkuri_game.game.systems.behavior import BehaviorSystem
 from src.yukkuri_game.game.systems.stat_decay import StatDecaySystem
 from src.yukkuri_game.config import StatDecaySettings
 from src.yukkuri_game.game.services import GameService
+from src.yukkuri_game.game.ai.utility import UtilityAIEngine
+from src.yukkuri_game.game.ai.navigation_service import NavigationService
 
 @pytest.fixture
 def simulation_world():
     world = World()
     world.services.register(GameService(world))
+    world.services.register(NavigationService(1000, 1000))
 
     # Create Yukkuri
     yukkuri = world.create_entity()
@@ -66,6 +69,8 @@ def test_simulation_action_eat(simulation_world, systems):
 
     # Force AI to choose Eat
     mock_ai_engine.select_action.return_value = "Eat"
+    # Register mock engine so UtilitySelector finds it
+    world.services.register(mock_ai_engine, UtilityAIEngine)
 
     # Trigger decision
     decision_system.update(world, 1.1)
@@ -122,6 +127,8 @@ def test_simulation_action_wander(simulation_world, systems):
     decision_system, behavior_system, _, mock_ai_engine = systems
 
     mock_ai_engine.select_action.return_value = "Wander"
+    # Register mock engine so UtilitySelector finds it
+    world.services.register(mock_ai_engine, UtilityAIEngine)
 
     # Trigger decision
     decision_system.update(world, 1.1)

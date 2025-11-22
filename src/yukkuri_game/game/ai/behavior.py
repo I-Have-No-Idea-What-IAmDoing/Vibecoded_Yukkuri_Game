@@ -9,7 +9,6 @@ from ..components import Transform, PhysicsBody, Velocity
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats
 from .utility_selector import UtilitySelector
 from .base_action import Action
-from ..ai.pathfinding import Pathfinding
 from ..services import GameService
 from .navigation_service import NavigationService
 from .steering import Steering
