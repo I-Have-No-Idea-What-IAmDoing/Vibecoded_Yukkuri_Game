@@ -327,7 +327,7 @@ class HudLayout:
             self.hover_tooltip_panel.set_position((x, y))
 
             # Bring to front
-            self.manager.move_window_to_front(self.hover_tooltip_panel)
+            self.manager.ui_window_stack.move_window_to_front(self.hover_tooltip_panel)
 
         else:
             if self.hover_tooltip_panel.visible:
