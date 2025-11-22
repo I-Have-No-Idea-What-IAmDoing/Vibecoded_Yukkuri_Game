@@ -1,7 +1,8 @@
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
+from ...engine.resource_manager import ResourceManager
 from ..components import Sprite, Animator
-from ..yukkuri_components import AIState
+from ..yukkuri_components import AIState, YukkuriStats
 from ..events import AnimationEvent
 
 class AnimationSystem(System):
@@ -37,9 +38,16 @@ class AnimationSystem(System):
                 self._sync_ai_animation(animator, ai_state)
 
         # Handle Legacy Sprite Animation (if no Animator)
+
+        # Retrieve ResourceManager once
+        rm = world.services.try_get(ResourceManager)
+
         for entity, sprite in world.get_components(Sprite).items():
             if world.has_component(entity, Animator):
                 continue
+
+            # Dynamic Sprite Switching based on AIState (if no Animator)
+            self._update_dynamic_sprite(world, entity, sprite, rm)
 
             if not sprite.is_animating or sprite.frame_count <= 1:
                 continue
@@ -159,3 +167,44 @@ class AnimationSystem(System):
 
         if target_anim in animator.animations and target_anim != animator.current_animation:
             self._switch_animation(animator, target_anim)
+
+    def _update_dynamic_sprite(self, world: World, entity: int, sprite: Sprite, rm: ResourceManager) -> None:
+        """
+        Updates the sprite image based on AIState if no Animator is present.
+        """
+        if not rm:
+            return
+
+        ai_state = world.get_component(entity, AIState)
+        if not ai_state:
+            return
+
+        # Get base image from YukkuriStats -> ResourceManager
+        stats = world.get_component(entity, YukkuriStats)
+        if not stats:
+            return
+
+        # Determine base image name
+        # We need to look up the type definition
+        # rm.yukkuri_types is a dict of YukkuriType
+        yukkuri_type = rm.yukkuri_types.get(stats.type_id)
+        if not yukkuri_type:
+            return
+
+        base_image = yukkuri_type.image
+
+        # Determine target image based on action
+        action = ai_state.current_action
+        if action == "Idle":
+            target_image = base_image
+        else:
+            # Construct name: e.g., "reimu.png" -> "reimu_sleeping.png"
+            if "." in base_image:
+                name, ext = base_image.rsplit(".", 1)
+                target_image = f"{name}_{action.lower()}.{ext}"
+            else:
+                target_image = f"{base_image}_{action.lower()}"
+
+        # Update sprite if changed
+        if sprite.image_name != target_image:
+            sprite.image_name = target_image
