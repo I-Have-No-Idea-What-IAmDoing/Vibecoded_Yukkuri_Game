@@ -19,9 +19,15 @@ def test_move_to_target_stuck_detection():
     entity = world.create_entity()
     ai = AIState()
     trans = Transform(x=0, y=0)
-    phys = MagicMock(spec=PhysicsBody) # Assuming PhysicsBody object logic, but mocked here.
-    # Wait, PhysicsBody usually has a .body attribute.
-    phys.body = MagicMock()
+
+    # use real PhysicsBody but mock its internal body
+    phys = PhysicsBody(body=MagicMock(), shape=MagicMock())
+    phys.body.apply_impulse_at_local_point = MagicMock()
+    # Mock velocity to have x and y attributes
+    velocity_mock = MagicMock()
+    velocity_mock.x = 0
+    velocity_mock.y = 0
+    phys.body.velocity = velocity_mock
 
     world.add_component(entity, ai)
     world.add_component(entity, trans)
@@ -34,6 +40,7 @@ def test_move_to_target_stuck_detection():
     nav_service.find_path.return_value = [(50.0, 0.0), (100.0, 0.0)]
 
     action = MoveToTarget(entity_id=entity, world=world)
+
 
     # First update sets up path and last_position
     with patch('py_trees.blackboard.Blackboard') as mock_bb:
@@ -50,7 +57,9 @@ def test_move_to_target_stuck_detection():
         mock_bb.return_value.get.return_value = 1.0
 
         # First stuck tick. dt=1.0. stuck_timer becomes 1.0. Threshold is > 1.0.
-        # So we need one more tick.
+        action.update()
+
+        # Second stuck tick. stuck_timer becomes 2.0.
         action.update()
 
         # Trigger stuck logic (stuck_timer > 1.0)
@@ -87,7 +96,11 @@ def test_move_to_target_success():
         assert status == Status.SUCCESS
 
 def test_interact_fallback():
-    # Test Interact logic when GameService is missing (fallback logic)
+    # With new InteractionSystem, Interact action simply adds a component.
+    # It no longer has fallback logic in the action itself.
+    # This test needs to check if InteractionRequest is added.
+    from src.yukkuri_game.game.components import InteractionRequest
+
     world = World()
 
     e1 = world.create_entity() # Yukkuri
@@ -113,9 +126,11 @@ def test_interact_fallback():
     status = action.update()
     assert status == Status.SUCCESS
 
-    # Verify effects
-    assert stats.hunger == 30.0 # 50 - 20
-    assert not world.entity_exists(e2) # Consumed
+    # Verify Request is added
+    assert world.has_component(e1, InteractionRequest)
+    req = world.get_component(e1, InteractionRequest)
+    assert req.target_id == e2
+    assert req.consume is True
 
 def test_find_item():
     world = World()

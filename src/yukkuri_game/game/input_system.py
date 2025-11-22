@@ -79,7 +79,7 @@ class InputSystem(System):
 
         # Handle hover detection once per frame if possible
         # We need current mouse pos for this.
-        if pygame.display.get_init():
+        if pygame.display.get_init() and pygame.display.get_surface():
              mx, my = pygame.mouse.get_pos()
              screen_w, screen_h = pygame.display.get_surface().get_size()
              wx, wy = self.yukkurrium.screen_to_world(mx, my, screen_w, screen_h)
@@ -140,7 +140,9 @@ class InputSystem(System):
                 self.drag_end_pos = (wx, wy)
                 self.drag_start_screen_pos = (mx, my)
                 if self.input_service:
-                    self.input_service.selection_rect = pygame.Rect(mx, my, 0, 0) # Use screen coords for rect
+                    self.input_service.drag_start_pos = (mx, my)
+                    self.input_service.drag_current_pos = (mx, my)
+                    self.input_service.is_dragging = True
 
             elif event.button == 3: # Right Click cancels placement/cleaning
                 if self.input_service and self.input_service.is_placing:
@@ -158,13 +160,8 @@ class InputSystem(System):
         elif event.type == pygame.MOUSEMOTION:
             if self.drag_start_pos:
                 self.drag_end_pos = (wx, wy)
-                if self.input_service:
-                    # Calculate screen rect for rendering
-                    sx_start, sy_start = self.yukkurrium.world_to_screen(self.drag_start_pos[0], self.drag_start_pos[1], screen_w, screen_h)
-                    self.input_service.selection_rect = pygame.Rect(
-                        min(sx_start, mx), min(sy_start, my),
-                        abs(sx_start - mx), abs(sy_start - my)
-                    )
+                if self.input_service and self.input_service.is_dragging:
+                    self.input_service.drag_current_pos = (mx, my)
 
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1 and self.drag_start_pos:
@@ -182,7 +179,9 @@ class InputSystem(System):
                 self.drag_end_pos = None
                 self.drag_start_screen_pos = None
                 if self.input_service:
-                    self.input_service.selection_rect = None
+                    self.input_service.is_dragging = False
+                    self.input_service.drag_start_pos = None
+                    self.input_service.drag_current_pos = None
 
     def _handle_selection(self, world: World, start_pos: tuple[float, float], end_pos: tuple[float, float], drag_dist: float) -> None:
         """

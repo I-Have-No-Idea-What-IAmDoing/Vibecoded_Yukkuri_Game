@@ -356,7 +356,11 @@ class InputService:
         self._place_type: str = ""
         self._place_cost: int = 0
         self._place_entity_type: str = "" # "yukkuri" or "item"
-        self.selection_rect: Any = None # pygame.Rect or tuple, initialized to None
+        # Selection / Drag state
+        self.drag_start_pos: tuple[int, int] | None = None
+        self.drag_current_pos: tuple[int, int] | None = None
+        self.is_dragging: bool = False
+
         self._cleaning_mode = False
         self.hovered_entity_id: int = -1
         self.hovered_entity_pos: tuple[int, int] = (0, 0)
@@ -497,59 +501,3 @@ class GameService:
 
         return best_item
 
-    def interact_with_item(self, consumer_id: int, item_id: int, consume: bool = True) -> bool:
-        """
-        Handles the logic of a consumer entity interacting with an item entity.
-
-        Args:
-            consumer_id (int): The ID of the consumer entity.
-            item_id (int): The ID of the item entity.
-            consume (bool): Whether the item is consumed (destroyed) after interaction.
-
-        Returns:
-            bool: True if interaction was successful, False otherwise.
-        """
-        from .components import Transform
-        from .yukkuri_components import YukkuriStats, ItemStats, AIState
-
-        if not self.world.entity_exists(consumer_id) or not self.world.entity_exists(item_id):
-            return False
-
-        item_stats = self.world.get_component(item_id, ItemStats)
-        yukkuri_stats = self.world.get_component(consumer_id, YukkuriStats)
-
-        if item_stats and yukkuri_stats:
-            if item_stats.nutrition > 0:
-                yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
-
-            if item_stats.fun > 0:
-                yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
-
-            if item_stats.comfort > 0:
-                yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
-
-            audio = self.world.services.try_get(AudioManager)
-
-            if consume:
-                if audio:
-                    audio.play_sound("eat")
-                # Destroy the item
-                self.world.destroy_entity(item_id)
-                # Clean up components that might linger if delayed destruction
-                if self.world.has_component(item_id, Transform):
-                    self.world.remove_component(item_id, Transform)
-
-                # Update consumer AI state if needed (e.g. reset target)
-                ai = self.world.get_component(consumer_id, AIState)
-                if ai and ai.current_target_id == item_id:
-                    ai.current_target_id = -1
-            else:
-                # Check if we should clear target if not consuming?
-                # Usually for continuous actions like sleeping, we might want to keep target until done.
-                # But this function is called once per interaction tick or once per action completion.
-                # If it's one-shot, we might want to clear target.
-                pass
-
-            return True
-
-        return False

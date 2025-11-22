@@ -117,3 +117,18 @@ class FloatingText:
     max_lifetime: float
     velocity_y: float
     size: int = 20
+
+
+@dataclass
+class InteractionRequest:
+    """
+    Component requesting an interaction with another entity.
+
+    Attributes:
+        target_id (int): The ID of the target entity.
+        consume (bool): Whether the target should be consumed/destroyed. Defaults to True.
+        interaction_type (str): The type of interaction (e.g., "EAT", "SLEEP", "PLAY"). Optional.
+    """
+    target_id: int
+    consume: bool = True
+    interaction_type: str = ""

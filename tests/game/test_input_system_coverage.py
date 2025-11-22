@@ -104,6 +104,9 @@ def test_handle_event_mouse_motion_drag():
     # Test visual drag rect update
     system = InputSystem(MagicMock())
     system.input_service = MagicMock(spec=InputService)
+    # Mock state to simulate dragging
+    system.input_service.is_dragging = True
+
     system.drag_start_pos = (0, 0)
     system.yukkurrium.world_to_screen.return_value = (0, 0)
     system.yukkurrium.screen_to_world.return_value = (100.0, 100.0)
@@ -114,6 +117,5 @@ def test_handle_event_mouse_motion_drag():
 
     system.handle_event(event, MagicMock(), 800, 600)
 
-    assert system.input_service.selection_rect is not None
-    assert system.input_service.selection_rect.width == 100
-    assert system.input_service.selection_rect.height == 100
+    # Check if drag_current_pos updated
+    assert system.input_service.drag_current_pos == (100, 100)

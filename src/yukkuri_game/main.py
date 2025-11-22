@@ -22,6 +22,7 @@ from .game.systems.construction_system import ConstructionSystem
 from .game.systems.animation import AnimationSystem
 from .game.systems.poop_system import PoopSystem
 from .game.systems.feedback_system import FeedbackSystem
+from .game.systems.interaction_system import InteractionSystem
 from .game.ui.hud import HUD
 from .game.input_system import InputSystem
 from .game.yukkuri_components import AIState # Fix import for HUD string check if needed
@@ -143,6 +144,7 @@ class YukkuriGame(GameLoop):
         self.world.add_system(ConstructionSystem())
         self.world.add_system(AnimationSystem())
         self.world.add_system(PoopSystem())
+        self.world.add_system(InteractionSystem())
         self.world.add_system(FeedbackSystem(self.world))
 
         if not self.headless:

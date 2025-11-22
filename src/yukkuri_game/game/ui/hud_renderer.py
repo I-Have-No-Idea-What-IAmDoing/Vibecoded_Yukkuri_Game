@@ -63,6 +63,25 @@ class HudRenderer:
         # Update Hover Tooltip
         self._update_hover_tooltip()
 
+        # Draw selection box (if needed)
+        # Since HudRenderer manages UI elements, drawing raw shapes on the screen might technically belong to WorldRenderer.
+        # However, the prompt instructs to update HudRenderer.
+        # We need to get the screen surface.
+        self._draw_selection_box()
+
+    def _draw_selection_box(self):
+        input_service = self.world.services.try_get(InputService)
+        if input_service and input_service.is_dragging and input_service.drag_start_pos and input_service.drag_current_pos:
+            x1, y1 = input_service.drag_start_pos
+            x2, y2 = input_service.drag_current_pos
+
+            rect = pygame.Rect(min(x1, x2), min(y1, y2), abs(x1 - x2), abs(y1 - y2))
+
+            # Draw on the display surface
+            surface = pygame.display.get_surface()
+            if surface:
+                pygame.draw.rect(surface, (0, 255, 0), rect, 1)
+
     def _update_hover_tooltip(self) -> None:
         """
         Updates the hover tooltip based on input service state.

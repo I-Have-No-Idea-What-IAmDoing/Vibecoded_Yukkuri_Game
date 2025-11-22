@@ -55,7 +55,7 @@ def test_no_decay_when_not_starving():
         type_id="test",
         max_health=100.0,
         health=100.0,
-        hunger=99.0,
+        hunger=90.0, # Lower starting hunger to ensure we don't hit 100 immediately
         happiness=50.0,
         energy=50.0,
         cleanliness=50.0,

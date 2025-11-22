@@ -5,14 +5,13 @@ from typing import Optional, Callable, Any, TYPE_CHECKING
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
 from typing import Optional, Callable, Any, TYPE_CHECKING, Dict
-from ..components import Transform, PhysicsBody, Velocity
+from ..components import Transform, PhysicsBody, Velocity, InteractionRequest
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats
 from .utility_selector import UtilitySelector
 from .base_action import Action
 from ..services import GameService
 from .navigation_service import NavigationService
 from .steering import Steering
-from ..services import GameService
 from ...config import GameConfig
 
 if TYPE_CHECKING:
@@ -157,7 +156,14 @@ class MoveToTarget(Action):
                 if len(ai.path) == 1:
                     velocity = Steering.arrive((trans.x, trans.y), next_point, self.speed)
                 else:
-                    current_vel = (phys.body.velocity.x, phys.body.velocity.y)
+                    # Handle both Vec2d (pymunk) and tuple (mock/fallback)
+                    vx, vy = 0.0, 0.0
+                    if hasattr(phys.body.velocity, 'x'):
+                        vx, vy = phys.body.velocity.x, phys.body.velocity.y
+                    else:
+                        vx, vy = phys.body.velocity[0], phys.body.velocity[1]
+
+                    current_vel = (vx, vy)
                     velocity = Steering.seek((trans.x, trans.y), next_point, self.speed, current_vel)
 
                 phys.body.velocity = velocity
@@ -282,33 +288,13 @@ class Interact(Action):
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
         # print(f"Interact Check: Dist={dist}")
         if dist <= 30.0: # Interaction range
-            game_service = self.world.services.try_get(GameService)
-            if game_service:
-                # Use GameService to handle consumption
-                success = game_service.interact_with_item(self.entity_id, ai.current_target_id, self.consume)
-                return Status.SUCCESS if success else Status.FAILURE
-            else:
-                # Fallback if GameService is missing (though it should be there)
-                # This logic was previously in execute_action
-                item_stats = self.world.get_component(ai.current_target_id, ItemStats)
-                yukkuri_stats = self.world.get_component(self.entity_id, YukkuriStats)
-
-                if item_stats and yukkuri_stats:
-                    if item_stats.nutrition > 0:
-                        yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
-
-                    if item_stats.fun > 0:
-                        yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
-
-                    if item_stats.comfort > 0:
-                        yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
-
-                    if self.consume:
-                        self.world.destroy_entity(ai.current_target_id)
-                        if self.world.has_component(ai.current_target_id, Transform):
-                            self.world.remove_component(ai.current_target_id, Transform)
-                        ai.current_target_id = -1
-                return Status.SUCCESS
+            # Request interaction
+            # We use add_component to add the request. The InteractionSystem will process it.
+            self.world.add_component(self.entity_id, InteractionRequest(
+                target_id=ai.current_target_id,
+                consume=self.consume
+            ))
+            return Status.SUCCESS
 
         return Status.RUNNING
 
