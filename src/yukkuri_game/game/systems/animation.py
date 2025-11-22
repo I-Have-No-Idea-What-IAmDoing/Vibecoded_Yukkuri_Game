@@ -29,12 +29,12 @@ class AnimationSystem(System):
 
         # Handle Animator components (Advanced Animation)
         for entity, (sprite, animator) in world.get_components_tuple(Sprite, Animator):
-            self._update_animator(entity, animator, sprite, dt)
-
             # Sync with AI State if available
             ai_state = world.get_component(entity, AIState)
             if ai_state:
                 self._sync_ai_animation(animator, ai_state)
+
+            self._update_animator(entity, animator, sprite, dt)
 
         # Handle Legacy Sprite Animation (if no Animator)
         for entity, sprite in world.get_components(Sprite).items():
