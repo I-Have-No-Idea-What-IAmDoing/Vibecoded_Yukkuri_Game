@@ -40,6 +40,10 @@ class StatDecaySystem(System):
             stats.age += self.settings.age * dt
             stats.cleanliness -= self.settings.cleanliness * dt
 
+            # Health decay due to starvation
+            if stats.hunger >= 100.0:
+                stats.health -= self.settings.starvation_damage * dt
+
             # Clamp
             stats.hunger = min(100, max(0, stats.hunger))
             stats.happiness = min(100, max(0, stats.happiness))
