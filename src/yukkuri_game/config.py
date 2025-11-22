@@ -38,6 +38,7 @@ class StatDecaySettings(msgspec.Struct):
     energy: float = 0.5
     cleanliness: float = 0.2
     age: float = 1.0
+    starvation_damage: float = 5.0
 
 class LifecycleSettings(msgspec.Struct):
     """
