@@ -6,6 +6,7 @@ from src.yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, Item
 from src.yukkuri_game.game.systems.decision import DecisionSystem
 from src.yukkuri_game.game.systems.behavior import BehaviorSystem
 from src.yukkuri_game.game.systems.stat_decay import StatDecaySystem
+from src.yukkuri_game.game.systems.interaction_system import InteractionSystem
 from src.yukkuri_game.config import StatDecaySettings
 from src.yukkuri_game.game.services import GameService
 from src.yukkuri_game.game.ai.utility import UtilityAIEngine
@@ -40,12 +41,13 @@ def systems():
     decision_system = DecisionSystem(mock_ai_engine, decision_interval=1.0)
     behavior_system = BehaviorSystem(world_width=1000, world_height=1000)
     stat_decay_system = StatDecaySystem(StatDecaySettings(hunger=2.0, cleanliness=2.0)) # Set specific decay rates
+    interaction_system = InteractionSystem()
 
-    return decision_system, behavior_system, stat_decay_system, mock_ai_engine
+    return decision_system, behavior_system, stat_decay_system, mock_ai_engine, interaction_system
 
 def test_simulation_update_decay(simulation_world, systems):
     world, yukkuri, _ = simulation_world
-    _, _, stat_decay_system, _ = systems
+    _, _, stat_decay_system, _, _ = systems
 
     # Initial stats
     stats = world.get_component(yukkuri, YukkuriStats)
@@ -65,7 +67,7 @@ def test_simulation_update_decay(simulation_world, systems):
 
 def test_simulation_action_eat(simulation_world, systems):
     world, yukkuri, item = simulation_world
-    decision_system, behavior_system, _, mock_ai_engine = systems
+    decision_system, behavior_system, _, mock_ai_engine, interaction_system = systems
 
     # Force AI to choose Eat
     mock_ai_engine.select_action.return_value = "Eat"
@@ -114,6 +116,9 @@ def test_simulation_action_eat(simulation_world, systems):
 
     behavior_system.update(world, 0.1)
 
+    # Behavior adds InteractionRequest. Now run InteractionSystem.
+    interaction_system.update(world, 0.1)
+
     # Check if item consumed
     assert not world.entity_exists(item)
 
@@ -124,7 +129,7 @@ def test_simulation_action_eat(simulation_world, systems):
 
 def test_simulation_action_wander(simulation_world, systems):
     world, yukkuri, _ = simulation_world
-    decision_system, behavior_system, _, mock_ai_engine = systems
+    decision_system, behavior_system, _, mock_ai_engine, _ = systems
 
     mock_ai_engine.select_action.return_value = "Wander"
     # Register mock engine so UtilitySelector finds it
