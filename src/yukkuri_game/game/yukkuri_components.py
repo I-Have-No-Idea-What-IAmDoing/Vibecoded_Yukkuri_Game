@@ -34,6 +34,7 @@ class YukkuriStats:
     growth_stage: str = "Baby" # Baby, Child, Adult
     badges: int = 0
     quality_score: float = 0.0
+    discipline: float = 0.0  # 0 = undisciplined, 100 = perfectly disciplined
 
 @dataclass
 class AIState:

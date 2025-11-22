@@ -79,6 +79,16 @@ class TrainEntityRequest(Event):
     entity_id: int
 
 @dataclass(frozen=True)
+class PunishEntityRequest(Event):
+    """
+    Event published when a request to punish an entity is made.
+
+    Attributes:
+        entity_id (int): The ID of the entity to punish.
+    """
+    entity_id: int
+
+@dataclass(frozen=True)
 class SellEntityRequest(Event):
     """
     Event published when a request to sell an entity is made.
@@ -135,6 +145,18 @@ class EntitySoldEvent(Event):
     """
     entity_id: int
     value: int
+    position: tuple[float, float]
+
+@dataclass(frozen=True)
+class EntityPunishedEvent(Event):
+    """
+    Event published when an entity is punished.
+
+    Attributes:
+        entity_id (int): The ID of the punished entity.
+        position (tuple[float, float]): The position of the entity.
+    """
+    entity_id: int
     position: tuple[float, float]
 
 @dataclass(frozen=True)

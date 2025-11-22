@@ -63,6 +63,7 @@ class HudLayout:
         self.info_label: Optional[UITextBox] = None
         self.sell_btn: Optional[UIButton] = None
         self.train_btn: Optional[UIButton] = None
+        self.punish_btn: Optional[UIButton] = None
 
         self.clean_btn: Optional[UIButton] = None
 
@@ -226,6 +227,7 @@ class HudLayout:
         if has_stats:
             sell_text = "Sell All" if selection_count > 1 else "Sell"
             train_text = "Train All (+Badge)" if selection_count > 1 else "Train (+Badge)"
+            punish_text = "Punish All" if selection_count > 1 else "Punish"
 
             self.sell_btn = UIButton(
                 relative_rect=pygame.Rect(10, 220, 290, 40),
@@ -241,6 +243,13 @@ class HudLayout:
                 container=self.selection_window,
                 tool_tip_text="Train selected entities to increase badges"
             )
+            self.punish_btn = UIButton(
+                relative_rect=pygame.Rect(10, 320, 290, 40),
+                text=punish_text,
+                manager=self.manager,
+                container=self.selection_window,
+                tool_tip_text="Punish selected entities to increase discipline but lower health/happiness"
+            )
 
     def close_selection_window(self) -> None:
         """
@@ -252,6 +261,7 @@ class HudLayout:
             self.info_label = None
             self.sell_btn = None
             self.train_btn = None
+            self.punish_btn = None
 
     def create_debug_window(self) -> None:
         """
