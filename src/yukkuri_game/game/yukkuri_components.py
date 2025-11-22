@@ -28,6 +28,8 @@ class YukkuriStats:
     max_health: float = 100.0
     hunger: float = 0.0      # 0 = full, 100 = starving
     happiness: float = 50.0  # 0 = sad, 100 = happy
+    social: float = 50.0     # 0 = lonely, 100 = satisfied
+    stress: float = 0.0      # 0 = calm, 100 = stressed
     energy: float = 100.0    # 0 = exhausted, 100 = full energy
     cleanliness: float = 100.0
     age: float = 0.0         # In game seconds/ticks

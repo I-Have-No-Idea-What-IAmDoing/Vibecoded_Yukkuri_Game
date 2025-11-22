@@ -5,6 +5,7 @@ from .utility import UtilityAIEngine
 from .base_action import Action
 
 from ..yukkuri_components import AIState, YukkuriStats
+from ..components import Transform
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
@@ -67,6 +68,34 @@ class UtilitySelector(Action):
 
         # Build Context
         # Map stats to context keys expected by actions.toml
+
+        # Calculate social context
+        nearby_yukkuris = []
+        if self.world:
+            nearby_yukkuris = self.world.get_entities_with(YukkuriStats)
+
+        nearby_friends = 0
+        nearby_enemies = 0
+
+        # This is a bit expensive to do every tick per entity, but fine for small scale
+        my_trans = self.world.get_component(self.entity_id, Transform)
+
+        if my_trans:
+            for other_id in nearby_yukkuris:
+                if other_id == self.entity_id:
+                    continue
+
+                other_trans = self.world.get_component(other_id, Transform)
+                other_stats = self.world.get_component(other_id, YukkuriStats)
+
+                if other_trans and other_stats:
+                    dist = ((my_trans.x - other_trans.x)**2 + (my_trans.y - other_trans.y)**2)**0.5
+                    if dist < 200.0: # Detection range
+                        if other_stats.type_id == stats.type_id:
+                            nearby_friends += 1
+                        else:
+                            nearby_enemies += 1
+
         context = {
             "hunger": stats.hunger,
             "hunger_inv": 100.0 - stats.hunger,
@@ -74,7 +103,12 @@ class UtilitySelector(Action):
             "energy_inv": 100.0 - stats.energy,
             "happiness": stats.happiness,
             "happiness_inv": 100.0 - stats.happiness,
+            "social": getattr(stats, 'social', 50.0),
+            "social_inv": 100.0 - getattr(stats, 'social', 50.0),
+            "stress": getattr(stats, 'stress', 0.0),
             "cleanliness": stats.cleanliness,
+            "nearby_friends": float(nearby_friends),
+            "nearby_enemies": float(nearby_enemies),
             "constant_100": 100.0,
             "constant_0": 0.0
         }
