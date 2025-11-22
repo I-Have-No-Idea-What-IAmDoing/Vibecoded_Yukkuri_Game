@@ -8,6 +8,7 @@ class TestStatDecaySystem(unittest.TestCase):
     def test_stat_decay(self):
         # Mock World and Component
         mock_world = MagicMock()
+        mock_world.has_component.return_value = False # Not dead
 
         stats = YukkuriStats(name="Test", type_id="test")
         stats.hunger = 50.0
@@ -38,6 +39,7 @@ class TestStatDecaySystem(unittest.TestCase):
 
     def test_clamping(self):
         mock_world = MagicMock()
+        mock_world.has_component.return_value = False # Not dead
         stats = YukkuriStats(name="Test", type_id="test")
         stats.hunger = 99.0
         stats.happiness = 1.0
@@ -59,6 +61,7 @@ class TestStatDecaySystem(unittest.TestCase):
 
     def test_cleanliness_clamping(self):
         mock_world = MagicMock()
+        mock_world.has_component.return_value = False # Not dead
         stats = YukkuriStats(name="Test", type_id="test")
         stats.cleanliness = 1.0
 
