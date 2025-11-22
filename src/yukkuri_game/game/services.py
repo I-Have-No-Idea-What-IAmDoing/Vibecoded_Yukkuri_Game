@@ -5,7 +5,7 @@ from loguru import logger
 from ..engine.ecs import World
 from ..engine.audio import AudioManager
 from .components import Transform
-from .yukkuri_components import YukkuriStats, ItemStats
+from .yukkuri_components import YukkuriStats, ItemStats, AIState
 from ..engine.service_locator import ServiceLocator
 
 if TYPE_CHECKING:
@@ -101,7 +101,22 @@ class PersistenceService:
              logger.warning("World.get_all_entities not available. Falling back to Transform-based iteration.")
              all_entities = self.world.get_entities_with(Transform)
 
+        # First pass: Create ID mapping for all entities to be saved.
+        # We iterate through all entities, but we only assign SaveIDs to those that will be saved.
+        # However, since we don't know which ones are saved until we check components,
+        # we'll do the filtering logic twice or store the list.
+
+        entities_to_save = []
+        id_map: Dict[int, int] = {}
+
         for entity in all_entities:
+            # Check if it's a saveable entity (has YukkuriStats or ItemStats)
+            if self.world.has_component(entity, YukkuriStats) or self.world.has_component(entity, ItemStats):
+                save_id = len(entities_to_save)
+                id_map[entity] = save_id
+                entities_to_save.append(entity)
+
+        for entity in entities_to_save:
             ent_data: Dict[str, Any] = {}
 
             # Transform
@@ -129,8 +144,20 @@ class PersistenceService:
                     "type_id": i_stats.type_id
                 }
 
-            if "yukkuri" in ent_data or "item" in ent_data:
-                 data["entities"].append(ent_data)
+            # AI State
+            ai = self.world.get_component(entity, AIState)
+            if ai:
+                mapped_target_id = id_map.get(ai.current_target_id, -1)
+                ent_data["ai_state"] = {
+                    "current_action": ai.current_action,
+                    "current_target_id": mapped_target_id,
+                    "action_progress": float(ai.action_progress),
+                    "state_data": ai.state_data,
+                    # Helper to convert path tuples to list if needed (json handles list of lists)
+                    "path": [list(p) for p in ai.path] if ai.path else None
+                }
+
+            data["entities"].append(ent_data)
 
         path = os.path.join(self.save_dir, filename)
         with open(path, "w") as f:
@@ -184,13 +211,20 @@ class PersistenceService:
         from .entity_factory import EntityFactory
         factory = self.world.services.get(EntityFactory)
 
-        for ent_data in data.get("entities", []):
+        # Map SaveID (index in data list) -> NewEntityID
+        loaded_entities: List[int] = []
+
+        entities_data = data.get("entities", [])
+
+        # First pass: Create entities
+        for ent_data in entities_data:
             trans = ent_data.get("transform")
             if trans:
                 x, y = float(trans["x"]), float(trans["y"])
             else:
                 x, y = 0.0, 0.0
 
+            eid = -1
             if "yukkuri" in ent_data:
                 y_data = ent_data["yukkuri"]
                 eid = factory.create_yukkuri(y_data["type_id"], x, y)
@@ -205,7 +239,37 @@ class PersistenceService:
 
             elif "item" in ent_data:
                 i_data = ent_data["item"]
-                factory.create_item(i_data["type_id"], x, y)
+                eid = factory.create_item(i_data["type_id"], x, y)
+
+            # We append eid even if it's -1 (failed creation) to keep index sync
+            loaded_entities.append(eid)
+
+        # Second pass: Restore AI State
+        for index, ent_data in enumerate(entities_data):
+            eid = loaded_entities[index]
+            if eid == -1:
+                continue
+
+            if "ai_state" in ent_data:
+                ai_data = ent_data["ai_state"]
+
+                # Ensure entity has AIState component
+                if not self.world.has_component(eid, AIState):
+                    self.world.add_component(eid, AIState())
+
+                ai = self.world.get_component(eid, AIState)
+                if ai:
+                    ai.current_action = ai_data.get("current_action", "Idle")
+                    ai.action_progress = float(ai_data.get("action_progress", 0.0))
+                    ai.state_data = ai_data.get("state_data")
+                    ai.path = ai_data.get("path")
+
+                    # Resolve target ID
+                    saved_target_id = ai_data.get("current_target_id", -1)
+                    if saved_target_id != -1 and 0 <= saved_target_id < len(loaded_entities):
+                        ai.current_target_id = loaded_entities[saved_target_id]
+                    else:
+                        ai.current_target_id = -1
 
         logger.info("Game loaded.")
         return True
