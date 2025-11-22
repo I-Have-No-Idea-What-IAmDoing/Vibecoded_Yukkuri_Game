@@ -2,7 +2,7 @@ import pymunk
 from typing import Any
 from typing import Any, Optional, TYPE_CHECKING
 from ..engine.ecs import World
-from .components import Transform, Sprite, Selectable, PhysicsBody
+from .components import Transform, Sprite, Selectable, PhysicsBody, FloatingText
 from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop
 
 if TYPE_CHECKING:
@@ -150,6 +150,21 @@ class EntityFactory:
             self.physics_system.space.add(body, shape)
             self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
+        return entity
+
+    def create_floating_text(self, text: str, x: float, y: float, color: tuple[int, int, int] = (255, 255, 255)):
+        """
+        Creates a floating text entity.
+
+        Args:
+            text (str): The text to display.
+            x (float): The x-coordinate.
+            y (float): The y-coordinate.
+            color (tuple): The color of the text.
+        """
+        entity = self.world.create_entity()
+        self.world.add_component(entity, Transform(x=x, y=y))
+        self.world.add_component(entity, FloatingText(text=text, color=color))
         return entity
 
     def create_poop(self, x: float, y: float) -> int:

@@ -110,3 +110,13 @@ class AnimationEvent(Event):
     event_name: str
     animation_name: str
     frame_index: int
+
+@dataclass(frozen=True)
+class NotificationEvent(Event):
+    """
+    Event published to display a global notification.
+
+    Attributes:
+        message (str): The message to display.
+    """
+    message: str

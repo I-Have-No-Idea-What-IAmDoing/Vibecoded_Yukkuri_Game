@@ -1,6 +1,6 @@
 import pygame
 from ..engine.ecs import System, World
-from .components import Transform, Sprite, Selectable
+from .components import Transform, Sprite, Selectable, FloatingText
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
 from .services import InputService
@@ -124,6 +124,7 @@ class WorldRenderer:
         self.screen = screen
         self.yukkurrium = yukkurrium
         self.rm = resource_manager
+        self.font = pygame.font.SysFont(None, 24)
 
     def render(self, world: World) -> None:
         """
@@ -218,6 +219,29 @@ class WorldRenderer:
                 selectable = world.get_component(ent, Selectable)
                 if selectable and selectable.selected:
                     pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
+
+        # Draw floating text
+        text_entities = world.get_entities_with(Transform, FloatingText)
+        if text_entities:
+            for ent in text_entities:
+                transform = world.get_component(ent, Transform)
+                text_comp = world.get_component(ent, FloatingText)
+
+                sx, sy = self.yukkurrium.world_to_screen(transform.x, transform.y, sw, sh)
+
+                # Alpha fade
+                alpha = 255
+                if text_comp.lifetime > 0:
+                    alpha = int(255 * (1.0 - (text_comp.age / text_comp.lifetime)))
+                    alpha = max(0, min(255, alpha))
+
+                # Render text
+                # Pygame font doesn't support direct alpha, so render to surface then blit with alpha
+                text_surf = self.font.render(text_comp.text, True, text_comp.color)
+                text_surf.set_alpha(alpha)
+
+                rect = text_surf.get_rect(center=(int(sx), int(sy)))
+                self.screen.blit(text_surf, rect)
 
         # Draw selection box if active
         input_service = world.services.try_get(InputService)

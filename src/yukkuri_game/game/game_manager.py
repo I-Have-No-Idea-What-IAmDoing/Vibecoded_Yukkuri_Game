@@ -9,7 +9,7 @@ from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats
 from .services import EconomyService, PersistenceService, TimeService
 from .ai.navigation_service import NavigationService
-from .events import TrainEntityRequest, SellEntityRequest
+from .events import TrainEntityRequest, SellEntityRequest, NotificationEvent
 from ..config import GameConfig
 
 if TYPE_CHECKING:
@@ -150,6 +150,16 @@ class GameManager:
             economy = self.world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}")
+
+            # Floating text
+            transform = self.world.get_component(entity, Transform)
+            if transform:
+                self.factory.create_floating_text(f"+${value}", transform.x, transform.y, (50, 200, 50))
+
+            # Log notification
+            if self.event_bus:
+                self.event_bus.publish(NotificationEvent(f"Sold {stats.name} for ${value}."))
+
             if self.audio:
                 self.audio.play_sound("sell")
             self.world.destroy_entity(entity)
@@ -176,6 +186,15 @@ class GameManager:
         if stats:
             stats.badges += 1
             stats.happiness += 10
+
+            transform = self.world.get_component(event.entity_id, Transform)
+            if transform:
+                self.factory.create_floating_text("+Badge", transform.x, transform.y - 20, (255, 215, 0))
+                self.factory.create_floating_text("+10 Happy", transform.x, transform.y, (255, 100, 200))
+
+            if self.event_bus:
+                self.event_bus.publish(NotificationEvent(f"Trained {stats.name}. Badge added!"))
+
             if self.audio:
                 self.audio.play_sound("train")
             logger.info(f"Trained entity {event.entity_id}. Badges: {stats.badges}")

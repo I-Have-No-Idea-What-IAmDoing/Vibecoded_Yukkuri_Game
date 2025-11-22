@@ -97,3 +97,23 @@ class Selectable:
         selected (bool): Whether the entity is currently selected. Defaults to False.
     """
     selected: bool = False
+
+@dataclass
+class FloatingText:
+    """
+    Component for floating text that spawns at a location and floats up.
+
+    Attributes:
+        text (str): The text to display.
+        color (tuple): The RGB color of the text.
+        lifetime (float): How long the text lasts in seconds.
+        age (float): How long the text has been alive.
+        velocity_y (float): Vertical speed (negative for up).
+        size (int): Font size.
+    """
+    text: str
+    color: tuple[int, int, int] = (255, 255, 255)
+    lifetime: float = 2.0
+    age: float = 0.0
+    velocity_y: float = -20.0
+    size: int = 20

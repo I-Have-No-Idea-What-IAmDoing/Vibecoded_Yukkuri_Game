@@ -2,6 +2,7 @@ import pygame
 import pygame_gui
 from typing import Optional
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox
+from .notification_log import NotificationLog
 
 class HudLayout:
     """
@@ -27,6 +28,7 @@ class HudLayout:
         train_btn (Optional[UIButton]): Button to train the selected entity.
         debug_window (Optional[UIWindow]): The debug info window.
         debug_text_box (Optional[UITextBox]): Text box within the debug window.
+        notification_log (Optional[NotificationLog]): The notification log.
     """
     def __init__(self, ui_manager: pygame_gui.UIManager, width: int, height: int, yukkuri_types: dict = None, item_types: dict = None):
         """
@@ -69,6 +71,9 @@ class HudLayout:
         # Debug Window Elements
         self.debug_window: Optional[UIWindow] = None
         self.debug_text_box: Optional[UITextBox] = None
+
+        # Notification Log
+        self.notification_log = NotificationLog(self.manager, self.width, self.height)
 
         self._create_top_bar()
         self._create_bottom_bar()
