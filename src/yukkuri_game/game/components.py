@@ -114,5 +114,6 @@ class FloatingText:
     text: str
     color: tuple[int, int, int]
     lifetime: float
+    max_lifetime: float
     velocity_y: float
     size: int = 20

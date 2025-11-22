@@ -52,7 +52,7 @@ class TestFeedbackSystem:
         # Setup an entity with FloatingText
         entity_id = 1
         transform = Transform(x=100, y=100)
-        text_comp = FloatingText(text="Test", color=(255, 255, 255), lifetime=1.0, velocity_y=-10.0, size=10)
+        text_comp = FloatingText(text="Test", color=(255, 255, 255), lifetime=1.0, max_lifetime=1.0, velocity_y=-10.0, size=10)
 
         mock_world.get_components_tuple.return_value = [(entity_id, (transform, text_comp))]
 

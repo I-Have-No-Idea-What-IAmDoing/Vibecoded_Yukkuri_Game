@@ -174,6 +174,7 @@ class EntityFactory:
             text=text,
             color=color,
             lifetime=lifetime,
+            max_lifetime=lifetime,
             velocity_y=velocity_y,
             size=size
         ))

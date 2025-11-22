@@ -87,11 +87,11 @@ class HUD:
             message = f"<font color='{hex_color}'>{event.message}</font><br>"
             self.layout.log_box.append_html_text(message)
 
-            # Scroll to bottom (simple approximation, appending usually handles it or we might need to auto-scroll)
-            # pygame_gui UITextBox auto-scrolls if configured, but let's see.
-            # If we need to force scroll:
+            # Scroll to bottom
             if hasattr(self.layout.log_box, "scroll_bar") and self.layout.log_box.scroll_bar:
                 self.layout.log_box.scroll_bar.scroll_position = self.layout.log_box.scroll_bar.scrollable_height
+                # Force update to apply scroll immediately if needed, though usually next update handles it.
+                self.layout.log_box.scroll_bar.update(0)
 
     def on_entity_selected(self, event: EntitySelectedEvent) -> None:
         """

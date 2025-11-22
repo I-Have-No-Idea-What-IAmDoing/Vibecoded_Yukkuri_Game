@@ -252,6 +252,12 @@ class WorldRenderer:
             # Render text surface
             text_surface = font.render(text_comp.text, True, text_comp.color)
 
+            # Fade out based on lifetime
+            if text_comp.max_lifetime > 0:
+                alpha = int(255 * (text_comp.lifetime / text_comp.max_lifetime))
+                alpha = max(0, min(255, alpha))
+                text_surface.set_alpha(alpha)
+
             # Calculate screen position
             screen_x, screen_y = self.yukkurrium.world_to_screen(transform.x, transform.y, screen_w, screen_h)
 
