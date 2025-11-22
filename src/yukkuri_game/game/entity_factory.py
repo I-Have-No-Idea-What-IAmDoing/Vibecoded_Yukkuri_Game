@@ -2,7 +2,7 @@ import pymunk
 from typing import Any
 from typing import Any, Optional, TYPE_CHECKING
 from ..engine.ecs import World
-from .components import Transform, Sprite, Selectable, PhysicsBody, Animator
+from .components import Transform, Sprite, Selectable, PhysicsBody
 from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop
 
 if TYPE_CHECKING:
@@ -122,13 +122,6 @@ class EntityFactory:
             is_animating=(frame_count > 1)
         ))
         self.world.add_component(entity, Selectable())
-
-        # Animator
-        if hasattr(data, 'animations') and data.animations:
-            self.world.add_component(entity, Animator(
-                animations=data.animations,
-                current_animation="idle" if "idle" in data.animations else list(data.animations.keys())[0]
-            ))
 
         # Yukkuri Stats
         stats = YukkuriStats(

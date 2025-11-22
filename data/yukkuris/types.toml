@@ -7,41 +7,6 @@ max_health = 100
 base_happiness = 50
 cost = 100
 
-[yukkuris.reimu.animations.idle]
-name = "idle"
-frames = [0]
-frame_duration = 0.5
-loop = true
-image = "reimu_idle.png"
-
-[yukkuris.reimu.animations.eat]
-name = "eat"
-frames = [0]
-frame_duration = 0.5
-loop = true
-image = "reimu_eat.png"
-
-[yukkuris.reimu.animations.sleep]
-name = "sleep"
-frames = [0]
-frame_duration = 0.5
-loop = true
-image = "reimu_sleep.png"
-
-[yukkuris.reimu.animations.play]
-name = "play"
-frames = [0]
-frame_duration = 0.5
-loop = true
-image = "reimu_play.png"
-
-[yukkuris.reimu.animations.wander]
-name = "wander"
-frames = [0]
-frame_duration = 0.5
-loop = true
-image = "reimu_wander.png"
-
 [yukkuris.marisa]
 name = "Marisa"
 image = "marisa.png"
@@ -50,38 +15,3 @@ height = 64
 max_health = 120
 base_happiness = 40
 cost = 100
-
-[yukkuris.marisa.animations.idle]
-name = "idle"
-frames = [0]
-frame_duration = 0.5
-loop = true
-image = "marisa_idle.png"
-
-[yukkuris.marisa.animations.eat]
-name = "eat"
-frames = [0]
-frame_duration = 0.5
-loop = true
-image = "marisa_eat.png"
-
-[yukkuris.marisa.animations.sleep]
-name = "sleep"
-frames = [0]
-frame_duration = 0.5
-loop = true
-image = "marisa_sleep.png"
-
-[yukkuris.marisa.animations.play]
-name = "play"
-frames = [0]
-frame_duration = 0.5
-loop = true
-image = "marisa_play.png"
-
-[yukkuris.marisa.animations.wander]
-name = "wander"
-frames = [0]
-frame_duration = 0.5
-loop = true
-image = "marisa_wander.png"
