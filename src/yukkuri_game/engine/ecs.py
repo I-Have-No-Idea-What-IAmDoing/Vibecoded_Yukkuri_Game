@@ -230,7 +230,18 @@ class World:
 
 if TYPE_CHECKING:
     class ProcessorBase:
-        def process(self, dt: float) -> None: ...
+        """
+        Base class for Processors (Systems).
+        Used for type checking against esper.Processor.
+        """
+        def process(self, dt: float) -> None:
+            """
+            Processes the system logic.
+
+            Args:
+                dt (float): Delta time.
+            """
+            ...
 else:
     ProcessorBase = esper.Processor
 

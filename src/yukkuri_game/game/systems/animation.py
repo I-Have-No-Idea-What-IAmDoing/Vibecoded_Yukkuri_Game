@@ -10,6 +10,12 @@ class AnimationSystem(System):
     """
 
     def __init__(self, event_bus: EventBus = None):
+        """
+        Initializes the AnimationSystem.
+
+        Args:
+            event_bus (EventBus, optional): The event bus to publish animation events to.
+        """
         self.event_bus = event_bus
 
     def update(self, world: World, dt: float) -> None:

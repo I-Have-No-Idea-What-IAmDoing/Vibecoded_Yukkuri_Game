@@ -86,7 +86,7 @@ def load_config(data_dir: Path = Path("data")) -> GameConfig:
     Loads configuration from TOML files in the specified directory.
 
     Args:
-        data_dir: The directory containing config.toml and rules.toml.
+        data_dir (Path): The directory containing config.toml and rules.toml.
 
     Returns:
         GameConfig: The loaded configuration.

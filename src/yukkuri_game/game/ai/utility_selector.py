@@ -15,10 +15,22 @@ class UtilitySelector(Action):
     Updates AIState.current_action.
     """
     def __init__(self, name: str = "Utility Selector", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None):
+        """
+        Initializes the UtilitySelector node.
+
+        Args:
+            name (str): The name of the node.
+            entity_id (Optional[int]): The ID of the entity.
+            world (Optional[World]): The ECS World.
+            blackboard (Optional[Any]): The blackboard for data sharing.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self.engine: Optional[UtilityAIEngine] = None
 
     def initialise(self) -> None:
+        """
+        Initializes the selector, attempting to fetch the UtilityAIEngine service.
+        """
         # Try to get engine if not set
         if self.world and not self.engine:
             # Assuming UtilityAIEngine is registered as a service or we can access it via GameManager
@@ -28,6 +40,15 @@ class UtilitySelector(Action):
             self.engine = self.world.services.try_get(UtilityAIEngine)
 
     def update(self) -> Status:
+        """
+        Updates the selector.
+
+        Evaluates utility scores for all available actions based on the current context (stats)
+        and updates the entity's AIState with the best action.
+
+        Returns:
+            Status: Status.SUCCESS if an action was selected, Status.FAILURE otherwise.
+        """
         if not self.world or self.entity_id is None:
             return Status.FAILURE
 

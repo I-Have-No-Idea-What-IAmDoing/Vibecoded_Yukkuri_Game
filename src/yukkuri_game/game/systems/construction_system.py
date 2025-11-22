@@ -13,12 +13,22 @@ class ConstructionSystem(System):
     Listens for PlacementRequestedEvent.
     """
     def __init__(self):
+        """Initializes the ConstructionSystem."""
         self.world: Optional[World] = None
         self.event_bus: Optional[EventBus] = None
         self.economy_service: Optional[EconomyService] = None
         self.factory: Optional['EntityFactory'] = None
 
     def update(self, world: World, dt: float) -> None:
+        """
+        Updates the system.
+
+        Lazily initializes dependencies and subscribes to events.
+
+        Args:
+            world (World): The ECS World instance.
+            dt (float): The time elapsed since the last update.
+        """
         if self.world is None:
             self.world = world
             self.event_bus = world.services.get(EventBus)
