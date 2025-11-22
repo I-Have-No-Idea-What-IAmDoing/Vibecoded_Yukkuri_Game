@@ -1,7 +1,9 @@
 import random
 from ...engine.ecs import System, World
+from ...engine.event_bus import EventBus
 from ..yukkuri_components import YukkuriStats, AIState, Dead
 from ..components import Sprite, Transform, PhysicsBody
+from ..events import NotificationEvent
 from ...config import LifecycleSettings
 from typing import TYPE_CHECKING
 from loguru import logger
@@ -54,6 +56,16 @@ class LifecycleSystem(System):
                 stats.health = 0
                 logger.info(f"{stats.name} has died.")
 
+                # Notify
+                eb = world.services.try_get(EventBus)
+                if eb:
+                    eb.publish(NotificationEvent(f"{stats.name} has died.", "#FF0000"))
+
+                # Floating Text
+                transform = world.get_component(entity, Transform)
+                if transform and self.factory:
+                    self.factory.create_floating_text(transform.x, transform.y, "Dead...", (128, 128, 128))
+
                 # Tag as Dead
                 world.add_component(entity, Dead())
 
@@ -95,6 +107,16 @@ class LifecycleSystem(System):
         Performs the growth transition.
         """
         logger.info(f"{stats.name} is growing from {stats.growth_stage} to {new_stage}!")
+
+        # Notify
+        eb = world.services.try_get(EventBus)
+        if eb:
+            eb.publish(NotificationEvent(f"{stats.name} grew into a {new_stage}!", "#00FF00"))
+
+        # Floating Text
+        if self.factory:
+            self.factory.create_floating_text(transform.x, transform.y, "Level Up!", (255, 255, 0))
+
         stats.growth_stage = new_stage
 
         # Scale Transform

@@ -2,6 +2,7 @@ import pygame
 import pygame_gui
 from typing import Optional
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox
+from .notification_log import NotificationLog
 
 class HudLayout:
     """
@@ -74,6 +75,9 @@ class HudLayout:
         self.hover_tooltip_panel: Optional[UIPanel] = None
         self.hover_tooltip_label: Optional[UITextBox] = None
 
+        # Notification Log
+        self.notification_log: Optional[NotificationLog] = None
+
         self._create_top_bar()
         self._create_bottom_bar()
 
@@ -141,7 +145,23 @@ class HudLayout:
             manager=self.manager
         )
 
-        x_offset = 10
+        # Create Notification Log (Bottom Left)
+        # We need to make space for it. Let's put it on the left side of bottom panel?
+        # Or maybe a separate panel above bottom panel?
+        # The prompt says "Added a text box to the bottom-left of the HUD (HudLayout)."
+
+        # Let's put it inside bottom_panel, on the far left.
+        # And shift buttons to the right.
+
+        log_width = 250
+        log_height = 90
+        self.notification_log = NotificationLog(
+            self.manager,
+            self.bottom_panel,
+            pygame.Rect(5, 5, log_width, log_height)
+        )
+
+        x_offset = log_width + 15 # Start buttons after log
         y_offset = 10
         btn_width = 140
         btn_height = 40

@@ -4,8 +4,10 @@ from typing import Dict, Any, List, TYPE_CHECKING
 from loguru import logger
 from ..engine.ecs import World
 from ..engine.audio import AudioManager
+from ..engine.event_bus import EventBus
 from .components import Transform
 from .yukkuri_components import YukkuriStats, ItemStats
+from .events import NotificationEvent
 from ..engine.service_locator import ServiceLocator
 
 if TYPE_CHECKING:
@@ -455,14 +457,27 @@ class GameService:
         yukkuri_stats = self.world.get_component(consumer_id, YukkuriStats)
 
         if item_stats and yukkuri_stats:
+            from .entity_factory import EntityFactory
+            factory = self.world.services.try_get(EntityFactory)
+            event_bus = self.world.services.try_get(EventBus)
+            trans = self.world.get_component(consumer_id, Transform)
+
             if item_stats.nutrition > 0:
                 yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
+                if factory and trans:
+                    factory.create_floating_text(trans.x, trans.y, "Yummy!", (255, 182, 193))
+                if event_bus:
+                    event_bus.publish(NotificationEvent(f"{yukkuri_stats.name} ate {item_stats.name}.", "#FFFFFF"))
 
             if item_stats.fun > 0:
                 yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
+                if factory and trans:
+                    factory.create_floating_text(trans.x, trans.y, "Happy!", (255, 105, 180))
 
             if item_stats.comfort > 0:
                 yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
+                if factory and trans:
+                    factory.create_floating_text(trans.x, trans.y, "Relaxed...", (173, 216, 230))
 
             audio = self.world.services.try_get(AudioManager)
 

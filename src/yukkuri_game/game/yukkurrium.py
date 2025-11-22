@@ -1,6 +1,6 @@
 import pygame
 from ..engine.ecs import System, World
-from .components import Transform, Sprite, Selectable
+from .components import Transform, Sprite, Selectable, FloatingText
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
 from .services import InputService
@@ -125,6 +125,9 @@ class WorldRenderer:
         self.yukkurrium = yukkurrium
         self.rm = resource_manager
 
+        # Pre-initialize font for floating text
+        self.font = pygame.font.SysFont("Arial", 20, bold=True)
+
     def render(self, world: World) -> None:
         """
         Renders the world grid and all visible entities.
@@ -223,6 +226,55 @@ class WorldRenderer:
         input_service = world.services.try_get(InputService)
         if input_service and input_service.selection_rect:
             pygame.draw.rect(self.screen, (0, 255, 0), input_service.selection_rect, 1)
+
+        # Render Floating Text
+        self.render_floating_text(world, sw, sh)
+
+    def render_floating_text(self, world: World, screen_w: int, screen_h: int) -> None:
+        """
+        Renders floating text entities.
+
+        Args:
+            world (World): The ECS world.
+            screen_w (int): Screen width.
+            screen_h (int): Screen height.
+        """
+        text_entities = world.get_entities_with(Transform, FloatingText)
+        for ent in text_entities:
+            transform = world.get_component(ent, Transform)
+            text_comp = world.get_component(ent, FloatingText)
+
+            if not transform or not text_comp:
+                continue
+
+            # Calculate screen position
+            screen_x, screen_y = self.yukkurrium.world_to_screen(transform.x, transform.y, screen_w, screen_h)
+
+            # Render text
+            # Fade out alpha based on lifetime? Pygame fonts don't support alpha easily without rendering to surface with alpha.
+            # Simple version: just render
+
+            # Determine alpha based on lifetime (e.g. fade out in last 0.5s)
+            alpha = 255
+            if text_comp.lifetime < 0.5:
+                alpha = int((text_comp.lifetime / 0.5) * 255)
+                alpha = max(0, min(255, alpha))
+
+            # Cache the surface
+            if text_comp.surface is None:
+                text_comp.surface = self.font.render(text_comp.text, True, text_comp.color)
+
+            text_surf = text_comp.surface
+
+            # Apply alpha
+            # Note: The cached surface is reused, so we shouldn't modify it permanently if alpha changes.
+            # But set_alpha on a surface is a state change for blitting. It doesn't modify pixels.
+            # However, if we share the surface (unlikely here as unique per entity), it might be issue.
+            # Since component is 1:1 with entity, it's fine.
+            text_surf.set_alpha(alpha)
+
+            rect = text_surf.get_rect(center=(int(screen_x), int(screen_y)))
+            self.screen.blit(text_surf, rect)
 
     def draw_grid(self) -> None:
         """

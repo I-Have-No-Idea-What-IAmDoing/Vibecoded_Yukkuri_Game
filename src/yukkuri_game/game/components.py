@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 import pymunk
 from ..engine.data_models import AnimationDefinition
 
@@ -97,3 +97,20 @@ class Selectable:
         selected (bool): Whether the entity is currently selected. Defaults to False.
     """
     selected: bool = False
+
+@dataclass
+class FloatingText:
+    """
+    Component for floating text effects (e.g., damage numbers, earnings).
+
+    Attributes:
+        text (str): The text to display.
+        color (tuple[int, int, int]): The RGB color of the text.
+        lifetime (float): Remaining time in seconds before destruction.
+        velocity_y (float): Vertical speed (usually negative for floating up).
+    """
+    text: str
+    color: tuple[int, int, int]
+    lifetime: float
+    velocity_y: float = -20.0
+    surface: Optional[Any] = None # Cached rendered text surface
