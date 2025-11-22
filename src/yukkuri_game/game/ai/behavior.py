@@ -293,6 +293,97 @@ class Interact(Action):
 
         return Status.RUNNING
 
+class SocialInteract(Action):
+    """
+    Handles social interaction with another Yukkuri.
+    """
+    def __init__(self, name: str, entity_id: int, world: 'World', interaction_type: str):
+        super().__init__(name, entity_id, world)
+        self.interaction_type = interaction_type # "Talk", "Fight", "Dance"
+
+    def update(self) -> Status:
+        super().update()
+        if self.world is None or self.entity_id is None:
+            return Status.FAILURE
+
+        ai = self.world.get_component(self.entity_id, AIState)
+        trans = self.world.get_component(self.entity_id, Transform)
+
+        if not ai or not trans:
+            return Status.FAILURE
+
+        if ai.current_target_id == -1:
+            return Status.FAILURE
+
+        target_trans = self.world.get_component(ai.current_target_id, Transform)
+        if not target_trans:
+            return Status.FAILURE
+
+        dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
+        if dist <= 40.0: # Interaction range slightly larger for social
+            game_service = self.world.services.try_get(GameService)
+            if game_service:
+                success = game_service.interact_social(self.entity_id, ai.current_target_id, self.interaction_type)
+                return Status.SUCCESS if success else Status.FAILURE
+
+        return Status.RUNNING
+
+class FindSocialTarget(Action):
+    """
+    Finds a target Yukkuri for social interaction based on criteria.
+    """
+    def __init__(self, name: str, entity_id: int, world: 'World', criteria: str):
+        super().__init__(name, entity_id, world)
+        self.criteria = criteria # "friend", "enemy", "any"
+
+    def update(self) -> Status:
+        super().update()
+        if not self.world or not self.entity_id:
+            return Status.FAILURE
+
+        ai = self.world.get_component(self.entity_id, AIState)
+        my_stats = self.world.get_component(self.entity_id, YukkuriStats)
+        trans = self.world.get_component(self.entity_id, Transform)
+
+        if not ai or not my_stats or not trans:
+            return Status.FAILURE
+
+        nearby_yukkuris = self.world.get_entities_with(YukkuriStats, Transform)
+
+        best_target = -1
+        min_dist = float('inf')
+
+        for uid in nearby_yukkuris:
+            if uid == self.entity_id:
+                continue
+
+            u_stats = self.world.get_component(uid, YukkuriStats)
+            u_trans = self.world.get_component(uid, Transform)
+
+            # Check criteria
+            is_compatible = (u_stats.type_id == my_stats.type_id)
+
+            match = False
+            if self.criteria == "any":
+                match = True
+            elif self.criteria == "friend" and is_compatible:
+                match = True
+            elif self.criteria == "enemy" and not is_compatible:
+                match = True
+
+            if match:
+                dist = math.hypot(u_trans.x - trans.x, u_trans.y - trans.y)
+                if dist < min_dist:
+                    min_dist = dist
+                    best_target = uid
+
+        if best_target != -1:
+            ai.current_target_id = best_target
+            ai.path = None
+            return Status.SUCCESS
+
+        return Status.FAILURE
+
 class Idle(Action):
     """
     Makes the entity idle (stop moving).
@@ -564,11 +655,74 @@ def build_wander_behavior(entity_id: int, world: 'World', width: int, height: in
     wander_sequence.add_children([is_wandering, wander])
     return wander_sequence
 
+def build_talk_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    talk_sequence = py_trees.composites.Sequence(name="Talk Sequence", memory=True)
+    is_talking = Check(name="Goal=Talk?", check_fn=lambda: check_goal_fn("Talk"))
+
+    talk_execution = py_trees.composites.Selector(name="Talk Execution", memory=True)
+
+    # 1. Have target?
+    have_target_seq = py_trees.composites.Sequence(name="Have Friend?", memory=True)
+    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+    move_to_friend = MoveToTarget(name="Move To Friend", entity_id=entity_id, world=world)
+    do_talk = SocialInteract(name="Talk", entity_id=entity_id, world=world, interaction_type="Talk")
+    have_target_seq.add_children([check_target, move_to_friend, do_talk])
+
+    # 2. Find Friend
+    find_friend = FindSocialTarget(name="Find Friend", entity_id=entity_id, world=world, criteria="friend")
+
+    talk_execution.add_children([have_target_seq, find_friend])
+    talk_sequence.add_children([is_talking, talk_execution])
+    return talk_sequence
+
+def build_fight_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    fight_sequence = py_trees.composites.Sequence(name="Fight Sequence", memory=True)
+    is_fighting = Check(name="Goal=Fight?", check_fn=lambda: check_goal_fn("Fight"))
+
+    fight_execution = py_trees.composites.Selector(name="Fight Execution", memory=True)
+
+    # 1. Have target?
+    have_target_seq = py_trees.composites.Sequence(name="Have Enemy?", memory=True)
+    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+    move_to_enemy = MoveToTarget(name="Move To Enemy", entity_id=entity_id, world=world)
+    do_fight = SocialInteract(name="Fight", entity_id=entity_id, world=world, interaction_type="Fight")
+    have_target_seq.add_children([check_target, move_to_enemy, do_fight])
+
+    # 2. Find Enemy
+    find_enemy = FindSocialTarget(name="Find Enemy", entity_id=entity_id, world=world, criteria="enemy")
+
+    fight_execution.add_children([have_target_seq, find_enemy])
+    fight_sequence.add_children([is_fighting, fight_execution])
+    return fight_sequence
+
+def build_dance_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    dance_sequence = py_trees.composites.Sequence(name="Dance Sequence", memory=True)
+    is_dancing = Check(name="Goal=Dance?", check_fn=lambda: check_goal_fn("Dance"))
+
+    dance_execution = py_trees.composites.Selector(name="Dance Execution", memory=True)
+
+    # 1. Have target? (Dance partner)
+    have_target_seq = py_trees.composites.Sequence(name="Have Partner?", memory=True)
+    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+    move_to_partner = MoveToTarget(name="Move To Partner", entity_id=entity_id, world=world)
+    do_dance = SocialInteract(name="Dance", entity_id=entity_id, world=world, interaction_type="Dance")
+    have_target_seq.add_children([check_target, move_to_partner, do_dance])
+
+    # 2. Find Partner (Any)
+    find_partner = FindSocialTarget(name="Find Partner", entity_id=entity_id, world=world, criteria="any")
+
+    dance_execution.add_children([have_target_seq, find_partner])
+    dance_sequence.add_children([is_dancing, dance_execution])
+    return dance_sequence
+
 # Register default behaviors
 BehaviorRegistry.register_goal("Eat", build_eat_behavior)
 BehaviorRegistry.register_goal("Sleep", build_sleep_behavior)
 BehaviorRegistry.register_goal("Play", build_play_behavior)
 BehaviorRegistry.register_goal("Wander", build_wander_behavior)
+BehaviorRegistry.register_goal("Talk", build_talk_behavior)
+BehaviorRegistry.register_goal("Fight", build_fight_behavior)
+BehaviorRegistry.register_goal("Dance", build_dance_behavior)
 
 
 def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, height: int) -> py_trees.composites.Sequence:

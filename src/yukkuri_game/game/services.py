@@ -501,3 +501,118 @@ class GameService:
 
         return best_item
 
+    def interact_with_item(self, consumer_id: int, item_id: int, consume: bool = True) -> bool:
+        """
+        Handles the logic of a consumer entity interacting with an item entity.
+
+        Args:
+            consumer_id (int): The ID of the consumer entity.
+            item_id (int): The ID of the item entity.
+            consume (bool): Whether the item is consumed (destroyed) after interaction.
+
+        Returns:
+            bool: True if interaction was successful, False otherwise.
+        """
+        from .components import Transform
+        from .yukkuri_components import YukkuriStats, ItemStats, AIState
+
+        if not self.world.entity_exists(consumer_id) or not self.world.entity_exists(item_id):
+            return False
+
+        item_stats = self.world.get_component(item_id, ItemStats)
+        yukkuri_stats = self.world.get_component(consumer_id, YukkuriStats)
+
+        if item_stats and yukkuri_stats:
+            if item_stats.nutrition > 0:
+                yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
+
+            if item_stats.fun > 0:
+                yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
+
+            if item_stats.comfort > 0:
+                yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
+
+            audio = self.world.services.try_get(AudioManager)
+
+            if consume:
+                if audio:
+                    audio.play_sound("eat")
+                # Destroy the item
+                self.world.destroy_entity(item_id)
+                # Clean up components that might linger if delayed destruction
+                if self.world.has_component(item_id, Transform):
+                    self.world.remove_component(item_id, Transform)
+
+                # Update consumer AI state if needed (e.g. reset target)
+                ai = self.world.get_component(consumer_id, AIState)
+                if ai and ai.current_target_id == item_id:
+                    ai.current_target_id = -1
+            else:
+                # Check if we should clear target if not consuming?
+                # Usually for continuous actions like sleeping, we might want to keep target until done.
+                # But this function is called once per interaction tick or once per action completion.
+                # If it's one-shot, we might want to clear target.
+                pass
+
+            return True
+
+        return False
+
+    def interact_social(self, initiator_id: int, target_id: int, interaction_type: str) -> bool:
+        """
+        Handles social interaction between two Yukkuris.
+
+        Args:
+            initiator_id (int): The ID of the initiating Yukkuri.
+            target_id (int): The ID of the target Yukkuri.
+            interaction_type (str): "Talk", "Fight", "Dance".
+
+        Returns:
+            bool: True if interaction happened.
+        """
+        if not self.world.entity_exists(initiator_id) or not self.world.entity_exists(target_id):
+            return False
+
+        init_stats = self.world.get_component(initiator_id, YukkuriStats)
+        target_stats = self.world.get_component(target_id, YukkuriStats)
+
+        if not init_stats or not target_stats:
+            return False
+
+        audio = self.world.services.try_get(AudioManager)
+
+        if interaction_type == "Talk":
+            # Talk increases happiness and social for both
+            init_stats.happiness = min(100.0, init_stats.happiness + 5.0)
+            init_stats.social = min(100.0, init_stats.social + 15.0)
+            target_stats.happiness = min(100.0, target_stats.happiness + 5.0)
+            target_stats.social = min(100.0, target_stats.social + 15.0)
+            if audio:
+                 # Use duck typing check or try/except to handle mocks
+                 if hasattr(audio, 'play_sound'):
+                     audio.play_sound("talk")
+
+        elif interaction_type == "Fight":
+            # Fight decreases health, happiness, increases stress
+            damage = 5.0
+            init_stats.health = max(0.0, init_stats.health - damage)
+            init_stats.happiness = max(0.0, init_stats.happiness - 10.0)
+            init_stats.stress = min(100.0, init_stats.stress + 10.0)
+
+            target_stats.health = max(0.0, target_stats.health - damage)
+            target_stats.happiness = max(0.0, target_stats.happiness - 10.0)
+            target_stats.stress = min(100.0, target_stats.stress + 10.0)
+
+            if audio:
+                 if hasattr(audio, 'play_sound'):
+                    audio.play_sound("hit")
+
+        elif interaction_type == "Dance":
+            # Dance increases fun/happiness
+            init_stats.happiness = min(100.0, init_stats.happiness + 10.0)
+            target_stats.happiness = min(100.0, target_stats.happiness + 10.0)
+            init_stats.social = min(100.0, init_stats.social + 10.0)
+            target_stats.social = min(100.0, target_stats.social + 10.0)
+            # Maybe trigger animation if possible
+
+        return True
