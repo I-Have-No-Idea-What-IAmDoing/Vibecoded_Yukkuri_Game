@@ -81,7 +81,7 @@ class TestEntityFactory(unittest.TestCase):
 
         stats = self.world.get_component(entity, YukkuriStats)
         self.assertEqual(stats.type_id, "reimu")
-        self.assertEqual(stats.max_health, 100)
+        self.assertEqual(stats.max_health, 50.0) # Baby (age 0) has 50% health
 
         # Verify physics
         self.physics_system.space.add.assert_called()
@@ -113,7 +113,7 @@ class TestEntityFactory(unittest.TestCase):
         self.assertFalse(sprite.is_animating)
 
         stats = self.world.get_component(entity, YukkuriStats)
-        self.assertEqual(stats.max_health, 100) # Default value
+        self.assertEqual(stats.max_health, 50.0) # Default value (Baby)
 
     def test_create_yukkuri_unknown_type(self):
         with self.assertRaises(ValueError):
