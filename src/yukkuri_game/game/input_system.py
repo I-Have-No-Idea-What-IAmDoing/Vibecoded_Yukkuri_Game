@@ -77,6 +77,14 @@ class InputSystem(System):
         if self.audio is None:
             self.audio = world.services.try_get(AudioManager)
 
+        # Handle hover detection once per frame if possible
+        # We need current mouse pos for this.
+        if pygame.display.get_init():
+             mx, my = pygame.mouse.get_pos()
+             screen_w, screen_h = pygame.display.get_surface().get_size()
+             wx, wy = self.yukkurrium.screen_to_world(mx, my, screen_w, screen_h)
+             self._check_hover(world, wx, wy, mx, my)
+
     def handle_event(self, event: pygame.event.Event, world: World, screen_w: int, screen_h: int, ui_manager: Optional['pygame_gui.UIManager'] = None) -> None:
         """
         Handles a single Pygame event.
@@ -304,3 +312,64 @@ class InputSystem(System):
              # If nothing found, maybe stop cleaning? Or just allow clicking around.
              # Let's keep cleaning mode active until right click or button press.
              pass
+
+    def _check_hover(self, world: World, wx: float, wy: float, mx: int, my: int) -> None:
+        """
+        Checks for entities under the mouse cursor and updates the input service.
+        """
+        hover_radius = 32.0
+        # esper.get_components returns a list of (entity_id, component1, component2, ...)
+        # Note: get_entities_with is not a standard esper method, usually it's get_components
+        # Assuming get_entities_with returns just IDs is risky if it's actually a wrapper or esper's get_components.
+        # If this method exists on World (ECS), check its signature.
+        # Standard esper: world.get_components(Transform, Selectable) -> [(ent, trans, sel), ...]
+
+        # If get_entities_with returns just IDs:
+        # entities = world.get_entities_with(Transform, Selectable)
+
+        # Let's assume standard usage pattern or check usage elsewhere.
+        # Usage elsewhere: entities = world.get_entities_with(Transform, Selectable)
+        # for ent in entities: ...
+        # It seems get_entities_with might return a list of entity IDs if implemented customly,
+        # or tuples if it's get_components.
+
+        # To be safe and robust, let's use get_components if available or handle the tuple.
+        # Since other methods use get_entities_with, I'll assume it's available.
+        # If it returns tuples (ent, trans, sel), iterating 'ent' would be the tuple.
+
+        # Let's check how other methods use it.
+        # _handle_selection uses:
+        # entities = world.get_entities_with(Transform, Selectable)
+        # for ent in entities:
+        #    selectable = world.get_component(ent, Selectable)
+
+        # This implies 'ent' is an entity ID.
+        # If get_entities_with returns tuples, world.get_component((id, ...), ...) would fail.
+
+        # However, if get_entities_with returns a list of IDs, reversed(entities) is fine.
+        # If it returns a generator, reversed() fails.
+
+        entities = world.get_entities_with(Transform, Selectable)
+        # Convert to list to ensure we can reverse it (in case it's a generator)
+        entity_list = list(entities)
+
+        hovered_id = -1
+        # Reverse iterate to find the top-most entity (if rendered back-to-front)
+        for ent in reversed(entity_list):
+            # If ent is a tuple (common in esper for multiple components), extract ID
+            if isinstance(ent, tuple):
+                entity_id = ent[0]
+                # Optimization: we already have components in the tuple if it's standard esper
+                # trans = ent[1]
+            else:
+                entity_id = ent
+
+            trans = world.get_component(entity_id, Transform)
+
+            dist = ((trans.x - wx)**2 + (trans.y - wy)**2)**0.5
+            if dist < hover_radius:
+                hovered_id = entity_id
+                break
+
+        self.input_service.hovered_entity_id = hovered_id
+        self.input_service.hovered_entity_pos = (mx, my)
