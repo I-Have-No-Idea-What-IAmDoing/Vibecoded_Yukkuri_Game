@@ -1,6 +1,14 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 from ..engine.event_bus import Event
+
+@dataclass(frozen=True)
+class NotificationEvent(Event):
+    """
+    Event for global notifications to be displayed in the log.
+    """
+    message: str
+    color: Optional[Tuple[int, int, int]] = None
 
 @dataclass(frozen=True)
 class EntitySelectedEvent(Event):

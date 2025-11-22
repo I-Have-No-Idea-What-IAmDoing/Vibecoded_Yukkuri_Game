@@ -2,6 +2,7 @@ import pygame
 import pygame_gui
 from typing import Optional
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox
+from .notification_log import NotificationLog
 
 class HudLayout:
     """
@@ -74,8 +75,20 @@ class HudLayout:
         self.hover_tooltip_panel: Optional[UIPanel] = None
         self.hover_tooltip_label: Optional[UITextBox] = None
 
+        # Notification Log
+        self.notification_log: Optional[NotificationLog] = None
+
         self._create_top_bar()
         self._create_bottom_bar()
+        self._create_notification_log()
+
+    def _create_notification_log(self) -> None:
+        """
+        Creates the notification log.
+        """
+        # Positioned above the bottom panel, left side
+        rect = pygame.Rect(10, self.height - 250, 300, 140)
+        self.notification_log = NotificationLog(rect, self.manager)
 
     def _create_top_bar(self) -> None:
         """

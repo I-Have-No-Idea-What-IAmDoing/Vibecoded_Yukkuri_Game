@@ -1,7 +1,18 @@
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 import pymunk
 from ..engine.data_models import AnimationDefinition
+
+@dataclass
+class FloatingText:
+    """
+    Component for floating text effects (e.g. damage numbers, notifications).
+    """
+    text: str
+    color: Tuple[int, int, int]
+    lifetime: float
+    age: float = 0.0
+    velocity_y: float = -20.0 # Pixels per second, moving up
 
 @dataclass
 class PhysicsBody:

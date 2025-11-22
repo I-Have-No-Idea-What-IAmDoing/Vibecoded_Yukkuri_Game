@@ -9,7 +9,7 @@ from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats
 from .services import EconomyService, PersistenceService, TimeService
 from .ai.navigation_service import NavigationService
-from .events import TrainEntityRequest, SellEntityRequest
+from .events import TrainEntityRequest, SellEntityRequest, NotificationEvent
 from ..config import GameConfig
 
 if TYPE_CHECKING:
@@ -145,11 +145,20 @@ class GameManager:
             int: The amount of money gained, or 0 if the entity is not a Yukkuri.
         """
         stats = self.world.get_component(entity, YukkuriStats)
+        transform = self.world.get_component(entity, Transform)
         if stats:
             value = self.calculate_quality_score(stats)
             economy = self.world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}")
+
+            # Spawn Floating Text
+            if transform:
+                self.factory.create_floating_text(f"+${value}", transform.x, transform.y - 30, (255, 215, 0)) # Gold
+
+            # Notify
+            self.event_bus.publish(NotificationEvent(f"Sold {stats.name} for ${value}", (255, 215, 0)))
+
             if self.audio:
                 self.audio.play_sound("sell")
             self.world.destroy_entity(entity)
@@ -173,9 +182,19 @@ class GameManager:
             event (TrainEntityRequest): The event containing the entity ID to train.
         """
         stats = self.world.get_component(event.entity_id, YukkuriStats)
+        transform = self.world.get_component(event.entity_id, Transform)
         if stats:
             stats.badges += 1
             stats.happiness += 10
+
+            # Floating Text
+            if transform:
+                 self.factory.create_floating_text("+Badge!", transform.x, transform.y - 30, (0, 255, 0))
+                 self.factory.create_floating_text("+Happy", transform.x, transform.y - 50, (255, 105, 180))
+
+            # Notify
+            self.event_bus.publish(NotificationEvent(f"{stats.name} earned a badge!", (0, 255, 0)))
+
             if self.audio:
                 self.audio.play_sound("train")
             logger.info(f"Trained entity {event.entity_id}. Badges: {stats.badges}")

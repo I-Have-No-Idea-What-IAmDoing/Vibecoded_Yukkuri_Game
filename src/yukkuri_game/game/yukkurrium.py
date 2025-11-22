@@ -1,6 +1,6 @@
 import pygame
 from ..engine.ecs import System, World
-from .components import Transform, Sprite, Selectable
+from .components import Transform, Sprite, Selectable, FloatingText
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
 from .services import InputService
@@ -124,6 +124,7 @@ class WorldRenderer:
         self.screen = screen
         self.yukkurrium = yukkurrium
         self.rm = resource_manager
+        self.font = pygame.font.SysFont("Arial", 20, bold=True)
 
     def render(self, world: World) -> None:
         """
@@ -223,6 +224,21 @@ class WorldRenderer:
         input_service = world.services.try_get(InputService)
         if input_service and input_service.selection_rect:
             pygame.draw.rect(self.screen, (0, 255, 0), input_service.selection_rect, 1)
+
+        # Render Floating Text
+        text_entities = world.get_components_tuple(Transform, FloatingText)
+        for ent, (transform, text_comp) in text_entities:
+            screen_x, screen_y = self.yukkurrium.world_to_screen(transform.x, transform.y, sw, sh)
+
+            # Calculate alpha based on lifetime
+            alpha = max(0, 255 - int((text_comp.age / text_comp.lifetime) * 255))
+
+            # Render text
+            text_surf = self.font.render(text_comp.text, True, text_comp.color)
+            text_surf.set_alpha(alpha)
+
+            rect = text_surf.get_rect(center=(int(screen_x), int(screen_y)))
+            self.screen.blit(text_surf, rect)
 
     def draw_grid(self) -> None:
         """
