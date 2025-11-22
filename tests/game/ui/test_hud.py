@@ -32,6 +32,10 @@ def mock_world():
     input_service = MagicMock()
     input_service.hovered_entity_id = -1
     input_service.hovered_entity_pos = (0, 0)
+    # Fix drag positions for tests
+    input_service.is_dragging = False
+    input_service.drag_start_pos = (0, 0)
+    input_service.drag_current_pos = (10, 10)
 
     services = MagicMock()
     services.try_get.return_value = input_service

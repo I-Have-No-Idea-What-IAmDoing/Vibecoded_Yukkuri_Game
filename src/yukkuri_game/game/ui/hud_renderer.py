@@ -63,6 +63,30 @@ class HudRenderer:
         # Update Hover Tooltip
         self._update_hover_tooltip()
 
+        # Draw Selection Box
+        self._draw_selection_box()
+
+    def _draw_selection_box(self) -> None:
+        """
+        Draws the selection box if dragging.
+        """
+        input_service = self.world.services.try_get(InputService)
+        if input_service and input_service.is_dragging:
+            start = input_service.drag_start_pos
+            curr = input_service.drag_current_pos
+
+            x = min(start[0], curr[0])
+            y = min(start[1], curr[1])
+            w = abs(start[0] - curr[0])
+            h = abs(start[1] - curr[1])
+
+            rect = pygame.Rect(x, y, w, h)
+
+            # Draw directly to the display surface
+            screen = pygame.display.get_surface()
+            if screen:
+                pygame.draw.rect(screen, (0, 255, 0), rect, 1)
+
     def _update_hover_tooltip(self) -> None:
         """
         Updates the hover tooltip based on input service state.

@@ -234,11 +234,6 @@ class WorldRenderer:
                 if selectable and selectable.selected:
                     pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
 
-        # Draw selection box if active
-        input_service = world.services.try_get(InputService)
-        if input_service and input_service.selection_rect:
-            pygame.draw.rect(self.screen, (0, 255, 0), input_service.selection_rect, 1)
-
         # Render Floating Text
         self.render_floating_text(world, sw, sh)
 
