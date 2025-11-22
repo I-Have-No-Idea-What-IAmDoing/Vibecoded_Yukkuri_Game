@@ -6,6 +6,7 @@ from ..events import (
     EntitySoldEvent,
     EntityGrewEvent,
     EntityTrainedEvent,
+    EntityPunishedEvent,
     EntityDiedEvent,
     LogMessageEvent
 )
@@ -41,6 +42,7 @@ class FeedbackSystem(System):
         self.event_bus.subscribe(EntityGrewEvent, self.on_growth)
         self.event_bus.subscribe(EntityDiedEvent, self.on_death)
         self.event_bus.subscribe(EntityTrainedEvent, self.on_trained)
+        self.event_bus.subscribe(EntityPunishedEvent, self.on_punished)
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -152,4 +154,26 @@ class FeedbackSystem(System):
         self.event_bus.publish(LogMessageEvent(
             message=f"{name} trained successfully.",
             color=(0, 255, 255)
+        ))
+
+    def on_punished(self, event: EntityPunishedEvent) -> None:
+        """
+        Handles EntityPunishedEvent.
+        """
+        name = "Entity"
+        stats = self.world.get_component(event.entity_id, YukkuriStats)
+        if stats:
+            name = stats.name
+
+        self.factory.create_floating_text(
+            event.position[0],
+            event.position[1] - 30,
+            "Punished!",
+            (255, 0, 0), # Red
+            size=20
+        )
+
+        self.event_bus.publish(LogMessageEvent(
+            message=f"{name} was punished.",
+            color=(255, 0, 0)
         ))

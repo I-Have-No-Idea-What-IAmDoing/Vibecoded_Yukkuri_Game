@@ -7,6 +7,7 @@ from ..events import (
     TogglePauseRequest,
     CycleSpeedRequest,
     TrainEntityRequest,
+    PunishEntityRequest,
     SellEntityRequest,
     CleanToolRequestedEvent
 )
@@ -110,6 +111,11 @@ class HudEvents:
             if hasattr(self.layout, 'train_btn') and ui_element == self.layout.train_btn:
                 for entity_id in self.selected_entities:
                     self.event_bus.publish(TrainEntityRequest(entity_id))
+                return True
+
+            if hasattr(self.layout, 'punish_btn') and ui_element == self.layout.punish_btn:
+                for entity_id in self.selected_entities:
+                    self.event_bus.publish(PunishEntityRequest(entity_id))
                 return True
 
         return False

@@ -11,9 +11,11 @@ from .services import EconomyService, PersistenceService, TimeService
 from .ai.navigation_service import NavigationService
 from .events import (
     TrainEntityRequest,
+    PunishEntityRequest,
     SellEntityRequest,
     EntitySoldEvent,
-    EntityTrainedEvent
+    EntityTrainedEvent,
+    EntityPunishedEvent
 )
 from ..config import GameConfig
 
@@ -44,6 +46,7 @@ class GameManager:
         self.event_bus = world.services.get(EventBus)
         if self.event_bus:
             self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
+            self.event_bus.subscribe(PunishEntityRequest, self.on_punish_entity)
             self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
 
         self.audio = world.services.try_get(AudioManager)
@@ -201,6 +204,30 @@ class GameManager:
             self.event_bus.publish(EntityTrainedEvent(event.entity_id, position))
 
             logger.info(f"Trained entity {event.entity_id}. Badges: {stats.badges}")
+
+    def on_punish_entity(self, event: PunishEntityRequest) -> None:
+        """
+        Handles the PunishEntityRequest event.
+
+        Args:
+            event (PunishEntityRequest): The event containing the entity ID to punish.
+        """
+        stats = self.world.get_component(event.entity_id, YukkuriStats)
+        if stats:
+            stats.health = max(0.0, stats.health - 10.0)
+            stats.happiness = max(0.0, stats.happiness - 20.0)
+            stats.discipline = min(100.0, stats.discipline + 10.0)
+
+            # Get position for visual feedback
+            transform = self.world.get_component(event.entity_id, Transform)
+            position = (transform.x, transform.y) if transform else (0, 0)
+
+            if self.audio:
+                self.audio.play_sound("hit") # Assuming 'hit' sound exists or will be handled gracefully if not
+
+            self.event_bus.publish(EntityPunishedEvent(event.entity_id, position))
+
+            logger.info(f"Punished entity {event.entity_id}. Health: {stats.health}, Discipline: {stats.discipline}")
 
     def save_game(self, filename: str = "savegame.json") -> None:
         """
