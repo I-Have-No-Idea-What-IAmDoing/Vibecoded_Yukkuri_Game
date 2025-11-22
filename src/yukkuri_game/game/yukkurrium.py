@@ -1,6 +1,6 @@
 import pygame
 from ..engine.ecs import System, World
-from .components import Transform, Sprite, Selectable
+from .components import Transform, Sprite, Selectable, FloatingText
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
 from .services import InputService
@@ -125,6 +125,9 @@ class WorldRenderer:
         self.yukkurrium = yukkurrium
         self.rm = resource_manager
 
+        # Initialize font for floating text
+        self.font = pygame.font.SysFont("Arial", 20, bold=True)
+
     def render(self, world: World) -> None:
         """
         Renders the world grid and all visible entities.
@@ -223,6 +226,38 @@ class WorldRenderer:
         input_service = world.services.try_get(InputService)
         if input_service and input_service.selection_rect:
             pygame.draw.rect(self.screen, (0, 255, 0), input_service.selection_rect, 1)
+
+        # Draw Floating Text
+        self.draw_floating_text(world)
+
+    def draw_floating_text(self, world: World) -> None:
+        """
+        Draws floating text entities.
+        """
+        entities = world.get_entities_with(FloatingText, Transform)
+        sw, sh = self.screen.get_size()
+
+        for ent in entities:
+            ft = world.get_component(ent, FloatingText)
+            transform = world.get_component(ent, Transform)
+
+            # Convert world to screen pos
+            screen_x, screen_y = self.yukkurrium.world_to_screen(transform.x, transform.y, sw, sh)
+
+            # Calculate alpha based on age
+            # Fade out in last 20% of lifetime or linear? Let's do simple linear fade
+            alpha = max(0, min(255, int(255 * (1.0 - ft.age / ft.lifetime))))
+
+            # Render text
+            text_surf = self.font.render(ft.text, True, ft.color)
+
+            # Set alpha
+            text_surf.set_alpha(alpha)
+
+            # Position centered
+            rect = text_surf.get_rect(center=(int(screen_x), int(screen_y)))
+
+            self.screen.blit(text_surf, rect)
 
     def draw_grid(self) -> None:
         """

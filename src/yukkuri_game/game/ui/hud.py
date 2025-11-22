@@ -3,7 +3,7 @@ from typing import Optional, Callable, Any, Dict, TYPE_CHECKING
 import pygame_gui
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
-from ..events import EntitySelectedEvent, GamePausedEvent, PlacementStartedEvent
+from ..events import EntitySelectedEvent, GamePausedEvent, PlacementStartedEvent, NotificationEvent
 from ..components import Selectable, Transform
 from ..yukkuri_components import YukkuriStats
 
@@ -75,6 +75,14 @@ class HUD:
         # Subscribe to events
         self.event_bus.subscribe(EntitySelectedEvent, self.on_entity_selected)
         self.event_bus.subscribe(GamePausedEvent, self.on_game_paused)
+        self.event_bus.subscribe(NotificationEvent, self.on_notification)
+
+    def on_notification(self, event: NotificationEvent) -> None:
+        """
+        Handles the NotificationEvent.
+        """
+        if self.layout.notification_log:
+            self.layout.notification_log.add_message(event.message, event.color)
 
     def on_entity_selected(self, event: EntitySelectedEvent) -> None:
         """

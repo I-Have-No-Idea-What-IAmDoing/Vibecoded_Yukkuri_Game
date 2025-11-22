@@ -2,6 +2,7 @@ import pygame
 import pygame_gui
 from typing import Optional
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox
+from .notification_log import NotificationLog
 
 class HudLayout:
     """
@@ -73,6 +74,9 @@ class HudLayout:
         # Hover Tooltip Elements
         self.hover_tooltip_panel: Optional[UIPanel] = None
         self.hover_tooltip_label: Optional[UITextBox] = None
+
+        # Notification Log
+        self.notification_log: Optional[NotificationLog] = None
 
         self._create_top_bar()
         self._create_bottom_bar()
@@ -185,6 +189,16 @@ class HudLayout:
             manager=self.manager,
             container=self.bottom_panel,
             tool_tip_text="Click to clean poop"
+        )
+
+        # Create Notification Log (bottom left, above bottom panel)
+        # Bottom panel height is 100.
+        log_height = 150
+        log_width = 300
+        self.notification_log = NotificationLog(
+            self.manager,
+            None, # No parent container, attached to root
+            pygame.Rect(10, self.height - 100 - log_height - 10, log_width, log_height)
         )
 
     def create_selection_window(self, has_stats: bool, selection_count: int = 1) -> None:

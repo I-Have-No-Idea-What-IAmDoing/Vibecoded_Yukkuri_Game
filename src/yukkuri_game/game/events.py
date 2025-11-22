@@ -110,3 +110,15 @@ class AnimationEvent(Event):
     event_name: str
     animation_name: str
     frame_index: int
+
+@dataclass(frozen=True)
+class NotificationEvent(Event):
+    """
+    Event published when a notification should be displayed in the log.
+
+    Attributes:
+        message (str): The notification message.
+        color (Optional[tuple]): The color of the text (optional).
+    """
+    message: str
+    color: Optional[tuple] = None

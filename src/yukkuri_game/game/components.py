@@ -97,3 +97,23 @@ class Selectable:
         selected (bool): Whether the entity is currently selected. Defaults to False.
     """
     selected: bool = False
+
+@dataclass
+class FloatingText:
+    """
+    Component representing floating text (damage numbers, notifications).
+
+    Attributes:
+        text (str): The text to display.
+        color (tuple): The RGB color of the text.
+        lifetime (float): How long the text lives in seconds.
+        age (float): Current age of the text.
+        dx (float): Velocity X.
+        dy (float): Velocity Y.
+    """
+    text: str
+    color: tuple
+    lifetime: float = 1.0
+    age: float = 0.0
+    dx: float = 0.0
+    dy: float = -20.0 # Default drift up
