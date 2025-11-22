@@ -4,22 +4,31 @@ import msgspec
 if TYPE_CHECKING:
     # Mypy doesn't play nice with msgspec extension types sometimes
     class YukkuriTypeBase:
+        """Base class for YukkuriType msgspec struct."""
         pass
     class ItemTypeBase:
+        """Base class for ItemType msgspec struct."""
         pass
     class ActionEffectBase:
+        """Base class for ActionEffect msgspec struct."""
         pass
     class ActionConsiderationBase:
+        """Base class for ActionConsideration msgspec struct."""
         pass
     class AIActionBase:
+        """Base class for AIAction msgspec struct."""
         pass
     class AnimationDefinitionBase:
+        """Base class for AnimationDefinition msgspec struct."""
         pass
     class YukkuriDataBase:
+        """Base class for YukkuriData msgspec struct."""
         pass
     class ItemDataBase:
+        """Base class for ItemData msgspec struct."""
         pass
     class AIDataBase:
+        """Base class for AIData msgspec struct."""
         pass
 else:
     YukkuriTypeBase = msgspec.Struct

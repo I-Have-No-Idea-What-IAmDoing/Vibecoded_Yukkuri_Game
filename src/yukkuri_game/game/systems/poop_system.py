@@ -12,6 +12,7 @@ class PoopSystem(System):
     """
 
     def __init__(self):
+        """Initializes the PoopSystem with default configuration."""
         # Configuration
         self.spawn_chance_per_second = 0.01 # % chance per second to poop randomly
         self.poop_radius = 200.0

@@ -287,6 +287,7 @@ class InputService:
     Service responsible for managing input state, specifically placement mode and selection.
     """
     def __init__(self):
+        """Initializes the InputService."""
         self._placing_mode = False
         self._place_type: str = ""
         self._place_cost: int = 0
@@ -296,25 +297,63 @@ class InputService:
 
     @property
     def is_placing(self) -> bool:
+        """
+        Checks if the game is currently in placement mode.
+
+        Returns:
+            bool: True if in placement mode, False otherwise.
+        """
         return self._placing_mode
 
     @property
     def is_cleaning(self) -> bool:
+        """
+        Checks if the game is currently in cleaning mode.
+
+        Returns:
+            bool: True if in cleaning mode, False otherwise.
+        """
         return self._cleaning_mode
 
     @property
     def place_type(self) -> str:
+        """
+        Gets the type identifier of the entity being placed.
+
+        Returns:
+            str: The type identifier.
+        """
         return self._place_type
 
     @property
     def place_cost(self) -> int:
+        """
+        Gets the cost of the entity being placed.
+
+        Returns:
+            int: The cost in money.
+        """
         return self._place_cost
 
     @property
     def place_entity_type(self) -> str:
+        """
+        Gets the general category of the entity being placed.
+
+        Returns:
+            str: The entity type (e.g., "yukkuri", "item").
+        """
         return self._place_entity_type
 
     def start_placement(self, type_id: str, cost: int, entity_type: str) -> None:
+        """
+        Starts the placement mode for a specific entity.
+
+        Args:
+            type_id (str): The specific type identifier.
+            cost (int): The cost of placing the entity.
+            entity_type (str): The category of entity.
+        """
         self._placing_mode = True
         self._cleaning_mode = False
         self._place_type = type_id
@@ -322,16 +361,25 @@ class InputService:
         self._place_entity_type = entity_type
 
     def cancel_placement(self) -> None:
+        """
+        Cancels the current placement mode.
+        """
         self._placing_mode = False
         self._place_type = ""
         self._place_cost = 0
         self._place_entity_type = ""
 
     def start_cleaning(self) -> None:
+        """
+        Starts the cleaning tool mode.
+        """
         self._cleaning_mode = True
         self._placing_mode = False
 
     def stop_cleaning(self) -> None:
+        """
+        Stops the cleaning tool mode.
+        """
         self._cleaning_mode = False
 
 
@@ -340,6 +388,12 @@ class GameService:
     Service providing game-specific logic and utilities.
     """
     def __init__(self, world: World):
+        """
+        Initializes the GameService.
+
+        Args:
+            world (World): The ECS World instance.
+        """
         self.world = world
 
     def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition") -> int:

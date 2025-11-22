@@ -375,18 +375,48 @@ class Check(Action):
 # --- Behavior Tree Builder ---
 
 class BehaviorRegistry:
+    """
+    Registry for behavior tree construction functions associated with high-level goals.
+    """
     _goals: Dict[str, Callable[[int, 'World', int, int, Callable, Callable], Behaviour]] = {}
 
     @classmethod
     def register_goal(cls, goal_name: str, builder: Callable[[int, 'World', int, int, Callable, Callable], Behaviour]):
+        """
+        Registers a behavior builder function for a specific goal.
+
+        Args:
+            goal_name (str): The name of the goal.
+            builder (Callable): The function that builds the behavior subtree.
+        """
         cls._goals[goal_name] = builder
 
     @classmethod
     def get_goals(cls) -> Dict[str, Callable]:
+        """
+        Retrieves all registered goals.
+
+        Returns:
+            Dict[str, Callable]: A dictionary mapping goal names to builder functions.
+        """
         return cls._goals
 
 
 def build_eat_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    """
+    Builds the behavior subtree for the 'Eat' goal.
+
+    Args:
+        entity_id (int): The entity ID.
+        world (World): The ECS World.
+        width (int): World width.
+        height (int): World height.
+        check_goal_fn (Callable): Function to check if this is the current goal.
+        check_target_fn (Callable): Function to check if the target exists.
+
+    Returns:
+        Behaviour: The behavior subtree.
+    """
     eat_sequence = py_trees.composites.Sequence(name="Eat Sequence", memory=True)
 
     is_eating = Check(name="Goal=Eat?", check_fn=lambda: check_goal_fn("Eat"))
@@ -412,12 +442,30 @@ def build_eat_behavior(entity_id: int, world: 'World', width: int, height: int, 
 class FindItem(Action):
     """
     Action to find an item based on criteria.
+
+    Attributes:
+        stat_criteria (str): The item stat to look for (e.g., "nutrition", "fun").
     """
     def __init__(self, name: str, entity_id: int, world: 'World', stat_criteria: str):
+        """
+        Initializes the FindItem action.
+
+        Args:
+            name (str): The name of the node.
+            entity_id (int): The entity ID.
+            world (World): The ECS World.
+            stat_criteria (str): The stat criteria.
+        """
         super().__init__(name, entity_id, world)
         self.stat_criteria = stat_criteria
 
     def update(self) -> Status:
+        """
+        Searches for the best item matching the criteria.
+
+        Returns:
+            Status: SUCCESS if item found, FAILURE otherwise.
+        """
         super().update()
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
@@ -441,6 +489,20 @@ class FindItem(Action):
         return Status.FAILURE
 
 def build_sleep_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    """
+    Builds the behavior subtree for the 'Sleep' goal.
+
+    Args:
+        entity_id (int): The entity ID.
+        world (World): The ECS World.
+        width (int): World width.
+        height (int): World height.
+        check_goal_fn (Callable): Function to check if this is the current goal.
+        check_target_fn (Callable): Function to check if the target exists.
+
+    Returns:
+        Behaviour: The behavior subtree.
+    """
     sleep_sequence = py_trees.composites.Sequence(name="Sleep Sequence", memory=True)
 
     is_sleeping = Check(name="Goal=Sleep?", check_fn=lambda: check_goal_fn("Sleep"))
@@ -464,6 +526,20 @@ def build_sleep_behavior(entity_id: int, world: 'World', width: int, height: int
     return sleep_sequence
 
 def build_play_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    """
+    Builds the behavior subtree for the 'Play' goal.
+
+    Args:
+        entity_id (int): The entity ID.
+        world (World): The ECS World.
+        width (int): World width.
+        height (int): World height.
+        check_goal_fn (Callable): Function to check if this is the current goal.
+        check_target_fn (Callable): Function to check if the target exists.
+
+    Returns:
+        Behaviour: The behavior subtree.
+    """
     play_sequence = py_trees.composites.Sequence(name="Play Sequence", memory=True)
 
     is_playing = Check(name="Goal=Play?", check_fn=lambda: check_goal_fn("Play"))
@@ -487,6 +563,20 @@ def build_play_behavior(entity_id: int, world: 'World', width: int, height: int,
     return play_sequence
 
 def build_wander_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    """
+    Builds the behavior subtree for the 'Wander' goal.
+
+    Args:
+        entity_id (int): The entity ID.
+        world (World): The ECS World.
+        width (int): World width.
+        height (int): World height.
+        check_goal_fn (Callable): Function to check if this is the current goal.
+        check_target_fn (Callable): Function to check if the target exists.
+
+    Returns:
+        Behaviour: The behavior subtree.
+    """
     wander_sequence = py_trees.composites.Sequence(name="Wander Sequence", memory=True)
     is_wandering = Check(name="Goal=Wander?", check_fn=lambda: check_goal_fn("Wander") or check_goal_fn("move_random"))
     wander = Wander(entity_id=entity_id, world=world, width=width, height=height)
@@ -518,6 +608,15 @@ def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, hei
 
     # Check Goal Condition
     def check_goal(goal_name: str) -> bool:
+        """
+        Checks if the entity's current AI goal matches the given name.
+
+        Args:
+            goal_name (str): The goal to check.
+
+        Returns:
+            bool: True if matches, False otherwise.
+        """
         ai = world.get_component(entity_id, AIState)
         if not ai:
             return False
@@ -525,6 +624,12 @@ def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, hei
 
     # Check Target Condition
     def check_target_exists() -> bool:
+        """
+        Checks if the entity's current target exists in the world.
+
+        Returns:
+            bool: True if target exists, False otherwise.
+        """
         ai = world.get_component(entity_id, AIState)
         if not ai or ai.current_target_id == -1:
             return False

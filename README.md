@@ -122,17 +122,41 @@ params = { m = 1.0, b = 0.0 }
 
 ## Project Structure
 
--   `src/yukkuri_game/engine/`: Core engine components (Audio, ECS, GameLoop, ResourceManager).
--   `src/yukkuri_game/game/`: Game-specific logic.
-    -   `ai/`: Utility AI (Behavior Trees & Utility Scoring) and Pathfinding.
-    -   `systems/`: ECS Systems (Physics, Simulation, etc.).
-    -   `ui/`: HUD and UI management using `pygame_gui`.
-    -   `components.py`: Generic ECS Components (Transform, Sprite, etc.).
-    -   `yukkuri_components.py`: Game-specific components (YukkuriStats, AIState).
-    -   `entity_factory.py`: Factory for creating game entities.
-    -   `game_manager.py`: Manages global game state (Money, Time, Save/Load).
--   `data/`: Configuration files (TOML).
--   `assets/`: Game assets (Images, Sounds).
+This project follows a modular structure separating core engine features from game-specific logic.
+
+-   `src/yukkuri_game/engine/`: **Core Engine Framework**
+    -   `ecs.py`: A lightweight Entity Component System (ECS) wrapping `esper`.
+    -   `event_bus.py`: A publish-subscribe event system for decoupled communication.
+    -   `resource_manager.py`: Handles loading and caching of assets and data (TOML).
+    -   `audio.py`: Manages sound playback.
+    -   `service_locator.py`: Provides global access to essential services.
+
+-   `src/yukkuri_game/game/`: **Game Logic Implementation**
+    -   `ai/`: Artificial Intelligence
+        -   `behavior.py`: Behavior Trees for complex decision making.
+        -   `utility.py`: Utility AI for scoring and selecting high-level goals.
+        -   `navigation_service.py`: Pathfinding logic.
+    -   `systems/`: **ECS Systems**
+        -   `physics.py`: Integration with `pymunk` for physics simulation.
+        -   `animation.py`: Handles sprite animation states.
+        -   `construction_system.py`: Manages building and placement logic.
+    -   `ui/`: **User Interface**
+        -   Built with `pygame_gui`, handling HUD, menus, and interactions.
+    -   `components.py`: **Generic Components** (e.g., `Transform`, `Sprite`).
+    -   `yukkuri_components.py`: **Game-Specific Components** (e.g., `YukkuriStats`, `AIState`).
+    -   `entity_factory.py`: Centralized factory for creating entities (Yukkuris, Items, Poop) with correct components.
+    -   `game_manager.py`: Orchestrates high-level game flow.
+    -   `services.py`: **Game Services**
+        -   `EconomyService`: Manages money.
+        -   `TimeService`: Tracks game time and speed.
+        -   `PersistenceService`: Handles saving/loading to JSON.
+        -   `InputService`: Manages input modes (placement, cleaning).
+
+-   `data/`: **Data-Driven Configuration**
+    -   Defines entity types, AI parameters, and game balance rules via TOML files.
+
+-   `assets/`: **Static Assets**
+    -   Contains images and sound files.
 
 ## Development
 
