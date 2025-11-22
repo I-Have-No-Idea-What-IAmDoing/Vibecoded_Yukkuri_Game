@@ -70,6 +70,10 @@ class HudLayout:
         self.debug_window: Optional[UIWindow] = None
         self.debug_text_box: Optional[UITextBox] = None
 
+        # Hover Tooltip Elements
+        self.hover_tooltip_panel: Optional[UIPanel] = None
+        self.hover_tooltip_label: Optional[UITextBox] = None
+
         self._create_top_bar()
         self._create_bottom_bar()
 
@@ -100,28 +104,32 @@ class HudLayout:
             relative_rect=pygame.Rect(380, 10, 80, 30),
             text="Pause",
             manager=self.manager,
-            container=self.top_panel
+            container=self.top_panel,
+            tool_tip_text="Pause/Resume the game"
         )
 
         self.speed_btn = UIButton(
             relative_rect=pygame.Rect(470, 10, 80, 30),
             text="1x",
             manager=self.manager,
-            container=self.top_panel
+            container=self.top_panel,
+            tool_tip_text="Change game speed"
         )
 
         self.save_btn = UIButton(
             relative_rect=pygame.Rect(self.width - 220, 10, 100, 30),
             text="Save",
             manager=self.manager,
-            container=self.top_panel
+            container=self.top_panel,
+            tool_tip_text="Save current game state"
         )
 
         self.load_btn = UIButton(
             relative_rect=pygame.Rect(self.width - 110, 10, 100, 30),
             text="Load",
             manager=self.manager,
-            container=self.top_panel
+            container=self.top_panel,
+            tool_tip_text="Load saved game"
         )
 
     def _create_bottom_bar(self) -> None:
@@ -148,7 +156,8 @@ class HudLayout:
                 relative_rect=pygame.Rect(x_offset, y_offset, btn_width, btn_height),
                 text=f"Buy {name} (${cost})",
                 manager=self.manager,
-                container=self.bottom_panel
+                container=self.bottom_panel,
+                tool_tip_text=f"Buy {name} for ${cost}. Click to place."
             )
             self.buy_buttons[btn] = {"type_id": type_id, "category": "yukkuri", "cost": cost, "name": name}
             x_offset += btn_width + spacing
@@ -157,12 +166,14 @@ class HudLayout:
         for type_id, data in self.item_types.items():
             cost = getattr(data, 'cost', 10)
             name = getattr(data, 'name', type_id.capitalize())
+            description = getattr(data, 'description', f"A nice {name}")
 
             btn = UIButton(
                 relative_rect=pygame.Rect(x_offset, y_offset, btn_width, btn_height),
                 text=f"Buy {name} (${cost})",
                 manager=self.manager,
-                container=self.bottom_panel
+                container=self.bottom_panel,
+                tool_tip_text=f"Buy {name} for ${cost}. {description}"
             )
             self.buy_buttons[btn] = {"type_id": type_id, "category": "item", "cost": cost, "name": name}
             x_offset += btn_width + spacing
@@ -172,7 +183,8 @@ class HudLayout:
             relative_rect=pygame.Rect(self.width - 150, y_offset, btn_width, btn_height),
             text="Clean Tool",
             manager=self.manager,
-            container=self.bottom_panel
+            container=self.bottom_panel,
+            tool_tip_text="Click to clean poop"
         )
 
     def create_selection_window(self, has_stats: bool, selection_count: int = 1) -> None:
@@ -208,13 +220,15 @@ class HudLayout:
                 relative_rect=pygame.Rect(10, 220, 290, 40),
                 text=sell_text,
                 manager=self.manager,
-                container=self.selection_window
+                container=self.selection_window,
+                tool_tip_text="Sell selected entities"
             )
             self.train_btn = UIButton(
                 relative_rect=pygame.Rect(10, 270, 290, 40),
                 text=train_text,
                 manager=self.manager,
-                container=self.selection_window
+                container=self.selection_window,
+                tool_tip_text="Train selected entities to increase badges"
             )
 
     def close_selection_window(self) -> None:
@@ -258,3 +272,63 @@ class HudLayout:
             self.debug_window.kill()
             self.debug_window = None
             self.debug_text_box = None
+
+    def create_hover_tooltip(self) -> None:
+        """
+        Creates the hover tooltip panel and label if they don't exist.
+        """
+        if self.hover_tooltip_panel is None:
+            self.hover_tooltip_panel = UIPanel(
+                relative_rect=pygame.Rect(0, 0, 200, 60),
+                manager=self.manager
+            )
+            # Start hidden
+            self.hover_tooltip_panel.hide()
+
+            self.hover_tooltip_label = UITextBox(
+                html_text="",
+                relative_rect=pygame.Rect(5, 5, 190, 50),
+                manager=self.manager,
+                container=self.hover_tooltip_panel
+            )
+
+    def update_hover_tooltip(self, text: str, pos: tuple[int, int]) -> None:
+        """
+        Updates the hover tooltip with text and position.
+
+        Args:
+            text (str): Text to display.
+            pos (tuple[int, int]): Screen position (x, y).
+        """
+        if not self.hover_tooltip_panel:
+            self.create_hover_tooltip()
+
+        if text:
+            if not self.hover_tooltip_panel.visible:
+                self.hover_tooltip_panel.show()
+
+            # Only update if text changed (optimization)
+            if self.hover_tooltip_label.html_text != text:
+                self.hover_tooltip_label.set_text(text)
+
+            # Adjust position to not go off screen
+            x, y = pos
+            width, height = self.hover_tooltip_panel.rect.size
+
+            # Offset slightly
+            x += 15
+            y += 15
+
+            if x + width > self.width:
+                x = self.width - width
+            if y + height > self.height:
+                y = self.height - height
+
+            self.hover_tooltip_panel.set_position((x, y))
+
+            # Bring to front
+            self.manager.move_window_to_front(self.hover_tooltip_panel)
+
+        else:
+            if self.hover_tooltip_panel.visible:
+                self.hover_tooltip_panel.hide()

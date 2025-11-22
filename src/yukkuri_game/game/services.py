@@ -294,6 +294,8 @@ class InputService:
         self._place_entity_type: str = "" # "yukkuri" or "item"
         self.selection_rect: Any = None # pygame.Rect or tuple, initialized to None
         self._cleaning_mode = False
+        self.hovered_entity_id: int = -1
+        self.hovered_entity_pos: tuple[int, int] = (0, 0)
 
     @property
     def is_placing(self) -> bool:

@@ -26,7 +26,17 @@ def mock_game_manager():
 
 @pytest.fixture
 def mock_world():
-    return MagicMock(spec=World)
+    world = MagicMock(spec=World)
+    # Mock services
+    input_service = MagicMock()
+    input_service.hovered_entity_id = -1
+    input_service.hovered_entity_pos = (0, 0)
+
+    services = MagicMock()
+    services.try_get.return_value = input_service
+
+    world.services = services
+    return world
 
 @pytest.fixture
 def mock_event_bus():
@@ -214,7 +224,11 @@ class TestHudRenderer:
         hud_layout.money_label = MagicMock()
         hud_layout.time_label = MagicMock()
 
-        hud_renderer.update(0.1, -1, False)
+        # Patch UITextBox as well since it's used for hover tooltip now
+        with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
+             patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
+             patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
+            hud_renderer.update(0.1, -1, False)
 
         hud_layout.money_label.set_text.assert_called_with("Money: $1000")
         # 125 sec = 2 min 5 sec
@@ -236,7 +250,10 @@ class TestHudRenderer:
 
         mock_world.get_component.side_effect = lambda e, t: stats if t == YukkuriStats else (ai if t == AIState else None)
 
-        hud_renderer.update(0.1, [1], False)
+        with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
+             patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
+             patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
+            hud_renderer.update(0.1, [1], False)
 
         assert hud_layout.info_label.set_text.called
         text = hud_layout.info_label.set_text.call_args[0][0]
@@ -259,7 +276,10 @@ class TestHudRenderer:
 
         mock_world.get_component.side_effect = get_comp
 
-        hud_renderer.update(0.1, [1], False)
+        with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
+             patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
+             patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
+            hud_renderer.update(0.1, [1], False)
 
         assert hud_layout.info_label.set_text.called
         text = hud_layout.info_label.set_text.call_args[0][0]
@@ -272,7 +292,10 @@ class TestHudRenderer:
         mock_world._entities = {1, 2, 3}
         hud_renderer.fps = 60.0
 
-        hud_renderer.update(0.1, -1, True)
+        with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
+             patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
+             patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
+            hud_renderer.update(0.1, -1, True)
 
         assert hud_layout.debug_text_box.set_text.called
         text = hud_layout.debug_text_box.set_text.call_args[0][0]

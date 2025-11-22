@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from ...engine.ecs import World
 from ..components import Selectable
 from ..yukkuri_components import YukkuriStats, ItemStats, AIState
+from ..services import InputService
 from pygame_gui.windows import UIMessageWindow
 
 if TYPE_CHECKING:
@@ -58,6 +59,36 @@ class HudRenderer:
         # Update Debug Window
         if show_debug:
             self._update_debug_window(dt)
+
+        # Update Hover Tooltip
+        self._update_hover_tooltip()
+
+    def _update_hover_tooltip(self) -> None:
+        """
+        Updates the hover tooltip based on input service state.
+        """
+        input_service = self.world.services.try_get(InputService)
+        if not input_service:
+            return
+
+        hovered_id = input_service.hovered_entity_id
+
+        text = ""
+        if hovered_id != -1 and self.world.entity_exists(hovered_id):
+             # Get minimal stats
+            ystats = self.world.get_component(hovered_id, YukkuriStats)
+            if ystats:
+                text = f"<b>{ystats.name}</b><br>HP: {int(ystats.health)}"
+            else:
+                istats = self.world.get_component(hovered_id, ItemStats)
+                if istats:
+                    text = f"<b>{istats.name}</b>"
+
+        # Optimization: Check if text or position significantly changed?
+        # Actually, input_service.hovered_entity_pos changes every mouse move.
+        # But text only changes if entity or stats change.
+        # Let HudLayout handle optimization if needed, or just pass it.
+        self.layout.update_hover_tooltip(text, input_service.hovered_entity_pos)
 
     def _update_stats_display(self, selected_entities: list[int]) -> None:
         """
