@@ -2,7 +2,7 @@ import pymunk
 from typing import Any
 from typing import Any, Optional, TYPE_CHECKING
 from ..engine.ecs import World
-from .components import Transform, Sprite, Selectable, PhysicsBody
+from .components import Transform, Sprite, Selectable, PhysicsBody, FloatingText
 from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop
 
 if TYPE_CHECKING:
@@ -150,6 +150,35 @@ class EntityFactory:
             self.physics_system.space.add(body, shape)
             self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
+        return entity
+
+    def create_floating_text(self, x: float, y: float, text: str, color: tuple[int, int, int], size: int = 20, lifetime: float = 2.0, velocity_y: float = -50.0) -> int:
+        """
+        Creates a floating text entity.
+
+        Args:
+            x (float): X position.
+            y (float): Y position.
+            text (str): The text to display.
+            color (tuple[int, int, int]): The color of the text.
+            size (int): Font size.
+            lifetime (float): Duration in seconds.
+            velocity_y (float): Vertical speed (pixels/sec), negative is up.
+
+        Returns:
+            int: The entity ID.
+        """
+        entity = self.world.create_entity()
+        self.world.add_component(entity, Transform(x=x, y=y))
+        self.world.add_component(entity, FloatingText(
+            text=text,
+            color=color,
+            lifetime=lifetime,
+            max_lifetime=lifetime,
+            velocity_y=velocity_y,
+            size=size
+        ))
+        # No Selectable component, as text shouldn't be selectable.
         return entity
 
     def create_poop(self, x: float, y: float) -> int:

@@ -110,3 +110,67 @@ class AnimationEvent(Event):
     event_name: str
     animation_name: str
     frame_index: int
+
+@dataclass(frozen=True)
+class LogMessageEvent(Event):
+    """
+    Event published to display a message in the HUD log.
+
+    Attributes:
+        message (str): The message text.
+        color (tuple[int, int, int]): The RGB color of the message text.
+    """
+    message: str
+    color: tuple[int, int, int] = (255, 255, 255)
+
+@dataclass(frozen=True)
+class EntitySoldEvent(Event):
+    """
+    Event published when an entity is sold.
+
+    Attributes:
+        entity_id (int): The ID of the sold entity.
+        value (int): The value the entity was sold for.
+        position (tuple[float, float]): The position where the entity was.
+    """
+    entity_id: int
+    value: int
+    position: tuple[float, float]
+
+@dataclass(frozen=True)
+class EntityGrewEvent(Event):
+    """
+    Event published when an entity grows to a new stage.
+
+    Attributes:
+        entity_id (int): The ID of the growing entity.
+        new_stage (str): The new growth stage.
+        position (tuple[float, float]): The position of the entity.
+    """
+    entity_id: int
+    new_stage: str
+    position: tuple[float, float]
+
+@dataclass(frozen=True)
+class EntityTrainedEvent(Event):
+    """
+    Event published when an entity is trained.
+
+    Attributes:
+        entity_id (int): The ID of the trained entity.
+        position (tuple[float, float]): The position of the entity.
+    """
+    entity_id: int
+    position: tuple[float, float]
+
+@dataclass(frozen=True)
+class EntityDiedEvent(Event):
+    """
+    Event published when an entity dies.
+
+    Attributes:
+        entity_id (int): The ID of the died entity.
+        position (tuple[float, float]): The position of the entity.
+    """
+    entity_id: int
+    position: tuple[float, float]
