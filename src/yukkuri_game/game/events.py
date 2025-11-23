@@ -160,6 +160,22 @@ class EntityPunishedEvent(Event):
     position: tuple[float, float]
 
 @dataclass(frozen=True)
+class SocialInteractionEvent(Event):
+    """
+    Event published when a social interaction occurs.
+
+    Attributes:
+        actor_id (int): The ID of the actor.
+        target_id (int): The ID of the target.
+        interaction_type (str): The type of interaction.
+        context (dict): Additional context data.
+    """
+    actor_id: int
+    target_id: int
+    interaction_type: str
+    context: Optional[dict] = None
+
+@dataclass(frozen=True)
 class ResolutionChangedEvent(Event):
     """
     Event published when the window resolution or fullscreen mode changes.

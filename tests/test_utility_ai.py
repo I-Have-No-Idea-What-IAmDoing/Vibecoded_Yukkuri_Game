@@ -2,10 +2,18 @@ import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.ai.utility import UtilityAIEngine, Action, Consideration
 from yukkuri_game.engine.data_models import AIData, AIAction, ActionEffect, ActionConsideration
+from yukkuri_game.game.yukkuri_components import Personality
 
 class MockResourceManager:
     def __init__(self, actions_data):
         self.ai_actions = actions_data
+
+class MockTraitService:
+    def __init__(self, traits_data):
+        self.traits = traits_data
+
+    def get_trait(self, trait_id):
+        return self.traits.get(trait_id)
 
 def test_utility_ai_parsing():
     # Mock data matching actions.toml structure but as objects (simulating loaded msgspec)
@@ -79,3 +87,55 @@ def test_utility_calculation():
     assert score_high == 0.0
     assert score_low == 1.0
     assert engine.select_action(context2) == "TestLow"
+
+def test_utility_override():
+    # Mock action with linear curve
+    mock_actions = {
+        "TestOverride": AIAction(
+            weight=1.0,
+            effects=ActionEffect(type="test", stat_changes={}),
+            considerations=[
+                ActionConsideration(name="MyConsideration", input="val", curve="linear", params={"m": 1.0, "b": 0.0})
+            ]
+        )
+    }
+
+    # Mock trait that overrides "MyConsideration" to be inverted (m=-1, b=1)
+    mock_traits = {
+        "REBEL": {
+            "ai_modifiers": {
+                "MyConsideration": {
+                    "curve": "linear",
+                    "params": {"m": -1.0, "b": 1.0}
+                }
+            }
+        }
+    }
+
+    rm = MockResourceManager(mock_actions)
+    ts = MockTraitService(mock_traits)
+    engine = UtilityAIEngine(rm, trait_service=ts)
+
+    context = {"val": 100.0}
+
+    # Without personality: Linear (m=1) -> 1.0
+    score_normal = engine.actions["TestOverride"].calculate_utility(context)
+    assert score_normal == 1.0
+
+    # With personality REBEL: Inverted (m=-1, b=1) -> 1*-1 + 1 = 0.0
+    personality = Personality(traits={"REBEL"})
+
+    # We test select_action as it does the gathering of overrides
+    # But since there is only one action, it might still select it if threshold isn't set,
+    # but the score should be 0.
+
+    # Actually select_action returns "Idle" if best score is 0.
+    action_name = engine.select_action(context, personality)
+
+    # We can also check internal score if we exposed it or mocked the action logic better.
+    # But here:
+    # Normal: score 1.0 -> selects TestOverride
+    # Rebel: score 0.0 -> selects Idle (default)
+
+    assert engine.select_action(context, None) == "TestOverride"
+    assert engine.select_action(context, personality) == "Idle"

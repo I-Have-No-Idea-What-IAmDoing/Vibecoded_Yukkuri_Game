@@ -2,7 +2,7 @@ import pygame
 from typing import TYPE_CHECKING
 from ...engine.ecs import World
 from ..components import Selectable
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState
+from ..yukkuri_components import YukkuriStats, ItemStats, AIState, Personality, RelationshipRegistry
 from ..services import InputService
 from pygame_gui.windows import UIMessageWindow
 
@@ -195,12 +195,25 @@ class HudRenderer:
             if stats:
                 ai_state = self.world.get_component(selected_entity, AIState)
                 action = ai_state.current_action if ai_state else "None"
+
+                # Personality Info
+                personality = self.world.get_component(selected_entity, Personality)
+                traits_str = ", ".join(personality.traits) if personality and personality.traits else "None"
+                mood_str = f"{personality.mood} ({int(personality.mood_score)})" if personality else "Neutral"
+
+                # Relationship Info (Brief)
+                rel_registry = self.world.get_component(selected_entity, RelationshipRegistry)
+                rel_count = len(rel_registry.relationships) if rel_registry else 0
+
                 text = (f"<b>Name:</b> {stats.name}<br>"
                         f"<b>Hunger:</b> {int(stats.hunger)}<br>"
                         f"<b>Happiness:</b> {int(stats.happiness)}<br>"
                         f"<b>Health:</b> {int(stats.health)}<br>"
                         f"<b>Badges:</b> {stats.badges}<br>"
-                        f"<b>Action:</b> {action}")
+                        f"<b>Action:</b> {action}<br>"
+                        f"<b>Traits:</b> {traits_str}<br>"
+                        f"<b>Mood:</b> {mood_str}<br>"
+                        f"<b>Relationships:</b> {rel_count}")
             else:
                 istats = self.world.get_component(selected_entity, ItemStats)
                 if istats:

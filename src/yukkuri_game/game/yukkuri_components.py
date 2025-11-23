@@ -8,11 +8,17 @@ from ..engine.ecs import Component
 class Personality:
     """
     Component defining the personality of a Yukkuri.
+
+    Attributes:
+        traits (Set[str]): Set of trait IDs (e.g., {"GESU", "GLUTTON"}).
+        values (Dict[str, float]): Core values (0-100), e.g., {"compassion": 50.0}.
+        mood (str): Current mood state.
+        mood_score (float): Intensity of the mood.
     """
-    traits: Set[str] = field(default_factory=set)    # IDs referencing TOML data
-    values: Dict[str, float] = field(default_factory=dict) # "compassion": 50.0
-    mood: str = "NEUTRAL"        # Current Mood State
-    mood_score: float = 0.0      # Intensity of the mood
+    traits: Set[str] = field(default_factory=set)
+    values: Dict[str, float] = field(default_factory=dict)
+    mood: str = "NEUTRAL"
+    mood_score: float = 0.0
 
 @dataclass
 class MemoryRecord:
@@ -20,7 +26,7 @@ class MemoryRecord:
     actor_id: int
     action_type: str
     impact: float
-    permanent: bool = False # For trauma
+    permanent: bool = False
 
 @dataclass
 class RelationshipData:
@@ -28,12 +34,13 @@ class RelationshipData:
     trust: float = 0.0
     fear: float = 0.0
     familiarity: float = 0.0
-    memories: List[MemoryRecord] = field(default_factory=list) # Short list of recent impactful events
+    memories: List[MemoryRecord] = field(default_factory=list)
+    last_interaction_time: float = 0.0
 
 @dataclass
 class RelationshipRegistry:
     """
-    Component tracking social relationships and family ties.
+    Component storing relationship data for a Yukkuri.
     """
     relationships: Dict[int, RelationshipData] = field(default_factory=dict)
     # Biological Lineage

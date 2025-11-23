@@ -1,145 +1,178 @@
-import math
-import time
-from typing import Optional, Dict, List
-from loguru import logger
-
-from ...engine.ecs import System, World
-from ..components import Transform
-from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryRecord, Personality
+from typing import TYPE_CHECKING, List, Dict, Optional, Any
+from ..engine.ecs import System, World
+from ..engine.event_bus import EventBus
+from ..yukkuri_components import RelationshipRegistry, RelationshipData, MemoryRecord, Personality, YukkuriStats
 from ..trait_service import TraitService
+from ..services import TimeService
+import time
 
-# We'll define a new component for Social Interaction Requests similar to InteractionRequest
-# Or we can reuse InteractionRequest if we expand it, but a separate one is cleaner for now.
-# For this task, I'll assume we process interactions triggered by behaviors or events.
-# Since I don't have a "SocialInteractionRequest" component defined yet, I'll define a helper class/method
-# that systems can call, OR I can scan for a new component.
-
-# Let's create a SocialSystem that handles decay and provides an API for interactions.
-# Actual interaction logic (e.g. performing the "Hit") might be in a Behavior, which then calls this system
-# to register the social impact.
+if TYPE_CHECKING:
+    from ..events import SocialInteractionEvent
 
 class SocialSystem(System):
     """
-    System responsible for managing social relationships, memory decay, and applying interaction effects.
+    System responsible for managing social interactions, relationships, and memory.
     """
+    def __init__(self, world: World):
+        self.world = world
+        self.trait_service = world.services.get(TraitService)
+        self.time_service = world.services.get(TimeService)
 
-    def __init__(self):
-        super().__init__()
-        self.trait_service: Optional[TraitService] = None
+        # Subscribe to social events if EventBus is available
+        self.event_bus = world.services.try_get(EventBus)
+        if self.event_bus:
+            # Import locally to avoid circular imports if any, though likely safe
+            from ..events import SocialInteractionEvent
+            self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
 
-    def update(self, world: World, dt: float) -> None:
+    def on_social_interaction(self, event: 'SocialInteractionEvent') -> None:
         """
-        Updates social states. This includes decaying temporary emotions/relationship values.
-        Optimization: We don't need to decay every frame. We can do it on access or periodically.
-        For simplicity, we'll do a periodic check or just skip detailed decay here and rely on
-        "on-access" decay or specific event-driven updates.
-
-        However, if we want to simulate "forgetting" over time, we might need a slow process.
-        Let's just iterate a subset of entities each frame?
-        For MVP, let's not iterate everything every frame.
+        Handles SocialInteractionEvent.
         """
-        if not self.trait_service:
-            self.trait_service = world.services.try_get(TraitService)
+        self.process_interaction(event.actor_id, event.target_id, event.interaction_type, event.context or {})
 
-        # We can implement a lazy decay mechanism or a very slow tick.
-        # For now, we will leave the update loop empty regarding decay
-        # and assume decay happens when interactions occur or when we query relationships.
-        pass
-
-    def register_interaction(self, world: World, actor_id: int, target_id: int, interaction_name: str):
+    def process_interaction(self, actor_id: int, target_id: int, interaction_type: str, context: Dict[str, Any] = {}) -> None:
         """
-        Registers a social interaction between two Yukkuris and applies its effects.
+        Processes a social interaction between two entities.
 
         Args:
-            world: The ECS world.
-            actor_id: The ID of the doer.
-            target_id: The ID of the receiver.
-            interaction_name: The key in interactions.toml (e.g. "Hit", "Greet").
+            actor_id: The ID of the actor.
+            target_id: The ID of the target.
+            interaction_type: The type of interaction (key in interactions.toml).
+            context: Additional context for the interaction.
         """
-        if not self.trait_service:
-            self.trait_service = world.services.try_get(TraitService)
-            if not self.trait_service:
-                logger.warning("TraitService not available for social interaction.")
-                return
-
-        interaction_data = self.trait_service.get_interaction(interaction_name)
-        if not interaction_data:
-            logger.warning(f"Unknown interaction: {interaction_name}")
+        interaction_def = self.trait_service.get_interaction(interaction_type)
+        if not interaction_def:
             return
 
-        # Apply impacts
-        self._apply_impact(world, actor_id, target_id, interaction_data, role="actor")
-        self._apply_impact(world, target_id, actor_id, interaction_data, role="target")
+        current_time = self.time_service.time_elapsed
 
-    def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Dict, role: str):
+        # 1. Apply immediate impact to target (e.g. stats)
+        # This might be handled by the action implementation itself,
+        # but social consequences are handled here.
+
+        # 2. Update Relationship (Target views Actor)
+        self._update_relationship(target_id, actor_id, interaction_type, interaction_def, current_time)
+
+        # 3. Update Relationship (Actor views Target) - optional, depending on interaction
+        # Usually interactions are symmetric in some way, or trigger a reaction.
+
+    def _update_relationship(self, observer_id: int, subject_id: int, action_type: str, interaction_def: Dict[str, Any], timestamp: float):
         """
-        Applies the social impact to the subject regarding the other.
-
-        If role is "target", we look at how the target feels about the actor (affinity changes etc).
-        If role is "actor", we might update how the actor feels (e.g. guilt, or satisfaction).
-        Usually interactions define impact on the TARGET.
-
-        data: The interaction definition from TOML.
+        Updates how observer views subject based on an action.
         """
-        # We generally only care about how the TARGET is affected by the ACTOR's action.
-        # But sometimes the Actor also changes opinion (e.g. if I hit you, I might like you less or more).
-        # The current data structure `social_impact` in TOML usually implies effect on the Target's view of Actor.
-
-        if role == "actor":
-            return # For now, ignore actor's internal shift unless specified
-
-        registry = world.get_component(subject_id, RelationshipRegistry)
+        registry = self.world.get_component(observer_id, RelationshipRegistry)
         if not registry:
-            # Add one if missing?
-            registry = RelationshipRegistry()
-            world.add_component(subject_id, registry)
+            return
 
-        if other_id not in registry.relationships:
-            registry.relationships[other_id] = RelationshipData()
+        if subject_id not in registry.relationships:
+            registry.relationships[subject_id] = RelationshipData()
+            # Initialize timestamp if new
+            registry.relationships[subject_id].last_interaction_time = timestamp
 
-        rel = registry.relationships[other_id]
+        rel = registry.relationships[subject_id]
 
-        # Base Impact
-        social_impact = data.get("social_impact", {})
+        # Apply decay before applying new changes
+        self._apply_decay(rel, timestamp)
 
-        d_affinity = social_impact.get("affinity", 0.0)
-        d_trust = social_impact.get("trust", 0.0)
-        d_fear = social_impact.get("fear", 0.0)
-        d_familiarity = social_impact.get("familiarity", 0.0)
+        # Base impacts
+        social_impact = interaction_def.get("social_impact", {})
 
-        # Apply Modifiers
-        # Check traits of Subject (Subject is the one reacting)
-        subject_personality = world.get_component(subject_id, Personality)
-        modifiers = data.get("modifiers", {})
+        # Apply modifiers based on Observer's traits (how they perceive it)
+        # and Subject's traits (how they are perceived).
 
+        observer_personality = self.world.get_component(observer_id, Personality)
+        subject_personality = self.world.get_component(subject_id, Personality)
+
+        affinity_change = social_impact.get("affinity", 0.0)
+        trust_change = social_impact.get("trust", 0.0)
+        fear_change = social_impact.get("fear", 0.0)
+
+        # Check interaction modifiers
+        modifiers = interaction_def.get("modifiers", {})
+
+        # Apply trait-based modifiers
+        # Check both Subject (Actor) and Observer (Victim) traits
+
+        # Check Subject traits (e.g., if Actor is "Mean", they deal more fear)
         if subject_personality:
             for trait in subject_personality.traits:
+                key = f"actor_trait:{trait}"
+                if key in modifiers:
+                    mod = modifiers[key]
+                    affinity_change += mod.get("affinity", 0.0)
+                    trust_change += mod.get("trust", 0.0)
+                    fear_change += mod.get("fear", 0.0)
+
+        # Check Observer traits (e.g., if Victim is "Weak", they take more fear)
+        # The design doc example was "trait:WEAK", implying the trait is on the entity being affected (the observer of the relationship)
+        # or it could be generic. Let's support "trait:TRAIT" (Observer) and "actor_trait:TRAIT" (Subject) conventions.
+        if observer_personality:
+            for trait in observer_personality.traits:
                 key = f"trait:{trait}"
                 if key in modifiers:
                     mod = modifiers[key]
-                    d_affinity += mod.get("affinity", 0.0)
-                    d_trust += mod.get("trust", 0.0)
-                    d_fear += mod.get("fear", 0.0)
+                    affinity_change += mod.get("affinity", 0.0)
+                    trust_change += mod.get("trust", 0.0)
+                    fear_change += mod.get("fear", 0.0)
 
-        # Update values clamped
-        rel.affinity = max(-100, min(100, rel.affinity + d_affinity))
-        rel.trust = max(0, min(100, rel.trust + d_trust))
-        rel.fear = max(0, min(100, rel.fear + d_fear))
-        rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
+        # Apply changes
+        rel.affinity = max(-100.0, min(100.0, rel.affinity + affinity_change))
+        rel.trust = max(0.0, min(100.0, rel.trust + trust_change))
+        rel.fear = max(0.0, min(100.0, rel.fear + fear_change))
+        rel.familiarity = max(0.0, min(100.0, rel.familiarity + 1.0)) # Interaction increases familiarity
 
         # Add Memory
-        base_impact_score = data.get("base_impact", 0.0)
-        if abs(base_impact_score) > 0:
-            memory = MemoryRecord(
-                timestamp=time.time(), # Game time would be better
-                actor_id=other_id,
-                action_type=data.get("type", "unknown"),
-                impact=base_impact_score,
-                permanent=False # Logic for trauma could go here
-            )
-            rel.memories.append(memory)
-            # Trim memories
-            if len(rel.memories) > 20:
-                rel.memories.pop(0)
+        base_impact = interaction_def.get("base_impact", 0.0)
+        memory = MemoryRecord(
+            timestamp=timestamp,
+            actor_id=subject_id,
+            action_type=action_type,
+            impact=base_impact,
+            permanent=False # TODO: Logic for trauma
+        )
+        rel.memories.append(memory)
 
-        logger.debug(f"Interaction {role}: Entity {subject_id} view of {other_id} -> Aff:{rel.affinity}, Trust:{rel.trust}")
+        # Limit memory size
+        if len(rel.memories) > 50:
+            rel.memories.pop(0)
+
+    def _apply_decay(self, rel: RelationshipData, current_time: float):
+        """
+        Applies decay to relationship metrics based on elapsed time.
+        """
+        if rel.last_interaction_time <= 0.0:
+            rel.last_interaction_time = current_time
+            return
+
+        elapsed = current_time - rel.last_interaction_time
+        if elapsed <= 0:
+            return
+
+        # Decay rates (per second) - TODO: Make configurable
+        decay_rate = 0.05 # 5% per 100 seconds effectively if handled right?
+        # Let's say decay is 1 point per 60 seconds towards 0
+        decay_amount = (elapsed / 60.0) * 0.5
+
+        # Decay affinity towards 0
+        if rel.affinity > 0:
+            rel.affinity = max(0.0, rel.affinity - decay_amount)
+        elif rel.affinity < 0:
+            rel.affinity = min(0.0, rel.affinity + decay_amount)
+
+        # Decay fear towards 0
+        if rel.fear > 0:
+            rel.fear = max(0.0, rel.fear - decay_amount)
+
+        # Trust decays towards 0? Or stays? Usually trust is hard to build, easy to lose.
+        # Let's say trust decays very slowly if not reinforced.
+        if rel.trust > 0:
+            rel.trust = max(0.0, rel.trust - (decay_amount * 0.1))
+
+        rel.last_interaction_time = current_time
+
+    def update(self, world: World, dt: float) -> None:
+        """
+        Periodic updates.
+        """
+        pass

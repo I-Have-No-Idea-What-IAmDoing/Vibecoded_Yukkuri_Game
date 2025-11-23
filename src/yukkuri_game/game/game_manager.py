@@ -8,6 +8,7 @@ from ..engine.audio import AudioManager
 from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats
 from .services import EconomyService, PersistenceService, TimeService
+from .trait_service import TraitService
 from .ai.navigation_service import NavigationService
 from .events import (
     TrainEntityRequest,
@@ -50,6 +51,9 @@ class GameManager:
             self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
 
         self.audio = world.services.try_get(AudioManager)
+
+        # Initialize Trait Service
+        world.services.register(TraitService())
 
         # Initialize Navigation Service
         game_config = world.services.try_get(GameConfig)
