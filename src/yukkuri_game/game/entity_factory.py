@@ -66,6 +66,9 @@ class EntityFactory:
         Raises:
             ValueError: If the yukkuri type_id is unknown.
         """
+        from .services import TraitService
+        import random
+
         data = self.rm.yukkuri_types.get(type_id)
         if not data:
             raise ValueError(f"Unknown yukkuri type: {type_id}")
@@ -135,8 +138,24 @@ class EntityFactory:
         self.world.add_component(entity, stats)
 
         # Personality & Relationships
-        # TODO: Load initial traits/values from type_id data if specified
-        self.world.add_component(entity, Personality())
+        trait_service = self.world.services.try_get(TraitService)
+        personality = Personality()
+
+        # Basic Genetics / Randomization
+        if trait_service:
+            all_traits = list(trait_service.traits.get("traits", {}).keys())
+            if all_traits:
+                # Chance to have a trait
+                if random.random() < 0.3: # 30% chance for a random trait
+                    # Avoid conflicts logic would go here, but for now pick one
+                    t = random.choice(all_traits)
+                    personality.traits.add(t)
+
+            # Randomize values
+            personality.values["Compassion"] = random.uniform(0, 100)
+            personality.values["Greed"] = random.uniform(0, 100)
+
+        self.world.add_component(entity, personality)
         self.world.add_component(entity, RelationshipRegistry())
 
         # AI

@@ -8,7 +8,8 @@ from ..events import (
     EntityTrainedEvent,
     EntityPunishedEvent,
     EntityDiedEvent,
-    LogMessageEvent
+    LogMessageEvent,
+    RelationshipChangedEvent
 )
 from typing import TYPE_CHECKING
 
@@ -43,6 +44,7 @@ class FeedbackSystem(System):
         self.event_bus.subscribe(EntityDiedEvent, self.on_death)
         self.event_bus.subscribe(EntityTrainedEvent, self.on_trained)
         self.event_bus.subscribe(EntityPunishedEvent, self.on_punished)
+        self.event_bus.subscribe(RelationshipChangedEvent, self.on_relationship_changed)
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -210,3 +212,19 @@ class FeedbackSystem(System):
             message=f"{name} was punished.",
             color=(255, 0, 0)
         ))
+
+    def on_relationship_changed(self, event: RelationshipChangedEvent) -> None:
+        """
+        Handles RelationshipChangedEvent.
+        """
+        text = "<3" if event.change_type == "positive" else "</3"
+        color = (255, 105, 180) if event.change_type == "positive" else (128, 0, 128)
+
+        self.factory.create_floating_text(
+            event.position[0],
+            event.position[1] - 30,
+            text,
+            color,
+            size=24,
+            lifetime=1.5
+        )

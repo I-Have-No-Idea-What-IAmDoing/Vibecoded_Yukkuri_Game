@@ -210,3 +210,19 @@ class EntityDiedEvent(Event):
     """
     entity_id: int
     position: tuple[float, float]
+
+@dataclass(frozen=True)
+class RelationshipChangedEvent(Event):
+    """
+    Event published when a relationship changes significantly.
+
+    Attributes:
+        subject_id (int): The ID of the entity whose perspective changed.
+        target_id (int): The ID of the target entity.
+        change_type (str): "positive" or "negative".
+        position (tuple[float, float]): The position of the subject.
+    """
+    subject_id: int
+    target_id: int
+    change_type: str
+    position: tuple[float, float]

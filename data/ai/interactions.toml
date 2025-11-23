@@ -9,6 +9,7 @@ social_impact = { affinity = -10.0, fear = 5.0, trust = -10.0 }
 [interaction.Greet]
 base_impact = 5.0
 social_impact = { affinity = 5.0, trust = 2.0, fear = 0.0 }
+can_recruit_family = true
 
 [interaction.Greet.modifiers]
 "trait:GESU" = { affinity = -5.0 } # Gesu might be annoyed by greetings?

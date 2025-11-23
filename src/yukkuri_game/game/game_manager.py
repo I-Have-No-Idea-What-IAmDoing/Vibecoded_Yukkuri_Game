@@ -54,7 +54,7 @@ class GameManager:
 
         # Initialize TraitService
         self.trait_service = TraitService()
-        world.services.register(self.trait_service)
+        world.services.register(self.trait_service, TraitService)
 
         # Inject TraitService into UtilityAIEngine if available
         ai_engine = world.services.try_get(UtilityAIEngine)
