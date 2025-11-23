@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 import argparse
 import pygame
+from loguru import logger
 from .engine.core import GameLoop
 from .engine.audio import AudioManager
 from .engine.resource_manager import ResourceManager
@@ -199,15 +200,21 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
-        if not self.paused:
-            self.gm.time_elapsed += self.dt * self.time_scale
+        try:
+            if not self.paused:
+                self.gm.time_elapsed += self.dt * self.time_scale
 
-        super().update()
-        self.yukkurrium.update(self.dt)
+            super().update()
+            self.yukkurrium.update(self.dt)
 
-        if not self.headless:
-            self.hud.fps = self.clock.get_fps()
-            self.hud.update(self.dt)
+            if not self.headless:
+                self.hud.fps = self.clock.get_fps()
+                self.hud.update(self.dt)
+        except Exception as e:
+            logger.exception("Game Loop Error")
+            if not self.headless and hasattr(self, 'hud'):
+                self.hud.show_error(f"Game Loop Error: {str(e)}")
+            self.paused = True
 
     def render_world(self) -> None:
         """
