@@ -98,7 +98,7 @@ class LifecycleSystem(System):
 
             # Child -> Adult
             elif stats.growth_stage == "Child" and stats.age >= self.settings.child_age_threshold:
-                self._grow_entity(world, entity, stats, transform, "Adult", 2.0)
+                self._grow_entity(world, entity, stats, transform, "Adult", 4.0 / 3.0)
 
     def _grow_entity(self, world: World, entity: int, stats: YukkuriStats, transform: Transform, new_stage: str, scale_multiplier: float) -> None:
         """
@@ -109,27 +109,7 @@ class LifecycleSystem(System):
         stats.growth_stage = new_stage
 
         # Scale Transform
-        # Assuming initial scale is 1.0 for Baby, or relative to base size.
-        # But wait, create_yukkuri sets size. Let's assume standard size is for "Adult"?
-        # Or standard size is for "Baby"?
-        # Usually standard size is for the sprite.
-        # Let's assume the sprite is "Adult" size, and we scale down for babies.
-        # But here we are increasing scale.
-
-        # Strategy: Scale relative to current scale? Or absolute?
-        # Let's say Baby is 0.5, Child is 0.75, Adult is 1.0
-        # If we start as Baby (age 0), we should have been initialized small.
-        # But `create_yukkuri` doesn't scale based on age yet.
-        # I should probably update `create_yukkuri` to set initial scale based on stage.
-
-        # For now, let's just multiply scale.
-        # Child is bigger than Baby. Adult is bigger than Child.
-        # Let's increase scale by a factor.
-
-        if new_stage == "Child":
-             transform.scale = 0.75 # Assuming Adult is 1.0
-        elif new_stage == "Adult":
-             transform.scale = 1.0
+        transform.scale *= scale_multiplier
 
         # Adjust Stats
         if new_stage == "Child":
