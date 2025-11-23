@@ -128,7 +128,13 @@ class UtilitySelector(Action):
                 context[f"trait_{trait}"] = 1.0
 
         # Select Action
+
+        # Optimize: populate cached_overrides if missing
+        if personality and self.trait_service and personality.cached_overrides is None:
+            personality.cached_overrides = self.trait_service.calculate_overrides(personality.traits)
+
         # We pass personality and trait service to support overrides inside the engine
+        # But we prefer using the cache now
         best_action = self.engine.select_action(context, personality, self.trait_service)
 
         # Update AI State

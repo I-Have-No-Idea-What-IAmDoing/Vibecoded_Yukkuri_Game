@@ -46,7 +46,12 @@ class EntityFactory:
          # But in this codebase, factory seems to be a service too.
          # So we can't depend on it in __init__ if they are init together.
          # We'll use try_get here.
-         return self.world.services.try_get(TraitService)
+         ts = self.world.services.try_get(TraitService)
+         if ts is None:
+             # Try harder or log error
+             from loguru import logger
+             logger.error("TraitService not found in EntityFactory! Yukkuri created without traits.")
+         return ts
 
     def _get_attr(self, data: Any, key: str, default: Any = None) -> Any:
         """

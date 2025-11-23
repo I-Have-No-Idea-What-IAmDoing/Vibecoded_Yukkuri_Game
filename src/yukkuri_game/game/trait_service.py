@@ -62,3 +62,16 @@ class TraitService:
     def get_all_trait_ids(self) -> List[str]:
         """Returns a list of all available trait IDs."""
         return list(self.traits.keys())
+
+    def calculate_overrides(self, traits: set[str]) -> Dict[str, Any]:
+        """
+        Calculates the effective AI modifiers for a set of traits.
+        Merges conflicting modifiers (last one wins currently).
+        """
+        overrides = {}
+        for trait_id in traits:
+            trait_data = self.get_trait(trait_id)
+            if trait_data and "ai_modifiers" in trait_data:
+                for cons_name, mod in trait_data["ai_modifiers"].items():
+                    overrides[cons_name] = mod
+        return overrides

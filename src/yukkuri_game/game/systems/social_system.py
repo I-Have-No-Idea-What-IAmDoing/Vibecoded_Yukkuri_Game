@@ -20,24 +20,66 @@ class SocialSystem(System):
     def __init__(self, event_bus: EventBus):
         super().__init__()
         self.trait_service: Optional[TraitService] = None
-        self.last_decay_time = time.time()
-        self.decay_interval = 5.0 # Run decay logic every 5 seconds (simulated)
+        # Distributed cleanup state
+        self.cleanup_index = 0
+        self.cleanup_batch_size = 10
         self.event_bus = event_bus
 
         self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
 
     def update(self, world: World, dt: float) -> None:
         """
-        Updates social states. This includes decaying temporary emotions/relationship values.
+        Updates social states.
+        Handles distributed cleanup of old relationships and Mood decay.
         """
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
 
-        # Periodic Decay
-        current_time = time.time()
-        if current_time - self.last_decay_time > self.decay_interval:
-            self.last_decay_time = current_time
-            self._process_decay(world)
+        # 1. Mood Decay (for all entities, but this is lighter than relationship map iteration)
+        # Ideally, this should also be distributed or event-driven, but for now we iterate stats
+        # to decay mood score.
+        entities_with_personality = world.get_entities_with(Personality)
+        for entity in entities_with_personality:
+            pers = world.get_component(entity, Personality)
+            if pers.mood_score > 0:
+                pers.mood_score -= dt * 5.0 # Decay rate
+                if pers.mood_score <= 0:
+                    pers.mood_score = 0
+                    pers.mood = "NEUTRAL"
+
+        # 2. Distributed Relationship Cleanup
+        # Only check N entities per frame to remove very old/irrelevant relationships
+        all_entities = world.get_entities_with(RelationshipRegistry)
+        if not all_entities:
+            return
+
+        count = len(all_entities)
+        start = self.cleanup_index % count
+        end = min(start + self.cleanup_batch_size, count)
+
+        for i in range(start, end):
+            eid = all_entities[i]
+            registry = world.get_component(eid, RelationshipRegistry)
+            if registry:
+                to_remove = []
+                now = time.time()
+                cutoff = now - 600 # 10 minutes retention for inactive relationships
+
+                for other_id, rel_data in registry.relationships.items():
+                    # If not permanent (family/mate) and old
+                    # (Mate/Family logic usually kept elsewhere or flagged, assuming ID check is enough)
+                    is_special = (other_id == registry.mate_id) or \
+                                 (registry.family_group_id is not None and \
+                                  world.has_component(other_id, RelationshipRegistry) and \
+                                  world.get_component(other_id, RelationshipRegistry).family_group_id == registry.family_group_id)
+
+                    if not is_special and (now - rel_data.last_update > cutoff):
+                        to_remove.append(other_id)
+
+                for rid in to_remove:
+                    del registry.relationships[rid]
+
+        self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(1, count)
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         """
@@ -50,40 +92,34 @@ class SocialSystem(System):
 
         self.register_interaction(self.ecs_world, event.initiator_id, event.target_id, event.interaction_type)
 
-    def _process_decay(self, world: World):
+    def _update_relationship_decay(self, rel_data: RelationshipData):
         """
-        Decays social values towards neutral/base states.
+        Lazily updates relationship values based on time elapsed since last update.
         """
-        # We iterate over entities with RelationshipRegistry
-        # Note: In a large world, this should be distributed over frames.
-        entities = world.get_entities_with(RelationshipRegistry)
+        now = time.time()
+        if rel_data.last_update == 0.0:
+            rel_data.last_update = now
+            return
 
-        for entity in entities:
-            registry = world.get_component(entity, RelationshipRegistry)
-            if not registry:
-                continue
+        elapsed = now - rel_data.last_update
+        # Decay rates per second
+        decay_affinity = 0.01 * elapsed # 0.1 per 10s
+        decay_fear = 0.05 * elapsed
+        decay_trust = 0.005 * elapsed
 
-            for target_id, rel_data in registry.relationships.items():
-                # Decay Affinity towards 0
-                if rel_data.affinity > 0.1:
-                    rel_data.affinity -= 0.5
-                elif rel_data.affinity < -0.1:
-                    rel_data.affinity += 0.5
+        # Apply decay
+        if rel_data.affinity > 0.1:
+            rel_data.affinity = max(0, rel_data.affinity - decay_affinity)
+        elif rel_data.affinity < -0.1:
+            rel_data.affinity = min(0, rel_data.affinity + decay_affinity)
 
-                # Decay Fear slowly
-                if rel_data.fear > 0.1:
-                    rel_data.fear -= 0.2
+        if rel_data.fear > 0.1:
+            rel_data.fear = max(0, rel_data.fear - decay_fear)
 
-                # Trust decays very slowly if positive, or stays?
-                # Let's say trust is harder to lose naturally, but decays if very high
-                if rel_data.trust > 50.0:
-                    rel_data.trust -= 0.1
+        if rel_data.trust > 50.0:
+            rel_data.trust = max(50.0, rel_data.trust - decay_trust)
 
-                # Memory clean up (remove old memories)
-                # Assuming timestamp is simple time.time()
-                # 300 seconds (5 mins) retention for non-permanent
-                cutoff = time.time() - 300
-                rel_data.memories = [m for m in rel_data.memories if m.permanent or m.timestamp > cutoff]
+        rel_data.last_update = now
 
     def register_interaction(self, world: World, actor_id: int, target_id: int, interaction_name: str):
         """
@@ -102,8 +138,6 @@ class SocialSystem(System):
 
         interaction_data = self.trait_service.get_interaction(interaction_name)
         if not interaction_data:
-            # Try to find a fallback or just log
-            # Map "Fight" -> "Hit" if not found? No, we added Fight to TOML.
             logger.warning(f"Unknown interaction: {interaction_name}")
             return
 
@@ -160,10 +194,8 @@ class SocialSystem(System):
         """
         Applies the social impact to the subject regarding the other.
         """
-        # We generally only care about how the TARGET is affected by the ACTOR's action.
         if role == "actor":
             # Optional: Actor might feel satisfaction or guilt.
-            # For now, we only update target's feelings towards actor.
             return
 
         registry = world.get_component(subject_id, RelationshipRegistry)
@@ -172,9 +204,12 @@ class SocialSystem(System):
             world.add_component(subject_id, registry)
 
         if other_id not in registry.relationships:
-            registry.relationships[other_id] = RelationshipData()
+            registry.relationships[other_id] = RelationshipData(last_update=time.time())
 
         rel = registry.relationships[other_id]
+
+        # LAZY DECAY: Update decay before applying new impact
+        self._update_relationship_decay(rel)
 
         # Base Impact
         social_impact = data.get("social_impact", {})
@@ -183,6 +218,7 @@ class SocialSystem(System):
         d_trust = social_impact.get("trust", 0.0)
         d_fear = social_impact.get("fear", 0.0)
         d_familiarity = social_impact.get("familiarity", 0.0)
+        base_impact_score = data.get("base_impact", 0.0)
 
         # Apply Modifiers
         subject_personality = world.get_component(subject_id, Personality)
@@ -197,12 +233,20 @@ class SocialSystem(System):
                     d_trust += mod.get("trust", 0.0)
                     d_fear += mod.get("fear", 0.0)
 
-            # Check Mood (not implemented fully in component, but slot exists)
-            # Assuming mood is stored in personality.mood
+            # Check Mood
             mood_key = f"mood:{subject_personality.mood}"
             if mood_key in modifiers:
                 mod = modifiers[mood_key]
                 d_affinity += mod.get("affinity", 0.0)
+
+            # UPDATE MOOD based on impact
+            if base_impact_score < -15:
+                # Strong negative event
+                subject_personality.mood = "FURIOUS" if random.random() < 0.5 else "SCARED"
+                subject_personality.mood_score = 100.0
+            elif base_impact_score > 15:
+                subject_personality.mood = "HAPPY"
+                subject_personality.mood_score = 100.0
 
         # Update values clamped
         rel.affinity = max(-100, min(100, rel.affinity + d_affinity))
@@ -211,7 +255,6 @@ class SocialSystem(System):
         rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
 
         # Add Memory
-        base_impact_score = data.get("base_impact", 0.0)
         if abs(base_impact_score) > 0:
             memory = MemoryRecord(
                 timestamp=time.time(),
