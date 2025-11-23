@@ -12,6 +12,7 @@ from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from .game.game_manager import GameManager
 from .game.services import EconomyService, PersistenceService, TimeService, InputService
 from .game.settings_service import SettingsService
+from .game.trait_service import TraitService
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
 from .game.systems.stat_decay import StatDecaySystem
@@ -24,6 +25,8 @@ from .game.systems.animation import AnimationSystem
 from .game.systems.poop_system import PoopSystem
 from .game.systems.feedback_system import FeedbackSystem
 from .game.systems.interaction_system import InteractionSystem
+from .game.systems.social_system import SocialSystem
+from .game.systems.family_system import FamilySystem
 from .game.ui.hud import HUD
 from .game.input_system import InputSystem
 from .game.yukkuri_components import AIState # Fix import for HUD string check if needed
@@ -121,6 +124,9 @@ class YukkuriGame(GameLoop):
         self.settings_service = SettingsService()
         self.world.services.register(self.settings_service)
 
+        self.trait_service = TraitService(self.world)
+        self.world.services.register(self.trait_service)
+
         # Apply initial settings
         audio_settings = self.settings_service.settings.get("audio", {})
         self.audio.set_master_volume(audio_settings.get("master_volume", 0.5))
@@ -177,6 +183,8 @@ class YukkuriGame(GameLoop):
         self.world.add_system(PoopSystem())
         self.world.add_system(FeedbackSystem(self.world))
         self.world.add_system(InteractionSystem())
+        self.world.add_system(SocialSystem(self.event_bus))
+        self.world.add_system(FamilySystem())
 
         if not self.headless:
             self.render_system = RenderSystem(self.screen, self.world)

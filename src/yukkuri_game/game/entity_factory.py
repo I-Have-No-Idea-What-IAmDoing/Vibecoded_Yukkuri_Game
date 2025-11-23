@@ -1,9 +1,11 @@
 import pymunk
+import random
 from typing import Any
 from typing import Any, Optional, TYPE_CHECKING
 from ..engine.ecs import World
 from .components import Transform, Sprite, Selectable, PhysicsBody, FloatingText
-from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop
+from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop, Personality, RelationshipRegistry
+from .trait_service import TraitService
 
 if TYPE_CHECKING:
     from ..engine.resource_manager import ResourceManager
@@ -33,6 +35,23 @@ class EntityFactory:
         from .systems.physics import PhysicsSystem
         self.rm = world.services.get(ResourceManager)
         self.physics_system = world.services.try_get(PhysicsSystem)
+        # We need TraitService, but it might not be registered yet if we init too early.
+        # So we try to get it, or assume it will be available later.
+        # But we need it for creation.
+        # It should be registered by the time create_yukkuri is called.
+
+    def _get_trait_service(self) -> Optional[TraitService]:
+         # Attempt to get trait service dynamically to avoid cyclic deps or init order issues
+         # if it wasn't available at init time (though usually factories are created after services)
+         # But in this codebase, factory seems to be a service too.
+         # So we can't depend on it in __init__ if they are init together.
+         # We'll use try_get here.
+         ts = self.world.services.try_get(TraitService)
+         if ts is None:
+             # Try harder or log error
+             from loguru import logger
+             logger.error("TraitService not found in EntityFactory! Yukkuri created without traits.")
+         return ts
 
     def _get_attr(self, data: Any, key: str, default: Any = None) -> Any:
         """
@@ -50,7 +69,7 @@ class EntityFactory:
             return data.get(key, default)
         return getattr(data, key, default)
 
-    def create_yukkuri(self, type_id: str, x: float, y: float, age: float = 0.0) -> int:
+    def create_yukkuri(self, type_id: str, x: float, y: float, age: float = 0.0, parents: list[int] = None) -> int:
         """
         Creates a Yukkuri entity.
 
@@ -59,6 +78,7 @@ class EntityFactory:
             x (float): The initial x-coordinate.
             y (float): The initial y-coordinate.
             age (float): The initial age of the Yukkuri. Defaults to 0.0 (Baby).
+            parents (list[int]): Optional list of parent entity IDs.
 
         Returns:
             int: The ID of the created entity.
@@ -78,17 +98,10 @@ class EntityFactory:
         max_health = self._get_attr(data, 'max_health', 100)
 
         # Determine growth stage and scale based on age
-        # Note: These thresholds should match LifecycleSettings, but we don't have access to config here easily without dependency injection.
-        # Ideally, pass config or use constants. For now, assuming Baby < 100, Child < 300
-        # Wait, if we create an adult directly, we should scale it.
-        # But if the sprite is for an adult (usually), we should scale DOWN for babies.
-
         scale = 1.0
         radius = 20
         growth_stage = "Baby"
 
-        # Simple logic: if age > 300 -> Adult. If age > 100 -> Child. Else Baby.
-        # Baby: scale 0.5. Child: scale 0.75. Adult: scale 1.0.
         if age >= 300:
             growth_stage = "Adult"
             scale = 1.0
@@ -101,8 +114,6 @@ class EntityFactory:
             growth_stage = "Baby"
             scale = 0.5
             radius = 10
-
-            # Reduce stats for babies
             max_health *= 0.5
 
         # Animation properties
@@ -136,6 +147,72 @@ class EntityFactory:
 
         # AI
         self.world.add_component(entity, AIState())
+
+        # Personality & Relationships
+        self.world.add_component(entity, RelationshipRegistry())
+
+        # Generate Personality
+        ts = self._get_trait_service()
+        traits = set()
+
+        # Default values range
+        base_values = {
+            "compassion": 50.0,
+            "greed": 50.0,
+            "bravery": 50.0
+        }
+
+        # Genetics: Inherit traits from parents
+        if parents and ts:
+            parent_personalities = []
+            for parent_id in parents:
+                p = self.world.get_component(parent_id, Personality)
+                if p:
+                    parent_personalities.append(p)
+
+            if parent_personalities:
+                # Inherit traits
+                for pp in parent_personalities:
+                    for t in pp.traits:
+                         if random.random() < 0.5:
+                            traits.add(t)
+
+                # Inherit values (average + jitter)
+                for key in base_values.keys():
+                    avg_val = sum(pp.values.get(key, 50.0) for pp in parent_personalities) / len(parent_personalities)
+                    # Add genetic jitter (-10 to +10)
+                    jitter = random.uniform(-10.0, 10.0)
+                    base_values[key] = max(0.0, min(100.0, avg_val + jitter))
+
+        # Random traits if not fully populated or as mutations
+        if ts:
+            all_traits = ts.get_all_trait_ids()
+            if all_traits:
+                 # Small chance to get a new random trait
+                 if random.random() < 0.1: # 10% mutation chance
+                     chosen = random.choice(all_traits)
+                     traits.add(chosen)
+
+            # Ensure at least one trait if parents provided but none inherited?
+            # Or just standard generation if no parents.
+            if not parents and not traits:
+                 if random.random() < 0.3:
+                     chosen = random.choice(all_traits)
+                     traits.add(chosen)
+
+        personality = Personality(traits=traits)
+
+        # If not inherited, randomize completely
+        if not parents:
+            for key in base_values.keys():
+                # Skew slightly based on type_id? (e.g. Marisa more greedy)
+                # For now just pure random gaussian centered at 50
+                val = random.gauss(50, 15)
+                base_values[key] = max(0.0, min(100.0, val))
+
+        personality.values = base_values
+        self.world.add_component(entity, personality)
+
 
         # Physics
         if self.physics_system:

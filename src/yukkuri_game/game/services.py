@@ -639,4 +639,12 @@ class GameService:
             target_stats.social = min(100.0, target_stats.social + 10.0)
             # Maybe trigger animation if possible
 
+        # --- Integrate with SocialSystem via EventBus ---
+        from ..engine.event_bus import EventBus
+        from .events import SocialInteractionEvent
+
+        event_bus = self.world.services.try_get(EventBus)
+        if event_bus:
+            event_bus.publish(SocialInteractionEvent(initiator_id, target_id, interaction_type))
+
         return True

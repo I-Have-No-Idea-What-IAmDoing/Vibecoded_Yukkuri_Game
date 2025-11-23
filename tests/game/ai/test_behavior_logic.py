@@ -67,6 +67,13 @@ class TestMoveToTarget:
         mock_world.services = MagicMock()
         mock_world.services.try_get.return_value = nav_service
 
+        # Mock physics to ensure raycast hits something, preventing string pulling optimization
+        # or mock segment_query to return a hit.
+        hit_mock = MagicMock()
+        hit_mock.shape.sensor = False # Important: Mock is truthy, so we must explicitly set False
+        hit_mock.alpha = 0.5 # Must be > 0.001 and < 1.0 (float)
+        phys.body.space.segment_query.return_value = [hit_mock] # Hits something
+
         def get_component(e, c):
             if e == 1:
                 if c == AIState: return ai
