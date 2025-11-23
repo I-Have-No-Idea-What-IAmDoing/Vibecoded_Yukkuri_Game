@@ -113,6 +113,7 @@ class SocialSystem(System):
         modifiers = data.get("modifiers", {})
 
         if subject_personality:
+            # Traits modifiers
             for trait in subject_personality.traits:
                 key = f"trait:{trait}"
                 if key in modifiers:
@@ -120,6 +121,20 @@ class SocialSystem(System):
                     d_affinity += mod.get("affinity", 0.0)
                     d_trust += mod.get("trust", 0.0)
                     d_fear += mod.get("fear", 0.0)
+
+            # Mood modifiers
+            if subject_personality.mood:
+                key = f"mood:{subject_personality.mood}"
+                if key in modifiers:
+                    mod = modifiers[key]
+                    d_affinity += mod.get("affinity", 0.0)
+                    d_trust += mod.get("trust", 0.0)
+                    d_fear += mod.get("fear", 0.0)
+
+            # Value modifiers (e.g. Compassion, Greed)
+            # Plan says: "Values act as multipliers".
+            # Implementation: We don't have data on which value multiplies what,
+            # but if we had, it would go here. For now, mood support is critical.
 
         # Update values clamped
         rel.affinity = max(-100, min(100, rel.affinity + d_affinity))

@@ -2,8 +2,9 @@ from typing import Dict, Any
 import random
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
-from ..yukkuri_components import YukkuriStats, AIState
+from ..yukkuri_components import YukkuriStats, AIState, Personality
 from ..ai.utility import UtilityAIEngine
+from ..trait_service import TraitService
 
 class DecisionSystem(System):
     """
@@ -56,6 +57,8 @@ class DecisionSystem(System):
             None
         """
         audio = world.services.try_get(AudioManager)
+        trait_service = world.services.try_get(TraitService)
+
         for entity, (stats, ai) in world.get_components_tuple(YukkuriStats, AIState):
             context = {
                 "hunger": stats.hunger,
@@ -66,7 +69,9 @@ class DecisionSystem(System):
                 "constant_100": 100
             }
 
-            new_action = self.ai_engine.select_action(context)
+            personality = world.get_component(entity, Personality)
+
+            new_action = self.ai_engine.select_action(context, personality, trait_service)
             if new_action != ai.current_action:
                 ai.current_action = new_action
                 ai.action_progress = 0.0
