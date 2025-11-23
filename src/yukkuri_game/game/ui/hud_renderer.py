@@ -195,12 +195,35 @@ class HudRenderer:
             if stats:
                 ai_state = self.world.get_component(selected_entity, AIState)
                 action = ai_state.current_action if ai_state else "None"
+
+                # Personality & Relationships
+                from ..yukkuri_components import Personality, RelationshipRegistry
+                pers = self.world.get_component(selected_entity, Personality)
+                rel_reg = self.world.get_component(selected_entity, RelationshipRegistry)
+
+                traits_str = "None"
+                mood_str = "Neutral"
+
+                if pers:
+                    if pers.traits:
+                        traits_str = ", ".join(list(pers.traits))
+                    mood_str = pers.mood
+
+                # Format
                 text = (f"<b>Name:</b> {stats.name}<br>"
+                        f"<b>Type:</b> {stats.type_id}<br>"
+                        f"<b>Traits:</b> {traits_str}<br>"
+                        f"<b>Mood:</b> {mood_str}<br>"
+                        f"<br>"
+                        f"<b>Health:</b> {int(stats.health)}<br>"
                         f"<b>Hunger:</b> {int(stats.hunger)}<br>"
                         f"<b>Happiness:</b> {int(stats.happiness)}<br>"
-                        f"<b>Health:</b> {int(stats.health)}<br>"
-                        f"<b>Badges:</b> {stats.badges}<br>"
+                        f"<b>Stress:</b> {int(stats.stress)}<br>"
                         f"<b>Action:</b> {action}")
+
+                if rel_reg and rel_reg.family_group_id:
+                     text += f"<br><b>Family ID:</b> {rel_reg.family_group_id}"
+
             else:
                 istats = self.world.get_component(selected_entity, ItemStats)
                 if istats:

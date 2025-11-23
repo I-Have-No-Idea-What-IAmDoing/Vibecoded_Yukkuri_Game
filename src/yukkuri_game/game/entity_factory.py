@@ -64,7 +64,7 @@ class EntityFactory:
             return data.get(key, default)
         return getattr(data, key, default)
 
-    def create_yukkuri(self, type_id: str, x: float, y: float, age: float = 0.0) -> int:
+    def create_yukkuri(self, type_id: str, x: float, y: float, age: float = 0.0, parents: list[int] = None) -> int:
         """
         Creates a Yukkuri entity.
 
@@ -73,6 +73,7 @@ class EntityFactory:
             x (float): The initial x-coordinate.
             y (float): The initial y-coordinate.
             age (float): The initial age of the Yukkuri. Defaults to 0.0 (Baby).
+            parents (list[int]): Optional list of parent entity IDs.
 
         Returns:
             int: The ID of the created entity.
@@ -148,12 +149,30 @@ class EntityFactory:
         # Generate Personality
         ts = self._get_trait_service()
         traits = set()
+
+        # Genetics: Inherit traits from parents
+        if parents and ts:
+            for parent_id in parents:
+                parent_pers = self.world.get_component(parent_id, Personality)
+                if parent_pers:
+                    # 50% chance to inherit each trait
+                    for t in parent_pers.traits:
+                        if random.random() < 0.5:
+                            traits.add(t)
+
+        # Random traits if not fully populated or as mutations
         if ts:
             all_traits = ts.get_all_trait_ids()
             if all_traits:
-                 # Small chance to get a trait, or logic specific to type
-                 # For now random 1 trait
-                 if random.random() < 0.3: # 30% chance of a trait
+                 # Small chance to get a new random trait
+                 if random.random() < 0.1: # 10% mutation chance
+                     chosen = random.choice(all_traits)
+                     traits.add(chosen)
+
+            # Ensure at least one trait if parents provided but none inherited?
+            # Or just standard generation if no parents.
+            if not parents and not traits:
+                 if random.random() < 0.3:
                      chosen = random.choice(all_traits)
                      traits.add(chosen)
 

@@ -210,3 +210,17 @@ class EntityDiedEvent(Event):
     """
     entity_id: int
     position: tuple[float, float]
+
+@dataclass(frozen=True)
+class SocialInteractionEvent(Event):
+    """
+    Event published when a social interaction occurs between two entities.
+
+    Attributes:
+        initiator_id (int): The ID of the initiating entity.
+        target_id (int): The ID of the target entity.
+        interaction_type (str): The type of interaction (e.g., "Talk", "Fight").
+    """
+    initiator_id: int
+    target_id: int
+    interaction_type: str

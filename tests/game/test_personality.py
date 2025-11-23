@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
 
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.game.yukkuri_components import Personality, RelationshipRegistry, RelationshipData, YukkuriStats, AIState
 from yukkuri_game.game.ai.utility import UtilityAIEngine, Action, Consideration
@@ -83,12 +84,16 @@ def test_social_system():
     world = World()
     ts = TraitService()
     world.services.register(ts) # Fix registration
+    event_bus = EventBus()
 
-    sys = SocialSystem()
+    sys = SocialSystem(event_bus)
+    world.add_system(sys) # Needed to inject ecs_world
 
     p1 = world.create_entity()
     world.add_component(p1, RelationshipRegistry())
     world.add_component(p1, Personality(traits={"NICE"})) # Nice helps?
+    from yukkuri_game.game.components import Transform
+    world.add_component(p1, Transform(x=0, y=0)) # Needed for visual feedback
 
     p2 = world.create_entity()
 

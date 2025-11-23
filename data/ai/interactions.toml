@@ -11,9 +11,32 @@ base_impact = 5.0
 social_impact = { affinity = 2.0, familiarity = 1.0 }
 
 [interaction.Greet.modifiers]
-"trait:GESU" = { affinity = -5.0 } # Gesu doesn't like being greeted nicely? Or maybe they interpret it as subservience.
-"mood:FURIOUS" = { affinity = -10.0 } # Furious yukkuri takes offense.
+"trait:GESU" = { affinity = -5.0 }
+"mood:FURIOUS" = { affinity = -10.0 }
 
 [interaction.Feed]
 base_impact = 10.0
 social_impact = { affinity = 5.0, trust = 5.0 }
+
+[interaction.Talk]
+base_impact = 5.0
+social_impact = { affinity = 3.0, familiarity = 2.0, trust = 1.0 }
+
+[interaction.Talk.modifiers]
+"trait:GESU" = { affinity = -2.0 } # Gesu finds talking boring unless it's abuse?
+"trait:LONER" = { affinity = 0.0, familiarity = 0.5 } # Loners get less out of talk
+
+[interaction.Fight]
+base_impact = -25.0
+social_impact = { affinity = -20.0, fear = 10.0, trust = -20.0 }
+
+[interaction.Fight.modifiers]
+"trait:WEAK" = { fear = 20.0 }
+"trait:GESU" = { fear = -5.0 } # Gesu might enjoy the fight or be arrogant
+
+[interaction.Dance]
+base_impact = 10.0
+social_impact = { affinity = 8.0, familiarity = 5.0 }
+
+[interaction.Dance.modifiers]
+"mood:HAPPY" = { affinity = 12.0 }
