@@ -1,7 +1,7 @@
 import pygame
 import pygame_gui
 from typing import Optional
-from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox
+from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox, UIHorizontalSlider, UIDropDownMenu
 
 class HudLayout:
     """
@@ -16,6 +16,7 @@ class HudLayout:
         time_label (Optional[UILabel]): Label displaying game time.
         save_btn (Optional[UIButton]): Button to save the game.
         load_btn (Optional[UIButton]): Button to load the game.
+        settings_btn (Optional[UIButton]): Button to open settings.
         pause_btn (Optional[UIButton]): Button to pause/resume the game.
         speed_btn (Optional[UIButton]): Button to cycle game speed.
         bottom_panel (Optional[UIPanel]): The bottom panel container.
@@ -27,6 +28,7 @@ class HudLayout:
         train_btn (Optional[UIButton]): Button to train the selected entity.
         debug_window (Optional[UIWindow]): The debug info window.
         debug_text_box (Optional[UITextBox]): Text box within the debug window.
+        settings_window (Optional[UIWindow]): The settings window.
     """
     def __init__(self, ui_manager: pygame_gui.UIManager, width: int, height: int, yukkuri_types: dict = None, item_types: dict = None):
         """
@@ -51,6 +53,7 @@ class HudLayout:
         self.time_label: Optional[UILabel] = None
         self.save_btn: Optional[UIButton] = None
         self.load_btn: Optional[UIButton] = None
+        self.settings_btn: Optional[UIButton] = None
         self.pause_btn: Optional[UIButton] = None
         self.speed_btn: Optional[UIButton] = None
         self.bottom_panel: Optional[UIPanel] = None
@@ -77,6 +80,16 @@ class HudLayout:
         # Hover Tooltip Elements
         self.hover_tooltip_panel: Optional[UIPanel] = None
         self.hover_tooltip_label: Optional[UITextBox] = None
+
+        # Settings Window Elements
+        self.settings_window: Optional[UIWindow] = None
+        self.master_volume_slider: Optional[UIHorizontalSlider] = None
+        self.bgm_volume_slider: Optional[UIHorizontalSlider] = None
+        self.sfx_volume_slider: Optional[UIHorizontalSlider] = None
+        self.resolution_dropdown: Optional[UIDropDownMenu] = None
+        self.fullscreen_btn: Optional[UIButton] = None
+        self.settings_save_btn: Optional[UIButton] = None
+        self.settings_cancel_btn: Optional[UIButton] = None
 
         self._create_top_bar()
         self._create_bottom_bar()
@@ -121,7 +134,7 @@ class HudLayout:
         )
 
         self.save_btn = UIButton(
-            relative_rect=pygame.Rect(self.width - 220, 10, 100, 30),
+            relative_rect=pygame.Rect(self.width - 330, 10, 100, 30),
             text="Save",
             manager=self.manager,
             container=self.top_panel,
@@ -129,11 +142,19 @@ class HudLayout:
         )
 
         self.load_btn = UIButton(
-            relative_rect=pygame.Rect(self.width - 110, 10, 100, 30),
+            relative_rect=pygame.Rect(self.width - 220, 10, 100, 30),
             text="Load",
             manager=self.manager,
             container=self.top_panel,
             tool_tip_text="Load saved game"
+        )
+
+        self.settings_btn = UIButton(
+            relative_rect=pygame.Rect(self.width - 110, 10, 100, 30),
+            text="Settings",
+            manager=self.manager,
+            container=self.top_panel,
+            tool_tip_text="Open Settings"
         )
 
     def _create_bottom_bar(self) -> None:
@@ -293,6 +314,140 @@ class HudLayout:
             self.debug_window.kill()
             self.debug_window = None
             self.debug_text_box = None
+
+    def create_settings_window(self, current_settings: dict) -> None:
+        """
+        Creates the settings window.
+        """
+        if self.settings_window:
+            self.settings_window.kill()
+
+        width = 400
+        height = 450
+        x = (self.width - width) // 2
+        y = (self.height - height) // 2
+
+        self.settings_window = UIWindow(
+            rect=pygame.Rect(x, y, width, height),
+            manager=self.manager,
+            window_display_title="Settings",
+            resizable=False
+        )
+
+        # Master Volume
+        UILabel(
+            relative_rect=pygame.Rect(20, 20, 150, 30),
+            text="Master Volume:",
+            manager=self.manager,
+            container=self.settings_window
+        )
+        self.master_volume_slider = UIHorizontalSlider(
+            relative_rect=pygame.Rect(180, 20, 180, 30),
+            start_value=current_settings.get("master_volume", 1.0),
+            value_range=(0.0, 1.0),
+            manager=self.manager,
+            container=self.settings_window
+        )
+
+        # BGM Volume
+        UILabel(
+            relative_rect=pygame.Rect(20, 60, 150, 30),
+            text="BGM Volume:",
+            manager=self.manager,
+            container=self.settings_window
+        )
+        self.bgm_volume_slider = UIHorizontalSlider(
+            relative_rect=pygame.Rect(180, 60, 180, 30),
+            start_value=current_settings.get("bgm_volume", 0.5),
+            value_range=(0.0, 1.0),
+            manager=self.manager,
+            container=self.settings_window
+        )
+
+        # SFX Volume
+        UILabel(
+            relative_rect=pygame.Rect(20, 100, 150, 30),
+            text="SFX Volume:",
+            manager=self.manager,
+            container=self.settings_window
+        )
+        self.sfx_volume_slider = UIHorizontalSlider(
+            relative_rect=pygame.Rect(180, 100, 180, 30),
+            start_value=current_settings.get("sfx_volume", 0.5),
+            value_range=(0.0, 1.0),
+            manager=self.manager,
+            container=self.settings_window
+        )
+
+        # Resolution
+        UILabel(
+            relative_rect=pygame.Rect(20, 140, 150, 30),
+            text="Resolution:",
+            manager=self.manager,
+            container=self.settings_window
+        )
+
+        current_res = (current_settings.get("window_width", 1280), current_settings.get("window_height", 720))
+        res_options = ["1280x720", "1920x1080", "800x600"]
+        current_res_str = f"{current_res[0]}x{current_res[1]}"
+        if current_res_str not in res_options:
+            res_options.append(current_res_str)
+
+        self.resolution_dropdown = UIDropDownMenu(
+            options_list=res_options,
+            starting_option=current_res_str,
+            relative_rect=pygame.Rect(180, 140, 180, 30),
+            manager=self.manager,
+            container=self.settings_window
+        )
+
+        # Fullscreen
+        UILabel(
+            relative_rect=pygame.Rect(20, 180, 150, 30),
+            text="Fullscreen:",
+            manager=self.manager,
+            container=self.settings_window
+        )
+
+        is_fullscreen = current_settings.get("fullscreen", False)
+        btn_text = "ON" if is_fullscreen else "OFF"
+
+        self.fullscreen_btn = UIButton(
+            relative_rect=pygame.Rect(180, 180, 100, 30),
+            text=btn_text,
+            manager=self.manager,
+            container=self.settings_window
+        )
+
+        # Buttons
+        self.settings_save_btn = UIButton(
+            relative_rect=pygame.Rect(50, 350, 100, 40),
+            text="Save",
+            manager=self.manager,
+            container=self.settings_window
+        )
+
+        self.settings_cancel_btn = UIButton(
+            relative_rect=pygame.Rect(250, 350, 100, 40),
+            text="Cancel",
+            manager=self.manager,
+            container=self.settings_window
+        )
+
+    def close_settings_window(self) -> None:
+        """
+        Closes the settings window.
+        """
+        if self.settings_window:
+            self.settings_window.kill()
+            self.settings_window = None
+            self.master_volume_slider = None
+            self.bgm_volume_slider = None
+            self.sfx_volume_slider = None
+            self.resolution_dropdown = None
+            self.fullscreen_btn = None
+            self.settings_save_btn = None
+            self.settings_cancel_btn = None
 
     def create_hover_tooltip(self) -> None:
         """

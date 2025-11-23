@@ -160,6 +160,20 @@ class EntityPunishedEvent(Event):
     position: tuple[float, float]
 
 @dataclass(frozen=True)
+class VideoSettingsChangedEvent(Event):
+    """
+    Event published when video settings (resolution, fullscreen) are changed.
+
+    Attributes:
+        width (int): The new window width.
+        height (int): The new window height.
+        fullscreen (bool): Whether fullscreen mode is enabled.
+    """
+    width: int
+    height: int
+    fullscreen: bool
+
+@dataclass(frozen=True)
 class EntityGrewEvent(Event):
     """
     Event published when an entity grows to a new stage.

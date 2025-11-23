@@ -7,10 +7,10 @@ from .engine.core import GameLoop
 from .engine.audio import AudioManager
 from .engine.resource_manager import ResourceManager
 from .engine.event_bus import EventBus
-from .game.events import GamePausedEvent, TogglePauseRequest, CycleSpeedRequest
+from .game.events import GamePausedEvent, TogglePauseRequest, CycleSpeedRequest, VideoSettingsChangedEvent
 from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from .game.game_manager import GameManager
-from .game.services import EconomyService, PersistenceService, TimeService, InputService
+from .game.services import EconomyService, PersistenceService, TimeService, InputService, SettingsService
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
 from .game.systems.stat_decay import StatDecaySystem
@@ -117,6 +117,27 @@ class YukkuriGame(GameLoop):
         self.persistence_service = PersistenceService(self.world)
         self.world.services.register(self.persistence_service)
 
+        self.settings_service = SettingsService()
+        self.world.services.register(self.settings_service)
+
+        # Apply Settings
+        self.audio.set_master_volume(self.settings_service.master_volume)
+        self.audio.set_bgm_volume(self.settings_service.bgm_volume)
+        self.audio.set_sfx_volume(self.settings_service.sfx_volume)
+
+        if not self.headless:
+            # Apply window settings
+            flags = pygame.FULLSCREEN if self.settings_service.fullscreen else 0
+            new_size = (self.settings_service.window_width, self.settings_service.window_height)
+
+            # Since GameLoop already initialized the window, we update it here
+            self.screen = pygame.display.set_mode(new_size, flags)
+            self.width = new_size[0]
+            self.height = new_size[1]
+
+            # Update UI Manager as well since it was initialized with default size
+            self.ui_manager.set_window_resolution(new_size)
+
         # Factory & Game Manager
         self.factory = EntityFactory(self.world)
         self.world.services.register(self.factory)
@@ -158,6 +179,7 @@ class YukkuriGame(GameLoop):
             # Subscribe to events for game control
             self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
             self.event_bus.subscribe(CycleSpeedRequest, lambda e: self.cycle_speed())
+            self.event_bus.subscribe(VideoSettingsChangedEvent, self.on_video_settings_changed)
 
         # Initial Population
         if not self.headless:
@@ -218,6 +240,41 @@ class YukkuriGame(GameLoop):
         """
         if not self.headless and self.render_system:
             self.render_system.update(self.world, self.dt)
+
+    def on_video_settings_changed(self, event: VideoSettingsChangedEvent) -> None:
+        """
+        Handles video settings changes.
+        """
+        if not self.headless:
+            flags = pygame.FULLSCREEN if event.fullscreen else 0
+            new_size = (event.width, event.height)
+
+            # Update display
+            self.screen = pygame.display.set_mode(new_size, flags)
+            self.width = new_size[0]
+            self.height = new_size[1]
+
+            # Update UI Manager
+            self.ui_manager.set_window_resolution(new_size)
+
+            # Re-create RenderSystem (it might hold reference to screen)
+            self.render_system = RenderSystem(self.screen, self.world)
+
+            # Update HUD Layout
+            if self.hud:
+                self.hud.width = new_size[0]
+                self.hud.height = new_size[1]
+                self.hud.layout.width = new_size[0]
+                self.hud.layout.height = new_size[1]
+
+                # Rebuild HUD bars
+                if self.hud.layout.top_panel:
+                     self.hud.layout.top_panel.kill()
+                if self.hud.layout.bottom_panel:
+                     self.hud.layout.bottom_panel.kill()
+
+                self.hud.layout._create_top_bar()
+                self.hud.layout._create_bottom_bar()
 
     def toggle_pause(self) -> None:
         """

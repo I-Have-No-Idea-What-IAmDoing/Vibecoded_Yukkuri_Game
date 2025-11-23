@@ -616,3 +616,85 @@ class GameService:
             # Maybe trigger animation if possible
 
         return True
+
+class SettingsService:
+    """
+    Service responsible for loading and saving user settings.
+
+    Attributes:
+        master_volume (float): The master volume level (0.0 to 1.0).
+        bgm_volume (float): The background music volume level (0.0 to 1.0).
+        sfx_volume (float): The sound effects volume level (0.0 to 1.0).
+        window_width (int): The window width.
+        window_height (int): The window height.
+        fullscreen (bool): Whether the game is in fullscreen mode.
+    """
+    def __init__(self, settings_file: str = "user_settings.json"):
+        """
+        Initializes the SettingsService.
+
+        Args:
+            settings_file (str): The path to the settings file. Defaults to "user_settings.json".
+        """
+        self.settings_file = settings_file
+        self.master_volume = 1.0
+        self.bgm_volume = 0.5
+        self.sfx_volume = 0.5
+        self.window_width = 1280
+        self.window_height = 720
+        self.fullscreen = False
+        self.load_settings()
+
+    def load_settings(self) -> None:
+        """
+        Loads settings from the JSON file.
+        """
+        if os.path.exists(self.settings_file):
+            try:
+                with open(self.settings_file, "r") as f:
+                    data = json.load(f)
+                    self.master_volume = data.get("master_volume", 1.0)
+                    self.bgm_volume = data.get("bgm_volume", 0.5)
+                    self.sfx_volume = data.get("sfx_volume", 0.5)
+                    self.window_width = data.get("window_width", 1280)
+                    self.window_height = data.get("window_height", 720)
+                    self.fullscreen = data.get("fullscreen", False)
+            except Exception as e:
+                logger.error(f"Failed to load settings: {e}")
+        else:
+            logger.info("No settings file found, using defaults.")
+
+    def save_settings(self) -> None:
+        """
+        Saves the current settings to the JSON file.
+        """
+        data = {
+            "master_volume": self.master_volume,
+            "bgm_volume": self.bgm_volume,
+            "sfx_volume": self.sfx_volume,
+            "window_width": self.window_width,
+            "window_height": self.window_height,
+            "fullscreen": self.fullscreen
+        }
+        try:
+            with open(self.settings_file, "w") as f:
+                json.dump(data, f, indent=4)
+            logger.info(f"Settings saved to {self.settings_file}")
+        except Exception as e:
+            logger.error(f"Failed to save settings: {e}")
+
+    def set_master_volume(self, volume: float) -> None:
+        self.master_volume = max(0.0, min(1.0, volume))
+
+    def set_bgm_volume(self, volume: float) -> None:
+        self.bgm_volume = max(0.0, min(1.0, volume))
+
+    def set_sfx_volume(self, volume: float) -> None:
+        self.sfx_volume = max(0.0, min(1.0, volume))
+
+    def set_resolution(self, width: int, height: int) -> None:
+        self.window_width = width
+        self.window_height = height
+
+    def set_fullscreen(self, fullscreen: bool) -> None:
+        self.fullscreen = fullscreen
