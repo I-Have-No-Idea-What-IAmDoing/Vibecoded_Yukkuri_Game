@@ -34,7 +34,8 @@ class TestAudio(unittest.TestCase):
 
         self.assertIn("test", audio.sounds)
         self.assertEqual(audio.sounds["test"], mock_sound_instance)
-        mock_sound_instance.set_volume.assert_called_with(audio.volume)
+        # Volume is calculated from master * sfx
+        mock_sound_instance.set_volume.assert_called_with(audio.master_volume * audio.sfx_volume)
 
     @patch('pygame.mixer.Sound')
     @patch('os.path.exists')
@@ -103,15 +104,15 @@ class TestAudio(unittest.TestCase):
         audio.load_sound("test", "test.wav")
 
         audio.set_volume(0.8)
-        self.assertEqual(audio.volume, 0.8)
-        mock_sound_instance.set_volume.assert_called_with(0.8)
+        self.assertEqual(audio.master_volume, 0.8)
+        mock_sound_instance.set_volume.assert_called_with(0.8 * audio.sfx_volume)
 
         # Test clamping
         audio.set_volume(1.5)
-        self.assertEqual(audio.volume, 1.0)
+        self.assertEqual(audio.master_volume, 1.0)
 
         audio.set_volume(-0.5)
-        self.assertEqual(audio.volume, 0.0)
+        self.assertEqual(audio.master_volume, 0.0)
 
 if __name__ == '__main__':
     unittest.main()

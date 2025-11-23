@@ -7,10 +7,11 @@ from .engine.core import GameLoop
 from .engine.audio import AudioManager
 from .engine.resource_manager import ResourceManager
 from .engine.event_bus import EventBus
-from .game.events import GamePausedEvent, TogglePauseRequest, CycleSpeedRequest
+from .game.events import GamePausedEvent, TogglePauseRequest, CycleSpeedRequest, ResolutionChangedEvent
 from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from .game.game_manager import GameManager
 from .game.services import EconomyService, PersistenceService, TimeService, InputService
+from .game.settings_service import SettingsService
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
 from .game.systems.stat_decay import StatDecaySystem
@@ -117,6 +118,36 @@ class YukkuriGame(GameLoop):
         self.persistence_service = PersistenceService(self.world)
         self.world.services.register(self.persistence_service)
 
+        self.settings_service = SettingsService()
+        self.world.services.register(self.settings_service)
+
+        # Apply initial settings
+        audio_settings = self.settings_service.settings.get("audio", {})
+        self.audio.set_master_volume(audio_settings.get("master_volume", 0.5))
+        self.audio.set_bgm_volume(audio_settings.get("bgm_volume", 0.5))
+        self.audio.set_sfx_volume(audio_settings.get("sfx_volume", 0.5))
+
+        window_settings = self.settings_service.settings.get("window", {})
+        width = window_settings.get("width", 1280)
+        height = window_settings.get("height", 720)
+        fullscreen = window_settings.get("fullscreen", False)
+
+        # Apply window settings if different from default
+        if not self.headless:
+             flags = pygame.RESIZABLE
+             if fullscreen:
+                 flags |= pygame.FULLSCREEN
+             try:
+                 # Update screen and ui_manager if resolution changed
+                 if width != self.width or height != self.height or fullscreen:
+                      self.screen = pygame.display.set_mode((width, height), flags)
+                      self.width = width
+                      self.height = height
+                      self.ui_manager.set_window_resolution((width, height))
+                      # Also update hud layout dimensions if needed, but hud is created after this
+             except pygame.error as e:
+                 print(f"Failed to set initial video mode: {e}")
+
         # Factory & Game Manager
         self.factory = EntityFactory(self.world)
         self.world.services.register(self.factory)
@@ -158,6 +189,7 @@ class YukkuriGame(GameLoop):
             # Subscribe to events for game control
             self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
             self.event_bus.subscribe(CycleSpeedRequest, lambda e: self.cycle_speed())
+            self.event_bus.subscribe(ResolutionChangedEvent, self.on_resolution_changed)
 
         # Initial Population
         if not self.headless:
@@ -246,6 +278,30 @@ class YukkuriGame(GameLoop):
         self.time_scale = speeds[next_idx]
         if self.hud.layout.speed_btn:
             self.hud.layout.speed_btn.set_text(f"{self.time_scale}x")
+
+    def on_resolution_changed(self, event: ResolutionChangedEvent) -> None:
+        """
+        Handles resolution change events.
+
+        Args:
+            event (ResolutionChangedEvent): The resolution changed event.
+        """
+        if self.headless:
+            return
+
+        self.width = event.width
+        self.height = event.height
+
+        # Note: pygame.display.set_mode is handled in HudEvents initially,
+        # but ideally should be handled centrally.
+        # However, since screen surface is returned by set_mode, we might need to update self.screen here
+        # if HudEvents called it.
+        # Actually, calling set_mode again returns the same surface if compatible or new one.
+        self.screen = pygame.display.get_surface()
+
+        # Notify HUD
+        if self.hud:
+            self.hud.resize(self.width, self.height)
 
     def take_screenshot(self) -> None:
         """
