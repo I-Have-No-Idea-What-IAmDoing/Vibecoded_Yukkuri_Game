@@ -79,25 +79,34 @@ class UtilitySelector(Action):
 
         nearby_friends = 0
         nearby_enemies = 0
+        total_friends = 0
+        total_enemies = 0
 
         # This is a bit expensive to do every tick per entity, but fine for small scale
         my_trans = self.world.get_component(self.entity_id, Transform)
 
-        if my_trans:
-            for other_id in nearby_yukkuris:
-                if other_id == self.entity_id:
-                    continue
+        for other_id in nearby_yukkuris:
+            if other_id == self.entity_id:
+                continue
 
-                other_trans = self.world.get_component(other_id, Transform)
-                other_stats = self.world.get_component(other_id, YukkuriStats)
+            other_stats = self.world.get_component(other_id, YukkuriStats)
+            if other_stats:
+                # Global Count
+                if other_stats.type_id == stats.type_id:
+                    total_friends += 1
+                else:
+                    total_enemies += 1
 
-                if other_trans and other_stats:
-                    dist = ((my_trans.x - other_trans.x)**2 + (my_trans.y - other_trans.y)**2)**0.5
-                    if dist < 200.0: # Detection range
-                        if other_stats.type_id == stats.type_id:
-                            nearby_friends += 1
-                        else:
-                            nearby_enemies += 1
+                # Local Count
+                if my_trans:
+                    other_trans = self.world.get_component(other_id, Transform)
+                    if other_trans:
+                        dist = ((my_trans.x - other_trans.x)**2 + (my_trans.y - other_trans.y)**2)**0.5
+                        if dist < 200.0: # Detection range
+                            if other_stats.type_id == stats.type_id:
+                                nearby_friends += 1
+                            else:
+                                nearby_enemies += 1
 
         context = {
             "hunger": stats.hunger,
@@ -112,6 +121,8 @@ class UtilitySelector(Action):
             "cleanliness": stats.cleanliness,
             "nearby_friends": float(nearby_friends),
             "nearby_enemies": float(nearby_enemies),
+            "total_friends": float(total_friends),
+            "total_enemies": float(total_enemies),
             "constant_100": 100.0,
             "constant_0": 0.0
         }

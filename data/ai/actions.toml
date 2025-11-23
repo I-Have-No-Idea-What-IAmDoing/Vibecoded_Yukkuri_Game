@@ -65,9 +65,9 @@ params = { k = 10.0, x0 = 0.5 }
 
 [[actions.Talk.considerations]]
 name = "HasFriends"
-input = "nearby_friends"
+input = "total_friends"
 curve = "threshold"
-params = { threshold = 1.0 }
+params = { threshold = 0.009 }
 
 [actions.Fight]
 weight = 2.5
@@ -85,9 +85,9 @@ params = { k = 10.0, x0 = 0.7 }
 
 [[actions.Fight.considerations]]
 name = "HasEnemies"
-input = "nearby_enemies"
+input = "total_enemies"
 curve = "threshold"
-params = { threshold = 1.0 }
+params = { threshold = 0.009 }
 
 [actions.Dance]
 weight = 0.8
@@ -105,6 +105,6 @@ params = { k = 10.0, x0 = 0.8 }
 
 [[actions.Dance.considerations]]
 name = "HasPartner"
-input = "nearby_friends"
+input = "total_friends"
 curve = "threshold"
-params = { threshold = 1.0 }
+params = { threshold = 0.009 }
