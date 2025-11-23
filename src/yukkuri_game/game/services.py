@@ -21,6 +21,7 @@ class TraitService:
         self.data_dir = Path(data_dir)
         self.traits: Dict[str, Any] = {}
         self.interactions: Dict[str, Any] = {}
+        self._entity_modifiers_cache: Dict[frozenset, Dict[str, Any]] = {}
         self.load_data()
 
     def load_data(self):
@@ -59,6 +60,39 @@ class TraitService:
               Optional[Dict[str, Any]]: The interaction data or None.
          """
          return self.interactions.get("interaction", {}).get(interaction_id)
+
+    def get_effective_modifiers(self, personality: 'Personality') -> Dict[str, Any]:
+        """
+        Calculates the effective AI modifiers based on active traits.
+        Uses caching to avoid re-calculating for the same set of traits.
+
+        Args:
+            personality (Personality): The entity's personality component.
+
+        Returns:
+            Dict[str, Any]: A dictionary of overrides (Action/Cons Name -> Curve Data).
+        """
+        if not personality:
+            return {}
+
+        # Create a cache key based on the set of traits
+        trait_set = frozenset(personality.traits)
+
+        if trait_set in self._entity_modifiers_cache:
+            return self._entity_modifiers_cache[trait_set]
+
+        # Calculate overrides
+        overrides = {}
+        for trait_id in trait_set:
+            trait_data = self.get_trait(trait_id)
+            if trait_data:
+                ai_mods = trait_data.get("ai_modifiers", {})
+                # Merge modifiers. Later traits overwrite earlier ones if conflict.
+                # Ideally we might want priority or stacking, but for now simple overwrite.
+                overrides.update(ai_mods)
+
+        self._entity_modifiers_cache[trait_set] = overrides
+        return overrides
 
 
 class TimeService:
