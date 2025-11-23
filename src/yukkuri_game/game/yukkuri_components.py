@@ -1,8 +1,47 @@
-from dataclasses import dataclass
-from typing import Dict, Any
+from dataclasses import dataclass, field
+from typing import Dict, Any, Set, List, Optional
 from ..engine.ecs import Component
 
 # Yukkuri Specific Components
+
+@dataclass
+class Personality:
+    """
+    Component defining the personality of a Yukkuri.
+    """
+    traits: Set[str] = field(default_factory=set)    # IDs referencing TOML data
+    values: Dict[str, float] = field(default_factory=dict) # "compassion": 50.0
+    mood: str = "NEUTRAL"        # Current Mood State
+    mood_score: float = 0.0      # Intensity of the mood
+
+@dataclass
+class MemoryRecord:
+    timestamp: float
+    actor_id: int
+    action_type: str
+    impact: float
+    permanent: bool = False # For trauma
+
+@dataclass
+class RelationshipData:
+    affinity: float = 0.0
+    trust: float = 0.0
+    fear: float = 0.0
+    familiarity: float = 0.0
+    memories: List[MemoryRecord] = field(default_factory=list) # Short list of recent impactful events
+
+@dataclass
+class RelationshipRegistry:
+    """
+    Component tracking social relationships and family ties.
+    """
+    relationships: Dict[int, RelationshipData] = field(default_factory=dict)
+    # Biological Lineage
+    biological_parents: List[int] = field(default_factory=list)
+    biological_children: List[int] = field(default_factory=list)
+    # Social Group
+    family_group_id: Optional[int] = None
+    mate_id: Optional[int] = None
 
 @dataclass
 class YukkuriStats:

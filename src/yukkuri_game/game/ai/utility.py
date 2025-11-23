@@ -3,6 +3,12 @@ from typing import List, Dict, Any, Callable, Optional, Union
 import math
 from loguru import logger
 
+# Import TYPE_CHECKING to avoid circular import at runtime
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ..yukkuri_components import Personality
+    from ..trait_service import TraitService
+
 @dataclass
 class Consideration:
     """
@@ -19,49 +25,61 @@ class Consideration:
     curve_type: str # "linear", "logit", "threshold"
     params: Dict[str, float]
 
-    def score(self, context: Dict[str, Any]) -> float:
+    def score(self, context: Dict[str, Any], override_curve: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculates the score for this consideration based on the context.
 
         Args:
             context: A dictionary containing the current world state/context.
+            override_curve: Optional dictionary with 'curve' and 'params' keys to override the default behavior.
 
         Returns:
             float: A score between 0.0 and 1.0.
         """
         val = context.get(self.input_key, 0.0)
-        return self.evaluate_curve(val)
 
-    def evaluate_curve(self, x: float) -> float:
+        # Check for overrides
+        if override_curve:
+            return self.evaluate_curve(val, override_curve.get("curve", self.curve_type), override_curve.get("params", self.params))
+
+        return self.evaluate_curve(val, self.curve_type, self.params)
+
+    def evaluate_curve(self, x: float, curve_type: Optional[str] = None, params: Optional[Dict[str, float]] = None) -> float:
         """
         Evaluates the configured curve function for a given input value.
 
         Args:
             x: The input value.
+            curve_type: The type of curve (optional override).
+            params: Parameters for the curve (optional override).
 
         Returns:
             float: The mapped output value between 0.0 and 1.0.
         """
+        if curve_type is None:
+            curve_type = self.curve_type
+        if params is None:
+            params = self.params
         # Normalize x usually expected between 0 and 100, map to 0-1
         v = max(0, min(100, x)) / 100.0
 
-        if self.curve_type == "linear":
-            m = self.params.get("m", 1.0)
-            b = self.params.get("b", 0.0)
+        if curve_type == "linear":
+            m = params.get("m", 1.0)
+            b = params.get("b", 0.0)
             return max(0.0, min(1.0, m * v + b))
 
-        elif self.curve_type == "inverse_linear":
+        elif curve_type == "inverse_linear":
             # High value = low score
             return 1.0 - v
 
-        elif self.curve_type == "logit":
+        elif curve_type == "logit":
             # S-curve
-            k = self.params.get("k", 10.0) # Steepness
-            x0 = self.params.get("x0", 0.5) # Midpoint
+            k = params.get("k", 10.0) # Steepness
+            x0 = params.get("x0", 0.5) # Midpoint
             return 1.0 / (1.0 + math.exp(-k * (v - x0)))
 
-        elif self.curve_type == "threshold":
-            t = self.params.get("threshold", 0.5)
+        elif curve_type == "threshold":
+            t = params.get("threshold", 0.5)
             return 1.0 if v >= t else 0.0
 
         return 0.0
@@ -82,7 +100,7 @@ class Action:
     weight: float = 1.0
     effects: Optional[Dict[str, Any]] = None
 
-    def calculate_utility(self, context: Dict[str, Any]) -> float:
+    def calculate_utility(self, context: Dict[str, Any], trait_overrides: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculates the total utility score for this action.
 
@@ -90,6 +108,8 @@ class Action:
 
         Args:
             context: A dictionary containing the current world state/context.
+            trait_overrides: A dictionary where keys are consideration names (e.g. "Survival/Eat")
+                             and values are override definitions.
 
         Returns:
             float: The calculated utility score.
@@ -97,16 +117,19 @@ class Action:
         if not self.considerations:
             return 0.0
 
-        # Simple multiplication (fuzzy AND) - if any consideration is 0, action is 0
-        # Or average? Usually multiplication is best for "ALL must be good"
-        # But for MVP let's do average of scores * weight
-
         final_score = self.weight
         for cons in self.considerations:
-            s = cons.score(context)
+            # Check if there is an override for this specific consideration
+            # The consideration name might be e.g. "HungerCheck".
+            # In traits.toml, we map keys like "Survival/Eat" (action name + sub component? Or just Consideration name?)
+            # The spec said: "Social/Empathy" = { curve = ... }
+            # So we assume the override key matches the Consideration name.
+
+            override = trait_overrides.get(cons.name) if trait_overrides else None
+
+            s = cons.score(context, override)
             final_score *= s
 
-            # Optimization: if 0, break
             if final_score <= 0.001:
                 return 0.0
 
@@ -196,12 +219,14 @@ class UtilityAIEngine:
             effects=effects
         )
 
-    def select_action(self, context: Dict[str, Any]) -> str:
+    def select_action(self, context: Dict[str, Any], personality: Optional['Personality'] = None, trait_service: Optional['TraitService'] = None) -> str:
         """
         Selects the action with the highest utility score.
 
         Args:
             context: A dictionary containing the current world state/context.
+            personality: The personality component of the entity (optional).
+            trait_service: The trait service to look up trait data (optional).
 
         Returns:
             str: The name of the selected action.
@@ -209,8 +234,20 @@ class UtilityAIEngine:
         best_action = "Idle"
         best_score = 0.0
 
+        # Calculate effective overrides if personality exists
+        overrides = {}
+        if personality and trait_service:
+            for trait_id in personality.traits:
+                trait_data = trait_service.get_trait(trait_id)
+                if trait_data and "ai_modifiers" in trait_data:
+                    # Merge modifiers. If multiple traits modify the same consideration, last one wins (simple approach)
+                    # Or we could average/multiply them. For now, last one wins.
+                    for cons_name, mod in trait_data["ai_modifiers"].items():
+                        overrides[cons_name] = mod
+
         for name, action in self.actions.items():
-            score = action.calculate_utility(context)
+            # Pass overrides to calculate_utility
+            score = action.calculate_utility(context, overrides)
             if score > best_score:
                 best_score = score
                 best_action = name

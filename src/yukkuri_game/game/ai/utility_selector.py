@@ -4,8 +4,9 @@ from py_trees.common import Status
 from .utility import UtilityAIEngine
 from .base_action import Action
 
-from ..yukkuri_components import AIState, YukkuriStats
+from ..yukkuri_components import AIState, YukkuriStats, Personality
 from ..components import Transform
+from ..trait_service import TraitService
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
@@ -27,6 +28,7 @@ class UtilitySelector(Action):
         """
         super().__init__(name, entity_id, world, blackboard)
         self.engine: Optional[UtilityAIEngine] = None
+        self.trait_service: Optional[TraitService] = None
 
     def initialise(self) -> None:
         """
@@ -37,11 +39,10 @@ class UtilitySelector(Action):
         """
         # Try to get engine if not set
         if self.world and not self.engine:
-            # Assuming UtilityAIEngine is registered as a service or we can access it via GameManager
-            # For now, let's assume it's in world.services
-            # Or we can lazily instantiate it? Ideally it's a singleton or service.
-            # Let's check services.
             self.engine = self.world.services.try_get(UtilityAIEngine)
+
+        if self.world and not self.trait_service:
+            self.trait_service = self.world.services.try_get(TraitService)
 
     def update(self) -> Status:
         """
@@ -57,20 +58,22 @@ class UtilitySelector(Action):
             return Status.FAILURE
 
         if not self.engine:
-             # Try to get it again
              self.engine = self.world.services.try_get(UtilityAIEngine)
              if not self.engine:
-                # Log error?
                 return Status.FAILURE
+
+        # Also try to grab trait service again if missing
+        if not self.trait_service:
+            self.trait_service = self.world.services.try_get(TraitService)
 
         ai = self.world.get_component(self.entity_id, AIState)
         stats = self.world.get_component(self.entity_id, YukkuriStats)
+        personality = self.world.get_component(self.entity_id, Personality)
 
         if not ai or not stats:
             return Status.FAILURE
 
         # Build Context
-        # Map stats to context keys expected by actions.toml
 
         # Calculate social context
         nearby_yukkuris = []
@@ -80,7 +83,6 @@ class UtilitySelector(Action):
         nearby_friends = 0
         nearby_enemies = 0
 
-        # This is a bit expensive to do every tick per entity, but fine for small scale
         my_trans = self.world.get_component(self.entity_id, Transform)
 
         if my_trans:
@@ -116,18 +118,22 @@ class UtilitySelector(Action):
             "constant_0": 0.0
         }
 
+        # Inject Personality Values into Context
+        if personality:
+            for key, val in personality.values.items():
+                context[f"val_{key}"] = val
+
+            # Inject Traits as binary flags
+            for trait in personality.traits:
+                context[f"trait_{trait}"] = 1.0
+
         # Select Action
-        best_action = self.engine.select_action(context)
+        # We pass personality and trait service to support overrides inside the engine
+        best_action = self.engine.select_action(context, personality, self.trait_service)
 
         # Update AI State
-        # If action changed, maybe reset target?
         if best_action != ai.current_action:
             ai.current_action = best_action
-            # We don't necessarily reset target here, let the specific behavior handle it
-            # But usually switching high level goals means resetting low level plans.
             ai.action_progress = 0.0
-            # Only reset target if the new action implies a new target search
-            # For now let's not reset target blindly, as "Eat" might persist across frames
 
-        # Always return SUCCESS so the tree continues to execution part
         return Status.SUCCESS

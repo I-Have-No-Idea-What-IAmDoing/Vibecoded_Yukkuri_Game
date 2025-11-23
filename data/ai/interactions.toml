@@ -1,0 +1,19 @@
+[interaction.Hit]
+base_impact = -20.0
+social_impact = { affinity = -10.0, fear = 5.0, trust = -10.0 }
+
+[interaction.Hit.modifiers]
+"trait:WEAK" = { fear = 15.0 }
+"trait:PROUD" = { affinity = -30.0 }
+
+[interaction.Greet]
+base_impact = 5.0
+social_impact = { affinity = 2.0, familiarity = 1.0 }
+
+[interaction.Greet.modifiers]
+"trait:GESU" = { affinity = -5.0 } # Gesu doesn't like being greeted nicely? Or maybe they interpret it as subservience.
+"mood:FURIOUS" = { affinity = -10.0 } # Furious yukkuri takes offense.
+
+[interaction.Feed]
+base_impact = 10.0
+social_impact = { affinity = 5.0, trust = 5.0 }
