@@ -48,6 +48,9 @@ class TimeService:
 
         Args:
             dt (float): The amount of time to add in seconds.
+
+        Returns:
+            None
         """
         self._time_elapsed += dt
 
@@ -79,6 +82,9 @@ class PersistenceService:
 
         Args:
             filename (str): The name of the save file. Defaults to "savegame.json".
+
+        Returns:
+            None
         """
         economy_service = self.world.services.try_get(EconomyService)
         money = economy_service.get_money() if economy_service else 0
@@ -306,6 +312,9 @@ class EconomyService:
         Args:
             amount (int): The amount to add. Must be non-negative.
 
+        Returns:
+            None
+
         Raises:
             ValueError: If amount is negative.
         """
@@ -339,6 +348,9 @@ class EconomyService:
 
         Args:
             amount (int): The new balance. If negative, sets to 0.
+
+        Returns:
+            None
         """
         if amount < 0:
              self._money = 0
@@ -423,6 +435,9 @@ class InputService:
             type_id (str): The specific type identifier.
             cost (int): The cost of placing the entity.
             entity_type (str): The category of entity.
+
+        Returns:
+            None
         """
         self._placing_mode = True
         self._cleaning_mode = False
@@ -433,6 +448,9 @@ class InputService:
     def cancel_placement(self) -> None:
         """
         Cancels the current placement mode.
+
+        Returns:
+            None
         """
         self._placing_mode = False
         self._place_type = ""
@@ -442,6 +460,9 @@ class InputService:
     def start_cleaning(self) -> None:
         """
         Starts the cleaning tool mode.
+
+        Returns:
+            None
         """
         self._cleaning_mode = True
         self._placing_mode = False
@@ -449,6 +470,9 @@ class InputService:
     def stop_cleaning(self) -> None:
         """
         Stops the cleaning tool mode.
+
+        Returns:
+            None
         """
         self._cleaning_mode = False
 

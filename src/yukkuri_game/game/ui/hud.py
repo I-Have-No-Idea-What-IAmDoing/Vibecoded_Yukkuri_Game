@@ -80,6 +80,12 @@ class HUD:
     def on_log_message(self, event: LogMessageEvent) -> None:
         """
         Handles LogMessageEvent.
+
+        Args:
+            event (LogMessageEvent): The event data.
+
+        Returns:
+            None
         """
         if self.layout.log_box:
             # Convert color tuple to hex string
@@ -99,6 +105,9 @@ class HUD:
 
         Args:
             event (EntitySelectedEvent): The entity selected event.
+
+        Returns:
+            None
         """
         self.selected_entities = event.entity_ids
         self.events.set_selected_entities(self.selected_entities)
@@ -110,6 +119,9 @@ class HUD:
 
         Args:
             event (GamePausedEvent): The game paused event.
+
+        Returns:
+            None
         """
         if self.layout.pause_btn:
              self.layout.pause_btn.set_text("Resume" if event.paused else "Pause")
@@ -122,6 +134,9 @@ class HUD:
 
         Args:
             dt (float): Delta time since last frame.
+
+        Returns:
+            None
         """
         self.renderer.fps = self.fps # Sync FPS
 
@@ -133,6 +148,9 @@ class HUD:
     def _update_selection_window_layout(self) -> None:
         """
         Updates the layout of the selection window based on the selected entity type.
+
+        Returns:
+            None
         """
         if not self.selected_entities:
             self.layout.close_selection_window()
@@ -153,6 +171,9 @@ class HUD:
     def toggle_debug(self) -> None:
         """
         Toggles the visibility of the debug window.
+
+        Returns:
+            None
         """
         self.show_debug = not self.show_debug
         if self.show_debug:
@@ -166,6 +187,9 @@ class HUD:
 
         Args:
             message (str): The error message to display.
+
+        Returns:
+            None
         """
         self.renderer.show_error(message)
 
@@ -177,6 +201,9 @@ class HUD:
 
         Args:
             event (pygame.event.Event): The Pygame event to process.
+
+        Returns:
+            None
         """
         handled = self.events.process_event(event)
 

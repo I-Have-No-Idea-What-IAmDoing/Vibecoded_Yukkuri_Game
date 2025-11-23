@@ -31,14 +31,17 @@ class NavigationService:
 
         logger.info(f"NavigationService initialized with grid size {self.matrix_w}x{self.matrix_h}")
 
-    def update_obstacle(self, x: float, y: float, walkable: bool):
+    def update_obstacle(self, x: float, y: float, walkable: bool) -> None:
         """
         Updates the walkability of a specific point in the grid.
 
         Args:
-            x: World x coordinate.
-            y: World y coordinate.
-            walkable: Whether the cell is walkable.
+            x (float): World x coordinate.
+            y (float): World y coordinate.
+            walkable (bool): Whether the cell is walkable.
+
+        Returns:
+            None
         """
         gx = int(round(x / self.grid_step_size))
         gy = int(round(y / self.grid_step_size))

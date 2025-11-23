@@ -51,6 +51,9 @@ class FeedbackSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         to_destroy = []
         for entity, (transform, text_comp) in world.get_components_tuple(Transform, FloatingText):
@@ -68,6 +71,12 @@ class FeedbackSystem(System):
     def on_entity_sold(self, event: EntitySoldEvent) -> None:
         """
         Handles EntitySoldEvent.
+
+        Args:
+            event (EntitySoldEvent): The event data.
+
+        Returns:
+            None
         """
         # Spawn Floating Text: "+$100" (Gold)
         self.factory.create_floating_text(
@@ -91,6 +100,12 @@ class FeedbackSystem(System):
     def on_growth(self, event: EntityGrewEvent) -> None:
         """
         Handles EntityGrewEvent.
+
+        Args:
+            event (EntityGrewEvent): The event data.
+
+        Returns:
+            None
         """
         # Look up name if possible
         name = "Entity"
@@ -114,6 +129,12 @@ class FeedbackSystem(System):
     def on_death(self, event: EntityDiedEvent) -> None:
         """
         Handles EntityDiedEvent.
+
+        Args:
+            event (EntityDiedEvent): The event data.
+
+        Returns:
+            None
         """
         name = "Entity"
         # Entity might be dead but still in world (as dead body)
@@ -137,6 +158,12 @@ class FeedbackSystem(System):
     def on_trained(self, event: EntityTrainedEvent) -> None:
         """
         Handles EntityTrainedEvent.
+
+        Args:
+            event (EntityTrainedEvent): The event data.
+
+        Returns:
+            None
         """
         name = "Entity"
         stats = self.world.get_component(event.entity_id, YukkuriStats)
@@ -159,6 +186,12 @@ class FeedbackSystem(System):
     def on_punished(self, event: EntityPunishedEvent) -> None:
         """
         Handles EntityPunishedEvent.
+
+        Args:
+            event (EntityPunishedEvent): The event data.
+
+        Returns:
+            None
         """
         name = "Entity"
         stats = self.world.get_component(event.entity_id, YukkuriStats)

@@ -25,6 +25,9 @@ class PoopSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         from ..entity_factory import EntityFactory
         factory = world.services.try_get(EntityFactory)

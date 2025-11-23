@@ -56,6 +56,9 @@ class World:
 
         Args:
             entity (int): The ID of the entity to destroy.
+
+        Returns:
+            None
         """
         self._switch()
         try:
@@ -86,6 +89,9 @@ class World:
         Args:
             entity (int): The ID of the entity.
             component (Any): The component instance to add.
+
+        Returns:
+            None
         """
         self._switch()
         esper.add_component(entity, component)
@@ -97,6 +103,9 @@ class World:
         Args:
             entity (int): The ID of the entity.
             component_type (Type[Any]): The type of component to remove.
+
+        Returns:
+            None
         """
         self._switch()
         try:
@@ -211,6 +220,9 @@ class World:
 
         Args:
             system (System): The System instance to add.
+
+        Returns:
+            None
         """
         self._switch()
         # Inject world reference into system
@@ -224,6 +236,9 @@ class World:
 
         Args:
             dt (float): The time elapsed since the last update in seconds.
+
+        Returns:
+            None
         """
         self._switch()
         esper.process(dt)
@@ -262,6 +277,9 @@ class System(ProcessorBase):
 
         Args:
             dt (float): The time elapsed since the last update in seconds.
+
+        Returns:
+            None
         """
         # We need to ensure we are operating on the correct world context
         # esper.process is called within the context, so global esper calls are safe.

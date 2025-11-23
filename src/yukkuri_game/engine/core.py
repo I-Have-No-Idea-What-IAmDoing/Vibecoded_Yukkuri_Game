@@ -64,6 +64,9 @@ class GameLoop:
         Sets up the game state.
 
         Override this method to add systems and initial entities.
+
+        Returns:
+            None
         """
         pass
 
@@ -72,6 +75,9 @@ class GameLoop:
         Handles Pygame events.
 
         Processes quit events, UI events, and calls on_event for custom handling.
+
+        Returns:
+            None
         """
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -88,6 +94,9 @@ class GameLoop:
 
         Args:
             event (pygame.event.Event): The Pygame event to handle.
+
+        Returns:
+            None
         """
         pass
 
@@ -96,6 +105,9 @@ class GameLoop:
         Updates the game state.
 
         Calculates delta time, updates the UI manager, and updates the ECS world.
+
+        Returns:
+            None
         """
         time_delta = self.clock.tick(60) / 1000.0
         self.dt = time_delta
@@ -114,6 +126,9 @@ class GameLoop:
         Draws the game frame.
 
         Clears the screen, renders the world, draws the UI, and flips the display.
+
+        Returns:
+            None
         """
         self.screen.fill((30, 30, 30)) # Dark background
 
@@ -131,6 +146,9 @@ class GameLoop:
         Renders the game entities.
 
         Override this method to implement custom rendering logic.
+
+        Returns:
+            None
         """
         pass
 
@@ -139,6 +157,9 @@ class GameLoop:
         Runs the main game loop.
 
         Calls setup, then enters the loop calling handle_events, update, and draw until running becomes False.
+
+        Returns:
+            None
         """
         self.setup()
         logger.info("Game Loop Started")
@@ -157,5 +178,8 @@ class GameLoop:
 
         Args:
             headless (bool): True to enable headless mode, False otherwise.
+
+        Returns:
+            None
         """
         self.headless = headless

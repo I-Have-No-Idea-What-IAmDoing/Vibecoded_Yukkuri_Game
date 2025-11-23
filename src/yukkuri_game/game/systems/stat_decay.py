@@ -26,6 +26,9 @@ class StatDecaySystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         # Iterate over entities with YukkuriStats
         # Note: unpack the tuple returned by get_components_tuple

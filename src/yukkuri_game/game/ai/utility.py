@@ -135,6 +135,9 @@ class UtilityAIEngine:
     def load_actions(self) -> None:
         """
         Loads AI actions from the resource manager's loaded data.
+
+        Returns:
+            None
         """
         data = self.rm.ai_actions
         for act_name, act_data in data.items():
@@ -218,6 +221,9 @@ class UtilityAIEngine:
         """
         Validates that all loaded utility actions have corresponding implementations
         in the Behavior Tree system. Logs warnings for missing implementations.
+
+        Returns:
+            None
         """
         try:
             # Import here to avoid circular dependency

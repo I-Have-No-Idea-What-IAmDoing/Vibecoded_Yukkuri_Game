@@ -84,6 +84,9 @@ class HudLayout:
     def _create_top_bar(self) -> None:
         """
         Creates the top UI panel and its children.
+
+        Returns:
+            None
         """
         self.top_panel = UIPanel(
             relative_rect=pygame.Rect(0, 0, self.width, 50),
@@ -139,6 +142,9 @@ class HudLayout:
     def _create_bottom_bar(self) -> None:
         """
         Creates the bottom UI panel and its children.
+
+        Returns:
+            None
         """
         self.bottom_panel = UIPanel(
             relative_rect=pygame.Rect(0, self.height - 100, self.width, 100),
@@ -206,6 +212,9 @@ class HudLayout:
         Args:
             has_stats (bool): True if the selected entity has stats (is a Yukkuri), False otherwise.
             selection_count (int): The number of selected entities. Defaults to 1.
+
+        Returns:
+            None
         """
         self.close_selection_window()
 
@@ -254,6 +263,9 @@ class HudLayout:
     def close_selection_window(self) -> None:
         """
         Closes and cleans up the selection window.
+
+        Returns:
+            None
         """
         if self.selection_window:
             self.selection_window.kill()
@@ -266,6 +278,9 @@ class HudLayout:
     def create_debug_window(self) -> None:
         """
         Creates the debug window.
+
+        Returns:
+            None
         """
         if self.debug_window:
             self.debug_window.kill()
@@ -288,6 +303,9 @@ class HudLayout:
     def close_debug_window(self) -> None:
         """
         Closes the debug window.
+
+        Returns:
+            None
         """
         if self.debug_window:
             self.debug_window.kill()
@@ -297,6 +315,9 @@ class HudLayout:
     def create_hover_tooltip(self) -> None:
         """
         Creates the hover tooltip panel and label if they don't exist.
+
+        Returns:
+            None
         """
         if self.hover_tooltip_panel is None:
             self.hover_tooltip_panel = UIPanel(
@@ -320,6 +341,9 @@ class HudLayout:
         Args:
             text (str): Text to display.
             pos (tuple[int, int]): Screen position (x, y).
+
+        Returns:
+            None
         """
         if not self.hover_tooltip_panel:
             self.create_hover_tooltip()

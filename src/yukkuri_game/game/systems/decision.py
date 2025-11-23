@@ -36,6 +36,9 @@ class DecisionSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         self.timer += dt
         if self.timer >= self.decision_interval:
@@ -48,6 +51,9 @@ class DecisionSystem(System):
 
         Args:
             world (World): The ECS World.
+
+        Returns:
+            None
         """
         audio = world.services.try_get(AudioManager)
         for entity, (stats, ai) in world.get_components_tuple(YukkuriStats, AIState):

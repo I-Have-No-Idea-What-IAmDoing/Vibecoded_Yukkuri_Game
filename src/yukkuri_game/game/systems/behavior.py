@@ -33,6 +33,9 @@ class BehaviorSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         # Set dt in Blackboard
         py_trees.blackboard.Blackboard().set("dt", dt)

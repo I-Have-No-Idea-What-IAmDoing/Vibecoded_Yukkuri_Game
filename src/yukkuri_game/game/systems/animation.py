@@ -26,6 +26,9 @@ class AnimationSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
 
         # Handle Animator components (Advanced Animation)
@@ -68,6 +71,15 @@ class AnimationSystem(System):
     def _update_animator(self, entity_id: int, animator: Animator, sprite: Sprite, dt: float) -> None:
         """
         Updates the Animator component and syncs it to the Sprite.
+
+        Args:
+            entity_id (int): The entity ID.
+            animator (Animator): The animator component.
+            sprite (Sprite): The sprite component.
+            dt (float): Delta time.
+
+        Returns:
+            None
         """
         current_anim_def = animator.animations.get(animator.current_animation)
         if not current_anim_def:
@@ -152,7 +164,16 @@ class AnimationSystem(System):
                      sprite.current_frame = new_anim_def.frames[animator.current_frame_index]
 
     def _switch_animation(self, animator: Animator, new_anim: str) -> None:
-        """Helper to switch animation state cleanly."""
+        """
+        Helper to switch animation state cleanly.
+
+        Args:
+            animator (Animator): The animator component.
+            new_anim (str): The name of the new animation.
+
+        Returns:
+            None
+        """
         animator.current_animation = new_anim
         animator.current_frame_index = 0
         animator.timer = 0.0
@@ -162,6 +183,13 @@ class AnimationSystem(System):
     def _sync_ai_animation(self, animator: Animator, ai_state: AIState) -> None:
         """
         Syncs the current animation based on the AI state.
+
+        Args:
+            animator (Animator): The animator component.
+            ai_state (AIState): The AIState component.
+
+        Returns:
+            None
         """
         target_anim = ai_state.current_action.lower()
 
@@ -171,6 +199,15 @@ class AnimationSystem(System):
     def _update_dynamic_sprite(self, world: World, entity: int, sprite: Sprite, rm: ResourceManager) -> None:
         """
         Updates the sprite image based on AIState if no Animator is present.
+
+        Args:
+            world (World): The ECS World.
+            entity (int): The entity ID.
+            sprite (Sprite): The sprite component.
+            rm (ResourceManager): The resource manager.
+
+        Returns:
+            None
         """
         if not rm:
             return
