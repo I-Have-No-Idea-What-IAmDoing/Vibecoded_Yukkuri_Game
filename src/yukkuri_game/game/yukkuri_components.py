@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Dict, Any
+from dataclasses import dataclass, field
+from typing import Dict, Any, List
 from ..engine.ecs import Component
 
 # Yukkuri Specific Components
@@ -37,6 +37,48 @@ class YukkuriStats:
     badges: int = 0
     quality_score: float = 0.0
     discipline: float = 0.0  # 0 = undisciplined, 100 = perfectly disciplined
+
+@dataclass
+class Personality:
+    """
+    Component defining the personality traits and mood of a Yukkuri.
+
+    Attributes:
+        greed (float): -1.0 (Generous) to 1.0 (Greedy).
+        arrogance (float): -1.0 (Humble) to 1.0 (Arrogant).
+        sociality (float): -1.0 (Solitary) to 1.0 (Social).
+        activity (float): -1.0 (Lazy) to 1.0 (Active).
+        kindness (float): -1.0 (Malicious) to 1.0 (Kind).
+        mood (str): Current mood state (e.g., "Neutral", "Happy", "Angry").
+    """
+    greed: float = 0.0
+    arrogance: float = 0.0
+    sociality: float = 0.0
+    activity: float = 0.0
+    kindness: float = 0.0
+    mood: str = "Neutral"
+
+@dataclass
+class Relationship:
+    """
+    Data structure representing a relationship with another entity.
+    Not a component itself, but stored in SocialMemory.
+    """
+    entity_id: int
+    affection: float = 0.0  # -100 to 100
+    dominance: float = 0.0  # -100 to 100 (Positive = I am dominant)
+    trust: float = 0.0      # -100 to 100
+    last_interaction_time: float = 0.0
+
+@dataclass
+class SocialMemory:
+    """
+    Component storing the social graph for a Yukkuri.
+
+    Attributes:
+        relationships (Dict[int, Relationship]): Map of target entity ID to Relationship data.
+    """
+    relationships: Dict[int, Relationship] = field(default_factory=dict)
 
 @dataclass
 class AIState:

@@ -3,7 +3,7 @@ from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
 from ..components import Transform, InteractionRequest
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState
+from ..yukkuri_components import YukkuriStats, ItemStats, AIState, SocialMemory, Relationship
 
 class InteractionSystem(System):
     """
@@ -66,3 +66,45 @@ class InteractionSystem(System):
                 ai = world.get_component(entity, AIState)
                 if ai and ai.current_target_id == target_id:
                     ai.current_target_id = -1
+
+        # Social Interaction Check
+        target_yukkuri = world.get_component(target_id, YukkuriStats)
+        if target_yukkuri:
+            self._handle_social_interaction(world, entity, target_id, request)
+
+    def _handle_social_interaction(self, world: World, entity: int, target: int, request: InteractionRequest) -> None:
+        """
+        Updates relationships based on interaction type.
+        """
+        memory = world.get_component(entity, SocialMemory)
+        if not memory:
+            return # Entity has no social memory
+
+        if target not in memory.relationships:
+            memory.relationships[target] = Relationship(entity_id=target)
+
+        rel = memory.relationships[target]
+        rel.last_interaction_time = 0.0 # Should be current time ideally
+
+        # Simplified interaction logic for MVP
+        # In a real system, the request would carry an "Action Type" (e.g., Attack, Play)
+        # For now, we infer based on context or add specific tags later.
+
+        # NOTE: This is a placeholder for where specific action logic goes.
+        # Since InteractionRequest currently doesn't carry 'action_type', we assume
+        # all direct requests to another Yukkuri are 'social contact'.
+
+        # Example: Just being close and interacting improves affection slightly
+        rel.affection = min(100.0, rel.affection + 5.0)
+        rel.trust = min(100.0, rel.trust + 1.0)
+
+        # Reciprocal update (Target remembers Source)
+        target_memory = world.get_component(target, SocialMemory)
+        if target_memory:
+            if entity not in target_memory.relationships:
+                target_memory.relationships[entity] = Relationship(entity_id=entity)
+
+            target_rel = target_memory.relationships[entity]
+            target_rel.last_interaction_time = 0.0
+            target_rel.affection = min(100.0, target_rel.affection + 5.0)
+            target_rel.trust = min(100.0, target_rel.trust + 1.0)

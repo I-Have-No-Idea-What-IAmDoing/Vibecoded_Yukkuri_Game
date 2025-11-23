@@ -67,6 +67,36 @@ class Consideration:
         return 0.0
 
 @dataclass
+class TraitConsideration(Consideration):
+    """
+    Evaluates a score based on a specific personality trait.
+    Traits range from -1.0 to 1.0.
+    """
+    def score(self, context: Dict[str, Any]) -> float:
+        # Expected input_key is "trait_greed", "trait_arrogance", etc.
+        val = context.get(self.input_key, 0.0)
+
+        # Trait values are -1 to 1. Normalize to 0-100 for curve evaluation
+        normalized_val = (val + 1.0) * 50.0
+
+        return self.evaluate_curve(normalized_val)
+
+@dataclass
+class RelationshipConsideration(Consideration):
+    """
+    Evaluates a score based on a relationship metric with the current target.
+    Relationship metrics range from -100 to 100.
+    """
+    def score(self, context: Dict[str, Any]) -> float:
+        # Expected input_key is "rel_affection", "rel_dominance", etc.
+        val = context.get(self.input_key, 0.0)
+
+        # Metrics are -100 to 100. Normalize to 0-100 for curve evaluation
+        normalized_val = (val + 100.0) / 2.0
+
+        return self.evaluate_curve(normalized_val)
+
+@dataclass
 class Action:
     """
     An action that an AI agent can perform.
@@ -157,7 +187,15 @@ class UtilityAIEngine:
             # Handle dict input
             cons_list = data.get("considerations", [])
             for cons_data in cons_list:
-                considerations.append(Consideration(
+                ctype = cons_data.get("type", "stat") # stat, trait, relationship
+
+                c_class = Consideration
+                if ctype == "trait":
+                    c_class = TraitConsideration
+                elif ctype == "relationship":
+                    c_class = RelationshipConsideration
+
+                considerations.append(c_class(
                     name=cons_data.get("name", "unknown"),
                     input_key=cons_data.get("input"),
                     curve_type=cons_data.get("curve"),
@@ -169,7 +207,15 @@ class UtilityAIEngine:
         else:
             # Handle msgspec struct
             for cons_obj in data.considerations:
-                considerations.append(Consideration(
+                # Basic detection based on input key or explicit type if added to structs later
+                # For now assuming input keys start with "trait_" or "rel_"
+                c_class = Consideration
+                if cons_obj.input.startswith("trait_"):
+                    c_class = TraitConsideration
+                elif cons_obj.input.startswith("rel_"):
+                    c_class = RelationshipConsideration
+
+                considerations.append(c_class(
                     name=cons_obj.name,
                     input_key=cons_obj.input,
                     curve_type=cons_obj.curve,
