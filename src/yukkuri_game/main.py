@@ -241,6 +241,30 @@ class YukkuriGame(GameLoop):
             self.hud.fps = self.clock.get_fps()
             self.hud.update(self.dt)
 
+    def draw(self) -> None:
+        """
+        Draws the game frame.
+
+        Clears the screen, renders the world, draws the UI, and flips the display.
+
+        Returns:
+            None
+        """
+        self.screen.fill((30, 30, 30)) # Dark background
+
+        # Draw Game World (Placeholder for now, systems should draw)
+        # We might need a RenderSystem if we want to be pure ECS,
+        # or just call a render method on the world/systems.
+        # For now, let's assume we have a render callback or system.
+        self.render_world()
+
+        # Draw HUD overlays (like selection box)
+        if not self.headless and self.hud:
+            self.hud.draw(self.screen)
+
+        self.ui_manager.draw_ui(self.screen)
+        pygame.display.flip()
+
     def render_world(self) -> None:
         """
         Renders the game world using the RenderSystem.
