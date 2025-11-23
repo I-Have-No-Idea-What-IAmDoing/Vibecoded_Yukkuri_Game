@@ -1,0 +1,1 @@
+This folder contains proposals for new features, enhancements, or improvements to the project. Each proposal should clearly outline the problem, the proposed solution, and any relevant details for implementation.
