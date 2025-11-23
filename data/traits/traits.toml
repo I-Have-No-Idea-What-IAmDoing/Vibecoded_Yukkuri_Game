@@ -37,7 +37,7 @@ hunger_decay = 1.5
 max_health = 1.1
 
 [traits.GLUTTON.ai_modifiers]
-"Survival/Eat" = { curve = "logit", params = { slope = 2.0 } }
+"Survival/Eat" = { curve = "logit", params = { k = 2.0 } }
 
 [traits.LONER]
 name = "Loner"

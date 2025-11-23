@@ -236,7 +236,11 @@ class UtilityAIEngine:
 
         # Calculate effective overrides if personality exists
         overrides = {}
-        if personality and trait_service:
+        # Optimization: Use cached_overrides if available
+        if personality and personality.cached_overrides is not None:
+             overrides = personality.cached_overrides
+        elif personality and trait_service:
+            # Fallback if no cache (should generally be cached by selector)
             for trait_id in personality.traits:
                 trait_data = trait_service.get_trait(trait_id)
                 if trait_data and "ai_modifiers" in trait_data:

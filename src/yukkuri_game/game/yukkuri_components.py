@@ -13,6 +13,7 @@ class Personality:
     values: Dict[str, float] = field(default_factory=dict) # "compassion": 50.0
     mood: str = "NEUTRAL"        # Current Mood State
     mood_score: float = 0.0      # Intensity of the mood
+    cached_overrides: Optional[Dict[str, Any]] = None # Cached "effective overrides"
 
 @dataclass
 class MemoryRecord:
@@ -29,6 +30,7 @@ class RelationshipData:
     fear: float = 0.0
     familiarity: float = 0.0
     memories: List[MemoryRecord] = field(default_factory=list) # Short list of recent impactful events
+    last_update: float = 0.0  # Timestamp of last decay update
 
 @dataclass
 class RelationshipRegistry:
