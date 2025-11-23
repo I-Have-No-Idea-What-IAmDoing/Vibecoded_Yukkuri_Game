@@ -111,6 +111,9 @@ class ResourceManager:
         Loads all core game data from the data directory.
 
         This includes Yukkuri types, Item types, and AI actions.
+
+        Returns:
+            None
         """
         # Load Yukkuri Types
         yukkuri_data = self.load_toml_model("yukkuris/types.toml", YukkuriData)

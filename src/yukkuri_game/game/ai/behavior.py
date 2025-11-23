@@ -208,6 +208,9 @@ class Wander(Action):
     def initialise(self) -> None:
         """
         Selects a random target location and initializes the move action.
+
+        Returns:
+            None
         """
         if self.world is None or self.entity_id is None:
             return

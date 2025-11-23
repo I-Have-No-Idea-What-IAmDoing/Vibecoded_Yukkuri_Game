@@ -42,6 +42,9 @@ class HudRenderer:
             dt (float): Delta time.
             selected_entities (list[int]): The IDs of the selected entities.
             show_debug (bool): Whether to show debug information.
+
+        Returns:
+            None
         """
         # Update Top Bar
         if self.layout.money_label:
@@ -69,6 +72,9 @@ class HudRenderer:
     def _draw_selection_box(self) -> None:
         """
         Draws the selection box if dragging.
+
+        Returns:
+            None
         """
         input_service = self.world.services.try_get(InputService)
         if input_service and input_service.is_dragging:
@@ -90,6 +96,9 @@ class HudRenderer:
     def _update_hover_tooltip(self) -> None:
         """
         Updates the hover tooltip based on input service state.
+
+        Returns:
+            None
         """
         input_service = self.world.services.try_get(InputService)
         if not input_service:
@@ -120,6 +129,9 @@ class HudRenderer:
 
         Args:
             selected_entities (list[int]): The IDs of the selected entities.
+
+        Returns:
+            None
         """
         text = "Unknown"
 
@@ -165,6 +177,9 @@ class HudRenderer:
 
         Args:
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         if not self.layout.debug_window or not self.layout.debug_text_box:
             return
@@ -186,6 +201,9 @@ class HudRenderer:
 
         Args:
             message (str): The error message to display.
+
+        Returns:
+            None
         """
         UIMessageWindow(
             rect=pygame.Rect((self.layout.width - 400) // 2, (self.layout.height - 250) // 2, 400, 250),

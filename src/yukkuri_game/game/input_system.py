@@ -45,6 +45,9 @@ class InputSystem(System):
 
         Args:
             event (PlacementStartedEvent): The placement started event.
+
+        Returns:
+            None
         """
         if self.input_service:
             self.input_service.start_placement(event.type_id, event.cost, event.entity_type)
@@ -55,6 +58,9 @@ class InputSystem(System):
 
         Args:
             event (CleanToolRequestedEvent): The clean tool requested event.
+
+        Returns:
+            None
         """
         if self.input_service:
             self.input_service.start_cleaning()
@@ -66,6 +72,9 @@ class InputSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         # Lazy initialization of dependencies
         if self.input_service is None:
@@ -95,6 +104,9 @@ class InputSystem(System):
             screen_w (int): The width of the screen.
             screen_h (int): The height of the screen.
             ui_manager (Optional[pygame_gui.UIManager]): The UI manager (optional) to check for UI interaction.
+
+        Returns:
+            None
         """
         self.yukkurrium.handle_input(event, screen_w, screen_h)
 
@@ -190,6 +202,9 @@ class InputSystem(System):
             start_pos: World coordinates of drag start.
             end_pos: World coordinates of drag end.
             drag_dist: Drag distance in screen pixels.
+
+        Returns:
+            None
         """
         x1, y1 = start_pos
         x2, y2 = end_pos
@@ -286,6 +301,14 @@ class InputSystem(System):
     def _handle_cleaning(self, world: World, wx: float, wy: float) -> None:
         """
         Handles logic when clicking in cleaning mode.
+
+        Args:
+            world: The ECS World.
+            wx (float): World x-coordinate.
+            wy (float): World y-coordinate.
+
+        Returns:
+            None
         """
         click_radius = 32.0
         # Find Poop entities near click
@@ -313,6 +336,16 @@ class InputSystem(System):
     def _check_hover(self, world: World, wx: float, wy: float, mx: int, my: int) -> None:
         """
         Checks for entities under the mouse cursor and updates the input service.
+
+        Args:
+            world: The ECS World.
+            wx (float): World x-coordinate.
+            wy (float): World y-coordinate.
+            mx (int): Mouse x-coordinate.
+            my (int): Mouse y-coordinate.
+
+        Returns:
+            None
         """
         hover_radius = 32.0
         # esper.get_components returns a list of (entity_id, component1, component2, ...)

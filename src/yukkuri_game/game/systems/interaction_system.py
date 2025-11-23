@@ -14,6 +14,16 @@ class InteractionSystem(System):
         self.audio = None
 
     def update(self, world: World, dt: float) -> None:
+        """
+        Updates the interaction system.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+
+        Returns:
+            None
+        """
         if self.audio is None:
             self.audio = world.services.try_get(AudioManager)
 
@@ -30,6 +40,19 @@ class InteractionSystem(System):
 
     def _handle_interaction(self, world: World, entity: int, request: InteractionRequest,
                             transform: Transform, stats: YukkuriStats) -> None:
+        """
+        Handles a single interaction request.
+
+        Args:
+            world (World): The ECS World.
+            entity (int): The requesting entity ID.
+            request (InteractionRequest): The request component.
+            transform (Transform): The requesting entity's transform.
+            stats (YukkuriStats): The requesting entity's stats.
+
+        Returns:
+            None
+        """
         target_id = request.target_id
 
         if not world.entity_exists(target_id):

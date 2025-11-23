@@ -35,6 +35,9 @@ class PhysicsSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         # Clamp dt to avoid spiral of death with high time scales or lag
         if dt > self.max_frame_time:

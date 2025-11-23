@@ -48,6 +48,9 @@ class HudEvents:
 
         Args:
             entity_ids (list[int]): The entity IDs.
+
+        Returns:
+            None
         """
         self.selected_entities = entity_ids
 

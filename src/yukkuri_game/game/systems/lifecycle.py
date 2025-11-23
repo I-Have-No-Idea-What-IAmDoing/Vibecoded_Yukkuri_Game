@@ -38,6 +38,9 @@ class LifecycleSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         self._handle_death(world)
         self._handle_growth(world)
@@ -46,6 +49,12 @@ class LifecycleSystem(System):
     def _handle_death(self, world: World) -> None:
         """
         Handles death logic for entities with 0 health.
+
+        Args:
+            world (World): The ECS World.
+
+        Returns:
+            None
         """
         event_bus = world.services.try_get(EventBus)
 
@@ -85,6 +94,12 @@ class LifecycleSystem(System):
     def _handle_growth(self, world: World) -> None:
         """
         Handles growth logic based on age.
+
+        Args:
+            world (World): The ECS World.
+
+        Returns:
+            None
         """
         for entity, (stats, transform) in world.get_components_tuple(YukkuriStats, Transform):
             if world.has_component(entity, Dead):
@@ -103,6 +118,17 @@ class LifecycleSystem(System):
     def _grow_entity(self, world: World, entity: int, stats: YukkuriStats, transform: Transform, new_stage: str, scale_multiplier: float) -> None:
         """
         Performs the growth transition.
+
+        Args:
+            world (World): The ECS World.
+            entity (int): The entity ID.
+            stats (YukkuriStats): The entity's stats.
+            transform (Transform): The entity's transform.
+            new_stage (str): The new growth stage.
+            scale_multiplier (float): The scale multiplier.
+
+        Returns:
+            None
         """
         logger.info(f"{stats.name} is growing from {stats.growth_stage} to {new_stage}!")
 
@@ -143,6 +169,12 @@ class LifecycleSystem(System):
     def _handle_breeding(self, world: World) -> None:
         """
         Handles breeding logic.
+
+        Args:
+            world (World): The ECS World.
+
+        Returns:
+            None
         """
         for entity, (stats, transform) in world.get_components_tuple(YukkuriStats, Transform):
             if world.has_component(entity, Dead):
@@ -162,6 +194,15 @@ class LifecycleSystem(System):
     def _breed(self, world: World, parent_entity: int, parent_stats: YukkuriStats, parent_transform: Transform) -> None:
         """
         Executes breeding action.
+
+        Args:
+            world (World): The ECS World.
+            parent_entity (int): The parent entity ID.
+            parent_stats (YukkuriStats): The parent's stats.
+            parent_transform (Transform): The parent's transform.
+
+        Returns:
+            None
         """
         logger.info(f"{parent_stats.name} is breeding!")
 

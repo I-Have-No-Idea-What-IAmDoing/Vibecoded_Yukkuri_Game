@@ -28,6 +28,9 @@ class ConstructionSystem(System):
         Args:
             world (World): The ECS World instance.
             dt (float): The time elapsed since the last update.
+
+        Returns:
+            None
         """
         if self.world is None:
             self.world = world
@@ -43,6 +46,12 @@ class ConstructionSystem(System):
         """
         Handles the PlacementRequestedEvent.
         Checks funds and creates the entity.
+
+        Args:
+            event (PlacementRequestedEvent): The event data.
+
+        Returns:
+            None
         """
         if self.economy_service and self.factory:
             if self.economy_service.get_money() >= event.cost:

@@ -28,6 +28,9 @@ class ServiceLocator:
             service_type (Optional[Type[Any]]): The type key to use for registration. If None, the instance's type is used.
             replace (bool): If True, allows overwriting an existing service of the same type.
 
+        Returns:
+            None
+
         Raises:
             ValueError: If the service is already registered and replace is False.
         """

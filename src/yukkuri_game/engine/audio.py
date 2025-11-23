@@ -37,6 +37,9 @@ class AudioManager:
         Args:
             name (str): The name to assign to the sound.
             filepath (str): The path to the sound file.
+
+        Returns:
+            None
         """
         if not self.enabled:
             return
@@ -54,6 +57,9 @@ class AudioManager:
 
         Args:
             name (str): The name of the sound to play.
+
+        Returns:
+            None
         """
         if not self.enabled:
             return
@@ -67,6 +73,9 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 (mute) and 1.0 (max).
+
+        Returns:
+            None
         """
         self.volume = max(0.0, min(1.0, volume))
         for s in self.sounds.values():

@@ -31,6 +31,9 @@ class UtilitySelector(Action):
     def initialise(self) -> None:
         """
         Initializes the selector, attempting to fetch the UtilityAIEngine service.
+
+        Returns:
+            None
         """
         # Try to get engine if not set
         if self.world and not self.engine:

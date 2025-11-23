@@ -82,6 +82,9 @@ class Yukkurrium:
             event (pygame.event.Event): The Pygame event.
             screen_w (int): Screen width.
             screen_h (int): Screen height.
+
+        Returns:
+            None
         """
         if event.type == pygame.MOUSEWHEEL:
             self.target_zoom += event.y * 0.1
@@ -98,6 +101,9 @@ class Yukkurrium:
 
         Args:
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         # Smooth zoom
         self.zoom += (self.target_zoom - self.zoom) * 5.0 * dt
@@ -146,6 +152,9 @@ class WorldRenderer:
 
         Args:
             world (World): The ECS World.
+
+        Returns:
+            None
         """
         # Render background grid
         self.draw_grid()
@@ -240,6 +249,14 @@ class WorldRenderer:
     def render_floating_text(self, world: World, screen_w: int, screen_h: int) -> None:
         """
         Renders floating text entities.
+
+        Args:
+            world (World): The ECS World.
+            screen_w (int): Screen width.
+            screen_h (int): Screen height.
+
+        Returns:
+            None
         """
         for entity, (transform, text_comp) in world.get_components_tuple(Transform, FloatingText):
             font = self._get_font(text_comp.size)
@@ -264,6 +281,9 @@ class WorldRenderer:
     def draw_grid(self) -> None:
         """
         Draws a grid on the screen to visualize the world space.
+
+        Returns:
+            None
         """
         # Draw a grid to show movement
         grid_size = 100
@@ -314,6 +334,9 @@ class RenderSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         self.renderer.render(world)
 
@@ -338,5 +361,8 @@ class TimeSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         self.total_time += dt * self.game_speed
