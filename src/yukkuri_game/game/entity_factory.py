@@ -155,15 +155,34 @@ class EntityFactory:
         ts = self._get_trait_service()
         traits = set()
 
+        # Default values range
+        base_values = {
+            "compassion": 50.0,
+            "greed": 50.0,
+            "bravery": 50.0
+        }
+
         # Genetics: Inherit traits from parents
         if parents and ts:
+            parent_personalities = []
             for parent_id in parents:
-                parent_pers = self.world.get_component(parent_id, Personality)
-                if parent_pers:
-                    # 50% chance to inherit each trait
-                    for t in parent_pers.traits:
-                        if random.random() < 0.5:
+                p = self.world.get_component(parent_id, Personality)
+                if p:
+                    parent_personalities.append(p)
+
+            if parent_personalities:
+                # Inherit traits
+                for pp in parent_personalities:
+                    for t in pp.traits:
+                         if random.random() < 0.5:
                             traits.add(t)
+
+                # Inherit values (average + jitter)
+                for key in base_values.keys():
+                    avg_val = sum(pp.values.get(key, 50.0) for pp in parent_personalities) / len(parent_personalities)
+                    # Add genetic jitter (-10 to +10)
+                    jitter = random.uniform(-10.0, 10.0)
+                    base_values[key] = max(0.0, min(100.0, avg_val + jitter))
 
         # Random traits if not fully populated or as mutations
         if ts:
@@ -182,12 +201,16 @@ class EntityFactory:
                      traits.add(chosen)
 
         personality = Personality(traits=traits)
-        # Default values
-        personality.values = {
-            "compassion": 50.0,
-            "greed": 50.0,
-            "bravery": 50.0
-        }
+
+        # If not inherited, randomize completely
+        if not parents:
+            for key in base_values.keys():
+                # Skew slightly based on type_id? (e.g. Marisa more greedy)
+                # For now just pure random gaussian centered at 50
+                val = random.gauss(50, 15)
+                base_values[key] = max(0.0, min(100.0, val))
+
+        personality.values = base_values
         self.world.add_component(entity, personality)
 
 

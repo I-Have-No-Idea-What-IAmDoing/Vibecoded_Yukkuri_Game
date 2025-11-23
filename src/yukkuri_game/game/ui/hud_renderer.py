@@ -62,6 +62,8 @@ class HudRenderer:
         # Update Debug Window
         if show_debug:
             self._update_debug_window(dt)
+            if selected_entities and len(selected_entities) == 1:
+                self._draw_relationship_lines(selected_entities[0])
 
         # Update Hover Tooltip
         self._update_hover_tooltip()
@@ -92,6 +94,51 @@ class HudRenderer:
             screen = pygame.display.get_surface()
             if screen:
                 pygame.draw.rect(screen, (0, 255, 0), rect, 1)
+
+    def _draw_relationship_lines(self, selected_entity: int) -> None:
+        """
+        Draws debug lines connecting the selected entity to others it has a relationship with.
+        Color indicates affinity.
+        """
+        from ..components import Transform
+        from ..yukkuri_components import RelationshipRegistry
+
+        my_trans = self.world.get_component(selected_entity, Transform)
+        registry = self.world.get_component(selected_entity, RelationshipRegistry)
+
+        if not my_trans or not registry:
+            return
+
+        screen = pygame.display.get_surface()
+        if not screen:
+            return
+
+        for other_id, rel_data in registry.relationships.items():
+            if not self.world.entity_exists(other_id):
+                continue
+
+            other_trans = self.world.get_component(other_id, Transform)
+            if not other_trans:
+                continue
+
+            # Determine color based on affinity
+            # Red (-100) -> Grey (0) -> Green (100)
+            affinity = rel_data.affinity
+            color = (128, 128, 128)
+            width = 2
+
+            if affinity > 0:
+                # Green gradient
+                intensity = int(min(255, 50 + affinity * 2))
+                color = (50, intensity, 50)
+                width = max(2, int(affinity / 20))
+            elif affinity < 0:
+                # Red gradient
+                intensity = int(min(255, 50 + abs(affinity) * 2))
+                color = (intensity, 50, 50)
+                width = max(2, int(abs(affinity) / 20))
+
+            pygame.draw.line(screen, color, (my_trans.x, my_trans.y), (other_trans.x, other_trans.y), width)
 
     def _update_hover_tooltip(self) -> None:
         """
@@ -220,6 +267,11 @@ class HudRenderer:
                         f"<b>Happiness:</b> {int(stats.happiness)}<br>"
                         f"<b>Stress:</b> {int(stats.stress)}<br>"
                         f"<b>Action:</b> {action}")
+
+                if pers and pers.values:
+                    text += "<br><br><b>Personality Values:</b>"
+                    for k, v in pers.values.items():
+                        text += f"<br> {k.capitalize()}: {v:.1f}"
 
                 if rel_reg and rel_reg.family_group_id:
                      text += f"<br><b>Family ID:</b> {rel_reg.family_group_id}"
