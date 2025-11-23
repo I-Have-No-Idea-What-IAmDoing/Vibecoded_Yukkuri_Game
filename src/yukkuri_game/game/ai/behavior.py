@@ -1,6 +1,7 @@
 import py_trees
 import math
 import random
+import pymunk
 from typing import Optional, Callable, Any, TYPE_CHECKING
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
@@ -100,14 +101,18 @@ class MoveToTarget(Action):
         self.last_position = (trans.x, trans.y)
 
         if self.stuck_timer > self.stuck_threshold:
-             # Wiggle or repath
+             # If slightly stuck, try small random offset first
+             # If really stuck, full repath
              self.stuck_timer = 0.0
-             ai.path = None # Force repath
-             # Apply random force
+
+             # Apply random force (wiggle)
              if phys:
                   angle = random.uniform(0, math.pi * 2)
                   force = 5000.0
                   phys.body.apply_impulse_at_local_point((math.cos(angle) * force, math.sin(angle) * force))
+
+             # Also force repath
+             ai.path = None
              return Status.RUNNING
 
 
@@ -132,6 +137,63 @@ class MoveToTarget(Action):
         # Move along path
         if len(ai.path) > 0:
             next_point = ai.path[0]
+
+            # --- Raycast / Local Avoidance Check ---
+            # Before trying to reach next_point, let's see if we can actually see it
+            # or if we can see a further point (string pulling)
+
+            if phys and phys.body and getattr(phys.body, 'space', None):
+                # Check visibility to next waypoint
+                query_start = (trans.x, trans.y)
+
+                # String Pulling: Check if we can skip to further waypoints
+                # Look ahead up to 3 nodes
+                can_skip_to_index = -1
+                for i in range(min(len(ai.path), 3) - 1, 0, -1):
+                    target_node = ai.path[i]
+
+                    # Raycast
+                    shape_filter = pymunk.ShapeFilter(categories=0b1) # Assuming category 1 is for walls/obstacles
+                    # Use segment_query to get all hits, then filter out self
+                    hits = phys.body.space.segment_query(query_start, target_node, 1.0, shape_filter)
+
+                    is_clear = True
+                    for hit in hits:
+                        # Check if hit.shape is valid (it should be)
+                        if hit.shape is None:
+                            continue
+
+                        # Check if it's a sensor (sensors shouldn't block movement usually, but raycast hits them)
+                        if hit.shape.sensor:
+                            continue
+
+                        if hit.shape.body != phys.body:
+                            # Hit something that is not me
+
+                            # Double check if the hit is really 0 distance (meaning we are overlapping it at start)
+                            # segment_query returns hits along the segment.
+                            # If alpha is 0, it's at the start point.
+                            if hit.alpha < 0.001:
+                                # We are inside an obstacle? Or just touching?
+                                # If we are inside, we probably shouldn't consider it "blocking" the path forward if we are moving out of it?
+                                # But for now, assume any hit is a block.
+                                pass
+
+                            is_clear = False
+                            break
+
+                    if is_clear:
+                        # Clear path!
+                        can_skip_to_index = i
+                        break
+
+                if can_skip_to_index > 0:
+                    # We can skip intermediate nodes
+                    for _ in range(can_skip_to_index):
+                        ai.path.pop(0)
+                    next_point = ai.path[0]
+
+            # Re-calculate distance to (possibly new) next_point
             dx = next_point[0] - trans.x
             dy = next_point[1] - trans.y
             dist = math.hypot(dx, dy)

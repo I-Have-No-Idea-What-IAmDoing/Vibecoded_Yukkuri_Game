@@ -9,7 +9,7 @@ class NavigationService:
     """
     Service responsible for pathfinding and maintaining the navigation grid.
     """
-    def __init__(self, world_width: int, world_height: int, grid_step_size: int = 50):
+    def __init__(self, world_width: int, world_height: int, grid_step_size: int = 25):
         """
         Initializes the NavigationService with a persistent grid.
 
