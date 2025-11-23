@@ -384,6 +384,7 @@ class HudLayout:
         Args:
             current_settings (dict): Current settings values.
         """
+        # Close existing window if any
         if self.settings_window:
             self.settings_window.kill()
 

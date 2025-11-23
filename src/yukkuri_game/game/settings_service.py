@@ -1,5 +1,6 @@
 import json
 import os
+import copy
 from typing import Dict, Any
 from loguru import logger
 
@@ -32,7 +33,7 @@ class SettingsService:
             settings_file (str): The path to the settings file.
         """
         self.settings_file = settings_file
-        self.settings = self.DEFAULT_SETTINGS.copy()
+        self.settings = copy.deepcopy(self.DEFAULT_SETTINGS)
         self.load_settings()
 
     def load_settings(self) -> None:
