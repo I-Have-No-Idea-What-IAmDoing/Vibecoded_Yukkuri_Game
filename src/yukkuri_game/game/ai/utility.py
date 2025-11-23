@@ -23,60 +23,37 @@ class Consideration:
     curve_type: str # "linear", "logit", "threshold"
     params: Dict[str, float]
 
-    def score(self, context: Dict[str, Any], trait_service: Optional['TraitService'] = None) -> float:
+    def score(self, context: Dict[str, Any], effective_overrides: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculates the score for this consideration based on the context.
 
         Args:
             context: A dictionary containing the current world state/context.
-            trait_service: Optional TraitService to lookup overrides.
+            effective_overrides: Optional dictionary of cached overrides (from TraitService).
 
         Returns:
             float: A score between 0.0 and 1.0.
         """
-        # Check for Overrides
-        # We need the Personality object from context to know which traits are active
-        personality = context.get("__personality__")
+        # Optimization: Avoid creating new objects via replace()
+        active_curve = self.curve_type
+        active_params = self.params
 
-        # We also need the "Action Name" + "Consideration Name" to look up the override key.
-        # But this Consideration object doesn't know its parent Action's name easily unless we pass it.
-        # However, the plan says: "Before scoring a Consideration, check if the entity's active traits define an override for that Consideration."
-        # And: "Use cached overrides to avoid deep dictionary lookups every frame."
+        if effective_overrides and self.name in effective_overrides:
+            override = effective_overrides[self.name]
+            active_curve = override.get("curve", self.curve_type)
+            active_params = override.get("params", self.params)
 
-        # The override key in traits.toml is like "Social/Empathy".
-        # Assuming Consideration.name is unique enough or prefixed?
-        # Let's assume Consideration.name matches the key in traits.toml.
+        val = context.get(self.input_key, 0.0)
+        return self.evaluate_curve(val, active_curve, active_params)
 
-        effective_consideration = self
-
-        if personality and trait_service:
-            # Check each active trait for an override on this consideration
-            # Optimization: This loop should ideally be done once or cached.
-            # But for now we do it here.
-            for trait_id in personality.traits:
-                trait_data = trait_service.get_trait(trait_id)
-                if trait_data:
-                    ai_mods = trait_data.get("ai_modifiers", {})
-                    if self.name in ai_mods:
-                        override = ai_mods[self.name]
-                        # Create a temporary overridden consideration
-                        effective_consideration = replace(
-                            self,
-                            curve_type=override.get("curve", self.curve_type),
-                            params=override.get("params", self.params)
-                        )
-                        # We only apply the first override found for now (priority issues?)
-                        break
-
-        val = context.get(effective_consideration.input_key, 0.0)
-        return effective_consideration.evaluate_curve(val)
-
-    def evaluate_curve(self, x: float) -> float:
+    def evaluate_curve(self, x: float, curve_type: str, params: Dict[str, float]) -> float:
         """
         Evaluates the configured curve function for a given input value.
 
         Args:
             x: The input value.
+            curve_type: The type of curve to evaluate.
+            params: The parameters for the curve.
 
         Returns:
             float: The mapped output value between 0.0 and 1.0.
@@ -84,23 +61,23 @@ class Consideration:
         # Normalize x usually expected between 0 and 100, map to 0-1
         v = max(0, min(100, x)) / 100.0
 
-        if self.curve_type == "linear":
-            m = float(self.params.get("m", 1.0))
-            b = float(self.params.get("b", 0.0))
+        if curve_type == "linear":
+            m = float(params.get("m", 1.0))
+            b = float(params.get("b", 0.0))
             return max(0.0, min(1.0, m * v + b))
 
-        elif self.curve_type == "inverse_linear":
+        elif curve_type == "inverse_linear":
             # High value = low score
             return 1.0 - v
 
-        elif self.curve_type == "logit":
+        elif curve_type == "logit":
             # S-curve
-            k = self.params.get("k", 10.0) # Steepness
-            x0 = self.params.get("x0", 0.5) # Midpoint
+            k = params.get("k", 10.0) # Steepness
+            x0 = params.get("x0", 0.5) # Midpoint
             return 1.0 / (1.0 + math.exp(-k * (v - x0)))
 
-        elif self.curve_type == "threshold":
-            t = self.params.get("threshold", 0.5)
+        elif curve_type == "threshold":
+            t = params.get("threshold", 0.5)
             return 1.0 if v >= t else 0.0
 
         return 0.0
@@ -121,7 +98,7 @@ class Action:
     weight: float = 1.0
     effects: Optional[Dict[str, Any]] = None
 
-    def calculate_utility(self, context: Dict[str, Any], trait_service: Optional['TraitService'] = None) -> float:
+    def calculate_utility(self, context: Dict[str, Any], effective_overrides: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculates the total utility score for this action.
 
@@ -129,7 +106,7 @@ class Action:
 
         Args:
             context: A dictionary containing the current world state/context.
-            trait_service: Optional TraitService.
+            effective_overrides: Optional dictionary of cached overrides.
 
         Returns:
             float: The calculated utility score.
@@ -143,7 +120,7 @@ class Action:
 
         final_score = self.weight
         for cons in self.considerations:
-            s = cons.score(context, trait_service)
+            s = cons.score(context, effective_overrides)
             final_score *= s
 
             # Optimization: if 0, break
@@ -254,8 +231,14 @@ class UtilityAIEngine:
         best_action = "Idle"
         best_score = 0.0
 
+        effective_overrides = {}
+        if self.trait_service:
+            personality = context.get("__personality__")
+            if personality:
+                effective_overrides = self.trait_service.get_effective_modifiers(personality)
+
         for name, action in self.actions.items():
-            score = action.calculate_utility(context, self.trait_service)
+            score = action.calculate_utility(context, effective_overrides)
             if score > best_score:
                 best_score = score
                 best_action = name
