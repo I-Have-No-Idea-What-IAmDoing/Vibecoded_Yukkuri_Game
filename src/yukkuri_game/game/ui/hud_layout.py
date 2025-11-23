@@ -299,9 +299,9 @@ class HudLayout:
         )
 
         if has_stats:
-            sell_text = "Sell All" if selection_count > 1 else "Sell"
-            train_text = "Train All (+Badge)" if selection_count > 1 else "Train (+Badge)"
-            punish_text = "Punish All" if selection_count > 1 else "Punish"
+            sell_text = f"Sell All ({selection_count})" if selection_count > 1 else "Sell"
+            train_text = f"Train All ({selection_count}) (+Badge)" if selection_count > 1 else "Train (+Badge)"
+            punish_text = f"Punish All ({selection_count})" if selection_count > 1 else "Punish"
 
             self.sell_btn = UIButton(
                 relative_rect=pygame.Rect(10, 220, 290, 40),

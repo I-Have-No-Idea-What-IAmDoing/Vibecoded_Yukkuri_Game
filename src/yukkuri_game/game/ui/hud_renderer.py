@@ -136,21 +136,59 @@ class HudRenderer:
         text = "Unknown"
 
         if len(selected_entities) > 1:
-            yukkuris = 0
-            items = 0
+            yukkuris_count = 0
+            items_count = 0
+            total_hp = 0.0
+            total_hunger = 0.0
+            total_happiness = 0.0
+            total_value = 0
+            yukkuri_breeds: dict[str, int] = {}
+            items_val = 0
+
             for eid in selected_entities:
-                if self.world.has_component(eid, YukkuriStats):
-                    yukkuris += 1
-                elif self.world.has_component(eid, ItemStats):
-                    items += 1
+                ystats = self.world.get_component(eid, YukkuriStats)
+                if ystats:
+                    yukkuris_count += 1
+                    total_hp += ystats.health
+                    total_hunger += ystats.hunger
+                    total_happiness += ystats.happiness
+                    # Calculate sell value using GameManager
+                    total_value += self.gm.calculate_quality_score(ystats)
 
-            summary = []
-            if yukkuris > 0:
-                summary.append(f"{yukkuris} Yukkuri{'s' if yukkuris > 1 else ''}")
-            if items > 0:
-                summary.append(f"{items} Item{'s' if items > 1 else ''}")
+                    breed = ystats.type_id.capitalize()
+                    yukkuri_breeds[breed] = yukkuri_breeds.get(breed, 0) + 1
 
-            text = f"<b>Selection:</b><br>" + ", ".join(summary)
+                else:
+                    istats = self.world.get_component(eid, ItemStats)
+                    if istats:
+                        items_count += 1
+                        items_val += istats.cost
+
+            summary_lines = [f"<b>Selected: {len(selected_entities)} entities</b>"]
+
+            if yukkuris_count > 0:
+                avg_hp = int(total_hp / yukkuris_count)
+                avg_hunger = int(total_hunger / yukkuris_count)
+                avg_happy = int(total_happiness / yukkuris_count)
+
+                stats_str = f"(Avg HP: {avg_hp}, Avg Hunger: {avg_hunger}, Avg Happy: {avg_happy})"
+
+                # Breed breakdown if only yukkuris are selected
+                if items_count == 0 and len(yukkuri_breeds) > 0:
+                    breed_str = ", ".join([f"{k}: {v}" for k, v in yukkuri_breeds.items()])
+                    summary_lines.append(f"Yukkuris: {yukkuris_count} ({breed_str}) {stats_str}")
+                else:
+                    summary_lines.append(f"Yukkuris: {yukkuris_count} {stats_str}")
+
+            if items_count > 0:
+                avg_val = int(items_val / items_count) if items_count > 0 else 0
+                summary_lines.append(f"Items: {items_count} (Avg Value: {avg_val})")
+
+            grand_total = total_value + items_val
+            summary_lines.append(f"<br><b>Total value if sold: {grand_total:,}￥</b>")
+
+            text = "<br>".join(summary_lines)
+
         elif len(selected_entities) == 1:
             selected_entity = selected_entities[0]
             stats = self.world.get_component(selected_entity, YukkuriStats)
