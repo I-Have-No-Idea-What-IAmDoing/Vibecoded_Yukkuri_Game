@@ -1,15 +1,65 @@
 import os
 import json
-from typing import Dict, Any, List, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from loguru import logger
 from ..engine.ecs import World
 from ..engine.audio import AudioManager
 from .components import Transform
 from .yukkuri_components import YukkuriStats, ItemStats, AIState
 from ..engine.service_locator import ServiceLocator
+import msgspec
+from pathlib import Path
 
 if TYPE_CHECKING:
     from .entity_factory import EntityFactory
+
+class TraitService:
+    """
+    Service responsible for loading and providing access to trait and interaction data.
+    """
+    def __init__(self, data_dir: str = "data"):
+        self.data_dir = Path(data_dir)
+        self.traits: Dict[str, Any] = {}
+        self.interactions: Dict[str, Any] = {}
+        self.load_data()
+
+    def load_data(self):
+        """Loads traits and interactions from TOML files."""
+        traits_path = self.data_dir / "traits/traits.toml"
+        interactions_path = self.data_dir / "ai/interactions.toml"
+
+        if traits_path.exists():
+            with open(traits_path, "rb") as f:
+                # We load as simple dict for flexibility, or we could define Structs
+                # For now using dict to match the dynamic nature of traits
+                self.traits = msgspec.toml.decode(f.read())
+
+        if interactions_path.exists():
+            with open(interactions_path, "rb") as f:
+                self.interactions = msgspec.toml.decode(f.read())
+
+        logger.info(f"Loaded {len(self.traits.get('traits', {}))} traits and {len(self.interactions.get('interaction', {}))} interactions.")
+
+    def get_trait(self, trait_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves a trait definition by ID.
+        Args:
+            trait_id (str): The ID of the trait (e.g., "GESU").
+        Returns:
+             Optional[Dict[str, Any]]: The trait data or None.
+        """
+        return self.traits.get("traits", {}).get(trait_id)
+
+    def get_interaction(self, interaction_id: str) -> Optional[Dict[str, Any]]:
+         """
+         Retrieves an interaction definition by ID.
+         Args:
+             interaction_id (str): The ID of the interaction.
+         Returns:
+              Optional[Dict[str, Any]]: The interaction data or None.
+         """
+         return self.interactions.get("interaction", {}).get(interaction_id)
+
 
 class TimeService:
     """

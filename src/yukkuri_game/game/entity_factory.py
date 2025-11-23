@@ -3,7 +3,7 @@ from typing import Any
 from typing import Any, Optional, TYPE_CHECKING
 from ..engine.ecs import World
 from .components import Transform, Sprite, Selectable, PhysicsBody, FloatingText
-from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop
+from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop, Personality, RelationshipRegistry
 
 if TYPE_CHECKING:
     from ..engine.resource_manager import ResourceManager
@@ -133,6 +133,11 @@ class EntityFactory:
             growth_stage=growth_stage
         )
         self.world.add_component(entity, stats)
+
+        # Personality & Relationships
+        # TODO: Load initial traits/values from type_id data if specified
+        self.world.add_component(entity, Personality())
+        self.world.add_component(entity, RelationshipRegistry())
 
         # AI
         self.world.add_component(entity, AIState())

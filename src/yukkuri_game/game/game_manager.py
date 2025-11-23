@@ -7,8 +7,9 @@ from ..engine.event_bus import EventBus
 from ..engine.audio import AudioManager
 from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats
-from .services import EconomyService, PersistenceService, TimeService
+from .services import EconomyService, PersistenceService, TimeService, TraitService
 from .ai.navigation_service import NavigationService
+from .ai.utility import UtilityAIEngine
 from .events import (
     TrainEntityRequest,
     PunishEntityRequest,
@@ -50,6 +51,20 @@ class GameManager:
             self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
 
         self.audio = world.services.try_get(AudioManager)
+
+        # Initialize TraitService
+        self.trait_service = TraitService()
+        world.services.register(self.trait_service)
+
+        # Inject TraitService into UtilityAIEngine if available
+        ai_engine = world.services.try_get(UtilityAIEngine)
+        if ai_engine:
+            ai_engine.set_trait_service(self.trait_service)
+        else:
+            # If not yet registered (maybe initialized elsewhere), we might need to do it later or ensure order.
+            # Assuming UtilityAIEngine is initialized before GameManager or we should init it here?
+            # It seems UtilityAIEngine is initialized in main.py or similar.
+            pass
 
         # Initialize Navigation Service
         game_config = world.services.try_get(GameConfig)

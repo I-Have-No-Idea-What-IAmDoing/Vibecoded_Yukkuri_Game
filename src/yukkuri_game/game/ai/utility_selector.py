@@ -4,7 +4,7 @@ from py_trees.common import Status
 from .utility import UtilityAIEngine
 from .base_action import Action
 
-from ..yukkuri_components import AIState, YukkuriStats
+from ..yukkuri_components import AIState, YukkuriStats, Personality
 from ..components import Transform
 
 if TYPE_CHECKING:
@@ -115,6 +115,20 @@ class UtilitySelector(Action):
             "constant_100": 100.0,
             "constant_0": 0.0
         }
+
+        # Flatten Personality into Context
+        personality = self.world.get_component(self.entity_id, Personality)
+        if personality:
+            for trait in personality.traits:
+                context[f"trait:{trait}"] = 1.0
+            for val_name, val_score in personality.values.items():
+                context[f"val:{val_name}"] = val_score
+            context[f"mood:{personality.mood}"] = personality.mood_score
+
+            # Pass the personality object itself via a special key if the engine supports it
+            # But the plan says "context injection" which usually means flat keys.
+            # However, for Curve Overrides, we need to know the entity ID or personality to look up overrides.
+            context["__personality__"] = personality
 
         # Select Action
         best_action = self.engine.select_action(context)

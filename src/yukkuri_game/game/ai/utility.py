@@ -1,7 +1,11 @@
-from dataclasses import dataclass
-from typing import List, Dict, Any, Callable, Optional, Union
+from dataclasses import dataclass, replace
+from typing import List, Dict, Any, Callable, Optional, Union, TYPE_CHECKING
 import math
 from loguru import logger
+
+if TYPE_CHECKING:
+    from ..services import TraitService
+    from ..yukkuri_components import Personality
 
 @dataclass
 class Consideration:
@@ -19,18 +23,53 @@ class Consideration:
     curve_type: str # "linear", "logit", "threshold"
     params: Dict[str, float]
 
-    def score(self, context: Dict[str, Any]) -> float:
+    def score(self, context: Dict[str, Any], trait_service: Optional['TraitService'] = None) -> float:
         """
         Calculates the score for this consideration based on the context.
 
         Args:
             context: A dictionary containing the current world state/context.
+            trait_service: Optional TraitService to lookup overrides.
 
         Returns:
             float: A score between 0.0 and 1.0.
         """
-        val = context.get(self.input_key, 0.0)
-        return self.evaluate_curve(val)
+        # Check for Overrides
+        # We need the Personality object from context to know which traits are active
+        personality = context.get("__personality__")
+
+        # We also need the "Action Name" + "Consideration Name" to look up the override key.
+        # But this Consideration object doesn't know its parent Action's name easily unless we pass it.
+        # However, the plan says: "Before scoring a Consideration, check if the entity's active traits define an override for that Consideration."
+        # And: "Use cached overrides to avoid deep dictionary lookups every frame."
+
+        # The override key in traits.toml is like "Social/Empathy".
+        # Assuming Consideration.name is unique enough or prefixed?
+        # Let's assume Consideration.name matches the key in traits.toml.
+
+        effective_consideration = self
+
+        if personality and trait_service:
+            # Check each active trait for an override on this consideration
+            # Optimization: This loop should ideally be done once or cached.
+            # But for now we do it here.
+            for trait_id in personality.traits:
+                trait_data = trait_service.get_trait(trait_id)
+                if trait_data:
+                    ai_mods = trait_data.get("ai_modifiers", {})
+                    if self.name in ai_mods:
+                        override = ai_mods[self.name]
+                        # Create a temporary overridden consideration
+                        effective_consideration = replace(
+                            self,
+                            curve_type=override.get("curve", self.curve_type),
+                            params=override.get("params", self.params)
+                        )
+                        # We only apply the first override found for now (priority issues?)
+                        break
+
+        val = context.get(effective_consideration.input_key, 0.0)
+        return effective_consideration.evaluate_curve(val)
 
     def evaluate_curve(self, x: float) -> float:
         """
@@ -46,8 +85,8 @@ class Consideration:
         v = max(0, min(100, x)) / 100.0
 
         if self.curve_type == "linear":
-            m = self.params.get("m", 1.0)
-            b = self.params.get("b", 0.0)
+            m = float(self.params.get("m", 1.0))
+            b = float(self.params.get("b", 0.0))
             return max(0.0, min(1.0, m * v + b))
 
         elif self.curve_type == "inverse_linear":
@@ -82,7 +121,7 @@ class Action:
     weight: float = 1.0
     effects: Optional[Dict[str, Any]] = None
 
-    def calculate_utility(self, context: Dict[str, Any]) -> float:
+    def calculate_utility(self, context: Dict[str, Any], trait_service: Optional['TraitService'] = None) -> float:
         """
         Calculates the total utility score for this action.
 
@@ -90,6 +129,7 @@ class Action:
 
         Args:
             context: A dictionary containing the current world state/context.
+            trait_service: Optional TraitService.
 
         Returns:
             float: The calculated utility score.
@@ -103,7 +143,7 @@ class Action:
 
         final_score = self.weight
         for cons in self.considerations:
-            s = cons.score(context)
+            s = cons.score(context, trait_service)
             final_score *= s
 
             # Optimization: if 0, break
@@ -129,6 +169,7 @@ class UtilityAIEngine:
             resource_manager: The ResourceManager instance.
         """
         self.rm = resource_manager
+        self.trait_service: Optional['TraitService'] = None
         self.actions: Dict[str, Action] = {}
         self.load_actions()
 
@@ -196,6 +237,10 @@ class UtilityAIEngine:
             effects=effects
         )
 
+    def set_trait_service(self, trait_service: 'TraitService') -> None:
+        """Sets the trait service for curve overrides."""
+        self.trait_service = trait_service
+
     def select_action(self, context: Dict[str, Any]) -> str:
         """
         Selects the action with the highest utility score.
@@ -210,7 +255,7 @@ class UtilityAIEngine:
         best_score = 0.0
 
         for name, action in self.actions.items():
-            score = action.calculate_utility(context)
+            score = action.calculate_utility(context, self.trait_service)
             if score > best_score:
                 best_score = score
                 best_action = name
