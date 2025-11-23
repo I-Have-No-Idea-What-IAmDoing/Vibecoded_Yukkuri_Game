@@ -77,6 +77,19 @@ class HUD:
         self.event_bus.subscribe(GamePausedEvent, self.on_game_paused)
         self.event_bus.subscribe(LogMessageEvent, self.on_log_message)
 
+    def resize(self, width: int, height: int) -> None:
+        """
+        Resizes the HUD.
+
+        Args:
+            width (int): The new width.
+            height (int): The new height.
+        """
+        self.width = width
+        self.height = height
+        self.manager.set_window_resolution((width, height))
+        self.layout.resize(width, height)
+
     def on_log_message(self, event: LogMessageEvent) -> None:
         """
         Handles LogMessageEvent.

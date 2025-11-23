@@ -11,7 +11,7 @@ from yukkuri_game.game.game_manager import GameManager
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
-from yukkuri_game.game.events import PlacementStartedEvent, TogglePauseRequest, CycleSpeedRequest, TrainEntityRequest, SellEntityRequest, LogMessageEvent
+from yukkuri_game.game.events import PlacementStartedEvent, TogglePauseRequest, CycleSpeedRequest, TrainEntityRequest, SellEntityRequest, LogMessageEvent, ResolutionChangedEvent
 
 @pytest.fixture
 def mock_ui_manager():
@@ -23,6 +23,17 @@ def mock_game_manager():
     gm.money = 1000
     gm.time_elapsed = 125 # 2 min 5 sec
     gm.time_scale = 1.0
+
+    # Setup gm.world.services.try_get
+    services = MagicMock()
+    # If try_get is called, return None by default or specific mocks
+    services.try_get.return_value = None
+
+    # Setup world
+    world = MagicMock(spec=World)
+    world.services = services
+    gm.world = world
+
     return gm
 
 @pytest.fixture
@@ -127,6 +138,13 @@ class TestHudLayout:
             assert hud_layout.debug_window is not None
             assert hud_layout.debug_text_box is not None
 
+    def test_resize(self, hud_layout):
+        with patch.object(hud_layout, 'rebuild_ui') as mock_rebuild:
+            hud_layout.resize(1920, 1080)
+            assert hud_layout.width == 1920
+            assert hud_layout.height == 1080
+            mock_rebuild.assert_called_once()
+
 class TestHudEvents:
     def test_process_event_save(self, hud_events, hud_layout, mock_game_manager):
         event = MagicMock()
@@ -228,6 +246,12 @@ class TestHudEvents:
         assert hud_events.process_event(event) is True
         # Check that TrainEntityRequest was published
         mock_event_bus.publish.assert_called_with(TrainEntityRequest(123))
+
+    def test_apply_window_settings_publishes_event(self, hud_events, mock_event_bus):
+        with patch('pygame.display.set_mode') as mock_set_mode:
+            hud_events._apply_window_settings(1024, 768, True)
+            mock_set_mode.assert_called_with((1024, 768), pygame.RESIZABLE | pygame.FULLSCREEN)
+            mock_event_bus.publish.assert_called_with(ResolutionChangedEvent(1024, 768, True))
 
 class TestHudRenderer:
     def test_update_top_bar(self, hud_renderer, hud_layout):
