@@ -66,15 +66,21 @@ class HudRenderer:
         # Update Hover Tooltip
         self._update_hover_tooltip()
 
-        # Draw Selection Box
-        self._draw_selection_box()
+    def draw(self, screen: pygame.Surface) -> None:
+        """
+        Draws HUD overlays directly to the screen.
 
-    def _draw_selection_box(self) -> None:
+        Args:
+            screen (pygame.Surface): The screen surface to draw on.
+        """
+        self._draw_selection_box(screen)
+
+    def _draw_selection_box(self, screen: pygame.Surface) -> None:
         """
         Draws the selection box if dragging.
 
-        Returns:
-            None
+        Args:
+            screen (pygame.Surface): The screen surface.
         """
         input_service = self.world.services.try_get(InputService)
         if input_service and input_service.is_dragging:
@@ -89,9 +95,7 @@ class HudRenderer:
             rect = pygame.Rect(x, y, w, h)
 
             # Draw directly to the display surface
-            screen = pygame.display.get_surface()
-            if screen:
-                pygame.draw.rect(screen, (0, 255, 0), rect, 1)
+            pygame.draw.rect(screen, (0, 255, 0), rect, 1)
 
     def _update_hover_tooltip(self) -> None:
         """

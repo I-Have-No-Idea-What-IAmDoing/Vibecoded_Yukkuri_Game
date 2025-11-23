@@ -158,6 +158,15 @@ class HUD:
         # Render Updates
         self.renderer.update(dt, self.selected_entities, self.show_debug)
 
+    def draw(self, screen: pygame.Surface) -> None:
+        """
+        Draws the HUD overlays.
+
+        Args:
+            screen (pygame.Surface): The screen surface to draw on.
+        """
+        self.renderer.draw(screen)
+
     def _update_selection_window_layout(self) -> None:
         """
         Updates the layout of the selection window based on the selected entity type.
