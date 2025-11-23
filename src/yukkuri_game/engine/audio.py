@@ -76,6 +76,7 @@ class AudioManager:
         Args:
             volume (float): The volume level between 0.0 and 1.0.
         """
+        # Clamp volume
         self.master_volume = max(0.0, min(1.0, volume))
         self._update_all_volumes()
 

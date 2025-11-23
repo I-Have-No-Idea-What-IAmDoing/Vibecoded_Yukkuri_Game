@@ -180,6 +180,7 @@ class HudEvents:
         if not self.layout.settings_window:
             return False
 
+        # Get UI element and normalized value
         ui_element = event.ui_element
         value = event.value / 100.0
 
