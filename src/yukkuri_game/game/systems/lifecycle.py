@@ -132,8 +132,12 @@ class LifecycleSystem(System):
              transform.scale = 1.0
 
         # Adjust Stats
-        stats.max_health += 50
+        if new_stage == "Child":
+            stats.max_health += 50
+
         stats.health += 50 # Heal on growth
+        if stats.health > stats.max_health:
+            stats.health = stats.max_health
 
         # Adjust Physics Body if it exists
         physics = world.get_component(entity, PhysicsBody)
