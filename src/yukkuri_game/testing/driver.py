@@ -3,34 +3,48 @@ Game Driver for automated testing.
 """
 import random
 import time
-from typing import Generator, Any
 import pygame
-import numpy as np
+from typing import Generator, Any
 
-from .predicates import WaitCondition, WaitUntil, WaitFrames, Action, InjectInput
+from .predicates import WaitUntil, WaitFrames, InjectInput
 
 class GameDriver:
     """
-    Controls the YukkuriGame instance for testing.
+    Controls a YukkuriGame instance for deterministic headless testing.
     """
     def __init__(self, game_instance, fixed_dt: float = 1.0/60.0):
         self.game = game_instance
         self.fixed_dt = fixed_dt
         self.simulated_time = 0.0
         self.frame_count = 0
-        self.timeout_limit = 10.0 # Default 10 seconds timeout for WaitUntil
+        # Default fallback timeout if condition doesn't specify one
+        self.default_timeout = 10.0
 
     def seed_rng(self, seed: int = 42):
         """Seeds random number generators for determinism."""
         random.seed(seed)
-        np.random.seed(seed)
+        try:
+            import numpy as np
+            np.random.seed(seed)
+        except ImportError:
+            pass
         # If there are other RNGs, seed them here
 
     def setup(self):
         """Sets up the game instance."""
+        # Requirement 4: Explicitly seed RNG before initialization
+        self.seed_rng()
+
         # Ensure headless mode is set if not already
-        self.game.set_headless(True)
+        if not self.game.headless:
+             self.game.set_headless(True)
         self.game.setup()
+
+    def cleanup(self):
+        """
+        Cleans up the game instance.
+        """
+        self.game.quit()
 
     def run_scenario(self, scenario_gen: Generator[Any, None, None]):
         """
@@ -38,41 +52,37 @@ class GameDriver:
         """
         self.setup()
 
-        for step in scenario_gen:
-            if isinstance(step, WaitUntil):
-                self._wait_until(step)
-            elif isinstance(step, WaitFrames):
-                self._wait_frames(step)
-            elif isinstance(step, InjectInput):
-                step.event_injector()
-                # Process events immediately after injection?
-                # Or wait for next tick.
-                # Usually input is processed at start of tick.
-            elif callable(step): # Support raw functions as actions
-                step()
-            else:
-                 # Maybe it's a direct command or assertion?
-                 pass
-
-            # After each step (or during waits), we might want to tick once?
-            # No, waits handle ticking. Actions happen instantly between ticks usually.
+        try:
+            for step in scenario_gen:
+                if isinstance(step, WaitUntil):
+                    self._wait_until(step)
+                elif isinstance(step, WaitFrames):
+                    self._wait_frames(step)
+                elif isinstance(step, InjectInput):
+                    # Execute the injection callable
+                    step.event_injector()
+                elif callable(step): # Support raw functions as actions
+                    step()
+                else:
+                     # Maybe it's a direct command or assertion?
+                     pass
+        finally:
+            self.cleanup()
 
     def _tick(self):
         """Advances the game by one fixed time step."""
         # We need to manually drive the loop
 
         # 1. Handle Events (Process injected events)
-        self.game.handle_events()
+        # Ensure queue is pumped
+        pygame.event.pump()
+
+        if hasattr(self.game, "handle_events"):
+            self.game.handle_events()
 
         # 2. Update Game State
         # Ensure simulated time is updated in time service if it exists
-        # Although YukkuriGame.tick updates gm.time_elapsed, we can also ensure sync here if needed.
         self.game.tick(self.fixed_dt)
-
-        # 3. Render (Optional, for screenshots or verifying render logic)
-        # if needed: self.game.draw()
-        # But draw() flips display, which we might not want in dummy mode?
-        # headless mode usually skips draw() in main loop, but we can call render_world manually if needed.
 
         self.simulated_time += self.fixed_dt
         self.frame_count += 1
@@ -83,8 +93,10 @@ class GameDriver:
 
     def _wait_until(self, condition: WaitUntil):
         start_time = self.simulated_time
+        timeout = condition.timeout if condition.timeout is not None else self.default_timeout
+
         while not condition.predicate():
-            if self.simulated_time - start_time > condition.timeout:
+            if self.simulated_time - start_time > timeout:
                 raise TimeoutError(f"Timed out waiting for: {condition.description}")
 
             self._tick()

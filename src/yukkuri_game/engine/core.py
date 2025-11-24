@@ -28,7 +28,7 @@ class GameLoop:
         dt (float): The time elapsed since the last frame in seconds.
     """
 
-    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game"):
+    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game", headless: bool = False):
         """
         Initializes the GameLoop.
 
@@ -36,16 +36,31 @@ class GameLoop:
             width (int, optional): The width of the window. Defaults to 1280.
             height (int, optional): The height of the window. Defaults to 720.
             title (str, optional): The title of the window. Defaults to "Yukkuri Raising Game".
+            headless (bool, optional): Whether to run in headless mode. Defaults to False.
         """
         pygame.init()
         self.width = width
         self.height = height
-        self.screen = pygame.display.set_mode((width, height))
-        pygame.display.set_caption(title)
+        self.headless = headless
+
+        if self.headless:
+            # Check if SDL_VIDEODRIVER is dummy, otherwise setting mode might fail or show window
+            import os
+            if os.environ.get("SDL_VIDEODRIVER") == "dummy":
+                self.screen = pygame.display.set_mode((width, height))
+            else:
+                 # If headless but not dummy driver, we might still want a surface for rendering tests
+                 # but avoid showing window? It's tricky with pygame.
+                 # Best practice for headless with pygame is usually dummy driver.
+                 # We'll default to creating a hidden window or just standard set_mode
+                 # trusting the user set env vars if they really want invisible.
+                 self.screen = pygame.display.set_mode((width, height), flags=pygame.HIDDEN)
+        else:
+            self.screen = pygame.display.set_mode((width, height))
+            pygame.display.set_caption(title)
 
         self.clock = pygame.time.Clock()
         self.running = True
-        self.headless = False
 
         # Resource Manager
         self.resources = ResourceManager()
@@ -167,6 +182,13 @@ class GameLoop:
         """
         pass
 
+    def quit(self) -> None:
+        """
+        Stops the game loop and quits Pygame.
+        """
+        self.running = False
+        pygame.quit()
+
     def run(self) -> None:
         """
         Runs the main game loop.
@@ -184,7 +206,7 @@ class GameLoop:
             if not self.headless:
                 self.draw()
 
-        pygame.quit()
+        self.quit()
         logger.info("Game Loop Ended")
 
     def set_headless(self, headless: bool) -> None:
