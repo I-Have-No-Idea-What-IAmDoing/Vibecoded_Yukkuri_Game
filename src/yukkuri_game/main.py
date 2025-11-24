@@ -61,6 +61,10 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
+        if self.is_setup:
+            return
+        self.is_setup = True
+
         # Load Config
         self.game_config = load_config()
 
@@ -223,6 +227,10 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
+        # Always handle input system events to support testing injection
+        if hasattr(self, 'input_system') and self.input_system:
+            self.input_system.handle_event(event, self.world, self.width, self.height, self.ui_manager)
+
         if not self.headless:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F3:
@@ -230,7 +238,6 @@ class YukkuriGame(GameLoop):
                 elif event.key == pygame.K_F12:
                     self.take_screenshot()
 
-            self.input_system.handle_event(event, self.world, self.width, self.height, self.ui_manager)
             self.hud.process_event(event)
 
     def tick(self, dt: float) -> None:
