@@ -277,7 +277,7 @@ class TestHudRenderer:
         stats.hunger = 50.0
         stats.happiness = 60.0
         stats.health = 70.0
-        stats.badges = ["Gold"]
+        stats.badges = 3
 
         ai = AIState()
         ai.current_action = "Eating"
@@ -294,7 +294,7 @@ class TestHudRenderer:
         text = hud_layout.info_label.set_text.call_args[0][0]
         assert "TestReimu" in text
         assert "Eating" in text
-        assert "Gold" in text
+        assert "<b>Badges:</b> 3" in text
 
     def test_update_selection_item(self, hud_renderer, hud_layout, mock_world):
         hud_layout.selection_window = MagicMock()

@@ -41,7 +41,7 @@ class SocialSystem(System):
         entities_with_personality = world.get_entities_with(Personality)
         for entity in entities_with_personality:
             pers = world.get_component(entity, Personality)
-            if pers.mood_score > 0:
+            if pers and pers.mood_score > 0:
                 pers.mood_score -= dt * 5.0 # Decay rate
                 if pers.mood_score <= 0:
                     pers.mood_score = 0
@@ -63,7 +63,9 @@ class SocialSystem(System):
             if registry:
                 to_remove = []
                 now = time.time()
-                cutoff = now - 600 # 10 minutes retention for inactive relationships
+                # Retention policy: inactive relationships are removed
+                # cutoff: relationships older than this DURATION are removed
+                max_age = 600 # 10 minutes
 
                 for other_id, rel_data in registry.relationships.items():
                     # If not permanent (family/mate) and old
@@ -73,7 +75,8 @@ class SocialSystem(System):
                                   world.has_component(other_id, RelationshipRegistry) and \
                                   world.get_component(other_id, RelationshipRegistry).family_group_id == registry.family_group_id)
 
-                    if not is_special and (now - rel_data.last_update > cutoff):
+                    age = now - rel_data.last_update
+                    if not is_special and age > max_age:
                         to_remove.append(other_id)
 
                 for rid in to_remove:

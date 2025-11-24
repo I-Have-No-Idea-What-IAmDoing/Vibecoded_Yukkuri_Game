@@ -1,6 +1,6 @@
 import pytest
 from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData
+from src.yukkuri_game.game.yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, AIState
 from src.yukkuri_game.game.systems.family_system import FamilySystem
 from src.yukkuri_game.game.components import Transform
 
@@ -40,12 +40,14 @@ class TestFamilySystem:
         e1 = self.world.create_entity()
         self.world.add_component(e1, YukkuriStats(name="Y1", type_id="reimu", happiness=50.0, stress=10.0))
         self.world.add_component(e1, Transform(x=0, y=0))
+        self.world.add_component(e1, AIState(current_action="Idle"))
         reg1 = RelationshipRegistry(family_group_id=123)
         self.world.add_component(e1, reg1)
 
         e2 = self.world.create_entity()
         self.world.add_component(e2, YukkuriStats(name="Y2", type_id="marisa", happiness=50.0, stress=10.0))
         self.world.add_component(e2, Transform(x=10, y=0)) # Nearby
+        self.world.add_component(e2, AIState(current_action="Idle"))
         reg2 = RelationshipRegistry(family_group_id=123)
         self.world.add_component(e2, reg2)
 

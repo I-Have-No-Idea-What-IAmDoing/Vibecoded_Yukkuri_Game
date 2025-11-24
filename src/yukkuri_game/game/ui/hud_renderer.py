@@ -270,6 +270,7 @@ class HudRenderer:
                         f"<b>Hunger:</b> {int(stats.hunger)}<br>"
                         f"<b>Happiness:</b> {int(stats.happiness)}<br>"
                         f"<b>Stress:</b> {int(stats.stress)}<br>"
+                        f"<b>Badges:</b> {stats.badges}<br>"
                         f"<b>Action:</b> {action}")
 
                 if pers and pers.values:
