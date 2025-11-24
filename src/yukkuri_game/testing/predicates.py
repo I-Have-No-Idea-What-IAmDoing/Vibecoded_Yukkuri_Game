@@ -1,29 +1,22 @@
 """
 Predicates for test scenarios.
 """
-from typing import Callable, Any
+from dataclasses import dataclass
+from typing import Callable, Optional, Any
 
-class WaitCondition:
-    """Base class for wait conditions."""
-    pass
-
-class WaitUntil(WaitCondition):
+@dataclass
+class WaitUntil:
     """Waits until a predicate returns True."""
-    def __init__(self, predicate: Callable[[], bool], timeout: float = 5.0, description: str = "Condition"):
-        self.predicate = predicate
-        self.timeout = timeout
-        self.description = description
+    predicate: Callable[[], bool]
+    timeout: Optional[float] = None
+    description: str = "condition"
 
-class WaitFrames(WaitCondition):
+@dataclass
+class WaitFrames:
     """Waits for a specific number of frames."""
-    def __init__(self, frames: int):
-        self.frames = frames
+    frames: int
 
-class Action:
-    """Base class for actions."""
-    pass
-
-class InjectInput(Action):
-    """Action to inject an input event."""
-    def __init__(self, event_injector: Callable[[], None]):
-        self.event_injector = event_injector
+@dataclass
+class InjectInput:
+    """Wraps an input injection action."""
+    event_injector: Callable[[], None]

@@ -20,3 +20,7 @@ def post_key_press(key: int):
         pygame.event.post(pygame.event.Event(pygame.KEYDOWN, {"key": key}))
         pygame.event.post(pygame.event.Event(pygame.KEYUP, {"key": key}))
     return _inject
+
+# Aliases for convenience in scenarios
+Click = post_mouse_click
+KeyPress = post_key_press

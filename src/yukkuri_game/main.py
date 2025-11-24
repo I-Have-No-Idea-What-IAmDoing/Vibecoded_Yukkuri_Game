@@ -51,6 +51,14 @@ class YukkuriGame(GameLoop):
         render_system (RenderSystem): The system responsible for rendering (when not headless).
         hud (HUD): The Heads-Up Display (when not headless).
     """
+    def __init__(self, headless: bool = False):
+        """
+        Initializes the YukkuriGame.
+
+        Args:
+            headless (bool): Whether to run in headless mode. Defaults to False.
+        """
+        super().__init__(headless=headless)
 
     def setup(self) -> None:
         """
@@ -252,6 +260,9 @@ class YukkuriGame(GameLoop):
         """
         if not self.paused:
             self.gm.time_elapsed += dt * self.time_scale
+            # Also update TimeService
+            if hasattr(self, 'time_service'):
+                self.time_service.time_elapsed = self.gm.time_elapsed
 
         super().tick(dt)
         self.yukkurrium.update(dt)
@@ -395,10 +406,7 @@ def main() -> None:
     parser.add_argument("--headless", action="store_true", help="Run in headless mode (no window)")
     args = parser.parse_args()
 
-    game = YukkuriGame()
-    if args.headless:
-        game.set_headless(True)
-
+    game = YukkuriGame(headless=args.headless)
     game.run()
 
 if __name__ == "__main__":
