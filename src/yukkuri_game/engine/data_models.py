@@ -1,3 +1,6 @@
+"""
+Module defining data models for game configuration (TOML schema).
+"""
 from typing import Dict, List, Optional, TYPE_CHECKING
 import msgspec
 

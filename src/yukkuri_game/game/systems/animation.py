@@ -1,21 +1,28 @@
+"""
+Module defining the AnimationSystem logic.
+"""
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
 from ..components import Sprite, Animator
 from ..yukkuri_components import AIState, YukkuriStats
 from ..events import AnimationEvent
+from typing import Optional
 
 class AnimationSystem(System):
     """
     System responsible for updating sprite animations.
+
+    Attributes:
+        event_bus (Optional[EventBus]): The event bus to publish animation events to.
     """
 
-    def __init__(self, event_bus: EventBus = None):
+    def __init__(self, event_bus: Optional[EventBus] = None):
         """
         Initializes the AnimationSystem.
 
         Args:
-            event_bus (EventBus, optional): The event bus to publish animation events to.
+            event_bus (Optional[EventBus]): The event bus to publish animation events to.
         """
         self.event_bus = event_bus
 
@@ -196,7 +203,7 @@ class AnimationSystem(System):
         if target_anim in animator.animations and target_anim != animator.current_animation:
             self._switch_animation(animator, target_anim)
 
-    def _update_dynamic_sprite(self, world: World, entity: int, sprite: Sprite, rm: ResourceManager) -> None:
+    def _update_dynamic_sprite(self, world: World, entity: int, sprite: Sprite, rm: Optional[ResourceManager]) -> None:
         """
         Updates the sprite image based on AIState if no Animator is present.
 
@@ -204,7 +211,7 @@ class AnimationSystem(System):
             world (World): The ECS World.
             entity (int): The entity ID.
             sprite (Sprite): The sprite component.
-            rm (ResourceManager): The resource manager.
+            rm (Optional[ResourceManager]): The resource manager.
 
         Returns:
             None

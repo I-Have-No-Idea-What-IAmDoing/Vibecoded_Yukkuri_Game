@@ -1,3 +1,6 @@
+"""
+Module providing steering behaviors for AI agents.
+"""
 import math
 import random
 from typing import Tuple

@@ -1,3 +1,6 @@
+"""
+Module defining the EventBus system.
+"""
 from typing import Dict, List, Type, Callable, Any, TypeVar, Generic
 from dataclasses import dataclass
 

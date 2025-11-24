@@ -1,3 +1,6 @@
+"""
+Module defining core game components.
+"""
 from dataclasses import dataclass
 from typing import Dict, Optional
 import pymunk

@@ -1,3 +1,6 @@
+"""
+Module defining the Utility AI engine and logic.
+"""
 from dataclasses import dataclass
 from typing import List, Dict, Any, Callable, Optional, Union
 import math

@@ -1,5 +1,8 @@
+"""
+Module defining the HUD logic.
+"""
 import pygame
-from typing import Optional, Callable, Any, Dict, TYPE_CHECKING
+from typing import Optional, Callable, Any, Dict, TYPE_CHECKING, List
 import pygame_gui
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
@@ -34,7 +37,7 @@ class HUD:
         layout (HudLayout): Manages the arrangement of UI elements.
         events (HudEvents): Manages UI event handling.
         renderer (HudRenderer): Manages the updating of UI element content.
-        selected_entity (int): The ID of the currently selected entity.
+        selected_entities (List[int]): The IDs of the currently selected entities.
         show_debug (bool): Whether to show the debug window.
         fps (float): The current frames per second.
         event_bus (EventBus): The event bus.
@@ -68,7 +71,7 @@ class HUD:
         self.renderer = HudRenderer(self.layout, self.gm, self.world)
 
         # State
-        self.selected_entities = []
+        self.selected_entities: List[int] = []
         self.show_debug = False
         self.fps = 0.0
 

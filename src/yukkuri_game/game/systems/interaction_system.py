@@ -1,3 +1,6 @@
+"""
+Module defining the InteractionSystem logic.
+"""
 import math
 from loguru import logger
 from ...engine.ecs import System, World
@@ -8,8 +11,12 @@ from ..yukkuri_components import YukkuriStats, ItemStats, AIState
 class InteractionSystem(System):
     """
     System responsible for handling entity interactions (e.g. eating, sleeping).
+
+    Attributes:
+        audio (Optional[AudioManager]): The audio manager instance.
     """
     def __init__(self):
+        """Initializes the InteractionSystem."""
         super().__init__()
         self.audio = None
 

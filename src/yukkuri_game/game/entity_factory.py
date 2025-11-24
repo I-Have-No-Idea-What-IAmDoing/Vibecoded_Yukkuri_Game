@@ -1,7 +1,9 @@
+"""
+Module responsible for creating game entities.
+"""
 import pymunk
 import random
-from typing import Any
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING, List
 from ..engine.ecs import World
 from .components import Transform, Sprite, Selectable, PhysicsBody, FloatingText
 from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop, Personality, RelationshipRegistry
@@ -41,6 +43,12 @@ class EntityFactory:
         # It should be registered by the time create_yukkuri is called.
 
     def _get_trait_service(self) -> Optional[TraitService]:
+         """
+         Retrieves the TraitService from the world's service locator.
+
+         Returns:
+             Optional[TraitService]: The TraitService instance, or None if not found.
+         """
          # Attempt to get trait service dynamically to avoid cyclic deps or init order issues
          # if it wasn't available at init time (though usually factories are created after services)
          # But in this codebase, factory seems to be a service too.
@@ -69,7 +77,7 @@ class EntityFactory:
             return data.get(key, default)
         return getattr(data, key, default)
 
-    def create_yukkuri(self, type_id: str, x: float, y: float, age: float = 0.0, parents: list[int] = None) -> int:
+    def create_yukkuri(self, type_id: str, x: float, y: float, age: float = 0.0, parents: Optional[List[int]] = None) -> int:
         """
         Creates a Yukkuri entity.
 

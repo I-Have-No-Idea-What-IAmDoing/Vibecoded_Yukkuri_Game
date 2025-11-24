@@ -1,3 +1,6 @@
+"""
+Module defining the GameManager logic.
+"""
 import json
 import os
 from typing import Any, Dict, TYPE_CHECKING
@@ -30,6 +33,8 @@ class GameManager:
     Attributes:
         world (World): The ECS World instance.
         factory (EntityFactory): The factory used to recreate entities during load.
+        event_bus (EventBus): The event bus.
+        audio (AudioManager): The audio manager.
     """
 
     def __init__(self, world: World):

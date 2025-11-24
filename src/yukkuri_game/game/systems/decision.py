@@ -1,3 +1,6 @@
+"""
+Module defining the DecisionSystem logic.
+"""
 from typing import Dict, Any
 import random
 from ...engine.ecs import System, World

@@ -1,3 +1,6 @@
+"""
+Module defining the ConstructionSystem logic.
+"""
 from typing import Optional, TYPE_CHECKING
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
@@ -11,6 +14,12 @@ class ConstructionSystem(System):
     """
     System responsible for handling construction (placement) of entities.
     Listens for PlacementRequestedEvent.
+
+    Attributes:
+        world (Optional[World]): The ECS World instance.
+        event_bus (Optional[EventBus]): The event bus.
+        economy_service (Optional[EconomyService]): The economy service.
+        factory (Optional[EntityFactory]): The entity factory.
     """
     def __init__(self):
         """Initializes the ConstructionSystem."""

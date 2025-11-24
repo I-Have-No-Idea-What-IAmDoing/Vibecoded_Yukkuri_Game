@@ -1,3 +1,6 @@
+"""
+Module defining the Yukkuri-specific components for the game.
+"""
 from dataclasses import dataclass, field
 from typing import Dict, Any, Set, List, Optional
 from ..engine.ecs import Component
@@ -8,40 +11,73 @@ from ..engine.ecs import Component
 class Personality:
     """
     Component defining the personality of a Yukkuri.
+
+    Attributes:
+        traits (Set[str]): A set of trait IDs referencing TOML data.
+        values (Dict[str, float]): A dictionary of personality values (e.g., {"compassion": 50.0}).
+        mood (str): The current mood state (e.g., "NEUTRAL", "HAPPY").
+        mood_score (float): The intensity of the current mood.
+        cached_overrides (Optional[Dict[str, Any]]): Cached "effective overrides" for AI considerations.
     """
-    traits: Set[str] = field(default_factory=set)    # IDs referencing TOML data
-    values: Dict[str, float] = field(default_factory=dict) # "compassion": 50.0
-    mood: str = "NEUTRAL"        # Current Mood State
-    mood_score: float = 0.0      # Intensity of the mood
-    cached_overrides: Optional[Dict[str, Any]] = None # Cached "effective overrides"
+    traits: Set[str] = field(default_factory=set)
+    values: Dict[str, float] = field(default_factory=dict)
+    mood: str = "NEUTRAL"
+    mood_score: float = 0.0
+    cached_overrides: Optional[Dict[str, Any]] = None
 
 @dataclass
 class MemoryRecord:
+    """
+    Represents a single memory of a social interaction.
+
+    Attributes:
+        timestamp (float): The game time when the event occurred.
+        actor_id (int): The ID of the entity that performed the action.
+        action_type (str): The type of action (e.g., "Hit", "Greet").
+        impact (float): The emotional impact value of the event.
+        permanent (bool): Whether the memory is permanent (e.g., trauma). Defaults to False.
+    """
     timestamp: float
     actor_id: int
     action_type: str
     impact: float
-    permanent: bool = False # For trauma
+    permanent: bool = False
 
 @dataclass
 class RelationshipData:
+    """
+    Stores data about a relationship with another entity.
+
+    Attributes:
+        affinity (float): How much the entity likes the other (-100 to 100).
+        trust (float): How much the entity trusts the other (0 to 100).
+        fear (float): How much the entity fears the other (0 to 100).
+        familiarity (float): How well the entity knows the other (0 to 100).
+        memories (List[MemoryRecord]): A short list of recent impactful events.
+        last_update (float): Timestamp of the last decay update.
+    """
     affinity: float = 0.0
     trust: float = 0.0
     fear: float = 0.0
     familiarity: float = 0.0
-    memories: List[MemoryRecord] = field(default_factory=list) # Short list of recent impactful events
-    last_update: float = 0.0  # Timestamp of last decay update
+    memories: List[MemoryRecord] = field(default_factory=list)
+    last_update: float = 0.0
 
 @dataclass
 class RelationshipRegistry:
     """
     Component tracking social relationships and family ties.
+
+    Attributes:
+        relationships (Dict[int, RelationshipData]): A map of entity IDs to relationship data.
+        biological_parents (List[int]): IDs of biological parents.
+        biological_children (List[int]): IDs of biological children.
+        family_group_id (Optional[int]): ID of the family group this entity belongs to.
+        mate_id (Optional[int]): ID of the entity's mate.
     """
     relationships: Dict[int, RelationshipData] = field(default_factory=dict)
-    # Biological Lineage
     biological_parents: List[int] = field(default_factory=list)
     biological_children: List[int] = field(default_factory=list)
-    # Social Group
     family_group_id: Optional[int] = None
     mate_id: Optional[int] = None
 
@@ -57,27 +93,31 @@ class YukkuriStats:
         max_health (float): Maximum health. Defaults to 100.0.
         hunger (float): Hunger level (0 = full, 100 = starving). Defaults to 0.0.
         happiness (float): Happiness level (0 = sad, 100 = happy). Defaults to 50.0.
+        social (float): Social satisfaction level. Defaults to 50.0.
+        stress (float): Stress level. Defaults to 0.0.
+        energy (float): Energy level. Defaults to 100.0.
         cleanliness (float): Cleanliness level (0 = dirty, 100 = clean). Defaults to 100.0.
         age (float): Age in game seconds/ticks. Defaults to 0.0.
         growth_stage (str): Current growth stage ("Baby", "Child", "Adult"). Defaults to "Baby".
         badges (int): Number of badges earned. Defaults to 0.
         quality_score (float): Calculated quality score/value. Defaults to 0.0.
+        discipline (float): Discipline level (0 = undisciplined, 100 = perfectly disciplined). Defaults to 0.0.
     """
     name: str
     type_id: str
     health: float = 100.0
     max_health: float = 100.0
-    hunger: float = 0.0      # 0 = full, 100 = starving
-    happiness: float = 50.0  # 0 = sad, 100 = happy
-    social: float = 50.0     # 0 = lonely, 100 = satisfied
-    stress: float = 0.0      # 0 = calm, 100 = stressed
-    energy: float = 100.0    # 0 = exhausted, 100 = full energy
+    hunger: float = 0.0
+    happiness: float = 50.0
+    social: float = 50.0
+    stress: float = 0.0
+    energy: float = 100.0
     cleanliness: float = 100.0
-    age: float = 0.0         # In game seconds/ticks
-    growth_stage: str = "Baby" # Baby, Child, Adult
+    age: float = 0.0
+    growth_stage: str = "Baby"
     badges: int = 0
     quality_score: float = 0.0
-    discipline: float = 0.0  # 0 = undisciplined, 100 = perfectly disciplined
+    discipline: float = 0.0
 
 @dataclass
 class AIState:

@@ -1,3 +1,6 @@
+"""
+Module for loading and managing game configuration.
+"""
 import msgspec
 from pathlib import Path
 
@@ -8,6 +11,7 @@ class WorldSettings(msgspec.Struct):
     Attributes:
         width (int): The width of the world in pixels.
         height (int): The height of the world in pixels.
+        grid_step_size (int): The size of the grid step for navigation.
     """
     width: int = 3000
     height: int = 3000
@@ -32,6 +36,7 @@ class StatDecaySettings(msgspec.Struct):
         energy (float): Decay rate for energy.
         cleanliness (float): Decay rate for cleanliness.
         age (float): Decay rate for age (or growth rate).
+        starvation_damage (float): Damage per tick when starving.
     """
     hunger: float = 2.0
     happiness: float = 0.5
