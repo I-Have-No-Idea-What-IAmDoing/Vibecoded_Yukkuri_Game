@@ -1,95 +1,108 @@
-# Automated Deterministic Headless Testing System
+# Automated Deterministic Headless Testing System (Revised)
 
 ## Abstract
-This proposal defines a robust architecture for automated system testing of the Yukkuri Game. It synthesizes the strengths of previous proposals (Headless rendering, Scenarios) while addressing their critical flaws (Determinism, Observability, Code Pollution). The core innovation is a **Generator-based Test Controller** that runs *inside* the game loop, allowing synchronous, deterministic interaction with the game state without threading race conditions or black-box limitations.
+This proposal defines a **Composition-Based, External-Drive Headless Testing Architecture**. Unlike previous proposals that try to embed the test runner inside the game loop, this design places the Test Runner strictly *outside* the game. The Game is treated as a "steppable" state machine. The test runner owns the loop, advances time, and asserts state. This maximizes compatibility with Pytest and ensures that test logic remains standard, linear Python code.
 
 ## Core Philosophy
-1.  **Determinism is King:** Tests must be 100% reproducible. This requires a fixed time-step loop and explicit RNG seeding.
-2.  **White-Box Access:** The test runner must have direct access to the `YukkuriGame` instance to assert internal state (e.g., `assert yukkuri.hunger < 50`), not just look at pixels.
-3.  **Separation of Concerns:** Production code (`main.py`) stays clean. We introduce a dedicated `TestLauncher` that constructs the game in a test configuration.
+1.  **Inversion of Control:** The Game does not `run()`. The Test Runner `steps()` the game.
+2.  **Dependency Injection:** The Game accepts `InputSource` and `TimeSource` interfaces, allowing tests to inject mocks without subclassing hacks.
+3.  **Strict Determinism:** Physics and Logic run on a fixed accumulator (e.g., 60Hz). Rendering is decoupled and only happens when requested by the test (or every frame if checking for crashes).
 
 ## Design
 
-### 1. The `HeadlessGame` Subclass
-Instead of modifying `YukkuriGame` with `if self.is_headless:`, we create a subclass (or a composition wrapper) specifically for testing.
+### 1. Refactoring for Injection
+We must modify `YukkuriGame` to accept its dependencies.
 
 ```python
-# src/yukkuri_game/testing/headless_game.py
+class YukkuriGame:
+    def __init__(self, config, input_manager=None, clock=None, renderer=None):
+        self.input = input_manager or RealPygameInput()
+        self.clock = clock or RealPygameClock()
+        self.renderer = renderer or RealPygameRenderer()
 
-class HeadlessGame(YukkuriGame):
-    def __init__(self, scenario, seed=42):
-        # Force dummy driver
-        os.environ["SDL_VIDEODRIVER"] = "dummy"
-        super().__init__()
-
-        # Deterministic Seeding
-        random.seed(seed)
-        np.random.seed(seed)
-
-        # Inject the scenario
-        self.scenario_generator = scenario(self)
-
-    def run(self):
-        # Override the main loop to control time
-        while self.running:
-            # Fixed Time Step (e.g., 1/60s)
-            dt = 1.0 / 60.0
-
-            # 1. Process System Events (Quit, etc.)
-            self.process_events()
-
-            # 2. Step the Scenario (Inject Inputs / Assertions)
-            try:
-                next(self.scenario_generator)
-            except StopIteration:
-                self.running = False # End of test
-            except Exception as e:
-                self.fail(e)
-
-            # 3. Update Game Logic
-            self.update(dt)
-
-            # 4. Render (to offscreen surface)
-            self.draw()
+    def step(self, dt):
+        # The core logic, detached from the "while True" loop
+        self.input.process()
+        self.update(dt)
+        self.renderer.draw()
 ```
 
-### 2. Scenario as a Coroutine
-Scenarios are Python generators. This allows natural, readable logic that "yields" control back to the game loop for one frame.
+### 2. The Test Fixture (Composition)
+The test runner creates the game instance and holds a reference to the mocked inputs.
 
 ```python
-def simple_spawn_scenario(game):
-    # Wait for initialization
-    for _ in range(60): yield # Wait 1 second (60 frames)
+# tests/conftest.py
+@pytest.fixture
+def headless_game():
+    # 1. Setup Mocks
+    mock_input = MockInput()
+    mock_clock = MockClock() # Always returns fixed dt
 
-    # Inject Input
-    game.input_system.inject_click(x=100, y=100)
+    # 2. Configure Headless Environment
+    os.environ["SDL_VIDEODRIVER"] = "dummy"
 
-    # Wait for reaction
-    for _ in range(30): yield
+    # 3. Instantiate
+    game = YukkuriGame(
+        config=test_config,
+        input_manager=mock_input,
+        clock=mock_clock
+    )
+    game.initialize()
+    return GameController(game, mock_input)
+```
+
+### 3. The `GameController` Helper
+A helper class allows tests to write expressive, synchronous logic.
+
+```python
+class GameController:
+    def __init__(self, game, input_mock):
+        self.game = game
+        self.input = input_mock
+
+    def wait(self, frames=1):
+        for _ in range(frames):
+            self.game.step(dt=1.0/60.0)
+
+    def wait_seconds(self, seconds):
+        self.wait(frames=int(seconds * 60))
+
+    def click(self, x, y):
+        self.input.queue_click(x, y)
+        self.wait(1) # Process the click
+```
+
+### 4. Test Example (Standard Python)
+No generators. No custom loops. Just linear execution.
+
+```python
+def test_spawn_logic(headless_game):
+    # Setup
+    headless_game.game.world.load("test_map")
+
+    # Action
+    headless_game.click(200, 200) # Spawn at 200,200
+    headless_game.wait_seconds(2.0)
 
     # White-box Assertion
-    assert len(game.entity_manager.entities) == 1
+    assert len(headless_game.game.entities) == 1
+    entity = headless_game.game.entities[0]
+    assert entity.pos == (200, 200)
 
-    # Screenshot for debug/goldens
-    game.save_screenshot("spawn_test.png")
+    # Optional Visual Check
+    headless_game.assert_screenshot("spawn_result.png")
 ```
 
-### 3. The Test Runner
-A simple script or Pytest fixture that:
-1.  Instantiates `HeadlessGame` with a specific `scenario`.
-2.  Runs it.
-3.  Catches exceptions propagated from the scenario.
-
-### 4. Input Injection
-Instead of posting low-level Pygame events (which are asynchronous and can be erratic), the `HeadlessGame` will expose a direct `InputProxy` that modifies the input state directly or posts events synchronously at the start of the frame.
-
-### 5. Verification Strategy
-*   **State Verification (Primary):** `assert game.state.x == y`. Robust and strictly logic-based.
-*   **Visual Verification (Secondary):** Save screenshots on failure or at specific checkpoints. Use a "perceptual hash" or simple file existence check rather than strict pixel comparison to reduce flakiness.
-
-## Comparison to Previous Proposals
-*   **vs Prop 1:** Uses a generator/coroutine model instead of a rigid list of dicts. This allows logic (`if x: do y`) in tests.
-*   **vs Prop 3:** Runs in-process (white-box) instead of subprocess (black-box). Solves the observability problem. Uses inheritance to keep `main.py` clean. Enforces fixed time-steps for determinism.
+### 5. Input Handling Strategy
+To ensure the test input is actually used:
+*   **Events:** `MockInput` will populate a list that `pygame.event.get` would usually return. The `YukkuriGame` must call `self.input.get_events()` instead of `pygame.event.get()`.
+*   **Polling:** `MockInput` will maintain a dictionary of key states. `YukkuriGame` must call `self.input.is_pressed(K_SPACE)` instead of `pygame.key.get_pressed()[K_SPACE]`.
 
 ## Implementation Tasks
-See `tasks.md`.
+1.  **Interface Extraction:** Create `InputManager` and `RenderManager` interfaces in the production code.
+2.  **Dependency Injection:** Update `YukkuriGame.__init__` to accept these interfaces.
+3.  **Mock Implementation:** Create `MockInput` and `HeadlessRenderer` in the test suite.
+4.  **Test Migration:** Port existing logic to use the new `GameController` pattern.
+
+## Rationale
+This design prioritizes **maintainability**. Tests look like standard Python code. The production code becomes cleaner (decoupled from SDL via interfaces). Determinism is enforced by the architecture, not by the OS.

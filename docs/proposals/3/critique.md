@@ -1,26 +1,32 @@
 # Critique of Proposal 3 (Automated Headless Testing)
 
 ## Summary
-Proposal 3 improves upon Proposal 1 by introducing the concept of an "Input Agent" and explicitly mentioning "stability testing". However, it over-engineers the runner architecture (subprocess reliance) while under-engineering the actual integration mechanics, leaving critical gaps in how the test code interacts with the game loop.
+Proposal 3 presents a more structured approach than Proposal 1 but suffers from "Black Box Syndrome." It advocates for running the game as a separate process via CLI flags, which severely limits the ability to verify internal state and debug failures. It also relies heavily on fragile visual regression testing without addressing the cross-platform maintenance nightmare.
 
 ## Harsh Critique
 
-### 1. Observability Black Hole
-The proposal strongly implies running the game in a subprocess (`python -m src.yukkuri_game --headless ...`). While this ensures isolation, it makes **white-box testing** nearly impossible.
-*   How do you assert that `entity.health == 50`? You can't. You can only look at logs or screenshots.
-*   Debugging a failure becomes a nightmare of parsing `stdout`/`stderr` instead of getting a clean stack trace in the test runner.
+### 1. The "Subprocess" Anti-Pattern
+The proposal suggests running the game via `python -m src.yukkuri_game --scenario ...`. This effectively treats the game as a black box.
+*   **No State Inspection:** You cannot assert `game.player.health == 100` because the game memory is in a different process. You are limited to parsing logs or analyzing screenshots.
+*   **Debugging Hell:** If the game crashes or hangs, you get an exit code, not a stack trace integrated with your test runner (Pytest).
+*   **IPC Overhead:** If you want to control the game dynamically (e.g., "Wait for X to spawn"), you need complex Inter-Process Communication (IPC) or a pre-defined script that can't react to game state.
 
-### 2. Pollution of Production Code
-Adding CLI flags like `--test-mode`, `--scenario`, and `--test-duration` to `main.py` is bad practice. Production code should not be littered with testing logic. A dedicated test entry point (`tests/run_headless.py`) should import the game class and configure it, rather than forcing the main executable to wear multiple hats.
+### 2. Polluting Production Code
+Adding flags like `--test-mode`, `--scenario`, and `--duration` to the main game executable is sloppy.
+*   **Bloat:** Production binaries shouldn't carry test harness logic.
+*   **Security:** Exposing debug/test paths in the main executable can lead to exploits or accidental activation in production.
+*   **Separation of Concerns:** A `TestRunner` should *import* the game logic, not *flag* the game executable to behave differently.
 
-### 3. The "Visual Verification" Trap
-The proposal leans too heavily on "Golden Testing" (comparing screenshots).
-*   **Fragility:** Rendering differences across OSs (Mac vs Linux vs Windows), font rendering libraries, and even GPU drivers will cause these tests to fail constantly.
-*   **Maintenance:** Every minor UI tweak requires updating *all* reference images. This is a maintenance burden that usually leads to developers disabling the tests.
+### 3. Visual Verification Naivety
+"Screenshots allow verifying rendering... comparison against reference images."
+*   **Cross-Platform Nightmare:** Font rendering and anti-aliasing differ between Linux, Windows, and macOS. Golden images generated on a dev machine will fail in CI (Linux).
+*   **Maintenance Burden:** A 1-pixel shift in a UI element invalidates *every* screenshot. This leads to "snapshot fatigue" where devs just blindly update snapshots without checking.
+*   **Solution Missing:** The proposal lacks any mention of fuzzy matching, perceptual hashing, or tolerance thresholds.
 
-### 4. "Agent" Vagueness
-The "Input Agent" is described as an abstraction, but the implementation detail—"injecting events"—glosses over the synchronization problem. If the test script runs in parallel (or worse, in the same thread but without clear yield points), when does the agent "think"?
-*   If it's a subprocess, how does the Agent (running in the test process) talk to the Game (running in the subprocess)? The proposal suggests the Agent runs *inside* the game via the `--scenario` script, which contradicts the external "Runner" narrative.
+### 4. Input "Injection" vs. "Simulation"
+The proposal mentions "injecting `pygame.event.Event`". This is good, but it misses the timing aspect.
+*   **Frame Synchronization:** If the "Agent" posts 10 events, do they happen in 1 frame or 10? The proposal doesn't define the temporal relationship between the script and the game loop.
+*   **Blocking:** If the scenario script says `agent.wait(5)`, does it block the game loop? Or does it yield? The concurrency model is undefined.
 
 ### Verdict
-Proposal 3 has better structure but falls into the trap of treating the game as a completely black box. This limits the depth of testing to mere smoke testing and UI verification, ignoring the power of accessing internal state for robust logic verification.
+**Reject and Revise.** Move away from the CLI/Subprocess model. Embrace an "Embedded" model where the test runner *is* the main entry point and the game is an object controlled by the test. Replace strict screenshot matching with structural verification (state inspection) and fuzzy visual checks.

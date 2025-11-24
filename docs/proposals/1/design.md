@@ -1,49 +1,56 @@
-# Automated Headless Testing Design
+# Automated Headless Testing Design (Revised)
 
 ## Problem Description
-The current testing infrastructure primarily relies on unit tests (`tests/`) and manual testing. While there is a `--headless` mode, it is not fully utilized for automated integration/system testing where the game runs for a duration and verifies behavior. There is a need for a system that can run the game in a "real" environment (but headless), simulate human-like input, verify visual output via screenshots, and automatically terminate after a set duration or condition.
+The current testing infrastructure primarily relies on unit tests and manual verification. To ensure stability, we need an automated system that can verify the full game loop, rendering pipeline, and interaction logic in a deterministic, headless environment (CI/CD).
 
 ## Proposed Solution
-We will implement an **Automated Headless Testing System** that extends the existing game loop to support:
-1.  **Scripted Execution:** Ability to run the game with a pre-defined "test script" or "scenario".
-2.  **Input Simulation:** A mechanism to inject input events (mouse clicks, key presses) programmatically, simulating a user.
-3.  **Visual Verification:** Periodically taking screenshots or taking screenshots on specific events for regression testing.
-4.  **Automatic Termination:** Stopping the game loop after a fixed duration or when a victory/failure condition is met.
-5.  **Headless Rendering:** Ensuring that even in headless mode, a surface exists to draw to (even if not displayed) so screenshots can be captured.
+We will implement a **Deterministic Frame-Stepping Test Harness**. Unlike a traditional "real-time" game runner, this system will drive the game loop manually, frame by frame, with a fixed timestep. This ensures 100% reproducibility of game states given the same inputs and seed.
 
-## Design Details
+## Key Architecture
 
-### 1. Headless Rendering for Screenshots
-Currently, `GameLoop` initializes `pygame.display.set_mode`. In headless mode (`--headless`), `draw()` is skipped. To support screenshots in headless mode:
-- We must initialize a "virtual" screen surface even in headless mode.
-- We can use `os.environ["SDL_VIDEODRIVER"] = "dummy"` before `pygame.init()` if truly headless (no X11/display), but this might affect `pygame.image.save`.
-- Alternatively, we can just not call `pygame.display.set_mode` but create a `pygame.Surface` that acts as the screen, and have `RenderSystem` draw to that.
-- `YukkuriGame` needs a slight refactor to allow `self.screen` to be an offscreen `pygame.Surface` when headless.
+### 1. Inversion of Control: `Game.step()`
+Instead of calling `Game.run()` which enters an infinite `while` loop, we will expose a `step(dt)` method.
+*   **Production:** `run()` simply calls `step(clock.tick())` in a loop.
+*   **Testing:** The test runner calls `step(FIXED_DT)` (e.g., 1/60.0) in a loop.
+*   **Benefit:** The test controls time. No race conditions. No waiting for "real" seconds. Tests run as fast as the CPU allows.
 
-### 2. Test Runner & Controller
-We will introduce a `HeadlessTestRunner` class (or similar) that wraps `YukkuriGame`.
-- It will parse a "Scenario" or "Test Plan".
-- It will hook into the `update()` loop or use a custom game loop to inject inputs at specific timestamps.
+### 2. Determinism & Seeding
+To guarantee that screenshots and logic are identical across runs:
+*   **RNG:** The test harness must initialize the random seed (Python `random`, `numpy` if used) to a fixed value at the start of each test.
+*   **Time:** Only the fixed `dt` is passed to update methods. `time.time()` calls inside game logic must be mocked or replaced with an internal `game_time` accumulator.
 
-### 3. Input Simulation
-We can use `pygame.fastevent.post()` or directly call `game.on_event()` with constructed `pygame.event.Event` objects.
-A `InputScenario` class can define a list of actions:
+### 3. Headless Rendering Strategy
+*   **Driver:** We will use `os.environ["SDL_VIDEODRIVER"] = "dummy"` to prevent a window from opening.
+*   **Surface:** We will verify that `pygame.display.set_mode` returns a valid surface even with the dummy driver.
+*   **Snapshotting:** A `ScreenCapturer` utility will wrap `pygame.image.save(screen, path)`.
+*   **Verification:** For visual regression, we will compare generated screenshots against "golden" images using a pixel-diff algorithm with a configurable tolerance (to handle minor rendering differences across libs).
+
+### 4. Input Injection
+Input will not be simulated by "waiting" for time. It will be injected per-frame.
+*   **Event Queue:** We will mock or populate the Pygame event queue using `pygame.event.post()`.
+*   **Polled Input:** If the game uses `pygame.key.get_pressed()`, we must wrap this call in an `InputProvider` interface so we can return a mock state dictionary during tests.
+
+### 5. Test Script Format (Python, not JSON)
+Scenarios should be written as Python test functions (using Pytest), not external JSON files. This allows full logic:
+
 ```python
-scenario = [
-    {"time": 1.0, "action": "click", "pos": (100, 100), "button": 1},
-    {"time": 2.0, "action": "key", "key": "F3"},
-    {"time": 5.0, "action": "screenshot", "name": "initial_state"},
-    {"time": 10.0, "action": "quit"}
-]
+def test_movement_logic(headless_game):
+    headless_game.seed(42)
+
+    # Simulate holding right key for 60 frames
+    headless_game.input.hold_key(K_RIGHT)
+    for _ in range(60):
+        headless_game.step(1/60.0)
+
+    assert headless_game.player.x > 100
+    headless_game.assert_screenshot("moved_right.png")
 ```
 
-### 4. Integration with Pytest
-These headless tests should be runnable via `pytest`. We can create a pytest fixture that sets up the `YukkuriGame` in headless mode with a dummy video driver, runs a scenario, and asserts that screenshots match expected baselines (optional, or just that they exist) or that no exceptions occurred.
+## Implementation Plan
+1.  **Refactor Game Loop:** Extract the inner loop body into a public `step(dt)` method.
+2.  **Abstract Input:** Create an `InputManager` that wraps `pygame.event.get` and `pygame.key.get_pressed`.
+3.  **Create Test Fixture:** A Pytest fixture that sets up the headless environment (dummy driver, seeded RNG).
+4.  **Visual Diff Tooling:** Add a helper to compare screenshots against a baseline folder.
 
 ## Rationale
-- **Realism:** Runs the actual game loop, systems, and logic, catching integration bugs that unit tests miss.
-- **Visuals:** Screenshots allow verifying rendering artifacts or UI layouts without manual inspection every time.
-- **Automation:** Can be run in CI/CD pipelines.
-
-## Implementation Tasks
-See `tasks.md` for the step-by-step implementation plan.
+This approach prioritizes **reliability**. By controlling time and input deterministically, we eliminate flakiness, enabling a robust regression suite that runs quickly in CI environments.
