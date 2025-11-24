@@ -12,6 +12,7 @@ from ...engine.event_bus import EventBus
 from ..components import Transform
 from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryRecord, Personality
 from ..trait_service import TraitService
+from ..services import TimeService
 from ..entity_factory import EntityFactory
 from ..events import SocialInteractionEvent
 
@@ -57,6 +58,9 @@ class SocialSystem(System):
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
 
+        time_service = world.services.try_get(TimeService)
+        now = time_service.time_elapsed if time_service else time.time()
+
         # 1. Mood Decay (for all entities, but this is lighter than relationship map iteration)
         # Ideally, this should also be distributed or event-driven, but for now we iterate stats
         # to decay mood score.
@@ -84,7 +88,6 @@ class SocialSystem(System):
             registry = world.get_component(eid, RelationshipRegistry)
             if registry:
                 to_remove = []
-                now = time.time()
                 # Retention policy: inactive relationships are removed
                 # cutoff: relationships older than this DURATION are removed
                 max_age = 600 # 10 minutes
@@ -123,17 +126,17 @@ class SocialSystem(System):
 
         self.register_interaction(self.ecs_world, event.initiator_id, event.target_id, event.interaction_type)
 
-    def _update_relationship_decay(self, rel_data: RelationshipData) -> None:
+    def _update_relationship_decay(self, rel_data: RelationshipData, now: float) -> None:
         """
         Lazily updates relationship values based on time elapsed since last update.
 
         Args:
             rel_data (RelationshipData): The relationship data to update.
+            now (float): Current game time.
 
         Returns:
             None
         """
-        now = time.time()
         if rel_data.last_update == 0.0:
             rel_data.last_update = now
             return
@@ -181,9 +184,12 @@ class SocialSystem(System):
             logger.warning(f"Unknown interaction: {interaction_name}")
             return
 
+        time_service = world.services.try_get(TimeService)
+        now = time_service.time_elapsed if time_service else time.time()
+
         # Apply impacts
-        self._apply_impact(world, actor_id, target_id, interaction_data, role="actor")
-        self._apply_impact(world, target_id, actor_id, interaction_data, role="target")
+        self._apply_impact(world, actor_id, target_id, interaction_data, role="actor", now=now)
+        self._apply_impact(world, target_id, actor_id, interaction_data, role="target", now=now)
 
         # Visual Feedback
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
@@ -239,7 +245,7 @@ class SocialSystem(System):
 
         factory.create_floating_text(fx, fy, text, color, size=24, lifetime=1.5)
 
-    def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Dict[str, Any], role: str) -> None:
+    def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Dict[str, Any], role: str, now: float) -> None:
         """
         Applies the social impact to the subject regarding the other.
 
@@ -249,6 +255,7 @@ class SocialSystem(System):
             other_id (int): The other entity ID.
             data (Dict[str, Any]): The interaction data.
             role (str): The role of the subject ("actor" or "target").
+            now (float): Current game time.
 
         Returns:
             None
@@ -263,12 +270,12 @@ class SocialSystem(System):
             world.add_component(subject_id, registry)
 
         if other_id not in registry.relationships:
-            registry.relationships[other_id] = RelationshipData(last_update=time.time())
+            registry.relationships[other_id] = RelationshipData(last_update=now)
 
         rel = registry.relationships[other_id]
 
         # LAZY DECAY: Update decay before applying new impact
-        self._update_relationship_decay(rel)
+        self._update_relationship_decay(rel, now)
 
         # Base Impact
         social_impact = data.get("social_impact", {})
@@ -316,7 +323,7 @@ class SocialSystem(System):
         # Add Memory
         if abs(base_impact_score) > 0:
             memory = MemoryRecord(
-                timestamp=time.time(),
+                timestamp=now,
                 actor_id=other_id,
                 action_type=data.get("type", "unknown"),
                 impact=base_impact_score,
