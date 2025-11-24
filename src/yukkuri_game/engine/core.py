@@ -103,6 +103,26 @@ class GameLoop:
         """
         pass
 
+    def tick(self, dt: float) -> None:
+        """
+        Updates the game state by a fixed time step.
+
+        Args:
+            dt (float): The delta time in seconds.
+
+        Returns:
+            None
+        """
+        self.dt = dt
+        self.ui_manager.update(dt)
+
+        if not self.paused:
+            # Update ECS world
+            # In a real game we might separate logic update tick from render tick
+            # and use accumulation for fixed time steps, but for MVP simple dt is fine.
+            sim_dt = self.dt * self.time_scale
+            self.world.update(sim_dt)
+
     def update(self) -> None:
         """
         Updates the game state.
@@ -113,16 +133,7 @@ class GameLoop:
             None
         """
         time_delta = self.clock.tick(60) / 1000.0
-        self.dt = time_delta
-
-        self.ui_manager.update(time_delta)
-
-        if not self.paused:
-            # Update ECS world
-            # In a real game we might separate logic update tick from render tick
-            # and use accumulation for fixed time steps, but for MVP simple dt is fine.
-            sim_dt = self.dt * self.time_scale
-            self.world.update(sim_dt)
+        self.tick(time_delta)
 
     def draw(self) -> None:
         """

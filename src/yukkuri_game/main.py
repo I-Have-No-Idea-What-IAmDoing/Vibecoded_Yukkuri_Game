@@ -233,6 +233,26 @@ class YukkuriGame(GameLoop):
             self.input_system.handle_event(event, self.world, self.width, self.height, self.ui_manager)
             self.hud.process_event(event)
 
+    def tick(self, dt: float) -> None:
+        """
+        Updates the game state each frame with a given delta time.
+
+        Args:
+            dt (float): The delta time in seconds.
+
+        Returns:
+            None
+        """
+        if not self.paused:
+            self.gm.time_elapsed += dt * self.time_scale
+
+        super().tick(dt)
+        self.yukkurrium.update(dt)
+
+        if not self.headless:
+            self.hud.fps = self.clock.get_fps()
+            self.hud.update(dt)
+
     def update(self) -> None:
         """
         Updates the game state each frame.
@@ -242,15 +262,8 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
-        if not self.paused:
-            self.gm.time_elapsed += self.dt * self.time_scale
-
-        super().update()
-        self.yukkurrium.update(self.dt)
-
-        if not self.headless:
-            self.hud.fps = self.clock.get_fps()
-            self.hud.update(self.dt)
+        time_delta = self.clock.tick(60) / 1000.0
+        self.tick(time_delta)
 
     def draw(self) -> None:
         """
@@ -283,7 +296,17 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
-        if not self.headless and self.render_system:
+        # In headless mode, we might still want to render for screenshots if requested.
+        # But we need to ensure render_system is initialized or we do it ad-hoc.
+        # The current GameDriver calls this manually.
+
+        if self.headless and not hasattr(self, 'render_system'):
+             # If strictly headless but we want to render, we might need to init render system temporarily
+             # or we just rely on the fact that if set_headless(True) is called, render_system isn't created.
+             # But for screenshots, we might want it.
+             self.render_system = RenderSystem(self.screen, self.world)
+
+        if hasattr(self, 'render_system') and self.render_system:
             self.render_system.update(self.world, self.dt)
 
     def toggle_pause(self) -> None:
