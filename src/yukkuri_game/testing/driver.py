@@ -65,6 +65,8 @@ class GameDriver:
         self.game.handle_events()
 
         # 2. Update Game State
+        # Ensure simulated time is updated in time service if it exists
+        # Although YukkuriGame.tick updates gm.time_elapsed, we can also ensure sync here if needed.
         self.game.tick(self.fixed_dt)
 
         # 3. Render (Optional, for screenshots or verifying render logic)

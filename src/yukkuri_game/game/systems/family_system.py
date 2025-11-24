@@ -3,9 +3,11 @@ Module defining the FamilySystem logic.
 """
 from typing import List, Optional
 import time
+import random
 from loguru import logger
 
 from ...engine.ecs import System, World
+from ..services import TimeService
 from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, AIState
 
 class FamilySystem(System):
@@ -72,7 +74,8 @@ class FamilySystem(System):
 
                     # If neither has a family, create one
                     if registry.family_group_id is None and other_registry.family_group_id is None:
-                        new_family_id = int(time.time() * 1000) # Simple ID generation
+                        # Use deterministic random bits
+                        new_family_id = random.getrandbits(32)
                         registry.family_group_id = new_family_id
                         other_registry.family_group_id = new_family_id
                         logger.info(f"New Family Formed: {stats.name} and Entity {other_id}")
