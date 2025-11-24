@@ -1,8 +1,9 @@
-# Yukkuri Raising Game - MVP
+# Yukkuri Raising Game
 
-A simulation game where you raise "Yukkuri" creatures in a virtual environment. Manage their needs, build their environment, and watch them interact.
+A modern simulation game where you raise "Yukkuri" creatures in a virtual environment. Manage their needs, build their environment, and watch them interact.
 
 ## Table of Contents
+- [Overview](#overview)
 - [Setup](#setup)
 - [Running the Game](#running-the-game)
 - [Controls](#controls)
@@ -11,23 +12,47 @@ A simulation game where you raise "Yukkuri" creatures in a virtual environment. 
 - [Project Structure](#project-structure)
 - [Development](#development)
 
+## Overview
+
+The **Yukkuri Raising Game** is a simulation game developed in Python using `pygame-ce` and `esper` (ECS). It simulates the lifecycle, behavior, and social interactions of Yukkuri creatures. The game features a robust Utility AI system, physics simulation, and data-driven content.
+
 ## Setup
 
-1.  **Prerequisites**: Ensure Python 3.11 or higher is installed.
-2.  **Install Dependencies**:
-    Navigate to the root directory of the project and install the package in editable mode:
+### Prerequisites
+- Python 3.11 or higher.
+
+### Installation
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/yourusername/yukkuri-raising-game.git
+    cd yukkuri-raising-game
+    ```
+
+2.  **Create a virtual environment (optional but recommended)**:
+    ```bash
+    python -m venv venv
+    # On Windows:
+    venv\Scripts\activate
+    # On Unix/MacOS:
+    source venv/bin/activate
+    ```
+
+3.  **Install Dependencies**:
+    Install the package in editable mode with development dependencies:
     ```bash
     pip install -e .
     ```
 
 ## Running the Game
 
+### Graphical Mode
 To launch the game with the graphical interface:
 ```bash
 python -m src.yukkuri_game.main
 ```
 
-To run in headless mode (no window, useful for testing or servers):
+### Headless Mode
+To run the simulation without a window (useful for testing or server-side simulation):
 ```bash
 python -m src.yukkuri_game.main --headless
 ```
@@ -40,12 +65,13 @@ python -m src.yukkuri_game.main --headless
 
 -   **Interaction**:
     -   **Select Entity**: Left Click on a Yukkuri or Item.
-    -   **Multi-Select**: Hold `Shift` + Left Click (not fully implemented in MVP).
-    -   **Deselect**: Left Click on empty ground.
-    -   **Place Item/Yukkuri**: Left Click while in placement mode.
+    -   **Multi-Select**: Hold `Shift` + Left Click, or Drag with Left Click on empty space.
+    -   **Deselect**: Left Click on empty ground (without dragging).
+    -   **Place Item/Yukkuri**: Select an item from the bottom bar, then Left Click in the world.
     -   **Cancel Placement**: Right Click while in placement mode.
+    -   **Context Menu**: Right Click on an entity (Not fully implemented in MVP).
 
--   **Shortcuts**:
+-   **HUD Shortcuts**:
     -   **F3**: Toggle Debug Info Overlay.
     -   **F12**: Take Screenshot (saved to `screenshots/`).
 
@@ -57,103 +83,84 @@ python -m src.yukkuri_game.main --headless
     -   **Time**: Elapsed game time.
     -   **Time Controls**: Pause/Resume and cycle Speed (1x, 2x, 5x, 0.5x).
     -   **Save/Load**: Persist your game state.
+    -   **Settings**: Adjust volume and window settings.
 -   **Bottom Bar**:
-    -   **Buy Buttons**: Purchase new Yukkuris (e.g., Reimu) or Items (e.g., Cookie).
+    -   **Log**: Displays game events and notifications.
+    -   **Buy Buttons**: Purchase new Yukkuris (e.g., Reimu) or Items (e.g., Cookie, Bed).
+    -   **Tools**: Clean Tool for removing waste.
 
 ### Managing Yukkuris
 Click on a Yukkuri to view its details in the **Entity Info** window on the right.
--   **Stats**: Monitor Hunger, Happiness, Health, and Badges.
--   **Sell**: Sell the Yukkuri for money based on its quality (Health, Happiness, Badges, Age).
+-   **Stats**: Monitor Hunger, Happiness, Health, Social, Stress, and Badges.
+-   **Sell**: Sell the Yukkuri for money based on its quality score.
 -   **Train**: Train the Yukkuri to increase its Badge count and Happiness.
+-   **Punish**: Punish the Yukkuri to increase Discipline (but lowers Health/Happiness).
 
 ### Economy
--   Start with $1000.
--   Buy Items to keep Yukkuris happy and fed.
--   Sell well-raised Yukkuris to make a profit.
+-   **Starting Funds**: You begin with $1000.
+-   **Expenses**: Buy Food, Toys, and Beds to keep Yukkuris happy and healthy.
+-   **Profit**: Sell well-raised (high stats, badges, age) Yukkuris to make a profit.
 
 ## Customization
 
-The game is data-driven using TOML files in the `data/` directory.
+The game is heavily data-driven using TOML files located in the `data/` directory.
 
 ### Adding a New Yukkuri Type
 Edit `data/yukkuris/types.toml`:
 ```toml
 [yukkuris.new_type]
 name = "New Type"
-image = "image.png" # Place image in assets/images/
-max_health = 100
+image = "new_type.png" # Place image in assets/images/
+max_health = 120
 width = 64
 height = 64
+base_happiness = 50
+cost = 150
 ```
 
 ### Adding a New Item
 Edit `data/items/items.toml`:
 ```toml
-[items.new_item]
-name = "New Item"
-image = "item.png"
-cost = 50
-nutrition = 10
-fun = 5
+[items.super_cookie]
+name = "Super Cookie"
+image = "super_cookie.png"
+cost = 100
+nutrition = 50
+fun = 20
+comfort = 5
+is_portable = true
 ```
 
-### Animation Configuration
-Animations can be defined with advanced features like ping-pong loops and frame events. See [docs/animation.md](docs/animation.md) for details.
-
-### AI Behavior
-Edit `data/ai/actions.toml` to define new Utility Actions, Considerations, and Effects.
-
-Example Action:
-```toml
-[actions.Eat]
-weight = 2.0
-[actions.Eat.effects]
-type = "interact_item"
-target_stat = "nutrition"
-consume = true
-stat_changes = { hunger = -20.0, happiness = 5.0 }
-
-[[actions.Eat.considerations]]
-name = "Hunger"
-input = "hunger"
-curve = "linear"
-params = { m = 1.0, b = 0.0 }
-```
+### Configuring AI
+Edit `data/ai/actions.toml` to define new Utility Actions.
+Edit `data/ai/interactions.toml` to define social interaction outcomes.
+Edit `data/traits/traits.toml` to define personality traits and their modifiers.
 
 ## Project Structure
 
 This project follows a modular structure separating core engine features from game-specific logic.
 
 -   `src/yukkuri_game/engine/`: **Core Engine Framework**
-    -   `ecs.py`: A lightweight Entity Component System (ECS) wrapping `esper`.
+    -   `ecs.py`: A wrapper around `esper` providing an Entity Component System.
     -   `event_bus.py`: A publish-subscribe event system for decoupled communication.
     -   `resource_manager.py`: Handles loading and caching of assets and data (TOML).
-    -   `audio.py`: Manages sound playback.
+    -   `audio.py`: Manages sound playback via `pygame.mixer`.
     -   `service_locator.py`: Provides global access to essential services.
+    -   `core.py`: Contains the main `GameLoop` class.
 
 -   `src/yukkuri_game/game/`: **Game Logic Implementation**
-    -   `ai/`: Artificial Intelligence
-        -   `behavior.py`: Behavior Trees for complex decision making.
-        -   `utility.py`: Utility AI for scoring and selecting high-level goals.
-        -   `navigation_service.py`: Pathfinding logic.
-    -   `systems/`: **ECS Systems**
-        -   `physics.py`: Integration with `pymunk` for physics simulation.
-        -   `animation.py`: Handles sprite animation states.
-        -   `construction_system.py`: Manages building and placement logic.
-    -   `ui/`: **User Interface**
-        -   Built with `pygame_gui`, handling HUD, menus, and interactions.
+    -   `ai/`: Artificial Intelligence modules (Utility AI, Behavior Trees, Navigation).
+    -   `systems/`: **ECS Systems** handling logic for each frame (e.g., `PhysicsSystem`, `SocialSystem`).
+    -   `ui/`: **User Interface** built with `pygame_gui`.
     -   `components.py`: **Generic Components** (e.g., `Transform`, `Sprite`).
-    -   `yukkuri_components.py`: **Game-Specific Components** (e.g., `YukkuriStats`, `AIState`).
-    -   `entity_factory.py`: Centralized factory for creating entities (Yukkuris, Items, Poop) with correct components.
+    -   `yukkuri_components.py`: **Game-Specific Components** (e.g., `YukkuriStats`, `Personality`).
+    -   `entity_factory.py`: Centralized factory for creating entities.
     -   `game_manager.py`: Orchestrates high-level game flow.
-    -   `services.py`: **Game Services**
-        -   `EconomyService`: Manages money.
-        -   `TimeService`: Tracks game time and speed.
-        -   `PersistenceService`: Handles saving/loading to JSON.
-        -   `InputService`: Manages input modes (placement, cleaning).
+    -   `services.py`: Game Services (Economy, Time, Persistence, Input).
+    -   `yukkurrium.py`: World rendering and camera management.
 
 -   `data/`: **Data-Driven Configuration**
-    -   Defines entity types, AI parameters, and game balance rules via TOML files.
+    -   Contains TOML files defining game content and rules.
 
 -   `assets/`: **Static Assets**
     -   Contains images and sound files.
@@ -162,8 +169,9 @@ This project follows a modular structure separating core engine features from ga
 
 The codebase is fully documented using **Google Style Python Docstrings**. Every public function, method, and class includes a docstring detailing its purpose, arguments, and return values.
 
-### Documentation Style
-Example:
+### Documentation Standards
+When contributing, ensure all new code includes comprehensive docstrings:
+
 ```python
 def calculate_quality_score(self, yukkuri_stats: YukkuriStats) -> int:
     """
@@ -178,7 +186,7 @@ def calculate_quality_score(self, yukkuri_stats: YukkuriStats) -> int:
 ```
 
 ### Testing
-To run tests (if available):
+Run tests using `pytest`:
 ```bash
 pytest
 ```

@@ -1,8 +1,11 @@
+"""
+Module for rendering the HUD overlay.
+"""
 import pygame
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 from ...engine.ecs import World
-from ..components import Selectable
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState
+from ..components import Selectable, Transform
+from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality
 from ..services import InputService
 from pygame_gui.windows import UIMessageWindow
 
@@ -34,7 +37,7 @@ class HudRenderer:
         self.world = world
         self.fps = 0.0
 
-    def update(self, dt: float, selected_entities: list[int], show_debug: bool) -> None:
+    def update(self, dt: float, selected_entities: List[int], show_debug: bool) -> None:
         """
         Updates all HUD elements with current game data.
 
@@ -103,10 +106,10 @@ class HudRenderer:
         """
         Draws debug lines connecting the selected entity to others it has a relationship with.
         Color indicates affinity.
-        """
-        from ..components import Transform
-        from ..yukkuri_components import RelationshipRegistry
 
+        Args:
+            selected_entity (int): The ID of the selected entity.
+        """
         my_trans = self.world.get_component(selected_entity, Transform)
         registry = self.world.get_component(selected_entity, RelationshipRegistry)
 
@@ -174,7 +177,7 @@ class HudRenderer:
         # Let HudLayout handle optimization if needed, or just pass it.
         self.layout.update_hover_tooltip(text, input_service.hovered_entity_pos)
 
-    def _update_stats_display(self, selected_entities: list[int]) -> None:
+    def _update_stats_display(self, selected_entities: List[int]) -> None:
         """
         Updates the stats display for the selected entity.
 
@@ -248,7 +251,6 @@ class HudRenderer:
                 action = ai_state.current_action if ai_state else "None"
 
                 # Personality & Relationships
-                from ..yukkuri_components import Personality, RelationshipRegistry
                 pers = self.world.get_component(selected_entity, Personality)
                 rel_reg = self.world.get_component(selected_entity, RelationshipRegistry)
 
@@ -301,7 +303,12 @@ class HudRenderer:
         if not self.layout.debug_window or not self.layout.debug_text_box:
             return
 
-        entity_count = len(self.world._entities) # Accessing private _entities for debug
+        # Accessing private _entities for debug
+        # In a real scenario we might expose entity count publicly
+        try:
+            entity_count = len(self.world.get_all_entities())
+        except:
+            entity_count = 0
 
         debug_text = (
             f"<b>FPS:</b> {self.fps:.2f}<br>"

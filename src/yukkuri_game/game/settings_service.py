@@ -1,3 +1,6 @@
+"""
+Module defining the SettingsService.
+"""
 import json
 import os
 import copy
@@ -39,6 +42,9 @@ class SettingsService:
     def load_settings(self) -> None:
         """
         Loads settings from the JSON file.
+
+        Returns:
+            None
         """
         if os.path.exists(self.settings_file):
             try:
@@ -55,6 +61,9 @@ class SettingsService:
     def save_settings(self) -> None:
         """
         Saves the current settings to the JSON file.
+
+        Returns:
+            None
         """
         try:
             with open(self.settings_file, "w") as f:
@@ -66,6 +75,13 @@ class SettingsService:
     def _merge_settings(self, current: Dict[str, Any], new: Dict[str, Any]) -> None:
         """
         Recursively merges new settings into current settings.
+
+        Args:
+            current (Dict[str, Any]): The current settings dictionary to merge into.
+            new (Dict[str, Any]): The new settings dictionary to merge from.
+
+        Returns:
+            None
         """
         for key, value in new.items():
             if isinstance(value, dict) and key in current and isinstance(current[key], dict):
@@ -94,6 +110,9 @@ class SettingsService:
             category (str): The setting category.
             key (str): The setting key.
             value (Any): The new value.
+
+        Returns:
+            None
         """
         if category not in self.settings:
             self.settings[category] = {}

@@ -1,3 +1,6 @@
+"""
+Main entry point for the Yukkuri Raising Game.
+"""
 import sys
 import os
 from datetime import datetime

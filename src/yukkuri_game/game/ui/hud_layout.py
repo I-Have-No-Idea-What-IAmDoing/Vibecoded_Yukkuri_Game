@@ -1,6 +1,9 @@
+"""
+Module defining the HUD layout and UI element creation.
+"""
 import pygame
 import pygame_gui
-from typing import Optional
+from typing import Optional, Dict, Any
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox, UIHorizontalSlider, UIDropDownMenu
 
 class HudLayout:
@@ -26,11 +29,18 @@ class HudLayout:
         info_label (Optional[UITextBox]): Text box within the selection window showing stats.
         sell_btn (Optional[UIButton]): Button to sell the selected entity.
         train_btn (Optional[UIButton]): Button to train the selected entity.
+        punish_btn (Optional[UIButton]): Button to punish the selected entity.
         debug_window (Optional[UIWindow]): The debug info window.
         debug_text_box (Optional[UITextBox]): Text box within the debug window.
         settings_window (Optional[UIWindow]): The settings window.
+        settings_controls (Dict[str, Any]): Dictionary of controls in the settings window.
+        hover_tooltip_panel (Optional[UIPanel]): The tooltip panel.
+        hover_tooltip_label (Optional[UITextBox]): The tooltip text box.
+        buy_buttons (Dict[UIButton, Dict[str, Any]]): Mapping of buy buttons to entity data.
+        yukkuri_types (Dict[str, Any]): Loaded Yukkuri type data.
+        item_types (Dict[str, Any]): Loaded Item type data.
     """
-    def __init__(self, ui_manager: pygame_gui.UIManager, width: int, height: int, yukkuri_types: dict = None, item_types: dict = None):
+    def __init__(self, ui_manager: pygame_gui.UIManager, width: int, height: int, yukkuri_types: Optional[Dict[str, Any]] = None, item_types: Optional[Dict[str, Any]] = None):
         """
         Initializes the HudLayout.
 
@@ -59,7 +69,7 @@ class HudLayout:
         self.bottom_panel: Optional[UIPanel] = None
 
         # Buy Buttons Map: {button: {"type_id": str, "category": str, "cost": int}}
-        self.buy_buttons: dict = {}
+        self.buy_buttons: Dict[UIButton, Dict[str, Any]] = {}
 
         # Selection Window Elements
         self.selection_window: Optional[UIWindow] = None
@@ -79,7 +89,7 @@ class HudLayout:
 
         # Settings Window Elements
         self.settings_window: Optional[UIWindow] = None
-        self.settings_controls: dict = {}
+        self.settings_controls: Dict[str, Any] = {}
 
         # Hover Tooltip Elements
         self.hover_tooltip_panel: Optional[UIPanel] = None

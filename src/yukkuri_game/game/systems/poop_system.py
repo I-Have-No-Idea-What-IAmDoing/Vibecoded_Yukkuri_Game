@@ -1,3 +1,6 @@
+"""
+Module defining the PoopSystem logic.
+"""
 import random
 import math
 from ...engine.ecs import System, World
@@ -9,11 +12,17 @@ class PoopSystem(System):
     System responsible for Poop mechanics:
     1. Spawning poop periodically or based on cleanliness.
     2. Reducing cleanliness of Yukkuris near poop.
+
+    Attributes:
+        spawn_chance_per_second (float): Probability of pooping per second.
+        poop_radius (float): Radius within which poop affects cleanliness.
+        smell_strength (float): Amount of cleanliness lost per second near poop.
     """
 
     def __init__(self):
         """Initializes the PoopSystem with default configuration."""
         # Configuration
+        super().__init__()
         self.spawn_chance_per_second = 0.01 # % chance per second to poop randomly
         self.poop_radius = 200.0
         self.smell_strength = 5.0 # Cleanliness lost per second when near poop

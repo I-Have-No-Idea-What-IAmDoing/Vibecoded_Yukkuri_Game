@@ -1,3 +1,6 @@
+"""
+Module for managing audio playback.
+"""
 import pygame
 from loguru import logger
 import os
@@ -10,7 +13,9 @@ class AudioManager:
         enabled (bool): Whether audio is enabled (initialized successfully).
         sounds (dict[str, pygame.mixer.Sound]): A dictionary mapping sound names to pygame.mixer.Sound objects.
         music (pygame.mixer.Music): The current background music (not currently used).
-        volume (float): The global volume level (0.0 to 1.0).
+        master_volume (float): The global volume level (0.0 to 1.0).
+        bgm_volume (float): The background music volume level (0.0 to 1.0).
+        sfx_volume (float): The sound effects volume level (0.0 to 1.0).
     """
 
     def __init__(self) -> None:
@@ -75,6 +80,9 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 and 1.0.
+
+        Returns:
+            None
         """
         # Clamp volume
         self.master_volume = max(0.0, min(1.0, volume))
@@ -86,6 +94,9 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 and 1.0.
+
+        Returns:
+            None
         """
         self.bgm_volume = max(0.0, min(1.0, volume))
         if self.music:
@@ -97,6 +108,9 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 and 1.0.
+
+        Returns:
+            None
         """
         self.sfx_volume = max(0.0, min(1.0, volume))
         self._update_all_volumes()
@@ -104,12 +118,21 @@ class AudioManager:
     def _update_sound_volume(self, sound: pygame.mixer.Sound) -> None:
         """
         Updates the volume of a single sound object.
+
+        Args:
+            sound (pygame.mixer.Sound): The sound object to update.
+
+        Returns:
+            None
         """
         sound.set_volume(self.master_volume * self.sfx_volume)
 
     def _update_all_volumes(self) -> None:
         """
         Updates volumes for all loaded sounds and music.
+
+        Returns:
+            None
         """
         if not self.enabled:
             return

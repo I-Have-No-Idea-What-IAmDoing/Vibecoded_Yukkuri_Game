@@ -43,6 +43,7 @@ class TestFamilySystem:
         self.world.add_component(e1, AIState())
         reg1 = RelationshipRegistry(family_group_id=123)
         self.world.add_component(e1, reg1)
+        self.world.add_component(e1, AIState())
 
         e2 = self.world.create_entity()
         self.world.add_component(e2, YukkuriStats(name="Y2", type_id="marisa", happiness=50.0, stress=10.0))
@@ -50,6 +51,7 @@ class TestFamilySystem:
         self.world.add_component(e2, AIState())
         reg2 = RelationshipRegistry(family_group_id=123)
         self.world.add_component(e2, reg2)
+        self.world.add_component(e2, AIState())
 
         self.system.check_interval = 0.0
         self.system.update(self.world, 1.0)

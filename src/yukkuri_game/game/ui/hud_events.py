@@ -1,3 +1,6 @@
+"""
+Module for handling UI events from the HUD.
+"""
 import pygame
 import pygame_gui
 from typing import Optional, Callable, Dict, Any, TYPE_CHECKING
@@ -27,7 +30,10 @@ class HudEvents:
         layout (HudLayout): The layout component containing UI elements.
         gm (GameManager): The GameManager instance for game logic.
         event_bus (EventBus): The event bus.
-        selected_entity (int): The ID of the currently selected entity.
+        selected_entities (list[int]): The IDs of the currently selected entities.
+        settings_service (Optional[SettingsService]): The settings service.
+        audio_manager (Optional[AudioManager]): The audio manager.
+        on_error (Optional[Callable[[str], None]]): Callback for error reporting.
     """
     def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', event_bus: EventBus, on_error: Optional[Callable[[str], None]] = None):
         """
@@ -173,7 +179,8 @@ class HudEvents:
         if self.settings_service:
             self.layout.create_settings_window(self.settings_service.settings)
         else:
-            self.on_error("Settings Service not available.")
+            if self.on_error:
+                self.on_error("Settings Service not available.")
 
     def _handle_slider_event(self, event: pygame.event.Event) -> bool:
         """Handles slider movements for volume control."""

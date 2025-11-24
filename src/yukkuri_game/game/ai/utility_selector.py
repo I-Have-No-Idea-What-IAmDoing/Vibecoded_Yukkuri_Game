@@ -1,3 +1,6 @@
+"""
+Module defining the UtilitySelector behavior tree node.
+"""
 from typing import Optional, Any, TYPE_CHECKING
 from py_trees.common import Status
 
@@ -15,6 +18,10 @@ class UtilitySelector(Action):
     """
     Evaluates utility scores for available actions and selects the best one.
     Updates AIState.current_action.
+
+    Attributes:
+        engine (Optional[UtilityAIEngine]): The utility AI engine.
+        trait_service (Optional[TraitService]): The trait service.
     """
     def __init__(self, name: str = "Utility Selector", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None):
         """

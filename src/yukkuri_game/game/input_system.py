@@ -1,5 +1,8 @@
+"""
+Module defining the InputSystem logic.
+"""
 import pygame
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, List, Tuple
 from ..engine.ecs import System, World
 from ..engine.event_bus import EventBus
 from ..engine.audio import AudioManager
@@ -20,8 +23,12 @@ class InputSystem(System):
 
     Attributes:
         yukkurrium (Yukkurrium): The game world view manager.
-        event_bus (EventBus): The event bus for publishing and subscribing to events.
-        input_service (InputService): The service managing input state.
+        event_bus (Optional[EventBus]): The event bus for publishing and subscribing to events.
+        input_service (Optional[InputService]): The service managing input state.
+        audio (Optional[AudioManager]): The audio manager.
+        drag_start_pos (Optional[tuple[float, float]]): World coordinates where dragging started.
+        drag_end_pos (Optional[tuple[float, float]]): World coordinates where dragging currently is.
+        drag_start_screen_pos (Optional[tuple[int, int]]): Screen coordinates where dragging started.
     """
 
     def __init__(self, yukkurrium: 'Yukkurrium'):
@@ -35,9 +42,9 @@ class InputSystem(System):
         self.event_bus: Optional[EventBus] = None
         self.input_service: Optional[InputService] = None
         self.audio: Optional[AudioManager] = None
-        self.drag_start_pos: Optional[tuple[float, float]] = None
-        self.drag_end_pos: Optional[tuple[float, float]] = None
-        self.drag_start_screen_pos: Optional[tuple[int, int]] = None
+        self.drag_start_pos: Optional[Tuple[float, float]] = None
+        self.drag_end_pos: Optional[Tuple[float, float]] = None
+        self.drag_start_screen_pos: Optional[Tuple[int, int]] = None
 
     def on_placement_started(self, event: PlacementStartedEvent) -> None:
         """

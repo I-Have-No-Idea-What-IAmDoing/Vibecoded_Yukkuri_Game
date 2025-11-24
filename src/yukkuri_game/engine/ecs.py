@@ -1,3 +1,6 @@
+"""
+Module defining the Entity Component System (ECS) wrapper.
+"""
 from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 import esper
 import uuid

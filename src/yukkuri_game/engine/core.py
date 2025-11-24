@@ -1,3 +1,6 @@
+"""
+Module defining the core GameLoop class.
+"""
 import pygame
 import pygame_gui
 from loguru import logger

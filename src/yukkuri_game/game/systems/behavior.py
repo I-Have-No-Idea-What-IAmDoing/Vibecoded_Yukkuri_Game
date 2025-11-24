@@ -1,3 +1,6 @@
+"""
+Module defining the BehaviorSystem logic.
+"""
 from typing import Dict
 import py_trees
 from ...engine.ecs import System, World
