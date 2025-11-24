@@ -48,6 +48,7 @@ class TestFamilySystem:
         e2 = self.world.create_entity()
         self.world.add_component(e2, YukkuriStats(name="Y2", type_id="marisa", happiness=50.0, stress=10.0))
         self.world.add_component(e2, Transform(x=10, y=0)) # Nearby
+        self.world.add_component(e2, AIState(current_action="Idle"))
         self.world.add_component(e2, AIState())
         reg2 = RelationshipRegistry(family_group_id=123)
         self.world.add_component(e2, reg2)

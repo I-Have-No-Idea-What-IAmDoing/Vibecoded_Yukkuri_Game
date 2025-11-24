@@ -277,7 +277,7 @@ class TestHudRenderer:
         stats.hunger = 50.0
         stats.happiness = 60.0
         stats.health = 70.0
-        stats.badges = 1 # Badges is an int
+        stats.badges = 3 # Badges is an int
 
         ai = AIState()
         ai.current_action = "Eating"
@@ -294,6 +294,7 @@ class TestHudRenderer:
         text = hud_layout.info_label.set_text.call_args[0][0]
         assert "TestReimu" in text
         assert "Eating" in text
+        assert "<b>Badges:</b> 3" in text
         # assert "Gold" in text # We removed Gold badge logic from test setup as badges is int
 
     def test_update_selection_item(self, hud_renderer, hud_layout, mock_world):

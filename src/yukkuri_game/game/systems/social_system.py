@@ -85,7 +85,9 @@ class SocialSystem(System):
             if registry:
                 to_remove = []
                 now = time.time()
-                cutoff = now - 600 # 10 minutes retention for inactive relationships
+                # Retention policy: inactive relationships are removed
+                # cutoff: relationships older than this DURATION are removed
+                max_age = 600 # 10 minutes
 
                 for other_id, rel_data in registry.relationships.items():
                     # If not permanent (family/mate) and old
@@ -95,7 +97,8 @@ class SocialSystem(System):
                                   world.has_component(other_id, RelationshipRegistry) and \
                                   world.get_component(other_id, RelationshipRegistry).family_group_id == registry.family_group_id)
 
-                    if not is_special and (now - rel_data.last_update > cutoff):
+                    age = now - rel_data.last_update
+                    if not is_special and age > max_age:
                         to_remove.append(other_id)
 
                 for rid in to_remove:
