@@ -75,3 +75,39 @@ class TraitService:
                 for cons_name, mod in trait_data["ai_modifiers"].items():
                     overrides[cons_name] = mod
         return overrides
+
+    def apply_trait_lenses(self, traits: set[str], personality_values: Dict[str, float]) -> Dict[str, float]:
+        """
+        Applies Trait Lenses to shift the center of personality values.
+
+        Example: 'Scum' might shift 'kindness' by -50.
+        """
+        adjusted_values = personality_values.copy()
+
+        for trait_id in traits:
+            trait_data = self.get_trait(trait_id)
+            if trait_data:
+                # Look for "lenses" or "stat_shifts" in trait data
+                # (Assuming structure like [traits.GESU.stat_shifts] kindness = -50.0)
+                shifts = trait_data.get("stat_shifts", {})
+                for stat, shift in shifts.items():
+                    if stat in adjusted_values:
+                         adjusted_values[stat] += shift
+                         # Clamp to -100 to 100
+                         adjusted_values[stat] = max(-100.0, min(100.0, adjusted_values[stat]))
+
+        return adjusted_values
+
+    def get_trait_tags(self, traits: set[str]) -> set[str]:
+        """
+        Returns a set of tags enabled by the traits.
+        e.g. "CAN_EAT_YUKKURI", "INVERT_SOCIAL"
+        """
+        tags = set()
+        for trait_id in traits:
+            trait_data = self.get_trait(trait_id)
+            if trait_data:
+                # Assuming [traits.GESU.tags] = ["INVERT_SOCIAL"]
+                t_tags = trait_data.get("tags", [])
+                tags.update(t_tags)
+        return tags

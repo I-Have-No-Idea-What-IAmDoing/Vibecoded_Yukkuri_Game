@@ -8,9 +8,15 @@ from ..engine.ecs import Component
 class Personality:
     """
     Component defining the personality of a Yukkuri.
+    Values should be -100 to 100 for axes.
     """
     traits: Set[str] = field(default_factory=set)    # IDs referencing TOML data
-    values: Dict[str, float] = field(default_factory=dict) # "compassion": 50.0
+    values: Dict[str, float] = field(default_factory=lambda: {
+        "kindness": 0.0,
+        "energy": 0.0,
+        "bravery": 0.0,
+        "greed": 0.0
+    })
     mood: str = "NEUTRAL"        # Current Mood State
     mood_score: float = 0.0      # Intensity of the mood
     cached_overrides: Optional[Dict[str, Any]] = None # Cached "effective overrides"
@@ -21,7 +27,7 @@ class MemoryRecord:
     actor_id: int
     action_type: str
     impact: float
-    permanent: bool = False # For trauma
+    locked: bool = False # Prevents overwriting by less important events
 
 @dataclass
 class RelationshipData:
@@ -29,8 +35,27 @@ class RelationshipData:
     trust: float = 0.0
     fear: float = 0.0
     familiarity: float = 0.0
-    memories: List[MemoryRecord] = field(default_factory=list) # Short list of recent impactful events
+
+    # Memory Buffers
+    trivial_memories: List[MemoryRecord] = field(default_factory=list) # Size 25
+    core_memories: List[MemoryRecord] = field(default_factory=list)    # Size 35
+
     last_update: float = 0.0  # Timestamp of last decay update
+
+@dataclass
+class GossipPacket:
+    source_id: int # Original witness
+    target_id: int # The entity the gossip is about
+    content: str   # "Hit", "Stole", etc.
+    timestamp: float
+    impact: float
+
+@dataclass
+class GossipQueue:
+    """
+    Component holding outgoing gossip to spread.
+    """
+    queue: List[GossipPacket] = field(default_factory=list)
 
 @dataclass
 class RelationshipRegistry:
