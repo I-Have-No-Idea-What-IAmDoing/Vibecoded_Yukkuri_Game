@@ -1,106 +1,121 @@
-"""
-Game Driver for automated testing.
-"""
-import random
-import time
-from typing import Generator, Any
 import pygame
+import random
 import numpy as np
-
-from .predicates import WaitCondition, WaitUntil, WaitFrames, Action, InjectInput
+from unittest.mock import patch
+from typing import Generator, Any
+from .utils import WaitFrames, WaitUntil, InjectInput
 
 class GameDriver:
     """
-    Controls the YukkuriGame instance for testing.
+    Controls the YukkuriGame instance for testing using a deterministic loop.
     """
-    def __init__(self, game_instance, fixed_dt: float = 1.0/60.0):
+    def __init__(self, game_instance, fixed_dt: float = 1.0/60.0, render_enabled: bool = False, timeout: float = 10.0):
         self.game = game_instance
         self.fixed_dt = fixed_dt
         self.simulated_time = 0.0
         self.frame_count = 0
-        self.timeout_limit = 10.0 # Default 10 seconds timeout for WaitUntil
+        self.timeout_limit = timeout
+        self.render_enabled = render_enabled
 
     def seed_rng(self, seed: int = 42):
         """Seeds random number generators for determinism."""
         random.seed(seed)
         np.random.seed(seed)
-        # If there are other RNGs, seed them here
 
     def setup(self):
         """Sets up the game instance."""
-        # Ensure headless mode is set if not already
-        self.game.set_headless(True)
+        # If render_enabled is True, we tell the game it's NOT headless
+        # so it initializes visual systems for screenshot verification.
+        # SDL_VIDEODRIVER=dummy handles the lack of a physical window.
+        if self.render_enabled:
+            self.game.set_headless(False)
+        else:
+            self.game.set_headless(True)
+
         self.game.setup()
 
-    def run_scenario(self, scenario_gen: Generator[Any, None, None]):
-        """
-        Runs a test scenario generator.
-        """
-        self.setup()
+    def _tick_game(self):
+        """Advances the game by one fixed timestep."""
+        # 1. Process events (including injected ones)
+        # We rely on the game's internal event handling or call it explicitly
+        if hasattr(self.game, 'handle_events'):
+            self.game.handle_events()
+        else:
+            pygame.event.pump()
 
-        for step in scenario_gen:
-            if isinstance(step, WaitUntil):
-                self._wait_until(step)
-            elif isinstance(step, WaitFrames):
-                self._wait_frames(step)
-            elif isinstance(step, InjectInput):
-                step.event_injector()
-                # Process events immediately after injection?
-                # Or wait for next tick.
-                # Usually input is processed at start of tick.
-            elif callable(step): # Support raw functions as actions
-                step()
-            else:
-                 # Maybe it's a direct command or assertion?
-                 pass
-
-            # After each step (or during waits), we might want to tick once?
-            # No, waits handle ticking. Actions happen instantly between ticks usually.
-
-    def _tick(self):
-        """Advances the game by one fixed time step."""
-        # We need to manually drive the loop
-
-        # 1. Handle Events (Process injected events)
-        self.game.handle_events()
-
-        # 2. Update Game State
-        # Ensure simulated time is updated in time service if it exists
-        # Although YukkuriGame.tick updates gm.time_elapsed, we can also ensure sync here if needed.
+        # 2. Update game logic
         self.game.tick(self.fixed_dt)
 
-        # 3. Render (Optional, for screenshots or verifying render logic)
-        # if needed: self.game.draw()
-        # But draw() flips display, which we might not want in dummy mode?
-        # headless mode usually skips draw() in main loop, but we can call render_world manually if needed.
+        # 3. Render (optional, for screenshots)
+        if self.render_enabled and hasattr(self.game, 'render_world'):
+            # Use render_world as per YukkuriGame implementation
+            # Also might want to trigger UI draw?
+            # YukkuriGame.draw() calls render_world and ui_manager.draw_ui
+            pass
 
         self.simulated_time += self.fixed_dt
         self.frame_count += 1
 
-    def _wait_frames(self, condition: WaitFrames):
-        for _ in range(condition.frames):
-            self._tick()
+    def run_scenario(self, scenario_gen: Generator[Any, None, None]):
+        """
+        Executes a scenario generator. Enforces a mocked time environment.
+        """
+        # Mock time.time and pygame.time.get_ticks to ensure strict determinism based on simulated ticks
+        with patch('time.time', side_effect=lambda: self.simulated_time), \
+             patch('pygame.time.get_ticks', side_effect=lambda: int(self.simulated_time * 1000)):
+            self.setup() # Ensure setup is called
+            iterator = iter(scenario_gen)
+            active_wait = None
 
-    def _wait_until(self, condition: WaitUntil):
-        start_time = self.simulated_time
-        while not condition.predicate():
-            if self.simulated_time - start_time > condition.timeout:
-                raise TimeoutError(f"Timed out waiting for: {condition.description}")
+            while True:
+                # Enforce global timeout
+                if self.simulated_time > self.timeout_limit:
+                    raise TimeoutError(f"Scenario timed out after {self.simulated_time:.2f}s")
 
-            self._tick()
+                # Check active wait condition
+                if active_wait:
+                    if active_wait.check(self):
+                        active_wait = None
+                    else:
+                        self._tick_game()
+                        continue
+
+                # Get next command
+                try:
+                    command = next(iterator)
+                except StopIteration:
+                    break
+
+                # Process Command
+                if isinstance(command, (WaitFrames, WaitUntil)):
+                    active_wait = command
+                    # Check immediately to avoid unnecessary tick
+                    if active_wait.check(self):
+                        active_wait = None
+
+                elif isinstance(command, InjectInput):
+                    command.inject()
+                    # Do not tick immediately; allow next command or loop to handle it
+
+                else:
+                    pass
+                    # raise ValueError(f"Unknown command yielded by scenario: {command}")
 
     def save_screenshot(self, filename: str):
-        """Saves the current screen state to a file."""
-        import os
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        """Saves the current frame to disk."""
+        if self.game.screen:
+            # If render_enabled, force a draw call to update the surface
+            if self.render_enabled:
+                 # Call the full draw method which handles screen clearing, world render and UI
+                 if hasattr(self.game, 'draw'):
+                     self.game.draw()
+                 elif hasattr(self.game, 'render_world'):
+                     self.game.render_world()
+                     if hasattr(self.game, 'ui_manager'):
+                         self.game.ui_manager.draw_ui(self.game.screen)
 
-        # Need to ensure something was rendered to the surface
-        if self.game.headless:
-             # In headless mode, we might not be drawing to screen.
-             # We might need to force a render to the surface.
-             self.game.render_world()
-             # And ui
-             self.game.ui_manager.draw_ui(self.game.screen)
-
-        pygame.image.save(self.game.screen, filename)
+            import os
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            pygame.image.save(self.game.screen, filename)
+        else:
+            raise RuntimeError("Cannot save screenshot: No screen surface available.")

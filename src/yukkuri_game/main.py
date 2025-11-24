@@ -52,6 +52,10 @@ class YukkuriGame(GameLoop):
         hud (HUD): The Heads-Up Display (when not headless).
     """
 
+    def __init__(self, headless: bool = False):
+        super().__init__(headless=headless)
+        self.hud = None
+
     def setup(self) -> None:
         """
         Sets up the game environment, systems, and initial state.
@@ -256,7 +260,7 @@ class YukkuriGame(GameLoop):
         super().tick(dt)
         self.yukkurrium.update(dt)
 
-        if not self.headless:
+        if not self.headless and self.hud:
             self.hud.fps = self.clock.get_fps()
             self.hud.update(dt)
 
@@ -395,9 +399,7 @@ def main() -> None:
     parser.add_argument("--headless", action="store_true", help="Run in headless mode (no window)")
     args = parser.parse_args()
 
-    game = YukkuriGame()
-    if args.headless:
-        game.set_headless(True)
+    game = YukkuriGame(headless=args.headless)
 
     game.run()
 

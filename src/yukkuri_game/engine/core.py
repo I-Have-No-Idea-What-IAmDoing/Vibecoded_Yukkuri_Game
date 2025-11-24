@@ -28,7 +28,7 @@ class GameLoop:
         dt (float): The time elapsed since the last frame in seconds.
     """
 
-    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game"):
+    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game", headless: bool = False):
         """
         Initializes the GameLoop.
 
@@ -36,16 +36,20 @@ class GameLoop:
             width (int, optional): The width of the window. Defaults to 1280.
             height (int, optional): The height of the window. Defaults to 720.
             title (str, optional): The title of the window. Defaults to "Yukkuri Raising Game".
+            headless (bool, optional): Whether to run in headless mode. Defaults to False.
         """
         pygame.init()
         self.width = width
         self.height = height
+
+        # In headless mode with dummy driver, we still create a surface for software rendering/screenshots
+        # If SDL_VIDEODRIVER is dummy, set_mode works fine and returns a surface.
         self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption(title)
 
         self.clock = pygame.time.Clock()
         self.running = True
-        self.headless = False
+        self.headless = headless
 
         # Resource Manager
         self.resources = ResourceManager()
