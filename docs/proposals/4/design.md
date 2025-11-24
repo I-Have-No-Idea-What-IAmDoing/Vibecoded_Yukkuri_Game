@@ -1,95 +1,68 @@
-# Automated Deterministic Headless Testing System
+# Automated Deterministic Headless Testing System (Revised)
 
 ## Abstract
-This proposal defines a robust architecture for automated system testing of the Yukkuri Game. It synthesizes the strengths of previous proposals (Headless rendering, Scenarios) while addressing their critical flaws (Determinism, Observability, Code Pollution). The core innovation is a **Generator-based Test Controller** that runs *inside* the game loop, allowing synchronous, deterministic interaction with the game state without threading race conditions or black-box limitations.
+This proposal defines a robust architecture for automated system testing of the Yukkuri Game. It focuses on **Determinism**, **Observability**, and **Separation of Concerns**. The core innovation is a **Composition-based Test Controller** that drives the standard game loop synchronously, injecting inputs via standard event queues and verifying state via direct object inspection.
 
 ## Core Philosophy
-1.  **Determinism is King:** Tests must be 100% reproducible. This requires a fixed time-step loop and explicit RNG seeding.
-2.  **White-Box Access:** The test runner must have direct access to the `YukkuriGame` instance to assert internal state (e.g., `assert yukkuri.hunger < 50`), not just look at pixels.
-3.  **Separation of Concerns:** Production code (`main.py`) stays clean. We introduce a dedicated `TestLauncher` that constructs the game in a test configuration.
+1.  **Determinism is King:** Tests must be 100% reproducible. This requires a fixed time-step loop, explicit RNG seeding, and isolation from wall-clock time.
+2.  **Test the Real Thing:** We test the actual `YukkuriGame` class, not a "test subclass". We avoid mocking core logic.
+3.  **Robust Synchronization:** We wait for *conditions* (predicates), not *time* (frames).
+4.  **Clean Environments:** Global state (env vars) is managed safely and isolated.
 
 ## Design
 
-### 1. The `HeadlessGame` Subclass
-Instead of modifying `YukkuriGame` with `if self.is_headless:`, we create a subclass (or a composition wrapper) specifically for testing.
+### 1. The `GameDriver` (Composition over Inheritance)
+Instead of subclassing `YukkuriGame`, we create a `GameDriver` class that *owns* and *controls* an instance of `YukkuriGame`.
+
+*   **Responsibility:** The `GameDriver` is responsible for setting up the environment (SDL drivers), initializing the game with a deterministic seed, and manually ticking the game loop.
+*   **Mechanism:** It acts as a wrapper. It does not replace `main.py`, but mimics `main.py`'s loop structure in a controlled way.
 
 ```python
-# src/yukkuri_game/testing/headless_game.py
-
-class HeadlessGame(YukkuriGame):
-    def __init__(self, scenario, seed=42):
-        # Force dummy driver
-        os.environ["SDL_VIDEODRIVER"] = "dummy"
-        super().__init__()
-
-        # Deterministic Seeding
-        random.seed(seed)
-        np.random.seed(seed)
-
-        # Inject the scenario
-        self.scenario_generator = scenario(self)
-
-    def run(self):
-        # Override the main loop to control time
-        while self.running:
-            # Fixed Time Step (e.g., 1/60s)
-            dt = 1.0 / 60.0
-
-            # 1. Process System Events (Quit, etc.)
-            self.process_events()
-
-            # 2. Step the Scenario (Inject Inputs / Assertions)
-            try:
-                next(self.scenario_generator)
-            except StopIteration:
-                self.running = False # End of test
-            except Exception as e:
-                self.fail(e)
-
-            # 3. Update Game Logic
-            self.update(dt)
-
-            # 4. Render (to offscreen surface)
-            self.draw()
+# Conceptual Usage
+with TestEnvironment() as env:
+    game = YukkuriGame(config=env.config)
+    driver = GameDriver(game)
+    driver.run_scenario(my_test_scenario)
 ```
 
-### 2. Scenario as a Coroutine
-Scenarios are Python generators. This allows natural, readable logic that "yields" control back to the game loop for one frame.
+### 2. Scenario as a Generator with Predicates
+Scenarios are Python generators that yield *commands* or *wait conditions* back to the driver. This avoids brittle "sleep for X frames" logic.
 
-```python
-def simple_spawn_scenario(game):
-    # Wait for initialization
-    for _ in range(60): yield # Wait 1 second (60 frames)
+*   **Wait for Condition:** `yield WaitUntil(lambda: game.entities.count > 0)`
+*   **Wait for Time:** `yield WaitFrames(60)` (Use sparingly, for animations only)
+*   **Action:** `yield InjectInput(Click(100, 100))`
 
-    # Inject Input
-    game.input_system.inject_click(x=100, y=100)
+The driver iterates the generator. If it yields a `WaitUntil`, the driver ticks the game loop until the predicate is true or a timeout is reached.
 
-    # Wait for reaction
-    for _ in range(30): yield
+### 3. Input Injection via Event Queue
+To ensure we test the full input pipeline, we do NOT mutate input state directly.
+*   **Mechanism:** We inject synthetic `pygame.event` objects into the queue using `pygame.event.post()` (or by mocking the event getter if strictly necessary, but `post` is preferred for realism).
+*   **Advantage:** This tests the game's event handling logic (e.g., did we click on a UI element or the map?).
 
-    # White-box Assertion
-    assert len(game.entity_manager.entities) == 1
+### 4. Deterministic Loop & Time
+The `GameDriver` runs the loop manually.
+*   It passes a fixed `dt` (e.g., 1/60.0) to `game.update(dt)`.
+*   It ensures `time.time()` calls (if any) are mocked or that the game uses a passed-in time accumulator.
+*   **RNG:** The driver explicitly seeds `random` and `numpy.random` before game initialization.
 
-    # Screenshot for debug/goldens
-    game.save_screenshot("spawn_test.png")
-```
+### 5. Environment & CI/CD
+*   **Headless Video:** We use the `SDL_VIDEODRIVER=dummy` environment variable. This is set using a `contextmanager` to ensure it is unset after the test, preventing pollution of other tests.
+*   **Headless Audio:** We set `SDL_AUDIODRIVER=dummy` or `disk` to prevent failures on CI servers lacking audio hardware.
+*   **Timeout:** The `GameDriver` enforces a strict timeout (e.g., 10 seconds of simulated time) to prevent infinite loops in broken tests.
 
-### 3. The Test Runner
-A simple script or Pytest fixture that:
-1.  Instantiates `HeadlessGame` with a specific `scenario`.
-2.  Runs it.
-3.  Catches exceptions propagated from the scenario.
+### 6. Verification Strategy
+*   **State Verification (Primary):** `assert game.state.x == y`.
+*   **Visual Verification (Optional):**
+    *   **Snapshots:** The driver can trigger `game.render()` to a surface and save it.
+    *   **Golden Management:** We will use a dedicated library (like `pytest-regressions` or custom) to manage baseline images.
+    *   **Failure Only:** By default, screenshots are only saved/checked if a state assertion fails, or explicitly requested in the scenario.
 
-### 4. Input Injection
-Instead of posting low-level Pygame events (which are asynchronous and can be erratic), the `HeadlessGame` will expose a direct `InputProxy` that modifies the input state directly or posts events synchronously at the start of the frame.
+## Implementation Plan
 
-### 5. Verification Strategy
-*   **State Verification (Primary):** `assert game.state.x == y`. Robust and strictly logic-based.
-*   **Visual Verification (Secondary):** Save screenshots on failure or at specific checkpoints. Use a "perceptual hash" or simple file existence check rather than strict pixel comparison to reduce flakiness.
+1.  **Refactor Game Loop:** Ensure `YukkuriGame` has a `tick(dt)` method that separates logic from the `while True` loop, making it drivable.
+2.  **Create `TestEnvironment` Context Manager:** Handles SDL env vars.
+3.  **Implement `GameDriver`:** The core runner that handles the generator and ticks the game.
+4.  **Implement Wait Predicates:** `WaitUntil`, `WaitFrames`.
+5.  **Implement Input Helpers:** `Click`, `KeyPress` wrappers around `pygame.event.post`.
 
-## Comparison to Previous Proposals
-*   **vs Prop 1:** Uses a generator/coroutine model instead of a rigid list of dicts. This allows logic (`if x: do y`) in tests.
-*   **vs Prop 3:** Runs in-process (white-box) instead of subprocess (black-box). Solves the observability problem. Uses inheritance to keep `main.py` clean. Enforces fixed time-steps for determinism.
-
-## Implementation Tasks
-See `tasks.md`.
+See `tasks.md` for the breakdown.
