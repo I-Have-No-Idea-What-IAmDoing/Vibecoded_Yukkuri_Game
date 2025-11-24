@@ -1,6 +1,7 @@
 """
 Module defining the core GameLoop class.
 """
+import os
 import pygame
 import pygame_gui
 from loguru import logger
@@ -20,6 +21,7 @@ class GameLoop:
         clock (pygame.time.Clock): The game clock for managing frame rate.
         running (bool): Flag indicating if the game loop is running.
         headless (bool): Flag indicating if the game is running in headless mode (no window).
+        render_headless (bool): Flag indicating if we should render even in headless mode (for screenshots).
         resources (ResourceManager): The resource manager instance.
         ui_manager (pygame_gui.UIManager): The UI manager instance.
         world (World): The ECS world instance.
@@ -28,7 +30,7 @@ class GameLoop:
         dt (float): The time elapsed since the last frame in seconds.
     """
 
-    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game"):
+    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game", headless: bool = False, render_headless: bool = False):
         """
         Initializes the GameLoop.
 
@@ -36,16 +38,33 @@ class GameLoop:
             width (int, optional): The width of the window. Defaults to 1280.
             height (int, optional): The height of the window. Defaults to 720.
             title (str, optional): The title of the window. Defaults to "Yukkuri Raising Game".
+            headless (bool, optional): Whether to run in headless mode. Defaults to False.
+            render_headless (bool, optional): Whether to render to a surface in headless mode. Defaults to False.
         """
+        self.headless = headless
+        self.render_headless = render_headless
+
+        # NOTE: We do not set SDL_VIDEODRIVER here to avoid side effects.
+        # It should be set by the caller (main.py or test runner) before init.
+        # But for convenience, if we detect we are headless and driver is not set, we warn or set it?
+        # Actually, let's just assume the caller handles it.
+        # However, to be safe for existing calls, if headless is True and we are about to init pygame,
+        # we might need to ensure it's dummy if not set.
+        if self.headless and "SDL_VIDEODRIVER" not in os.environ:
+             logger.warning("Headless mode requested but SDL_VIDEODRIVER not set. Setting to 'dummy'.")
+             os.environ["SDL_VIDEODRIVER"] = "dummy"
+
         pygame.init()
         self.width = width
         self.height = height
+
+        # When headless with dummy driver, set_mode creates a surface that works for offscreen rendering
+        # provided SDL_VIDEODRIVER is dummy.
         self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption(title)
 
         self.clock = pygame.time.Clock()
         self.running = True
-        self.headless = False
 
         # Resource Manager
         self.resources = ResourceManager()
@@ -61,6 +80,13 @@ class GameLoop:
         self.time_scale = 1.0
         self.paused = False
         self.dt = 0.0
+
+    @property
+    def should_render(self) -> bool:
+        """
+        Returns True if the game should render the frame.
+        """
+        return not self.headless or self.render_headless
 
     def setup(self) -> None:
         """
@@ -169,7 +195,8 @@ class GameLoop:
         while self.running:
             self.handle_events()
             self.update()
-            if not self.headless:
+
+            if self.should_render:
                 self.draw()
 
         pygame.quit()

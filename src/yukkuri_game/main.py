@@ -52,6 +52,11 @@ class YukkuriGame(GameLoop):
         hud (HUD): The Heads-Up Display (when not headless).
     """
 
+    def __init__(self, headless: bool = False, render_headless: bool = False):
+        super().__init__(headless=headless, render_headless=render_headless)
+        self.hud = None
+        self.render_system = None
+
     def setup(self) -> None:
         """
         Sets up the game environment, systems, and initial state.
@@ -142,6 +147,8 @@ class YukkuriGame(GameLoop):
         fullscreen = window_settings.get("fullscreen", False)
 
         # Apply window settings if different from default
+        # If headless but we are rendering, we still don't want to change resolution unless we want to resize the surface.
+        # Generally keep it simple for now.
         if not self.headless:
              flags = pygame.RESIZABLE
              if fullscreen:
@@ -189,7 +196,8 @@ class YukkuriGame(GameLoop):
         self.world.add_system(SocialSystem(self.event_bus))
         self.world.add_system(FamilySystem())
 
-        if not self.headless:
+        # Enable RenderSystem and HUD if not headless OR if render_headless
+        if self.should_render:
             self.render_system = RenderSystem(self.screen, self.world)
             # RenderSystem is not added to world updates because it should be called in render_world
             # self.world.add_system(self.render_system)
@@ -202,8 +210,11 @@ class YukkuriGame(GameLoop):
             self.event_bus.subscribe(CycleSpeedRequest, lambda e: self.cycle_speed())
             self.event_bus.subscribe(ResolutionChangedEvent, self.on_resolution_changed)
 
-        # Initial Population
-        if not self.headless:
+        # Initial Population - Create entities even if headless if we want simulation?
+        # The prompt says "test in real conditions". So we likely want to spawn entities.
+        # Originally it was `if not self.headless:` which means headless mode was probably just checking if engine boots up?
+        # We should allow spawning if we are testing.
+        if self.should_render:
             # Create a starting Reimu
             start_x = float(self.yukkurrium.width) / 2.0
             start_y = float(self.yukkurrium.height) / 2.0
@@ -223,15 +234,21 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
-        if not self.headless:
+        # We want to handle events even if headless if we are testing (input simulation)
+        # But we need to be careful about what events.
+        # KEYDOWN events for screenshots/debug might only make sense if we have a keyboard,
+        # but simulated events should work.
+
+        if self.should_render:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F3:
-                    self.hud.toggle_debug()
+                    if self.hud: self.hud.toggle_debug()
                 elif event.key == pygame.K_F12:
                     self.take_screenshot()
 
             self.input_system.handle_event(event, self.world, self.width, self.height, self.ui_manager)
-            self.hud.process_event(event)
+            if self.hud:
+                self.hud.process_event(event)
 
     def update(self) -> None:
         """
@@ -248,7 +265,7 @@ class YukkuriGame(GameLoop):
         super().update()
         self.yukkurrium.update(self.dt)
 
-        if not self.headless:
+        if self.should_render and self.hud:
             self.hud.fps = self.clock.get_fps()
             self.hud.update(self.dt)
 
@@ -270,7 +287,7 @@ class YukkuriGame(GameLoop):
         self.render_world()
 
         # Draw HUD overlays (like selection box)
-        if not self.headless and self.hud:
+        if self.should_render and self.hud:
             self.hud.draw(self.screen)
 
         self.ui_manager.draw_ui(self.screen)
@@ -283,7 +300,7 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
-        if not self.headless and self.render_system:
+        if self.should_render and self.render_system:
             self.render_system.update(self.world, self.dt)
 
     def toggle_pause(self) -> None:
@@ -311,7 +328,7 @@ class YukkuriGame(GameLoop):
             next_idx = 0
 
         self.time_scale = speeds[next_idx]
-        if self.hud.layout.speed_btn:
+        if self.hud and self.hud.layout.speed_btn:
             self.hud.layout.speed_btn.set_text(f"{self.time_scale}x")
 
     def on_resolution_changed(self, event: ResolutionChangedEvent) -> None:
@@ -321,7 +338,7 @@ class YukkuriGame(GameLoop):
         Args:
             event (ResolutionChangedEvent): The resolution changed event.
         """
-        if self.headless:
+        if self.headless and not self.render_headless:
             return
 
         self.width = event.width
@@ -365,10 +382,23 @@ def main() -> None:
     parser.add_argument("--headless", action="store_true", help="Run in headless mode (no window)")
     args = parser.parse_args()
 
-    game = YukkuriGame()
-    if args.headless:
-        game.set_headless(True)
+    # Pass headless argument to constructor
+    game = YukkuriGame(headless=args.headless)
 
+    # Check if headless and set dummy driver BEFORE game.run() if it hasn't started yet?
+    # No, game.run() calls setup() and loop.
+    # But GameLoop.__init__ calls pygame.init().
+    # So environment var must be set BEFORE YukkuriGame() is instantiated.
+    # Wait, YukkuriGame() is instantiated here.
+    # GameLoop.__init__ is called.
+
+    # If args.headless is True, we should set env var HERE.
+    if args.headless:
+        os.environ["SDL_VIDEODRIVER"] = "dummy"
+
+    # NOTE: If we run this main(), we are the main process, so setting env var is fine.
+
+    game = YukkuriGame(headless=args.headless)
     game.run()
 
 if __name__ == "__main__":
