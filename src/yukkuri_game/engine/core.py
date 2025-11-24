@@ -61,6 +61,7 @@ class GameLoop:
         self.time_scale = 1.0
         self.paused = False
         self.dt = 0.0
+        self.is_setup = False
 
     def setup(self) -> None:
         """
