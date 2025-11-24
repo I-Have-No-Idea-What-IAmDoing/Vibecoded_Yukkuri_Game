@@ -1,29 +1,36 @@
-"""
-Predicates for test scenarios.
-"""
-from typing import Callable, Any
+from dataclasses import dataclass
+from typing import Callable, Optional
 
+@dataclass
 class WaitCondition:
     """Base class for wait conditions."""
     pass
 
+@dataclass
 class WaitUntil(WaitCondition):
-    """Waits until a predicate returns True."""
-    def __init__(self, predicate: Callable[[], bool], timeout: float = 5.0, description: str = "Condition"):
-        self.predicate = predicate
-        self.timeout = timeout
-        self.description = description
+    """
+    Command to wait until a predicate function returns True.
+    """
+    predicate: Callable[[], bool]
+    # Default to None so we can inherit the GameDriver's timeout_limit
+    timeout: Optional[float] = None
+    description: str = "Condition"
 
+@dataclass
 class WaitFrames(WaitCondition):
-    """Waits for a specific number of frames."""
-    def __init__(self, frames: int):
-        self.frames = frames
+    """
+    Command to wait for a specific number of frames.
+    """
+    frames: int
 
+@dataclass
 class Action:
     """Base class for actions."""
     pass
 
+@dataclass
 class InjectInput(Action):
-    """Action to inject an input event."""
-    def __init__(self, event_injector: Callable[[], None]):
-        self.event_injector = event_injector
+    """
+    Command to inject input via an InputHelper callable.
+    """
+    event_injector: Callable[[], None]

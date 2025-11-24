@@ -3,7 +3,7 @@ Game Driver for automated testing.
 """
 import random
 import time
-from typing import Generator, Any
+from typing import Generator, Any, Optional
 import pygame
 import numpy as np
 
@@ -20,6 +20,9 @@ class GameDriver:
         self.frame_count = 0
         self.timeout_limit = 10.0 # Default 10 seconds timeout for WaitUntil
 
+        # Determinism: Seed RNGs
+        self.seed_rng()
+
     def seed_rng(self, seed: int = 42):
         """Seeds random number generators for determinism."""
         random.seed(seed)
@@ -31,6 +34,14 @@ class GameDriver:
         # Ensure headless mode is set if not already
         self.game.set_headless(True)
         self.game.setup()
+
+    def cleanup(self):
+        """
+        Cleans up the game environment.
+        Call this after running tests to close the Pygame window/context.
+        """
+        if pygame.get_init():
+            pygame.quit()
 
     def run_scenario(self, scenario_gen: Generator[Any, None, None]):
         """
@@ -45,46 +56,40 @@ class GameDriver:
                 self._wait_frames(step)
             elif isinstance(step, InjectInput):
                 step.event_injector()
-                # Process events immediately after injection?
-                # Or wait for next tick.
-                # Usually input is processed at start of tick.
+                # Input is injected immediately; it will be processed in the next _tick()
             elif callable(step): # Support raw functions as actions
                 step()
             else:
-                 # Maybe it's a direct command or assertion?
                  pass
-
-            # After each step (or during waits), we might want to tick once?
-            # No, waits handle ticking. Actions happen instantly between ticks usually.
 
     def _tick(self):
         """Advances the game by one fixed time step."""
         # We need to manually drive the loop
 
-        # 1. Handle Events (Process injected events)
+        # 1. Pump Events (Process injected events)
+        # We call game.handle_events() to process SDL queue into game state
         self.game.handle_events()
 
         # 2. Update Game State
-        # Ensure simulated time is updated in time service if it exists
-        # Although YukkuriGame.tick updates gm.time_elapsed, we can also ensure sync here if needed.
         self.game.tick(self.fixed_dt)
-
-        # 3. Render (Optional, for screenshots or verifying render logic)
-        # if needed: self.game.draw()
-        # But draw() flips display, which we might not want in dummy mode?
-        # headless mode usually skips draw() in main loop, but we can call render_world manually if needed.
 
         self.simulated_time += self.fixed_dt
         self.frame_count += 1
 
     def _wait_frames(self, condition: WaitFrames):
-        for _ in range(condition.frames):
+        """Advances the simulation for a specific number of frames."""
+        target_frame = self.frame_count + condition.frames
+        while self.frame_count < target_frame:
             self._tick()
 
     def _wait_until(self, condition: WaitUntil):
         start_time = self.simulated_time
+
+        # Use condition specific timeout or fall back to driver default
+        timeout = condition.timeout if condition.timeout is not None else self.timeout_limit
+
         while not condition.predicate():
-            if self.simulated_time - start_time > condition.timeout:
+            if self.simulated_time - start_time > timeout:
                 raise TimeoutError(f"Timed out waiting for: {condition.description}")
 
             self._tick()

@@ -6,7 +6,7 @@ from yukkuri_game.main import YukkuriGame
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.testing.environment import TestEnvironment
 from yukkuri_game.testing.predicates import WaitUntil, WaitFrames
-from yukkuri_game.testing.input_helpers import post_mouse_click
+from yukkuri_game.testing.input_helpers import Click
 
 @pytest.fixture
 def game_driver():
