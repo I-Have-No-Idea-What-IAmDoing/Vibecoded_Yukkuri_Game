@@ -1,6 +1,9 @@
+"""
+Module implementing the social system for Yukkuri interaction and relationship management.
+"""
 import math
 import time
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 from loguru import logger
 import random
 
@@ -15,9 +18,21 @@ from ..events import SocialInteractionEvent
 class SocialSystem(System):
     """
     System responsible for managing social relationships, memory decay, and applying interaction effects.
+
+    Attributes:
+        trait_service (Optional[TraitService]): The service for accessing trait/interaction data.
+        cleanup_index (int): Index for distributed cleanup.
+        cleanup_batch_size (int): Batch size for distributed cleanup.
+        event_bus (EventBus): The event bus.
     """
 
     def __init__(self, event_bus: EventBus):
+        """
+        Initializes the SocialSystem.
+
+        Args:
+            event_bus (EventBus): The global event bus.
+        """
         super().__init__()
         self.trait_service: Optional[TraitService] = None
         # Distributed cleanup state
@@ -31,6 +46,13 @@ class SocialSystem(System):
         """
         Updates social states.
         Handles distributed cleanup of old relationships and Mood decay.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+
+        Returns:
+            None
         """
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
@@ -87,6 +109,12 @@ class SocialSystem(System):
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         """
         Event handler for social interactions.
+
+        Args:
+            event (SocialInteractionEvent): The social interaction event.
+
+        Returns:
+            None
         """
         # We need access to the world. System has self.ecs_world injected by World.add_system
         if not hasattr(self, 'ecs_world'):
@@ -95,9 +123,15 @@ class SocialSystem(System):
 
         self.register_interaction(self.ecs_world, event.initiator_id, event.target_id, event.interaction_type)
 
-    def _update_relationship_decay(self, rel_data: RelationshipData):
+    def _update_relationship_decay(self, rel_data: RelationshipData) -> None:
         """
         Lazily updates relationship values based on time elapsed since last update.
+
+        Args:
+            rel_data (RelationshipData): The relationship data to update.
+
+        Returns:
+            None
         """
         now = time.time()
         if rel_data.last_update == 0.0:
@@ -124,15 +158,18 @@ class SocialSystem(System):
 
         rel_data.last_update = now
 
-    def register_interaction(self, world: World, actor_id: int, target_id: int, interaction_name: str):
+    def register_interaction(self, world: World, actor_id: int, target_id: int, interaction_name: str) -> None:
         """
         Registers a social interaction between two Yukkuris and applies its effects.
 
         Args:
-            world: The ECS world.
-            actor_id: The ID of the doer.
-            target_id: The ID of the receiver.
-            interaction_name: The key in interactions.toml (e.g. "Hit", "Greet").
+            world (World): The ECS world.
+            actor_id (int): The ID of the doer.
+            target_id (int): The ID of the receiver.
+            interaction_name (str): The key in interactions.toml (e.g. "Hit", "Greet").
+
+        Returns:
+            None
         """
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
@@ -151,9 +188,18 @@ class SocialSystem(System):
         # Visual Feedback
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
 
-    def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Dict):
+    def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Dict[str, Any]) -> None:
         """
         Spawns floating text or icons based on interaction result.
+
+        Args:
+            world (World): The ECS World.
+            entity_id (int): The entity ID.
+            interaction_name (str): The interaction name.
+            data (Dict[str, Any]): The interaction data.
+
+        Returns:
+            None
         """
         factory = world.services.try_get(EntityFactory)
         if not factory:
@@ -193,9 +239,19 @@ class SocialSystem(System):
 
         factory.create_floating_text(fx, fy, text, color, size=24, lifetime=1.5)
 
-    def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Dict, role: str):
+    def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Dict[str, Any], role: str) -> None:
         """
         Applies the social impact to the subject regarding the other.
+
+        Args:
+            world (World): The ECS World.
+            subject_id (int): The subject entity ID.
+            other_id (int): The other entity ID.
+            data (Dict[str, Any]): The interaction data.
+            role (str): The role of the subject ("actor" or "target").
+
+        Returns:
+            None
         """
         if role == "actor":
             # Optional: Actor might feel satisfaction or guilt.

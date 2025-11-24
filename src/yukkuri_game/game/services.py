@@ -1,3 +1,6 @@
+"""
+Module defining core game services.
+"""
 import os
 import json
 from typing import Dict, Any, List, TYPE_CHECKING
@@ -361,6 +364,18 @@ class EconomyService:
 class InputService:
     """
     Service responsible for managing input state, specifically placement mode and selection.
+
+    Attributes:
+        _placing_mode (bool): Whether the game is in placement mode.
+        _place_type (str): The type ID of the entity being placed.
+        _place_cost (int): The cost of the entity being placed.
+        _place_entity_type (str): The category of the entity ("yukkuri" or "item").
+        _cleaning_mode (bool): Whether the game is in cleaning mode.
+        hovered_entity_id (int): The ID of the entity currently hovered over.
+        hovered_entity_pos (tuple[int, int]): The screen position of the mouse cursor.
+        drag_start_pos (tuple[int, int]): Screen coordinates where dragging started.
+        drag_current_pos (tuple[int, int]): Current screen coordinates of dragging.
+        is_dragging (bool): Whether a drag operation is in progress.
     """
     def __init__(self):
         """Initializes the InputService."""
@@ -480,6 +495,9 @@ class InputService:
 class GameService:
     """
     Service providing game-specific logic and utilities.
+
+    Attributes:
+        world (World): The ECS World instance.
     """
     def __init__(self, world: World):
         """

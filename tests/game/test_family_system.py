@@ -40,16 +40,19 @@ class TestFamilySystem:
         e1 = self.world.create_entity()
         self.world.add_component(e1, YukkuriStats(name="Y1", type_id="reimu", happiness=50.0, stress=10.0))
         self.world.add_component(e1, Transform(x=0, y=0))
-        self.world.add_component(e1, AIState(current_action="Idle"))
+        self.world.add_component(e1, AIState())
         reg1 = RelationshipRegistry(family_group_id=123)
         self.world.add_component(e1, reg1)
+        self.world.add_component(e1, AIState())
 
         e2 = self.world.create_entity()
         self.world.add_component(e2, YukkuriStats(name="Y2", type_id="marisa", happiness=50.0, stress=10.0))
         self.world.add_component(e2, Transform(x=10, y=0)) # Nearby
         self.world.add_component(e2, AIState(current_action="Idle"))
+        self.world.add_component(e2, AIState())
         reg2 = RelationshipRegistry(family_group_id=123)
         self.world.add_component(e2, reg2)
+        self.world.add_component(e2, AIState())
 
         self.system.check_interval = 0.0
         self.system.update(self.world, 1.0)

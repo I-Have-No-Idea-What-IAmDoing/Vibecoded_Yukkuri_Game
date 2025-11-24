@@ -1,3 +1,6 @@
+"""
+Module defining the FamilySystem logic.
+"""
 from typing import List, Optional
 import time
 from loguru import logger
@@ -11,14 +14,29 @@ class FamilySystem(System):
     Handles 'Take it easy together' logic:
     - High affinity entities forming a family.
     - Resource sharing (food/nest benefits).
+
+    Attributes:
+        check_interval (float): Time interval between family logic checks.
+        last_check (float): Time since last check.
     """
 
     def __init__(self):
+        """Initializes the FamilySystem."""
         super().__init__()
         self.check_interval = 2.0 # Check more frequently for resource sharing
         self.last_check = 0.0
 
     def update(self, world: World, dt: float) -> None:
+        """
+        Updates the FamilySystem.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+
+        Returns:
+            None
+        """
         self.last_check += dt
         if self.last_check >= self.check_interval:
             self.last_check = 0.0
@@ -28,6 +46,12 @@ class FamilySystem(System):
     def _process_family_formation(self, world: World):
         """
         Check for high affinity pairs that are not in a family and merge them.
+
+        Args:
+            world (World): The ECS World.
+
+        Returns:
+            None
         """
         entities = world.get_entities_with(RelationshipRegistry, YukkuriStats)
 
@@ -66,6 +90,12 @@ class FamilySystem(System):
         """
         Apply benefits to family members near each other.
         Includes simulated resource sharing.
+
+        Args:
+            world (World): The ECS World.
+
+        Returns:
+            None
         """
         from ..components import Transform
 

@@ -1,8 +1,11 @@
+"""
+Module for managing game resources like images, sounds, and data files.
+"""
 import os
 import msgspec
 import pygame
 from loguru import logger
-from typing import Any, Dict, Type, TypeVar
+from typing import Any, Dict, Type, TypeVar, Optional
 
 from .data_models import (
     YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction
@@ -44,7 +47,7 @@ class ResourceManager:
         self.item_types: Dict[str, ItemType] = {}
         self.ai_actions: Dict[str, AIAction] = {}
 
-    def load_toml_model(self, filepath: str, model: Type[T]) -> T | None:
+    def load_toml_model(self, filepath: str, model: Type[T]) -> Optional[T]:
         """
         Loads a TOML file relative to the data directory and parses it into a msgspec Struct.
 
@@ -53,7 +56,7 @@ class ResourceManager:
             model (Type[T]): The msgspec.Struct type to parse into.
 
         Returns:
-            T | None: The parsed data object, or None if loading fails.
+            Optional[T]: The parsed data object, or None if loading fails.
         """
         full_path = os.path.join(self.data_dir, filepath)
         try:

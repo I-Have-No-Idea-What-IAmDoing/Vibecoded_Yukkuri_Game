@@ -1,3 +1,6 @@
+"""
+Module defining the behavior tree logic for AI agents.
+"""
 import py_trees
 import math
 import random
@@ -363,10 +366,25 @@ class SocialInteract(Action):
     Handles social interaction with another Yukkuri.
     """
     def __init__(self, name: str, entity_id: int, world: 'World', interaction_type: str):
+        """
+        Initializes the SocialInteract action.
+
+        Args:
+            name (str): The name of the behavior node.
+            entity_id (int): The ID of the entity.
+            world (World): The ECS World instance.
+            interaction_type (str): The type of interaction (e.g., "Talk", "Fight").
+        """
         super().__init__(name, entity_id, world)
         self.interaction_type = interaction_type # "Talk", "Fight", "Dance"
 
     def update(self) -> Status:
+        """
+        Checks distance and performs the social interaction.
+
+        Returns:
+            Status: SUCCESS if interaction complete, RUNNING if waiting/moving closer, FAILURE if target invalid.
+        """
         super().update()
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
@@ -398,10 +416,25 @@ class FindSocialTarget(Action):
     Finds a target Yukkuri for social interaction based on criteria.
     """
     def __init__(self, name: str, entity_id: int, world: 'World', criteria: str):
+        """
+        Initializes the FindSocialTarget action.
+
+        Args:
+            name (str): The name of the behavior node.
+            entity_id (int): The ID of the entity.
+            world (World): The ECS World instance.
+            criteria (str): Criteria for selecting a target (e.g., "friend", "enemy", "any").
+        """
         super().__init__(name, entity_id, world)
         self.criteria = criteria # "friend", "enemy", "any"
 
     def update(self) -> Status:
+        """
+        Searches for a suitable social target.
+
+        Returns:
+            Status: SUCCESS if target found, FAILURE otherwise.
+        """
         super().update()
         if not self.world or not self.entity_id:
             return Status.FAILURE
@@ -721,6 +754,20 @@ def build_wander_behavior(entity_id: int, world: 'World', width: int, height: in
     return wander_sequence
 
 def build_talk_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    """
+    Builds the behavior subtree for the 'Talk' goal.
+
+    Args:
+        entity_id (int): The entity ID.
+        world (World): The ECS World.
+        width (int): World width.
+        height (int): World height.
+        check_goal_fn (Callable): Function to check if this is the current goal.
+        check_target_fn (Callable): Function to check if the target exists.
+
+    Returns:
+        Behaviour: The behavior subtree.
+    """
     talk_sequence = py_trees.composites.Sequence(name="Talk Sequence", memory=True)
     is_talking = Check(name="Goal=Talk?", check_fn=lambda: check_goal_fn("Talk"))
 
@@ -741,6 +788,20 @@ def build_talk_behavior(entity_id: int, world: 'World', width: int, height: int,
     return talk_sequence
 
 def build_fight_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    """
+    Builds the behavior subtree for the 'Fight' goal.
+
+    Args:
+        entity_id (int): The entity ID.
+        world (World): The ECS World.
+        width (int): World width.
+        height (int): World height.
+        check_goal_fn (Callable): Function to check if this is the current goal.
+        check_target_fn (Callable): Function to check if the target exists.
+
+    Returns:
+        Behaviour: The behavior subtree.
+    """
     fight_sequence = py_trees.composites.Sequence(name="Fight Sequence", memory=True)
     is_fighting = Check(name="Goal=Fight?", check_fn=lambda: check_goal_fn("Fight"))
 
@@ -761,6 +822,20 @@ def build_fight_behavior(entity_id: int, world: 'World', width: int, height: int
     return fight_sequence
 
 def build_dance_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+    """
+    Builds the behavior subtree for the 'Dance' goal.
+
+    Args:
+        entity_id (int): The entity ID.
+        world (World): The ECS World.
+        width (int): World width.
+        height (int): World height.
+        check_goal_fn (Callable): Function to check if this is the current goal.
+        check_target_fn (Callable): Function to check if the target exists.
+
+    Returns:
+        Behaviour: The behavior subtree.
+    """
     dance_sequence = py_trees.composites.Sequence(name="Dance Sequence", memory=True)
     is_dancing = Check(name="Goal=Dance?", check_fn=lambda: check_goal_fn("Dance"))
 

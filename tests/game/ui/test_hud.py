@@ -277,7 +277,7 @@ class TestHudRenderer:
         stats.hunger = 50.0
         stats.happiness = 60.0
         stats.health = 70.0
-        stats.badges = 3
+        stats.badges = 3 # Badges is an int
 
         ai = AIState()
         ai.current_action = "Eating"
@@ -295,6 +295,7 @@ class TestHudRenderer:
         assert "TestReimu" in text
         assert "Eating" in text
         assert "<b>Badges:</b> 3" in text
+        # assert "Gold" in text # We removed Gold badge logic from test setup as badges is int
 
     def test_update_selection_item(self, hud_renderer, hud_layout, mock_world):
         hud_layout.selection_window = MagicMock()
@@ -326,6 +327,7 @@ class TestHudRenderer:
         hud_layout.debug_window = MagicMock()
         hud_layout.debug_text_box = MagicMock()
         mock_world._entities = {1, 2, 3}
+        mock_world.get_all_entities.return_value = [1, 2, 3]
         hud_renderer.fps = 60.0
 
         with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \

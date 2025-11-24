@@ -1,3 +1,6 @@
+"""
+Module defining the StatDecaySystem logic.
+"""
 from ...engine.ecs import System, World
 from ..yukkuri_components import YukkuriStats, Dead
 from ...config import StatDecaySettings

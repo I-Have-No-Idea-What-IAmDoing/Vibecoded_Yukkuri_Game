@@ -1,3 +1,6 @@
+"""
+Module defining the LifecycleSystem logic.
+"""
 import random
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
@@ -87,9 +90,7 @@ class LifecycleSystem(System):
                     # For now, let's append "_dead" to the image name if possible,
                     # but we can't easily check file existence here without ResourceManager.
                     # As a safe fallback, we can flip it upside down (rotate 180)
-                    sprite.rotation = 180.0
                     sprite.flip_y = True
-                    # If we had a dead sprite, we'd do: sprite.image_name = sprite.image_name.replace(".png", "_dead.png")
 
     def _handle_growth(self, world: World) -> None:
         """

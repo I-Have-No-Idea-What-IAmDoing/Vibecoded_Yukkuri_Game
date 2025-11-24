@@ -1,3 +1,6 @@
+"""
+Module defining the ServiceLocator pattern.
+"""
 from typing import Type, TypeVar, Dict, Any, Optional
 
 T = TypeVar('T')

@@ -1,9 +1,13 @@
+"""
+Module handling the game world view and rendering.
+"""
 import pygame
 from ..engine.ecs import System, World
 from .components import Transform, Sprite, Selectable, FloatingText
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
 from .services import InputService
+from typing import Tuple
 
 class Yukkurrium:
     """
@@ -116,6 +120,7 @@ class WorldRenderer:
         screen (pygame.Surface): The surface to render to.
         yukkurrium (Yukkurrium): The world view manager.
         rm (ResourceManager): The resource manager for fetching assets.
+        font_cache (dict): Cache of pygame fonts.
     """
 
     def __init__(self, screen: pygame.Surface, yukkurrium: Yukkurrium, resource_manager: ResourceManager):
@@ -130,7 +135,7 @@ class WorldRenderer:
         self.screen = screen
         self.yukkurrium = yukkurrium
         self.rm = resource_manager
-        self.font_cache = {}
+        self.font_cache: dict = {}
 
     def _get_font(self, size: int) -> pygame.font.Font:
         """

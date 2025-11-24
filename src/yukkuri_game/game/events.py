@@ -1,3 +1,6 @@
+"""
+Module defining the game events.
+"""
 from dataclasses import dataclass
 from typing import Optional
 from ..engine.event_bus import Event
@@ -30,6 +33,13 @@ class PlacementStartedEvent(Event):
 class PlacementRequestedEvent(Event):
     """
     Event published when the user requests to place an entity at a location.
+
+    Attributes:
+        x (float): The x-coordinate of the placement.
+        y (float): The y-coordinate of the placement.
+        type_id (str): The ID of the type being placed.
+        cost (int): The cost of the entity.
+        entity_type (str): The category of the entity ("yukkuri" or "item").
     """
     x: float
     y: float

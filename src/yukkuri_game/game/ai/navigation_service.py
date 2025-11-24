@@ -1,3 +1,6 @@
+"""
+Module for handling navigation and pathfinding.
+"""
 import math
 from typing import List, Tuple, Optional
 from pathfinding.core.grid import Grid
@@ -8,6 +11,15 @@ from loguru import logger
 class NavigationService:
     """
     Service responsible for pathfinding and maintaining the navigation grid.
+
+    Attributes:
+        world_width (int): Width of the world in pixels.
+        world_height (int): Height of the world in pixels.
+        grid_step_size (int): Size of each grid cell in pixels.
+        matrix_w (int): Width of the grid in cells.
+        matrix_h (int): Height of the grid in cells.
+        grid (Grid): The pathfinding grid object.
+        finder (AStarFinder): The A* pathfinder instance.
     """
     def __init__(self, world_width: int, world_height: int, grid_step_size: int = 25):
         """
