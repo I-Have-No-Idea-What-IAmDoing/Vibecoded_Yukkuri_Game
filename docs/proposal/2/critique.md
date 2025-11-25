@@ -1,24 +1,52 @@
 # Critique: Force-Based Hopping Movement System (Proposal 2)
 
-## 1. Feature Creep & Z-Axis Hell
-Adding a simulated Z-axis to a 2D top-down physics engine is a rookie mistake. You are inviting a world of pain regarding depth sorting, collision detection (can I hop over a rock? If so, why did I collide with the wall behind it?), and visual disparities. Pymunk is a 2D engine. Fighting it to fake 3D height usually results in glitchy physics where entities get stuck in "walls" they supposedly jumped over.
+This proposal is a classic case of a developer falling in love with a "cute" idea without any regard for the technical nightmare it will create or the negative impact it will have on gameplay. It mistakes physical simulation for good game design, and in its quest for "realism," it guarantees a glitchy, frustrating, and un-fun experience.
 
-## 2. Gameplay Annoyance
-"Hopping" sounds cute on paper but is often infuriating in practice. If a Yukkuri moves in discrete impulses, it becomes imprecise.
-- **Overshooting**: AI will constantly overshoot targets because it's locked into a ballistic trajectory mid-hop.
-- **Micro-management**: Trying to interact with a moving object that is bouncing up and down is frustrating for the player (clicking on a moving target).
-- **Stuttery Visuals**: Unless the framerate and interpolation are perfect, rapid hopping can look like jitter.
+## 1. You Are Making a 2D Game. Stop Fighting It.
+The single most egregious flaw here is the "Z-Axis Simulation." You are proposing to bolt a crude, manually-coded 3D gravity simulation onto a sophisticated 2D physics engine. This is, without exaggeration, a recipe for disaster. You will spend months chasing down bugs where a Yukkuri's 2D collision box (managed by Pymunk) interacts with the world in a way that completely contradicts its fake 3D position (managed by your hacky Euler integration). Can a Yukkuri "hop over" a low wall? If the 2D collision box hits the wall, Pymunk will stop it. If your Z-height says it's "in the air," the sprite will float above the wall it's stuck on. This is how you create a game that feels fundamentally broken.
 
-## 3. Tightly Coupled Mess
-You are tightly coupling the physics movement logic to `YukkuriStats`.
-- `Agility`, `Health`, `Athleticism`, `Weight`, `Fullness`.
-This makes the movement system completely non-reusable. If you ever want to add a simple bouncy ball toy, or a predator that *doesn't* have "Fullness," you can't use this system. You've hardcoded game mechanics into the physics simulation layer.
+## 2. Hopping is Not Fun. It is Annoying.
+The design romanticizes the idea of "hopping" without considering the player experience.
+-   **Imprecision is Frustrating**: AI-controlled characters that are locked into ballistic arcs will constantly overshoot their destinations. They will fail to pick up items, fail to interact with other characters, and generally look incompetent.
+-   **Unresponsive Controls**: The "hop cycle" introduces mandatory delays (pre-hop, landing recovery). This means that a Yukkuri cannot react instantly to new threats or opportunities. For a simulation game that relies on observing emergent behavior, this will make the creatures feel sluggish and stupid.
+-   **Visual Noise**: Constant bouncing is visually distracting. It makes it harder for the player to track individual characters and assess the state of the game at a glance.
 
-## 4. Physics Hacks
-"Manual Euler integration for z" inside a `PhysicsSystem` that otherwise uses Pymunk's sophisticated solver is gross. You are mixing two different simulation models. Pymunk handles the X/Y collisions, but your manual hack handles Z gravity? When a Yukkuri "lands" (Z=0), you apply friction. But Pymunk applies friction *all the time* if shapes are touching. You'll be fighting the engine's built-in friction constantly to make the "Airborne" phase work.
+## 3. The "Stat-Driven" Ruse
+The proposal claims that coupling movement to a dozen different stats (`Agility`, `Health`, `Fullness`, etc.) will create deep, emergent gameplay. In reality, it will create an untunable mess. When a Yukkuri's movement feels wrong, where do you look? Is the impulse too low? Is the mass too high? Is the `Fullness` modifier miscalibrated? Is the `Athleticism` score not being calculated correctly? By creating this complex web of interdependencies, you are making it impossible to reason about and tune the most fundamental system in your game. This isn't depth; it's just complexity.
 
-## 5. Over-reliance on "Juice"
-This proposal prioritizes "Squash & Stretch" and "Dust Particles" (visual polish) over robust pathfinding and collision avoidance. A "bouncy" character that constantly gets stuck on corners or vibrates against walls because of physics conflicts isn't "juicy," it's broken.
+## 4. Physics Realism is a Trap
+The argument that "Force-Based" is better because "it respects mass" is a red herring. Games are not about physical accuracy; they are about creating a believable and controllable experience. Directly setting velocity is predictable, easy to debug, and gives you precise control over your character's movement. It is the correct tool for the job 99% of the time. Sacrificing that control for the sake of "realism" in a game about sentient bean paste buns is a foolish trade.
 
-## Summary
-The "Hopping" idea is good for flavor but terrible as a fundamental physics implementation. Don't fight the 2D physics engine. Don't bake RPG stats into the collision solver.
+---
+
+# Revise
+
+The goal—to make the Yukkuris *feel* like they are hopping—is a good one. The implementation is the problem. The solution is to treat movement as a solved problem and hopping as a purely **visual and aesthetic** layer on top.
+
+## 1. Separate Model from View
+The core of the problem is confusing how something *looks* with how it *works*.
+-   **Model (The Truth)**: The Yukkuri's position and collision should be managed by a simple, reliable, 2D velocity-based system. It slides from A to B. This is the "truth" that the pathfinding, AI, and collision systems care about.
+-   **View (The Illusion)**: The sprite's rendering position should be offset from the model's position. This is where you implement the "hop."
+
+## 2. Implement a Visual "Hop"
+Create a new component, `VisualBob`, with a single field: `timer`.
+
+```python
+@dataclass
+class VisualBob:
+    timer: float = 0.0
+    bob_height: float = 10.0
+    bob_speed: float = 5.0
+```
+
+In your rendering system, calculate a vertical offset using a sine wave:
+`render_y = model_y - abs(sin(visual_bob.timer * visual_bob.bob_speed)) * visual_bob.bob_height`
+
+When the Yukkuri is moving, increment the timer. When it stops, reset it. That's it. You now have a bouncing, hopping animation that is completely decoupled from the physics.
+
+## 3. Use Animation for Everything Else
+-   **Squash and Stretch**: This is an animation. Trigger a "landing" animation when the character stops moving, and a "prepare to move" animation when it starts. Don't tie it to a physics state machine.
+-   **Dust Particles**: This is a particle effect. Trigger it when the character's `is_moving` flag changes from `True` to `False`.
+
+## 4. Keep Stats in the AI Layer
+If you want a tired Yukkuri to move slower, the `YukkuriStats` component should affect the *target speed* that the AI requests. The AI asks to move at 50% speed; the movement system then reliably moves the character at that speed. This keeps the concerns separate: stats influence AI decisions, and AI decisions command a predictable movement system. Do not let stats directly manipulate physics parameters.
