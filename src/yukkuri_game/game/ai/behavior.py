@@ -1,35 +1,52 @@
 """
 Module defining the behavior tree logic for AI agents.
 """
-import py_trees
+
 import math
 import random
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+
+import py_trees
 import pymunk
-from typing import Optional, Callable, Any, TYPE_CHECKING
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
-from typing import Optional, Callable, Any, TYPE_CHECKING, Dict
-from ..components import Transform, PhysicsBody, Velocity, InteractionRequest, MovementController
-from ..yukkuri_components import AIState, ItemStats, YukkuriStats
-from .utility_selector import UtilitySelector
-from .base_action import Action
-from ..services import GameService
-from .navigation_service import NavigationService
-from .steering import Steering
+
 from ...config import GameConfig
 from ...engine.resource_manager import ResourceManager
+from ..components import (
+    InteractionRequest,
+    MovementController,
+    PhysicsBody,
+    Transform,
+    Velocity,
+)
+from ..services import GameService
+from ..yukkuri_components import AIState, ItemStats, YukkuriStats
+from .base_action import Action
+from .navigation_service import NavigationService
+from .utility_selector import UtilitySelector
 
 if TYPE_CHECKING:
-    from ..config import GameConfig
     from yukkuri_game.engine.ecs import World
 
+    from ..config import GameConfig
+
 # --- Behavior Tree Leaves (Actions) ---
+
 
 class MoveToTarget(Action):
     """
     Moves the entity towards a target using direct velocity control.
     """
-    def __init__(self, name: str = "Move To Target", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None, speed: float = 100.0):
+
+    def __init__(
+        self,
+        name: str = "Move To Target",
+        entity_id: Optional[int] = None,
+        world: Optional["World"] = None,
+        blackboard: Optional[Any] = None,
+        speed: float = 100.0,
+    ):
         super().__init__(name, entity_id, world, blackboard)
         self.speed = speed
 
@@ -59,8 +76,14 @@ class MoveToTarget(Action):
                 ai.current_target_id = -1
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 return Status.FAILURE
-        elif ai.state_data and "target_x" in ai.state_data and "target_y" in ai.state_data:
-            target_pos = pymunk.Vec2d(ai.state_data["target_x"], ai.state_data["target_y"])
+        elif (
+            ai.state_data
+            and "target_x" in ai.state_data
+            and "target_y" in ai.state_data
+        ):
+            target_pos = pymunk.Vec2d(
+                ai.state_data["target_x"], ai.state_data["target_y"]
+            )
 
         if target_pos is None:
             controller.target_velocity = pymunk.Vec2d(0, 0)
@@ -116,7 +139,16 @@ class Wander(Action):
         height (int): The height of the area to wander within.
         move_action (Optional[MoveToTarget]): The underlying move action used to reach the random target.
     """
-    def __init__(self, name: str = "Wander", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None, width: int = 3000, height: int = 3000):
+
+    def __init__(
+        self,
+        name: str = "Wander",
+        entity_id: Optional[int] = None,
+        world: Optional["World"] = None,
+        blackboard: Optional[Any] = None,
+        width: int = 3000,
+        height: int = 3000,
+    ):
         """
         Initializes the Wander action.
 
@@ -149,10 +181,12 @@ class Wander(Action):
             tx = random.uniform(0, self.width)
             ty = random.uniform(0, self.height)
             ai.state_data = {"target_x": tx, "target_y": ty}
-            ai.path = None # Reset path
+            ai.path = None  # Reset path
 
         # Create a temporary MoveToTarget to handle the actual movement logic
-        self.move_action = MoveToTarget(entity_id=self.entity_id, world=self.world, blackboard=self.blackboard)
+        self.move_action = MoveToTarget(
+            entity_id=self.entity_id, world=self.world, blackboard=self.blackboard
+        )
 
     def update(self) -> Status:
         """
@@ -165,11 +199,20 @@ class Wander(Action):
             return self.move_action.update()
         return Status.FAILURE
 
+
 class Interact(Action):
     """
     Handles interaction with a target entity (e.g., eating food).
     """
-    def __init__(self, name: str = "Interact", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None, consume: bool = True):
+
+    def __init__(
+        self,
+        name: str = "Interact",
+        entity_id: Optional[int] = None,
+        world: Optional["World"] = None,
+        blackboard: Optional[Any] = None,
+        consume: bool = True,
+    ):
         """
         Initializes the Interact action.
 
@@ -211,12 +254,14 @@ class Interact(Action):
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
         # print(f"Interact Check: Dist={dist}")
-        if dist <= 30.0: # Interaction range
+        if dist <= 30.0:  # Interaction range
             if not self.world.has_component(self.entity_id, InteractionRequest):
-                self.world.add_component(self.entity_id, InteractionRequest(
-                    target_id=ai.current_target_id,
-                    consume=self.consume
-                ))
+                self.world.add_component(
+                    self.entity_id,
+                    InteractionRequest(
+                        target_id=ai.current_target_id, consume=self.consume
+                    ),
+                )
             # We return SUCCESS immediately as the request is queued.
             # The system will handle the rest next frame.
             # If animations are needed, we might need to wait, but for now immediate success matches previous behavior.
@@ -224,11 +269,15 @@ class Interact(Action):
 
         return Status.RUNNING
 
+
 class SocialInteract(Action):
     """
     Handles social interaction with another Yukkuri.
     """
-    def __init__(self, name: str, entity_id: int, world: 'World', interaction_type: str):
+
+    def __init__(
+        self, name: str, entity_id: int, world: "World", interaction_type: str
+    ):
         """
         Initializes the SocialInteract action.
 
@@ -239,7 +288,7 @@ class SocialInteract(Action):
             interaction_type (str): The type of interaction (e.g., "Talk", "Fight").
         """
         super().__init__(name, entity_id, world)
-        self.interaction_type = interaction_type # "Talk", "Fight", "Dance"
+        self.interaction_type = interaction_type  # "Talk", "Fight", "Dance"
 
     def update(self) -> Status:
         """
@@ -266,19 +315,23 @@ class SocialInteract(Action):
             return Status.FAILURE
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
-        if dist <= 40.0: # Interaction range slightly larger for social
+        if dist <= 40.0:  # Interaction range slightly larger for social
             game_service = self.world.services.try_get(GameService)
             if game_service:
-                success = game_service.interact_social(self.entity_id, ai.current_target_id, self.interaction_type)
+                success = game_service.interact_social(
+                    self.entity_id, ai.current_target_id, self.interaction_type
+                )
                 return Status.SUCCESS if success else Status.FAILURE
 
         return Status.RUNNING
+
 
 class FindSocialTarget(Action):
     """
     Finds a target Yukkuri for social interaction based on criteria.
     """
-    def __init__(self, name: str, entity_id: int, world: 'World', criteria: str):
+
+    def __init__(self, name: str, entity_id: int, world: "World", criteria: str):
         """
         Initializes the FindSocialTarget action.
 
@@ -289,7 +342,7 @@ class FindSocialTarget(Action):
             criteria (str): Criteria for selecting a target (e.g., "friend", "enemy", "any").
         """
         super().__init__(name, entity_id, world)
-        self.criteria = criteria # "friend", "enemy", "any"
+        self.criteria = criteria  # "friend", "enemy", "any"
 
     def update(self) -> Status:
         """
@@ -312,7 +365,7 @@ class FindSocialTarget(Action):
         nearby_yukkuris = self.world.get_entities_with(YukkuriStats, Transform)
 
         best_target = -1
-        min_dist = float('inf')
+        min_dist = float("inf")
 
         for uid in nearby_yukkuris:
             if uid == self.entity_id:
@@ -322,7 +375,7 @@ class FindSocialTarget(Action):
             u_trans = self.world.get_component(uid, Transform)
 
             # Check criteria
-            is_compatible = (u_stats.type_id == my_stats.type_id)
+            is_compatible = u_stats.type_id == my_stats.type_id
 
             match = False
             if self.criteria == "any":
@@ -345,11 +398,19 @@ class FindSocialTarget(Action):
 
         return Status.FAILURE
 
+
 class Idle(Action):
     """
     Makes the entity idle (stop moving).
     """
-    def __init__(self, name: str = "Idle", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None):
+
+    def __init__(
+        self,
+        name: str = "Idle",
+        entity_id: Optional[int] = None,
+        world: Optional["World"] = None,
+        blackboard: Optional[Any] = None,
+    ):
         """
         Initializes the Idle action.
 
@@ -369,12 +430,13 @@ class Idle(Action):
             Status: Always returns SUCCESS.
         """
         if self.world is None or self.entity_id is None:
-            return Status.SUCCESS # Or failure?
+            return Status.SUCCESS  # Or failure?
 
         phys = self.world.get_component(self.entity_id, PhysicsBody)
         if phys:
             phys.body.velocity = (0, 0)
         return Status.SUCCESS
+
 
 class Check(Action):
     """
@@ -383,16 +445,17 @@ class Check(Action):
     Attributes:
         check_fn (Callable[[], bool]): The function to check.
     """
-    def __init__(self, name: str, check_fn: Callable[[], bool]):
-            """
-            Initializes the Check behavior.
 
-            Args:
-                name: The name of the behavior node.
-                check_fn: The function to call. Should return True for success.
-            """
-            super().__init__(name)
-            self.check_fn = check_fn
+    def __init__(self, name: str, check_fn: Callable[[], bool]):
+        """
+        Initializes the Check behavior.
+
+        Args:
+            name: The name of the behavior node.
+            check_fn: The function to call. Should return True for success.
+        """
+        super().__init__(name)
+        self.check_fn = check_fn
 
     def update(self) -> Status:
         """
@@ -405,16 +468,25 @@ class Check(Action):
             return Status.SUCCESS
         return Status.FAILURE
 
+
 # --- Behavior Tree Builder ---
+
 
 class BehaviorRegistry:
     """
     Registry for behavior tree construction functions associated with high-level goals.
     """
-    _goals: Dict[str, Callable[[int, 'World', int, int, Callable, Callable], Behaviour]] = {}
+
+    _goals: Dict[
+        str, Callable[[int, "World", int, int, Callable, Callable], Behaviour]
+    ] = {}
 
     @classmethod
-    def register_goal(cls, goal_name: str, builder: Callable[[int, 'World', int, int, Callable, Callable], Behaviour]):
+    def register_goal(
+        cls,
+        goal_name: str,
+        builder: Callable[[int, "World", int, int, Callable, Callable], Behaviour],
+    ):
         """
         Registers a behavior builder function for a specific goal.
 
@@ -435,7 +507,14 @@ class BehaviorRegistry:
         return cls._goals
 
 
-def build_eat_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+def build_eat_behavior(
+    entity_id: int,
+    world: "World",
+    width: int,
+    height: int,
+    check_goal_fn: Callable,
+    check_target_fn: Callable,
+) -> Behaviour:
     """
     Builds the behavior subtree for the 'Eat' goal.
     """
@@ -453,11 +532,14 @@ def build_eat_behavior(entity_id: int, world: 'World', width: int, height: int, 
     have_target_seq.add_children([check_target, move_to_food, interact_food])
 
     # 2b. If no target, Find Food
-    find_food = FindItem(name="Find Food", entity_id=entity_id, world=world, stat_criteria="nutrition")
+    find_food = FindItem(
+        name="Find Food", entity_id=entity_id, world=world, stat_criteria="nutrition"
+    )
 
     eat_execution.add_children([have_target_seq, find_food])
     eat_sequence.add_children([is_eating, eat_execution])
     return eat_sequence
+
 
 class FindItem(Action):
     """
@@ -466,7 +548,8 @@ class FindItem(Action):
     Attributes:
         stat_criteria (str): The item stat to look for (e.g., "nutrition", "fun").
     """
-    def __init__(self, name: str, entity_id: int, world: 'World', stat_criteria: str):
+
+    def __init__(self, name: str, entity_id: int, world: "World", stat_criteria: str):
         """
         Initializes the FindItem action.
 
@@ -494,13 +577,15 @@ class FindItem(Action):
         trans = self.world.get_component(self.entity_id, Transform)
 
         if not ai or not trans:
-                return Status.FAILURE
+            return Status.FAILURE
 
         game_service = self.world.services.try_get(GameService)
         best_item = -1
 
         if game_service:
-            best_item = game_service.find_best_item((trans.x, trans.y), self.stat_criteria)
+            best_item = game_service.find_best_item(
+                (trans.x, trans.y), self.stat_criteria
+            )
 
         if best_item != -1:
             ai.current_target_id = best_item
@@ -508,7 +593,15 @@ class FindItem(Action):
             return Status.SUCCESS
         return Status.FAILURE
 
-def build_sleep_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+
+def build_sleep_behavior(
+    entity_id: int,
+    world: "World",
+    width: int,
+    height: int,
+    check_goal_fn: Callable,
+    check_target_fn: Callable,
+) -> Behaviour:
     """
     Builds the behavior subtree for the 'Sleep' goal.
     """
@@ -521,18 +614,30 @@ def build_sleep_behavior(entity_id: int, world: 'World', width: int, height: int
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
     move_to_bed = MoveToTarget(name="Move To Bed", entity_id=entity_id, world=world)
-    interact_bed = Interact(name="Sleep In Bed", entity_id=entity_id, world=world, consume=False)
+    interact_bed = Interact(
+        name="Sleep In Bed", entity_id=entity_id, world=world, consume=False
+    )
 
     have_target_seq.add_children([check_target, move_to_bed, interact_bed])
 
     # 2. If no target, Find Bed
-    find_bed = FindItem(name="Find Bed", entity_id=entity_id, world=world, stat_criteria="comfort")
+    find_bed = FindItem(
+        name="Find Bed", entity_id=entity_id, world=world, stat_criteria="comfort"
+    )
 
     sleep_execution.add_children([have_target_seq, find_bed])
     sleep_sequence.add_children([is_sleeping, sleep_execution])
     return sleep_sequence
 
-def build_play_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+
+def build_play_behavior(
+    entity_id: int,
+    world: "World",
+    width: int,
+    height: int,
+    check_goal_fn: Callable,
+    check_target_fn: Callable,
+) -> Behaviour:
     """
     Builds the behavior subtree for the 'Play' goal.
     """
@@ -545,18 +650,30 @@ def build_play_behavior(entity_id: int, world: 'World', width: int, height: int,
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
     move_to_toy = MoveToTarget(name="Move To Toy", entity_id=entity_id, world=world)
-    interact_toy = Interact(name="Play With Toy", entity_id=entity_id, world=world, consume=False)
+    interact_toy = Interact(
+        name="Play With Toy", entity_id=entity_id, world=world, consume=False
+    )
 
     have_target_seq.add_children([check_target, move_to_toy, interact_toy])
 
     # 2. If no target, Find Toy
-    find_toy = FindItem(name="Find Toy", entity_id=entity_id, world=world, stat_criteria="fun")
+    find_toy = FindItem(
+        name="Find Toy", entity_id=entity_id, world=world, stat_criteria="fun"
+    )
 
     play_execution.add_children([have_target_seq, find_toy])
     play_sequence.add_children([is_playing, play_execution])
     return play_sequence
 
-def build_wander_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+
+def build_wander_behavior(
+    entity_id: int,
+    world: "World",
+    width: int,
+    height: int,
+    check_goal_fn: Callable,
+    check_target_fn: Callable,
+) -> Behaviour:
     """
     Builds the behavior subtree for the 'Wander' goal.
 
@@ -572,12 +689,23 @@ def build_wander_behavior(entity_id: int, world: 'World', width: int, height: in
         Behaviour: The behavior subtree.
     """
     wander_sequence = py_trees.composites.Sequence(name="Wander Sequence", memory=True)
-    is_wandering = Check(name="Goal=Wander?", check_fn=lambda: check_goal_fn("Wander") or check_goal_fn("move_random"))
+    is_wandering = Check(
+        name="Goal=Wander?",
+        check_fn=lambda: check_goal_fn("Wander") or check_goal_fn("move_random"),
+    )
     wander = Wander(entity_id=entity_id, world=world, width=width, height=height)
     wander_sequence.add_children([is_wandering, wander])
     return wander_sequence
 
-def build_talk_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+
+def build_talk_behavior(
+    entity_id: int,
+    world: "World",
+    width: int,
+    height: int,
+    check_goal_fn: Callable,
+    check_target_fn: Callable,
+) -> Behaviour:
     """
     Builds the behavior subtree for the 'Talk' goal.
     """
@@ -589,18 +717,32 @@ def build_talk_behavior(entity_id: int, world: 'World', width: int, height: int,
     have_target_seq = py_trees.composites.Sequence(name="Have Friend?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
-    move_to_friend = MoveToTarget(name="Move To Friend", entity_id=entity_id, world=world)
-    do_talk = SocialInteract(name="Talk", entity_id=entity_id, world=world, interaction_type="Talk")
+    move_to_friend = MoveToTarget(
+        name="Move To Friend", entity_id=entity_id, world=world
+    )
+    do_talk = SocialInteract(
+        name="Talk", entity_id=entity_id, world=world, interaction_type="Talk"
+    )
     have_target_seq.add_children([check_target, move_to_friend, do_talk])
 
     # 2. Find Friend
-    find_friend = FindSocialTarget(name="Find Friend", entity_id=entity_id, world=world, criteria="friend")
+    find_friend = FindSocialTarget(
+        name="Find Friend", entity_id=entity_id, world=world, criteria="friend"
+    )
 
     talk_execution.add_children([have_target_seq, find_friend])
     talk_sequence.add_children([is_talking, talk_execution])
     return talk_sequence
 
-def build_fight_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+
+def build_fight_behavior(
+    entity_id: int,
+    world: "World",
+    width: int,
+    height: int,
+    check_goal_fn: Callable,
+    check_target_fn: Callable,
+) -> Behaviour:
     """
     Builds the behavior subtree for the 'Fight' goal.
     """
@@ -613,17 +755,29 @@ def build_fight_behavior(entity_id: int, world: 'World', width: int, height: int
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
     move_to_enemy = MoveToTarget(name="Move To Enemy", entity_id=entity_id, world=world)
-    do_fight = SocialInteract(name="Fight", entity_id=entity_id, world=world, interaction_type="Fight")
+    do_fight = SocialInteract(
+        name="Fight", entity_id=entity_id, world=world, interaction_type="Fight"
+    )
     have_target_seq.add_children([check_target, move_to_enemy, do_fight])
 
     # 2. Find Enemy
-    find_enemy = FindSocialTarget(name="Find Enemy", entity_id=entity_id, world=world, criteria="enemy")
+    find_enemy = FindSocialTarget(
+        name="Find Enemy", entity_id=entity_id, world=world, criteria="enemy"
+    )
 
     fight_execution.add_children([have_target_seq, find_enemy])
     fight_sequence.add_children([is_fighting, fight_execution])
     return fight_sequence
 
-def build_dance_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
+
+def build_dance_behavior(
+    entity_id: int,
+    world: "World",
+    width: int,
+    height: int,
+    check_goal_fn: Callable,
+    check_target_fn: Callable,
+) -> Behaviour:
     """
     Builds the behavior subtree for the 'Dance' goal.
     """
@@ -635,16 +789,23 @@ def build_dance_behavior(entity_id: int, world: 'World', width: int, height: int
     have_target_seq = py_trees.composites.Sequence(name="Have Partner?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
-    move_to_partner = MoveToTarget(name="Move To Partner", entity_id=entity_id, world=world)
-    do_dance = SocialInteract(name="Dance", entity_id=entity_id, world=world, interaction_type="Dance")
+    move_to_partner = MoveToTarget(
+        name="Move To Partner", entity_id=entity_id, world=world
+    )
+    do_dance = SocialInteract(
+        name="Dance", entity_id=entity_id, world=world, interaction_type="Dance"
+    )
     have_target_seq.add_children([check_target, move_to_partner, do_dance])
 
     # 2. Find Partner (Any)
-    find_partner = FindSocialTarget(name="Find Partner", entity_id=entity_id, world=world, criteria="any")
+    find_partner = FindSocialTarget(
+        name="Find Partner", entity_id=entity_id, world=world, criteria="any"
+    )
 
     dance_execution.add_children([have_target_seq, find_partner])
     dance_sequence.add_children([is_dancing, dance_execution])
     return dance_sequence
+
 
 # Register default behaviors
 BehaviorRegistry.register_goal("Eat", build_eat_behavior)
@@ -656,7 +817,9 @@ BehaviorRegistry.register_goal("Fight", build_fight_behavior)
 BehaviorRegistry.register_goal("Dance", build_dance_behavior)
 
 
-def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, height: int) -> py_trees.composites.Sequence:
+def create_yukkuri_behavior_tree(
+    entity_id: int, world: "World", width: int, height: int
+) -> py_trees.composites.Sequence:
     """
     Builds the behavior tree for a Yukkuri.
 
@@ -711,12 +874,16 @@ def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, hei
     root.add_child(utility_selector)
 
     # 2. Execution Selector
-    execution_selector = py_trees.composites.Selector(name="Execution Selector", memory=False)
+    execution_selector = py_trees.composites.Selector(
+        name="Execution Selector", memory=False
+    )
 
     goals = BehaviorRegistry.get_goals()
 
     for name, builder in goals.items():
-        execution_selector.add_child(builder(entity_id, world, width, height, check_goal, check_target_exists))
+        execution_selector.add_child(
+            builder(entity_id, world, width, height, check_goal, check_target_exists)
+        )
 
     idle = Idle(entity_id=entity_id, world=world)
     execution_selector.add_child(idle)
