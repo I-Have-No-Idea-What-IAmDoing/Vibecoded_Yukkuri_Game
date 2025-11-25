@@ -98,6 +98,15 @@ class Yukkurrium:
                 dx, dy = event.rel
                 self.camera_x -= dx / self.zoom
                 self.camera_y -= dy / self.zoom
+        elif event.type == pygame.KEYDOWN:
+            mods = pygame.key.get_mods()
+            if mods & pygame.KMOD_CTRL:
+                if event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
+                    self.target_zoom += 0.1
+                    self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
+                elif event.key == pygame.K_MINUS:
+                    self.target_zoom -= 0.1
+                    self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
 
     def update(self, dt: float) -> None:
         """
@@ -109,6 +118,19 @@ class Yukkurrium:
         Returns:
             None
         """
+        # Handle continuous camera movement
+        keys = pygame.key.get_pressed()
+        speed = 500.0 * dt / self.zoom  # Adjust speed based on zoom
+
+        if keys[pygame.K_w] or keys[pygame.K_UP]:
+            self.camera_y -= speed
+        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
+            self.camera_y += speed
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+            self.camera_x -= speed
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+            self.camera_x += speed
+
         # Smooth zoom
         self.zoom += (self.target_zoom - self.zoom) * 5.0 * dt
 
