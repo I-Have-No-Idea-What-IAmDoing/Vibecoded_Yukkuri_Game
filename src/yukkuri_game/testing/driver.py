@@ -3,6 +3,7 @@ Game Driver for automated testing.
 """
 import random
 import time
+import inspect
 import pygame
 import os
 from typing import Generator, Any
@@ -74,11 +75,20 @@ class GameDriver:
                 elif callable(step): # Support raw functions as actions
                     step()
                 else:
-                     # Maybe it's a direct command or assertion?
-                     pass
+                    # Explicitly reject unknown yield values to prevent silent bugs
+                    # (e.g. yielding a generator object without 'yield from')
+                    if inspect.isgenerator(step):
+                        raise TypeError(
+                            f"Scenario yielded a generator object: {step!r}. "
+                            "Did you forget to use 'yield from'?"
+                        )
+                    raise TypeError(f"Unknown scenario step: {step!r}")
         except Exception as e:
             # Capture screenshot on failure
-            self.save_screenshot(f"screenshots/failure_{self.frame_count}.png")
+            try:
+                self.save_screenshot(f"screenshots/failure_{self.frame_count}.png")
+            except Exception as screenshot_error:
+                print(f"Failed to capture failure screenshot: {screenshot_error}")
             raise e
         finally:
             self._scenario_deadline = None
@@ -120,6 +130,7 @@ class GameDriver:
         timeout = condition.timeout if condition.timeout is not None else self.default_timeout
 
         while not condition.predicate():
+            # Check timeout before ticking to catch instant timeouts or previous tick expiration
             if self.simulated_time - start_time > timeout:
                 raise TimeoutError(f"Timed out waiting for: {condition.description}")
 
