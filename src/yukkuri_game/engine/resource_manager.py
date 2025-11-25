@@ -8,7 +8,7 @@ from loguru import logger
 from typing import Any, Dict, Type, TypeVar, Optional
 
 from .data_models import (
-    YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction
+    YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction, GameTuning
 )
 
 T = TypeVar("T")
@@ -26,6 +26,7 @@ class ResourceManager:
         yukkuri_types (Dict[str, YukkuriType]): Loaded Yukkuri type definitions.
         item_types (Dict[str, ItemType]): Loaded Item type definitions.
         ai_actions (Dict[str, AIAction]): Loaded AI action definitions.
+        tuning (GameTuning): Loaded game tuning parameters.
     """
 
     def __init__(self, data_dir: str = "data", assets_dir: str = "assets"):
@@ -46,6 +47,7 @@ class ResourceManager:
         self.yukkuri_types: Dict[str, YukkuriType] = {}
         self.item_types: Dict[str, ItemType] = {}
         self.ai_actions: Dict[str, AIAction] = {}
+        self.tuning: Optional[GameTuning] = None
 
     def load_toml_model(self, filepath: str, model: Type[T]) -> Optional[T]:
         """
@@ -65,13 +67,32 @@ class ResourceManager:
 
             decoded = msgspec.toml.decode(data, type=model)
             logger.info(f"Loaded TOML: {filepath}")
-            # We know decoded matches type=model, but mypy sees decode return as Any
-            # because of the msgspec issues we saw earlier or because decode is generic
-            # and sometimes returns Any if type is not fully known.
-            # Since we pass `type=model`, msgspec returns an instance of `model` (T).
-            return decoded  # type: ignore[no-any-return]
+            return decoded
         except Exception as e:
             logger.error(f"Failed to load TOML {filepath}: {e}")
+            return None
+
+    def load_json_model(self, filepath: str, model: Type[T]) -> Optional[T]:
+        """
+        Loads a JSON file relative to the data directory and parses it into a msgspec Struct.
+
+        Args:
+            filepath (str): The relative path to the JSON file within the data directory.
+            model (Type[T]): The msgspec.Struct type to parse into.
+
+        Returns:
+            Optional[T]: The parsed data object, or None if loading fails.
+        """
+        full_path = os.path.join(self.data_dir, filepath)
+        try:
+            with open(full_path, "rb") as f:
+                data = f.read()
+
+            decoded = msgspec.json.decode(data, type=model)
+            logger.info(f"Loaded JSON: {filepath}")
+            return decoded
+        except Exception as e:
+            logger.error(f"Failed to load JSON {filepath}: {e}")
             return None
 
     def load_image(self, filename: str) -> pygame.Surface:
@@ -92,7 +113,6 @@ class ResourceManager:
 
         full_path = os.path.join(self.assets_dir, "images", filename)
         try:
-            # Check if file exists, if not create a placeholder
             if not os.path.exists(full_path):
                 logger.warning(f"Image not found: {filename}. Creating placeholder.")
                 surf = pygame.Surface((32, 32))
@@ -113,7 +133,7 @@ class ResourceManager:
         """
         Loads all core game data from the data directory.
 
-        This includes Yukkuri types, Item types, and AI actions.
+        This includes Yukkuri types, Item types, AI actions, and game tuning.
 
         Returns:
             None
@@ -138,5 +158,8 @@ class ResourceManager:
             self.ai_actions = ai_data.actions
         else:
             self.ai_actions = {}
+
+        # Load Game Tuning
+        self.tuning = self.load_json_model("yukkuri_tuning.json", GameTuning)
 
         logger.info("All data loaded.")

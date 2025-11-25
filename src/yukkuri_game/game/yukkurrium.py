@@ -3,7 +3,7 @@ Module handling the game world view and rendering.
 """
 import pygame
 from ..engine.ecs import System, World
-from .components import Transform, Sprite, Selectable, FloatingText
+from .components import Transform, Sprite, Selectable, FloatingText, PhysicsBody, VisualTransform
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
 from .services import InputService
@@ -165,79 +165,71 @@ class WorldRenderer:
         self.draw_grid()
 
         # Render entities
-        entities = world.get_entities_with(Transform, Sprite)
-        # Sort by Y for depth
-        entities.sort(key=lambda e: world.get_component(e, Transform).y) # type: ignore
+        entities = world.get_entities_with(Transform, Sprite, PhysicsBody, VisualTransform)
+        # Sort by Y for depth (ground position)
+        entities.sort(key=lambda e: world.get_component(e, Transform).y)
 
         sw, sh = self.screen.get_size()
 
         for ent in entities:
             transform = world.get_component(ent, Transform)
             sprite = world.get_component(ent, Sprite)
+            phys_body = world.get_component(ent, PhysicsBody)
+            visual_transform = world.get_component(ent, VisualTransform)
 
-            if not transform or not sprite:
-                continue
+            # --- Draw Shadow ---
+            shadow_x, shadow_y = self.yukkurrium.world_to_screen(
+                visual_transform.shadow_position.x,
+                visual_transform.shadow_position.y,
+                sw, sh
+            )
+            shadow_radius_x = int(sprite.width * transform.scale * self.yukkurrium.zoom * 0.4)
+            shadow_radius_y = int(shadow_radius_x * 0.5)
 
+            if shadow_radius_x > 0 and shadow_radius_y > 0:
+                shadow_color = (0, 0, 0, 100) # RGBA with transparency
+                shadow_surface = pygame.Surface((shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(shadow_surface, shadow_color, shadow_surface.get_rect())
+                self.screen.blit(shadow_surface, (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y))
+
+            # --- Draw Sprite ---
             img = self.rm.load_image(sprite.image_name)
 
             # Calculate screen position
-            screen_x, screen_y = self.yukkurrium.world_to_screen(transform.x, transform.y, sw, sh)
+            base_screen_x, base_screen_y = self.yukkurrium.world_to_screen(transform.x, transform.y, sw, sh)
+
+            # Apply vertical offset for hopping effect, scaled by zoom
+            screen_y = base_screen_y - (visual_transform.vertical_offset * self.yukkurrium.zoom)
 
             # Scale
             scale = transform.scale * self.yukkurrium.zoom
 
-            # Handle animation (assume horizontal strip)
-            frame_width = sprite.width
-            frame_height = sprite.height
+            # Handle animation
+            img_width, img_height = img.get_size()
+            source_rect = pygame.Rect(0, 0, sprite.width, img_height)
 
-            # If the image is a sprite sheet, select the current frame
-            # Note: If the image is not a sprite sheet (just a single image),
-            # sprite.current_frame should be 0.
-
-            # Check if we need to subsurface
-            # This assumes the loaded image contains all frames horizontally
-            # We need to make sure we don't go out of bounds if image is just one frame
-            # but frame_count > 1 (configuration error) or if width is wrong.
-
-            img_width = img.get_width()
-            img_height = img.get_height()
-
-            # Default to full image
-            source_rect = pygame.Rect(0, 0, img_width, img_height)
-
-            # If sprite says it has frames and the image is wide enough, crop it
             if sprite.frame_count > 1:
-                # Calculate x offset
                 sx = sprite.current_frame * sprite.width
                 if sx + sprite.width <= img_width:
-                     source_rect = pygame.Rect(sx, 0, sprite.width, sprite.height)
+                     source_rect.x = sx
 
-            # Now create a subsurface or just use the image if it matches
-            # But wait, if we scale, we should scale the cropped part.
-
-            # Optimization: if we don't need to crop, don't subsurface
-            if source_rect.width == img_width and source_rect.height == img_height:
-                frame_img = img
-            else:
-                frame_img = img.subsurface(source_rect)
+            frame_img = img.subsurface(source_rect)
 
             # Apply flips
             if sprite.flip_x or sprite.flip_y:
                 frame_img = pygame.transform.flip(frame_img, sprite.flip_x, sprite.flip_y)
 
             if scale != 1.0:
-                # Simple optimization: check if size is reasonable
                 w = int(sprite.width * scale)
-                h = int(sprite.height * scale)
+                h = int(img_height * scale) # Use full height for scaling
                 if w <= 0 or h <= 0:
                     continue
-
                 scaled_img = pygame.transform.scale(frame_img, (w, h))
             else:
                 scaled_img = frame_img
 
             # Center the sprite
-            rect = scaled_img.get_rect(center=(int(screen_x), int(screen_y)))
+            rect = scaled_img.get_rect(center=(int(base_screen_x), int(screen_y)))
 
             # Culling
             if rect.colliderect(self.screen.get_rect()):

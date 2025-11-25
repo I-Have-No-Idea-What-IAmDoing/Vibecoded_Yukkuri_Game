@@ -1,0 +1,8 @@
+{
+  "visuals": {
+    "movement": {
+      "bob_height": 10.0,
+      "bob_speed": 5.0
+    }
+  }
+}
