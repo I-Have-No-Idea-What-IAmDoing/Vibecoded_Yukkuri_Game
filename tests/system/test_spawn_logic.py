@@ -3,8 +3,7 @@ System test for spawning logic.
 """
 import pytest
 from yukkuri_game.main import YukkuriGame
-from yukkuri_game.testing.predicates import WaitUntil, WaitFrames
-from yukkuri_game.testing.input_helpers import post_mouse_click, post_click, Click
+from yukkuri_game.testing.driver import WaitUntil, WaitFrames, Click, Screenshot
 
 # Note: game_driver fixture is now in conftest.py
 
@@ -29,22 +28,16 @@ def test_spawn_reimu(game_driver):
 
     def scenario():
         yield WaitFrames(5)
-        # We can inject input or call methods directly?
-        # Let's try to spawn one using factory directly to verify we can control state
-        # The proposal encouraged "Action: yield InjectInput(Click(100, 100))"
-        # But for direct test logic, we can also modify state.
-        # But let's stick to blackbox if possible?
-        # Spawning usually happens via UI interaction in real game (click "Place" then click "Map").
-        # If UI is not set up in default start, we might need to rely on direct calls for this specific test
-        # UNLESS we set up the UI state.
-
-        # For this test, let's keep the direct factory call to prove the driver works with mix of code.
+        # Direct state modification for setup
         game_driver.game.factory.create_yukkuri("reimu", 100, 100)
         yield WaitFrames(5)
 
         # Test input injection alias (won't do anything without UI logic hooked up to clicks)
         yield Click(200, 200)
         yield WaitFrames(1)
+
+        # Take a screenshot
+        yield Screenshot("screenshots/test_spawn_reimu.png")
 
     game_driver.seed_rng(42)
     game_driver.run_scenario(scenario())
@@ -55,6 +48,3 @@ def test_spawn_reimu(game_driver):
     # game.world.get_components return dict{entity_id: component}
     components = game_driver.game.world.get_components(YukkuriStats)
     assert len(components) == 1
-
-    # Take a screenshot manually to verify success screenshot
-    game_driver.save_screenshot("screenshots/test_spawn_reimu.png")

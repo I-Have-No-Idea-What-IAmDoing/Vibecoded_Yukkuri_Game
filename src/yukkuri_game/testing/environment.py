@@ -1,35 +1,36 @@
-"""
-Test Environment Context Manager.
-"""
 import os
-from contextlib import contextmanager
+import contextlib
 from typing import Generator
 
-@contextmanager
+@contextlib.contextmanager
 def TestEnvironment() -> Generator[None, None, None]:
     """
-    Context manager that forces SDL to use dummy drivers for headless testing.
-    Restores original environment variables upon exit.
+    Context manager that sets up a safe environment for headless testing.
+    Sets SDL_VIDEODRIVER to 'dummy' and restores original environment variables afterwards.
     """
-    old_video = os.environ.get("SDL_VIDEODRIVER")
-    old_audio = os.environ.get("SDL_AUDIODRIVER")
+    # Cache original values
+    original_video = os.environ.get("SDL_VIDEODRIVER")
+    original_audio = os.environ.get("SDL_AUDIODRIVER")
 
-    # Force dummy drivers
+    # Set headless drivers
     os.environ["SDL_VIDEODRIVER"] = "dummy"
-    # Use dummy or disk to avoid audio hardware dependencies
+    # Use 'dummy' or 'disk' for audio to prevent hardware requirement
     os.environ["SDL_AUDIODRIVER"] = "dummy"
 
     try:
         yield
     finally:
         # Restore video driver
-        if old_video is None:
-            del os.environ["SDL_VIDEODRIVER"]
+        if original_video is not None:
+            os.environ["SDL_VIDEODRIVER"] = original_video
         else:
-            os.environ["SDL_VIDEODRIVER"] = old_video
+            # If it wasn't set, unset it
+            if "SDL_VIDEODRIVER" in os.environ:
+                del os.environ["SDL_VIDEODRIVER"]
 
         # Restore audio driver
-        if old_audio is None:
-            del os.environ["SDL_AUDIODRIVER"]
+        if original_audio is not None:
+            os.environ["SDL_AUDIODRIVER"] = original_audio
         else:
-            os.environ["SDL_AUDIODRIVER"] = old_audio
+            if "SDL_AUDIODRIVER" in os.environ:
+                del os.environ["SDL_AUDIODRIVER"]
