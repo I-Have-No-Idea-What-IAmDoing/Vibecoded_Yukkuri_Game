@@ -52,22 +52,21 @@ class GameDriver:
         """
         self.setup()
 
-        try:
-            for step in scenario_gen:
-                if isinstance(step, WaitUntil):
-                    self._wait_until(step)
-                elif isinstance(step, WaitFrames):
-                    self._wait_frames(step)
-                elif isinstance(step, InjectInput):
-                    # Execute the injection callable
-                    step.event_injector()
-                elif callable(step): # Support raw functions as actions
-                    step()
-                else:
-                     # Maybe it's a direct command or assertion?
-                     pass
-        finally:
-            self.cleanup()
+        for step in scenario_gen:
+            if isinstance(step, WaitUntil):
+                self._wait_until(step)
+            elif isinstance(step, WaitFrames):
+                self._wait_frames(step)
+            elif isinstance(step, InjectInput):
+                # Execute the injection callable
+                step.event_injector()
+            elif callable(step): # Support raw functions as actions
+                step()
+            else:
+                 # Maybe it's a direct command or assertion?
+                 pass
+        # Note: We do NOT call cleanup() here anymore, to allow post-scenario assertions and screenshots.
+        # The caller/fixture is responsible for calling cleanup().
 
     def _tick(self):
         """Advances the game by one fixed time step."""

@@ -11,10 +11,13 @@ from yukkuri_game.testing.input_helpers import post_mouse_click
 @pytest.fixture
 def game_driver():
     with TestEnvironment():
-        game = YukkuriGame()
+        # Use headless=True to match the intent of the test environment
+        game = YukkuriGame(headless=True)
         driver = GameDriver(game)
+        # Ensure deterministic RNG seeding for all tests using this fixture
+        driver.seed_rng()
         yield driver
-        # Teardown if needed
+        driver.cleanup()
 
 def test_initial_setup(game_driver):
     """
