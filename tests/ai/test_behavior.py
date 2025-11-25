@@ -3,11 +3,11 @@ import pytest
 import pymunk
 from py_trees.common import Status
 
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.components import Transform, MovementController
-from src.yukkuri_game.game.yukkuri_components import AIState, YukkuriStats
-from src.yukkuri_game.game.ai.behavior import MoveToTarget
-from src.yukkuri_game.game.ai.navigation_service import NavigationService
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.components import Transform, MovementController
+from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats
+from yukkuri_game.game.ai.behavior import MoveToTarget
+from yukkuri_game.game.ai.navigation_service import NavigationService
 
 @pytest.fixture
 def world_and_entity():
@@ -18,14 +18,16 @@ def world_and_entity():
     world.add_component(entity_id, Transform(x=0, y=0))
     world.add_component(entity_id, MovementController())
     world.add_component(entity_id, AIState())
-    world.add_component(entity_id, YukkuriStats())
+    world.add_component(entity_id, YukkuriStats(name="test_yukkuri", type_id="reimu"))
 
     # Mock navigation service
     class MockNavService(NavigationService):
+        def __init__(self, world_width: int, world_height: int):
+            pass
         def find_path(self, start, end):
             return [end] # Simple straight path
 
-    world.services.register(MockNavService(), NavigationService)
+    world.services.register(MockNavService(1000, 1000), NavigationService)
 
     return world, entity_id
 
@@ -95,10 +97,12 @@ def test_movetotarget_fails_gracefully_if_no_path(world_and_entity):
 
     # Mock failing navigation service
     class MockFailingNavService(NavigationService):
+        def __init__(self, world_width: int, world_height: int):
+            pass
         def find_path(self, start, end):
             return []
 
-    world.services.register(MockFailingNavService(), NavigationService)
+    world.services.register(MockFailingNavService(1000, 1000), NavigationService, replace=True)
 
     action = MoveToTarget(entity_id=entity_id, world=world)
     status = action.update()
