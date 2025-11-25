@@ -9,7 +9,7 @@ from typing import Optional, Callable, Any, TYPE_CHECKING
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
 from typing import Optional, Callable, Any, TYPE_CHECKING, Dict
-from ..components import Transform, PhysicsBody, Velocity, InteractionRequest
+from ..components import Transform, PhysicsBody, Velocity, InteractionRequest, MovementController
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats
 from .utility_selector import UtilitySelector
 from .base_action import Action
@@ -17,6 +17,7 @@ from ..services import GameService
 from .navigation_service import NavigationService
 from .steering import Steering
 from ...config import GameConfig
+from ...engine.resource_manager import ResourceManager
 
 if TYPE_CHECKING:
     from ..config import GameConfig
@@ -26,39 +27,16 @@ if TYPE_CHECKING:
 
 class MoveToTarget(Action):
     """
-    Moves the entity towards the current target set in AIState or a specific coordinate.
-
-    This implementation uses PhysicsBody if available, or direct Transform manipulation.
-
-    Attributes:
-        speed (float): The movement speed in pixels per second.
+    Moves the entity towards a target using direct velocity control.
     """
     def __init__(self, name: str = "Move To Target", entity_id: Optional[int] = None, world: Optional['World'] = None, blackboard: Optional[Any] = None, speed: float = 100.0):
-        """
-        Initializes the MoveToTarget action.
-
-        Args:
-            name (str): The name of the behavior node.
-            entity_id (Optional[int]): The ID of the entity.
-            world (Optional[World]): The ECS World instance.
-            blackboard (Optional[Any]): The Behavior Tree blackboard.
-            speed (float): The movement speed in pixels per second.
-        """
         super().__init__(name, entity_id, world, blackboard)
         self.speed = speed
-        self.last_position: Optional[Tuple[float, float]] = None
-        self.stuck_timer: float = 0.0
-        self.stuck_threshold: float = 1.0 # Seconds
 
     def update(self) -> Status:
         """
-        Updates the movement logic.
-
-        Calculates the direction to the target, applies velocity or transform changes,
-        and handles pathfinding along waypoints.
-
-        Returns:
-            Status: RUNNING if moving, SUCCESS if reached target, FAILURE if target lost or unreachable.
+        Calculates the velocity required to move towards the target and sets it
+        in the MovementController.
         """
         super().update()
         if self.world is None or self.entity_id is None:
@@ -66,183 +44,68 @@ class MoveToTarget(Action):
 
         ai = self.world.get_component(self.entity_id, AIState)
         trans = self.world.get_component(self.entity_id, Transform)
-        phys = self.world.get_component(self.entity_id, PhysicsBody)
+        stats = self.world.get_component(self.entity_id, YukkuriStats)
+        controller = self.world.get_component(self.entity_id, MovementController)
 
-        if not ai or not trans:
+        if not all([ai, trans, stats, controller]):
             return Status.FAILURE
 
         target_pos = None
-
-        # Determine target position
         if ai.current_target_id != -1:
             target_trans = self.world.get_component(ai.current_target_id, Transform)
             if target_trans:
-                target_pos = (target_trans.x, target_trans.y)
+                target_pos = pymunk.Vec2d(target_trans.x, target_trans.y)
             else:
-                # Target lost
                 ai.current_target_id = -1
+                controller.target_velocity = pymunk.Vec2d(0, 0)
                 return Status.FAILURE
         elif ai.state_data and "target_x" in ai.state_data and "target_y" in ai.state_data:
-            target_pos = (ai.state_data["target_x"], ai.state_data["target_y"])
+            target_pos = pymunk.Vec2d(ai.state_data["target_x"], ai.state_data["target_y"])
 
         if target_pos is None:
+            controller.target_velocity = pymunk.Vec2d(0, 0)
             return Status.FAILURE
 
-        dt = py_trees.blackboard.Blackboard().get("dt")
-        if dt is None:
-             dt = 0.016
-        dt = float(dt)
-
-        # Stuck Detection
-        if self.last_position:
-            moved_dist = math.hypot(trans.x - self.last_position[0], trans.y - self.last_position[1])
-            if moved_dist < (self.speed * dt * 0.1): # Moved less than 10% of expected speed
-                 self.stuck_timer += dt
-            else:
-                 self.stuck_timer = 0.0
-
-        self.last_position = (trans.x, trans.y)
-
-        if self.stuck_timer > self.stuck_threshold:
-             # If slightly stuck, try small random offset first
-             # If really stuck, full repath
-             self.stuck_timer = 0.0
-
-             # Apply random force (wiggle)
-             if phys:
-                  angle = random.uniform(0, math.pi * 2)
-                  force = 5000.0
-                  phys.body.apply_impulse_at_local_point((math.cos(angle) * force, math.sin(angle) * force))
-
-             # Also force repath
-             ai.path = None
-             return Status.RUNNING
-
-
-        # Pathfinding
+        # Pathfinding (simplified)
         if ai.path is None or len(ai.path) == 0:
-             # Simple check to see if we need pathfinding or just straight line
-             # For now, assuming pathfinding is always needed or available
-             # Check if we are already at the target before calling pathfinding
-             if math.hypot(target_pos[0] - trans.x, target_pos[1] - trans.y) < 15.0:
-                 return Status.SUCCESS
-
-             nav_service = self.world.services.try_get(NavigationService)
-             if nav_service:
-                 ai.path = nav_service.find_path((trans.x, trans.y), target_pos)
-             else:
-                 # Fallback if service not available (shouldn't happen)
-                 return Status.FAILURE
-
-             if not ai.path:
-                 return Status.FAILURE
+            nav_service = self.world.services.try_get(NavigationService)
+            if nav_service:
+                ai.path = nav_service.find_path((trans.x, trans.y), target_pos)
+            if not ai.path:
+                controller.target_velocity = pymunk.Vec2d(0, 0)
+                return Status.FAILURE
 
         # Move along path
-        if len(ai.path) > 0:
-            next_point = ai.path[0]
+        next_point = pymunk.Vec2d(ai.path[0][0], ai.path[0][1])
+        current_pos = pymunk.Vec2d(trans.x, trans.y)
+        vector_to_next = next_point - current_pos
+        dist_to_next = vector_to_next.length
 
-            # --- Raycast / Local Avoidance Check ---
-            # Before trying to reach next_point, let's see if we can actually see it
-            # or if we can see a further point (string pulling)
+        dist_to_final = (target_pos - current_pos).length
+        if dist_to_final < 15.0:
+            controller.target_velocity = pymunk.Vec2d(0, 0)
+            ai.path = []
+            return Status.SUCCESS
 
-            if phys and phys.body and getattr(phys.body, 'space', None):
-                # Check visibility to next waypoint
-                query_start = (trans.x, trans.y)
-
-                # String Pulling: Check if we can skip to further waypoints
-                # Look ahead up to 3 nodes
-                can_skip_to_index = -1
-                for i in range(min(len(ai.path), 3) - 1, 0, -1):
-                    target_node = ai.path[i]
-
-                    # Raycast
-                    shape_filter = pymunk.ShapeFilter(categories=0b1) # Assuming category 1 is for walls/obstacles
-                    # Use segment_query to get all hits, then filter out self
-                    hits = phys.body.space.segment_query(query_start, target_node, 1.0, shape_filter)
-
-                    is_clear = True
-                    for hit in hits:
-                        # Check if hit.shape is valid (it should be)
-                        if hit.shape is None:
-                            continue
-
-                        # Check if it's a sensor (sensors shouldn't block movement usually, but raycast hits them)
-                        if hit.shape.sensor:
-                            continue
-
-                        if hit.shape.body != phys.body:
-                            # Hit something that is not me
-
-                            # Double check if the hit is really 0 distance (meaning we are overlapping it at start)
-                            # segment_query returns hits along the segment.
-                            # If alpha is 0, it's at the start point.
-                            if hit.alpha < 0.001:
-                                # We are inside an obstacle? Or just touching?
-                                # If we are inside, we probably shouldn't consider it "blocking" the path forward if we are moving out of it?
-                                # But for now, assume any hit is a block.
-                                pass
-
-                            is_clear = False
-                            break
-
-                    if is_clear:
-                        # Clear path!
-                        can_skip_to_index = i
-                        break
-
-                if can_skip_to_index > 0:
-                    # We can skip intermediate nodes
-                    for _ in range(can_skip_to_index):
-                        ai.path.pop(0)
-                    next_point = ai.path[0]
-
-            # Re-calculate distance to (possibly new) next_point
-            dx = next_point[0] - trans.x
-            dy = next_point[1] - trans.y
-            dist = math.hypot(dx, dy)
-
-            # Check if we are close to the *final* target
-            dist_to_final = math.hypot(target_pos[0] - trans.x, target_pos[1] - trans.y)
-            # Use a threshold slightly smaller than the interaction range to ensure we are close enough to interact
-            if dist_to_final < 15.0:
-                ai.path = []
+        if dist_to_next < 15.0:
+            ai.path.pop(0)
+            if not ai.path:
+                controller.target_velocity = pymunk.Vec2d(0, 0)
                 return Status.SUCCESS
+            next_point = pymunk.Vec2d(ai.path[0][0], ai.path[0][1])
+            vector_to_next = next_point - current_pos
 
-            if dist < 15.0: # Reached waypoint (increased threshold for smoother cornering)
-                ai.path.pop(0)
-                if not ai.path: # Reached end of path
-                    return Status.SUCCESS
-                # Recalculate next point
-                next_point = ai.path[0]
+        # Calculate final velocity
+        # Simple speed modifier based on energy
+        speed_modifier = 1.0
+        if stats.energy < 30:
+            speed_modifier = 0.5
 
-            # Steering
-            if phys:
-                # Use Arrive for the last point, Seek for others
-                if len(ai.path) == 1:
-                    velocity = Steering.arrive((trans.x, trans.y), next_point, self.speed)
-                else:
-                    current_vel = (phys.body.velocity.x, phys.body.velocity.y)
-                    velocity = Steering.seek((trans.x, trans.y), next_point, self.speed, current_vel)
+        final_speed = self.speed * speed_modifier
+        controller.target_velocity = vector_to_next.normalized() * final_speed
 
-                phys.body.velocity = velocity
-                phys.body.activate()
-            else:
-                # Fallback to direct transform manipulation
-                step = self.speed * dt
-                if step > dist:
-                    trans.x = next_point[0]
-                    trans.y = next_point[1]
-                else:
-                    # Normalize
-                    if dist > 0:
-                         dx /= dist
-                         dy /= dist
-                         trans.x += dx * step
-                         trans.y += dy * step
+        return Status.RUNNING
 
-            return Status.RUNNING
-
-        return Status.SUCCESS
 
 class Wander(Action):
     """
@@ -575,25 +438,12 @@ class BehaviorRegistry:
 def build_eat_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
     """
     Builds the behavior subtree for the 'Eat' goal.
-
-    Args:
-        entity_id (int): The entity ID.
-        world (World): The ECS World.
-        width (int): World width.
-        height (int): World height.
-        check_goal_fn (Callable): Function to check if this is the current goal.
-        check_target_fn (Callable): Function to check if the target exists.
-
-    Returns:
-        Behaviour: The behavior subtree.
     """
     eat_sequence = py_trees.composites.Sequence(name="Eat Sequence", memory=True)
 
     is_eating = Check(name="Goal=Eat?", check_fn=lambda: check_goal_fn("Eat"))
-
     eat_execution = py_trees.composites.Selector(name="Eat Execution", memory=True)
 
-    # 2a. If we have a target, Go to it and Eat
     have_target_seq = py_trees.composites.Sequence(name="Have Target?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
@@ -661,25 +511,12 @@ class FindItem(Action):
 def build_sleep_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
     """
     Builds the behavior subtree for the 'Sleep' goal.
-
-    Args:
-        entity_id (int): The entity ID.
-        world (World): The ECS World.
-        width (int): World width.
-        height (int): World height.
-        check_goal_fn (Callable): Function to check if this is the current goal.
-        check_target_fn (Callable): Function to check if the target exists.
-
-    Returns:
-        Behaviour: The behavior subtree.
     """
     sleep_sequence = py_trees.composites.Sequence(name="Sleep Sequence", memory=True)
 
     is_sleeping = Check(name="Goal=Sleep?", check_fn=lambda: check_goal_fn("Sleep"))
-
     sleep_execution = py_trees.composites.Selector(name="Sleep Execution", memory=True)
 
-    # 1. If we have a target (bed), Go to it and Sleep
     have_target_seq = py_trees.composites.Sequence(name="Have Bed?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
@@ -698,25 +535,12 @@ def build_sleep_behavior(entity_id: int, world: 'World', width: int, height: int
 def build_play_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
     """
     Builds the behavior subtree for the 'Play' goal.
-
-    Args:
-        entity_id (int): The entity ID.
-        world (World): The ECS World.
-        width (int): World width.
-        height (int): World height.
-        check_goal_fn (Callable): Function to check if this is the current goal.
-        check_target_fn (Callable): Function to check if the target exists.
-
-    Returns:
-        Behaviour: The behavior subtree.
     """
     play_sequence = py_trees.composites.Sequence(name="Play Sequence", memory=True)
 
     is_playing = Check(name="Goal=Play?", check_fn=lambda: check_goal_fn("Play"))
-
     play_execution = py_trees.composites.Selector(name="Play Execution", memory=True)
 
-    # 1. If we have a target (toy), Go to it and Play
     have_target_seq = py_trees.composites.Sequence(name="Have Toy?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
@@ -756,26 +580,15 @@ def build_wander_behavior(entity_id: int, world: 'World', width: int, height: in
 def build_talk_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
     """
     Builds the behavior subtree for the 'Talk' goal.
-
-    Args:
-        entity_id (int): The entity ID.
-        world (World): The ECS World.
-        width (int): World width.
-        height (int): World height.
-        check_goal_fn (Callable): Function to check if this is the current goal.
-        check_target_fn (Callable): Function to check if the target exists.
-
-    Returns:
-        Behaviour: The behavior subtree.
     """
     talk_sequence = py_trees.composites.Sequence(name="Talk Sequence", memory=True)
     is_talking = Check(name="Goal=Talk?", check_fn=lambda: check_goal_fn("Talk"))
 
     talk_execution = py_trees.composites.Selector(name="Talk Execution", memory=True)
 
-    # 1. Have target?
     have_target_seq = py_trees.composites.Sequence(name="Have Friend?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+
     move_to_friend = MoveToTarget(name="Move To Friend", entity_id=entity_id, world=world)
     do_talk = SocialInteract(name="Talk", entity_id=entity_id, world=world, interaction_type="Talk")
     have_target_seq.add_children([check_target, move_to_friend, do_talk])
@@ -790,26 +603,15 @@ def build_talk_behavior(entity_id: int, world: 'World', width: int, height: int,
 def build_fight_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
     """
     Builds the behavior subtree for the 'Fight' goal.
-
-    Args:
-        entity_id (int): The entity ID.
-        world (World): The ECS World.
-        width (int): World width.
-        height (int): World height.
-        check_goal_fn (Callable): Function to check if this is the current goal.
-        check_target_fn (Callable): Function to check if the target exists.
-
-    Returns:
-        Behaviour: The behavior subtree.
     """
     fight_sequence = py_trees.composites.Sequence(name="Fight Sequence", memory=True)
     is_fighting = Check(name="Goal=Fight?", check_fn=lambda: check_goal_fn("Fight"))
 
     fight_execution = py_trees.composites.Selector(name="Fight Execution", memory=True)
 
-    # 1. Have target?
     have_target_seq = py_trees.composites.Sequence(name="Have Enemy?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+
     move_to_enemy = MoveToTarget(name="Move To Enemy", entity_id=entity_id, world=world)
     do_fight = SocialInteract(name="Fight", entity_id=entity_id, world=world, interaction_type="Fight")
     have_target_seq.add_children([check_target, move_to_enemy, do_fight])
@@ -824,26 +626,15 @@ def build_fight_behavior(entity_id: int, world: 'World', width: int, height: int
 def build_dance_behavior(entity_id: int, world: 'World', width: int, height: int, check_goal_fn: Callable, check_target_fn: Callable) -> Behaviour:
     """
     Builds the behavior subtree for the 'Dance' goal.
-
-    Args:
-        entity_id (int): The entity ID.
-        world (World): The ECS World.
-        width (int): World width.
-        height (int): World height.
-        check_goal_fn (Callable): Function to check if this is the current goal.
-        check_target_fn (Callable): Function to check if the target exists.
-
-    Returns:
-        Behaviour: The behavior subtree.
     """
     dance_sequence = py_trees.composites.Sequence(name="Dance Sequence", memory=True)
     is_dancing = Check(name="Goal=Dance?", check_fn=lambda: check_goal_fn("Dance"))
 
     dance_execution = py_trees.composites.Selector(name="Dance Execution", memory=True)
 
-    # 1. Have target? (Dance partner)
     have_target_seq = py_trees.composites.Sequence(name="Have Partner?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+
     move_to_partner = MoveToTarget(name="Move To Partner", entity_id=entity_id, world=world)
     do_dance = SocialInteract(name="Dance", entity_id=entity_id, world=world, interaction_type="Dance")
     have_target_seq.add_children([check_target, move_to_partner, do_dance])
@@ -924,14 +715,9 @@ def create_yukkuri_behavior_tree(entity_id: int, world: 'World', width: int, hei
 
     goals = BehaviorRegistry.get_goals()
 
-    # Add all registered goals to the execution selector
-    # The order here matters less because each goal starts with a Check(Goal=X)
-    # However, we should ensure we cover all potential goals returned by UtilitySelector
-
     for name, builder in goals.items():
         execution_selector.add_child(builder(entity_id, world, width, height, check_goal, check_target_exists))
 
-    # Always add Idle at the end as a fallback
     idle = Idle(entity_id=entity_id, world=world)
     execution_selector.add_child(idle)
 

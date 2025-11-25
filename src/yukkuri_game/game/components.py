@@ -4,6 +4,7 @@ Module defining core game components.
 from dataclasses import dataclass
 from typing import Dict, Optional
 import pymunk
+from pymunk.vec2d import Vec2d as Vector2
 from ..engine.data_models import AnimationDefinition
 
 @dataclass
@@ -134,3 +135,19 @@ class InteractionRequest:
     target_id: int
     consume: bool = True
     interaction_type: str = "DEFAULT"
+
+@dataclass
+class MovementController:
+    """A simple component that holds movement commands and visual state."""
+    target_velocity: Vector2 = Vector2(0, 0)
+
+    # --- Visual Tuning ---
+    visual_bob_timer: float = 0.0
+    bob_height: float = 10.0
+    bob_speed: float = 5.0
+
+@dataclass
+class VisualTransform:
+    """Holds visual-only transform data, decoupling rendering from physics."""
+    vertical_offset: float = 0.0
+    shadow_position: Vector2 = Vector2(0, 0)
