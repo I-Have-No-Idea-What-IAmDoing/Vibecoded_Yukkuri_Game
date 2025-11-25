@@ -4,6 +4,7 @@ Game Driver for automated testing.
 import random
 import time
 import pygame
+import os
 from typing import Generator, Any
 
 from .predicates import WaitUntil, WaitFrames, InjectInput
@@ -19,6 +20,7 @@ class GameDriver:
         self.frame_count = 0
         # Default fallback timeout if condition doesn't specify one
         self.default_timeout = 10.0
+        self._scenario_deadline = None
 
     def seed_rng(self, seed: int = 42):
         """Seeds random number generators for determinism."""
@@ -46,14 +48,22 @@ class GameDriver:
         """
         self.game.quit()
 
-    def run_scenario(self, scenario_gen: Generator[Any, None, None]):
+    def run_scenario(self, scenario_gen: Generator[Any, None, None], timeout: float = 10.0):
         """
         Runs a test scenario generator.
+
+        Args:
+            scenario_gen: The generator yielding steps.
+            timeout: Global simulated time timeout in seconds.
         """
         self.setup()
+        start_sim_time = self.simulated_time
+        self._scenario_deadline = start_sim_time + timeout
 
         try:
             for step in scenario_gen:
+                self._check_global_timeout()
+
                 if isinstance(step, WaitUntil):
                     self._wait_until(step)
                 elif isinstance(step, WaitFrames):
@@ -66,8 +76,15 @@ class GameDriver:
                 else:
                      # Maybe it's a direct command or assertion?
                      pass
+        except Exception as e:
+            # Capture screenshot on failure
+            self.save_screenshot(f"screenshots/failure_{self.frame_count}.png")
+            raise e
         finally:
-            self.cleanup()
+            self._scenario_deadline = None
+            # Do NOT call cleanup here to allow post-scenario verification
+            # The fixture/caller is responsible for cleanup.
+            # self.cleanup()
 
     def _tick(self):
         """Advances the game by one fixed time step."""
@@ -87,6 +104,13 @@ class GameDriver:
         self.simulated_time += self.fixed_dt
         self.frame_count += 1
 
+        self._check_global_timeout()
+
+    def _check_global_timeout(self):
+        """Checks if the global scenario deadline has been exceeded."""
+        if self._scenario_deadline is not None and self.simulated_time > self._scenario_deadline:
+             raise TimeoutError("Scenario exceeded global simulated time limit")
+
     def _wait_frames(self, condition: WaitFrames):
         for _ in range(condition.frames):
             self._tick()
@@ -103,7 +127,6 @@ class GameDriver:
 
     def save_screenshot(self, filename: str):
         """Saves the current screen state to a file."""
-        import os
         # Ensure directory exists
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
@@ -113,6 +136,7 @@ class GameDriver:
              # We might need to force a render to the surface.
              self.game.render_world()
              # And ui
-             self.game.ui_manager.draw_ui(self.game.screen)
+             if self.game.ui_manager:
+                 self.game.ui_manager.draw_ui(self.game.screen)
 
         pygame.image.save(self.game.screen, filename)
