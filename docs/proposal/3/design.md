@@ -1,68 +1,139 @@
-# Design: A Simple, Kinematic Movement System
+# Movement System Overhaul Design Proposal
 
-## 1. Introduction
+## 1. Introduction & Rationale
 
-After reviewing previous proposals, it's clear that attempts to simulate hopping with complex physics have led to overly complicated, difficult-to-tune, and bug-prone designs. This proposal presents a final, simplified approach that achieves the desired aesthetic of "hopping" without compromising the stability, controllability, and debuggability of the movement system.
+### Current System Limitations
+The current movement system for Yukkuris is primarily implemented within the `MoveToTarget` behavior tree action (`src/yukkuri_game/game/ai/behavior.py`). This imperative approach has several drawbacks:
 
-## 2. Core Philosophy: Direct Control, Visual Flair
+1.  **Tight Coupling**: The behavior tree node handles pathfinding, path following, raycasting for smoothing, stuck detection, and velocity application. This violates the Single Responsibility Principle.
+2.  **Lack of Local Avoidance**: There is no robust system for avoiding dynamic obstacles (other Yukkuris). The current system relies on basic physics collisions (using Pymunk) or static grid updates, leading to "clumping" or getting stuck on each other.
+3.  **Rigid Movement**: The movement is purely functional (move from A to B). It lacks expressiveness (e.g., hopping, dragging feet when tired, running vs walking) derived from the entity's state.
+4.  **Performance bottlenecks**: Recalculating paths and performing raycasts inside the behavior tree update loop (even with timers) can be inefficient if many entities are active.
 
-This design is built on two core principles:
+### Goals of the Overhaul
+1.  **Decoupling**: Separate high-level intent ("Go to the kitchen") from low-level execution (avoiding the chair, steering around a sibling, applying physics forces).
+2.  **Robust Local Avoidance**: Implement steering behaviors (Context-Based Steering or Boids-like separation) to allow Yukkuris to flow around each other naturally.
+3.  **Expressive Locomotion**: Introduce a "Locomotion" layer that translates movement velocity into character-specific physics impulses (hops, slides) and syncs with animations.
+4.  **ECS-Native**: Move state and logic out of Python classes/Behavior Trees and into ECS Components and Systems.
 
-1.  **Movement is Kinematic:** The underlying movement of a Yukkuri is a solved problem. We will use a direct, velocity-based approach. The AI decides how fast and in what direction the entity should move, and the physics body is set to that velocity. This is predictable, reliable, and easy to control.
-2.  **Hopping is a Visual Effect:** The "bouncy" feel is a purely aesthetic layer. It is completely decoupled from the actual 2D movement logic, preventing physics glitches and ensuring the AI can navigate precisely.
+---
 
-## 3. The `MovementController` Component
+## 2. Proposed Architecture
 
-We will consolidate all movement-related data and control into a single component. This replaces the need for `MovementRequest`, `Locomotion`, and multiple complex systems.
+The new architecture splits the movement responsibilities into three distinct layers:
 
+1.  **Navigation Layer (High Level)**: Calculates the route (Pathfinding).
+2.  **Steering Layer (Mid Level)**: Calculates immediate desired velocity based on the path and local environment (Steering Behaviors).
+3.  **Locomotion Layer (Low Level)**: Applies physical forces to the body to achieve the desired velocity (Physics/Animation).
+
+### 2.1 Components
+
+We will introduce the following new/refactored components:
+
+#### `MovementTarget`
+Represents the **Intent** of the agent.
 ```python
 @dataclass
-class MovementController:
-    """A simple component that holds movement commands and visual state."""
-    # The velocity requested by the AI for the current frame
-    target_velocity: Vector2 = Vector2(0, 0)
-
-    # --- Visual Tuning ---
-    # Manages the animation of the visual hop
-    visual_bob_timer: float = 0.0
-    bob_height: float = 10.0
-    bob_speed: float = 5.0
+class MovementTarget:
+    target_pos: Tuple[float, float] # The final destination
+    path: List[Tuple[float, float]] # The A* path
+    current_waypoint_index: int = 0
+    tolerance: float = 10.0 # How close is "arrived"?
 ```
 
-## 4. Architecture: AI in Command
-
-The architecture is radically simplified. The AI has direct, imperative control over movement on a frame-by-frame basis. There are no complex, asynchronous systems.
-
-### 4.1. AI / Behavior Tree Responsibility
-The `MoveToTarget` action (or similar AI logic) is the single source of truth for movement intent. In each tick, it performs the following:
-
-1.  **Consults Stats:** It directly reads the `YukkuriStats` component (e.g., energy, health, weight).
-2.  **Calculates Velocity:** It determines the desired direction and calculates a final `target_velocity`, factoring in the stat modifiers. For example, low energy results in a lower speed.
-3.  **Issues Command:** It gets the entity's `MovementController` component and sets its `target_velocity`.
-
+#### `SteeringAgent`
+Configuration for the steering algorithms.
 ```python
-# Conceptual logic within the Behavior Tree
-speed_modifier = calculate_speed_from_stats(entity.stats)
-direction = (target_position - entity.position).normalized()
-final_velocity = direction * max_speed * speed_modifier
+@dataclass
+class SteeringAgent:
+    max_speed: float = 100.0
+    max_force: float = 500.0 # Limit on how fast we can turn/accelerate
+    mass: float = 1.0
+    radius: float = 30.0 # For collision avoidance
 
-entity.movement_controller.target_velocity = final_velocity
+    # Behavior Weights
+    weight_seek: float = 1.0
+    weight_avoid: float = 2.0
+    weight_separate: float = 1.5
+    weight_align: float = 0.5
 ```
 
-### 4.2. `MovementSystem`
-A single, extremely simple system runs each frame to execute the AI's command.
+#### `LocomotionState` (Optional/Future)
+Defines the style of movement.
+```python
+@dataclass
+class LocomotionState:
+    gait_type: str = "crawl" # crawl, hop, run
+    hop_timer: float = 0.0
+```
 
-**Logic per Entity:**
-1.  **Apply Velocity:** `physics_body.velocity = movement_controller.target_velocity`
-2.  **Update Visuals:** `movement_controller.visual_bob_timer += dt * physics_body.velocity.length()`
+### 2.2 Systems
 
-### 4.3. Rendering System
-The rendering system uses the `visual_bob_timer` to create the hop illusion, identical to the revised Proposal 2. A vertical offset is applied to the sprite's `y` position using a sine wave, making it bounce as it moves.
+#### `NavigationSystem`
+*   **Responsibility**: Asynchronous pathfinding.
+*   **Input**: Entities with `MovementTarget` where `path` is empty/stale but `target_pos` is set.
+*   **Action**: Calls `NavigationService` (A*) to fill `MovementTarget.path`. Supports partial paths and re-pathing on failure.
 
-## 5. Addressing All Previous Critiques
-This design provides the definitive solution by:
+#### `SteeringSystem`
+*   **Responsibility**: Calculating the `desired_velocity`.
+*   **Input**: `Transform`, `MovementTarget`, `SteeringAgent`, `PhysicsBody` (neighbors).
+*   **Logic**:
+    1.  **Path Following**: Determine the current target waypoint from `MovementTarget`. Calculate a `Seek` force towards it.
+    2.  **Separation**: Query nearby entities (spatial hash/quadtree or Pymunk queries). Calculate a `Repulsion` force to maintain personal space.
+    3.  **Obstacle Avoidance**: Raycast ahead. If an obstacle is detected, calculate an `Avoid` force (lateral to the obstacle).
+    4.  **Summation**: Sum all weighted forces, clamp to `max_force`, add to current velocity, clamp to `max_speed`.
+    5.  **Output**: Store this result as a "desired velocity" vector (or apply directly if using simplified physics).
 
-*   **Eliminating Complexity:** It removes the need for multi-system pipelines, implicit state machines (`LocomotionSystem`), and unnecessary middleware (`StatSyncSystem`). The flow of data is direct and simple: `AI -> Component -> System`.
-*   **Ensuring Controllability:** By using a kinematic approach, the overshooting and pathfinding problems of force-based systems are completely avoided. The Yukkuri moves exactly where the AI tells it to.
-*   **Prioritizing Debuggability:** When movement is wrong, the cause is clear. Either the AI calculated the wrong velocity, or the simple `MovementSystem` failed to apply it. There is no black box of "cyclic drag" or a distributed state to untangle.
-*   **Achieving the Aesthetic:** The desired "bouncy" feel is achieved through a simple, decoupled visual effect that is easy to tune and cannot break the core gameplay logic.
+#### `LocomotionSystem`
+*   **Responsibility**: Translating `desired_velocity` into Pymunk forces.
+*   **Input**: `PhysicsBody`, `SteeringAgent` (calculated velocity).
+*   **Logic**:
+    *   Instead of setting `body.velocity` directly (which breaks physics interactions), apply forces/impulses.
+    *   **Gait Logic**: If "Hopping", apply impulse only when on ground (timer based). If "Sliding", apply constant force.
+    *   Syncs `Transform` rotation to velocity direction (with smoothing).
+
+### 2.3 Behavior Tree Integration
+
+The `MoveToTarget` action node becomes significantly simpler. It acts as a **Supervisor**.
+
+*   **Initialize**: Set `MovementTarget` component on the entity with the destination.
+*   **Update**:
+    *   Check `MovementTarget` status (Has arrived? Path failed?).
+    *   Return `RUNNING` while moving.
+    *   Return `SUCCESS` when `dist(pos, target) < tolerance`.
+    *   Return `FAILURE` if stuck or unreachable.
+*   **Terminate**: Remove `MovementTarget` component (or clear it).
+
+---
+
+## 3. Detailed Logic
+
+### Steering Behaviors
+
+We will use a **Weighted Truncated Sum** approach.
+
+$$ Force_{total} = (Force_{seek} * W_{seek}) + (Force_{separate} * W_{separate}) + (Force_{avoid} * W_{avoid}) $$
+
+1.  **Seek**: $TargetPos - CurrentPos$ (Normalized * MaxSpeed).
+2.  **Separation**: For each neighbor within radius $R$: $\sum \frac{CurrentPos - NeighborPos}{Distance^2}$.
+3.  **Obstacle Avoidance**: Raycast along velocity vector. If hit, force is perpendicular to normal.
+
+### Handling "Stuck" State
+The `SteeringSystem` can detect if `desired_velocity` is high but `actual_velocity` is low for a prolonged period.
+*   **Reaction**: Trigger a "Stuck" flag on the `MovementTarget`.
+*   **BT Reaction**: The `MoveToTarget` node sees the flag, returns `FAILURE` (or attempts a jump/wiggle), prompting the Utility AI to pick a new goal or retry.
+
+### Dynamic Obstacles
+By using `Separation` steering, Yukkuris will naturally push apart. For larger entities (Player, furniture), `Obstacle Avoidance` (Raycasting) is preferred.
+
+---
+
+## 4. Benefits Summary
+
+| Feature | Old System | New System |
+| :--- | :--- | :--- |
+| **Control** | Imperative (Move Node does everything) | Data-Driven (Systems process Components) |
+| **Crowds** | Overlap/Physics Jitter | Smooth Flow/Separation |
+| **Physics** | Direct Velocity Setting | Force/Impulse based (Natural interactions) |
+| **Extensibility** | Hard to add new movement types | Easy (Add new Gait in LocomotionSystem) |
+| **Debug** | Hard (Logic hidden in BT) | Easy (Visualize forces in SteeringSystem) |
