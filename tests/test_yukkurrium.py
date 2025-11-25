@@ -3,10 +3,11 @@ import pygame
 from unittest.mock import MagicMock, patch
 from yukkuri_game.game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform, Sprite, Selectable
+from yukkuri_game.game.components import Transform, Sprite, Selectable, PhysicsBody, VisualTransform
 
 @pytest.fixture
 def yukkurrium():
+    pygame.init()
     from yukkuri_game.config import WorldSettings
     settings = WorldSettings(width=1000, height=1000)
     return Yukkurrium(settings)
@@ -116,6 +117,7 @@ def test_render_system_update():
     img.get_rect.return_value = MagicMock()
     # Simulate colliderect
     img.get_rect.return_value.colliderect.return_value = True
+    img.get_size.return_value = (32, 32)
 
     rm.load_image.return_value = img
 
@@ -141,6 +143,8 @@ def test_render_system_update():
 
     transform = Transform(x=0, y=0)
     sprite = Sprite(image_name="test.png", width=32, height=32)
+    phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
+    visual_transform = VisualTransform()
 
     def get_component_side_effect(e, c):
         if c == Transform:
@@ -149,6 +153,10 @@ def test_render_system_update():
             return sprite
         if c == Selectable:
             return None
+        if c == PhysicsBody:
+            return phys_body
+        if c == VisualTransform:
+            return visual_transform
         return None
 
     world.get_component.side_effect = get_component_side_effect
@@ -189,6 +197,8 @@ def test_render_system_update_scaling_and_culling():
     # Let's say it collides
     rect.colliderect.return_value = True
     scaled_img.get_rect.return_value = rect
+    img.get_size.return_value = (32, 32)
+    scaled_img.get_size.return_value = (64, 64)
 
     # Mock pygame.transform.scale
     with patch('pygame.transform.scale', return_value=scaled_img) as mock_scale:
@@ -214,6 +224,8 @@ def test_render_system_update_scaling_and_culling():
         transform = Transform(x=0, y=0, scale=1.0) # Scale 1.0 * Zoom 2.0 = 2.0 effective scale
         sprite = Sprite(image_name="test.png", width=32, height=32)
         selectable = Selectable(selected=True)
+        phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
+        visual_transform = VisualTransform()
 
         def get_component_side_effect(e, c):
             if c == Transform:
@@ -222,6 +234,10 @@ def test_render_system_update_scaling_and_culling():
                 return sprite
             if c == Selectable:
                 return selectable
+            if c == PhysicsBody:
+                return phys_body
+            if c == VisualTransform:
+                return visual_transform
             return None
 
         world.get_component.side_effect = get_component_side_effect
@@ -254,6 +270,8 @@ def test_render_system_update_culling():
     img.subsurface.return_value = subsurface
     # Also if no subsurface is done (optimization), it uses img directly
     img.get_rect.return_value = rect
+    img.get_size.return_value = (32, 32)
+    subsurface.get_size.return_value = (32, 32)
 
     rm.load_image.return_value = img
 
@@ -276,8 +294,10 @@ def test_render_system_update_culling():
 
     transform = Transform(x=10000, y=10000)
     sprite = Sprite(image_name="test.png", width=32, height=32)
+    phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
+    visual_transform = VisualTransform()
 
-    world.get_component.side_effect = lambda e, c: transform if c == Transform else (sprite if c == Sprite else None)
+    world.get_component.side_effect = lambda e, c: transform if c == Transform else (sprite if c == Sprite else (phys_body if c == PhysicsBody else (visual_transform if c == VisualTransform else None)))
 
     with patch('pygame.draw.line'), patch('pygame.draw.rect'):
         rs.update(world, 0.016)
@@ -293,6 +313,7 @@ def test_render_system_update_invalid_size():
 
     rm = MagicMock()
     img = MagicMock()
+    img.get_size.return_value = (32, 32)
     rm.load_image.return_value = img
 
     world = MagicMock()
@@ -314,8 +335,10 @@ def test_render_system_update_invalid_size():
 
     transform = Transform(x=0, y=0, scale=0.1) # Resulting size will be ~0
     sprite = Sprite(image_name="test.png", width=32, height=32)
+    phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
+    visual_transform = VisualTransform()
 
-    world.get_component.side_effect = lambda e, c: transform if c == Transform else (sprite if c == Sprite else None)
+    world.get_component.side_effect = lambda e, c: transform if c == Transform else (sprite if c == Sprite else (phys_body if c == PhysicsBody else (visual_transform if c == VisualTransform else None)))
 
     with patch('pygame.draw.line'), patch('pygame.draw.rect'):
         rs.update(world, 0.016)
@@ -358,6 +381,10 @@ def test_render_system_missing_components():
             return transform
         if c == Sprite:
             return None
+        if c == PhysicsBody:
+            return PhysicsBody(body=MagicMock(), shape=MagicMock())
+        if c == VisualTransform:
+            return VisualTransform()
         return None
 
     world.get_component.side_effect = get_component_side_effect

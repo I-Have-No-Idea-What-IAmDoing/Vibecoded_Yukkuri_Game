@@ -2,6 +2,7 @@
 Module handling the game world view and rendering.
 """
 import pygame
+from loguru import logger
 from ..engine.ecs import System, World
 from .components import Transform, Sprite, Selectable, FloatingText, PhysicsBody, VisualTransform
 from ..engine.resource_manager import ResourceManager
@@ -198,6 +199,9 @@ class WorldRenderer:
             sprite = world.get_component(ent, Sprite)
             phys_body = world.get_component(ent, PhysicsBody)
             visual_transform = world.get_component(ent, VisualTransform)
+            if not all([transform, sprite, phys_body, visual_transform]):
+                logger.warning(f"Entity {ent} is missing one or more required components for rendering.")
+                continue
 
             # --- Draw Shadow ---
             shadow_x, shadow_y = self.yukkurrium.world_to_screen(
@@ -207,12 +211,6 @@ class WorldRenderer:
             )
             shadow_radius_x = int(sprite.width * transform.scale * self.yukkurrium.zoom * 0.4)
             shadow_radius_y = int(shadow_radius_x * 0.5)
-
-            if shadow_radius_x > 0 and shadow_radius_y > 0:
-                shadow_color = (0, 0, 0, 100) # RGBA with transparency
-                shadow_surface = pygame.Surface((shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA)
-                pygame.draw.ellipse(shadow_surface, shadow_color, shadow_surface.get_rect())
-                self.screen.blit(shadow_surface, (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y))
 
             # --- Draw Sprite ---
             img = self.rm.load_image(sprite.image_name)
@@ -255,6 +253,11 @@ class WorldRenderer:
 
             # Culling
             if rect.colliderect(self.screen.get_rect()):
+                if shadow_radius_x > 0 and shadow_radius_y > 0:
+                    shadow_color = (0, 0, 0, 100) # RGBA with transparency
+                    shadow_surface = pygame.Surface((shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA)
+                    pygame.draw.ellipse(shadow_surface, shadow_color, shadow_surface.get_rect())
+                    self.screen.blit(shadow_surface, (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y))
                 self.screen.blit(scaled_img, rect)
 
                 # Selection highlight
