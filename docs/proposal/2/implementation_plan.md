@@ -1,48 +1,52 @@
-# Implementation Plan
+# Implementation Plan: Visual Hopping for Yukkuri Movement
 
-## Phase 1: Foundation (Components & Data)
-1.  **Create `Locomotion` Component**
-    *   Define the data structure in `src/yukkuri_game/game/components.py` (or `yukkuri_components.py` if preferred, but likely generic enough for `components.py` if we want other hopping things).
-    *   Fields: `state` (enum), `hop_timer`, `z_height`, `z_velocity`, `grounded` (bool), `target_direction` (Vector2).
-2.  **Update `YukkuriStats`**
-    *   Ensure `YukkuriStats` has fields relevant to movement calculation (e.g. `energy` is there, maybe add `athletics_score`).
+This plan details the steps to implement the purely visual hopping effect as described in `design.md`. The core principle is to separate the visual representation of movement (the "view") from the underlying physics simulation (the "model").
 
-## Phase 2: Logic (Systems)
-3.  **Create `MovementSystem`**
-    *   Create `src/yukkuri_game/game/systems/movement_system.py`.
-    *   Implement the State Machine:
-        *   `IDLE`: Wait for `target_direction` > 0. Transition to `PRE_HOP`.
-        *   `PRE_HOP`: Wait for delay (squash anim). Apply Impulse. Transition to `AIRBORNE`.
-        *   `AIRBORNE`: Update `z` via gravity. Check `z <= 0`. Transition to `LANDING`.
-        *   `LANDING`: Apply friction. Wait for recovery. Transition to `IDLE`.
-    *   Implement Physics Integration:
-        *   Use `pymunk.Body.apply_impulse`.
-        *   Manage `pymunk.Space.damping` or body friction dynamically (or apply manual counter-force for friction).
-4.  **Integrate with `PhysicsSystem`**
-    *   Ensure `PhysicsSystem` doesn't conflict (e.g., if it applies global damping, ensure it works with the hopping rhythm).
-    *   The `MovementSystem` might need to run *before* `PhysicsSystem`.
+## Phase 1: The Visual Bob Component and System
 
-## Phase 3: AI Adaptation
-5.  **Refactor `MoveToTarget` Action**
-    *   Modify `src/yukkuri_game/game/ai/behavior.py`.
-    *   Remove direct `phys.body.velocity` assignment.
-    *   Instead, set `Locomotion.target_direction` (normalized vector) and maybe `Locomotion.is_moving = True`.
-    *   The `MovementSystem` will read this and decide *when* to hop.
+1.  [ ] **Define `VisualBob` Component**
+    -   Create the `VisualBob` dataclass in a suitable components file (e.g., `src/yukkuri_game/game/components.py`).
+    -   Fields: `timer: float`, `bob_height: float`, `bob_speed: float`.
+    -   *Verification*: The component can be added to an entity and initialized with default values.
 
-## Phase 4: Polish & Tuning
-6.  **Visuals**
-    *   Update `RenderSystem` (if exists) or the view layer to render the sprite at `y - z_height`.
-    *   Add Shadow sprite at `y`.
-7.  **Tuning**
-    *   Tune Impulse strength vs Mass.
-    *   Tune Gravity and Hop Height.
-    *   Tune Recovery times based on stats.
+2.  [ ] **Update Entity Factory**
+    -   Modify the `YukkuriFactory` to attach the `VisualBob` component to all new Yukkuri entities.
 
-## Actionable Task List
+3.  [ ] **Create `VisualBobSystem`**
+    -   Create a new system in `src/yukkuri_game/game/systems/visual_bob_system.py`.
+    -   The system's `update` method will iterate through all entities with a `VisualBob` component and a physics body.
+    -   **Logic**:
+        -   If the entity's physics body has a velocity greater than a small threshold, increment the `VisualBob.timer`.
+        -   If the entity is stationary, reset the `VisualBob.timer` to `0`.
+    -   Register the `VisualBobSystem` in the main game loop to run on every frame.
 
-- [ ] **Define `Locomotion` Component**: Add to `yukkuri_components.py`.
-- [ ] **Create `MovementSystem` Skeleton**: Setup the class and `update` loop.
-- [ ] **Implement Hop Physics**: Write the impulse and Z-axis logic in `MovementSystem`.
-- [ ] **Refactor `MoveToTarget`**: Change it to output steering intent to `Locomotion` instead of modifying physics directly.
-- [ ] **Register `MovementSystem`**: Add it to `Yukkurrium` game loop.
-- [ ] **Test & Tune**: Verify movement feels good and stats affect it.
+## Phase 2: Rendering Integration
+
+4.  [ ] **Modify the Rendering System**
+    -   Locate the primary rendering logic (e.g., `RenderSystem`).
+    -   Before rendering an entity's sprite, check if it has a `VisualBob` component.
+    -   If it does, calculate the vertical offset using the formula from the design: `offset_y = abs(sin(bob.timer * bob.bob_speed)) * bob.bob_height`.
+    -   Draw the sprite at `(model_x, model_y - offset_y)`.
+    -   Crucially, the entity's actual `y` position (the model) is not changed. This ensures collision detection and physics are unaffected.
+    -   (Optional) Draw a simple shadow sprite at the entity's true `(model_x, model_y)` to enhance the illusion of height.
+
+## Phase 3: Animation Triggers
+
+5.  [ ] **Implement State Change Detection for Animations**
+    -   A system or manager needs to track the movement state (`is_moving`). This might require adding a simple `MovementState` component.
+    -   When an entity's state changes from `stopped` to `moving`, trigger a "prepare to move" (squash) animation.
+    -   When the state changes from `moving` to `stopped`, trigger a "landing" animation and emit dust particles at the entity's true position.
+
+6.  [ ] **Refine AI Actions**
+    -   The AI actions like `MoveToTarget` do not need to change how they command the entity to move. They still set velocity or use the `MovementController`.
+    -   The animation triggers should be driven by the *result* of these actions (the entity moving or stopping), not by the AI's intent.
+
+## Phase 4: Tuning and Verification
+
+7.  [ ] **Expose Tuning Parameters**
+    -   Ensure `bob_height` and `bob_speed` are easily configurable, perhaps in a central configuration file or directly on the Yukkuri prefabs, so they can be tweaked by designers without code changes.
+
+8.  [ ] **Testing**
+    -   Playtest to confirm the visual bobbing is smooth and aesthetically pleasing.
+    -   Verify that the bobbing effect does *not* affect collision detection, AI targeting, or physics interactions in any way. The entity's collision shape should remain firmly on the ground.
+    -   Ensure the landing/takeoff animations and effects trigger reliably.
