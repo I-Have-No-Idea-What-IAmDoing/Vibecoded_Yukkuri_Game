@@ -1,60 +1,67 @@
-# Implementation Plan: A Simple, Kinematic Movement System
+# Revised Implementation Plan: A Simple, Kinematic Movement System
 
-This document outlines the actionable tasks required to implement the simplified, kinematic movement system as described in `design.md`. The focus is on direct AI control and a decoupled visual hopping effect.
+This document provides a robust, test-driven plan for implementing the kinematic movement system. It addresses the critiques of the previous plan by emphasizing incremental refactoring, automated testing, and correct system logic.
 
-## Phase 1: Core Component and System
+## Phase 1: Foundational Components and Configuration
 
-1.  [ ] **Define `MovementController` Component**
-    -   Create the `MovementController` dataclass in a central components file (e.g., `src/yukkuri_game/game/components.py`).
+1.  [ ] **Externalize Movement Parameters**
+    -   Create a central data asset or configuration file (e.g., `data/yukkuri_tuning.json`) to store movement-related visual parameters.
+    -   **Fields**: `bob_height`, `bob_speed`.
+    -   *Verification*: The configuration can be loaded successfully by the game.
+
+2.  [ ] **Define `MovementController` Component**
+    -   Create the `MovementController` dataclass in `src/yukkuri_game/game/components.py`.
     -   **Fields**:
         -   `target_velocity: Vector2`
         -   `visual_bob_timer: float`
-        -   `bob_height: float`
-        -   `bob_speed: float`
-    -   *Verification*: The component can be added to an entity.
+    -   Populate `bob_height` and `bob_speed` from the configuration file upon component creation.
+    -   *Verification*: The component is created with values from the tuning file.
 
-2.  [ ] **Update Entity Factory**
-    -   Modify the `YukkuriFactory` to attach the new `MovementController` component to all Yukkuri entities. Remove any old movement-related components.
-
-3.  [ ] **Create `MovementSystem`**
-    -   Create a new, simple system at `src/yukkuri_game/game/systems/movement_system.py`.
-    -   **Logic per frame**:
-        1.  Get the `MovementController` and the `PhysicsBody` for an entity.
-        2.  Set the body's velocity directly: `physics_body.velocity = movement_controller.target_velocity`.
-        3.  Update the visual timer based on actual movement: `movement_controller.visual_bob_timer += dt` if velocity is non-zero.
-        4.  Reset `movement_controller.target_velocity` to zero at the end of the update so the entity stops if the AI doesn't issue a new command.
-    -   Register the `MovementSystem` in the main game loop. It should run after the AI systems but before the main physics step.
-
-## Phase 2: AI Refactoring
-
-4.  [ ] **Refactor `MoveToTarget` Behavior Tree Action**
-    -   This is the most critical change. The `MoveToTarget` action's `update` method must now perform the full velocity calculation every tick.
+3.  [ ] **Create and Test `MovementSystem`**
+    -   Create the new system at `src/yukkuri_game/game/systems/movement_system.py`.
     -   **Logic**:
-        1.  Determine the direction to the target.
-        2.  Fetch the `YukkuriStats` component.
-        3.  Calculate a speed based on stats (e.g., energy, health).
-        4.  Combine direction and speed to get a final `target_velocity` vector.
-        5.  Get the entity's `MovementController` and set `movement_controller.target_velocity = final_velocity`.
-    -   The action will return `RUNNING` as long as it's active, `SUCCESS` when the destination is reached, and `FAILURE` if it can't find a path.
+        1.  `physics_body.velocity = movement_controller.target_velocity`
+        2.  `movement_controller.visual_bob_timer += dt * physics_body.velocity.length()`
+    -   **Crucially, this system does NOT reset `target_velocity`. The AI is responsible for stopping.**
+    -   *Verification*:
+        -   **Integration Test**: Create a test scene with an entity possessing a `PhysicsBody` and `MovementController`. The test will manually set `target_velocity`, run the `MovementSystem`, and assert that `physics_body.velocity` is updated correctly and the `visual_bob_timer` is advanced proportionally to the velocity.
 
-5.  [ ] **Refactor Other AI Actions**
-    -   Update any other behaviors that cause movement (e.g., `Wander`, `Flee`) to follow the same pattern of calculating a final velocity and setting it in the `MovementController`.
+4.  [ ] **Update Entity Factory**
+    -   Modify the `YukkuriFactory` to attach the `MovementController` to new Yukkuris.
 
-## Phase 3: Visual Integration
+## Phase 2: Incremental AI Refactoring and System Replacement
 
-6.  [ ] **Modify the Rendering System**
-    -   In the main `RenderSystem`, check for the `MovementController` component on each entity.
-    -   If found, calculate the vertical "hop" offset using the `visual_bob_timer`: `offset_y = abs(sin(controller.visual_bob_timer * controller.bob_speed)) * controller.bob_height`.
-    -   Render the entity's sprite at `y - offset_y`. The entity's true position remains unchanged.
-    -   Optionally, render a shadow at the entity's true `y` position to ground it visually.
+5.  [ ] **Refactor and Unit Test `MoveToTarget` Action**
+    -   Modify the `MoveToTarget` behavior tree action.
+    -   **Logic**:
+        1.  Calculate the desired velocity based on stats and target direction.
+        2.  Set `movement_controller.target_velocity` to the calculated value.
+        3.  When the target is reached, **explicitly set `target_velocity` to `Vector2(0, 0)` to stop.**
+    -   *Verification*:
+        -   **Unit Test**: Write a test that provides a mock entity with stats and a target position to the `MoveToTarget` action. Assert that the `target_velocity` set in the `MovementController` is correct for various inputs (e.g., low energy, different distances).
 
-## Phase 4: Cleanup and Verification
+6.  [ ] **Integration Test and Deprecate Old Navigation**
+    -   *Verification*:
+        -   **Integration Test**: Run a test scene where a Yukkuri AI using the refactored `MoveToTarget` successfully navigates to a point.
+    -   Once verified, **delete** the old `NavigationSystem`, `SteeringSystem`, `Path`, and `SteeringAgent` components and systems. This constitutes the first incremental cleanup.
 
-7.  [ ] **Remove All Deprecated Code**
-    -   Thoroughly delete all components, systems, and utilities related to previous, more complex movement designs. This includes `MovementRequest`, `Path`, `SteeringAgent`, `Locomotion`, `NavigationSystem`, and `SteeringSystem`. The goal is to leave only the simple, new architecture in place.
+7.  [ ] **Refactor `Wander` and `Flee` Actions**
+    -   Repeat the refactoring process for any other movement-related AI actions, ensuring they also take full control of setting the `target_velocity`, including stopping.
+    -   *Verification*: Add unit tests for their respective velocity calculations.
 
-8.  [ ] **Testing and Tuning**
-    -   Perform extensive playtesting to verify that movement is predictable and responsive.
-    -   Confirm that Yukkuris with different stats (e.g., low energy) move at visibly different speeds.
-    -   Tune the `bob_height` and `bob_speed` parameters to achieve a pleasant visual effect.
-    -   Ensure there are no physics bugs or weird interactions resulting from the visual offset.
+## Phase 3: Visual Integration and Final Cleanup
+
+8.  [ ] **Implement Visual Hop in `RenderSystem`**
+    -   Modify the `RenderSystem` to use the `visual_bob_timer`, `bob_height`, and `bob_speed` from the `MovementController` to apply a sinusoidal vertical offset to the sprite's render position.
+    -   Render a shadow at the entity's true ground position (`physics_body.position`).
+    -   *Verification*: Manual playtesting to confirm the visual "hop" is working as intended and is tunable by changing the values in the configuration file.
+
+9.  [ ] **Final Cleanup**
+    -   Perform a final search for and remove any remaining obsolete movement code, such as `MovementRequest`, `Locomotion`, etc.
+    -   *Verification*: The project builds and all tests pass. The only movement system is the new, simplified one.
+
+## Phase 4: Final Testing
+
+10. [ ] **End-to-End Verification**
+    -   Perform a final round of playtesting to confirm all movement behaviors are correct, responsive, and visually appealing.
+    -   Confirm that stat-based speed modifications are working as expected.
