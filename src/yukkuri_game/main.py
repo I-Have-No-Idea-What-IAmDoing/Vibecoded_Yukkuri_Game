@@ -283,21 +283,12 @@ class YukkuriGame(GameLoop):
         time_delta = self.clock.tick(60) / 1000.0
         self.tick(time_delta)
 
-    def draw(self) -> None:
+    def render(self) -> None:
         """
-        Draws the game frame.
-
-        Clears the screen, renders the world, draws the UI, and flips the display.
-
-        Returns:
-            None
+        Render the game world.
         """
         self.screen.fill((30, 30, 30)) # Dark background
 
-        # Draw Game World (Placeholder for now, systems should draw)
-        # We might need a RenderSystem if we want to be pure ECS,
-        # or just call a render method on the world/systems.
-        # For now, let's assume we have a render callback or system.
         self.render_world()
 
         # Draw HUD overlays (like selection box)
@@ -326,6 +317,14 @@ class YukkuriGame(GameLoop):
 
         if hasattr(self, 'render_system') and self.render_system:
             self.render_system.update(self.world, self.dt)
+
+    def init_render_system_headless(self) -> None:
+        """
+        Manually initializes the render system in headless mode if it doesn't exist.
+        Useful for screenshot capabilities in tests.
+        """
+        if self.headless and not hasattr(self, 'render_system'):
+            self.render_system = RenderSystem(self.screen, self.world)
 
     def toggle_pause(self) -> None:
         """

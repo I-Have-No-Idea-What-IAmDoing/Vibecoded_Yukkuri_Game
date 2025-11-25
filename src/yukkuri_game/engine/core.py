@@ -44,17 +44,10 @@ class GameLoop:
         self.headless = headless
 
         if self.headless:
-            # Check if SDL_VIDEODRIVER is dummy, otherwise setting mode might fail or show window
-            import os
-            if os.environ.get("SDL_VIDEODRIVER") == "dummy":
-                self.screen = pygame.display.set_mode((width, height))
-            else:
-                 # If headless but not dummy driver, we might still want a surface for rendering tests
-                 # but avoid showing window? It's tricky with pygame.
-                 # Best practice for headless with pygame is usually dummy driver.
-                 # We'll default to creating a hidden window or just standard set_mode
-                 # trusting the user set env vars if they really want invisible.
-                 self.screen = pygame.display.set_mode((width, height), flags=pygame.HIDDEN)
+            # In headless mode, we rely strictly on SDL_VIDEODRIVER=dummy.
+            # This ensures we don't accidentally depend on a window system.
+            # The set_mode call creates a surface but no window in dummy mode.
+            self.screen = pygame.display.set_mode((width, height))
         else:
             self.screen = pygame.display.set_mode((width, height))
             pygame.display.set_caption(title)
@@ -121,7 +114,8 @@ class GameLoop:
 
     def tick(self, dt: float) -> None:
         """
-        Updates the game state by a fixed time step.
+        Advances the game logic by one fixed time step.
+        Does NOT perform rendering.
 
         Args:
             dt (float): The delta time in seconds.
@@ -134,19 +128,12 @@ class GameLoop:
 
         if not self.paused:
             # Update ECS world
-            # In a real game we might separate logic update tick from render tick
-            # and use accumulation for fixed time steps, but for MVP simple dt is fine.
             sim_dt = self.dt * self.time_scale
             self.world.update(sim_dt)
 
     def update(self) -> None:
         """
         Updates the game state.
-
-        Calculates delta time, updates the UI manager, and updates the ECS world.
-
-        Returns:
-            None
         """
         time_delta = self.clock.tick(60) / 1000.0
         self.tick(time_delta)
@@ -154,20 +141,16 @@ class GameLoop:
     def draw(self) -> None:
         """
         Draws the game frame.
+        """
+        self.render()
 
-        Clears the screen, renders the world, draws the UI, and flips the display.
-
-        Returns:
-            None
+    def render(self) -> None:
+        """
+        Performs rendering operations.
+        Separated from update/tick for headless efficiency.
         """
         self.screen.fill((30, 30, 30)) # Dark background
-
-        # Draw Game World (Placeholder for now, systems should draw)
-        # We might need a RenderSystem if we want to be pure ECS,
-        # or just call a render method on the world/systems.
-        # For now, let's assume we have a render callback or system.
         self.render_world()
-
         self.ui_manager.draw_ui(self.screen)
         pygame.display.flip()
 
