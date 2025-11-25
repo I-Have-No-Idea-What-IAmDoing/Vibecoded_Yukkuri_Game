@@ -1,19 +1,40 @@
-# Critique: Yukkuri Movement System Overhaul (Proposal 1)
+# Critique of Proposal 1: An Over-Engineered Solution in Search of a Problem
 
-## 1. Architectural Astronauting
-This proposal reeks of "ECS purity" at the expense of pragmatism. You are proposing to triple the number of systems and components involved in moving a blob from A to B. Introducing `MovementRequest`, `Path`, `SteeringAgent`, `NavigationSystem`, and `SteeringSystem` to replace one "god object" is classic over-engineering. You aren't building an RTS with thousands of units; you're building a pet simulation. The "god object" `MoveToTarget` likely fits the entire cognitive load of the movement logic in one screen, which is *better* for maintenance than jumping between four different files to understand why a unit stopped moving.
+This proposal is a textbook example of architectural astronautics. It advocates for a radical, high-complexity overhaul of a core system based on flimsy justifications and a dogmatic adherence to ECS purity. The proposed design is not only unnecessarily complex but also introduces significant performance risks and fails to address the core problems in a pragmatic way.
 
-## 2. Generic != Good
-The proposal claims "Steering Behaviors" (Seek, Arrive, Wander) as a benefit. These are standard, boring, floaty movement algorithms found in every Unity tutorial. They result in agents that feel like hovercrafts, not living creatures. By abstracting the movement into a generic `SteeringSystem`, you are actively preventing the implementation of character-specific movement quirks (like the waddle or hop of a Yukkuri) because the system is designed to be "reusable for projectiles." Why would a projectile need to "Seek" or "Wander" using the same logic as a biological entity?
+### 1. The "God Object" Fallacy: Complexity Isn't Reduced, It's Just Shuffled Around
 
-## 3. The Performance Fallacy
-"Esper is fast" is a hand-wavy dismissal of the fact that you are adding component thrashing. Creating and destroying `MovementRequest` or `Path` components, or even just iterating over disjoint memory for every single entity every frame, adds up. Splitting logic into multiple systems increases the cache miss rate. While premature optimization is the root of all evil, premature abstraction is the root of all spaghetti code.
+The proposal's central premise—that `MoveToTarget` is a "god object"—is fundamentally flawed. An action node in a Behavior Tree is *supposed* to encapsulate the logic for a specific action. The proposal's solution is to decompose this into a constellation of anemic components (`MovementRequest`, `Path`, `SteeringAgent`) and two new "god systems" (`NavigationSystem`, `SteeringSystem`).
 
-## 4. Missing the Point
-The "Problem Statement" complains about code organization (`MoveToTarget` is a god object), but fails to address the actual *quality* of the movement. Does the current system handle collisions well? Does it look good? This proposal effectively says, "The movement will look exactly the same (boring), but the code will be spread out over 10 files instead of 1." That is a net loss in productivity.
+The `SteeringSystem` is now responsible for:
+- Path following
+- Steering calculations (Seek/Arrive)
+- Local avoidance
+- Stuck detection
+- Applying forces
 
-## 5. Implementation Nightmare
-Syncing `MovementRequest` (AI intent), `Path` (Navigation state), `VelocityRequest` (Steering output), and `PhysicsBody` (Pymunk state) is a recipe for state desynchronization bugs. What happens when the Physics engine resolves a collision that the Navigation system didn't account for? You'll spend weeks debugging race conditions between your "clean" systems.
+The complexity hasn't vanished; it's been smeared across multiple files, making the system harder to reason about and debug. We've traded a single, cohesive module for a distributed monolith.
 
-## Summary
-Refactor the `MoveToTarget` class if it's too big, but don't explode the architecture into fragments just to satisfy a textbook definition of ECS.
+### 2. Performance Hand-Waving and Unjustified Overhead
+
+The dismissal of performance concerns with "esper is fast" is irresponsible. Every additional system and component adds overhead to the main game loop. For a game that might feature a large number of entities, this overhead is not trivial. The proposal offers no benchmarks, no performance analysis, and no evidence that the current system is a bottleneck. We are asked to accept this costly abstraction on faith.
+
+### 3. `MovementRequest`: A Useless Layer of Indirection
+
+The `MovementRequest` component is a prime example of over-engineering. It's a glorified message queue that adds a frame of latency between the AI's decision and the entity's action. The `update_path` flag is a particularly egregious hack. Why not have the AI directly request a path from the `NavigationService` and update the `Path` component? This Rube Goldberg machine of components and flags is a recipe for timing bugs and race conditions.
+
+### 4. The Extensibility Argument is a Strawman
+
+The "Flying Yukkuris" example is a weak justification for such a massive change. A flying behavior could be implemented far more simply within the existing architecture using a strategy pattern or by adding a `movement_mode` flag to the `MoveToTarget` action. The proposal demolishes a house to build a mansion when all that was needed was a new coat of paint.
+
+### 5. Vagueness on Critical Details
+
+The proposal is dangerously vague on the most challenging aspects of the implementation:
+- **Physics vs. Transform Duality**: How, exactly, does the `SteeringSystem` handle entities without a `PhysicsBody`? This is glossed over, but it's a critical detail that could lead to duplicated logic or a leaky abstraction.
+- **Local Avoidance vs. Pathfinding**: How do the local avoidance maneuvers of the `SteeringSystem` interact with the global plan from the `NavigationSystem`? Will entities deviate from their path and then struggle to get back on track? This is a classic hard problem in AI movement, and the proposal pretends it doesn't exist.
+
+### Conclusion
+
+This proposal is a solution in search of a problem. It replaces a simple, understandable system with a complex, distributed one for no tangible benefit. It prioritizes architectural dogma over pragmatic problem-solving. A far better approach would be an iterative refactoring of the existing `MoveToTarget` node to improve its clarity and maintainability without this heavy-handed, high-risk rewrite.
+
+This proposal should be rejected in its current form.
