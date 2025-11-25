@@ -70,13 +70,9 @@ def test_game_update(yukkuri_game_headless):
     # Mock GM time elapsed update
     yukkuri_game_headless.gm.time_elapsed = 0.0
 
-    # Mock parent update if we can, or just call update()
-    # Since we mocked everything, calling update should be safe.
-    # But we need to make sure super().update() works or is mocked if it does heavy lifting.
-    # GameLoop.update() updates the world.
-
-    with patch('yukkuri_game.engine.core.GameLoop.update'):
-        yukkuri_game_headless.update()
+    # Test tick() instead of update()
+    with patch('yukkuri_game.engine.core.GameLoop.tick'):
+        yukkuri_game_headless.tick(0.016)
 
         # Check if GM time was updated
         assert yukkuri_game_headless.gm.time_elapsed > 0.0
@@ -90,8 +86,8 @@ def test_game_update_paused(yukkuri_game_headless):
     yukkuri_game_headless.paused = True
     yukkuri_game_headless.gm.time_elapsed = 10.0
 
-    with patch('yukkuri_game.engine.core.GameLoop.update'):
-        yukkuri_game_headless.update()
+    with patch('yukkuri_game.engine.core.GameLoop.tick'):
+        yukkuri_game_headless.tick(0.016)
 
         assert yukkuri_game_headless.gm.time_elapsed == 10.0
 
@@ -196,5 +192,5 @@ def test_main_headless():
             from yukkuri_game.main import main
             main()
 
-            mock_instance.set_headless.assert_called_with(True)
+            MockGame.assert_called_with(headless=True)
             mock_instance.run.assert_called_once()

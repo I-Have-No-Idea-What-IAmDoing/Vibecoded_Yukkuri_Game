@@ -271,18 +271,6 @@ class YukkuriGame(GameLoop):
             self.hud.fps = self.clock.get_fps()
             self.hud.update(dt)
 
-    def update(self) -> None:
-        """
-        Updates the game state each frame.
-
-        Advances time in the GameManager and updates the Yukkurrium (camera).
-
-        Returns:
-            None
-        """
-        time_delta = self.clock.tick(60) / 1000.0
-        self.tick(time_delta)
-
     def render(self) -> None:
         """
         Render the game world.

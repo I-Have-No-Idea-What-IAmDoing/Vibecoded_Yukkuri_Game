@@ -71,6 +71,10 @@ class GameLoop:
         self.dt = 0.0
         self.is_setup = False
 
+        # Fixed Timestep variables
+        self.accumulator = 0.0
+        self.fixed_dt = 1.0 / 60.0  # 60 updates per second
+
     def setup(self) -> None:
         """
         Sets up the game state.
@@ -133,10 +137,18 @@ class GameLoop:
 
     def update(self) -> None:
         """
-        Updates the game state.
+        Updates the game state using a fixed timestep loop.
         """
-        time_delta = self.clock.tick(60) / 1000.0
-        self.tick(time_delta)
+        # We still limit the loop speed to avoid using 100% CPU in simple scenes,
+        # but the physics update will be fixed.
+        # Note: tick() returns time since last call in milliseconds.
+        # If we want uncapped FPS rendering but fixed physics, we should use get_ticks() diff.
+        # For now, we'll keep the 60 FPS cap for rendering but ensure physics is fixed.
+        # Actually, "Fix Your Timestep" suggests decoupling.
+        # Let's use get_ticks for accurate time tracking.
+
+        # self.clock.tick(60) # Optional: cap frame rate
+        pass # The loop is now controlled in run()
 
     def draw(self) -> None:
         """
@@ -174,20 +186,41 @@ class GameLoop:
 
     def run(self) -> None:
         """
-        Runs the main game loop.
-
-        Calls setup, then enters the loop calling handle_events, update, and draw until running becomes False.
+        Runs the main game loop using "Fix Your Timestep" logic.
 
         Returns:
             None
         """
         self.setup()
         logger.info("Game Loop Started")
+
+        current_time = pygame.time.get_ticks() / 1000.0
+
         while self.running:
-            self.handle_events()
-            self.update()
+            new_time = pygame.time.get_ticks() / 1000.0
+            frame_time = new_time - current_time
+            current_time = new_time
+
+            # Spiral of death protection
+            if frame_time > 0.25:
+                frame_time = 0.25
+
+            self.accumulator += frame_time
+
+            while self.accumulator >= self.fixed_dt:
+                self.handle_events()
+                self.tick(self.fixed_dt)
+                self.accumulator -= self.fixed_dt
+
+            # Optional: Interpolation could be calculated here
+            # alpha = self.accumulator / self.fixed_dt
+
             if not self.headless:
                 self.draw()
+                # If we are running faster than display refresh, we might want to sleep?
+                # or just let it run as fast as possible (uncapped).
+                # Using clock.tick to cap rendering FPS is good practice to save battery/CPU.
+                self.clock.tick(60)
 
         self.quit()
         logger.info("Game Loop Ended")

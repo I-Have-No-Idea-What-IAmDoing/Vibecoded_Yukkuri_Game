@@ -62,33 +62,30 @@ def test_handle_events_quit(mock_pygame, mock_pygame_gui, mock_resource_manager,
     assert loop.running is False
     loop.ui_manager.process_events.assert_called_with(quit_event)
 
-def test_update(mock_pygame, mock_pygame_gui, mock_resource_manager, mock_world):
+def test_tick(mock_pygame, mock_pygame_gui, mock_resource_manager, mock_world):
     loop = GameLoop()
 
-    # Mock clock tick to return 32ms
-    loop.clock.tick.return_value = 32
-
-    loop.update()
+    dt = 0.032
+    loop.tick(dt)
 
     assert loop.dt == 0.032
     loop.ui_manager.update.assert_called_with(0.032)
     loop.world.update.assert_called_with(0.032)
 
-def test_update_paused(mock_pygame, mock_pygame_gui, mock_resource_manager, mock_world):
+def test_tick_paused(mock_pygame, mock_pygame_gui, mock_resource_manager, mock_world):
     loop = GameLoop()
     loop.paused = True
 
-    loop.update()
+    loop.tick(0.032)
 
     # World update should not be called when paused
     loop.world.update.assert_not_called()
 
-def test_update_timescale(mock_pygame, mock_pygame_gui, mock_resource_manager, mock_world):
+def test_tick_timescale(mock_pygame, mock_pygame_gui, mock_resource_manager, mock_world):
     loop = GameLoop()
     loop.time_scale = 2.0
-    loop.clock.tick.return_value = 16
 
-    loop.update()
+    loop.tick(0.016)
 
     # 16ms * 2.0 = 32ms simulation time
     loop.world.update.assert_called_with(0.032)
@@ -100,8 +97,12 @@ def test_run(mock_pygame, mock_pygame_gui, mock_resource_manager, mock_world):
     def stop_running():
         loop.running = False
 
+    # Mock time.get_ticks to simulate time passing
+    # Initial call + 2 iterations
+    mock_pygame.time.get_ticks.side_effect = [1000, 1032, 1064, 1100]
+
     with patch.object(loop, 'handle_events', side_effect=stop_running) as mock_handle_events, \
-         patch.object(loop, 'update') as mock_update, \
+         patch.object(loop, 'tick') as mock_tick, \
          patch.object(loop, 'draw') as mock_draw, \
          patch.object(loop, 'setup') as mock_setup:
 
@@ -109,7 +110,8 @@ def test_run(mock_pygame, mock_pygame_gui, mock_resource_manager, mock_world):
 
         mock_setup.assert_called_once()
         mock_handle_events.assert_called_once()
-        mock_update.assert_called_once()
+        # tick should be called because dt (32ms) > fixed_dt (16ms)
+        assert mock_tick.called
         mock_draw.assert_called_once()
         mock_pygame.quit.assert_called_once()
 
@@ -120,8 +122,10 @@ def test_run_headless(mock_pygame, mock_pygame_gui, mock_resource_manager, mock_
     def stop_running():
         loop.running = False
 
+    mock_pygame.time.get_ticks.side_effect = [1000, 1032, 1064, 1100]
+
     with patch.object(loop, 'handle_events', side_effect=stop_running), \
-         patch.object(loop, 'update'), \
+         patch.object(loop, 'tick'), \
          patch.object(loop, 'draw') as mock_draw:
 
         loop.run()
