@@ -1,91 +1,68 @@
-# Design: Hybrid Impulse-Based Movement System
+# Design: A Simple, Kinematic Movement System
 
 ## 1. Introduction
 
-This proposal unifies the architectural clarity of Proposal 1 with the gameplay "feel" of Proposal 2. It rejects the over-engineering of the former and the physics-hacking of the latter, aiming for a pragmatic, robust, and satisfying movement system for Yukkuri entities.
+After reviewing previous proposals, it's clear that attempts to simulate hopping with complex physics have led to overly complicated, difficult-to-tune, and bug-prone designs. This proposal presents a final, simplified approach that achieves the desired aesthetic of "hopping" without compromising the stability, controllability, and debuggability of the movement system.
 
-## 2. Core Philosophy
+## 2. Core Philosophy: Direct Control, Visual Flair
 
-*   **Intent Separation**: The AI should decide *where* to go, not *how* to move the physics body frame-by-frame.
-*   **Physics-Driven**: Movement should be physical (impulses/forces), not kinematic (direct position/velocity manipulation), to ensure consistent interaction with the world.
-*   **Visual Decoupling**: The "hopping" effect is primarily a visual abstraction overlaying a standard 2D physics object. We do not simulate Z-axis physics.
+This design is built on two core principles:
 
-## 3. Architecture
+1.  **Movement is Kinematic:** The underlying movement of a Yukkuri is a solved problem. We will use a direct, velocity-based approach. The AI decides how fast and in what direction the entity should move, and the physics body is set to that velocity. This is predictable, reliable, and easy to control.
+2.  **Hopping is a Visual Effect:** The "bouncy" feel is a purely aesthetic layer. It is completely decoupled from the actual 2D movement logic, preventing physics glitches and ensuring the AI can navigate precisely.
 
-We retain a simplified ECS approach to separate concerns without exploding component count.
+## 3. The `MovementController` Component
 
-### 3.1. Components
+We will consolidate all movement-related data and control into a single component. This replaces the need for `MovementRequest`, `Locomotion`, and multiple complex systems.
 
-#### `MovementRequest` (Intent)
-A lightweight component set by the AI (Behavior Tree).
 ```python
 @dataclass
-class MovementRequest:
-    target_position: Optional[Vector2] = None
-    target_entity: Optional[int] = None
-    intended_speed: float = 0.0  # 0 to 1 normalized "effort"
-    cancel_requested: bool = False
+class MovementController:
+    """A simple component that holds movement commands and visual state."""
+    # The velocity requested by the AI for the current frame
+    target_velocity: Vector2 = Vector2(0, 0)
+
+    # --- Visual Tuning ---
+    # Manages the animation of the visual hop
+    visual_bob_timer: float = 0.0
+    bob_height: float = 10.0
+    bob_speed: float = 5.0
 ```
 
-#### `Locomotion` (State)
-Internal state for the movement system.
+## 4. Architecture: AI in Command
+
+The architecture is radically simplified. The AI has direct, imperative control over movement on a frame-by-frame basis. There are no complex, asynchronous systems.
+
+### 4.1. AI / Behavior Tree Responsibility
+The `MoveToTarget` action (or similar AI logic) is the single source of truth for movement intent. In each tick, it performs the following:
+
+1.  **Consults Stats:** It directly reads the `YukkuriStats` component (e.g., energy, health, weight).
+2.  **Calculates Velocity:** It determines the desired direction and calculates a final `target_velocity`, factoring in the stat modifiers. For example, low energy results in a lower speed.
+3.  **Issues Command:** It gets the entity's `MovementController` component and sets its `target_velocity`.
+
 ```python
-@dataclass
-class Locomotion:
-    # Physics Tuning (Can be modified by Stats, but not coupled to them)
-    max_speed: float = 100.0
-    acceleration: float = 500.0
-    friction_ground: float = 10.0
-    friction_air: float = 1.0
-    hop_intensity: float = 1.0
+# Conceptual logic within the Behavior Tree
+speed_modifier = calculate_speed_from_stats(entity.stats)
+direction = (target_position - entity.position).normalized()
+final_velocity = direction * max_speed * speed_modifier
 
-    # Internal State
-    is_moving: bool = False
-    hop_timer: float = 0.0      # For visual squash/stretch and drag variance
-    hop_duration: float = 0.5   # Time for one full hop cycle
+entity.movement_controller.target_velocity = final_velocity
 ```
 
-### 3.2. Systems
+### 4.2. `MovementSystem`
+A single, extremely simple system runs each frame to execute the AI's command.
 
-#### `LocomotionSystem`
-This system replaces `SteeringSystem`, `NavigationSystem`, and the physics parts of `MoveToTarget`. It handles the entire pipeline in one cohesive logic block per entity, avoiding synchronization issues.
+**Logic per Entity:**
+1.  **Apply Velocity:** `physics_body.velocity = movement_controller.target_velocity`
+2.  **Update Visuals:** `movement_controller.visual_bob_timer += dt * physics_body.velocity.length()`
 
-**Logic Loop per Entity:**
-1.  **Resolve Target**: If `target_entity` is present in `MovementRequest`, update `target_position`.
-2.  **Determine Desire**: Calculate vector to `target_position`.
-3.  **Apply "Hop" Drag**:
-    *   Instead of simulated Z-gravity, we use a cyclic drag modifier.
-    *   `hop_timer` cycles from 0.0 to `hop_duration`.
-    *   **Phase 1 (Push)**: High drag, apply Force/Impulse towards target. (Entity "kicks" the ground).
-    *   **Phase 2 (Glide)**: Low drag. (Entity "slides/hops" through the air).
-    *   **Phase 3 (Land)**: High drag. (Entity "brakes" on landing).
-4.  **Apply Physics**: Use Pymunk's `apply_force` or `apply_impulse`.
-    *   *Crucial*: We do *not* touch Z-axis. The entity is always a circle sliding on the ground.
-5.  **Visuals**: Write to a `VisualOffset` component (y-axis offset) based on `hop_timer` to simulate the visual arc of the hop.
+### 4.3. Rendering System
+The rendering system uses the `visual_bob_timer` to create the hop illusion, identical to the revised Proposal 2. A vertical offset is applied to the sprite's `y` position using a sine wave, making it bounce as it moves.
 
-### 4. Integration with Gameplay
+## 5. Addressing All Previous Critiques
+This design provides the definitive solution by:
 
-#### 4.1. Stat Integration (The "Bridge")
-We do not import `YukkuriStats` into `LocomotionSystem`. Instead, a `StatSyncSystem` runs infrequently (e.g., once per second or on stat change) to update `Locomotion` parameters.
-*   `Stats.Energy` low -> reduce `Locomotion.max_speed` and `Locomotion.hop_intensity`.
-*   `Stats.Weight` high -> increase `Locomotion.friction_ground` (drag).
-
-#### 4.2. Pathfinding
-For long-distance travel, the AI uses a separate service to generate waypoints. The `MovementRequest` is simply updated to the *next waypoint* in the chain. This keeps pathfinding out of the tight physics loop.
-
-## 5. Addressing Previous Critiques
-
-*   **vs. Proposal 1**:
-    *   Reduces 4 new systems to 1 (`LocomotionSystem`).
-    *   Keeps the `MovementRequest` decoupling but removes the `Path` management overhead from the core loop.
-*   **vs. Proposal 2**:
-    *   Removes "Z-axis Hell". Physics remains strictly 2D.
-    *   Removes "Overshooting" by using cyclic drag rather than ballistic trajectories. The entity can still steer during the "Glide" phase, just with reduced authority (simulating air control), preventing frustration.
-    *   Decouples Stats from Physics via the `Locomotion` component data-bag.
-
-## 6. Implementation Plan
-
-1.  **Refactor**: Extract movement logic from `MoveToTarget` into `MovementRequest` component.
-2.  **Create**: Implement `LocomotionSystem` with the cyclic drag/impulse model.
-3.  **Visuals**: Implement the purely visual Y-offset for sprite rendering based on the hop cycle.
-4.  **Tune**: Adjust `friction_ground` vs `friction_air` ratios to get the "bouncy" feel without losing control.
+*   **Eliminating Complexity:** It removes the need for multi-system pipelines, implicit state machines (`LocomotionSystem`), and unnecessary middleware (`StatSyncSystem`). The flow of data is direct and simple: `AI -> Component -> System`.
+*   **Ensuring Controllability:** By using a kinematic approach, the overshooting and pathfinding problems of force-based systems are completely avoided. The Yukkuri moves exactly where the AI tells it to.
+*   **Prioritizing Debuggability:** When movement is wrong, the cause is clear. Either the AI calculated the wrong velocity, or the simple `MovementSystem` failed to apply it. There is no black box of "cyclic drag" or a distributed state to untangle.
+*   **Achieving the Aesthetic:** The desired "bouncy" feel is achieved through a simple, decoupled visual effect that is easy to tune and cannot break the core gameplay logic.
