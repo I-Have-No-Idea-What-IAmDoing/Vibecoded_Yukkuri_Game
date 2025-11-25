@@ -51,6 +51,14 @@ class YukkuriGame(GameLoop):
         render_system (RenderSystem): The system responsible for rendering (when not headless).
         hud (HUD): The Heads-Up Display (when not headless).
     """
+    def __init__(self, headless: bool = False):
+        """
+        Initializes the YukkuriGame.
+
+        Args:
+            headless (bool): Whether to run in headless mode. Defaults to False.
+        """
+        super().__init__(headless=headless)
 
     def setup(self) -> None:
         """
@@ -61,6 +69,10 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
+        if self.is_setup:
+            return
+        self.is_setup = True
+
         # Load Config
         self.game_config = load_config()
 
@@ -223,6 +235,10 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
+        # Always handle input system events to support testing injection
+        if hasattr(self, 'input_system') and self.input_system:
+            self.input_system.handle_event(event, self.world, self.width, self.height, self.ui_manager)
+
         if not self.headless:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F3:
@@ -230,8 +246,30 @@ class YukkuriGame(GameLoop):
                 elif event.key == pygame.K_F12:
                     self.take_screenshot()
 
-            self.input_system.handle_event(event, self.world, self.width, self.height, self.ui_manager)
             self.hud.process_event(event)
+
+    def tick(self, dt: float) -> None:
+        """
+        Updates the game state each frame with a given delta time.
+
+        Args:
+            dt (float): The delta time in seconds.
+
+        Returns:
+            None
+        """
+        if not self.paused:
+            self.gm.time_elapsed += dt * self.time_scale
+            # Also update TimeService
+            if hasattr(self, 'time_service'):
+                self.time_service.time_elapsed = self.gm.time_elapsed
+
+        super().tick(dt)
+        self.yukkurrium.update(dt)
+
+        if not self.headless:
+            self.hud.fps = self.clock.get_fps()
+            self.hud.update(dt)
 
     def update(self) -> None:
         """
@@ -242,31 +280,15 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
-        if not self.paused:
-            self.gm.time_elapsed += self.dt * self.time_scale
+        time_delta = self.clock.tick(60) / 1000.0
+        self.tick(time_delta)
 
-        super().update()
-        self.yukkurrium.update(self.dt)
-
-        if not self.headless:
-            self.hud.fps = self.clock.get_fps()
-            self.hud.update(self.dt)
-
-    def draw(self) -> None:
+    def render(self) -> None:
         """
-        Draws the game frame.
-
-        Clears the screen, renders the world, draws the UI, and flips the display.
-
-        Returns:
-            None
+        Render the game world.
         """
         self.screen.fill((30, 30, 30)) # Dark background
 
-        # Draw Game World (Placeholder for now, systems should draw)
-        # We might need a RenderSystem if we want to be pure ECS,
-        # or just call a render method on the world/systems.
-        # For now, let's assume we have a render callback or system.
         self.render_world()
 
         # Draw HUD overlays (like selection box)
@@ -283,8 +305,26 @@ class YukkuriGame(GameLoop):
         Returns:
             None
         """
-        if not self.headless and self.render_system:
+        # In headless mode, we might still want to render for screenshots if requested.
+        # But we need to ensure render_system is initialized or we do it ad-hoc.
+        # The current GameDriver calls this manually.
+
+        if self.headless and not hasattr(self, 'render_system'):
+             # If strictly headless but we want to render, we might need to init render system temporarily
+             # or we just rely on the fact that if set_headless(True) is called, render_system isn't created.
+             # But for screenshots, we might want it.
+             self.render_system = RenderSystem(self.screen, self.world)
+
+        if hasattr(self, 'render_system') and self.render_system:
             self.render_system.update(self.world, self.dt)
+
+    def init_render_system_headless(self) -> None:
+        """
+        Manually initializes the render system in headless mode if it doesn't exist.
+        Useful for screenshot capabilities in tests.
+        """
+        if self.headless and not hasattr(self, 'render_system'):
+            self.render_system = RenderSystem(self.screen, self.world)
 
     def toggle_pause(self) -> None:
         """
@@ -365,10 +405,7 @@ def main() -> None:
     parser.add_argument("--headless", action="store_true", help="Run in headless mode (no window)")
     args = parser.parse_args()
 
-    game = YukkuriGame()
-    if args.headless:
-        game.set_headless(True)
-
+    game = YukkuriGame(headless=args.headless)
     game.run()
 
 if __name__ == "__main__":

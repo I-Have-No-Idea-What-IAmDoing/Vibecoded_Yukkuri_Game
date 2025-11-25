@@ -28,7 +28,7 @@ class GameLoop:
         dt (float): The time elapsed since the last frame in seconds.
     """
 
-    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game"):
+    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game", headless: bool = False):
         """
         Initializes the GameLoop.
 
@@ -36,16 +36,24 @@ class GameLoop:
             width (int, optional): The width of the window. Defaults to 1280.
             height (int, optional): The height of the window. Defaults to 720.
             title (str, optional): The title of the window. Defaults to "Yukkuri Raising Game".
+            headless (bool, optional): Whether to run in headless mode. Defaults to False.
         """
         pygame.init()
         self.width = width
         self.height = height
-        self.screen = pygame.display.set_mode((width, height))
-        pygame.display.set_caption(title)
+        self.headless = headless
+
+        if self.headless:
+            # In headless mode, we rely strictly on SDL_VIDEODRIVER=dummy.
+            # This ensures we don't accidentally depend on a window system.
+            # The set_mode call creates a surface but no window in dummy mode.
+            self.screen = pygame.display.set_mode((width, height))
+        else:
+            self.screen = pygame.display.set_mode((width, height))
+            pygame.display.set_caption(title)
 
         self.clock = pygame.time.Clock()
         self.running = True
-        self.headless = False
 
         # Resource Manager
         self.resources = ResourceManager()
@@ -61,6 +69,7 @@ class GameLoop:
         self.time_scale = 1.0
         self.paused = False
         self.dt = 0.0
+        self.is_setup = False
 
     def setup(self) -> None:
         """
@@ -103,44 +112,45 @@ class GameLoop:
         """
         pass
 
-    def update(self) -> None:
+    def tick(self, dt: float) -> None:
         """
-        Updates the game state.
+        Advances the game logic by one fixed time step.
+        Does NOT perform rendering.
 
-        Calculates delta time, updates the UI manager, and updates the ECS world.
+        Args:
+            dt (float): The delta time in seconds.
 
         Returns:
             None
         """
-        time_delta = self.clock.tick(60) / 1000.0
-        self.dt = time_delta
-
-        self.ui_manager.update(time_delta)
+        self.dt = dt
+        self.ui_manager.update(dt)
 
         if not self.paused:
             # Update ECS world
-            # In a real game we might separate logic update tick from render tick
-            # and use accumulation for fixed time steps, but for MVP simple dt is fine.
             sim_dt = self.dt * self.time_scale
             self.world.update(sim_dt)
+
+    def update(self) -> None:
+        """
+        Updates the game state.
+        """
+        time_delta = self.clock.tick(60) / 1000.0
+        self.tick(time_delta)
 
     def draw(self) -> None:
         """
         Draws the game frame.
+        """
+        self.render()
 
-        Clears the screen, renders the world, draws the UI, and flips the display.
-
-        Returns:
-            None
+    def render(self) -> None:
+        """
+        Performs rendering operations.
+        Separated from update/tick for headless efficiency.
         """
         self.screen.fill((30, 30, 30)) # Dark background
-
-        # Draw Game World (Placeholder for now, systems should draw)
-        # We might need a RenderSystem if we want to be pure ECS,
-        # or just call a render method on the world/systems.
-        # For now, let's assume we have a render callback or system.
         self.render_world()
-
         self.ui_manager.draw_ui(self.screen)
         pygame.display.flip()
 
@@ -154,6 +164,13 @@ class GameLoop:
             None
         """
         pass
+
+    def quit(self) -> None:
+        """
+        Stops the game loop and quits Pygame.
+        """
+        self.running = False
+        pygame.quit()
 
     def run(self) -> None:
         """
@@ -172,7 +189,7 @@ class GameLoop:
             if not self.headless:
                 self.draw()
 
-        pygame.quit()
+        self.quit()
         logger.info("Game Loop Ended")
 
     def set_headless(self, headless: bool) -> None:
