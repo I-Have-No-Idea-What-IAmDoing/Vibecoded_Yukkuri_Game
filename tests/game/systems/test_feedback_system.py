@@ -54,7 +54,15 @@ class TestFeedbackSystem:
         transform = Transform(x=100, y=100)
         text_comp = FloatingText(text="Test", color=(255, 255, 255), lifetime=1.0, max_lifetime=1.0, velocity_y=-10.0, size=10)
 
-        mock_world.get_components_tuple.return_value = [(entity_id, (transform, text_comp))]
+        # Mock get_components_tuple to handle different calls
+        def get_components_side_effect(*args):
+            if args == (YukkuriStats,):
+                return [] # No Yukkuris for crying check
+            if args == (Transform, FloatingText):
+                return [(entity_id, (transform, text_comp))]
+            return []
+
+        mock_world.get_components_tuple.side_effect = get_components_side_effect
 
         # Update for 0.5 seconds
         feedback_system.update(mock_world, 0.5)
