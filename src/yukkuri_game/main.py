@@ -23,6 +23,7 @@ from .game.systems.lifecycle import LifecycleSystem
 from .game.systems.decision import DecisionSystem
 from .game.systems.behavior import BehaviorSystem
 from .game.systems.physics import PhysicsSystem
+from .game.systems.movement_system import MovementSystem
 from .game.systems.construction_system import ConstructionSystem
 from .game.systems.animation import AnimationSystem
 from .game.systems.poop_system import PoopSystem
@@ -193,6 +194,7 @@ class YukkuriGame(GameLoop):
         self.world.add_system(LifecycleSystem(settings=self.game_config.rules.lifecycle, entity_factory=self.factory))
         self.world.add_system(DecisionSystem(self.ai_engine, decision_interval=1.0))
         self.world.add_system(BehaviorSystem(float(self.yukkurrium.width), float(self.yukkurrium.height)))
+        self.world.add_system(MovementSystem())
         self.world.add_system(ConstructionSystem())
         self.world.add_system(AnimationSystem())
         self.world.add_system(PoopSystem())

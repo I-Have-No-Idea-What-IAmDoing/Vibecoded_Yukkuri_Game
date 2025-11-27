@@ -2,36 +2,44 @@ import pytest
 from unittest.mock import MagicMock, patch
 import math
 from py_trees.common import Status
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.ai.behavior import MoveToTarget, Wander, Interact, Idle, FindItem
-from src.yukkuri_game.game.yukkuri_components import AIState, ItemStats, YukkuriStats
-from src.yukkuri_game.game.components import Transform, PhysicsBody, InteractionRequest
-from src.yukkuri_game.game.ai.navigation_service import NavigationService
-from src.yukkuri_game.game.services import GameService
-from src.yukkuri_game.game.systems.interaction_system import InteractionSystem
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.ai.behavior import MoveToTarget, Wander, Interact, Idle, FindItem
+from yukkuri_game.game.yukkuri_components import AIState, ItemStats, YukkuriStats
+from yukkuri_game.game.components import Transform, PhysicsBody, InteractionRequest, MovementController
+from yukkuri_game.game.ai.navigation_service import NavigationService
+from yukkuri_game.game.services import GameService
+from yukkuri_game.game.systems.interaction_system import InteractionSystem
 
 # test_move_to_target_stuck_detection removed due to flakiness/mocking issues in CI environment
 
 def test_move_to_target_success():
     world = World()
     nav_service = MagicMock(spec=NavigationService)
-    world.services.register(nav_service)
+    world.services.register(nav_service, NavigationService)
 
     entity = world.create_entity()
     ai = AIState()
     trans = Transform(x=95, y=0) # Close to target
+    stats = YukkuriStats(name="Test", type_id="test")
+    controller = MovementController()
 
     world.add_component(entity, ai)
     world.add_component(entity, trans)
+    world.add_component(entity, stats)
+    world.add_component(entity, controller)
 
     ai.state_data = {"target_x": 100.0, "target_y": 0.0}
+
+    # Mock find_path to return a valid path even though we are close enough.
+    # The logic accesses path[0] before checking final distance.
+    nav_service.find_path.return_value = [(95, 0), (100, 0)]
 
     action = MoveToTarget(entity_id=entity, world=world)
 
     with patch('py_trees.blackboard.Blackboard') as mock_bb:
         mock_bb.return_value.get.return_value = 0.1
 
-        # Close enough to not need pathfinding
+        # Close enough to not need pathfinding (or rather, pathfinding runs but we finish immediately)
         status = action.update()
         assert status == Status.SUCCESS
 

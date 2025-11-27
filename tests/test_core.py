@@ -1,11 +1,11 @@
 import pytest
 from unittest.mock import MagicMock, patch, ANY
 import pygame
-from src.yukkuri_game.engine.core import GameLoop
+from yukkuri_game.engine.core import GameLoop
 
 @pytest.fixture
 def mock_pygame():
-    with patch('src.yukkuri_game.engine.core.pygame') as mock_pg:
+    with patch('yukkuri_game.engine.core.pygame') as mock_pg:
         mock_pg.display.set_mode.return_value = MagicMock()
         mock_pg.event.get.return_value = []
         mock_pg.time.Clock.return_value.tick.return_value = 16 # 16ms -> ~60fps
@@ -13,17 +13,17 @@ def mock_pygame():
 
 @pytest.fixture
 def mock_pygame_gui():
-    with patch('src.yukkuri_game.engine.core.pygame_gui') as mock_gui:
+    with patch('yukkuri_game.engine.core.pygame_gui') as mock_gui:
         yield mock_gui
 
 @pytest.fixture
 def mock_resource_manager():
-    with patch('src.yukkuri_game.engine.core.ResourceManager') as mock_rm:
+    with patch('yukkuri_game.engine.core.ResourceManager') as mock_rm:
         yield mock_rm
 
 @pytest.fixture
 def mock_world():
-    with patch('src.yukkuri_game.engine.core.World') as mock_w:
+    with patch('yukkuri_game.engine.core.World') as mock_w:
         yield mock_w
 
 def test_gameloop_init(mock_pygame, mock_pygame_gui, mock_resource_manager, mock_world):

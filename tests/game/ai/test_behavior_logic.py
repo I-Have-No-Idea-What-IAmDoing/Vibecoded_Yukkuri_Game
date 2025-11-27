@@ -9,7 +9,7 @@ from yukkuri_game.game.ai.behavior import (
     build_dance_behavior, create_yukkuri_behavior_tree
 )
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform, PhysicsBody, InteractionRequest
+from yukkuri_game.game.components import Transform, PhysicsBody, InteractionRequest, MovementController
 from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, ItemStats
 from yukkuri_game.game.ai.navigation_service import NavigationService
 from yukkuri_game.game.services import GameService
@@ -35,13 +35,15 @@ class TestMoveToTarget:
 
         ai = MagicMock(current_target_id=2, path=[(100, 100)], state_data={})
         trans = MagicMock(x=99, y=99) # Close to target
-        phys = MagicMock()
+        stats = MagicMock() # YukkuriStats
+        controller = MagicMock() # MovementController
 
         def get_component(e, c):
             if e == 1:
                 if c == AIState: return ai
                 if c == Transform: return trans
-                if c == PhysicsBody: return phys
+                if c == YukkuriStats: return stats
+                if c == MovementController: return controller
             if e == 2:
                 if c == Transform: return MagicMock(x=100, y=100)
             return None
@@ -60,25 +62,20 @@ class TestMoveToTarget:
 
         ai = MagicMock(current_target_id=2, path=None, state_data={})
         trans = MagicMock(x=0, y=0)
-        phys = MagicMock()
+        stats = MagicMock(energy=100) # Ensure energy comparison works
+        controller = MagicMock()
 
         nav_service = MagicMock(spec=NavigationService)
         nav_service.find_path.return_value = [(50, 50), (100, 100)]
         mock_world.services = MagicMock()
         mock_world.services.try_get.return_value = nav_service
 
-        # Mock physics to ensure raycast hits something, preventing string pulling optimization
-        # or mock segment_query to return a hit.
-        hit_mock = MagicMock()
-        hit_mock.shape.sensor = False # Important: Mock is truthy, so we must explicitly set False
-        hit_mock.alpha = 0.5 # Must be > 0.001 and < 1.0 (float)
-        phys.body.space.segment_query.return_value = [hit_mock] # Hits something
-
         def get_component(e, c):
             if e == 1:
                 if c == AIState: return ai
                 if c == Transform: return trans
-                if c == PhysicsBody: return phys
+                if c == YukkuriStats: return stats
+                if c == MovementController: return controller
             if e == 2:
                 if c == Transform: return MagicMock(x=100, y=100)
             return None

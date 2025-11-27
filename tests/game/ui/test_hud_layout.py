@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import pygame
 import pygame_gui
-from src.yukkuri_game.game.ui.hud_layout import HudLayout
+from yukkuri_game.game.ui.hud_layout import HudLayout
 
 class TestHudLayout(unittest.TestCase):
     def setUp(self):
@@ -13,11 +13,11 @@ class TestHudLayout(unittest.TestCase):
         self.item_types = {"cookie": MagicMock(cost=10, name="Cookie")}
 
         # Patch pygame_gui elements to avoid actual UI creation overhead/errors in headless env
-        self.patcher_panel = patch('src.yukkuri_game.game.ui.hud_layout.UIPanel')
-        self.patcher_label = patch('src.yukkuri_game.game.ui.hud_layout.UILabel')
-        self.patcher_button = patch('src.yukkuri_game.game.ui.hud_layout.UIButton')
-        self.patcher_window = patch('src.yukkuri_game.game.ui.hud_layout.UIWindow')
-        self.patcher_textbox = patch('src.yukkuri_game.game.ui.hud_layout.UITextBox')
+        self.patcher_panel = patch('yukkuri_game.game.ui.hud_layout.UIPanel')
+        self.patcher_label = patch('yukkuri_game.game.ui.hud_layout.UILabel')
+        self.patcher_button = patch('yukkuri_game.game.ui.hud_layout.UIButton')
+        self.patcher_window = patch('yukkuri_game.game.ui.hud_layout.UIWindow')
+        self.patcher_textbox = patch('yukkuri_game.game.ui.hud_layout.UITextBox')
 
         self.MockPanel = self.patcher_panel.start()
         self.MockLabel = self.patcher_label.start()

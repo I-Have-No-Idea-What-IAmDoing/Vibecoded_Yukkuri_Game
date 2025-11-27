@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from src.yukkuri_game.game.systems.behavior import BehaviorSystem
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.yukkuri_components import AIState
+from yukkuri_game.game.systems.behavior import BehaviorSystem
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.yukkuri_components import AIState
 import py_trees
 
 class TestBehaviorSystemCleanup(unittest.TestCase):
@@ -12,7 +12,7 @@ class TestBehaviorSystemCleanup(unittest.TestCase):
 
         # Need to mock create_yukkuri_behavior_tree because it depends on other components/systems
         # and we only want to test the system logic, not the tree construction itself
-        self.patcher = patch('src.yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree')
+        self.patcher = patch('yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree')
         self.mock_create_tree = self.patcher.start()
 
         # Return a dummy behavior tree root

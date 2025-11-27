@@ -1,16 +1,16 @@
 import pytest
 from unittest.mock import MagicMock
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.components import Transform
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
-from src.yukkuri_game.game.systems.decision import DecisionSystem
-from src.yukkuri_game.game.systems.behavior import BehaviorSystem
-from src.yukkuri_game.game.systems.stat_decay import StatDecaySystem
-from src.yukkuri_game.game.systems.interaction_system import InteractionSystem
-from src.yukkuri_game.config import StatDecaySettings
-from src.yukkuri_game.game.services import GameService
-from src.yukkuri_game.game.ai.utility import UtilityAIEngine
-from src.yukkuri_game.game.ai.navigation_service import NavigationService
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.components import Transform, MovementController
+from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
+from yukkuri_game.game.systems.decision import DecisionSystem
+from yukkuri_game.game.systems.behavior import BehaviorSystem
+from yukkuri_game.game.systems.stat_decay import StatDecaySystem
+from yukkuri_game.game.systems.interaction_system import InteractionSystem
+from yukkuri_game.config import StatDecaySettings
+from yukkuri_game.game.services import GameService
+from yukkuri_game.game.ai.utility import UtilityAIEngine
+from yukkuri_game.game.ai.navigation_service import NavigationService
 
 @pytest.fixture
 def simulation_world():
@@ -23,6 +23,7 @@ def simulation_world():
     world.add_component(yukkuri, Transform(x=0, y=0))
     world.add_component(yukkuri, YukkuriStats(name="Test", type_id="test", hunger=50))
     world.add_component(yukkuri, AIState())
+    world.add_component(yukkuri, MovementController())
     # We don't add PhysicsBody so MoveToTarget modifies Transform directly
 
     # Create Item
@@ -91,25 +92,23 @@ def test_simulation_action_eat(simulation_world, systems):
     trans = world.get_component(yukkuri, Transform)
     initial_x = trans.x
     behavior_system.update(world, 0.1)
-    # Pathfinding might return the start point as the first point, so we need to check if we moved
-    # The current implementation sets path[0] to start. MoveToTarget looks at path[0] and computes dx, dy.
-    # If path[0] == trans, dist is 0. It pops path[0].
-    # So the first update might just pop the start node.
-    # Let's update again to see movement.
-    if trans.x == initial_x:
-         behavior_system.update(world, 0.1)
+    # BehaviorSystem updates MoveToTarget, which sets target_velocity in MovementController.
+    # We need to manually simulate movement application since we don't have PhysicsSystem/MovementSystem in this test.
+    controller = world.get_component(yukkuri, MovementController)
 
+    # Apply velocity
+    trans.x += controller.target_velocity.x * 0.1
+    trans.y += controller.target_velocity.y * 0.1
+
+    # Check if we moved.
     assert trans.x > initial_x # Should have moved towards 100
-    # assert trans.x == 10.0 # This assertion is brittle depending on pathfinding step size etc.
 
     # Move until close enough (Dist <= 30 for Interact, < 15 for MoveToTarget success)
-    # Current x=10. Target=100. Dist=90. Speed=100.
-    # Need to move 60 more to reach dist 30. 0.6s.
-    # NOTE: MoveToTarget uses dt from Blackboard which is set by BehaviorSystem.update
-    # With the pathfinding change, it might just jump to the target if close enough or follow path.
-    # Let's give it enough time to reach.
-    for _ in range(10):
+    for _ in range(20):
         behavior_system.update(world, 0.1)
+        # Manually apply velocity
+        trans.x += controller.target_velocity.x * 0.1
+        trans.y += controller.target_velocity.y * 0.1
 
     # Next tick should Interact
     stats = world.get_component(yukkuri, YukkuriStats)
@@ -154,6 +153,11 @@ def test_simulation_action_wander(simulation_world, systems):
     initial_x, initial_y = trans.x, trans.y
 
     behavior_system.update(world, 0.1)
+
+    # Manually apply velocity
+    controller = world.get_component(yukkuri, MovementController)
+    trans.x += controller.target_velocity.x * 0.1
+    trans.y += controller.target_velocity.y * 0.1
 
     # Should have moved
     assert trans.x != initial_x or trans.y != initial_y

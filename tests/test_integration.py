@@ -1,16 +1,16 @@
 import unittest
 from unittest.mock import Mock, MagicMock
 import pygame
-from src.yukkuri_game.engine.event_bus import EventBus
-from src.yukkuri_game.game.events import EntitySelectedEvent, PlacementStartedEvent, GamePausedEvent
-from src.yukkuri_game.game.input_system import InputSystem
-from src.yukkuri_game.game.ui.hud import HUD
-from src.yukkuri_game.engine.service_locator import ServiceLocator
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.yukkurrium import Yukkurrium
-from src.yukkuri_game.game.game_manager import GameManager
-from src.yukkuri_game.game.entity_factory import EntityFactory
-from src.yukkuri_game.game.services import InputService
+from yukkuri_game.engine.event_bus import EventBus
+from yukkuri_game.game.events import EntitySelectedEvent, PlacementStartedEvent, GamePausedEvent
+from yukkuri_game.game.input_system import InputSystem
+from yukkuri_game.game.ui.hud import HUD
+from yukkuri_game.engine.service_locator import ServiceLocator
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.yukkurrium import Yukkurrium
+from yukkuri_game.game.game_manager import GameManager
+from yukkuri_game.game.entity_factory import EntityFactory
+from yukkuri_game.game.services import InputService
 
 class TestIntegration(unittest.TestCase):
     def setUp(self):
@@ -47,7 +47,7 @@ class TestIntegration(unittest.TestCase):
 
         # Simulate click on entity
         # We need to setup world with an entity
-        from src.yukkuri_game.game.components import Transform, Selectable
+        from yukkuri_game.game.components import Transform, Selectable
         entity = self.world.create_entity()
         self.world.add_component(entity, Transform(0, 0))
         self.world.add_component(entity, Selectable())
@@ -80,9 +80,9 @@ class TestIntegration(unittest.TestCase):
         mock_subscriber.assert_called_with(EntitySelectedEvent([entity]))
 
     def test_hud_subscribes_to_selection_event(self):
-        with unittest.mock.patch('src.yukkuri_game.game.ui.hud.HudLayout') as MockLayout, \
-             unittest.mock.patch('src.yukkuri_game.game.ui.hud.HudRenderer') as MockRenderer, \
-             unittest.mock.patch('src.yukkuri_game.game.ui.hud.HudEvents') as MockEvents:
+        with unittest.mock.patch('yukkuri_game.game.ui.hud.HudLayout') as MockLayout, \
+             unittest.mock.patch('yukkuri_game.game.ui.hud.HudRenderer') as MockRenderer, \
+             unittest.mock.patch('yukkuri_game.game.ui.hud.HudEvents') as MockEvents:
 
             # The factory mock needs an 'rm' attribute which has yukkuri_types and item_types
             rm_mock = Mock()

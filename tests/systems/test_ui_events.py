@@ -1,12 +1,12 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import pygame
-from src.yukkuri_game.game.input_system import InputSystem
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.engine.event_bus import EventBus
-from src.yukkuri_game.game.events import EntitySelectedEvent, PlacementRequestedEvent, PlacementStartedEvent
-from src.yukkuri_game.game.components import Transform, Selectable
-from src.yukkuri_game.game.services import InputService
+from yukkuri_game.game.input_system import InputSystem
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
+from yukkuri_game.game.events import EntitySelectedEvent, PlacementRequestedEvent, PlacementStartedEvent
+from yukkuri_game.game.components import Transform, Selectable
+from yukkuri_game.game.services import InputService
 
 class TestUIEvents(unittest.TestCase):
     def setUp(self):

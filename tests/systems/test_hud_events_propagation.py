@@ -2,9 +2,9 @@ import unittest
 from unittest.mock import MagicMock
 import pygame
 import pygame_gui
-from src.yukkuri_game.game.ui.hud_events import HudEvents
-from src.yukkuri_game.engine.event_bus import EventBus
-from src.yukkuri_game.game.events import TogglePauseRequest, CycleSpeedRequest
+from yukkuri_game.game.ui.hud_events import HudEvents
+from yukkuri_game.engine.event_bus import EventBus
+from yukkuri_game.game.events import TogglePauseRequest, CycleSpeedRequest
 
 class TestHudEventsPropagation(unittest.TestCase):
     def setUp(self):

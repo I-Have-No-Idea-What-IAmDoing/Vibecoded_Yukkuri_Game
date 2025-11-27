@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from src.yukkuri_game.game.ai.utility import UtilityAIEngine, Consideration, Action
-from src.yukkuri_game.engine.data_models import AIAction, ActionEffect, ActionConsideration
+from yukkuri_game.game.ai.utility import UtilityAIEngine, Consideration, Action
+from yukkuri_game.engine.data_models import AIAction, ActionEffect, ActionConsideration
 
 class MockResourceManager:
     def __init__(self, actions_data):
@@ -90,7 +90,7 @@ def test_validate_actions_warning():
     # Since UtilityAIEngine does 'from .behavior import BehaviorRegistry' inside the method,
     # we need to patch 'src.yukkuri_game.game.ai.behavior.BehaviorRegistry'
 
-    with patch('src.yukkuri_game.game.ai.behavior.BehaviorRegistry') as mock_registry:
+    with patch('yukkuri_game.game.ai.behavior.BehaviorRegistry') as mock_registry:
         mock_registry.get_goals.return_value = {} # No behaviors registered
 
         # Setup engine with an action "Eat"
@@ -101,7 +101,7 @@ def test_validate_actions_warning():
         engine = UtilityAIEngine(rm)
 
         # Expect warning logs
-        with patch('src.yukkuri_game.game.ai.utility.logger') as mock_logger:
+        with patch('yukkuri_game.game.ai.utility.logger') as mock_logger:
             engine.validate_actions()
             assert mock_logger.warning.called
             # Verify message content

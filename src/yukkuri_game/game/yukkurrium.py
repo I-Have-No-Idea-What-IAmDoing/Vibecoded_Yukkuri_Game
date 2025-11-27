@@ -233,7 +233,16 @@ class WorldRenderer:
                 if sx + sprite.width <= img_width:
                      source_rect.x = sx
 
-            frame_img = img.subsurface(source_rect)
+            # Ensure source_rect is within image bounds
+            if source_rect.right > img_width or source_rect.bottom > img_height:
+                # If image is smaller than expected (e.g. placeholder), scale it or clip
+                # For placeholder (which is usually small), we just use the whole image
+                if img_width < sprite.width or img_height < sprite.height:
+                     frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
+                else:
+                     frame_img = img.subsurface(source_rect.clip(img.get_rect()))
+            else:
+                frame_img = img.subsurface(source_rect)
 
             # Apply flips
             if sprite.flip_x or sprite.flip_y:

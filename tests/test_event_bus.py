@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import Mock, MagicMock
-from src.yukkuri_game.engine.event_bus import EventBus, Event
+from yukkuri_game.engine.event_bus import EventBus, Event
 from dataclasses import dataclass
 
 @dataclass(frozen=True)

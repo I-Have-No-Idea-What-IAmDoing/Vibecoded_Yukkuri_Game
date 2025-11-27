@@ -1,8 +1,8 @@
 import pytest
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, AIState
-from src.yukkuri_game.game.systems.family_system import FamilySystem
-from src.yukkuri_game.game.components import Transform
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, AIState
+from yukkuri_game.game.systems.family_system import FamilySystem
+from yukkuri_game.game.components import Transform
 
 class TestFamilySystem:
     @pytest.fixture(autouse=True)

@@ -1,11 +1,11 @@
 import unittest
 from unittest.mock import MagicMock
-from src.yukkuri_game.game.systems.construction_system import ConstructionSystem
-from src.yukkuri_game.game.events import PlacementRequestedEvent
-from src.yukkuri_game.game.services import EconomyService
-from src.yukkuri_game.game.entity_factory import EntityFactory
-from src.yukkuri_game.engine.event_bus import EventBus
-from src.yukkuri_game.engine.ecs import World
+from yukkuri_game.game.systems.construction_system import ConstructionSystem
+from yukkuri_game.game.events import PlacementRequestedEvent
+from yukkuri_game.game.services import EconomyService
+from yukkuri_game.game.entity_factory import EntityFactory
+from yukkuri_game.engine.event_bus import EventBus
+from yukkuri_game.engine.ecs import World
 
 class TestConstructionSystem(unittest.TestCase):
     def setUp(self):

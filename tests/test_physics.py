@@ -1,9 +1,9 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import pymunk
-from src.yukkuri_game.game.systems.physics import PhysicsSystem
-from src.yukkuri_game.game.components import Transform, PhysicsBody
-from src.yukkuri_game.engine.ecs import World
+from yukkuri_game.game.systems.physics import PhysicsSystem
+from yukkuri_game.game.components import Transform, PhysicsBody
+from yukkuri_game.engine.ecs import World
 
 @pytest.fixture
 def physics_system():

@@ -1,6 +1,6 @@
 
 import pytest
-from src.yukkuri_game.game.ai.navigation_service import NavigationService
+from yukkuri_game.game.ai.navigation_service import NavigationService
 
 def test_find_path_simple():
     """Test basic pathfinding on an empty grid."""

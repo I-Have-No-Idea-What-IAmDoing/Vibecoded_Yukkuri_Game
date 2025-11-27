@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch, mock_open
 import os
-from src.yukkuri_game.engine.resource_manager import ResourceManager
+from yukkuri_game.engine.resource_manager import ResourceManager
 
 from typing import Dict
 import msgspec
@@ -29,8 +29,8 @@ def test_load_toml_failure():
 
     assert data is None
 
-@patch("src.yukkuri_game.engine.resource_manager.pygame.image.load")
-@patch("src.yukkuri_game.engine.resource_manager.os.path.exists")
+@patch("yukkuri_game.engine.resource_manager.pygame.image.load")
+@patch("yukkuri_game.engine.resource_manager.os.path.exists")
 def test_load_image_success(mock_exists, mock_load):
     rm = ResourceManager()
     mock_exists.return_value = True
@@ -47,7 +47,7 @@ def test_load_image_success(mock_exists, mock_load):
     assert img2 == mock_surface
     mock_load.assert_called_once() # Only called once due to cache
 
-@patch("src.yukkuri_game.engine.resource_manager.os.path.exists")
+@patch("yukkuri_game.engine.resource_manager.os.path.exists")
 def test_load_image_not_found(mock_exists):
     rm = ResourceManager()
     mock_exists.return_value = False
@@ -86,11 +86,14 @@ def test_load_all_data():
     mock_ai_data = MagicMock()
     mock_ai_data.actions = {"Eat": {}}
 
-    with patch.object(rm, 'load_toml_model', side_effect=[mock_yukkuri_data, mock_item_data, mock_ai_data]) as mock_load:
+    mock_tuning_data = MagicMock()
+
+    with patch.object(rm, 'load_toml_model', side_effect=[mock_yukkuri_data, mock_item_data, mock_ai_data, mock_tuning_data]) as mock_load:
         rm.load_all_data()
 
         assert rm.yukkuri_types == {"Reimu": {}}
         assert rm.item_types == {"Cookie": {}}
         assert rm.ai_actions == {"Eat": {}}
+        assert rm.tuning == mock_tuning_data
 
-        assert mock_load.call_count == 3
+        assert mock_load.call_count == 4

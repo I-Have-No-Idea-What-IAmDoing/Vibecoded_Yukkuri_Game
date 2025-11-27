@@ -22,6 +22,11 @@ class MockResourceManager:
         }
         self.item_types = {}
 
+        # Mock tuning
+        self.tuning = MagicMock()
+        self.tuning.visuals.movement.bob_height = 10.0
+        self.tuning.visuals.movement.bob_speed = 5.0
+
 @pytest.fixture
 def resource_manager():
     return MockResourceManager()
