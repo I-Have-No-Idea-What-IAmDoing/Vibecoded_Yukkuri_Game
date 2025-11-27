@@ -57,6 +57,14 @@ class EntityFactory:
     def _get_attr(self, data: Any, key: str, default: Any = None) -> Any:
         """
         Helper to get an attribute from either a dict or an object (msgspec struct).
+
+        Args:
+            data (Any): The data object (dict or msgspec.Struct).
+            key (str): The attribute key.
+            default (Any): The default value if the key is missing.
+
+        Returns:
+            Any: The attribute value or the default.
         """
         if isinstance(data, dict):
             return data.get(key, default)
@@ -65,6 +73,22 @@ class EntityFactory:
     def create_yukkuri(self, type_id: str, x: float, y: float, age: float = 0.0, parents: Optional[List[int]] = None) -> int:
         """
         Creates a Yukkuri entity.
+
+        Constructs a Yukkuri entity with all necessary components including Transform, Sprite,
+        Physics, Stats, AI, Personality, and Relations.
+
+        Args:
+            type_id (str): The type identifier of the Yukkuri (e.g., 'reimu').
+            x (float): The initial x-coordinate.
+            y (float): The initial y-coordinate.
+            age (float): The initial age of the Yukkuri. Defaults to 0.0.
+            parents (Optional[List[int]]): List of parent entity IDs. Defaults to None.
+
+        Returns:
+            int: The unique ID of the created entity.
+
+        Raises:
+            ValueError: If the type_id is not found in loaded resources.
         """
         data = self.rm.yukkuri_types.get(type_id)
         if not data:
@@ -180,6 +204,21 @@ class EntityFactory:
         return entity
 
     def create_floating_text(self, x: float, y: float, text: str, color: tuple[int, int, int], size: int = 20, lifetime: float = 2.0, velocity_y: float = -50.0) -> int:
+        """
+        Creates a floating text entity.
+
+        Args:
+            x (float): The x-coordinate.
+            y (float): The y-coordinate.
+            text (str): The text content.
+            color (tuple[int, int, int]): The text color.
+            size (int): The font size. Defaults to 20.
+            lifetime (float): Duration in seconds before the text is removed. Defaults to 2.0.
+            velocity_y (float): Vertical velocity in pixels/second. Defaults to -50.0.
+
+        Returns:
+            int: The unique ID of the created entity.
+        """
         entity = self.world.create_entity()
         self.world.add_component(entity, Transform(x=x, y=y))
         self.world.add_component(entity, FloatingText(
@@ -189,6 +228,16 @@ class EntityFactory:
         return entity
 
     def create_poop(self, x: float, y: float) -> int:
+        """
+        Creates a Poop entity.
+
+        Args:
+            x (float): The x-coordinate.
+            y (float): The y-coordinate.
+
+        Returns:
+            int: The unique ID of the created entity.
+        """
         entity = self.world.create_entity()
         self.world.add_component(entity, Transform(x=x, y=y))
         self.world.add_component(entity, Sprite(image_name="poop.png", width=32, height=32))
@@ -206,6 +255,20 @@ class EntityFactory:
         return entity
 
     def create_item(self, type_id: str, x: float, y: float) -> int:
+        """
+        Creates an Item entity.
+
+        Args:
+            type_id (str): The item type identifier.
+            x (float): The x-coordinate.
+            y (float): The y-coordinate.
+
+        Returns:
+            int: The unique ID of the created entity.
+
+        Raises:
+            ValueError: If the item type is unknown.
+        """
         data = self.rm.item_types.get(type_id)
         if not data:
             raise ValueError(f"Unknown item type: {type_id}")
