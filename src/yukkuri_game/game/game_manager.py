@@ -57,6 +57,7 @@ class GameManager:
         self.audio = world.services.try_get(AudioManager)
 
         # Initialize Navigation Service
+        # The NavigationService handles pathfinding grid initialization.
         game_config = world.services.try_get(GameConfig)
         if game_config:
              world.services.register(

@@ -49,6 +49,8 @@ class Yukkurrium:
         """
         Converts world coordinates to screen coordinates.
 
+        Formula: screen = (world - camera) * zoom + screen_center
+
         Args:
             wx (float): World x-coordinate.
             wy (float): World y-coordinate.
@@ -65,6 +67,9 @@ class Yukkurrium:
     def screen_to_world(self, sx: float, sy: float, screen_w: int, screen_h: int) -> tuple[float, float]:
         """
         Converts screen coordinates to world coordinates.
+        Inverse of world_to_screen.
+
+        Formula: world = (screen - screen_center) / zoom + camera
 
         Args:
             sx (float): Screen x-coordinate.
@@ -92,20 +97,25 @@ class Yukkurrium:
             None
         """
         if event.type == pygame.MOUSEWHEEL:
+            # Zoom in/out based on wheel movement
             self.target_zoom += event.y * 0.1
             self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
         elif event.type == pygame.MOUSEMOTION:
             if pygame.mouse.get_pressed()[1]: # Middle mouse button
+                # Pan the camera
                 dx, dy = event.rel
+                # Adjust panning speed by zoom so it feels natural at all levels
                 self.camera_x -= dx / self.zoom
                 self.camera_y -= dy / self.zoom
         elif event.type == pygame.KEYDOWN:
             mods = pygame.key.get_mods()
             if mods & pygame.KMOD_CTRL:
                 if event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
+                    # Zoom In with Keyboard
                     self.target_zoom += 0.1
                     self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
                 elif event.key == pygame.K_MINUS:
+                    # Zoom Out with Keyboard
                     self.target_zoom -= 0.1
                     self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
 
@@ -119,9 +129,9 @@ class Yukkurrium:
         Returns:
             None
         """
-        # Handle continuous camera movement
+        # Handle continuous camera movement via keyboard
         keys = pygame.key.get_pressed()
-        speed = 500.0 * dt / self.zoom  # Adjust speed based on zoom
+        speed = 500.0 * dt / self.zoom  # Adjust speed based on zoom so movement is consistent relative to screen
 
         if keys[pygame.K_w] or keys[pygame.K_UP]:
             self.camera_y -= speed
@@ -132,7 +142,8 @@ class Yukkurrium:
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
             self.camera_x += speed
 
-        # Smooth zoom
+        # Smooth zoom interpolation
+        # Using linear interpolation (Lerp) with a factor of 5.0 for smooth transition
         self.zoom += (self.target_zoom - self.zoom) * 5.0 * dt
 
 class WorldRenderer:

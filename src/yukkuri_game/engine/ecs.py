@@ -51,6 +51,7 @@ class World:
             int: The unique ID of the newly created entity.
         """
         self._switch()
+        # Create entity in the active esper world context
         return esper.create_entity(*components)  # type: ignore[no-any-return]
 
     def destroy_entity(self, entity: int) -> None:
@@ -179,11 +180,13 @@ class World:
         # Note: 'esper._entities' is a module-level variable that points to the entity map of the
         # currently active world context (managed by switch_world).
         try:
-            # Accessing the internal _entities attribute of esper.
-            # Note: This depends on esper's internal implementation.
+            # Accessing the internal _entities attribute of esper directly is necessary
+            # because the public API focuses on component-based queries.
+            # Note: This depends on esper's internal implementation detail `_entities`.
             return list(esper._entities.keys())
         except AttributeError:
             # Fallback if internal implementation changes (unlikely for stable esper)
+            # A more robust but slower way would be to query for a common component if we knew one.
             return []
 
     def get_entities_with(self, *component_types: Type[Any]) -> List[int]:
@@ -244,6 +247,7 @@ class World:
             None
         """
         self._switch()
+        # Process all registered systems (Processors) in order of priority
         esper.process(dt)
 
     def clear(self) -> None:

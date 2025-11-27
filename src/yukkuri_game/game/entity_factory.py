@@ -102,6 +102,7 @@ class EntityFactory:
         max_health = self._get_attr(data, 'max_health', 100)
 
         # Determine growth stage and scale based on age
+        # This logic should match the LifecycleSystem thresholds
         scale = 1.0
         radius = 20
         growth_stage = "Baby"
@@ -166,21 +167,26 @@ class EntityFactory:
         traits = set()
         base_values = {"compassion": 50.0, "greed": 50.0, "bravery": 50.0}
 
+        # Inheritance logic
         if parents and ts:
             parent_personalities = [p for p in (self.world.get_component(pid, Personality) for pid in parents) if p]
             if parent_personalities:
+                # 50% chance to inherit each trait from parents
                 for pp in parent_personalities:
                     for t in pp.traits:
                         if random.random() < 0.5:
                             traits.add(t)
+                # Average base values from parents with some variance
                 for key in base_values:
                     avg_val = sum(pp.values.get(key, 50.0) for pp in parent_personalities) / len(parent_personalities)
                     base_values[key] = max(0.0, min(100.0, avg_val + random.uniform(-10.0, 10.0)))
 
+        # Random generation if no parents
         if not parents:
             for key in base_values:
                 base_values[key] = max(0.0, min(100.0, random.gauss(50, 15)))
 
+        # Random mutation or random trait if none inherited
         if ts and (random.random() < 0.1 or not traits):
             all_traits = ts.get_all_trait_ids()
             if all_traits:
