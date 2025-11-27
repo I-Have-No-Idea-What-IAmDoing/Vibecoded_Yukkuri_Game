@@ -37,7 +37,6 @@ def yukkuri_game_headless(mock_pygame):
          patch('yukkuri_game.main.UtilityAIEngine'), \
          patch('yukkuri_game.main.InputSystem'), \
          patch('yukkuri_game.main.StatDecaySystem'), \
-         patch('yukkuri_game.main.DecisionSystem'), \
          patch('yukkuri_game.main.BehaviorSystem'), \
          patch('yukkuri_game.main.load_config') as mock_load_config, \
          patch('yukkuri_game.main.Yukkurrium'): # Mock Yukkurrium to avoid display setup
