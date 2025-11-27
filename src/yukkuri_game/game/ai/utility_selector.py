@@ -80,9 +80,11 @@ class UtilitySelector(Action):
         if not ai or not stats:
             return Status.FAILURE
 
-        # Build Context
+        # Build Context for Utility Evaluation
+        # The context contains all variables available for considerations to check against.
+        # This includes basic stats, social environment data, and personality values.
 
-        # Calculate social context
+        # Calculate social context (nearby friends/enemies)
         nearby_yukkuris = []
         if self.world:
             nearby_yukkuris = self.world.get_entities_with(YukkuriStats)
@@ -101,6 +103,7 @@ class UtilitySelector(Action):
                 other_stats = self.world.get_component(other_id, YukkuriStats)
 
                 if other_trans and other_stats:
+                    # Calculate Euclidean distance
                     dist = ((my_trans.x - other_trans.x)**2 + (my_trans.y - other_trans.y)**2)**0.5
                     if dist < 200.0: # Detection range
                         if other_stats.type_id == stats.type_id:
@@ -110,11 +113,11 @@ class UtilitySelector(Action):
 
         context = {
             "hunger": stats.hunger,
-            "hunger_inv": 100.0 - stats.hunger,
+            "hunger_inv": 100.0 - stats.hunger, # Inverse hunger (Satiety)
             "energy": stats.energy,
-            "energy_inv": 100.0 - stats.energy,
+            "energy_inv": 100.0 - stats.energy, # Inverse energy (Tiredness)
             "happiness": stats.happiness,
-            "happiness_inv": 100.0 - stats.happiness,
+            "happiness_inv": 100.0 - stats.happiness, # Sadness
             "social": getattr(stats, 'social', 50.0),
             "social_inv": 100.0 - getattr(stats, 'social', 50.0),
             "stress": getattr(stats, 'stress', 0.0),
@@ -126,11 +129,12 @@ class UtilitySelector(Action):
         }
 
         # Inject Personality Values into Context
+        # Allows AI to make decisions based on personality traits (e.g. "Lazy" might value rest more)
         if personality:
             for key, val in personality.values.items():
                 context[f"val_{key}"] = val
 
-            # Inject Traits as binary flags
+            # Inject Traits as binary flags for conditional considerations
             for trait in personality.traits:
                 context[f"trait_{trait}"] = 1.0
 
@@ -141,7 +145,7 @@ class UtilitySelector(Action):
             personality.cached_overrides = self.trait_service.calculate_overrides(personality.traits)
 
         # We pass personality and trait service to support overrides inside the engine
-        # But we prefer using the cache now
+        # The engine will select the best action based on the highest utility score
         best_action = self.engine.select_action(context, personality, self.trait_service)
 
         # Update AI State

@@ -131,7 +131,7 @@ class GameLoop:
         self.ui_manager.update(dt)
 
         if not self.paused:
-            # Update ECS world
+            # Update ECS world with scaled time (for game speed control)
             sim_dt = self.dt * self.time_scale
             self.world.update(sim_dt)
 
@@ -187,6 +187,7 @@ class GameLoop:
     def run(self) -> None:
         """
         Runs the main game loop using "Fix Your Timestep" logic.
+        This ensures consistent game physics regardless of frame rate.
 
         Returns:
             None
@@ -194,6 +195,7 @@ class GameLoop:
         self.setup()
         logger.info("Game Loop Started")
 
+        # Initial time for calculating delta time
         current_time = pygame.time.get_ticks() / 1000.0
 
         while self.running:
@@ -201,25 +203,27 @@ class GameLoop:
             frame_time = new_time - current_time
             current_time = new_time
 
-            # Spiral of death protection
+            # Spiral of death protection:
+            # If the game lags significantly (e.g. paused in debugger), prevent the
+            # accumulator from growing too large, which would cause a freeze as the game
+            # tries to catch up by running many physics steps in one frame.
             if frame_time > 0.25:
                 frame_time = 0.25
 
             self.accumulator += frame_time
 
+            # Consume the accumulated time in fixed discrete steps
             while self.accumulator >= self.fixed_dt:
                 self.handle_events()
                 self.tick(self.fixed_dt)
                 self.accumulator -= self.fixed_dt
 
-            # Optional: Interpolation could be calculated here
+            # Optional: Interpolation could be calculated here for smoother rendering
             # alpha = self.accumulator / self.fixed_dt
 
             if not self.headless:
                 self.draw()
-                # If we are running faster than display refresh, we might want to sleep?
-                # or just let it run as fast as possible (uncapped).
-                # Using clock.tick to cap rendering FPS is good practice to save battery/CPU.
+                # Cap rendering frame rate to 60 FPS to save resources
                 self.clock.tick(60)
 
         self.quit()

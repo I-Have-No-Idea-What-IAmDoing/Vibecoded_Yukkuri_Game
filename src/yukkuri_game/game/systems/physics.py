@@ -48,11 +48,17 @@ class PhysicsSystem(System):
             dt = self.max_frame_time
 
         self.accumulator += dt
+
+        # Fixed timestep update loop
+        # We process physics in fixed increments (self.time_step) to ensure determinism
+        # and stability, regardless of the variable frame render time (dt).
         while self.accumulator >= self.time_step:
             self.space.step(self.time_step)
             self.accumulator -= self.time_step
 
         # Sync PhysicsBody -> Transform
+        # Pymunk is the source of truth for position, so we update the ECS Transform component
+        # to reflect the latest physics state for other systems (rendering, logic) to use.
         for entity, (phys, trans) in world.get_components_tuple(PhysicsBody, Transform):
             trans.x = phys.body.position.x
             trans.y = phys.body.position.y

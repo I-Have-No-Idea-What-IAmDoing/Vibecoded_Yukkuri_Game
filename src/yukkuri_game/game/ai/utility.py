@@ -50,6 +50,7 @@ class Consideration:
     def evaluate_curve(self, x: float, curve_type: Optional[str] = None, params: Optional[Dict[str, float]] = None) -> float:
         """
         Evaluates the configured curve function for a given input value.
+        Maps the input value 'x' to a normalized utility score between 0.0 and 1.0.
 
         Args:
             x: The input value.
@@ -63,25 +64,29 @@ class Consideration:
             curve_type = self.curve_type
         if params is None:
             params = self.params
-        # Normalize x usually expected between 0 and 100, map to 0-1
+        # Normalize x usually expected between 0 and 100, map to 0-1 range for easier curve calculation
         v = max(0, min(100, x)) / 100.0
 
         if curve_type == "linear":
+            # Linear mapping: y = mx + b
             m = params.get("m", 1.0)
             b = params.get("b", 0.0)
             return max(0.0, min(1.0, m * v + b))
 
         elif curve_type == "inverse_linear":
-            # High value = low score
+            # High input value results in low score.
+            # Useful for things like 'Hunger' where high hunger should drive eating (wait, high hunger = high score needed).
+            # If input is 'Satiety', high satiety = low score.
             return 1.0 - v
 
         elif curve_type == "logit":
-            # S-curve
-            k = params.get("k", 10.0) # Steepness
-            x0 = params.get("x0", 0.5) # Midpoint
+            # S-curve (Logistic function). Good for organic behaviors where response ramps up around a midpoint.
+            k = params.get("k", 10.0) # Steepness of the curve
+            x0 = params.get("x0", 0.5) # Midpoint (x-value where y=0.5)
             return 1.0 / (1.0 + math.exp(-k * (v - x0)))
 
         elif curve_type == "threshold":
+            # Binary response: 1.0 if above threshold, else 0.0
             t = params.get("threshold", 0.5)
             return 1.0 if v >= t else 0.0
 
@@ -108,6 +113,8 @@ class Action:
         Calculates the total utility score for this action.
 
         Multiplies the scores of all considerations and the base weight.
+        Uses a multiplicative approach so that if any single consideration returns 0,
+        the entire action utility becomes 0.
 
         Args:
             context: A dictionary containing the current world state/context.
@@ -122,17 +129,15 @@ class Action:
 
         final_score = self.weight
         for cons in self.considerations:
-            # Check if there is an override for this specific consideration
-            # The consideration name might be e.g. "HungerCheck".
-            # In traits.toml, we map keys like "Survival/Eat" (action name + sub component? Or just Consideration name?)
-            # The spec said: "Social/Empathy" = { curve = ... }
-            # So we assume the override key matches the Consideration name.
-
+            # Check if there is an override for this specific consideration.
+            # Overrides allow traits/personalities to modify how a consideration is evaluated
+            # (e.g., a "Glutton" trait might make the hunger curve steeper).
             override = trait_overrides.get(cons.name) if trait_overrides else None
 
             s = cons.score(context, override)
             final_score *= s
 
+            # Optimization: If score drops too low, prune early
             if final_score <= 0.001:
                 return 0.0
 
