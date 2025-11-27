@@ -1,10 +1,10 @@
 import pytest
 from unittest.mock import MagicMock
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.systems.animation import AnimationSystem
-from src.yukkuri_game.game.components import Sprite, Animator
-from src.yukkuri_game.game.yukkuri_components import AIState
-from src.yukkuri_game.engine.data_models import AnimationDefinition
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.systems.animation import AnimationSystem
+from yukkuri_game.game.components import Sprite, Animator
+from yukkuri_game.game.yukkuri_components import AIState
+from yukkuri_game.engine.data_models import AnimationDefinition
 
 def test_animation_event_trigger():
     world = World()

@@ -6,11 +6,11 @@ import copy
 import pygame
 import pygame_gui
 from unittest.mock import MagicMock, patch, mock_open
-from src.yukkuri_game.game.settings_service import SettingsService
-from src.yukkuri_game.engine.audio import AudioManager
-from src.yukkuri_game.game.ui.hud_events import HudEvents
-from src.yukkuri_game.game.ui.hud_layout import HudLayout
-from src.yukkuri_game.game.events import ResolutionChangedEvent
+from yukkuri_game.game.settings_service import SettingsService
+from yukkuri_game.engine.audio import AudioManager
+from yukkuri_game.game.ui.hud_events import HudEvents
+from yukkuri_game.game.ui.hud_layout import HudLayout
+from yukkuri_game.game.events import ResolutionChangedEvent
 
 class TestSettingsIntegration(unittest.TestCase):
     def setUp(self):

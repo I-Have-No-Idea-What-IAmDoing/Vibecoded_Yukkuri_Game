@@ -4,13 +4,13 @@ import pymunk
 from pymunk.vec2d import Vec2d as Vector2
 import pytest
 
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.components import (
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.components import (
     PhysicsBody,
     MovementController,
     VisualTransform,
 )
-from src.yukkuri_game.game.systems.movement_system import MovementSystem
+from yukkuri_game.game.systems.movement_system import MovementSystem
 
 @pytest.fixture
 def world_with_entity():

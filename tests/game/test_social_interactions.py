@@ -1,9 +1,9 @@
 import unittest
 from unittest.mock import MagicMock
-from src.yukkuri_game.game.services import GameService
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.engine.audio import AudioManager
+from yukkuri_game.game.services import GameService
+from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.audio import AudioManager
 
 class TestSocialInteractions(unittest.TestCase):
     def setUp(self):

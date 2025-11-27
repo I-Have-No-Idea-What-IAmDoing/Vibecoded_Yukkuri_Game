@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import pygame
-from src.yukkuri_game.engine.audio import AudioManager
+from yukkuri_game.engine.audio import AudioManager
 
 class TestAudio(unittest.TestCase):
     def setUp(self):

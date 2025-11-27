@@ -5,6 +5,7 @@ from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.social_system import SocialSystem
 from yukkuri_game.game.yukkuri_components import Personality, RelationshipRegistry, RelationshipData
 from yukkuri_game.game.trait_service import TraitService
+from yukkuri_game.game.services import TimeService
 from yukkuri_game.game.events import SocialInteractionEvent
 
 class TestSocialSystem:
@@ -85,8 +86,18 @@ class TestSocialSystem:
         # Mock has_component to return false for "is_special" check (not mate/family)
         world.has_component.return_value = False
 
-        with patch('time.time', return_value=base_time):
-            system.update(world, 0.1)
+        # Mock TimeService
+        time_service = MagicMock(spec=TimeService)
+        time_service.time_elapsed = base_time
+
+        def try_get_side_effect(service_type):
+            if service_type == TimeService:
+                return time_service
+            return None
+
+        world.services.try_get.side_effect = try_get_side_effect
+
+        system.update(world, 0.1)
 
         # Relationship 2 should be removed because 700 > 600 (cutoff)
         assert 2 not in reg.relationships
@@ -96,7 +107,17 @@ class TestSocialSystem:
     def test_social_interaction_event(self, system, world):
         # Setup trait service
         trait_service = MagicMock(spec=TraitService)
-        world.services.try_get.return_value = trait_service
+        time_service = MagicMock(spec=TimeService)
+        time_service.time_elapsed = 1000.0
+
+        def try_get_side_effect(service_type):
+            if service_type == TraitService:
+                return trait_service
+            if service_type == TimeService:
+                return time_service
+            return None
+
+        world.services.try_get.side_effect = try_get_side_effect
 
         interaction_data = {
             "base_impact": 10.0,
@@ -152,7 +173,7 @@ class TestSocialSystem:
             return None
         world.get_component.side_effect = get_component
 
-        system._apply_impact(world, e1, 2, interaction_data, "target")
+        system._apply_impact(world, e1, 2, interaction_data, "target", now=1000.0)
 
         assert pers.mood == "HAPPY"
         assert pers.mood_score == 100.0
@@ -164,13 +185,13 @@ class TestSocialSystem:
         now = time.time()
 
         # First update just sets timestamp
-        system._update_relationship_decay(rel_data)
-        assert rel_data.last_update > 0.0
+        system._update_relationship_decay(rel_data, now)
+        assert rel_data.last_update == now
 
-        # Rewind time to simulate elapsed time
-        rel_data.last_update = now - 100.0
+        # Advance time to simulate elapsed time
+        now += 100.0
 
-        system._update_relationship_decay(rel_data)
+        system._update_relationship_decay(rel_data, now)
 
         # Affinity decay: 0.01 * 100 = 1.0
         assert rel_data.affinity < 50.0

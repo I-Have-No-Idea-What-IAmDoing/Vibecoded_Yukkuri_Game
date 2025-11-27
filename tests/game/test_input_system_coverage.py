@@ -1,12 +1,12 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import pygame
-from src.yukkuri_game.game.input_system import InputSystem
-from src.yukkuri_game.game.components import Transform, Selectable
-from src.yukkuri_game.game.yukkuri_components import Poop
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.events import EntitySelectedEvent, CleanToolRequestedEvent
-from src.yukkuri_game.game.services import InputService
+from yukkuri_game.game.input_system import InputSystem
+from yukkuri_game.game.components import Transform, Selectable
+from yukkuri_game.game.yukkuri_components import Poop
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.events import EntitySelectedEvent, CleanToolRequestedEvent
+from yukkuri_game.game.services import InputService
 
 # Mock pygame.key.get_pressed
 @pytest.fixture

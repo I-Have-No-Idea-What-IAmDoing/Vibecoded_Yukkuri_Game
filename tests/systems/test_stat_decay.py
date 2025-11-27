@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import MagicMock
-from src.yukkuri_game.game.systems.stat_decay import StatDecaySystem
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats
-from src.yukkuri_game.config import StatDecaySettings
+from yukkuri_game.game.systems.stat_decay import StatDecaySystem
+from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.config import StatDecaySettings
 
 class TestStatDecaySystem(unittest.TestCase):
     def test_stat_decay(self):

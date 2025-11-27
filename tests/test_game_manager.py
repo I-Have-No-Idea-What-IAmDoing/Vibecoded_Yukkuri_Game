@@ -1,11 +1,11 @@
 import pytest
 from unittest.mock import MagicMock
-from src.yukkuri_game.game.game_manager import GameManager
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats
-from src.yukkuri_game.game.entity_factory import EntityFactory
-from src.yukkuri_game.engine.event_bus import EventBus
+from yukkuri_game.game.game_manager import GameManager
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
+from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.entity_factory import EntityFactory
+from yukkuri_game.engine.event_bus import EventBus
 
 @pytest.fixture
 def game_manager_world():

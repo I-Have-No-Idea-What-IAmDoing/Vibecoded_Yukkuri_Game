@@ -77,6 +77,35 @@ class GameDriver:
              self.game.set_headless(True)
         self.game.setup()
 
+    def create_yukkuri(self, type_id: str, x: float, y: float):
+        from ..game.entity_factory import EntityFactory
+        factory = self.game.world.services.try_get(EntityFactory)
+        return factory.create_yukkuri(type_id, x, y)
+
+    def create_item(self, type_id: str, x: float, y: float):
+        from ..game.entity_factory import EntityFactory
+        factory = self.game.world.services.try_get(EntityFactory)
+        return factory.create_item(type_id, x, y)
+
+    def set_ai_target_pos(self, entity_id: int, x: float, y: float):
+        from ..game.yukkuri_components import AIState
+        ai = self.game.world.get_component(entity_id, AIState)
+        if ai:
+            if ai.state_data is None:
+                ai.state_data = {}
+            ai.state_data["target_x"] = x
+            ai.state_data["target_y"] = y
+            ai.path = None
+
+    def set_ai_action(self, entity_id: int, action: str, target_id: int = -1):
+        from ..game.yukkuri_components import AIState
+        ai = self.game.world.get_component(entity_id, AIState)
+        if ai:
+            ai.current_action = action
+            if target_id != -1:
+                ai.current_target_id = target_id
+            ai.path = None
+
     def cleanup(self):
         """Cleans up the game instance."""
         self.game.quit()
@@ -149,6 +178,41 @@ class GameDriver:
             if self.simulated_time - start_time > timeout:
                 raise TimeoutError(f"Timed out waiting for: {condition.description}")
             self._tick()
+
+    def run_for(self, seconds: float):
+        """Runs the simulation for a specific amount of time."""
+        target_time = self.simulated_time + seconds
+        # Avoid infinite loop if dt is 0 or something weird
+        if self.fixed_dt <= 0:
+            return
+
+        while self.simulated_time < target_time:
+            self._tick()
+
+    def get_transform(self, entity_id: int):
+        from ..game.components import Transform
+        return self.game.world.get_component(entity_id, Transform)
+
+    def reset(self):
+        # Clear the ECS world to remove all entities
+        self.game.world.clear()
+
+        # Reset game setup flag so setup() runs again if needed (to create initial entities)
+        # However, setup() also adds systems. If clear() keeps systems, we shouldn't re-add them.
+        # But setup() creates initial entities (like Reimu).
+        # We need a way to re-populate initial entities without re-adding systems.
+        # Ideally, tests call setup() explicitly.
+
+        # For now, we just clear entities. Tests that use reset() usually create their own entities.
+        # If the game relies on singletons created in setup (like managers), they persist.
+
+        self.simulated_time = 0.0
+        self.frame_count = 0
+        self._scenario_deadline = None
+
+    @property
+    def world(self):
+        return self.game.world
 
     def save_screenshot(self, filename: str):
         """Saves the current screen state to a file."""

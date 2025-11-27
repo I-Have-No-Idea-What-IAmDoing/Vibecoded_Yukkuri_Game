@@ -3,8 +3,8 @@ import unittest
 from unittest.mock import MagicMock, Mock
 import pygame
 import pygame_gui
-from src.yukkuri_game.game.ui.hud_events import HudEvents
-from src.yukkuri_game.game.events import PlacementStartedEvent
+from yukkuri_game.game.ui.hud_events import HudEvents
+from yukkuri_game.game.events import PlacementStartedEvent
 
 class TestHudEvents(unittest.TestCase):
     def setUp(self):

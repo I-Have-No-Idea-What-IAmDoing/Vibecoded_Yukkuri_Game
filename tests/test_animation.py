@@ -1,9 +1,9 @@
 
 import pytest
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.components import Sprite, Animator
-from src.yukkuri_game.engine.data_models import AnimationDefinition
-from src.yukkuri_game.game.systems.animation import AnimationSystem
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.components import Sprite, Animator
+from yukkuri_game.engine.data_models import AnimationDefinition
+from yukkuri_game.game.systems.animation import AnimationSystem
 
 def test_animator_update_size_override():
     world = World()

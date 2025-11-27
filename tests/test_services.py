@@ -1,10 +1,10 @@
 import pytest
 from unittest.mock import MagicMock, patch, mock_open
-from src.yukkuri_game.game.services import PersistenceService, EconomyService, TimeService
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.components import Transform
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats
-from src.yukkuri_game.game.entity_factory import EntityFactory
+from yukkuri_game.game.services import PersistenceService, EconomyService, TimeService
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.components import Transform
+from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats
+from yukkuri_game.game.entity_factory import EntityFactory
 
 # --- Economy Service Tests ---
 
@@ -113,7 +113,7 @@ def test_load_game(persistence_world):
     def get_service(svc_type):
         if svc_type == EconomyService: return economy
         if svc_type == TimeService: return time_svc
-        from src.yukkuri_game.game.entity_factory import EntityFactory
+        from yukkuri_game.game.entity_factory import EntityFactory
         if svc_type == EntityFactory: return factory
         return None
 

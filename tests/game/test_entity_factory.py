@@ -1,12 +1,12 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import pymunk
-from src.yukkuri_game.game.entity_factory import EntityFactory
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.components import Transform, Sprite, Selectable, PhysicsBody
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
-from src.yukkuri_game.engine.resource_manager import ResourceManager
-from src.yukkuri_game.game.systems.physics import PhysicsSystem
+from yukkuri_game.game.entity_factory import EntityFactory
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.components import Transform, Sprite, Selectable, PhysicsBody
+from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
+from yukkuri_game.engine.resource_manager import ResourceManager
+from yukkuri_game.game.systems.physics import PhysicsSystem
 
 class TestEntityFactory(unittest.TestCase):
     def setUp(self):
@@ -15,6 +15,12 @@ class TestEntityFactory(unittest.TestCase):
         # Initialize the mock dicts on the mock object
         self.rm.yukkuri_types = {}
         self.rm.item_types = {}
+
+        # Mock tuning
+        mock_tuning = MagicMock()
+        mock_tuning.visuals.movement.bob_height = 10.0
+        mock_tuning.visuals.movement.bob_speed = 5.0
+        self.rm.tuning = mock_tuning
 
         self.world.services.register(self.rm, ResourceManager)
 
@@ -167,6 +173,12 @@ class TestEntityFactory(unittest.TestCase):
         # Setup yukkuri_types as a real dict, not a property on a mock
         # Note: If rm is a mock, rm.yukkuri_types = ... sets it on the instance
         rm.yukkuri_types = {"reimu": {"image": "reimu.png"}}
+
+        # Mock tuning
+        mock_tuning = MagicMock()
+        mock_tuning.visuals.movement.bob_height = 10.0
+        mock_tuning.visuals.movement.bob_speed = 5.0
+        rm.tuning = mock_tuning
 
         world.services.register(rm, ResourceManager)
 

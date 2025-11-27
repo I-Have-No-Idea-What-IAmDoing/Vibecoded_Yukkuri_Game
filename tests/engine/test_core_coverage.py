@@ -65,25 +65,29 @@ class TestGameLoop:
         game = GameLoop()
         game.paused = False
         game.time_scale = 2.0
+        # game.dt is set inside tick based on argument, usually.
+        # The new loop uses tick(dt).
 
         # Mock World update
         game.world = MagicMock(spec=World)
 
-        game.update()
+        game.tick(0.016)
 
-        # 16ms / 1000 = 0.016s
-        assert game.dt == 0.016
-        game.ui_manager.update.assert_called_with(0.016)
+        # Check if world update was called with simulated dt
         game.world.update.assert_called_with(0.016 * 2.0)
+        # Check UI update
+        game.ui_manager.update.assert_called_with(0.016)
 
     def test_update_paused(self, mock_pygame, mock_pygame_gui, mock_resource_manager):
         game = GameLoop()
         game.paused = True
         game.world = MagicMock(spec=World)
 
-        game.update()
+        game.tick(0.016)
 
-        game.ui_manager.update.assert_called()
+        game.ui_manager.update.assert_called_with(0.016)
+        # World should NOT be updated if paused
+        game.world.update.assert_not_called()
         game.world.update.assert_not_called()
 
     def test_draw(self, mock_pygame, mock_pygame_gui, mock_resource_manager):
@@ -107,14 +111,19 @@ class TestGameLoop:
             game.running = False
 
         game.handle_events = MagicMock(side_effect=stop_loop)
-        game.update = MagicMock()
+        # Mock tick instead of update, as run loop calls tick
+        game.tick = MagicMock()
         game.draw = MagicMock()
+
+        # Mock time
+        # Return floats for get_ticks (ms)
+        mock_pygame.time.get_ticks.side_effect = [0, 1000] # Start at 0, next loop at 1s (1000ms)
 
         game.run()
 
         game.setup.assert_called_once()
         game.handle_events.assert_called()
-        game.update.assert_called()
+        game.tick.assert_called()
         game.draw.assert_not_called()
         mock_pygame.quit.assert_called_once()
 

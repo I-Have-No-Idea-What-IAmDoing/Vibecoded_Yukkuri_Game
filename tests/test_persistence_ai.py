@@ -22,6 +22,12 @@ def setup_world():
         "food": {"image": "food.png", "width": 32, "height": 32, "name": "Food", "cost": 10}
     }
 
+    # Mock tuning
+    mock_tuning = MagicMock()
+    mock_tuning.visuals.movement.bob_height = 10.0
+    mock_tuning.visuals.movement.bob_speed = 5.0
+    resources.tuning = mock_tuning
+
     world.services.register(resources, ResourceManager)
 
     # Register services

@@ -1,7 +1,7 @@
 
 import unittest
 from unittest.mock import MagicMock
-from src.yukkuri_game.engine.service_locator import ServiceLocator, ServiceNotFoundError
+from yukkuri_game.engine.service_locator import ServiceLocator, ServiceNotFoundError
 
 class TestServiceLocator(unittest.TestCase):
     def setUp(self):

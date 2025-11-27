@@ -1,10 +1,10 @@
 
 import pytest
 from unittest.mock import MagicMock
-from src.yukkuri_game.game.systems.lifecycle import LifecycleSystem
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats
-from src.yukkuri_game.game.components import Transform
-from src.yukkuri_game.engine.ecs import World
+from yukkuri_game.game.systems.lifecycle import LifecycleSystem
+from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.components import Transform
+from yukkuri_game.engine.ecs import World
 
 def test_lifecycle_scaling_correctness():
     """

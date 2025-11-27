@@ -1,11 +1,11 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import py_trees
-from src.yukkuri_game.game.systems.behavior import BehaviorSystem
-from src.yukkuri_game.game.yukkuri_components import AIState
+from yukkuri_game.game.systems.behavior import BehaviorSystem
+from yukkuri_game.game.yukkuri_components import AIState
 
 class TestBehaviorSystem(unittest.TestCase):
-    @patch('src.yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree')
+    @patch('yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree')
     def test_tree_creation_and_tick(self, mock_create_tree):
         mock_world = MagicMock()
         ai = AIState()

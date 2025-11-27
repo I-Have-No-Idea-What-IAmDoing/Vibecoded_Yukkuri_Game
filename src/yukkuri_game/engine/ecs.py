@@ -246,6 +246,14 @@ class World:
         self._switch()
         esper.process(dt)
 
+    def clear(self) -> None:
+        """
+        Clears all entities and components from the world.
+        Note: This does NOT remove Processors (Systems).
+        """
+        self._switch()
+        esper.clear_database()
+
 if TYPE_CHECKING:
     class ProcessorBase:
         """

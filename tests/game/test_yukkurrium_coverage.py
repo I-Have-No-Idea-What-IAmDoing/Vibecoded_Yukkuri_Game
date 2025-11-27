@@ -5,7 +5,7 @@ from yukkuri_game.game.yukkurrium import Yukkurrium, WorldRenderer, RenderSystem
 from yukkuri_game.config import WorldSettings
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform, Sprite, Selectable, FloatingText
+from yukkuri_game.game.components import Transform, Sprite, Selectable, FloatingText, PhysicsBody, VisualTransform
 
 class TestYukkurrium:
     def test_initialization(self):
@@ -76,7 +76,13 @@ class TestYukkurrium:
     def test_update(self):
         y = Yukkurrium()
         y.target_zoom = 2.0
-        y.update(0.1)
+
+        # Mock keys to handle indexing safely (return 0 for any key)
+        mock_keys = MagicMock()
+        mock_keys.__getitem__.return_value = 0
+
+        with patch('pygame.key.get_pressed', return_value=mock_keys):
+            y.update(0.1)
         assert y.zoom > 1.0
 
 class TestWorldRenderer:
@@ -101,6 +107,7 @@ class TestWorldRenderer:
         img = MagicMock(spec=pygame.Surface)
         img.get_width.return_value = 64
         img.get_height.return_value = 64
+        img.get_size.return_value = (64, 64)
         img.subsurface.return_value = img
         rm.load_image.return_value = img
         return rm
@@ -118,10 +125,14 @@ class TestWorldRenderer:
 
         trans = Transform(x=0, y=0)
         sprite = Sprite(image_name="test.png", width=64, height=64)
+        phys = MagicMock(spec=PhysicsBody)
+        visual = VisualTransform()
 
         def get_component(e, c):
             if c == Transform: return trans
             if c == Sprite: return sprite
+            if c == PhysicsBody: return phys
+            if c == VisualTransform: return visual
             if c == Selectable: return None
             return None
 
@@ -143,11 +154,15 @@ class TestWorldRenderer:
         trans = Transform(x=0, y=0)
         sprite = Sprite(image_name="test.png", width=64, height=64)
         sel = Selectable(selected=True)
+        phys = MagicMock(spec=PhysicsBody)
+        visual = VisualTransform()
 
         def get_component(e, c):
             if c == Transform: return trans
             if c == Sprite: return sprite
             if c == Selectable: return sel
+            if c == PhysicsBody: return phys
+            if c == VisualTransform: return visual
             return None
 
         world.get_component.side_effect = get_component

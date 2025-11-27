@@ -1,12 +1,12 @@
 import unittest
 from unittest.mock import MagicMock
 import pygame
-from src.yukkuri_game.game.input_system import InputSystem
-from src.yukkuri_game.game.events import PlacementStartedEvent, PlacementRequestedEvent, PlacementCancelledEvent
-from src.yukkuri_game.game.services import InputService
-from src.yukkuri_game.engine.event_bus import EventBus
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.engine.audio import AudioManager
+from yukkuri_game.game.input_system import InputSystem
+from yukkuri_game.game.events import PlacementStartedEvent, PlacementRequestedEvent, PlacementCancelledEvent
+from yukkuri_game.game.services import InputService
+from yukkuri_game.engine.event_bus import EventBus
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.audio import AudioManager
 
 class TestInputSystem(unittest.TestCase):
     def setUp(self):

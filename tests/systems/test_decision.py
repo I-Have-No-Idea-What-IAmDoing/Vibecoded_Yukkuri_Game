@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import MagicMock
-from src.yukkuri_game.game.systems.decision import DecisionSystem
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats, AIState
-from src.yukkuri_game.game.ai.utility import UtilityAIEngine
+from yukkuri_game.game.systems.decision import DecisionSystem
+from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState
+from yukkuri_game.game.ai.utility import UtilityAIEngine
 
 class TestDecisionSystem(unittest.TestCase):
     def test_decision_interval(self):

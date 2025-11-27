@@ -90,15 +90,17 @@ class TestResourceManager:
         mock_yukkuri_data = YukkuriData(yukkuris={"test": MagicMock()})
         mock_item_data = ItemData(items={"food": MagicMock()})
         mock_ai_data = AIData(actions={"idle": MagicMock()})
+        mock_tuning_data = MagicMock()
 
         with patch.object(resource_manager, 'load_toml_model') as mock_load:
-            mock_load.side_effect = [mock_yukkuri_data, mock_item_data, mock_ai_data]
+            mock_load.side_effect = [mock_yukkuri_data, mock_item_data, mock_ai_data, mock_tuning_data]
 
             resource_manager.load_all_data()
 
             assert "test" in resource_manager.yukkuri_types
             assert "food" in resource_manager.item_types
             assert "idle" in resource_manager.ai_actions
+            assert resource_manager.tuning == mock_tuning_data
 
     def test_load_all_data_empty(self, resource_manager):
         with patch.object(resource_manager, 'load_toml_model', return_value=None):

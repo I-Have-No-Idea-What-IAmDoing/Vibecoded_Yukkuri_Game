@@ -1,5 +1,5 @@
 import pytest
-from src.yukkuri_game.engine.ecs import World, System, Component
+from yukkuri_game.engine.ecs import World, System, Component
 
 # Define some simple components for testing
 class Position(Component):

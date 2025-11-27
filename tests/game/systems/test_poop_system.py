@@ -1,10 +1,10 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.systems.poop_system import PoopSystem
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats, Poop, AIState
-from src.yukkuri_game.game.components import Transform
-from src.yukkuri_game.game.entity_factory import EntityFactory
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.systems.poop_system import PoopSystem
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Poop, AIState
+from yukkuri_game.game.components import Transform
+from yukkuri_game.game.entity_factory import EntityFactory
 
 def test_poop_system_spawning():
     world = World()
