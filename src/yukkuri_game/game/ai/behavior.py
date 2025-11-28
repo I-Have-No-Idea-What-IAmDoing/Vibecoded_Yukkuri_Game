@@ -4,12 +4,13 @@ Module defining the behavior tree logic for AI agents.
 
 import math
 import random
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type
 
 import py_trees
 import pymunk
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
+from loguru import logger
 
 from ...config import GameConfig
 from ...engine.resource_manager import ResourceManager
@@ -480,12 +481,14 @@ class BehaviorRegistry:
     _goals: Dict[
         str, Callable[[int, "World", int, int, Callable, Callable], Behaviour]
     ] = {}
+    _target_requirements: Dict[str, Type[Any]] = {}
 
     @classmethod
     def register_goal(
         cls,
         goal_name: str,
         builder: Callable[[int, "World", int, int, Callable, Callable], Behaviour],
+        required_component: Optional[Type[Any]] = None,
     ):
         """
         Registers a behavior builder function for a specific goal.
@@ -493,8 +496,11 @@ class BehaviorRegistry:
         Args:
             goal_name (str): The name of the goal.
             builder (Callable): The function that builds the behavior subtree.
+            required_component (Optional[Type[Any]]): The component required on the target.
         """
         cls._goals[goal_name] = builder
+        if required_component:
+            cls._target_requirements[goal_name] = required_component
 
     @classmethod
     def get_goals(cls) -> Dict[str, Callable]:
@@ -505,6 +511,19 @@ class BehaviorRegistry:
             Dict[str, Callable]: A dictionary mapping goal names to builder functions.
         """
         return cls._goals
+
+    @classmethod
+    def get_target_requirement(cls, goal_name: str) -> Optional[Type[Any]]:
+        """
+        Retrieves the required component type for a goal's target.
+
+        Args:
+            goal_name (str): The name of the goal.
+
+        Returns:
+            Optional[Type[Any]]: The required component type or None.
+        """
+        return cls._target_requirements.get(goal_name)
 
 
 def build_eat_behavior(
@@ -808,13 +827,13 @@ def build_dance_behavior(
 
 
 # Register default behaviors
-BehaviorRegistry.register_goal("Eat", build_eat_behavior)
-BehaviorRegistry.register_goal("Sleep", build_sleep_behavior)
-BehaviorRegistry.register_goal("Play", build_play_behavior)
+BehaviorRegistry.register_goal("Eat", build_eat_behavior, required_component=ItemStats)
+BehaviorRegistry.register_goal("Sleep", build_sleep_behavior, required_component=ItemStats)
+BehaviorRegistry.register_goal("Play", build_play_behavior, required_component=ItemStats)
 BehaviorRegistry.register_goal("Wander", build_wander_behavior)
-BehaviorRegistry.register_goal("Talk", build_talk_behavior)
-BehaviorRegistry.register_goal("Fight", build_fight_behavior)
-BehaviorRegistry.register_goal("Dance", build_dance_behavior)
+BehaviorRegistry.register_goal("Talk", build_talk_behavior, required_component=YukkuriStats)
+BehaviorRegistry.register_goal("Fight", build_fight_behavior, required_component=YukkuriStats)
+BehaviorRegistry.register_goal("Dance", build_dance_behavior, required_component=YukkuriStats)
 
 
 def create_yukkuri_behavior_tree(
@@ -862,7 +881,17 @@ def create_yukkuri_behavior_tree(
         ai = world.get_component(entity_id, AIState)
         if not ai or ai.current_target_id == -1:
             return False
-        return world.has_component(ai.current_target_id, Transform)
+
+        has_trans = world.has_component(ai.current_target_id, Transform)
+        if not has_trans:
+            return False
+
+        # Context-aware check using BehaviorRegistry metadata
+        req_comp = BehaviorRegistry.get_target_requirement(ai.current_action)
+        if req_comp:
+            return world.has_component(ai.current_target_id, req_comp)
+
+        return True
 
     # --- Root Sequence ---
     # 1. Select Goal (UtilitySelector)
