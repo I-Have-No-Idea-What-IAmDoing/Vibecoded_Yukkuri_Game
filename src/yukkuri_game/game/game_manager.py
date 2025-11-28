@@ -71,6 +71,11 @@ class GameManager:
              # Fallback if no config (mainly for testing or if config loaded later)
              world.services.register(NavigationService(3000, 3000))
 
+        # Register Social System
+        from .systems.social_system import SocialSystem
+        social_system = SocialSystem(self.event_bus)
+        self.world.add_system(social_system)
+
 
     @property
     def time_elapsed(self) -> float:

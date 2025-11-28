@@ -162,14 +162,21 @@ class EntityFactory:
         self.world.add_component(entity, AIState())
 
         # Personality & Relationships
-        self.world.add_component(entity, RelationshipRegistry())
+        self.world.add_component(entity, RelationshipRegistry(
+            biological_parents=parents if parents else [],
+            relationships={}
+        ))
+
         ts = self._get_trait_service()
         traits = set()
         base_values = {"compassion": 50.0, "greed": 50.0, "bravery": 50.0}
 
         # Inheritance logic
         if parents and ts:
-            parent_personalities = [p for p in (self.world.get_component(pid, Personality) for pid in parents) if p]
+            parent_personalities = [self.world.get_component(pid, Personality) for pid in parents]
+            # Filter out None values just in case
+            parent_personalities = [p for p in parent_personalities if p is not None]
+
             if parent_personalities:
                 # 50% chance to inherit each trait from parents
                 for pp in parent_personalities:
@@ -181,7 +188,7 @@ class EntityFactory:
                     avg_val = sum(pp.values.get(key, 50.0) for pp in parent_personalities) / len(parent_personalities)
                     base_values[key] = max(0.0, min(100.0, avg_val + random.uniform(-10.0, 10.0)))
 
-        # Random generation if no parents
+        # Random generation if no parents or values
         if not parents:
             for key in base_values:
                 base_values[key] = max(0.0, min(100.0, random.gauss(50, 15)))
@@ -192,7 +199,14 @@ class EntityFactory:
             if all_traits:
                 traits.add(random.choice(all_traits))
 
-        personality = Personality(traits=traits, values=base_values)
+        # Pre-calculate overrides
+        cached_overrides = ts.calculate_overrides(traits) if ts else {}
+
+        personality = Personality(
+            traits=traits,
+            values=base_values,
+            cached_overrides=cached_overrides
+        )
         self.world.add_component(entity, personality)
 
         # Physics
