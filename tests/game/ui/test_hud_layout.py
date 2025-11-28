@@ -13,17 +13,19 @@ class TestHudLayout(unittest.TestCase):
         self.item_types = {"cookie": MagicMock(cost=10, name="Cookie")}
 
         # Patch pygame_gui elements to avoid actual UI creation overhead/errors in headless env
-        self.patcher_panel = patch('yukkuri_game.game.ui.hud_layout.UIPanel')
-        self.patcher_label = patch('yukkuri_game.game.ui.hud_layout.UILabel')
-        self.patcher_button = patch('yukkuri_game.game.ui.hud_layout.UIButton')
-        self.patcher_window = patch('yukkuri_game.game.ui.hud_layout.UIWindow')
-        self.patcher_textbox = patch('yukkuri_game.game.ui.hud_layout.UITextBox')
+        self.patcher_panel = patch('yukkuri_game.game.ui.hud_layout.UIPanel', spec=True)
+        self.patcher_label = patch('yukkuri_game.game.ui.hud_layout.UILabel', spec=True)
+        self.patcher_button = patch('yukkuri_game.game.ui.hud_layout.UIButton', spec=True)
+        self.patcher_window = patch('yukkuri_game.game.ui.hud_layout.UIWindow', spec=True)
+        self.patcher_textbox = patch('yukkuri_game.game.ui.hud_layout.UITextBox', spec=True)
+        self.patcher_scroll = patch('yukkuri_game.game.ui.hud_layout.UIScrollingContainer', spec=True)
 
         self.MockPanel = self.patcher_panel.start()
         self.MockLabel = self.patcher_label.start()
         self.MockButton = self.patcher_button.start()
         self.MockWindow = self.patcher_window.start()
         self.MockTextBox = self.patcher_textbox.start()
+        self.MockScroll = self.patcher_scroll.start()
 
         # Ensure side_effect creates a new mock for each call to differentiate buttons as dict keys
         self.MockButton.side_effect = lambda **kwargs: MagicMock()
@@ -34,6 +36,7 @@ class TestHudLayout(unittest.TestCase):
         self.patcher_button.stop()
         self.patcher_window.stop()
         self.patcher_textbox.stop()
+        self.patcher_scroll.stop()
 
     def test_initialization(self):
         layout = HudLayout(self.mock_ui_manager, self.width, self.height, self.yukkuri_types, self.item_types)
