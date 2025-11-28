@@ -95,10 +95,11 @@ class SocialSystem(System):
                 for other_id, rel_data in registry.relationships.items():
                     # If not permanent (family/mate) and old
                     # (Mate/Family logic usually kept elsewhere or flagged, assuming ID check is enough)
+                    other_registry = world.get_component(other_id, RelationshipRegistry)
                     is_special = (other_id == registry.mate_id) or \
                                  (registry.family_group_id is not None and \
-                                  world.has_component(other_id, RelationshipRegistry) and \
-                                  world.get_component(other_id, RelationshipRegistry).family_group_id == registry.family_group_id)
+                                  other_registry is not None and \
+                                  other_registry.family_group_id == registry.family_group_id)
 
                     age = now - rel_data.last_update
                     if not is_special and age > max_age:

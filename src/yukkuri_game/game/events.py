@@ -108,8 +108,8 @@ class SellEntityRequest(Event):
     """
     entity_id: int
 
-@dataclass
-class CleanToolRequestedEvent:
+@dataclass(frozen=True)
+class CleanToolRequestedEvent(Event):
     """
     Event triggered when the Clean tool is requested via UI.
     """

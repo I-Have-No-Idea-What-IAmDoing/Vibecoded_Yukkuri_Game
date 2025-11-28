@@ -82,13 +82,10 @@ class YukkuriGame(GameLoop):
 
         # Load sounds
         if os.path.exists("data/sounds.toml"):
-            try:
-                import tomllib # python 3.11
-            except ImportError:
-                try:
-                    import tomli as tomllib
-                except ImportError:
-                    tomllib = None
+            if sys.version_info >= (3, 11):
+                import tomllib
+            else:
+                import tomli as tomllib
 
             if tomllib:
                 with open("data/sounds.toml", "rb") as f:
@@ -364,7 +361,9 @@ class YukkuriGame(GameLoop):
         # However, since screen surface is returned by set_mode, we might need to update self.screen here
         # if HudEvents called it.
         # Actually, calling set_mode again returns the same surface if compatible or new one.
-        self.screen = pygame.display.get_surface()
+        surface = pygame.display.get_surface()
+        if surface:
+            self.screen = surface
 
         # Notify HUD
         if self.hud:

@@ -3,7 +3,7 @@ Module defining the ConstructionSystem logic.
 """
 from typing import Optional, TYPE_CHECKING
 from ...engine.ecs import System, World
-from ...engine.event_bus import EventBus
+from ...engine.event_bus import EventBus, Event
 from ..events import PlacementRequestedEvent
 from ..services import EconomyService
 
@@ -21,7 +21,7 @@ class ConstructionSystem(System):
         economy_service (Optional[EconomyService]): The economy service.
         factory (Optional[EntityFactory]): The entity factory.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the ConstructionSystem."""
         self.world: Optional[World] = None
         self.event_bus: Optional[EventBus] = None
@@ -51,7 +51,7 @@ class ConstructionSystem(System):
 
             self.event_bus.subscribe(PlacementRequestedEvent, self.on_placement_requested)
 
-    def on_placement_requested(self, event: PlacementRequestedEvent) -> None:
+    def on_placement_requested(self, event: Event) -> None:
         """
         Handles the PlacementRequestedEvent.
         Checks funds and creates the entity.
@@ -62,6 +62,9 @@ class ConstructionSystem(System):
         Returns:
             None
         """
+        if not isinstance(event, PlacementRequestedEvent):
+            return
+
         if self.economy_service and self.factory:
             if self.economy_service.get_money() >= event.cost:
                 self.economy_service.remove_money(event.cost)

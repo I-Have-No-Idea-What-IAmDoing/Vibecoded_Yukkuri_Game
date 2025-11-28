@@ -2,6 +2,7 @@
 Module defining the InteractionSystem logic.
 """
 import math
+from typing import Optional
 from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
@@ -15,10 +16,10 @@ class InteractionSystem(System):
     Attributes:
         audio (Optional[AudioManager]): The audio manager instance.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the InteractionSystem."""
         super().__init__()
-        self.audio = None
+        self.audio: Optional[AudioManager] = None
 
     def update(self, world: World, dt: float) -> None:
         """

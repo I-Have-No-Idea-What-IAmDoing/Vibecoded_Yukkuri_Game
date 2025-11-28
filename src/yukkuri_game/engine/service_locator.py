@@ -60,7 +60,7 @@ class ServiceLocator:
         service = self._services.get(service_type)
         if service is None:
             raise ServiceNotFoundError(f"Service of type {service_type.__name__} not found.")
-        return service # type: ignore
+        return service  # type: ignore[no-any-return]
 
     def try_get(self, service_type: Type[T]) -> Optional[T]:
         """
@@ -72,4 +72,4 @@ class ServiceLocator:
         Returns:
             Optional[T]: The registered service instance, or None if not found.
         """
-        return self._services.get(service_type) # type: ignore
+        return self._services.get(service_type)

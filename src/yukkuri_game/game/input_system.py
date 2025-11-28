@@ -4,7 +4,7 @@ Module defining the InputSystem logic.
 import pygame
 from typing import Optional, TYPE_CHECKING, List, Tuple
 from ..engine.ecs import System, World
-from ..engine.event_bus import EventBus
+from ..engine.event_bus import EventBus, Event
 from ..engine.audio import AudioManager
 from .events import PlacementStartedEvent, EntitySelectedEvent, PlacementRequestedEvent, PlacementCancelledEvent, CleanToolRequestedEvent
 from .components import Transform, Selectable
@@ -46,7 +46,7 @@ class InputSystem(System):
         self.drag_end_pos: Optional[Tuple[float, float]] = None
         self.drag_start_screen_pos: Optional[Tuple[int, int]] = None
 
-    def on_placement_started(self, event: PlacementStartedEvent) -> None:
+    def on_placement_started(self, event: Event) -> None:
         """
         Handles the PlacementStartedEvent.
 
@@ -56,10 +56,13 @@ class InputSystem(System):
         Returns:
             None
         """
+        if not isinstance(event, PlacementStartedEvent):
+            return
+
         if self.input_service:
             self.input_service.start_placement(event.type_id, event.cost, event.entity_type)
 
-    def on_clean_tool_requested(self, event: CleanToolRequestedEvent) -> None:
+    def on_clean_tool_requested(self, event: Event) -> None:
         """
         Handles the CleanToolRequestedEvent.
 
@@ -69,6 +72,9 @@ class InputSystem(System):
         Returns:
             None
         """
+        if not isinstance(event, CleanToolRequestedEvent):
+            return
+
         if self.input_service:
             self.input_service.start_cleaning()
 
@@ -95,11 +101,13 @@ class InputSystem(System):
 
         # Handle hover detection once per frame if possible
         # We need current mouse pos for this.
-        if pygame.display.get_init() and pygame.display.get_surface():
-             mx, my = pygame.mouse.get_pos()
-             screen_w, screen_h = pygame.display.get_surface().get_size()
-             wx, wy = self.yukkurrium.screen_to_world(mx, my, screen_w, screen_h)
-             self._check_hover(world, wx, wy, mx, my)
+        if pygame.display.get_init():
+            surface = pygame.display.get_surface()
+            if surface:
+                mx, my = pygame.mouse.get_pos()
+                screen_w, screen_h = surface.get_size()
+                wx, wy = self.yukkurrium.screen_to_world(mx, my, screen_w, screen_h)
+                self._check_hover(world, wx, wy, mx, my)
 
     def handle_event(self, event: pygame.event.Event, world: World, screen_w: int, screen_h: int, ui_manager: Optional['pygame_gui.UIManager'] = None) -> None:
         """
@@ -234,7 +242,7 @@ class InputSystem(System):
         click_radius = 32.0
 
         entities = world.get_entities_with(Transform, Selectable)
-        selected_ids = []
+        selected_ids: List[int] = []
         clicked_something = False
 
         # Handle Shift key for multi-select
@@ -255,7 +263,7 @@ class InputSystem(System):
 
         for ent in entities:
             trans = world.get_component(ent, Transform)
-            if not trans:
+            if trans is None:
                 continue
 
             selectable = world.get_component(ent, Selectable)
@@ -336,6 +344,8 @@ class InputSystem(System):
         found = False
         for entity in poop_entities:
             transform = world.get_component(entity, Transform)
+            if transform is None:
+                continue
             dist = ((transform.x - wx)**2 + (transform.y - wy)**2)**0.5
             if dist < click_radius:
                 # Clean it
@@ -413,11 +423,14 @@ class InputSystem(System):
                 entity_id = ent
 
             trans = world.get_component(entity_id, Transform)
+            if trans is None:
+                continue
 
             dist = ((trans.x - wx)**2 + (trans.y - wy)**2)**0.5
             if dist < hover_radius:
                 hovered_id = entity_id
                 break
 
-        self.input_service.hovered_entity_id = hovered_id
-        self.input_service.hovered_entity_pos = (mx, my)
+        if self.input_service:
+            self.input_service.hovered_entity_id = hovered_id
+            self.input_service.hovered_entity_pos = (mx, my)
