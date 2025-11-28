@@ -289,7 +289,18 @@ class HudRenderer:
                     text = f"<b>Item:</b> {istats.name}<br><b>Val:</b> {istats.cost}"
 
         if self.layout.info_label:
-            self.layout.info_label.set_text(text)
+            # Only update if text actually changed to avoid resetting scroll
+            if self.layout.info_label.html_text != text:
+                # Try to preserve scroll position
+                scroll_pos = 0.0
+                if self.layout.info_label.scroll_bar:
+                    scroll_pos = self.layout.info_label.scroll_bar.start_percentage
+
+                self.layout.info_label.set_text(text)
+
+                # Restore scroll position if scrollbar exists
+                if self.layout.info_label.scroll_bar:
+                    self.layout.info_label.scroll_bar.set_scroll_from_start_percentage(scroll_pos)
 
     def _update_debug_window(self, dt: float) -> None:
         """
