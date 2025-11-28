@@ -115,7 +115,18 @@ class InputSystem(System):
         Returns:
             None
         """
-        self.yukkurrium.handle_input(event, screen_w, screen_h)
+        # Check for UI interaction
+        is_hovering_ui = False
+        if ui_manager and ui_manager.get_hovering_any_element():
+            is_hovering_ui = True
+
+        # Only handle camera input if not hovering UI (for mouse events)
+        if event.type in (pygame.MOUSEWHEEL, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
+            if not is_hovering_ui:
+                self.yukkurrium.handle_input(event, screen_w, screen_h)
+        else:
+            # Always handle keyboard events
+            self.yukkurrium.handle_input(event, screen_w, screen_h)
 
         # Retrieve mouse position from event if possible, or fall back to get_pos but be safe for headless/tests
         if hasattr(event, "pos"):
@@ -131,7 +142,7 @@ class InputSystem(System):
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1: # Left Click
                 # Check if UI is handling the event
-                if ui_manager and ui_manager.get_hovering_any_element():
+                if is_hovering_ui:
                     return
 
                 if self.input_service and self.input_service.is_placing:

@@ -305,7 +305,7 @@ class HudLayout:
             relative_rect=pygame.Rect(10, 10, 290, 200),
             manager=self.manager,
             container=self.selection_window,
-            anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'right'}
+            anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'left'}
         )
 
         if has_stats:
