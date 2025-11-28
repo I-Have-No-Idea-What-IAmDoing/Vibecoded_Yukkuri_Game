@@ -1,0 +1,50 @@
+[traits.GESU]
+name = "Gesu"
+description = "Selfish and cruel. Gains happiness from others' suffering."
+conflicts = ["NICE"]
+
+[traits.GESU.stat_modifiers]
+happiness_decay = 1.2
+stress_recovery = 1.5
+
+[traits.GESU.ai_modifiers]
+"Social/Empathy" = { curve = "linear", params = { m = -1.0 } }
+
+[traits.GESU.social_modifiers]
+compatibility = { NICE = -50.0, GESU = 10.0 }
+
+[traits.NICE]
+name = "Nice"
+description = "Kind and gentle. Enjoys helping others."
+conflicts = ["GESU"]
+
+[traits.NICE.stat_modifiers]
+happiness_decay = 0.8
+social_decay = 1.2
+
+[traits.NICE.ai_modifiers]
+"Social/Empathy" = { curve = "linear", params = { m = 1.0 } }
+
+[traits.NICE.social_modifiers]
+compatibility = { NICE = 20.0, GESU = -50.0 }
+
+[traits.GLUTTON]
+name = "Glutton"
+description = "Loves to eat. Gets hungry faster."
+
+[traits.GLUTTON.stat_modifiers]
+hunger_decay = 1.5
+max_health = 1.1
+
+[traits.GLUTTON.ai_modifiers]
+"Survival/Eat" = { curve = "logit", params = { k = 2.0 } }
+
+[traits.LONER]
+name = "Loner"
+description = "Prefers solitude. Social needs decay slower."
+
+[traits.LONER.stat_modifiers]
+social_decay = 0.5
+
+[traits.LONER.ai_modifiers]
+"Social/Play" = { curve = "linear", params = { m = 0.5 } }
