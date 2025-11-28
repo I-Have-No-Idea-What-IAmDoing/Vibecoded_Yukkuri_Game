@@ -193,6 +193,9 @@ class EntityFactory:
                 traits.add(random.choice(all_traits))
 
         personality = Personality(traits=traits, values=base_values)
+        # Pre-calculate AI overrides for performance
+        if ts:
+            personality.cached_overrides = ts.calculate_overrides(traits)
         self.world.add_component(entity, personality)
 
         # Physics
