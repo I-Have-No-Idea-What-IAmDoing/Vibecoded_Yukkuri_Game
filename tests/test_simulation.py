@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, MovementController
 from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
-from yukkuri_game.game.systems.decision import DecisionSystem
 from yukkuri_game.game.systems.behavior import BehaviorSystem
 from yukkuri_game.game.systems.stat_decay import StatDecaySystem
 from yukkuri_game.game.systems.interaction_system import InteractionSystem
@@ -39,16 +38,15 @@ def systems():
     # Default behavior: return "Idle"
     mock_ai_engine.select_action.return_value = "Idle"
 
-    decision_system = DecisionSystem(mock_ai_engine, decision_interval=1.0)
     behavior_system = BehaviorSystem(world_width=1000, world_height=1000)
     stat_decay_system = StatDecaySystem(StatDecaySettings(hunger=2.0, cleanliness=2.0)) # Set specific decay rates
     interaction_system = InteractionSystem()
 
-    return decision_system, behavior_system, stat_decay_system, mock_ai_engine, interaction_system
+    return behavior_system, stat_decay_system, mock_ai_engine, interaction_system
 
 def test_simulation_update_decay(simulation_world, systems):
     world, yukkuri, _ = simulation_world
-    _, _, stat_decay_system, _, _ = systems
+    _, stat_decay_system, _, _ = systems
 
     # Initial stats
     stats = world.get_component(yukkuri, YukkuriStats)
@@ -68,20 +66,20 @@ def test_simulation_update_decay(simulation_world, systems):
 
 def test_simulation_action_eat(simulation_world, systems):
     world, yukkuri, item = simulation_world
-    decision_system, behavior_system, _, mock_ai_engine, interaction_system = systems
+    behavior_system, _, mock_ai_engine, interaction_system = systems
 
     # Force AI to choose Eat
     mock_ai_engine.select_action.return_value = "Eat"
     # Register mock engine so UtilitySelector finds it
     world.services.register(mock_ai_engine, UtilityAIEngine)
 
-    # Trigger decision
-    decision_system.update(world, 1.1)
-
+    # BehaviorSystem drives UtilitySelector which sets current_action
     ai = world.get_component(yukkuri, AIState)
-    assert ai.current_action == "Eat"
 
-    # Now run BehaviorSystem
+    # 1st Tick: UtilitySelector sets Eat -> Eat Seq -> Goal=Eat? (Yes) -> Eat Exec -> Have Target? (No) -> Find Food (Success, sets target)
+    behavior_system.update(world, 0.1)
+
+    assert ai.current_action == "Eat"
     # 1st Tick: Eat Seq -> Goal=Eat? (Yes) -> Eat Exec -> Have Target? (No) -> Find Food (Success, sets target)
     behavior_system.update(world, 0.1)
 
@@ -128,23 +126,19 @@ def test_simulation_action_eat(simulation_world, systems):
 
 def test_simulation_action_wander(simulation_world, systems):
     world, yukkuri, _ = simulation_world
-    decision_system, behavior_system, _, mock_ai_engine, _ = systems
+    behavior_system, _, mock_ai_engine, _ = systems
 
     mock_ai_engine.select_action.return_value = "Wander"
     # Register mock engine so UtilitySelector finds it
     world.services.register(mock_ai_engine, UtilityAIEngine)
 
-    # Trigger decision
-    decision_system.update(world, 1.1)
-
-    ai = world.get_component(yukkuri, AIState)
-    assert ai.current_action == "Wander"
-
     # BehaviorSystem
-    # 1st Tick: Wander Seq -> Goal=Wander? (Yes) -> Wander Action
+    # 1st Tick: UtilitySelector sets Wander -> Wander Seq -> Goal=Wander? (Yes) -> Wander Action
     # Wander Action initialise -> Pick random target -> Create MoveToTarget
     behavior_system.update(world, 0.1)
 
+    ai = world.get_component(yukkuri, AIState)
+    assert ai.current_action == "Wander"
     assert ai.state_data is not None
     assert "target_x" in ai.state_data
 

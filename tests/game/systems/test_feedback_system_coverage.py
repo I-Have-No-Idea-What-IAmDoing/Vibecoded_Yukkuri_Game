@@ -43,7 +43,15 @@ class TestFeedbackSystem:
         trans = Transform(x=0, y=0)
         text = FloatingText(text="Hi", velocity_y=-10.0, lifetime=0.2, color=(255, 255, 255), max_lifetime=0.2)
 
-        mock_world.get_components_tuple.return_value = [(e1, (trans, text))]
+        # Mock get_components_tuple
+        def get_components_side_effect(*args):
+            if args == (YukkuriStats,):
+                return []
+            if args == (Transform, FloatingText):
+                return [(e1, (trans, text))]
+            return []
+
+        mock_world.get_components_tuple.side_effect = get_components_side_effect
 
         # First update - text moves and lifetime decreases
         system.update(mock_world, 0.1)

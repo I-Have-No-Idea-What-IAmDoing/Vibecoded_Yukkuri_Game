@@ -1,10 +1,12 @@
 """
 Module defining the FeedbackSystem logic.
 """
+import random
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
+from ...engine.audio import AudioManager
 from ..components import Transform, FloatingText
-from ..yukkuri_components import YukkuriStats
+from ..yukkuri_components import YukkuriStats, Dead
 from ..events import (
     EntitySoldEvent,
     EntityGrewEvent,
@@ -51,7 +53,7 @@ class FeedbackSystem(System):
 
     def update(self, world: World, dt: float) -> None:
         """
-        Updates floating text entities.
+        Updates floating text entities and handles ambient feedback (crying).
 
         Args:
             world (World): The ECS World.
@@ -60,6 +62,28 @@ class FeedbackSystem(System):
         Returns:
             None
         """
+        # Ambient Crying Logic (Restored from DecisionSystem)
+        # 1% chance per second generally, or 10% if unhappy (< 30)
+        # Since update runs every frame (dt), we need to adjust probability.
+        # Check every 1 second roughly? Or just check random < P * dt
+        # If dt=0.016, checking every frame is expensive if many entities.
+        # Let's iterate entities anyway as we might need other updates.
+
+        audio = world.services.try_get(AudioManager)
+        if audio:
+            for entity, (stats,) in world.get_components_tuple(YukkuriStats):
+                if world.has_component(entity, Dead):
+                    continue
+
+                prob = 0.0
+                if stats.happiness < 30.0:
+                    prob = 0.1 * dt # 10% chance per second
+                else:
+                    prob = 0.01 * dt # 1% chance per second
+
+                if random.random() < prob:
+                    audio.play_sound("cry")
+
         to_destroy = []
         for entity, (transform, text_comp) in world.get_components_tuple(Transform, FloatingText):
             # Move up

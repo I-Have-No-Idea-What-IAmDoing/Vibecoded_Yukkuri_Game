@@ -64,3 +64,14 @@ Considerations map an input value (usually a stat normalized to 0-100) to a scor
 *   **`BehaviorSystem`** (`src/yukkuri_game/game/systems/behavior.py`): Manages the Behavior Trees for all entities.
 
 The Behavior Tree root is a `Sequence` that first runs the `UtilitySelector`, then runs an `ExecutionSelector` which executes the specific subtree for the chosen action.
+
+## Recent Changes (DecisionSystem Removal)
+
+The legacy `DecisionSystem`, which previously ran parallel to the `BehaviorSystem` on a 1-second interval, has been removed. All high-level decision making is now centralized in the `BehaviorSystem` via the `UtilitySelector`.
+
+This unification ensures that:
+1.  **Context Awareness**: Decisions are made with full access to social context (nearby friends/enemies) and personality traits, which `DecisionSystem` lacked.
+2.  **Consistency**: No more conflict between conflicting systems attempting to set the AI state.
+3.  **Responsiveness**: Decisions are evaluated as part of the behavior tree tick, allowing for immediate reaction to changing conditions if needed (though damping can be applied in `UtilitySelector`).
+
+Note: The ambient "crying" behavior for unhappy Yukkuris, which was part of `DecisionSystem`, has been moved to `FeedbackSystem`.
