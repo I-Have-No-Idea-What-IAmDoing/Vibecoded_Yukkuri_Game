@@ -99,21 +99,24 @@ class TestHudLayout:
             assert layout.log_box is not None
 
     def test_create_selection_window(self, hud_layout, mock_ui_manager):
-        with patch('yukkuri_game.game.ui.hud_layout.UIWindow') as MockWindow, \
-             patch('yukkuri_game.game.ui.hud_layout.UITextBox') as MockTextBox, \
-             patch('yukkuri_game.game.ui.hud_layout.UIButton') as MockButton:
+        with patch('yukkuri_game.game.ui.hud_layout.UIWindow', spec=True) as MockWindow, \
+             patch('yukkuri_game.game.ui.hud_layout.UITextBox', spec=True) as MockTextBox, \
+             patch('yukkuri_game.game.ui.hud_layout.UIButton', spec=True) as MockButton, \
+             patch('yukkuri_game.game.ui.hud_layout.UIScrollingContainer', spec=True) as MockScrollingContainer:
 
             hud_layout.create_selection_window(has_stats=True)
 
             assert hud_layout.selection_window is not None
+            assert hud_layout.info_scroll_container is not None
             assert hud_layout.info_label is not None
             assert hud_layout.sell_btn is not None
             assert hud_layout.train_btn is not None
 
     def test_create_selection_window_no_stats(self, hud_layout, mock_ui_manager):
-        with patch('yukkuri_game.game.ui.hud_layout.UIWindow'), \
-             patch('yukkuri_game.game.ui.hud_layout.UITextBox'), \
-             patch('yukkuri_game.game.ui.hud_layout.UIButton'):
+        with patch('yukkuri_game.game.ui.hud_layout.UIWindow', spec=True), \
+             patch('yukkuri_game.game.ui.hud_layout.UITextBox', spec=True), \
+             patch('yukkuri_game.game.ui.hud_layout.UIButton', spec=True), \
+             patch('yukkuri_game.game.ui.hud_layout.UIScrollingContainer', spec=True):
 
             hud_layout.create_selection_window(has_stats=False)
 
