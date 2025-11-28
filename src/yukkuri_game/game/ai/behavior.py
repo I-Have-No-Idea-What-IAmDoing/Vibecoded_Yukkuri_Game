@@ -862,7 +862,19 @@ def create_yukkuri_behavior_tree(
         ai = world.get_component(entity_id, AIState)
         if not ai or ai.current_target_id == -1:
             return False
-        return world.has_component(ai.current_target_id, Transform)
+
+        has_trans = world.has_component(ai.current_target_id, Transform)
+        if not has_trans:
+            return False
+
+        # Context-aware check
+        if ai.current_action in ["Eat", "Sleep", "Play"]:
+            return world.has_component(ai.current_target_id, ItemStats)
+
+        if ai.current_action in ["Talk", "Fight", "Dance"]:
+            return world.has_component(ai.current_target_id, YukkuriStats)
+
+        return True
 
     # --- Root Sequence ---
     # 1. Select Goal (UtilitySelector)
