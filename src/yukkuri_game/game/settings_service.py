@@ -15,7 +15,7 @@ class SettingsService:
         settings_file (str): Path to the settings file.
         settings (Dict[str, Any]): Dictionary containing current settings.
     """
-    DEFAULT_SETTINGS = {
+    DEFAULT_SETTINGS: Dict[str, Any] = {
         "audio": {
             "master_volume": 0.5,
             "bgm_volume": 0.5,
@@ -36,7 +36,7 @@ class SettingsService:
             settings_file (str): The path to the settings file.
         """
         self.settings_file = settings_file
-        self.settings = copy.deepcopy(self.DEFAULT_SETTINGS)
+        self.settings: Dict[str, Any] = copy.deepcopy(self.DEFAULT_SETTINGS)
         self.load_settings()
 
     def load_settings(self) -> None:

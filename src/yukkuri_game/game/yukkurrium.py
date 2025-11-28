@@ -169,7 +169,7 @@ class WorldRenderer:
         self.screen = screen
         self.yukkurrium = yukkurrium
         self.rm = resource_manager
-        self.font_cache: dict = {}
+        self.font_cache: dict[int, pygame.font.Font] = {}
 
     def _get_font(self, size: int) -> pygame.font.Font:
         """
@@ -182,6 +182,9 @@ class WorldRenderer:
             pygame.font.Font: The requested font.
         """
         if size not in self.font_cache:
+            # SysFont returns a Font object, but if not found or None, it returns a default font.
+            # However, SysFont implementation in pygame-ce might return Font or SysFont (which wraps Font).
+            # The type hint in stubs for SysFont returns Font.
             self.font_cache[size] = pygame.font.SysFont(None, size)
         return self.font_cache[size]
 
@@ -201,7 +204,9 @@ class WorldRenderer:
         # Render entities
         entities = world.get_entities_with(Transform, Sprite, PhysicsBody, VisualTransform)
         # Sort by Y for depth (ground position)
-        entities.sort(key=lambda e: world.get_component(e, Transform).y)
+        # Handle cases where component might be missing (though get_entities_with should ensure it)
+        # We use a default value if not found, but it should be found.
+        entities.sort(key=lambda e: getattr(world.get_component(e, Transform), 'y', 0))
 
         sw, sh = self.screen.get_size()
 
@@ -210,8 +215,9 @@ class WorldRenderer:
             sprite = world.get_component(ent, Sprite)
             phys_body = world.get_component(ent, PhysicsBody)
             visual_transform = world.get_component(ent, VisualTransform)
-            if not all([transform, sprite, phys_body, visual_transform]):
-                logger.warning(f"Entity {ent} is missing one or more required components for rendering.")
+
+            if transform is None or sprite is None or phys_body is None or visual_transform is None:
+                # logger.warning(f"Entity {ent} is missing one or more required components for rendering.")
                 continue
 
             # --- Draw Shadow ---

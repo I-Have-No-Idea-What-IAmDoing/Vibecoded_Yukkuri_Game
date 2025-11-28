@@ -44,7 +44,7 @@ class TraitService:
 
         self.load_data()
 
-    def load_data(self):
+    def load_data(self) -> None:
         """
         Loads trait and interaction data from TOML files.
 

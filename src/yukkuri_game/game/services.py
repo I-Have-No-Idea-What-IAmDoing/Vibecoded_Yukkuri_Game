@@ -115,7 +115,7 @@ class PersistenceService:
         # However, since we don't know which ones are saved until we check components,
         # we'll do the filtering logic twice or store the list.
 
-        entities_to_save = []
+        entities_to_save: List[int] = []
         id_map: Dict[int, int] = {}
 
         for entity in all_entities:
@@ -377,7 +377,7 @@ class InputService:
         drag_current_pos (tuple[int, int]): Current screen coordinates of dragging.
         is_dragging (bool): Whether a drag operation is in progress.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the InputService."""
         self._placing_mode = False
         self._place_type: str = ""

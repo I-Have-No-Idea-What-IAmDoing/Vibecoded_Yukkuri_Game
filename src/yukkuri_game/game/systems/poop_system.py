@@ -19,7 +19,7 @@ class PoopSystem(System):
         smell_strength (float): Amount of cleanliness lost per second near poop.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the PoopSystem with default configuration."""
         # Configuration
         super().__init__()
@@ -83,6 +83,8 @@ class PoopSystem(System):
         # Optimization: In a large game, use a spatial grid. Here, O(N*M) is fine for small counts.
         for p_ent in poop_entities:
             p_trans = world.get_component(p_ent, Transform)
+            if p_trans is None:
+                continue
 
             for y_ent, (y_stats, y_trans) in world.get_components_tuple(YukkuriStats, Transform):
                 # Distance check

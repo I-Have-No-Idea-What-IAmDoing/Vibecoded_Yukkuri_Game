@@ -4,7 +4,7 @@ Module defining the behavior tree logic for AI agents.
 
 import math
 import random
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type, Tuple
 
 import py_trees
 import pymunk
@@ -30,7 +30,6 @@ from .utility_selector import UtilitySelector
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
 
-    from ..config import GameConfig
 
 # --- Behavior Tree Leaves (Actions) ---
 
@@ -67,7 +66,7 @@ class MoveToTarget(Action):
         stats = self.world.get_component(self.entity_id, YukkuriStats)
         controller = self.world.get_component(self.entity_id, MovementController)
 
-        if not all([ai, trans, stats, controller]):
+        if ai is None or trans is None or stats is None or controller is None:
             return Status.FAILURE
 
         target_pos = None
@@ -243,7 +242,7 @@ class Interact(Action):
         ai = self.world.get_component(self.entity_id, AIState)
         trans = self.world.get_component(self.entity_id, Transform)
 
-        if not ai or not trans:
+        if ai is None or trans is None:
             return Status.FAILURE
 
         if ai.current_target_id == -1:
@@ -251,7 +250,7 @@ class Interact(Action):
             return Status.FAILURE
 
         target_trans = self.world.get_component(ai.current_target_id, Transform)
-        if not target_trans:
+        if target_trans is None:
             # print("Interact Fail: Target trans missing")
             return Status.FAILURE
 
@@ -307,14 +306,14 @@ class SocialInteract(Action):
         ai = self.world.get_component(self.entity_id, AIState)
         trans = self.world.get_component(self.entity_id, Transform)
 
-        if not ai or not trans:
+        if ai is None or trans is None:
             return Status.FAILURE
 
         if ai.current_target_id == -1:
             return Status.FAILURE
 
         target_trans = self.world.get_component(ai.current_target_id, Transform)
-        if not target_trans:
+        if target_trans is None:
             return Status.FAILURE
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
@@ -362,7 +361,7 @@ class FindSocialTarget(Action):
         my_stats = self.world.get_component(self.entity_id, YukkuriStats)
         trans = self.world.get_component(self.entity_id, Transform)
 
-        if not ai or not my_stats or not trans:
+        if ai is None or my_stats is None or trans is None:
             return Status.FAILURE
 
         nearby_yukkuris = self.world.get_entities_with(YukkuriStats, Transform)
@@ -376,6 +375,9 @@ class FindSocialTarget(Action):
 
             u_stats = self.world.get_component(uid, YukkuriStats)
             u_trans = self.world.get_component(uid, Transform)
+
+            if u_stats is None or u_trans is None:
+                continue
 
             # Check criteria
             is_compatible = u_stats.type_id == my_stats.type_id
@@ -481,7 +483,11 @@ class BehaviorRegistry:
     """
 
     _goals: Dict[
-        str, Callable[[int, "World", int, int, Callable, Callable], Behaviour]
+        str,
+        Callable[
+            [int, "World", int, int, Callable[[str], bool], Callable[[], bool]],
+            Behaviour,
+        ],
     ] = {}
     _target_requirements: Dict[str, Type[Any]] = {}
 
@@ -489,9 +495,12 @@ class BehaviorRegistry:
     def register_goal(
         cls,
         goal_name: str,
-        builder: Callable[[int, "World", int, int, Callable, Callable], Behaviour],
+        builder: Callable[
+            [int, "World", int, int, Callable[[str], bool], Callable[[], bool]],
+            Behaviour,
+        ],
         required_component: Optional[Type[Any]] = None,
-    ):
+    ) -> None:
         """
         Registers a behavior builder function for a specific goal.
 
@@ -505,7 +514,15 @@ class BehaviorRegistry:
             cls._target_requirements[goal_name] = required_component
 
     @classmethod
-    def get_goals(cls) -> Dict[str, Callable]:
+    def get_goals(
+        cls,
+    ) -> Dict[
+        str,
+        Callable[
+            [int, "World", int, int, Callable[[str], bool], Callable[[], bool]],
+            Behaviour,
+        ],
+    ]:
         """
         Retrieves all registered goals.
 
@@ -533,8 +550,8 @@ def build_eat_behavior(
     world: "World",
     width: int,
     height: int,
-    check_goal_fn: Callable,
-    check_target_fn: Callable,
+    check_goal_fn: Callable[[str], bool],
+    check_target_fn: Callable[[], bool],
 ) -> Behaviour:
     """
     Builds the behavior subtree for the 'Eat' goal.
@@ -599,7 +616,7 @@ class FindItem(Action):
         ai = self.world.get_component(self.entity_id, AIState)
         trans = self.world.get_component(self.entity_id, Transform)
 
-        if not ai or not trans:
+        if ai is None or trans is None:
             return Status.FAILURE
 
         game_service = self.world.services.try_get(GameService)
@@ -622,8 +639,8 @@ def build_sleep_behavior(
     world: "World",
     width: int,
     height: int,
-    check_goal_fn: Callable,
-    check_target_fn: Callable,
+    check_goal_fn: Callable[[str], bool],
+    check_target_fn: Callable[[], bool],
 ) -> Behaviour:
     """
     Builds the behavior subtree for the 'Sleep' goal.
@@ -660,8 +677,8 @@ def build_play_behavior(
     world: "World",
     width: int,
     height: int,
-    check_goal_fn: Callable,
-    check_target_fn: Callable,
+    check_goal_fn: Callable[[str], bool],
+    check_target_fn: Callable[[], bool],
 ) -> Behaviour:
     """
     Builds the behavior subtree for the 'Play' goal.
@@ -698,8 +715,8 @@ def build_wander_behavior(
     world: "World",
     width: int,
     height: int,
-    check_goal_fn: Callable,
-    check_target_fn: Callable,
+    check_goal_fn: Callable[[str], bool],
+    check_target_fn: Callable[[], bool],
 ) -> Behaviour:
     """
     Builds the behavior subtree for the 'Wander' goal.
@@ -730,8 +747,8 @@ def build_talk_behavior(
     world: "World",
     width: int,
     height: int,
-    check_goal_fn: Callable,
-    check_target_fn: Callable,
+    check_goal_fn: Callable[[str], bool],
+    check_target_fn: Callable[[], bool],
 ) -> Behaviour:
     """
     Builds the behavior subtree for the 'Talk' goal.
@@ -770,8 +787,8 @@ def build_fight_behavior(
     world: "World",
     width: int,
     height: int,
-    check_goal_fn: Callable,
-    check_target_fn: Callable,
+    check_goal_fn: Callable[[str], bool],
+    check_target_fn: Callable[[], bool],
 ) -> Behaviour:
     """
     Builds the behavior subtree for the 'Fight' goal.
@@ -810,8 +827,8 @@ def build_dance_behavior(
     world: "World",
     width: int,
     height: int,
-    check_goal_fn: Callable,
-    check_target_fn: Callable,
+    check_goal_fn: Callable[[str], bool],
+    check_target_fn: Callable[[], bool],
 ) -> Behaviour:
     """
     Builds the behavior subtree for the 'Dance' goal.

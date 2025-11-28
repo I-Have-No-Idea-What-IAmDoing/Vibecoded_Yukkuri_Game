@@ -22,7 +22,7 @@ class FamilySystem(System):
         last_check (float): Time since last check.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the FamilySystem."""
         super().__init__()
         self.check_interval = 2.0 # Check more frequently for resource sharing
@@ -45,7 +45,7 @@ class FamilySystem(System):
             self._process_family_formation(world)
             self._process_family_benefits(world)
 
-    def _process_family_formation(self, world: World):
+    def _process_family_formation(self, world: World) -> None:
         """
         Check for high affinity pairs that are not in a family and merge them.
 
@@ -89,7 +89,7 @@ class FamilySystem(System):
                         registry.family_group_id = other_registry.family_group_id
                         logger.info(f"{stats.name} joined family of Entity {other_id}")
 
-    def _process_family_benefits(self, world: World):
+    def _process_family_benefits(self, world: World) -> None:
         """
         Apply benefits to family members near each other.
         Includes simulated resource sharing.
@@ -107,51 +107,59 @@ class FamilySystem(System):
 
         for i, eid in enumerate(entities):
             reg = world.get_component(eid, RelationshipRegistry)
-            if reg.family_group_id is None:
+            if reg is None or reg.family_group_id is None:
                 continue
 
             stats = world.get_component(eid, YukkuriStats)
             trans = world.get_component(eid, Transform)
             ai = world.get_component(eid, AIState)
 
+            if stats is None or trans is None or ai is None:
+                continue
+
             for j in range(i + 1, len(entities)):
                 other_eid = entities[j]
                 other_reg = world.get_component(other_eid, RelationshipRegistry)
 
-                if other_reg.family_group_id == reg.family_group_id:
-                    # Same family
-                    other_trans = world.get_component(other_eid, Transform)
-                    other_ai = world.get_component(other_eid, AIState)
-                    other_stats = world.get_component(other_eid, YukkuriStats)
+                if other_reg is None or other_reg.family_group_id != reg.family_group_id:
+                    continue
 
-                    dist_sq = (trans.x - other_trans.x)**2 + (trans.y - other_trans.y)**2
-                    if dist_sq < 150 * 150: # Range for family benefits
+                # Same family
+                other_trans = world.get_component(other_eid, Transform)
+                other_ai = world.get_component(other_eid, AIState)
+                other_stats = world.get_component(other_eid, YukkuriStats)
 
-                        # 1. Base "Together" Happiness
-                        stats.happiness = min(100.0, stats.happiness + 0.5)
-                        stats.stress = max(0.0, stats.stress - 0.5)
-                        other_stats.happiness = min(100.0, other_stats.happiness + 0.5)
-                        other_stats.stress = max(0.0, other_stats.stress - 0.5)
+                if other_trans is None or other_ai is None or other_stats is None:
+                    continue
 
-                        # 2. Resource Sharing: Food
-                        # If one is eating, share nutrition/happiness with hungry partner
-                        # (Simulates "Here, have some" or calling to food)
-                        if ai.current_action == "Eat" and other_stats.hunger > 50.0:
-                             other_stats.hunger = max(0.0, other_stats.hunger - 1.0) # Share small benefit
-                             other_stats.happiness += 0.5
-                             logger.debug(f"Family Share: {stats.name} sharing food with {other_stats.name}")
+                dist_sq = (trans.x - other_trans.x)**2 + (trans.y - other_trans.y)**2
+                if dist_sq < 150 * 150: # Range for family benefits
 
-                        elif other_ai.current_action == "Eat" and stats.hunger > 50.0:
-                             stats.hunger = max(0.0, stats.hunger - 1.0)
-                             stats.happiness += 0.5
-                             logger.debug(f"Family Share: {other_stats.name} sharing food with {stats.name}")
+                    # 1. Base "Together" Happiness
+                    stats.happiness = min(100.0, stats.happiness + 0.5)
+                    stats.stress = max(0.0, stats.stress - 0.5)
+                    other_stats.happiness = min(100.0, other_stats.happiness + 0.5)
+                    other_stats.stress = max(0.0, other_stats.stress - 0.5)
 
-                        # 3. Resource Sharing: Nest/Sleep
-                        # If one is sleeping, boost comfort/recovery for nearby partner (simulating shared nest)
-                        if ai.current_action == "Sleep":
-                            other_stats.energy = min(100.0, other_stats.energy + 0.5)
-                            other_stats.stress = max(0.0, other_stats.stress - 1.0)
+                    # 2. Resource Sharing: Food
+                    # If one is eating, share nutrition/happiness with hungry partner
+                    # (Simulates "Here, have some" or calling to food)
+                    if ai.current_action == "Eat" and other_stats.hunger > 50.0:
+                            other_stats.hunger = max(0.0, other_stats.hunger - 1.0) # Share small benefit
+                            other_stats.happiness += 0.5
+                            logger.debug(f"Family Share: {stats.name} sharing food with {other_stats.name}")
 
-                        if other_ai.current_action == "Sleep":
-                            stats.energy = min(100.0, stats.energy + 0.5)
-                            stats.stress = max(0.0, stats.stress - 1.0)
+                    elif other_ai.current_action == "Eat" and stats.hunger > 50.0:
+                            stats.hunger = max(0.0, stats.hunger - 1.0)
+                            stats.happiness += 0.5
+                            logger.debug(f"Family Share: {other_stats.name} sharing food with {stats.name}")
+
+                    # 3. Resource Sharing: Nest/Sleep
+                    # If one is sleeping, boost comfort/recovery for nearby partner (simulating shared nest)
+                    if ai.current_action == "Sleep":
+                        other_stats.energy = min(100.0, other_stats.energy + 0.5)
+                        other_stats.stress = max(0.0, other_stats.stress - 1.0)
+
+                    if other_ai.current_action == "Sleep":
+                        stats.energy = min(100.0, stats.energy + 0.5)
+                        stats.stress = max(0.0, stats.stress - 1.0)

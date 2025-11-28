@@ -129,11 +129,11 @@ class HudLayout:
         Clears existing UI elements.
         """
         if self.top_panel:
-            self.top_panel.kill()
+            self.top_panel.kill()  # type: ignore[no-untyped-call]
             self.top_panel = None
 
         if self.bottom_panel:
-            self.bottom_panel.kill()
+            self.bottom_panel.kill()  # type: ignore[no-untyped-call]
             self.bottom_panel = None
 
         self.buy_buttons.clear()
@@ -352,7 +352,7 @@ class HudLayout:
             None
         """
         if self.selection_window:
-            self.selection_window.kill()
+            self.selection_window.kill()  # type: ignore[no-untyped-call]
             self.selection_window = None
             self.info_label = None
             self.info_scroll_container = None
@@ -368,7 +368,7 @@ class HudLayout:
             None
         """
         if self.debug_window:
-            self.debug_window.kill()
+            self.debug_window.kill()  # type: ignore[no-untyped-call]
 
         self.debug_window = UIWindow(
             rect=pygame.Rect(10, 60, 300, 200),
@@ -393,11 +393,11 @@ class HudLayout:
             None
         """
         if self.debug_window:
-            self.debug_window.kill()
+            self.debug_window.kill()  # type: ignore[no-untyped-call]
             self.debug_window = None
             self.debug_text_box = None
 
-    def create_settings_window(self, current_settings: dict) -> None:
+    def create_settings_window(self, current_settings: Dict[str, Any]) -> None:
         """
         Creates the settings window.
 
@@ -406,7 +406,7 @@ class HudLayout:
         """
         # Close existing window if any
         if self.settings_window:
-            self.settings_window.kill()
+            self.settings_window.kill()  # type: ignore[no-untyped-call]
 
         window_width = 400
         window_height = 350
@@ -462,7 +462,7 @@ class HudLayout:
 
         UILabel(relative_rect=pygame.Rect(20, 140, 100, 30), text="Resolution:", manager=self.manager, container=self.settings_window)
         self.settings_controls["resolution_dropdown"] = UIDropDownMenu(
-            options_list=resolution_options,
+            options_list=resolution_options,  # type: ignore
             starting_option=current_res,
             relative_rect=pygame.Rect(130, 140, 200, 30),
             manager=self.manager,
@@ -495,7 +495,7 @@ class HudLayout:
         Closes the settings window.
         """
         if self.settings_window:
-            self.settings_window.kill()
+            self.settings_window.kill()  # type: ignore[no-untyped-call]
             self.settings_window = None
             self.settings_controls = {}
 
@@ -536,31 +536,33 @@ class HudLayout:
             self.create_hover_tooltip()
 
         if text:
-            if not self.hover_tooltip_panel.visible:
-                self.hover_tooltip_panel.show()
+            if self.hover_tooltip_panel:
+                if not self.hover_tooltip_panel.visible:
+                    self.hover_tooltip_panel.show()
 
-            # Only update if text changed (optimization)
-            if self.hover_tooltip_label.html_text != text:
-                self.hover_tooltip_label.set_text(text)
+                if self.hover_tooltip_label:
+                    # Only update if text changed (optimization)
+                    if self.hover_tooltip_label.html_text != text:
+                        self.hover_tooltip_label.set_text(text)
 
-            # Adjust position to not go off screen
-            x, y = pos
-            width, height = self.hover_tooltip_panel.rect.size
+                # Adjust position to not go off screen
+                x, y = pos
+                width, height = self.hover_tooltip_panel.rect.size
 
-            # Offset slightly
-            x += 15
-            y += 15
+                # Offset slightly
+                x += 15
+                y += 15
 
-            if x + width > self.width:
-                x = self.width - width
-            if y + height > self.height:
-                y = self.height - height
+                if x + width > self.width:
+                    x = self.width - width
+                if y + height > self.height:
+                    y = self.height - height
 
-            self.hover_tooltip_panel.set_position((x, y))
+                self.hover_tooltip_panel.set_position((x, y))
 
-            # Bring to front
-            self.manager.ui_window_stack.move_window_to_front(self.hover_tooltip_panel)
+                # Bring to front
+                self.manager.ui_window_stack.move_window_to_front(self.hover_tooltip_panel)  # type: ignore[arg-type]
 
         else:
-            if self.hover_tooltip_panel.visible:
+            if self.hover_tooltip_panel and self.hover_tooltip_panel.visible:
                 self.hover_tooltip_panel.hide()
