@@ -11,6 +11,7 @@ A modern simulation game where you raise "Yukkuri" creatures in a virtual enviro
 - [Customization](#customization)
 - [Project Structure](#project-structure)
 - [Development](#development)
+- [Documentation](#documentation)
 
 ## Overview
 
@@ -190,3 +191,15 @@ Run tests using `pytest`:
 ```bash
 pytest
 ```
+
+## Documentation
+
+For more detailed information, please refer to the documents in the `docs/` folder:
+
+-   [Contributing Guidelines](docs/CONTRIBUTING.md)
+-   [Architecture Overview](docs/ARCHITECTURE.md)
+-   [Data Driven Design](docs/DATA_DRIVEN_DESIGN.md)
+-   [AI System](docs/ai_system.md)
+-   [Animation System](docs/animation.md)
+-   [Headless Testing](docs/headless_testing.md)
+-   [FAQ](docs/FAQ.md)
