@@ -239,6 +239,9 @@ class HudEvents:
 
         # Window
         resolution_str = controls["resolution_dropdown"].selected_option
+        if isinstance(resolution_str, tuple):
+            resolution_str = resolution_str[0]
+
         try:
             width, height = map(int, resolution_str.split('x'))
         except ValueError:
