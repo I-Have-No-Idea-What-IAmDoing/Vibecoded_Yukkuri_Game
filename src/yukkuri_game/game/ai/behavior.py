@@ -46,9 +46,11 @@ class MoveToTarget(Action):
         world: Optional["World"] = None,
         blackboard: Optional[Any] = None,
         speed: float = 100.0,
+        acceptance_radius: float = 15.0,
     ):
         super().__init__(name, entity_id, world, blackboard)
         self.speed = speed
+        self.acceptance_radius = acceptance_radius
 
     def update(self) -> Status:
         """
@@ -105,12 +107,12 @@ class MoveToTarget(Action):
         dist_to_next = vector_to_next.length
 
         dist_to_final = (target_pos - current_pos).length
-        if dist_to_final < 15.0:
+        if dist_to_final < self.acceptance_radius:
             controller.target_velocity = pymunk.Vec2d(0, 0)
             ai.path = []
             return Status.SUCCESS
 
-        if dist_to_next < 15.0:
+        if dist_to_next < 15.0:  # Waypoint acceptance can remain small
             ai.path.pop(0)
             if not ai.path:
                 controller.target_velocity = pymunk.Vec2d(0, 0)
@@ -526,7 +528,9 @@ def build_eat_behavior(
     have_target_seq = py_trees.composites.Sequence(name="Have Target?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
-    move_to_food = MoveToTarget(name="Move To Food", entity_id=entity_id, world=world)
+    move_to_food = MoveToTarget(
+        name="Move To Food", entity_id=entity_id, world=world, acceptance_radius=30.0
+    )
     interact_food = Interact(name="Interact Food", entity_id=entity_id, world=world)
 
     have_target_seq.add_children([check_target, move_to_food, interact_food])
@@ -613,7 +617,9 @@ def build_sleep_behavior(
     have_target_seq = py_trees.composites.Sequence(name="Have Bed?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
-    move_to_bed = MoveToTarget(name="Move To Bed", entity_id=entity_id, world=world)
+    move_to_bed = MoveToTarget(
+        name="Move To Bed", entity_id=entity_id, world=world, acceptance_radius=30.0
+    )
     interact_bed = Interact(
         name="Sleep In Bed", entity_id=entity_id, world=world, consume=False
     )
@@ -649,7 +655,9 @@ def build_play_behavior(
     have_target_seq = py_trees.composites.Sequence(name="Have Toy?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
-    move_to_toy = MoveToTarget(name="Move To Toy", entity_id=entity_id, world=world)
+    move_to_toy = MoveToTarget(
+        name="Move To Toy", entity_id=entity_id, world=world, acceptance_radius=30.0
+    )
     interact_toy = Interact(
         name="Play With Toy", entity_id=entity_id, world=world, consume=False
     )
@@ -718,7 +726,10 @@ def build_talk_behavior(
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
     move_to_friend = MoveToTarget(
-        name="Move To Friend", entity_id=entity_id, world=world
+        name="Move To Friend",
+        entity_id=entity_id,
+        world=world,
+        acceptance_radius=40.0,
     )
     do_talk = SocialInteract(
         name="Talk", entity_id=entity_id, world=world, interaction_type="Talk"
@@ -754,7 +765,12 @@ def build_fight_behavior(
     have_target_seq = py_trees.composites.Sequence(name="Have Enemy?", memory=True)
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
-    move_to_enemy = MoveToTarget(name="Move To Enemy", entity_id=entity_id, world=world)
+    move_to_enemy = MoveToTarget(
+        name="Move To Enemy",
+        entity_id=entity_id,
+        world=world,
+        acceptance_radius=40.0,
+    )
     do_fight = SocialInteract(
         name="Fight", entity_id=entity_id, world=world, interaction_type="Fight"
     )
@@ -790,7 +806,10 @@ def build_dance_behavior(
     check_target = Check(name="Target Exists?", check_fn=check_target_fn)
 
     move_to_partner = MoveToTarget(
-        name="Move To Partner", entity_id=entity_id, world=world
+        name="Move To Partner",
+        entity_id=entity_id,
+        world=world,
+        acceptance_radius=40.0,
     )
     do_dance = SocialInteract(
         name="Dance", entity_id=entity_id, world=world, interaction_type="Dance"
