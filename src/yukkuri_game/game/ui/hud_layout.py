@@ -4,7 +4,7 @@ Module defining the HUD layout and UI element creation.
 import pygame
 import pygame_gui
 from typing import Optional, Dict, Any
-from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox, UIHorizontalSlider, UIDropDownMenu
+from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox, UIHorizontalSlider, UIDropDownMenu, UIScrollingContainer
 
 class HudLayout:
     """
@@ -74,6 +74,7 @@ class HudLayout:
         # Selection Window Elements
         self.selection_window: Optional[UIWindow] = None
         self.info_label: Optional[UITextBox] = None
+        self.info_scroll_container: Optional[UIScrollingContainer] = None
         self.sell_btn: Optional[UIButton] = None
         self.train_btn: Optional[UIButton] = None
         self.punish_btn: Optional[UIButton] = None
@@ -300,11 +301,19 @@ class HudLayout:
             resizable=True
         )
 
-        self.info_label = UITextBox(
-            html_text="",
+        self.info_scroll_container = UIScrollingContainer(
             relative_rect=pygame.Rect(10, 10, 290, 200),
             manager=self.manager,
             container=self.selection_window,
+            anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'left'}
+        )
+
+        self.info_label = UITextBox(
+            html_text="",
+            relative_rect=pygame.Rect(0, 0, 270, -1),
+            manager=self.manager,
+            container=self.info_scroll_container,
+            wrap_to_height=True,
             anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'left'}
         )
 
@@ -346,6 +355,7 @@ class HudLayout:
             self.selection_window.kill()
             self.selection_window = None
             self.info_label = None
+            self.info_scroll_container = None
             self.sell_btn = None
             self.train_btn = None
             self.punish_btn = None
