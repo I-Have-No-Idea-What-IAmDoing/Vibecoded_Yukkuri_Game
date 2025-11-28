@@ -13,7 +13,7 @@ from .engine.event_bus import EventBus
 from .game.events import GamePausedEvent, TogglePauseRequest, CycleSpeedRequest, ResolutionChangedEvent
 from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
 from .game.game_manager import GameManager
-from .game.services import EconomyService, PersistenceService, TimeService, InputService
+from .game.services import EconomyService, PersistenceService, TimeService, InputService, GameService
 from .game.settings_service import SettingsService
 from .game.trait_service import TraitService
 from .game.entity_factory import EntityFactory
@@ -175,6 +175,10 @@ class YukkuriGame(GameLoop):
 
         self.gm = GameManager(self.world)
         self.world.services.register(self.gm)
+
+        # Game Logic Service
+        self.game_service = GameService(self.world)
+        self.world.services.register(self.game_service)
 
         # AI
         self.ai_engine = UtilityAIEngine(self.resources)
