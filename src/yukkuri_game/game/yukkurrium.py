@@ -237,7 +237,7 @@ class WorldRenderer:
 
             # Handle animation
             img_width, img_height = img.get_size()
-            source_rect = pygame.Rect(0, 0, sprite.width, img_height)
+            source_rect = pygame.Rect(0, 0, sprite.width, sprite.height)
 
             if sprite.frame_count > 1:
                 sx = sprite.current_frame * sprite.width
@@ -261,7 +261,7 @@ class WorldRenderer:
 
             if scale != 1.0:
                 w = int(sprite.width * scale)
-                h = int(img_height * scale) # Use full height for scaling
+                h = int(sprite.height * scale)
                 if w <= 0 or h <= 0:
                     continue
                 scaled_img = pygame.transform.scale(frame_img, (w, h))

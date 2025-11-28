@@ -249,6 +249,7 @@ class EntityFactory:
         self.world.add_component(entity, Sprite(image_name="poop.png", width=32, height=32))
         self.world.add_component(entity, Selectable())
         self.world.add_component(entity, Poop())
+        self.world.add_component(entity, VisualTransform())
 
         if self.physics_system:
             body = pymunk.Body(1, pymunk.moment_for_circle(1, 0, 10))
@@ -294,6 +295,7 @@ class EntityFactory:
             frame_duration=frame_duration, loop=loop, is_animating=(frame_count > 1)
         ))
         self.world.add_component(entity, Selectable())
+        self.world.add_component(entity, VisualTransform())
 
         stats = ItemStats(
             name=self._get_attr(data, 'name', "Item"),
