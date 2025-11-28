@@ -289,18 +289,29 @@ class HudRenderer:
                     text = f"<b>Item:</b> {istats.name}<br><b>Val:</b> {istats.cost}"
 
         if self.layout.info_label:
-            # Only update if text actually changed to avoid resetting scroll
+            # Only update if text actually changed
             if self.layout.info_label.html_text != text:
-                # Try to preserve scroll position
-                scroll_pos = 0.0
-                if self.layout.info_label.scroll_bar:
-                    scroll_pos = self.layout.info_label.scroll_bar.start_percentage
+                # Get current dimensions
+                old_height = self.layout.info_label.rect.height
 
                 self.layout.info_label.set_text(text)
 
-                # Restore scroll position if scrollbar exists
-                if self.layout.info_label.scroll_bar:
-                    self.layout.info_label.scroll_bar.set_scroll_from_start_percentage(scroll_pos)
+                # Check if dimensions changed
+                new_height = self.layout.info_label.rect.height
+
+                if old_height != new_height and self.layout.info_scroll_container:
+                    # Save scroll position
+                    scroll_pos = 0.0
+                    if self.layout.info_scroll_container.vert_scroll_bar:
+                        scroll_pos = self.layout.info_scroll_container.vert_scroll_bar.start_percentage
+
+                    # Update scrolling container dimensions
+                    # We set width to 270 (matching creation width) and height to new content height
+                    self.layout.info_scroll_container.set_scrollable_area_dimensions((270, new_height))
+
+                    # Restore scroll position
+                    if self.layout.info_scroll_container.vert_scroll_bar:
+                        self.layout.info_scroll_container.vert_scroll_bar.set_scroll_from_start_percentage(scroll_pos)
 
     def _update_debug_window(self, dt: float) -> None:
         """
