@@ -101,6 +101,7 @@ class GameDriver:
             ai.state_data["target_x"] = x
             ai.state_data["target_y"] = y
             ai.path = None
+            ai.manual_override = True
 
     def set_ai_action(self, entity_id: int, action: str, target_id: int = -1) -> None:
         from ..game.yukkuri_components import AIState
@@ -110,6 +111,7 @@ class GameDriver:
             if target_id != -1:
                 ai.current_target_id = target_id
             ai.path = None
+            ai.manual_override = True
 
     def cleanup(self) -> None:
         """Cleans up the game instance."""
