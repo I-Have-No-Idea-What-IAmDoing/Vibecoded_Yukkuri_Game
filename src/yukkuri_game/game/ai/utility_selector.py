@@ -152,5 +152,8 @@ class UtilitySelector(Action):
         if best_action != ai.current_action:
             ai.current_action = best_action
             ai.action_progress = 0.0
+            # Clear failed targets when switching actions to give them another chance later
+            if hasattr(ai, 'failed_targets'):
+                ai.failed_targets.clear()
 
         return Status.SUCCESS
