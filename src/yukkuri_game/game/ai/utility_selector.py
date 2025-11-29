@@ -67,6 +67,7 @@ class UtilitySelector(Action):
         if not self.engine:
              self.engine = self.world.services.try_get(UtilityAIEngine)
              if not self.engine:
+                print("UtilitySelector: No Engine found")
                 return Status.FAILURE
 
         # Also try to grab trait service again if missing
@@ -78,6 +79,7 @@ class UtilitySelector(Action):
         personality = self.world.get_component(self.entity_id, Personality)
 
         if not ai or not stats:
+            print("UtilitySelector: Missing components")
             return Status.FAILURE
 
         # Build Context for Utility Evaluation
@@ -147,6 +149,8 @@ class UtilitySelector(Action):
         # We pass personality and trait service to support overrides inside the engine
         # The engine will select the best action based on the highest utility score
         best_action = self.engine.select_action(context, personality, self.trait_service)
+
+        # print(f"DEBUG: UtilitySelector selected {best_action}")
 
         # Update AI State
         if best_action != ai.current_action:
