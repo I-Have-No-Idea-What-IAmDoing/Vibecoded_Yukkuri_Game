@@ -243,23 +243,30 @@ class WorldRenderer:
 
             # Handle animation
             img_width, img_height = img.get_size()
-            source_rect = pygame.Rect(0, 0, sprite.width, sprite.height)
 
             if sprite.frame_count > 1:
+                source_rect = pygame.Rect(0, 0, sprite.width, sprite.height)
                 sx = sprite.current_frame * sprite.width
                 if sx + sprite.width <= img_width:
-                     source_rect.x = sx
+                    source_rect.x = sx
 
-            # Ensure source_rect is within image bounds
-            if source_rect.right > img_width or source_rect.bottom > img_height:
-                # If image is smaller than expected (e.g. placeholder), scale it or clip
-                # For placeholder (which is usually small), we just use the whole image
-                if img_width < sprite.width or img_height < sprite.height:
-                     frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
+                # Ensure source_rect is within image bounds
+                if source_rect.right > img_width or source_rect.bottom > img_height:
+                    # If image is smaller than expected (e.g. placeholder), scale it or clip
+                    # For placeholder (which is usually small), we just use the whole image
+                    if img_width < sprite.width or img_height < sprite.height:
+                        frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
+                    else:
+                        frame_img = img.subsurface(source_rect.clip(img.get_rect()))
                 else:
-                     frame_img = img.subsurface(source_rect.clip(img.get_rect()))
+                    frame_img = img.subsurface(source_rect)
             else:
-                frame_img = img.subsurface(source_rect)
+                # Single frame: if dimensions don't match, we assume we want to scale
+                # to fit the target sprite size (e.g., high-res asset for smaller item).
+                if img_width != sprite.width or img_height != sprite.height:
+                    frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
+                else:
+                    frame_img = img
 
             # Apply flips
             if sprite.flip_x or sprite.flip_y:
