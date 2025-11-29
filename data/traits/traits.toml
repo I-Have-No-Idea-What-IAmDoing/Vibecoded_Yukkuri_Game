@@ -52,3 +52,11 @@ social_decay = 0.5
 
 [traits.LONER.ai_modifiers]
 "Social/Play" = { curve = "linear", params = { m = 0.5 } }
+
+[traits.PREDATOR]
+name = "Predator"
+description = "Sees other Yukkuris as food."
+axis_shift = { bravery = 50, kindness = -50, greed = 20 }
+
+[traits.PREDATOR.ai_modifiers]
+can_eat_yukkuri = true

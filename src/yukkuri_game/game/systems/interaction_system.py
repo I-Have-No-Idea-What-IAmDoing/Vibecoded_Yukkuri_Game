@@ -7,7 +7,8 @@ from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
 from ..components import Transform, InteractionRequest
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState
+from ..yukkuri_components import YukkuriStats, ItemStats, AIState, Personality
+from ..trait_service import TraitService
 
 class InteractionSystem(System):
     """
@@ -15,11 +16,13 @@ class InteractionSystem(System):
 
     Attributes:
         audio (Optional[AudioManager]): The audio manager instance.
+        trait_service (Optional[TraitService]): The trait service.
     """
     def __init__(self) -> None:
         """Initializes the InteractionSystem."""
         super().__init__()
         self.audio: Optional[AudioManager] = None
+        self.trait_service: Optional[TraitService] = None
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -34,6 +37,8 @@ class InteractionSystem(System):
         """
         if self.audio is None:
             self.audio = world.services.try_get(AudioManager)
+        if self.trait_service is None:
+            self.trait_service = world.services.try_get(TraitService)
 
         # Get all entities with InteractionRequest
         # We need to iterate safely because we might remove components
@@ -73,6 +78,39 @@ class InteractionSystem(System):
         # Verify distance (sanity check)
         dist = math.hypot(transform.x - target_transform.x, transform.y - target_transform.y)
         if dist > 50.0: # Slightly larger than action threshold to account for movement
+            return
+
+        # Check for Behavioral Overrides if target is a Yukkuri and we want to consume
+        target_stats = world.get_component(target_id, YukkuriStats)
+        if target_stats and request.consume:
+            # Predation Logic
+            personality = world.get_component(entity, Personality)
+            can_eat = False
+
+            if personality and self.trait_service:
+                if personality.cached_overrides is None:
+                    personality.cached_overrides = self.trait_service.calculate_overrides(personality.traits)
+
+                # Check for "can_eat_yukkuri" override
+                if personality.cached_overrides and personality.cached_overrides.get("can_eat_yukkuri", False):
+                    can_eat = True
+
+            if not can_eat:
+                # Block interaction
+                logger.debug(f"Entity {entity} attempted to eat Yukkuri {target_id} but lacks permission/trait.")
+                return
+
+            # If we are here, we are allowed to eat the Yukkuri
+            # Handle Predation (Gain heavy nutrition, severe social consequences?)
+            # For now, treat as item consumption but bigger
+            stats.hunger = max(0, stats.hunger - 50.0) # Big meal
+            if self.audio:
+                self.audio.play_sound("eat") # Crunch?
+
+            world.destroy_entity(target_id)
+            ai = world.get_component(entity, AIState)
+            if ai and ai.current_target_id == target_id:
+                ai.current_target_id = -1
             return
 
         item_stats = world.get_component(target_id, ItemStats)

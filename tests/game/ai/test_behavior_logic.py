@@ -166,11 +166,26 @@ class TestBehaviorBuilders:
 
     def test_create_yukkuri_behavior_tree(self, mock_args):
         tree = create_yukkuri_behavior_tree(1, mock_args["world"], 1000, 1000)
-        assert isinstance(tree, py_trees.composites.Sequence)
-        # Should have UtilitySelector and ExecutionSelector
+        # Verify root is a Selector (due to Stress Break update)
+        assert isinstance(tree, py_trees.composites.Selector)
+
+        # Structure: Root Selector -> Stress Break Sequence -> Normal Behavior Sequence
         assert len(tree.children) == 2
-        assert isinstance(tree.children[0], py_trees.behaviour.Behaviour) # UtilitySelector
-        assert isinstance(tree.children[1], py_trees.composites.Selector) # Execution
+
+        stress_break = tree.children[0]
+        assert isinstance(stress_break, py_trees.composites.Sequence)
+        assert stress_break.name == "Stress Break"
+
+        normal_behavior = tree.children[1]
+        assert isinstance(normal_behavior, py_trees.composites.Sequence)
+        assert normal_behavior.name == "Normal Behavior"
+
+        # Verify Normal Behavior structure
+        assert len(normal_behavior.children) == 2
+        # Child 0: Utility Selector
+        assert isinstance(normal_behavior.children[0], py_trees.behaviour.Behaviour)
+        # Child 1: Execution Selector
+        assert isinstance(normal_behavior.children[1], py_trees.composites.Selector)
 
 class TestFindItem:
     def test_find_item_success(self):

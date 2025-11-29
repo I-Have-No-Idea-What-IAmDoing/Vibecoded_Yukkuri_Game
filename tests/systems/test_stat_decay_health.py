@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState
 from yukkuri_game.config import StatDecaySettings
 
 class TestEmotionSystemHealthClamp(unittest.TestCase):
@@ -13,6 +13,10 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         stats.health = 150.0 # Over limit
 
         mock_world.get_components_tuple.return_value = [(1, (stats,))]
+
+        # Mock EmotionalState to return None or a valid object
+        # If None, the system skips emotional update
+        mock_world.get_component.return_value = None
 
         system = EmotionSystem(settings=StatDecaySettings())
         dt = 0.0 # No decay
@@ -29,6 +33,9 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         stats.health = -50.0 # Under limit
 
         mock_world.get_components_tuple.return_value = [(1, (stats,))]
+
+        # Mock EmotionalState to return None
+        mock_world.get_component.return_value = None
 
         system = EmotionSystem(settings=StatDecaySettings())
         dt = 0.0 # No decay

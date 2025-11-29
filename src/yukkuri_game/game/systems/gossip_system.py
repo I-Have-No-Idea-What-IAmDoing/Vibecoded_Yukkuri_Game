@@ -4,19 +4,20 @@ Module defining the GossipSystem.
 from typing import List, Tuple, Optional
 import pymunk
 from ...engine.ecs import System, World
-from ..yukkuri_components import GossipQueue, GossipPacket, YukkuriStats
+from ..yukkuri_components import GossipQueue, GossipPacket, YukkuriStats, RelationshipRegistry
 from ..components import Transform, PhysicsBody
 from ..events import SocialInteractionEvent
 from ...engine.event_bus import EventBus
 import time
 from ..services import TimeService
 from .physics import PhysicsSystem
+from .sector_system import SectorMap
 import math
 
 class GossipSystem(System):
     """
     System responsible for managing Gossip (witnessing and exchanging).
-    Uses PhysicsSystem spatial queries for efficient witnessing.
+    Uses SectorMap for efficient witnessing.
     """
 
     def __init__(self, event_bus: EventBus):
@@ -24,10 +25,13 @@ class GossipSystem(System):
         self.event_bus = event_bus
         self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
         self.physics_system: Optional[PhysicsSystem] = None
+        self.sector_map: Optional[SectorMap] = None
 
     def update(self, world: World, dt: float) -> None:
         if not self.physics_system:
             self.physics_system = world.services.try_get(PhysicsSystem)
+        if not self.sector_map:
+            self.sector_map = world.services.try_get(SectorMap)
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         """
@@ -47,39 +51,24 @@ class GossipSystem(System):
             self._exchange_gossip(world, event.initiator_id, event.target_id)
             self._exchange_gossip(world, event.target_id, event.initiator_id)
 
-        # Handle Witnessing (Visual/Auditory)
-        # Use Pymunk Point Query
-        if not self.physics_system:
-             self.physics_system = world.services.try_get(PhysicsSystem)
+        # Handle Witnessing (Sector-based)
+        if not self.sector_map:
+            self.sector_map = world.services.try_get(SectorMap)
 
-        if self.physics_system and self.physics_system.space:
-             self._process_witnesses_spatial(world, event, actor_trans, now)
-        else:
-             # Fallback if physics system not ready (shouldn't happen in normal gameplay)
-             pass
+        if self.sector_map:
+             self._process_witnesses_sector(world, event, actor_trans, now)
 
-    def _process_witnesses_spatial(self, world: World, event: SocialInteractionEvent, actor_trans: Transform, now: float):
+    def _process_witnesses_sector(self, world: World, event: SocialInteractionEvent, actor_trans: Transform, now: float):
         """
-        Uses spatial query to find witnesses.
+        Uses SectorMap to find witnesses.
         """
-        visual_range = 300.0
+        range_type = "visual"
+        if event.interaction_type in ["Scream", "Shout"]:
+            range_type = "auditory_loud"
 
-        # Pymunk query: query for shapes within visual_range of the actor
-        point = (actor_trans.x, actor_trans.y)
-        results = self.physics_system.space.point_query(point, visual_range, pymunk.ShapeFilter())
+        candidates = self.sector_map.get_entities_in_range(actor_trans.x, actor_trans.y, range_type)
 
-        for shape_query_info in results:
-            shape = shape_query_info.shape
-            body = shape.body
-            if not body or not body.userdata:
-                continue
-
-            witness_id = body.userdata
-
-            # Entity ID must be int
-            if not isinstance(witness_id, int):
-                continue
-
+        for witness_id in candidates:
             if witness_id == event.initiator_id or witness_id == event.target_id:
                 continue
 
@@ -87,10 +76,66 @@ class GossipSystem(System):
             if not world.has_component(witness_id, GossipQueue) or not world.has_component(witness_id, YukkuriStats):
                 continue
 
-            # TODO: LOS Check could go here
+            witness_trans = world.get_component(witness_id, Transform)
+            if not witness_trans: continue
+
+            # Visual Check: Line of Sight
+            if range_type == "visual":
+                if not self._check_line_of_sight(world, actor_trans, witness_trans):
+                    continue
+
+            # Interest Group Bonus
+            value = 10.0
+            if self._is_in_same_interest_group(world, witness_id, event.initiator_id):
+                 value += 5.0 # Boost value (Hearing Bonus)
 
             # Add Witness Gossip
-            self._add_witness_gossip(world, witness_id, event, now, value=10.0)
+            self._add_witness_gossip(world, witness_id, event, now, value=value)
+
+    def _check_line_of_sight(self, world: World, start_trans: Transform, end_trans: Transform) -> bool:
+        """
+        Checks if there is a clear line of sight between two transforms.
+        Uses PhysicsSystem raycast.
+        """
+        if not self.physics_system:
+            self.physics_system = world.services.try_get(PhysicsSystem)
+
+        if not self.physics_system:
+            return True # Fallback if no physics
+
+        start_pos = (start_trans.x, start_trans.y)
+        end_pos = (end_trans.x, end_trans.y)
+
+        query = self.physics_system.space.segment_query_first(start_pos, end_pos, 1.0, pymunk.ShapeFilter())
+
+        if query:
+             # Check what we hit
+             hit_body = query.shape.body
+             if hit_body and hit_body.userdata:
+                 # Optimization: checking if hit point is close to end_pos
+                 hit_dist = math.hypot(query.point.x - start_pos[0], query.point.y - start_pos[1])
+                 total_dist = math.hypot(end_pos[0] - start_pos[0], end_pos[1] - start_pos[1])
+
+                 if hit_dist < total_dist - 5.0: # Hit something else
+                     return False
+
+        return True
+
+    def _is_in_same_interest_group(self, world: World, entity_a: int, entity_b: int) -> bool:
+        """
+        Checks if two entities are in the same interest group (Family, Pack).
+        """
+        reg_a = world.get_component(entity_a, RelationshipRegistry)
+        reg_b = world.get_component(entity_b, RelationshipRegistry)
+
+        if not reg_a or not reg_b:
+            return False
+
+        # Check Family
+        if reg_a.family_group_id is not None and reg_a.family_group_id == reg_b.family_group_id:
+            return True
+
+        return False
 
     def _exchange_gossip(self, world: World, sender_id: int, receiver_id: int):
         sender_queue = world.get_component(sender_id, GossipQueue)
@@ -106,16 +151,25 @@ class GossipSystem(System):
         if config and hasattr(config.rules, 'social'):
             max_length = config.rules.social.max_gossip_length
 
+        is_group_member = self._is_in_same_interest_group(world, sender_id, receiver_id)
+
         # Share top packets
         for packet in sender_queue.priority_queue:
             # Don't share gossip about the receiver to the receiver
             if packet.target_id == receiver_id:
                 continue
 
+            # Apply decay
+            new_value = packet.value * 0.9
+
+            # Apply Hearing Bonus if in same group (prioritize group member's info)
+            if is_group_member:
+                new_value *= 1.2
+
             new_packet = GossipPacket(
                 target_id=packet.target_id,
                 event_type=packet.event_type,
-                value=packet.value * 0.9,
+                value=new_value,
                 timestamp=packet.timestamp
             )
             receiver_queue.add_packet(new_packet, max_length=max_length)
