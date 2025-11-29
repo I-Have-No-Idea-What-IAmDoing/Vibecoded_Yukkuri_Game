@@ -425,8 +425,9 @@ class FindSocialTarget(Action):
                     best_target = uid
 
         if best_target != -1:
-            ai.current_target_id = best_target
-            ai.path = None
+            if ai.current_target_id != best_target:
+                ai.current_target_id = best_target
+                ai.path = None
             return Status.SUCCESS
 
         return Status.FAILURE
@@ -584,27 +585,29 @@ def build_eat_behavior(
     """
     Builds the behavior subtree for the 'Eat' goal.
     """
-    eat_sequence = py_trees.composites.Sequence(name="Eat Sequence", memory=True)
+    # Use memory=False to ensure we re-evaluate children (allowing for target switching)
+    eat_sequence = py_trees.composites.Sequence(name="Eat Sequence", memory=False)
 
     is_eating = Check(name="Goal=Eat?", check_fn=lambda: check_goal_fn("Eat"))
-    eat_execution = py_trees.composites.Selector(name="Eat Execution", memory=True)
 
-    have_target_seq = py_trees.composites.Sequence(name="Have Target?", memory=True)
-    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+    # Execution Sequence:
+    # 1. Ensure we have the BEST target (FindItem).
+    # 2. Move to target.
+    # 3. Interact.
+    eat_execution = py_trees.composites.Sequence(name="Eat Execution", memory=False)
+
+    # FindFood will find the best food. If it changes target, it updates AIState and clears path.
+    # If no food is found, it fails, aborting the sequence.
+    find_food = FindItem(
+        name="Find Best Food", entity_id=entity_id, world=world, stat_criteria="nutrition"
+    )
 
     move_to_food = MoveToTarget(
         name="Move To Food", entity_id=entity_id, world=world, acceptance_radius=30.0
     )
     interact_food = Interact(name="Interact Food", entity_id=entity_id, world=world)
 
-    have_target_seq.add_children([check_target, move_to_food, interact_food])
-
-    # 2b. If no target, Find Food
-    find_food = FindItem(
-        name="Find Food", entity_id=entity_id, world=world, stat_criteria="nutrition"
-    )
-
-    eat_execution.add_children([have_target_seq, find_food])
+    eat_execution.add_children([find_food, move_to_food, interact_food])
     eat_sequence.add_children([is_eating, eat_execution])
     return eat_sequence
 
@@ -656,9 +659,13 @@ class FindItem(Action):
             )
 
         if best_item != -1:
-            ai.current_target_id = best_item
-            ai.path = None
+            # Only update and clear path if the target actually changed
+            if ai.current_target_id != best_item:
+                ai.current_target_id = best_item
+                ai.path = None # Force re-pathing
+
             return Status.SUCCESS
+
         return Status.FAILURE
 
 
@@ -673,13 +680,15 @@ def build_sleep_behavior(
     """
     Builds the behavior subtree for the 'Sleep' goal.
     """
-    sleep_sequence = py_trees.composites.Sequence(name="Sleep Sequence", memory=True)
+    sleep_sequence = py_trees.composites.Sequence(name="Sleep Sequence", memory=False)
 
     is_sleeping = Check(name="Goal=Sleep?", check_fn=lambda: check_goal_fn("Sleep"))
-    sleep_execution = py_trees.composites.Selector(name="Sleep Execution", memory=True)
+    sleep_execution = py_trees.composites.Sequence(name="Sleep Execution", memory=False)
 
-    have_target_seq = py_trees.composites.Sequence(name="Have Bed?", memory=True)
-    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+    # 1. Find best bed
+    find_bed = FindItem(
+        name="Find Best Bed", entity_id=entity_id, world=world, stat_criteria="comfort"
+    )
 
     move_to_bed = MoveToTarget(
         name="Move To Bed", entity_id=entity_id, world=world, acceptance_radius=30.0
@@ -688,14 +697,7 @@ def build_sleep_behavior(
         name="Sleep In Bed", entity_id=entity_id, world=world, consume=False
     )
 
-    have_target_seq.add_children([check_target, move_to_bed, interact_bed])
-
-    # 2. If no target, Find Bed
-    find_bed = FindItem(
-        name="Find Bed", entity_id=entity_id, world=world, stat_criteria="comfort"
-    )
-
-    sleep_execution.add_children([have_target_seq, find_bed])
+    sleep_execution.add_children([find_bed, move_to_bed, interact_bed])
     sleep_sequence.add_children([is_sleeping, sleep_execution])
     return sleep_sequence
 
@@ -711,13 +713,15 @@ def build_play_behavior(
     """
     Builds the behavior subtree for the 'Play' goal.
     """
-    play_sequence = py_trees.composites.Sequence(name="Play Sequence", memory=True)
+    play_sequence = py_trees.composites.Sequence(name="Play Sequence", memory=False)
 
     is_playing = Check(name="Goal=Play?", check_fn=lambda: check_goal_fn("Play"))
-    play_execution = py_trees.composites.Selector(name="Play Execution", memory=True)
+    play_execution = py_trees.composites.Sequence(name="Play Execution", memory=False)
 
-    have_target_seq = py_trees.composites.Sequence(name="Have Toy?", memory=True)
-    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+    # 1. Find best toy
+    find_toy = FindItem(
+        name="Find Best Toy", entity_id=entity_id, world=world, stat_criteria="fun"
+    )
 
     move_to_toy = MoveToTarget(
         name="Move To Toy", entity_id=entity_id, world=world, acceptance_radius=30.0
@@ -726,14 +730,7 @@ def build_play_behavior(
         name="Play With Toy", entity_id=entity_id, world=world, consume=False
     )
 
-    have_target_seq.add_children([check_target, move_to_toy, interact_toy])
-
-    # 2. If no target, Find Toy
-    find_toy = FindItem(
-        name="Find Toy", entity_id=entity_id, world=world, stat_criteria="fun"
-    )
-
-    play_execution.add_children([have_target_seq, find_toy])
+    play_execution.add_children([find_toy, move_to_toy, interact_toy])
     play_sequence.add_children([is_playing, play_execution])
     return play_sequence
 
@@ -781,13 +778,14 @@ def build_talk_behavior(
     """
     Builds the behavior subtree for the 'Talk' goal.
     """
-    talk_sequence = py_trees.composites.Sequence(name="Talk Sequence", memory=True)
+    talk_sequence = py_trees.composites.Sequence(name="Talk Sequence", memory=False)
     is_talking = Check(name="Goal=Talk?", check_fn=lambda: check_goal_fn("Talk"))
 
-    talk_execution = py_trees.composites.Selector(name="Talk Execution", memory=True)
+    talk_execution = py_trees.composites.Sequence(name="Talk Execution", memory=False)
 
-    have_target_seq = py_trees.composites.Sequence(name="Have Friend?", memory=True)
-    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+    find_friend = FindSocialTarget(
+        name="Find Best Friend", entity_id=entity_id, world=world, criteria="friend"
+    )
 
     move_to_friend = MoveToTarget(
         name="Move To Friend",
@@ -798,14 +796,8 @@ def build_talk_behavior(
     do_talk = SocialInteract(
         name="Talk", entity_id=entity_id, world=world, interaction_type="Talk"
     )
-    have_target_seq.add_children([check_target, move_to_friend, do_talk])
 
-    # 2. Find Friend
-    find_friend = FindSocialTarget(
-        name="Find Friend", entity_id=entity_id, world=world, criteria="friend"
-    )
-
-    talk_execution.add_children([have_target_seq, find_friend])
+    talk_execution.add_children([find_friend, move_to_friend, do_talk])
     talk_sequence.add_children([is_talking, talk_execution])
     return talk_sequence
 
@@ -821,13 +813,14 @@ def build_fight_behavior(
     """
     Builds the behavior subtree for the 'Fight' goal.
     """
-    fight_sequence = py_trees.composites.Sequence(name="Fight Sequence", memory=True)
+    fight_sequence = py_trees.composites.Sequence(name="Fight Sequence", memory=False)
     is_fighting = Check(name="Goal=Fight?", check_fn=lambda: check_goal_fn("Fight"))
 
-    fight_execution = py_trees.composites.Selector(name="Fight Execution", memory=True)
+    fight_execution = py_trees.composites.Sequence(name="Fight Execution", memory=False)
 
-    have_target_seq = py_trees.composites.Sequence(name="Have Enemy?", memory=True)
-    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+    find_enemy = FindSocialTarget(
+        name="Find Best Enemy", entity_id=entity_id, world=world, criteria="enemy"
+    )
 
     move_to_enemy = MoveToTarget(
         name="Move To Enemy",
@@ -838,14 +831,8 @@ def build_fight_behavior(
     do_fight = SocialInteract(
         name="Fight", entity_id=entity_id, world=world, interaction_type="Fight"
     )
-    have_target_seq.add_children([check_target, move_to_enemy, do_fight])
 
-    # 2. Find Enemy
-    find_enemy = FindSocialTarget(
-        name="Find Enemy", entity_id=entity_id, world=world, criteria="enemy"
-    )
-
-    fight_execution.add_children([have_target_seq, find_enemy])
+    fight_execution.add_children([find_enemy, move_to_enemy, do_fight])
     fight_sequence.add_children([is_fighting, fight_execution])
     return fight_sequence
 
@@ -861,13 +848,14 @@ def build_dance_behavior(
     """
     Builds the behavior subtree for the 'Dance' goal.
     """
-    dance_sequence = py_trees.composites.Sequence(name="Dance Sequence", memory=True)
+    dance_sequence = py_trees.composites.Sequence(name="Dance Sequence", memory=False)
     is_dancing = Check(name="Goal=Dance?", check_fn=lambda: check_goal_fn("Dance"))
 
-    dance_execution = py_trees.composites.Selector(name="Dance Execution", memory=True)
+    dance_execution = py_trees.composites.Sequence(name="Dance Execution", memory=False)
 
-    have_target_seq = py_trees.composites.Sequence(name="Have Partner?", memory=True)
-    check_target = Check(name="Target Exists?", check_fn=check_target_fn)
+    find_partner = FindSocialTarget(
+        name="Find Best Partner", entity_id=entity_id, world=world, criteria="any"
+    )
 
     move_to_partner = MoveToTarget(
         name="Move To Partner",
@@ -878,14 +866,8 @@ def build_dance_behavior(
     do_dance = SocialInteract(
         name="Dance", entity_id=entity_id, world=world, interaction_type="Dance"
     )
-    have_target_seq.add_children([check_target, move_to_partner, do_dance])
 
-    # 2. Find Partner (Any)
-    find_partner = FindSocialTarget(
-        name="Find Partner", entity_id=entity_id, world=world, criteria="any"
-    )
-
-    dance_execution.add_children([have_target_seq, find_partner])
+    dance_execution.add_children([find_partner, move_to_partner, do_dance])
     dance_sequence.add_children([is_dancing, dance_execution])
     return dance_sequence
 
