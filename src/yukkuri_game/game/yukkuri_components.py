@@ -136,6 +136,7 @@ class AIState:
     path: list[Any] | None = None
     action_progress: float = 0.0
     state_data: Dict[str, Any] | None = None
+    failed_targets: Set[int] = field(default_factory=set)
 
 @dataclass
 class ItemStats:

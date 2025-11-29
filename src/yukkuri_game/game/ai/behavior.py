@@ -97,6 +97,11 @@ class MoveToTarget(Action):
             if nav_service:
                 ai.path = nav_service.find_path((trans.x, trans.y), target_pos)
             if not ai.path:
+                # Pathfinding failed. Mark target as failed to avoid loop.
+                if ai.current_target_id != -1:
+                    ai.failed_targets.add(ai.current_target_id)
+                    ai.current_target_id = -1
+
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 return Status.FAILURE
 
@@ -373,6 +378,10 @@ class FindSocialTarget(Action):
             if uid == self.entity_id:
                 continue
 
+            # Skip failed targets
+            if uid in ai.failed_targets:
+                continue
+
             u_stats = self.world.get_component(uid, YukkuriStats)
             u_trans = self.world.get_component(uid, Transform)
 
@@ -624,7 +633,7 @@ class FindItem(Action):
 
         if game_service:
             best_item = game_service.find_best_item(
-                (trans.x, trans.y), self.stat_criteria
+                (trans.x, trans.y), self.stat_criteria, exclude_ids=ai.failed_targets
             )
 
         if best_item != -1:
