@@ -63,6 +63,18 @@ def test_memory_locking():
     h6 = Headline(id=6, timestamp=0, importance=60, event_type="6", is_locked=False)
     rel.add_headline(h6)
 
-    # If all locked, currently implementation just passes (does nothing)
+    # If all locked, currently implementation just passes (does nothing) because magnitude is same
     assert len(rel.core_buffer) == 3
     assert h6 not in rel.core_buffer
+
+    # Try add one with significantly higher importance (> +20)
+    # Locked memories are importance 60
+    h7 = Headline(id=7, timestamp=0, importance=90, event_type="7", is_locked=False)
+    rel.add_headline(h7)
+
+    # Should overwrite the one with lowest importance. All are 60.
+    # It overwrites one.
+    assert len(rel.core_buffer) == 3
+    assert h7 in rel.core_buffer
+    # Should contain h7 and two of the previous locked ones
+    assert (h3 in rel.core_buffer) or (h4 in rel.core_buffer) or (h5 in rel.core_buffer)

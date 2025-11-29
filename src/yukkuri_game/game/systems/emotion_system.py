@@ -102,9 +102,9 @@ class EmotionSystem(System):
                     emotional_state.stress -= stress_decay_rate * mult_stress * dt
                     emotional_state.stress = max(0.0, emotional_state.stress)
 
-                # Happiness decays slow to 50
+                # Happiness decays slow to 0 (Neutral)
                 happiness_decay_rate = self.settings.happiness
-                baseline = 50.0
+                baseline = 0.0
 
                 if emotional_state.happiness > baseline:
                     emotional_state.happiness -= happiness_decay_rate * mult_happiness * dt

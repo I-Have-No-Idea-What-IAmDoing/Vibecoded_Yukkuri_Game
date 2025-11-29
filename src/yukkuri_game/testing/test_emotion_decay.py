@@ -41,7 +41,7 @@ def test_happiness_decay_to_baseline(world, emotion_system):
     from ..game.yukkuri_components import YukkuriStats
     world.add_component(entity, YukkuriStats(name="Test", type_id="test"))
 
-    # Decay (towards 50)
+    # Decay (towards 0 - Neutral)
     emotion_system.update(world, 1.0)
 
     state = world.get_component(entity, EmotionalState)
@@ -49,10 +49,10 @@ def test_happiness_decay_to_baseline(world, emotion_system):
     assert state.happiness == 90.0
 
     # Check baseline approach from below
-    state.happiness = 0.0
+    state.happiness = -100.0
     emotion_system.update(world, 1.0)
-    assert state.happiness > 0.0
-    assert state.happiness == 10.0
+    assert state.happiness > -100.0
+    assert state.happiness == -90.0
 
 def test_dominant_emotion_quadrants(world):
     state = EmotionalState()
