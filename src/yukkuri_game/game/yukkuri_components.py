@@ -134,20 +134,37 @@ class RelationshipData:
             self.core_buffer.append(headline)
             return
 
-        # Buffer is full, check for unlocked victim
-        # Strategy: Remove oldest unlocked memory
-        removed = False
-        # Iterate to find first unlocked (oldest)
+        # Buffer is full, try to find an unlocked victim (oldest)
+        # Deque iteration is from oldest to newest (left to right) if appended right.
         for i, mem in enumerate(self.core_buffer):
             if not mem.is_locked:
                 del self.core_buffer[i]
                 self.core_buffer.append(headline)
-                removed = True
-                break
+                return
 
-        if not removed:
-            # All memories are locked.
-            pass
+        # If we are here, all memories are locked.
+        # Check if the new memory is significantly more important than the *least important* locked memory.
+        # "Significantly higher magnitude" -> let's say +20 difference.
+
+        if not self.core_buffer:
+            # Should not happen if maxlen > 0, but safety check
+            self.core_buffer.append(headline)
+            return
+
+        # Find the locked memory with the lowest importance
+        victim_index = -1
+        min_importance = float('inf')
+
+        for i, mem in enumerate(self.core_buffer):
+            if mem.importance < min_importance:
+                min_importance = mem.importance
+                victim_index = i
+
+        # Check threshold
+        if victim_index != -1:
+            if headline.importance > (min_importance + 20.0):
+                del self.core_buffer[victim_index]
+                self.core_buffer.append(headline)
 
 @dataclass
 class RelationshipRegistry:
