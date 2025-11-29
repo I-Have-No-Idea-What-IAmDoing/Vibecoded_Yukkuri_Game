@@ -20,13 +20,15 @@ class EmotionalState(Component):
     """
     happiness: float = 0.0 # -100 to 100
     stress: float = 0.0    # 0 to 100
-    anger: float = 0.0
-    fear: float = 0.0
 
     def get_dominant_emotion(self, bravery: int = 0) -> str:
         """
         Derives the mood based on the 4 quadrants and Bravery.
         """
+        # Thresholds can be tuned.
+        # Happiness > 0 = Positive
+        # Stress > 50 = High Arousal
+
         is_happy = self.happiness >= 0
         is_stressed = self.stress >= 50
 
@@ -37,6 +39,9 @@ class EmotionalState(Component):
                 return "Content/Relaxed"
         else:
             if is_stressed:
+                # Context dependent on Bravery
+                # Brave yukkuri (bravery > 0) chooses Rage
+                # Coward (bravery <= 0) chooses Terror
                 if bravery > 0:
                     return "Rage"
                 else:
@@ -48,7 +53,6 @@ class EmotionalState(Component):
 class YukkuriStats(Component):
     """
     Component containing the statistics and state of a Yukkuri.
-    Removed happiness/stress in favor of EmotionalState.
     """
     name: str
     type_id: str
@@ -78,17 +82,6 @@ class MemoryHeadline:
     is_locked: bool = False
 
 @dataclass
-class MemoryBuffer:
-    """
-    Wrapper for Deque to handle custom add logic if needed.
-    Kept for backward compatibility if logic was here, but actually logic is moved to RelationshipData.
-    We can just use Deque directly or keep this class.
-    Review suggested RelationshipData logic.
-    """
-    maxlen: int
-    items: List['MemoryHeadline'] = field(default_factory=list) # Using List but behaving like Deque or just use Deque
-
-@dataclass
 class Personality:
     """
     Component defining the personality of a Yukkuri.
@@ -110,9 +103,6 @@ class RelationshipData:
     Stores data about a relationship with another entity.
     """
     affinity: float = 0.0
-    trust: float = 0.0
-    fear: float = 0.0
-    familiarity: float = 0.0
     last_update: float = 0.0
 
     # Base compatibility (cached from last calculation to avoid recomputing every frame)

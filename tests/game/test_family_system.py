@@ -25,9 +25,9 @@ class TestFamilySystem:
         self.world.add_component(e2, reg2)
         self.world.add_component(e2, EmotionalState())
 
-        # Set high affinity
-        reg1.relationships[e2] = RelationshipData(affinity=90.0, trust=90.0)
-        reg2.relationships[e1] = RelationshipData(affinity=90.0, trust=90.0)
+        # Set high affinity (removed trust)
+        reg1.relationships[e2] = RelationshipData(affinity=90.0)
+        reg2.relationships[e1] = RelationshipData(affinity=90.0)
 
         # Update system (check interval is 10s, so we force check logic or simulate time)
         # We can manually call _process_family_formation for testing or advance time
@@ -61,13 +61,6 @@ class TestFamilySystem:
         emo1 = self.world.get_component(e1, EmotionalState)
         emo2 = self.world.get_component(e2, EmotionalState)
 
-        # If FamilySystem modifies EmotionalState directly now (since YukkuriStats doesn't have it)
-        # We assume FamilySystem was updated or needs to be checked.
-        # But if FamilySystem code relies on `stats.happiness`, it will fail.
-        # I suspect FamilySystem might also need a fix if it uses stats.happiness.
-        # I will fix the test first to assume FamilySystem works correctly or fails if code is broken.
-        # I updated the test to check `EmotionalState` components.
-        # Now I run the test. If it fails due to attribute error, I fix code.
-
-        # Wait, if I assume code is broken, I should check it.
-        # Let's peek at `FamilySystem`.
+        # Expect happiness increase / stress decrease
+        assert emo1.happiness > 50.0
+        assert emo2.happiness > 50.0

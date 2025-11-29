@@ -167,8 +167,11 @@ class GossipSystem(System):
 
         is_group_member = self._is_in_same_interest_group(world, sender_id, receiver_id)
 
-        # Share top packets
-        for packet in sender_queue.priority_queue:
+        # Share top 3 packets
+        # sender_queue.priority_queue is sorted (descending value)
+        top_packets = sender_queue.priority_queue[:3]
+
+        for packet in top_packets:
             # Don't share gossip about the receiver to the receiver
             if packet.target_id == receiver_id:
                 continue

@@ -64,9 +64,10 @@ class FamilySystem(System):
             if not registry or not stats:
                 continue
 
-            # Look for high affinity/trust partners
+            # Look for high affinity partners
             for other_id, rel in registry.relationships.items():
-                if rel.affinity > 80.0 and rel.trust > 80.0:
+                # Replaced trust check with just high affinity check as trust was removed.
+                if rel.affinity > 80.0:
                     # Potential mate or family member
                     other_registry = world.get_component(other_id, RelationshipRegistry)
                     if not other_registry:

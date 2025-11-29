@@ -204,19 +204,13 @@ class SocialSystem(System):
             registry.relationships[other_id] = RelationshipData(last_update=now)
 
         rel = registry.relationships[other_id]
-
-        # Don't do old decay here, opinion is recalculated.
         rel.last_update = now
 
         social_impact = data.get("social_impact", {})
-
-        # We need to calculate the "sentiment" change for the memory.
-        # This roughly maps to the affinity change we WOULD have done, but now stored in memory.
-
         d_affinity = social_impact.get("affinity", 0.0)
-        d_trust = social_impact.get("trust", 0.0)
-        d_fear = social_impact.get("fear", 0.0)
-        d_familiarity = social_impact.get("familiarity", 0.0)
+        # Trust/Fear/Familiarity removed from RelationshipData, so we don't accumulate them anymore.
+        # We rely on d_affinity to influence the sentiment of the memory.
+
         base_impact_score = data.get("base_impact", 0.0) # Absolute Magnitude
 
         subject_personality = world.get_component(subject_id, Personality)
@@ -228,8 +222,6 @@ class SocialSystem(System):
                 if key in modifiers:
                     mod = modifiers[key]
                     d_affinity += mod.get("affinity", 0.0)
-                    d_trust += mod.get("trust", 0.0)
-                    d_fear += mod.get("fear", 0.0)
 
             kindness = 0
             if subject_personality.axis:
@@ -240,11 +232,8 @@ class SocialSystem(System):
 
             if base_impact_score > 0:
                 d_affinity *= comp_mult
-                d_trust *= comp_mult
             elif base_impact_score < 0:
                 d_affinity *= comp_mult
-                d_trust *= comp_mult
-                d_fear *= comp_mult
 
             # UPDATE EMOTIONAL STATE
             emotional = world.get_component(subject_id, EmotionalState)
@@ -255,16 +244,20 @@ class SocialSystem(System):
                 elif base_impact_score > 15:
                     emotional.happiness = min(100.0, emotional.happiness + 20.0)
 
-        # Update stats other than affinity (Trust, Fear, Familiarity still seem to be stateful variables)
-        # The proposal only explicitly mentioned Opinion = ... for affinity.
-        # We keep trust/fear/familiarity as accumulators for now unless specified otherwise.
+            # Allow Extreme Events to Shift Personality temporarily
+            # Proposal: "Yukkuri can reach +20 Kindness with extreme effort or positive reinforcement"
+            # This is the mechanism to allow deviation from the base axis.
+            if abs(base_impact_score) > 30: # Major event
+                 if d_affinity > 0: # Positive reinforcement
+                     # Shift Kindness up
+                     subject_personality.axis.kindness = min(100, subject_personality.axis.kindness + 5)
+                 elif d_affinity < 0: # Trauma
+                     # Shift Kindness down or Bravery down?
+                     # Let's say Kindness down (becoming mean due to trauma)
+                     subject_personality.axis.kindness = max(-100, subject_personality.axis.kindness - 5)
+                     # Increase fear -> Decrease Bravery
+                     subject_personality.axis.bravery = max(-100, subject_personality.axis.bravery - 5)
 
-        # rel.affinity is now calculated from memories, so we DO NOT add to it directly.
-        # rel.affinity = ... (Removed)
-
-        rel.trust = max(0, min(100, rel.trust + d_trust))
-        rel.fear = max(0, min(100, rel.fear + d_fear))
-        rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
 
         # Add Headline
         # Sentiment = d_affinity (the calculated affinity change this event caused)

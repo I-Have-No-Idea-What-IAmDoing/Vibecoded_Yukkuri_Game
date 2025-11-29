@@ -106,8 +106,7 @@ def test_social_system():
     rel = reg.relationships[p2]
 
     # Hit: affinity -10.
-    # If p1 is NICE? NO explicit modifier for NICE receiving a Hit in our data,
-    # but "WEAK" and "PROUD" have modifiers.
-
+    # We assert affinity drops
     assert rel.affinity < 0
-    assert rel.fear > 0
+
+    # We verify fear/trust are NOT checked because they are removed
