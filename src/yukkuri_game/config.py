@@ -41,6 +41,7 @@ class StatDecaySettings(msgspec.Struct):
     """
     hunger: float = 2.0
     happiness: float = 0.5
+    stress: float = 5.0
     energy: float = 0.5
     cleanliness: float = 0.2
     social: float = 0.5

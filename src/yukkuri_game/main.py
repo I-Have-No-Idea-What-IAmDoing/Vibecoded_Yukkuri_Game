@@ -18,7 +18,7 @@ from .game.settings_service import SettingsService
 from .game.trait_service import TraitService
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
-from .game.systems.stat_decay import StatDecaySystem
+from .game.systems.emotion_system import EmotionSystem
 from .game.systems.lifecycle import LifecycleSystem
 from .game.systems.behavior import BehaviorSystem
 from .game.systems.physics import PhysicsSystem
@@ -29,6 +29,7 @@ from .game.systems.poop_system import PoopSystem
 from .game.systems.feedback_system import FeedbackSystem
 from .game.systems.interaction_system import InteractionSystem
 from .game.systems.social_system import SocialSystem
+from .game.systems.gossip_system import GossipSystem
 from .game.systems.family_system import FamilySystem
 from .game.ui.hud import HUD
 from .game.input_system import InputSystem
@@ -190,7 +191,7 @@ class YukkuriGame(GameLoop):
 
         self.world.add_system(TimeSystem())
         self.world.add_system(self.physics_system)
-        self.world.add_system(StatDecaySystem(settings=self.game_config.rules.stat_decay))
+        self.world.add_system(EmotionSystem(settings=self.game_config.rules.stat_decay))
         self.world.add_system(LifecycleSystem(settings=self.game_config.rules.lifecycle, entity_factory=self.factory))
         self.world.add_system(BehaviorSystem(float(self.yukkurrium.width), float(self.yukkurrium.height)))
         self.world.add_system(MovementSystem())
@@ -200,6 +201,7 @@ class YukkuriGame(GameLoop):
         self.world.add_system(FeedbackSystem(self.world))
         self.world.add_system(InteractionSystem())
         self.world.add_system(SocialSystem(self.event_bus))
+        self.world.add_system(GossipSystem(self.event_bus))
         self.world.add_system(FamilySystem())
 
         if not self.headless:

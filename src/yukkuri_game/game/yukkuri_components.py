@@ -3,9 +3,21 @@ Module defining the Yukkuri-specific components for the game.
 """
 from dataclasses import dataclass, field
 from typing import Dict, Any, Set, List, Optional
+from collections import deque
+from enum import Enum
 from ..engine.ecs import Component
 
 # Yukkuri Specific Components
+
+@dataclass
+class PersonalityAxis:
+    """
+    The 4-Axis integer system (-100 to +100) for personality.
+    """
+    kindness: int = 0
+    energy: int = 0
+    bravery: int = 0
+    greed: int = 0
 
 @dataclass
 class Personality:
@@ -14,66 +26,74 @@ class Personality:
 
     Attributes:
         traits (Set[str]): A set of trait IDs referencing TOML data.
-        values (Dict[str, float]): A dictionary of personality values (e.g., {"compassion": 50.0}).
-        mood (str): The current mood state (e.g., "NEUTRAL", "HAPPY").
-        mood_score (float): The intensity of the current mood.
-        cached_overrides (Optional[Dict[str, Any]]): Cached "effective overrides" for AI considerations.
+        axis (PersonalityAxis): The 4-Axis personality values.
     """
     traits: Set[str] = field(default_factory=set)
-    values: Dict[str, float] = field(default_factory=dict)
-    mood: str = "NEUTRAL"
-    mood_score: float = 0.0
-    cached_overrides: Optional[Dict[str, Any]] = None
+    axis: PersonalityAxis = field(default_factory=PersonalityAxis)
 
 @dataclass
-class MemoryRecord:
+class Headline:
     """
-    Represents a single memory of a social interaction.
-
-    Attributes:
-        timestamp (float): The game time when the event occurred.
-        actor_id (int): The ID of the entity that performed the action.
-        action_type (str): The type of action (e.g., "Hit", "Greet").
-        impact (float): The emotional impact value of the event.
-        permanent (bool): Whether the memory is permanent (e.g., trauma). Defaults to False.
+    Represents a significant memory/event (The 'Headline' System).
     """
+    id: int
     timestamp: float
-    actor_id: int
-    action_type: str
-    impact: float
-    permanent: bool = False
+    importance: float
+    is_locked: bool
+    text: str
+    event_type: str = "GENERIC"
+
+@dataclass
+class MemoryBuffer:
+    maxlen: int
+    items: List['Headline'] = field(default_factory=list)
+
+    def add(self, item: 'Headline'):
+        self.items.append(item)
+        if len(self.items) > self.maxlen:
+            # 1. Try to remove oldest non-locked
+            # We iterate to find the first (oldest) non-locked item
+            # self.items[-1] is the new item, don't remove it yet
+            for i in range(len(self.items) - 1):
+                if not self.items[i].is_locked:
+                    self.items.pop(i)
+                    return
+
+            # 2. If all locked, check importance
+            # Find lowest importance among existing items (excluding new one)
+            lowest_idx = -1
+            lowest_val = float('inf')
+            for i in range(len(self.items) - 1):
+                if self.items[i].importance < lowest_val:
+                    lowest_val = self.items[i].importance
+                    lowest_idx = i
+
+            # If new item is significantly more important (e.g. 2x)
+            if lowest_idx != -1 and item.importance > lowest_val * 2.0:
+                self.items.pop(lowest_idx)
+            else:
+                # Drop the new item
+                self.items.pop()
 
 @dataclass
 class RelationshipData:
     """
     Stores data about a relationship with another entity.
-
-    Attributes:
-        affinity (float): How much the entity likes the other (-100 to 100).
-        trust (float): How much the entity trusts the other (0 to 100).
-        fear (float): How much the entity fears the other (0 to 100).
-        familiarity (float): How well the entity knows the other (0 to 100).
-        memories (List[MemoryRecord]): A short list of recent impactful events.
-        last_update (float): Timestamp of the last decay update.
     """
     affinity: float = 0.0
     trust: float = 0.0
     fear: float = 0.0
     familiarity: float = 0.0
-    memories: List[MemoryRecord] = field(default_factory=list)
+
+    trivial_buffer: MemoryBuffer = field(default_factory=lambda: MemoryBuffer(maxlen=25))
+    core_buffer: MemoryBuffer = field(default_factory=lambda: MemoryBuffer(maxlen=35))
+
     last_update: float = 0.0
 
 @dataclass
 class RelationshipRegistry:
     """
     Component tracking social relationships and family ties.
-
-    Attributes:
-        relationships (Dict[int, RelationshipData]): A map of entity IDs to relationship data.
-        biological_parents (List[int]): IDs of biological parents.
-        biological_children (List[int]): IDs of biological children.
-        family_group_id (Optional[int]): ID of the family group this entity belongs to.
-        mate_id (Optional[int]): ID of the entity's mate.
     """
     relationships: Dict[int, RelationshipData] = field(default_factory=dict)
     biological_parents: List[int] = field(default_factory=list)
@@ -82,35 +102,38 @@ class RelationshipRegistry:
     mate_id: Optional[int] = None
 
 @dataclass
+class EmotionalState:
+    """
+    Component for the 2D Stress-Happiness Graph and derived emotions.
+    """
+    happiness: float = 0.0 # -100 to 100
+    stress: float = 0.0    # 0 to 100
+    anger: float = 0.0     # -100 to 100
+    fear: float = 0.0      # -100 to 100
+
+    def get_dominant_emotion(self) -> str:
+        if self.happiness > 0:
+            if self.stress > 50:
+                return "EXCITED"
+            else:
+                return "HAPPY"
+        else:
+            if self.stress > 50:
+                return "STRESSED"
+            else:
+                return "SAD"
+
+@dataclass
 class YukkuriStats:
     """
     Component containing the statistics and state of a Yukkuri.
-
-    Attributes:
-        name (str): The name of the Yukkuri.
-        type_id (str): The type identifier (e.g., "reimu").
-        health (float): Current health. Defaults to 100.0.
-        max_health (float): Maximum health. Defaults to 100.0.
-        hunger (float): Hunger level (0 = full, 100 = starving). Defaults to 0.0.
-        happiness (float): Happiness level (0 = sad, 100 = happy). Defaults to 50.0.
-        social (float): Social satisfaction level. Defaults to 50.0.
-        stress (float): Stress level. Defaults to 0.0.
-        energy (float): Energy level. Defaults to 100.0.
-        cleanliness (float): Cleanliness level (0 = dirty, 100 = clean). Defaults to 100.0.
-        age (float): Age in game seconds/ticks. Defaults to 0.0.
-        growth_stage (str): Current growth stage ("Baby", "Child", "Adult"). Defaults to "Baby".
-        badges (int): Number of badges earned. Defaults to 0.
-        quality_score (float): Calculated quality score/value. Defaults to 0.0.
-        discipline (float): Discipline level (0 = undisciplined, 100 = perfectly disciplined). Defaults to 0.0.
     """
     name: str
     type_id: str
     health: float = 100.0
     max_health: float = 100.0
     hunger: float = 0.0
-    happiness: float = 50.0
     social: float = 50.0
-    stress: float = 0.0
     energy: float = 100.0
     cleanliness: float = 100.0
     age: float = 0.0
@@ -120,23 +143,26 @@ class YukkuriStats:
     discipline: float = 0.0
 
 @dataclass
+class GossipPacket:
+    target_id: int
+    event_type: str
+    value: float
+    timestamp: float = 0.0
+
+@dataclass
+class GossipQueue:
+    priority_queue: List[GossipPacket] = field(default_factory=list)
+
+@dataclass
 class AIState:
     """
     Component maintaining the AI state of an entity.
-
-    Attributes:
-        current_action (str): The name of the current action being performed. Defaults to "Idle".
-        current_target_id (int): The ID of the target entity for the current action. Defaults to -1.
-        path (list): A list of points representing the current movement path.
-        action_progress (float): Progress counter for the current action. Defaults to 0.0.
-        state_data (Dict[str, Any]): Additional data for the current state.
-        manual_override (bool): If True, UtilitySelector will not change the current action.
     """
     current_action: str = "Idle"
     current_target_id: int = -1
-    path: list[Any] | None = None
+    path: Optional[List[Any]] = None
     action_progress: float = 0.0
-    state_data: Dict[str, Any] | None = None
+    state_data: Optional[Dict[str, Any]] = None
     failed_targets: Set[int] = field(default_factory=set)
     manual_override: bool = False
 
@@ -144,15 +170,6 @@ class AIState:
 class ItemStats:
     """
     Component containing statistics for an Item.
-
-    Attributes:
-        name (str): The name of the item.
-        type_id (str): The type identifier.
-        cost (int): The purchase cost of the item.
-        nutrition (float): Nutritional value provided when consumed. Defaults to 0.0.
-        fun (float): Fun value provided when interacted with. Defaults to 0.0.
-        comfort (float): Comfort value provided. Defaults to 0.0.
-        is_portable (bool): Whether the item can be carried. Defaults to False.
     """
     name: str
     type_id: str
@@ -169,6 +186,7 @@ class Poop:
     """
     pass
 
+@dataclass
 class Dead:
     """
     Tag component for dead entities.

@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from yukkuri_game.game.game_manager import GameManager
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.event_bus import EventBus
 
@@ -52,24 +52,25 @@ def test_game_manager_sell_yukkuri(game_manager_world):
     stats = YukkuriStats(
         name="TestYukkuri",
         type_id="test",
-        happiness=80,
         badges=1,
         health=100,
         max_health=100,
         age=120 # 2 minutes
     )
+    emotional = EmotionalState(happiness=80.0)
     world.add_component(yukkuri, stats)
+    world.add_component(yukkuri, emotional)
 
     initial_money = economy.get_money()
 
     # Calculate expected value
     # Base 100
-    # Happiness 80 * 2 = 160
+    # Happiness (80 + 100) = 180
     # Badges 1 * 500 = 500
     # Health penalty 0
     # Age bonus 2 * 10 = 20
-    # Total = 100 + 160 + 500 + 20 = 780
-    expected_value = 780
+    # Total = 100 + 180 + 500 + 20 = 800
+    expected_value = 800
 
     value = gm.sell_yukkuri(yukkuri)
 

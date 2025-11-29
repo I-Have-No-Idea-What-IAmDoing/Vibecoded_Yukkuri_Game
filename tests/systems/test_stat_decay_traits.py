@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Personality
-from yukkuri_game.game.systems.stat_decay import StatDecaySystem
+from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.game.trait_service import TraitService
 
@@ -29,7 +29,7 @@ def test_stat_decay_with_trait_modifier(decay_settings, mock_trait_service):
     # Explicitly register as TraitService type because mock has type MagicMock
     world.services.register(mock_trait_service, service_type=TraitService)
 
-    system = StatDecaySystem(decay_settings)
+    system = EmotionSystem(decay_settings)
 
     # Setup trait data
     # GLUTTON: hunger_decay = 1.5
@@ -57,7 +57,7 @@ def test_stat_decay_without_trait_modifier(decay_settings, mock_trait_service):
     world = World()
     world.services.register(mock_trait_service, service_type=TraitService)
 
-    system = StatDecaySystem(decay_settings)
+    system = EmotionSystem(decay_settings)
 
     # Create entity
     entity = world.create_entity()
@@ -76,7 +76,7 @@ def test_stat_decay_multiple_modifiers(decay_settings, mock_trait_service):
     world = World()
     world.services.register(mock_trait_service, service_type=TraitService)
 
-    system = StatDecaySystem(decay_settings)
+    system = EmotionSystem(decay_settings)
 
     # Setup trait data
     # GLUTTON: hunger_decay = 1.5

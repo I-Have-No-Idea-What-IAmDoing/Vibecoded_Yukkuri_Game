@@ -4,7 +4,7 @@ from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, MovementController
 from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
 from yukkuri_game.game.systems.behavior import BehaviorSystem
-from yukkuri_game.game.systems.stat_decay import StatDecaySystem
+from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.game.systems.interaction_system import InteractionSystem
 from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.game.services import GameService
@@ -39,7 +39,7 @@ def systems():
     mock_ai_engine.select_action.return_value = "Idle"
 
     behavior_system = BehaviorSystem(world_width=1000, world_height=1000)
-    stat_decay_system = StatDecaySystem(StatDecaySettings(hunger=2.0, cleanliness=2.0)) # Set specific decay rates
+    stat_decay_system = EmotionSystem(StatDecaySettings(hunger=2.0, cleanliness=2.0)) # Set specific decay rates
     interaction_system = InteractionSystem()
 
     return behavior_system, stat_decay_system, mock_ai_engine, interaction_system
@@ -121,7 +121,7 @@ def test_simulation_action_eat(simulation_world, systems):
 
     # Check stats updated
     # Initial 50. Nutrition 20. Should be 30.
-    # Note: StatDecaySystem is not running here so no decay added.
+    # Note: EmotionSystem is not running here so no decay added.
     assert stats.hunger == 30.0
 
 def test_simulation_action_wander(simulation_world, systems):

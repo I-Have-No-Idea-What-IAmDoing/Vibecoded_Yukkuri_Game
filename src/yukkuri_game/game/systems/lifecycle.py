@@ -4,7 +4,7 @@ Module defining the LifecycleSystem logic.
 import random
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ..yukkuri_components import YukkuriStats, AIState, Dead
+from ..yukkuri_components import YukkuriStats, AIState, Dead, EmotionalState
 from ..components import Sprite, Transform, PhysicsBody
 from ..events import EntityDiedEvent, EntityGrewEvent
 from ...config import LifecycleSettings
@@ -185,7 +185,12 @@ class LifecycleSystem(System):
             if stats.growth_stage != "Adult":
                 continue
 
-            if (stats.happiness >= self.settings.breeding_happiness_threshold and
+            emotional = world.get_component(entity, EmotionalState)
+            happiness = 0.0
+            if emotional:
+                happiness = emotional.happiness
+
+            if (happiness >= self.settings.breeding_happiness_threshold and
                 stats.energy >= self.settings.breeding_energy_threshold):
 
                 # Chance to breed

@@ -8,7 +8,7 @@ from loguru import logger
 from ..engine.ecs import World
 from ..engine.audio import AudioManager
 from .components import Transform
-from .yukkuri_components import YukkuriStats, ItemStats, AIState
+from .yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState, Personality, GossipQueue
 from ..engine.service_locator import ServiceLocator
 
 if TYPE_CHECKING:
@@ -135,16 +135,32 @@ class PersistenceService:
 
             # Yukkuri Stats
             y_stats = self.world.get_component(entity, YukkuriStats)
+            emotional = self.world.get_component(entity, EmotionalState)
             if y_stats:
+                happiness = 0.0
+                if emotional:
+                    happiness = float(emotional.happiness)
+
                 ent_data["yukkuri"] = {
                     "type_id": y_stats.type_id,
                     "name": y_stats.name,
                     "health": float(y_stats.health),
                     "hunger": float(y_stats.hunger),
-                    "happiness": float(y_stats.happiness),
+                    "happiness": happiness,
+                    "stress": float(emotional.stress) if emotional else 0.0,
                     "badges": int(y_stats.badges),
                     "age": float(y_stats.age)
                 }
+
+                # Save Personality Axis
+                pers = self.world.get_component(entity, Personality)
+                if pers and pers.axis:
+                    ent_data["yukkuri"]["personality_axis"] = {
+                        "kindness": pers.axis.kindness,
+                        "energy": pers.axis.energy,
+                        "bravery": pers.axis.bravery,
+                        "greed": pers.axis.greed
+                    }
 
             # Item Stats
             i_stats = self.world.get_component(entity, ItemStats)
@@ -238,13 +254,27 @@ class PersistenceService:
                 y_data = ent_data["yukkuri"]
                 eid = factory.create_yukkuri(y_data["type_id"], x, y)
                 stats = self.world.get_component(eid, YukkuriStats)
+                emotional = self.world.get_component(eid, EmotionalState)
                 if stats:
                     stats.name = y_data["name"]
                     stats.health = float(y_data["health"])
                     stats.hunger = float(y_data["hunger"])
-                    stats.happiness = float(y_data["happiness"])
                     stats.badges = int(y_data["badges"])
                     stats.age = float(y_data["age"])
+
+                if emotional:
+                    emotional.happiness = float(y_data.get("happiness", 0.0))
+                    emotional.stress = float(y_data.get("stress", 0.0))
+
+                # Load Personality Axis
+                pers = self.world.get_component(eid, Personality)
+                if pers and "personality_axis" in y_data:
+                    axis_data = y_data["personality_axis"]
+                    if pers.axis:
+                        pers.axis.kindness = axis_data.get("kindness", 0)
+                        pers.axis.energy = axis_data.get("energy", 0)
+                        pers.axis.bravery = axis_data.get("bravery", 0)
+                        pers.axis.greed = axis_data.get("greed", 0)
 
             elif "item" in ent_data:
                 i_data = ent_data["item"]
@@ -563,20 +593,21 @@ class GameService:
             bool: True if interaction was successful, False otherwise.
         """
         from .components import Transform
-        from .yukkuri_components import YukkuriStats, ItemStats, AIState
+        from .yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState
 
         if not self.world.entity_exists(consumer_id) or not self.world.entity_exists(item_id):
             return False
 
         item_stats = self.world.get_component(item_id, ItemStats)
         yukkuri_stats = self.world.get_component(consumer_id, YukkuriStats)
+        emotional = self.world.get_component(consumer_id, EmotionalState)
 
         if item_stats and yukkuri_stats:
             if item_stats.nutrition > 0:
                 yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
 
-            if item_stats.fun > 0:
-                yukkuri_stats.happiness = min(100, yukkuri_stats.happiness + item_stats.fun)
+            if item_stats.fun > 0 and emotional:
+                emotional.happiness = min(100, emotional.happiness + item_stats.fun)
 
             if item_stats.comfort > 0:
                 yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
@@ -624,6 +655,8 @@ class GameService:
 
         init_stats = self.world.get_component(initiator_id, YukkuriStats)
         target_stats = self.world.get_component(target_id, YukkuriStats)
+        init_emo = self.world.get_component(initiator_id, EmotionalState)
+        target_emo = self.world.get_component(target_id, EmotionalState)
 
         if not init_stats or not target_stats:
             return False
@@ -632,10 +665,21 @@ class GameService:
 
         if interaction_type == "Talk":
             # Talk increases happiness and social for both
-            init_stats.happiness = min(100.0, init_stats.happiness + 5.0)
+            if init_emo: init_emo.happiness = min(100.0, init_emo.happiness + 5.0)
             init_stats.social = min(100.0, init_stats.social + 15.0)
-            target_stats.happiness = min(100.0, target_stats.happiness + 5.0)
+            if target_emo: target_emo.happiness = min(100.0, target_emo.happiness + 5.0)
             target_stats.social = min(100.0, target_stats.social + 15.0)
+
+            # Gossip Exchange
+            init_gossip = self.world.get_component(initiator_id, GossipQueue)
+            target_gossip = self.world.get_component(target_id, GossipQueue)
+
+            if init_gossip and target_gossip:
+                for packet in init_gossip.priority_queue[:3]:
+                    target_gossip.priority_queue.append(packet)
+                for packet in target_gossip.priority_queue[:3]:
+                    init_gossip.priority_queue.append(packet)
+
             if audio:
                  # Use duck typing check or try/except to handle mocks
                  if hasattr(audio, 'play_sound'):
@@ -645,12 +689,14 @@ class GameService:
             # Fight decreases health, happiness, increases stress
             damage = 5.0
             init_stats.health = max(0.0, init_stats.health - damage)
-            init_stats.happiness = max(0.0, init_stats.happiness - 10.0)
-            init_stats.stress = min(100.0, init_stats.stress + 10.0)
+            if init_emo:
+                init_emo.happiness = max(-100.0, init_emo.happiness - 10.0)
+                init_emo.stress = min(100.0, init_emo.stress + 10.0)
 
             target_stats.health = max(0.0, target_stats.health - damage)
-            target_stats.happiness = max(0.0, target_stats.happiness - 10.0)
-            target_stats.stress = min(100.0, target_stats.stress + 10.0)
+            if target_emo:
+                target_emo.happiness = max(-100.0, target_emo.happiness - 10.0)
+                target_emo.stress = min(100.0, target_emo.stress + 10.0)
 
             if audio:
                  if hasattr(audio, 'play_sound'):
@@ -658,8 +704,8 @@ class GameService:
 
         elif interaction_type == "Dance":
             # Dance increases fun/happiness
-            init_stats.happiness = min(100.0, init_stats.happiness + 10.0)
-            target_stats.happiness = min(100.0, target_stats.happiness + 10.0)
+            if init_emo: init_emo.happiness = min(100.0, init_emo.happiness + 10.0)
+            if target_emo: target_emo.happiness = min(100.0, target_emo.happiness + 10.0)
             init_stats.social = min(100.0, init_stats.social + 10.0)
             target_stats.social = min(100.0, target_stats.social + 10.0)
             # Maybe trigger animation if possible

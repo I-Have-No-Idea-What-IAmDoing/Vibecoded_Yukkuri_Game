@@ -9,7 +9,10 @@ from .components import (
     Transform, Sprite, Selectable, PhysicsBody, FloatingText,
     MovementController, VisualTransform
 )
-from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop, Personality, RelationshipRegistry
+from .yukkuri_components import (
+    YukkuriStats, AIState, ItemStats, Poop, Personality, RelationshipRegistry,
+    EmotionalState, PersonalityAxis, GossipQueue
+)
 from .trait_service import TraitService
 
 if TYPE_CHECKING:
@@ -158,14 +161,25 @@ class EntityFactory:
         )
         self.world.add_component(entity, stats)
 
+        # Emotional State
+        # New system: -100 to 100 for happiness, 0 to 100 for stress
+        emotional_state = EmotionalState()
+        # Initialize based on some randomness or type?
+        # For now, start neutral.
+        self.world.add_component(entity, emotional_state)
+
         # AI
         self.world.add_component(entity, AIState())
+        self.world.add_component(entity, GossipQueue())
 
         # Personality & Relationships
         self.world.add_component(entity, RelationshipRegistry())
         ts = self._get_trait_service()
         traits = set()
-        base_values = {"compassion": 50.0, "greed": 50.0, "bravery": 50.0}
+
+        # New Axis system: -100 to 100
+        # Kindness, Energy, Bravery, Greed
+        axis = PersonalityAxis()
 
         # Inheritance logic
         if parents and ts:
@@ -176,15 +190,32 @@ class EntityFactory:
                     for t in pp.traits:
                         if random.random() < 0.5:
                             traits.add(t)
-                # Average base values from parents with some variance
-                for key in base_values:
-                    avg_val = sum(pp.values.get(key, 50.0) for pp in parent_personalities) / len(parent_personalities)
-                    base_values[key] = max(0.0, min(100.0, avg_val + random.uniform(-10.0, 10.0)))
+
+                # Inherit axis values
+                total_kindness = sum(pp.axis.kindness for pp in parent_personalities)
+                total_energy = sum(pp.axis.energy for pp in parent_personalities)
+                total_bravery = sum(pp.axis.bravery for pp in parent_personalities)
+                total_greed = sum(pp.axis.greed for pp in parent_personalities)
+
+                count = len(parent_personalities)
+                axis.kindness = int(total_kindness / count + random.uniform(-10, 10))
+                axis.energy = int(total_energy / count + random.uniform(-10, 10))
+                axis.bravery = int(total_bravery / count + random.uniform(-10, 10))
+                axis.greed = int(total_greed / count + random.uniform(-10, 10))
 
         # Random generation if no parents
         if not parents:
-            for key in base_values:
-                base_values[key] = max(0.0, min(100.0, random.gauss(50, 15)))
+            # Gaussian around 0, sigma 30 -> most within -60 to 60
+            axis.kindness = int(random.gauss(0, 30))
+            axis.energy = int(random.gauss(0, 30))
+            axis.bravery = int(random.gauss(0, 30))
+            axis.greed = int(random.gauss(0, 30))
+
+        # Clamp values
+        axis.kindness = max(-100, min(100, axis.kindness))
+        axis.energy = max(-100, min(100, axis.energy))
+        axis.bravery = max(-100, min(100, axis.bravery))
+        axis.greed = max(-100, min(100, axis.greed))
 
         # Random mutation or random trait if none inherited
         if ts and (random.random() < 0.1 or not traits):
@@ -192,7 +223,24 @@ class EntityFactory:
             if all_traits:
                 traits.add(random.choice(all_traits))
 
-        personality = Personality(traits=traits, values=base_values)
+        # Apply Trait Axis Shifts (Center Shift)
+        if ts:
+            for trait_id in traits:
+                t_data = ts.get_trait(trait_id)
+                if t_data and "axis_shift" in t_data:
+                    shifts = t_data["axis_shift"]
+                    axis.kindness += shifts.get("kindness", 0)
+                    axis.energy += shifts.get("energy", 0)
+                    axis.bravery += shifts.get("bravery", 0)
+                    axis.greed += shifts.get("greed", 0)
+
+        # Re-clamp after shifts
+        axis.kindness = max(-100, min(100, axis.kindness))
+        axis.energy = max(-100, min(100, axis.energy))
+        axis.bravery = max(-100, min(100, axis.bravery))
+        axis.greed = max(-100, min(100, axis.greed))
+
+        personality = Personality(traits=traits, axis=axis)
         self.world.add_component(entity, personality)
 
         # Physics
