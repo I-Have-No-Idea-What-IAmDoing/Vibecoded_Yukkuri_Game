@@ -65,7 +65,7 @@ class YukkuriStats(Component):
     discipline: float = 0.0
 
 @dataclass
-class Headline:
+class MemoryHeadline:
     """
     Represents a significant memory/event.
     """
@@ -85,7 +85,7 @@ class MemoryBuffer:
     Review suggested RelationshipData logic.
     """
     maxlen: int
-    items: List['Headline'] = field(default_factory=list) # Using List but behaving like Deque or just use Deque
+    items: List['MemoryHeadline'] = field(default_factory=list) # Using List but behaving like Deque or just use Deque
 
 @dataclass
 class Personality:
@@ -115,17 +115,17 @@ class RelationshipData:
     last_update: float = 0.0
 
     # Memory Buffers
-    trivial_buffer: Deque[Headline] = field(default_factory=lambda: deque(maxlen=25))
-    core_buffer: Deque[Headline] = field(default_factory=lambda: deque(maxlen=35))
+    trivial_buffer: Deque[MemoryHeadline] = field(default_factory=lambda: deque(maxlen=25))
+    core_buffer: Deque[MemoryHeadline] = field(default_factory=lambda: deque(maxlen=35))
 
-    def add_headline(self, headline: Headline):
+    def add_headline(self, headline: MemoryHeadline, threshold: float = 50.0):
         """Adds a headline to the appropriate buffer."""
-        if headline.importance > 50.0 or headline.is_locked:
+        if headline.importance > threshold or headline.is_locked:
             self._add_core_memory(headline)
         else:
             self.trivial_buffer.append(headline)
 
-    def _add_core_memory(self, headline: Headline):
+    def _add_core_memory(self, headline: MemoryHeadline):
         """
         Adds to core buffer with Locking logic.
         If full, only overwrites unlocked memories or lower importance if allowed.
@@ -174,11 +174,11 @@ class GossipPacket:
 class GossipQueue(Component):
     priority_queue: List[GossipPacket] = field(default_factory=list)
 
-    def add_packet(self, packet: GossipPacket):
+    def add_packet(self, packet: GossipPacket, max_length: int = 10):
         self.priority_queue.append(packet)
         self.priority_queue.sort(key=lambda x: x.value, reverse=True)
-        if len(self.priority_queue) > 10: # Keep top 10
-            self.priority_queue = self.priority_queue[:10]
+        if len(self.priority_queue) > max_length:
+            self.priority_queue = self.priority_queue[:max_length]
 
 @dataclass
 class AIState:

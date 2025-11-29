@@ -99,6 +99,13 @@ class GossipSystem(System):
         if not sender_queue or not receiver_queue:
             return
 
+        # Get Max Gossip Length from Config
+        from ...config import GameConfig
+        config = world.services.try_get(GameConfig)
+        max_length = 10
+        if config and hasattr(config.rules, 'social'):
+            max_length = config.rules.social.max_gossip_length
+
         # Share top packets
         for packet in sender_queue.priority_queue:
             # Don't share gossip about the receiver to the receiver
@@ -111,11 +118,18 @@ class GossipSystem(System):
                 value=packet.value * 0.9,
                 timestamp=packet.timestamp
             )
-            receiver_queue.add_packet(new_packet)
+            receiver_queue.add_packet(new_packet, max_length=max_length)
 
     def _add_witness_gossip(self, world: World, witness_id: int, event: SocialInteractionEvent, now: float, value: float):
         gossip = world.get_component(witness_id, GossipQueue)
         if not gossip: return
+
+        # Get Max Gossip Length from Config
+        from ...config import GameConfig
+        config = world.services.try_get(GameConfig)
+        max_length = 10
+        if config and hasattr(config.rules, 'social'):
+            max_length = config.rules.social.max_gossip_length
 
         packet = GossipPacket(
             target_id=event.initiator_id,
@@ -123,4 +137,4 @@ class GossipSystem(System):
             value=value,
             timestamp=now
         )
-        gossip.add_packet(packet)
+        gossip.add_packet(packet, max_length=max_length)

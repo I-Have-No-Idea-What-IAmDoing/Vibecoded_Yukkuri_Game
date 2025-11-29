@@ -11,7 +11,7 @@ from collections import deque
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ..components import Transform
-from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, Headline, Personality, EmotionalState
+from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState
 from ..trait_service import TraitService
 from ..services import TimeService
 from ..entity_factory import EntityFactory
@@ -267,7 +267,7 @@ class SocialSystem(System):
         # Add Headline
         if abs(base_impact_score) > 0:
             self.headline_counter += 1
-            headline = Headline(
+            headline = MemoryHeadline(
                 id=self.headline_counter,
                 timestamp=now,
                 importance=abs(base_impact_score),
@@ -276,7 +276,17 @@ class SocialSystem(System):
                 event_type=data.get("type", "GENERIC")
             )
 
-            if headline.importance > 50.0:
-                rel.core_buffer.add(headline)
-            else:
-                rel.trivial_buffer.add(headline)
+            # Retrieve memory threshold from config if available (via GameConfig service if implemented, or default)
+            # Since we don't have direct access to GameConfig here easily without ServiceLocator update, we assume default 50.0
+            # BUT the plan said to make it configurable.
+            # We can try to get GameConfig from world.services if it was registered?
+            # Usually GameManager holds config.
+            # Let's try to get config from somewhere.
+
+            from ...config import GameConfig
+            config = world.services.try_get(GameConfig)
+            threshold = 50.0
+            if config and hasattr(config.rules, 'social'):
+                threshold = config.rules.social.memory_importance_threshold
+
+            rel.add_headline(headline, threshold=threshold)

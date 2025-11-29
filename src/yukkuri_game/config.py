@@ -68,6 +68,13 @@ class LifecycleSettings(msgspec.Struct):
     breeding_cost: float = 50.0
     breeding_chance: float = 0.001
 
+class SocialSettings(msgspec.Struct):
+    """
+    Configuration for social system.
+    """
+    memory_importance_threshold: float = 50.0
+    max_gossip_length: int = 10
+
 class RulesFile(msgspec.Struct):
     """
     Represents the structure of the rules.toml file.
@@ -75,9 +82,11 @@ class RulesFile(msgspec.Struct):
     Attributes:
         stat_decay (StatDecaySettings): The stat decay configuration.
         lifecycle (LifecycleSettings): The lifecycle configuration.
+        social (SocialSettings): The social system configuration.
     """
     stat_decay: StatDecaySettings = msgspec.field(default_factory=StatDecaySettings)
     lifecycle: LifecycleSettings = msgspec.field(default_factory=LifecycleSettings)
+    social: SocialSettings = msgspec.field(default_factory=SocialSettings)
 
 class GameConfig(msgspec.Struct):
     """
