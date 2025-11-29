@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.social_system import SocialSystem
-from yukkuri_game.game.yukkuri_components import Personality, RelationshipRegistry, RelationshipData
+from yukkuri_game.game.yukkuri_components import Personality, RelationshipRegistry, RelationshipData, YukkuriStats
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.game.services import TimeService
 from yukkuri_game.game.events import SocialInteractionEvent
@@ -33,6 +33,7 @@ class TestSocialSystem:
     def test_mood_decay(self, system, world):
         e1 = 1
         pers = Personality(mood_score=50.0)
+        stats = YukkuriStats(name="test", type_id="test")
 
         # Setup world mocks
         def get_entities_with_side_effect(t):
@@ -42,6 +43,9 @@ class TestSocialSystem:
 
         world.get_entities_with.side_effect = get_entities_with_side_effect
         world.get_component.side_effect = lambda e, t: pers if t == Personality else None
+
+        # Mock get_components_tuple which is used by the system
+        world.get_components_tuple.return_value = [(e1, (pers, stats))]
 
         system.update(world, 1.0)
 
