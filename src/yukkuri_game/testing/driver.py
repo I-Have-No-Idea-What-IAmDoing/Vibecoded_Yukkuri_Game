@@ -110,6 +110,7 @@ class GameDriver:
             if target_id != -1:
                 ai.current_target_id = target_id
             ai.path = None
+            ai.manual_override = True
 
     def cleanup(self) -> None:
         """Cleans up the game instance."""

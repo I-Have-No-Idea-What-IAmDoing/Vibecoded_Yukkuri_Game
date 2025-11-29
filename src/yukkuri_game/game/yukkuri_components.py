@@ -137,6 +137,7 @@ class AIState:
     action_progress: float = 0.0
     state_data: Dict[str, Any] | None = None
     failed_targets: Set[int] = field(default_factory=set)
+    manual_override: bool = False
 
 @dataclass
 class ItemStats:

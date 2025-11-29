@@ -82,6 +82,10 @@ class UtilitySelector(Action):
             print("UtilitySelector: Missing components")
             return Status.FAILURE
 
+        # Respect manual override
+        if ai.manual_override:
+            return Status.SUCCESS
+
         # Build Context for Utility Evaluation
         # The context contains all variables available for considerations to check against.
         # This includes basic stats, social environment data, and personality values.
