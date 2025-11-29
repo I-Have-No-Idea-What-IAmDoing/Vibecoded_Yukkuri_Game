@@ -20,8 +20,6 @@ class EmotionalState(Component):
     """
     happiness: float = 0.0 # -100 to 100
     stress: float = 0.0    # 0 to 100
-    anger: float = 0.0
-    fear: float = 0.0
 
     def get_dominant_emotion(self, bravery: int = 0) -> str:
         """
@@ -78,17 +76,6 @@ class MemoryHeadline:
     is_locked: bool = False
 
 @dataclass
-class MemoryBuffer:
-    """
-    Wrapper for Deque to handle custom add logic if needed.
-    Kept for backward compatibility if logic was here, but actually logic is moved to RelationshipData.
-    We can just use Deque directly or keep this class.
-    Review suggested RelationshipData logic.
-    """
-    maxlen: int
-    items: List['MemoryHeadline'] = field(default_factory=list) # Using List but behaving like Deque or just use Deque
-
-@dataclass
 class Personality:
     """
     Component defining the personality of a Yukkuri.
@@ -123,8 +110,13 @@ class RelationshipData:
     core_sentiment_sum: float = 0.0
 
     # Memory Buffers
-    trivial_buffer: Deque[MemoryHeadline] = field(default_factory=lambda: deque(maxlen=25))
-    core_buffer: Deque[MemoryHeadline] = field(default_factory=lambda: deque(maxlen=35))
+    # We use lists to manually manage size and update sums
+    trivial_buffer: List[MemoryHeadline] = field(default_factory=list)
+    core_buffer: List[MemoryHeadline] = field(default_factory=list)
+
+    # Constants
+    TRIVIAL_MAX_LEN: int = 25
+    CORE_MAX_LEN: int = 35
 
     def add_headline(self, headline: MemoryHeadline, threshold: float = 50.0):
         """Adds a headline to the appropriate buffer."""
