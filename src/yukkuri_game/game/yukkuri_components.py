@@ -130,6 +130,7 @@ class AIState:
         path (list): A list of points representing the current movement path.
         action_progress (float): Progress counter for the current action. Defaults to 0.0.
         state_data (Dict[str, Any]): Additional data for the current state.
+        manual_override (bool): If True, UtilitySelector will not change the current action.
     """
     current_action: str = "Idle"
     current_target_id: int = -1
@@ -137,6 +138,7 @@ class AIState:
     action_progress: float = 0.0
     state_data: Dict[str, Any] | None = None
     failed_targets: Set[int] = field(default_factory=set)
+    manual_override: bool = False
 
 @dataclass
 class ItemStats:

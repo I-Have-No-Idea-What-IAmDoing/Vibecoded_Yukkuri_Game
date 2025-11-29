@@ -64,6 +64,18 @@ class UtilitySelector(Action):
         if not self.world or self.entity_id is None:
             return Status.FAILURE
 
+        ai = self.world.get_component(self.entity_id, AIState)
+
+        if not ai:
+            print("UtilitySelector: Missing AIState component")
+            return Status.FAILURE
+
+        # Check for manual override
+        if getattr(ai, "manual_override", False):
+            # If overridden, we skip utility selection and just return SUCCESS
+            # preserving the current action set externally.
+            return Status.SUCCESS
+
         if not self.engine:
              self.engine = self.world.services.try_get(UtilityAIEngine)
              if not self.engine:
@@ -74,12 +86,11 @@ class UtilitySelector(Action):
         if not self.trait_service:
             self.trait_service = self.world.services.try_get(TraitService)
 
-        ai = self.world.get_component(self.entity_id, AIState)
         stats = self.world.get_component(self.entity_id, YukkuriStats)
         personality = self.world.get_component(self.entity_id, Personality)
 
-        if not ai or not stats:
-            print("UtilitySelector: Missing components")
+        if not stats:
+            print("UtilitySelector: Missing YukkuriStats component")
             return Status.FAILURE
 
         # Build Context for Utility Evaluation

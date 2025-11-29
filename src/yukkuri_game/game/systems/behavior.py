@@ -3,6 +3,7 @@ Module defining the BehaviorSystem logic.
 """
 from typing import Dict
 import py_trees
+from py_trees.common import Status
 from ...engine.ecs import System, World
 from ..yukkuri_components import AIState
 from ..ai.behavior import create_yukkuri_behavior_tree
@@ -45,7 +46,18 @@ class BehaviorSystem(System):
                 self.trees[entity] = py_trees.trees.BehaviourTree(root)
                 self.trees[entity].setup(timeout=15)
 
-            self.trees[entity].tick()
+            tree = self.trees[entity]
+            tree.tick()
+
+            # Check if the tree execution finished (SUCCESS or FAILURE)
+            # The root is a Sequence(UtilitySelector, ExecutionSelector).
+            # If ExecutionSelector finishes, the root finishes.
+            # If so, we clear the manual override to allow Utility AI to take over again.
+            if tree.root.status == Status.SUCCESS or tree.root.status == Status.FAILURE:
+                if getattr(ai, "manual_override", False):
+                    ai.manual_override = False
+                    # Optionally reset action to Idle to force re-evaluation next frame
+                    # ai.current_action = "Idle"
 
         for entity_id in list(self.trees.keys()):
             if not world.entity_exists(entity_id) or not world.has_component(entity_id, AIState):
