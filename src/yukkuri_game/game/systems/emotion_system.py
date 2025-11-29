@@ -125,12 +125,29 @@ class EmotionSystem(System):
         """
         Drifts the current personality axis towards the base axis (resting point).
         Rate: Configured in rules file.
-        """
-        # Points per second probability
-        drift_rate = getattr(self.settings, 'personality_drift_rate', 0.1)
-        drift_chance = drift_rate * dt
 
-        # Iterate over attributes
+        Uses a deterministic accumulator (not yet implemented in Component, so using a temp workaround or stochastic approximation).
+        Actually, we can use a small float accumulation if we add it to Personality, but for now,
+        let's make it deterministic by accumulating drift debt if we could.
+
+        Since we can't easily change the Component structure to add a 'drift_accumulator' without breaking pickles or migration (simulated constraint),
+        we will use a clearer stochastic method that scales correctly with DT, or better:
+
+        We treat 'axis' as the integer representation, but we could drift by checking if (current != base).
+        If we want true deterministic drift, we need storage.
+
+        Wait, I can add a `_drift_accumulator` field to the Personality component in yukkuri_components.py first.
+        But for this step, I will stick to fixing the "drift_chance > 1.0" issue first.
+        """
+        drift_rate = getattr(self.settings, 'personality_drift_rate', 0.1) # Units per second
+
+        # We can simulate fractional drift by using a probability that is clamped.
+        # But if drift_rate * dt > 1, we should drift multiple points.
+
+        drift_amount_float = drift_rate * dt
+        guaranteed_drift = int(drift_amount_float)
+        probability_drift = drift_amount_float - guaranteed_drift
+
         for attr in ['kindness', 'energy', 'bravery', 'greed']:
             current = getattr(personality.axis, attr)
             base = getattr(personality.base_axis, attr)
@@ -138,8 +155,23 @@ class EmotionSystem(System):
             if current == base:
                 continue
 
-            if random.random() < drift_chance:
-                if current < base:
-                    setattr(personality.axis, attr, current + 1)
+            diff = base - current
+            direction = 1 if diff > 0 else -1
+
+            # Apply guaranteed drift
+            change = guaranteed_drift
+
+            # Apply probabilistic drift
+            if random.random() < probability_drift:
+                change += 1
+
+            if change > 0:
+                new_val = current + (change * direction)
+
+                # Don't overshoot
+                if direction > 0:
+                    new_val = min(new_val, base)
                 else:
-                    setattr(personality.axis, attr, current - 1)
+                    new_val = max(new_val, base)
+
+                setattr(personality.axis, attr, new_val)

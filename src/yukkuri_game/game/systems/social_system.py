@@ -76,7 +76,7 @@ class SocialSystem(System):
 
         self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(1, count)
 
-    def _update_opinion(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData) -> None:
+    def _update_opinion(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData, force_compatibility_update: bool = False) -> None:
         """
         Recalculates the opinion (affinity) based on the formula:
         Opinion = Base Compatibility + Sum(CoreMemories) + Sum(TrivialEvents)

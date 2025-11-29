@@ -5,6 +5,8 @@ from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKIN
 import esper
 import uuid
 from .service_locator import ServiceLocator
+from .events import EntityDestroyedEvent
+from .event_bus import EventBus
 
 T = TypeVar('T')
 
@@ -66,6 +68,11 @@ class World:
         """
         self._switch()
         try:
+            # Notify before deletion (or after, but typically useful to know ID is gone)
+            event_bus = self.services.try_get(EventBus)
+            if event_bus:
+                event_bus.publish(EntityDestroyedEvent(entity))
+
             # print(f"DEBUG: destroy_entity {entity} in world {self.name}")
             esper.delete_entity(entity, immediate=True)
             # print(f"DEBUG: exists after delete? {esper.entity_exists(entity)}")

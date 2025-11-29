@@ -5,6 +5,8 @@ from typing import List, Set, Dict, Tuple, Optional, Any
 from collections import defaultdict
 import math
 from ...engine.ecs import System, World
+from ...engine.event_bus import EventBus
+from ...engine.events import EntityDestroyedEvent
 from ..components import Transform
 
 class SectorMap:
@@ -123,8 +125,20 @@ class SectorSystem(System):
     """
     System responsible for keeping the SectorMap updated with entity positions.
     """
-    def __init__(self, width: float = 4000, height: float = 4000, sector_size: float = 500):
+    def __init__(self, event_bus: Optional[EventBus] = None, width: float = 4000, height: float = 4000, sector_size: float = 500):
         self.sector_map = SectorMap(width, height, sector_size)
+        self.event_bus = event_bus
+        self._subscribed = False
+
+        if self.event_bus:
+            self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
+            self._subscribed = True
+
+    def on_entity_destroyed(self, event: EntityDestroyedEvent):
+        """
+        Handler for when an entity is destroyed.
+        """
+        self.sector_map.remove_entity(event.entity_id)
         self.cleanup_timer = 0.0
         self.cleanup_interval = 5.0 # Seconds
 
@@ -132,6 +146,14 @@ class SectorSystem(System):
         """
         Updates entity positions in the SectorMap.
         """
+        # Lazy subscription if event_bus wasn't provided in init (backward compatibility)
+        if not self._subscribed:
+            event_bus = world.services.try_get(EventBus)
+            if event_bus:
+                self.event_bus = event_bus
+                self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
+                self._subscribed = True
+
         # We need to register the map as a service if it's not already
         if not world.services.try_get(SectorMap):
             world.services.register(self.sector_map, SectorMap)
