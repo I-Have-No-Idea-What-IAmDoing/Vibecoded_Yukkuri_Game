@@ -35,6 +35,7 @@ class StatDecaySettings(msgspec.Struct):
         happiness (float): Decay rate for happiness.
         energy (float): Decay rate for energy.
         cleanliness (float): Decay rate for cleanliness.
+        social (float): Decay rate for social needs.
         age (float): Decay rate for age (or growth rate).
         starvation_damage (float): Damage per tick when starving.
     """
@@ -42,6 +43,7 @@ class StatDecaySettings(msgspec.Struct):
     happiness: float = 0.5
     energy: float = 0.5
     cleanliness: float = 0.2
+    social: float = 0.5
     age: float = 1.0
     starvation_damage: float = 5.0
 
