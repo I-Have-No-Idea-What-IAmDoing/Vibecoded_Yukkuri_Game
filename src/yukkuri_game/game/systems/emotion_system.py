@@ -6,6 +6,7 @@ from ...engine.ecs import System, World
 from ..yukkuri_components import YukkuriStats, Dead, Personality, EmotionalState
 from ..trait_service import TraitService
 from ...config import StatDecaySettings
+import random
 
 class EmotionSystem(System):
     """
@@ -115,3 +116,30 @@ class EmotionSystem(System):
                 # Clamp
                 emotional_state.happiness = max(-100.0, min(100.0, emotional_state.happiness))
                 emotional_state.stress = max(0.0, min(100.0, emotional_state.stress))
+
+            # Personality Drift
+            if personality and personality.base_axis:
+                self._drift_personality(personality, dt)
+
+    def _drift_personality(self, personality: Personality, dt: float) -> None:
+        """
+        Drifts the current personality axis towards the base axis (resting point).
+        Rate: 1 point per 10 seconds (approx).
+        """
+        # Points per second probability
+        # 0.1 means 10% chance per second per attribute
+        drift_chance = 0.1 * dt
+
+        # Iterate over attributes
+        for attr in ['kindness', 'energy', 'bravery', 'greed']:
+            current = getattr(personality.axis, attr)
+            base = getattr(personality.base_axis, attr)
+
+            if current == base:
+                continue
+
+            if random.random() < drift_chance:
+                if current < base:
+                    setattr(personality.axis, attr, current + 1)
+                else:
+                    setattr(personality.axis, attr, current - 1)

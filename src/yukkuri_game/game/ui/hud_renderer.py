@@ -294,8 +294,36 @@ class HudRenderer:
                     text += f"<br> Bravery: {pers.axis.bravery}"
                     text += f"<br> Greed: {pers.axis.greed}"
 
-                if rel_reg and rel_reg.family_group_id:
-                     text += f"<br><b>Family ID:</b> {rel_reg.family_group_id}"
+                if rel_reg:
+                    if rel_reg.family_group_id:
+                        text += f"<br><b>Family ID:</b> {rel_reg.family_group_id}"
+
+                    # Memory Inspector (Debug)
+                    if self.layout.debug_window and self.layout.debug_window.visible:
+                         text += "<br><br><b>Memory Inspector:</b>"
+                         if not rel_reg.relationships:
+                             text += "<br> No relationships."
+                         else:
+                             # Just show memory for the first few relationships or most recent
+                             # Sort by affinity or recent?
+                             sorted_rels = sorted(rel_reg.relationships.items(), key=lambda x: x[1].last_update, reverse=True)
+                             count = 0
+                             for other_id, rel_data in sorted_rels:
+                                 if count >= 3: break
+                                 count += 1
+                                 other_stats = self.world.get_component(other_id, YukkuriStats)
+                                 name = other_stats.name if other_stats else f"ID {other_id}"
+
+                                 text += f"<br> <b>{name}</b> (Aff: {rel_data.affinity:.1f})"
+                                 # Show top headlines
+                                 if rel_data.core_buffer.items:
+                                     text += "<br>  Core:"
+                                     for h in rel_data.core_buffer.items[-2:]: # Last 2
+                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f} {'(L)' if h.is_locked else ''}"
+                                 if rel_data.trivial_buffer.items:
+                                     text += "<br>  Trivial:"
+                                     for h in rel_data.trivial_buffer.items[-2:]: # Last 2
+                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f}"
 
             else:
                 istats = self.world.get_component(selected_entity, ItemStats)
