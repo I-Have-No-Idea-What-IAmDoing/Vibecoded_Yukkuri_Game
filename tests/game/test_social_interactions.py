@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.game.services import GameService
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.audio import AudioManager
 
@@ -22,26 +22,33 @@ class TestSocialInteractions(unittest.TestCase):
         self.yukkuri2 = self.world.create_entity()
 
         self.stats1 = YukkuriStats(name="Y1", type_id="reimu")
+        self.emo1 = EmotionalState(happiness=50.0, stress=0.0)
+
         self.stats2 = YukkuriStats(name="Y2", type_id="reimu")
+        self.emo2 = EmotionalState(happiness=50.0, stress=0.0)
+
         self.stats3 = YukkuriStats(name="Y3", type_id="marisa")
+        self.emo3 = EmotionalState(happiness=50.0, stress=0.0)
 
         self.world.add_component(self.yukkuri1, self.stats1)
+        self.world.add_component(self.yukkuri1, self.emo1)
         self.world.add_component(self.yukkuri2, self.stats2)
+        self.world.add_component(self.yukkuri2, self.emo2)
 
     def test_talk_interaction(self):
         # Initial state
-        self.stats1.happiness = 50.0
+        self.emo1.happiness = 50.0
         self.stats1.social = 50.0
-        self.stats2.happiness = 50.0
+        self.emo2.happiness = 50.0
         self.stats2.social = 50.0
 
         success = self.game_service.interact_social(self.yukkuri1, self.yukkuri2, "Talk")
         self.assertTrue(success)
 
         # Verify stats changes
-        self.assertAlmostEqual(self.stats1.happiness, 55.0)
+        self.assertAlmostEqual(self.emo1.happiness, 55.0)
         self.assertAlmostEqual(self.stats1.social, 65.0)
-        self.assertAlmostEqual(self.stats2.happiness, 55.0)
+        self.assertAlmostEqual(self.emo2.happiness, 55.0)
         self.assertAlmostEqual(self.stats2.social, 65.0)
 
         # Verify audio
@@ -51,11 +58,12 @@ class TestSocialInteractions(unittest.TestCase):
         # Setup incompatible yukkuri for fight logic (though interact_social doesn't check type compatibility,
         # the caller usually does, but we test the effect here)
         self.world.add_component(self.yukkuri2, self.stats3) # Change stats2 to be marisa
+        self.world.add_component(self.yukkuri2, self.emo3) # Add emo3
 
         self.stats1.health = 100.0
         self.stats3.health = 100.0
-        self.stats1.stress = 0.0
-        self.stats3.stress = 0.0
+        self.emo1.stress = 0.0
+        self.emo3.stress = 0.0
 
         success = self.game_service.interact_social(self.yukkuri1, self.yukkuri2, "Fight")
         self.assertTrue(success)
@@ -63,8 +71,8 @@ class TestSocialInteractions(unittest.TestCase):
         # Verify stats changes
         self.assertLess(self.stats1.health, 100.0)
         self.assertLess(self.stats3.health, 100.0)
-        self.assertGreater(self.stats1.stress, 0.0)
-        self.assertGreater(self.stats3.stress, 0.0)
+        self.assertGreater(self.emo1.stress, 0.0)
+        self.assertGreater(self.emo3.stress, 0.0)
 
         # Verify audio
         self.audio_manager.play_sound.assert_called_with("hit")
@@ -73,8 +81,8 @@ class TestSocialInteractions(unittest.TestCase):
         success = self.game_service.interact_social(self.yukkuri1, self.yukkuri2, "Dance")
         self.assertTrue(success)
 
-        self.assertGreater(self.stats1.happiness, 50.0)
-        self.assertGreater(self.stats2.happiness, 50.0)
+        self.assertGreater(self.emo1.happiness, 50.0)
+        self.assertGreater(self.emo2.happiness, 50.0)
 
 if __name__ == '__main__':
     unittest.main()

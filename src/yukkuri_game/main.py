@@ -31,6 +31,7 @@ from .game.systems.interaction_system import InteractionSystem
 from .game.systems.social_system import SocialSystem
 from .game.systems.gossip_system import GossipSystem
 from .game.systems.family_system import FamilySystem
+from .game.systems.sector_system import SectorSystem, SectorMap # Fix: Ensure SectorSystem is imported
 from .game.ui.hud import HUD
 from .game.input_system import InputSystem
 from .game.yukkuri_components import AIState # Fix import for HUD string check if needed
@@ -117,28 +118,28 @@ class YukkuriGame(GameLoop):
 
         self.world.services.register(self.resources, ResourceManager)
         self.world.services.register(self.audio, AudioManager)
-        self.world.services.register(self.yukkurrium)
-        self.world.services.register(self.physics_system)
-        self.world.services.register(self.event_bus)
+        self.world.services.register(self.yukkurrium, Yukkurrium)
+        self.world.services.register(self.physics_system, PhysicsSystem)
+        self.world.services.register(self.event_bus, EventBus)
 
         # Services
         self.economy_service = EconomyService()
-        self.world.services.register(self.economy_service)
+        self.world.services.register(self.economy_service, EconomyService)
 
         self.time_service = TimeService()
-        self.world.services.register(self.time_service)
+        self.world.services.register(self.time_service, TimeService)
 
         self.input_service = InputService()
-        self.world.services.register(self.input_service)
+        self.world.services.register(self.input_service, InputService)
 
         self.persistence_service = PersistenceService(self.world)
-        self.world.services.register(self.persistence_service)
+        self.world.services.register(self.persistence_service, PersistenceService)
 
         self.settings_service = SettingsService()
-        self.world.services.register(self.settings_service)
+        self.world.services.register(self.settings_service, SettingsService)
 
         self.trait_service = TraitService(self.world)
-        self.world.services.register(self.trait_service)
+        self.world.services.register(self.trait_service, TraitService)
 
         # Apply initial settings
         audio_settings = self.settings_service.settings.get("audio", {})
@@ -169,21 +170,19 @@ class YukkuriGame(GameLoop):
 
         # Factory & Game Manager
         self.factory = EntityFactory(self.world)
-        self.world.services.register(self.factory)
+        self.world.services.register(self.factory, EntityFactory)
 
         self.gm = GameManager(self.world)
-        self.world.services.register(self.gm)
+        self.world.services.register(self.gm, GameManager)
 
         # Game Logic Service
         self.game_service = GameService(self.world)
-        self.world.services.register(self.game_service)
+        self.world.services.register(self.game_service, GameService)
 
         # AI
         self.ai_engine = UtilityAIEngine(self.resources)
         self.ai_engine.validate_actions()
-        # Could register AI engine if needed by others, e.g. YukkuriAISystem might fetch it?
-        # For now YukkuriAISystem takes it in constructor, but let's register it just in case.
-        self.world.services.register(self.ai_engine)
+        self.world.services.register(self.ai_engine, UtilityAIEngine)
 
         # Add Systems
         self.input_system = InputSystem(self.yukkurrium)
@@ -191,6 +190,10 @@ class YukkuriGame(GameLoop):
 
         self.world.add_system(TimeSystem())
         self.world.add_system(self.physics_system)
+
+        # Sector System is registered by GameManager, but we should make sure it runs.
+        # GameManager adds it to systems.
+
         self.world.add_system(EmotionSystem(settings=self.game_config.rules.stat_decay))
         self.world.add_system(LifecycleSystem(settings=self.game_config.rules.lifecycle, entity_factory=self.factory))
         self.world.add_system(BehaviorSystem(float(self.yukkurrium.width), float(self.yukkurrium.height)))

@@ -11,6 +11,7 @@ from ..engine.audio import AudioManager
 from .components import Transform, Sprite
 from .yukkuri_components import YukkuriStats, ItemStats, EmotionalState
 from .services import EconomyService, PersistenceService, TimeService
+from .systems.sector_system import SectorMap, SectorSystem
 from .ai.navigation_service import NavigationService
 from .events import (
     TrainEntityRequest,
@@ -59,17 +60,40 @@ class GameManager:
         # Initialize Navigation Service
         # The NavigationService handles pathfinding grid initialization.
         game_config = world.services.try_get(GameConfig)
+        world_width = 3000
+        world_height = 3000
+        sector_size = 500.0
+
         if game_config:
-             world.services.register(
+            world_width = game_config.world.width
+            world_height = game_config.world.height
+            if hasattr(game_config.world, 'sector_size'):
+                sector_size = game_config.world.sector_size
+
+            world.services.register(
                  NavigationService(
-                     world_width=game_config.world.width,
-                     world_height=game_config.world.height,
+                     world_width=world_width,
+                     world_height=world_height,
                      grid_step_size=game_config.world.grid_step_size
                  )
              )
         else:
              # Fallback if no config (mainly for testing or if config loaded later)
-             world.services.register(NavigationService(3000, 3000))
+             world.services.register(NavigationService(world_width, world_height))
+
+        # Register Sector System and Map
+        # SectorMap size should match world size.
+        # SectorSystem needs to be added to the systems list in Main, but here we can register the service.
+        # We create the SectorSystem here and register its map.
+        sector_system = SectorSystem(width=world_width, height=world_height, sector_size=sector_size)
+
+        # FIX: Swapped arguments to match ServiceLocator.register(instance, service_type)
+        world.services.register(sector_system.sector_map, SectorMap)
+
+        # We also need to add sector_system to the world's systems list if GameManager doesn't control that.
+        # usually Main.py adds systems.
+        # But if we want it to run, we must ensure it's added.
+        world.add_system(sector_system)
 
 
     @property
