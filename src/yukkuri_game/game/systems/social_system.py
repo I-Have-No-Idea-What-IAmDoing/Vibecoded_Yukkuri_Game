@@ -131,10 +131,8 @@ class SocialSystem(System):
         # 3. Final Calculation
         rel_data.affinity = rel_data.base_compatibility + memory_score
 
-        # Clamp? Opinion can go beyond -100/100 locally, but effective range is clamped elsewhere usually.
-        # Let's clamp for sanity to -100, 100 for consumption, or keep it raw?
-        # Proposal says axes are -100 to 100. Opinion likely same.
-        rel_data.affinity = max(-100.0, min(100.0, rel_data.affinity))
+        # We do not clamp opinion here, as deep history should allow for resilience (or permanent hatred).
+        # Any consuming system should handle values outside -100/100 if necessary.
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         if not hasattr(self, 'ecs_world'):
