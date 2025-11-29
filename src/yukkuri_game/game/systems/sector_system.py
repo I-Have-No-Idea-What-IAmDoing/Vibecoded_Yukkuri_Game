@@ -125,6 +125,8 @@ class SectorSystem(System):
     """
     def __init__(self, width: float = 4000, height: float = 4000, sector_size: float = 500):
         self.sector_map = SectorMap(width, height, sector_size)
+        self.cleanup_timer = 0.0
+        self.cleanup_interval = 5.0 # Seconds
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -135,20 +137,23 @@ class SectorSystem(System):
             world.services.register(self.sector_map, SectorMap)
 
         # Iterate all entities with Transform
-        # Optimization: Only update moving entities?
-        # For now, we iterate all. If Transform has a dirty flag, that would be better.
-        # But we can just rely on SectorMap.update_entity checking for changes efficiently (though it doesn't currently).
-        # We'll just call update_entity.
-
         for entity, (transform,) in world.get_components_tuple(Transform):
             self.sector_map.update_entity(entity, transform.x, transform.y)
 
-        # TODO: Handle removed entities.
-        # A robust way is needed to detect destroyed entities.
-        # Ideally, we subscribe to an EntityDestroyedEvent if the engine supports it.
-        # Or, we can do a cleanup pass occasionally.
-        # For now, let's assume we might have stale IDs if we don't clean up,
-        # but get_components_tuple iterates current valid entities.
-        # The SectorMap might accumulate dead IDs.
-        # We can implement a "sweep" or handle it in EntityFactory/World.destroy_entity wrapper if possible.
-        # Since we can't easily hook destroy_entity without modifying World, we might just do a periodic cleanup or check existence.
+        # Periodic cleanup of dead entities
+        self.cleanup_timer += dt
+        if self.cleanup_timer >= self.cleanup_interval:
+            self.cleanup_timer = 0.0
+            self.cleanup_dead_entities(world)
+
+    def cleanup_dead_entities(self, world: World):
+        """
+        Removes entities from SectorMap that no longer exist in the world or have no Transform.
+        """
+        to_remove = []
+        for entity_id in self.sector_map.entity_sectors.keys():
+            if not world.has_component(entity_id, Transform):
+                 to_remove.append(entity_id)
+
+        for entity_id in to_remove:
+            self.sector_map.remove_entity(entity_id)
