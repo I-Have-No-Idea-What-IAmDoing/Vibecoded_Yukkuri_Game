@@ -207,6 +207,7 @@ class EntityFactory:
             shape.friction = 0.5
             # Yukkuri collides with Walls and other Yukkuris, but NOT items (to avoid pushing them away)
             # We want them to be able to overlap with items to eat them.
+            # Eating logic uses distance checks, so physical overlap is safe and desired.
             shape.filter = pymunk.ShapeFilter(
                 categories=CollisionCategories.YUKKURI,
                 mask=CollisionCategories.WALL | CollisionCategories.YUKKURI | CollisionCategories.POOP
