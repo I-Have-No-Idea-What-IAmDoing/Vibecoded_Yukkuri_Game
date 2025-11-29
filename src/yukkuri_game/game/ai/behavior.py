@@ -666,6 +666,12 @@ class FindItem(Action):
 
             return Status.SUCCESS
 
+        # If no item found, but we have ignored some targets (failed previously),
+        # clear the failed list so we can retry them next frame.
+        # This prevents the AI from starving if the only food source was momentarily unreachable.
+        if ai.failed_targets:
+            ai.failed_targets.clear()
+
         return Status.FAILURE
 
 
