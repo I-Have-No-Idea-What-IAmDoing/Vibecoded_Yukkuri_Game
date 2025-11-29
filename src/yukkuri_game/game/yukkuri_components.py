@@ -108,20 +108,36 @@ class EmotionalState:
     """
     happiness: float = 0.0 # -100 to 100
     stress: float = 0.0    # 0 to 100
-    anger: float = 0.0     # -100 to 100
-    fear: float = 0.0      # -100 to 100
 
-    def get_dominant_emotion(self) -> str:
-        if self.happiness > 0:
-            if self.stress > 50:
-                return "EXCITED"
+    def get_dominant_emotion(self, bravery: int = 0) -> str:
+        """
+        Derives the mood based on the 4 quadrants and Bravery.
+        Quadrants:
+        - High Happiness + Low Stress: Content/Relaxed
+        - High Happiness + High Stress: Excited/Manic
+        - Low Happiness + Low Stress: Depressed/Sulking
+        - Low Happiness + High Stress: Terror/Rage (Dependent on Bravery)
+        """
+        # Thresholds can be tuned. Using 0 for Happiness center, 50 for Stress mid-point.
+        is_happy = self.happiness >= 0
+        is_stressed = self.stress >= 50
+
+        if is_happy:
+            if is_stressed:
+                return "Excited/Manic"
             else:
-                return "HAPPY"
+                return "Content/Relaxed"
         else:
-            if self.stress > 50:
-                return "STRESSED"
+            if is_stressed:
+                # Terror or Rage based on Bravery
+                # Bravery > 0 -> Brave -> Rage
+                # Bravery <= 0 -> Coward -> Terror
+                if bravery > 0:
+                    return "Rage"
+                else:
+                    return "Terror"
             else:
-                return "SAD"
+                return "Depressed/Sulking"
 
 @dataclass
 class YukkuriStats:
@@ -152,6 +168,14 @@ class GossipPacket:
 @dataclass
 class GossipQueue:
     priority_queue: List[GossipPacket] = field(default_factory=list)
+
+    def add_packet(self, packet: GossipPacket):
+        self.priority_queue.append(packet)
+        # Sort by value descending (highest importance first)
+        self.priority_queue.sort(key=lambda x: x.value, reverse=True)
+        # Keep top 3
+        if len(self.priority_queue) > 3:
+            self.priority_queue = self.priority_queue[:3]
 
 @dataclass
 class AIState:

@@ -22,7 +22,7 @@ from ..components import (
     Velocity,
 )
 from ..services import GameService
-from ..yukkuri_components import AIState, ItemStats, YukkuriStats
+from ..yukkuri_components import AIState, ItemStats, YukkuriStats, EmotionalState
 from .base_action import Action
 from .navigation_service import NavigationService
 from .utility_selector import UtilitySelector
@@ -503,6 +503,22 @@ class Check(Action):
         return Status.FAILURE
 
 
+class CheckEmotion(Action):
+    """
+    Checks the emotional state of the entity.
+    """
+    def __init__(self, name: str, entity_id: int, world: "World", check_fn: Callable[[EmotionalState], bool]):
+        super().__init__(name, entity_id, world)
+        self.check_fn = check_fn
+
+    def update(self) -> Status:
+        if not self.world or not self.entity_id: return Status.FAILURE
+        emotion = self.world.get_component(self.entity_id, EmotionalState)
+        if emotion and self.check_fn(emotion):
+            return Status.SUCCESS
+        return Status.FAILURE
+
+
 # --- Behavior Tree Builder ---
 
 
@@ -895,6 +911,7 @@ def create_yukkuri_behavior_tree(
     Builds the behavior tree for a Yukkuri.
 
     The tree structure uses a UtilitySelector to pick a goal, then executes that goal.
+    It now includes a "Stress Break" high-priority sequence.
 
     Args:
         entity_id (int): The ID of the Yukkuri entity.
@@ -946,13 +963,43 @@ def create_yukkuri_behavior_tree(
         return True
 
     # --- Root Sequence ---
+    # 0. Stress Break (High Priority)
     # 1. Select Goal (UtilitySelector)
     # 2. Execute Goal (Selector)
     root = py_trees.composites.Sequence(name="Root Sequence", memory=False)
 
+    # 0. Stress Break
+    # If Stress > 90, force panic/tantrum. This should ideally interrupt everything else.
+    # We can use a Selector at the top. If StressBreak succeeds (meaning we are stressed and doing panic),
+    # the rest is skipped. Wait, Sequence runs all. We want a Selector for "Emergency vs Normal".
+
+    # Let's restructure:
+    # Root (Selector)
+    #   -> Stress Break Sequence (Check Stress -> Panic Action)
+    #   -> Normal Behavior Sequence (Utility -> Execution)
+
+    root_selector = py_trees.composites.Selector(name="Root Selector", memory=False)
+
+    stress_break = py_trees.composites.Sequence(name="Stress Break", memory=False)
+    check_stress = CheckEmotion(
+        name="High Stress?",
+        entity_id=entity_id,
+        world=world,
+        check_fn=lambda e: e.stress > 90
+    )
+    # For now, panic is just Idle (freeze in terror) or maybe random movement later.
+    # We can reuse Idle for "Freeze".
+    panic_action = Idle(name="Panic Freeze", entity_id=entity_id, world=world)
+    stress_break.add_children([check_stress, panic_action])
+
+    root_selector.add_child(stress_break)
+
+    # Normal Behavior
+    normal_behavior = py_trees.composites.Sequence(name="Normal Behavior", memory=False)
+
     # 1. Utility Selector
     utility_selector = UtilitySelector(entity_id=entity_id, world=world)
-    root.add_child(utility_selector)
+    normal_behavior.add_child(utility_selector)
 
     # 2. Execution Selector
     execution_selector = py_trees.composites.Selector(
@@ -969,6 +1016,7 @@ def create_yukkuri_behavior_tree(
     idle = Idle(entity_id=entity_id, world=world)
     execution_selector.add_child(idle)
 
-    root.add_child(execution_selector)
+    normal_behavior.add_child(execution_selector)
+    root_selector.add_child(normal_behavior)
 
-    return root
+    return root_selector
