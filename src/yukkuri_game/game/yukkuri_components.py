@@ -20,8 +20,6 @@ class EmotionalState(Component):
     """
     happiness: float = 0.0 # -100 to 100
     stress: float = 0.0    # 0 to 100
-    anger: float = 0.0
-    fear: float = 0.0
 
     def get_dominant_emotion(self, bravery: int = 0) -> str:
         """
@@ -78,17 +76,6 @@ class MemoryHeadline:
     is_locked: bool = False
 
 @dataclass
-class MemoryBuffer:
-    """
-    Wrapper for Deque to handle custom add logic if needed.
-    Kept for backward compatibility if logic was here, but actually logic is moved to RelationshipData.
-    We can just use Deque directly or keep this class.
-    Review suggested RelationshipData logic.
-    """
-    maxlen: int
-    items: List['MemoryHeadline'] = field(default_factory=list) # Using List but behaving like Deque or just use Deque
-
-@dataclass
 class Personality:
     """
     Component defining the personality of a Yukkuri.
@@ -118,42 +105,58 @@ class RelationshipData:
     # Base compatibility (cached from last calculation to avoid recomputing every frame)
     base_compatibility: float = 0.0
 
+    # Memory Sums (Cached for O(1) Opinion Calculation)
+    sum_core_sentiment: float = 0.0
+    sum_trivial_sentiment: float = 0.0
+
     # Memory Buffers
-    trivial_buffer: Deque[MemoryHeadline] = field(default_factory=lambda: deque(maxlen=25))
-    core_buffer: Deque[MemoryHeadline] = field(default_factory=lambda: deque(maxlen=35))
+    # We use lists to manually manage size and update sums
+    trivial_buffer: List[MemoryHeadline] = field(default_factory=list)
+    core_buffer: List[MemoryHeadline] = field(default_factory=list)
+
+    # Constants
+    TRIVIAL_MAX_LEN: int = 25
+    CORE_MAX_LEN: int = 35
 
     def add_headline(self, headline: MemoryHeadline, threshold: float = 50.0):
         """Adds a headline to the appropriate buffer."""
         if headline.importance > threshold or headline.is_locked:
             self._add_core_memory(headline)
         else:
-            self.trivial_buffer.append(headline)
+            self._add_trivial_memory(headline)
+
+    def _add_trivial_memory(self, headline: MemoryHeadline):
+        """Adds a trivial memory, managing the buffer size and sum."""
+        self.trivial_buffer.append(headline)
+        self.sum_trivial_sentiment += headline.sentiment
+
+        while len(self.trivial_buffer) > self.TRIVIAL_MAX_LEN:
+            removed = self.trivial_buffer.pop(0)
+            self.sum_trivial_sentiment -= removed.sentiment
 
     def _add_core_memory(self, headline: MemoryHeadline):
         """
         Adds to core buffer with Locking logic.
         If full, only overwrites unlocked memories or lower importance if allowed.
         """
-        if len(self.core_buffer) < self.core_buffer.maxlen:
+        # Try to append if space available
+        if len(self.core_buffer) < self.CORE_MAX_LEN:
             self.core_buffer.append(headline)
+            self.sum_core_sentiment += headline.sentiment
             return
 
         # Buffer is full, try to find an unlocked victim (oldest)
-        # Deque iteration is from oldest to newest (left to right) if appended right.
         for i, mem in enumerate(self.core_buffer):
             if not mem.is_locked:
-                del self.core_buffer[i]
+                removed = self.core_buffer.pop(i)
+                self.sum_core_sentiment -= removed.sentiment
+
                 self.core_buffer.append(headline)
+                self.sum_core_sentiment += headline.sentiment
                 return
 
         # If we are here, all memories are locked.
         # Check if the new memory is significantly more important than the *least important* locked memory.
-        # "Significantly higher magnitude" -> let's say +20 difference.
-
-        if not self.core_buffer:
-            # Should not happen if maxlen > 0, but safety check
-            self.core_buffer.append(headline)
-            return
 
         # Find the locked memory with the lowest importance
         victim_index = -1
@@ -167,8 +170,11 @@ class RelationshipData:
         # Check threshold
         if victim_index != -1:
             if headline.importance > (min_importance + 20.0):
-                del self.core_buffer[victim_index]
+                removed = self.core_buffer.pop(victim_index)
+                self.sum_core_sentiment -= removed.sentiment
+
                 self.core_buffer.append(headline)
+                self.sum_core_sentiment += headline.sentiment
 
 @dataclass
 class RelationshipRegistry:

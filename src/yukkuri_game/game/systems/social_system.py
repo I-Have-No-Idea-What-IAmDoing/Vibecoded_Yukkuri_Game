@@ -119,14 +119,9 @@ class SocialSystem(System):
 
             rel_data.base_compatibility = base_compatibility
 
-        # 2. Sum Memories
-        memory_score = 0.0
-
-        for mem in rel_data.core_buffer:
-            memory_score += mem.sentiment
-
-        for mem in rel_data.trivial_buffer:
-            memory_score += mem.sentiment
+        # 2. Use Cached Memory Sums (O(1))
+        # rel_data.sum_core_sentiment and rel_data.sum_trivial_sentiment are maintained by add_headline
+        memory_score = rel_data.sum_core_sentiment + rel_data.sum_trivial_sentiment
 
         # 3. Final Calculation
         rel_data.affinity = rel_data.base_compatibility + memory_score
