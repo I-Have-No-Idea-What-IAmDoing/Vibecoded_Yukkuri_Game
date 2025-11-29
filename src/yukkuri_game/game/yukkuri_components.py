@@ -3,6 +3,7 @@ Module defining the Yukkuri-specific components for the game.
 """
 from dataclasses import dataclass, field
 from typing import Dict, Any, Set, List, Optional
+from collections import deque
 from ..engine.ecs import Component
 
 # Yukkuri Specific Components
@@ -10,57 +11,82 @@ from ..engine.ecs import Component
 @dataclass
 class Personality:
     """
-    Component defining the personality of a Yukkuri.
+    Component defining the personality of a Yukkuri using the Quad-Axis Model.
 
     Attributes:
+        kindness (int): -100 (Gesu) to +100 (Nice).
+        energy (int): -100 (Lazy) to +100 (Hyper).
+        bravery (int): -100 (Coward) to +100 (Brave).
+        greed (int): -100 (Generous) to +100 (Greedy).
         traits (Set[str]): A set of trait IDs referencing TOML data.
-        values (Dict[str, float]): A dictionary of personality values (e.g., {"compassion": 50.0}).
-        mood (str): The current mood state (e.g., "NEUTRAL", "HAPPY").
-        mood_score (float): The intensity of the current mood.
         cached_overrides (Optional[Dict[str, Any]]): Cached "effective overrides" for AI considerations.
     """
+    kindness: int = 0
+    energy: int = 0
+    bravery: int = 0
+    greed: int = 0
     traits: Set[str] = field(default_factory=set)
-    values: Dict[str, float] = field(default_factory=dict)
-    mood: str = "NEUTRAL"
-    mood_score: float = 0.0
     cached_overrides: Optional[Dict[str, Any]] = None
+
+@dataclass
+class EmotionalState:
+    """
+    Component tracking the emotional state of a Yukkuri.
+
+    Attributes:
+        happiness (float): -100 (Depressed) to 100 (Ecstatic).
+        stress (float): 0 (Calm) to 100 (Panic).
+        current_mood (str): The derived mood state (e.g., "Relaxed", "Excited").
+    """
+    happiness: float = 0.0
+    stress: float = 0.0
+    current_mood: str = "Neutral"
 
 @dataclass
 class MemoryRecord:
     """
-    Represents a single memory of a social interaction.
+    Represents a "Headline" memory of a social interaction.
 
     Attributes:
         timestamp (float): The game time when the event occurred.
         actor_id (int): The ID of the entity that performed the action.
-        action_type (str): The type of action (e.g., "Hit", "Greet").
+        action_type (str): The type of action.
         impact (float): The emotional impact value of the event.
-        permanent (bool): Whether the memory is permanent (e.g., trauma). Defaults to False.
+        description (str): Text description of the event.
+        is_locked (bool): If True, this memory is hard to overwrite (Core Memory).
     """
     timestamp: float
     actor_id: int
     action_type: str
     impact: float
-    permanent: bool = False
+    description: str = ""
+    is_locked: bool = False
 
 @dataclass
 class RelationshipData:
     """
-    Stores data about a relationship with another entity.
+    Stores data about a relationship with another entity, using Split Buffers.
 
     Attributes:
         affinity (float): How much the entity likes the other (-100 to 100).
         trust (float): How much the entity trusts the other (0 to 100).
         fear (float): How much the entity fears the other (0 to 100).
         familiarity (float): How well the entity knows the other (0 to 100).
-        memories (List[MemoryRecord]): A short list of recent impactful events.
+
+        trivial_events (deque): Ring buffer for small, everyday interactions (Size 25).
+        core_memories (List[MemoryRecord]): List for major life events (Max Size 35).
+                                            We use List instead of deque to handle Locking logic manually.
+
         last_update (float): Timestamp of the last decay update.
     """
     affinity: float = 0.0
     trust: float = 0.0
     fear: float = 0.0
     familiarity: float = 0.0
-    memories: List[MemoryRecord] = field(default_factory=list)
+
+    trivial_events: deque = field(default_factory=lambda: deque(maxlen=25))
+    core_memories: List[MemoryRecord] = field(default_factory=list) # Max 35, managed manually
+
     last_update: float = 0.0
 
 @dataclass
@@ -82,6 +108,32 @@ class RelationshipRegistry:
     mate_id: Optional[int] = None
 
 @dataclass
+class GossipPacket:
+    """
+    Represents a piece of gossip to be shared.
+    """
+    timestamp: float
+    source_id: int # Who observed/generated this gossip
+    subject_id: int # Who is the gossip about (the doer)
+    target_id: int # Who was the target of the action
+    action_type: str
+    impact: float
+
+    def __lt__(self, other):
+        # We want Priority Queue to pop HIGHEST impact first.
+        # Python heapq is a min-heap (pops smallest element).
+        # So we want High Impact to be "smaller" than Low Impact.
+        # Therefore: self < other if self.impact > other.impact
+        return abs(self.impact) > abs(other.impact)
+
+@dataclass
+class GossipQueue:
+    """
+    Component holding gossip to share with others.
+    """
+    queue: List[GossipPacket] = field(default_factory=list)
+
+@dataclass
 class YukkuriStats:
     """
     Component containing the statistics and state of a Yukkuri.
@@ -92,9 +144,7 @@ class YukkuriStats:
         health (float): Current health. Defaults to 100.0.
         max_health (float): Maximum health. Defaults to 100.0.
         hunger (float): Hunger level (0 = full, 100 = starving). Defaults to 0.0.
-        happiness (float): Happiness level (0 = sad, 100 = happy). Defaults to 50.0.
         social (float): Social satisfaction level. Defaults to 50.0.
-        stress (float): Stress level. Defaults to 0.0.
         energy (float): Energy level. Defaults to 100.0.
         cleanliness (float): Cleanliness level (0 = dirty, 100 = clean). Defaults to 100.0.
         age (float): Age in game seconds/ticks. Defaults to 0.0.
@@ -102,15 +152,18 @@ class YukkuriStats:
         badges (int): Number of badges earned. Defaults to 0.
         quality_score (float): Calculated quality score/value. Defaults to 0.0.
         discipline (float): Discipline level (0 = undisciplined, 100 = perfectly disciplined). Defaults to 0.0.
+
+        happiness (float): Deprecated/Synced with EmotionalState.
+        stress (float): Deprecated/Synced with EmotionalState.
     """
     name: str
     type_id: str
     health: float = 100.0
     max_health: float = 100.0
     hunger: float = 0.0
-    happiness: float = 50.0
+    happiness: float = 50.0 # Synced for backward compatibility
+    stress: float = 0.0 # Synced for backward compatibility
     social: float = 50.0
-    stress: float = 0.0
     energy: float = 100.0
     cleanliness: float = 100.0
     age: float = 0.0

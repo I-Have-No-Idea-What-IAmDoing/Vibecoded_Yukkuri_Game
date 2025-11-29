@@ -9,7 +9,8 @@ from ...config import StatDecaySettings
 
 class StatDecaySystem(System):
     """
-    System responsible for decaying Yukkuri stats over time.
+    System responsible for decaying Yukkuri physical stats over time.
+    Emotional stats are handled by EmotionSystem.
 
     Attributes:
         settings (StatDecaySettings): The configuration settings for decay rates.
@@ -41,14 +42,12 @@ class StatDecaySystem(System):
             self.trait_service = world.services.try_get(TraitService)
 
         # Iterate over entities with YukkuriStats
-        # We also check for Personality to apply modifiers
         for entity, (stats,) in world.get_components_tuple(YukkuriStats):
             if world.has_component(entity, Dead):
                 continue
 
             # Default multipliers
             mult_hunger = 1.0
-            mult_happiness = 1.0
             mult_energy = 1.0
             mult_social = 1.0
             mult_cleanliness = 1.0
@@ -62,16 +61,12 @@ class StatDecaySystem(System):
                         if trait_data and "stat_modifiers" in trait_data:
                             mods = trait_data["stat_modifiers"]
                             mult_hunger *= mods.get("hunger_decay", 1.0)
-                            mult_happiness *= mods.get("happiness_decay", 1.0)
                             mult_energy *= mods.get("energy_decay", 1.0)
                             mult_social *= mods.get("social_decay", 1.0)
                             mult_cleanliness *= mods.get("cleanliness_decay", 1.0)
-                            # Note: Max health modifiers would need to be applied on trait addition/init,
-                            # not every frame. For now we focus on decay rates.
 
             # Decay stats
             stats.hunger += self.settings.hunger * mult_hunger * dt
-            stats.happiness -= self.settings.happiness * mult_happiness * dt
             stats.energy -= self.settings.energy * mult_energy * dt
             stats.age += self.settings.age * dt
             stats.cleanliness -= self.settings.cleanliness * mult_cleanliness * dt
@@ -87,7 +82,6 @@ class StatDecaySystem(System):
 
             # Clamp
             stats.hunger = min(100, max(0, stats.hunger))
-            stats.happiness = min(100, max(0, stats.happiness))
             stats.energy = min(100, max(0, stats.energy))
             stats.cleanliness = min(100, max(0, stats.cleanliness))
             stats.social = min(100, max(0, stats.social))

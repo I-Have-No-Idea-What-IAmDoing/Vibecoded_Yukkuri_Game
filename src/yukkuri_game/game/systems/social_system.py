@@ -1,30 +1,40 @@
 """
 Module implementing the social system for Yukkuri interaction and relationship management.
+Refactored for the "Clear-Cut" Personality & Social System.
 """
 import math
 import time
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Set
+from collections import deque
 from loguru import logger
 import random
+import heapq
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ..components import Transform
-from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryRecord, Personality
+from ..yukkuri_components import (
+    YukkuriStats, RelationshipRegistry, RelationshipData,
+    MemoryRecord, Personality, GossipPacket, GossipQueue,
+    EmotionalState
+)
 from ..trait_service import TraitService
 from ..services import TimeService
 from ..entity_factory import EntityFactory
 from ..events import SocialInteractionEvent
+from ...config import GameConfig
 
 class SocialSystem(System):
     """
-    System responsible for managing social relationships, memory decay, and applying interaction effects.
+    System responsible for managing social relationships, interaction propagation (Sector System),
+    Memory (Headline System), and Gossip.
 
     Attributes:
         trait_service (Optional[TraitService]): The service for accessing trait/interaction data.
-        cleanup_index (int): Index for distributed cleanup.
-        cleanup_batch_size (int): Batch size for distributed cleanup.
+        sector_size (int): Size of the sectors for broadcasting.
         event_bus (EventBus): The event bus.
+        world_width (int): World width for sector calculation.
+        world_height (int): World height for sector calculation.
     """
 
     def __init__(self, event_bus: EventBus):
@@ -36,255 +46,392 @@ class SocialSystem(System):
         """
         super().__init__()
         self.trait_service: Optional[TraitService] = None
-        # Distributed cleanup state
-        self.cleanup_index = 0
-        self.cleanup_batch_size = 10
         self.event_bus = event_bus
-
         self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
+
+        # Sector System Configuration
+        self.sector_size = 500 # Adjust based on typical map size/density
+        self.world_width = 3000
+        self.world_height = 3000
+
+        self.initialized = False
+
+        # Spatial Cache (Sector -> List[EntityID])
+        self.sector_map: Dict[str, List[int]] = {}
+        self.last_cache_update = 0.0
+        self.cache_update_interval = 0.0 # Update every frame for now to fix test/ensure correctness, or check dt
+
+    def _ensure_initialized(self, world: World):
+        if self.initialized:
+            return
+
+        self.trait_service = world.services.try_get(TraitService)
+        config = world.services.try_get(GameConfig)
+        if config:
+            self.world_width = config.world.width
+            self.world_height = config.world.height
+
+        self.initialized = True
 
     def update(self, world: World, dt: float) -> None:
         """
         Updates social states.
-        Handles distributed cleanup of old relationships and Mood decay.
-
-        Args:
-            world (World): The ECS World.
-            dt (float): Delta time.
-
-        Returns:
-            None
+        Handles distributed cleanup of old relationships.
+        Also updates Spatial Cache periodically.
         """
-        if not self.trait_service:
-            self.trait_service = world.services.try_get(TraitService)
+        self._ensure_initialized(world)
 
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
 
-        # 1. Update Mood based on Stats and Decay
-        # Iterating over entities that have BOTH Personality and YukkuriStats for mood updates
-        for entity, (pers, stats) in world.get_components_tuple(Personality, YukkuriStats):
-            self._update_mood_components(pers, stats, dt)
+        # Force update for now to debug or use low interval
+        if now - self.last_cache_update >= self.cache_update_interval:
+            self._update_sector_map(world)
+            self.last_cache_update = now
 
-        # 2. Update Relationships (Cleanup & Compatibility Drift)
-        # Only check N entities per frame to remove very old/irrelevant relationships
-        all_entities = world.get_entities_with(RelationshipRegistry)
-        if not all_entities:
-            return
-
-        count = len(all_entities)
-        start = self.cleanup_index % count
-        end = min(start + self.cleanup_batch_size, count)
-
-        for i in range(start, end):
-            eid = all_entities[i]
-            registry = world.get_component(eid, RelationshipRegistry)
-            if registry:
-                to_remove = []
-                # Retention policy: inactive relationships are removed
-                # cutoff: relationships older than this DURATION are removed
-                max_age = 600 # 10 minutes
-
-                for other_id, rel_data in registry.relationships.items():
-                    # Compatibility Drift
-                    self._process_compatibility_drift(world, eid, other_id, rel_data, dt)
-
-                    # If not permanent (family/mate) and old
-                    other_registry = world.get_component(other_id, RelationshipRegistry)
-                    is_special = (other_id == registry.mate_id) or \
-                                 (registry.family_group_id is not None and \
-                                  other_registry is not None and \
-                                  other_registry.family_group_id == registry.family_group_id)
-
-                    age = now - rel_data.last_update
-                    if not is_special and age > max_age:
-                        to_remove.append(other_id)
-
-                for rid in to_remove:
-                    del registry.relationships[rid]
-
-        self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(1, count)
-
-    def _process_compatibility_drift(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData, dt: float) -> None:
+    def _update_sector_map(self, world: World):
         """
-        Slowly drifts affinity towards the natural compatibility level defined by traits.
+        Updates the spatial hash map.
         """
-        if not self.trait_service:
-            return
-
-        subject_pers = world.get_component(subject_id, Personality)
-        other_pers = world.get_component(other_id, Personality)
-
-        if not subject_pers or not other_pers:
-            return
-
-        base_compatibility = 0.0
-
-        # Calculate target compatibility based on Traits
-        for my_trait in subject_pers.traits:
-            trait_data = self.trait_service.get_trait(my_trait)
-            if not trait_data or "social_modifiers" not in trait_data:
-                continue
-
-            social_mods = trait_data["social_modifiers"]
-            if "compatibility" not in social_mods:
-                continue
-
-            comp_map = social_mods["compatibility"]
-            for other_trait in other_pers.traits:
-                if other_trait in comp_map:
-                    base_compatibility += comp_map[other_trait]
-
-        # Drift towards base_compatibility
-        # Rate: 1 point per 60 seconds (approx)
-        drift_speed = 1.0 / 60.0
-
-        diff = base_compatibility - rel_data.affinity
-        # Only drift if significant difference
-        if abs(diff) > 1.0:
-            change = math.copysign(drift_speed * dt, diff)
-            # Don't overshoot
-            if abs(change) > abs(diff):
-                rel_data.affinity = base_compatibility
-            else:
-                rel_data.affinity += change
-
-
-    def _update_mood_components(self, pers: Personality, stats: YukkuriStats, dt: float) -> None:
-        """
-        Updates the mood of an entity based on stats and decay.
-        """
-        # Decay current mood intensity
-        if pers.mood_score > 0:
-            pers.mood_score -= dt * 5.0 # Decay rate
-            if pers.mood_score <= 0:
-                pers.mood_score = 0
-                pers.mood = "NEUTRAL"
-
-        # Check for Stat-driven Moods (Overrides neutral or weak moods)
-        # Priority: SCARED (Critical Health) > FURIOUS (Critical Stress) > SAD (Starving/Unhappy) > HAPPY (High needs)
-
-        # If current mood is strong (>50), we might stick with it unless critical
-        if pers.mood_score > 50.0:
-            return
-
-        new_mood = None
-        new_score = 0.0
-
-        if stats.health < stats.max_health * 0.3:
-            new_mood = "SCARED"
-            new_score = 80.0
-        elif getattr(stats, 'stress', 0.0) > 80.0:
-            new_mood = "FURIOUS"
-            new_score = 70.0
-        elif stats.hunger > 80.0 or stats.happiness < 20.0:
-            new_mood = "SAD"
-            new_score = 60.0
-        elif stats.happiness > 90.0 and stats.hunger < 10.0:
-            new_mood = "HAPPY"
-            new_score = 60.0
-
-        if new_mood and (new_mood != pers.mood or new_score > pers.mood_score):
-            pers.mood = new_mood
-            pers.mood_score = new_score
+        self.sector_map.clear()
+        count = 0
+        for entity, (trans,) in world.get_components_tuple(Transform):
+            sx = int(trans.x // self.sector_size)
+            sy = int(trans.y // self.sector_size)
+            key = f"{sx},{sy}"
+            if key not in self.sector_map:
+                self.sector_map[key] = []
+            self.sector_map[key].append(entity)
+            count += 1
+        # print(f"DEBUG: Updated sector map with {count} entities. Keys: {self.sector_map.keys()}")
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         """
         Event handler for social interactions.
+        Triggers the Sector System broadcasting.
 
         Args:
             event (SocialInteractionEvent): The social interaction event.
-
-        Returns:
-            None
         """
-        # We need access to the world. System has self.ecs_world injected by World.add_system
         if not hasattr(self, 'ecs_world'):
-            # Should be set by World when system added
             return
 
-        self.register_interaction(self.ecs_world, event.initiator_id, event.target_id, event.interaction_type)
+        self._ensure_initialized(self.ecs_world)
 
-    def _update_relationship_decay(self, rel_data: RelationshipData, now: float) -> None:
+        # 1. Process the direct interaction between Initiator and Target
+        self._process_interaction(self.ecs_world, event.initiator_id, event.target_id, event.interaction_type)
+
+        # 2. Broadcast to Witnesses (Sector System)
+        self._broadcast_event(self.ecs_world, event)
+
+    def _process_interaction(self, world: World, actor_id: int, target_id: int, interaction_name: str) -> None:
         """
-        Lazily updates relationship values based on time elapsed since last update.
-
-        Args:
-            rel_data (RelationshipData): The relationship data to update.
-            now (float): Current game time.
-
-        Returns:
-            None
-        """
-        if rel_data.last_update == 0.0:
-            rel_data.last_update = now
-            return
-
-        elapsed = now - rel_data.last_update
-        # Decay rates per second
-        decay_affinity = 0.01 * elapsed # 0.1 per 10s
-        decay_fear = 0.05 * elapsed
-        decay_trust = 0.005 * elapsed
-
-        # Apply decay
-        if rel_data.affinity > 0.1:
-            rel_data.affinity = max(0, rel_data.affinity - decay_affinity)
-        elif rel_data.affinity < -0.1:
-            rel_data.affinity = min(0, rel_data.affinity + decay_affinity)
-
-        if rel_data.fear > 0.1:
-            rel_data.fear = max(0, rel_data.fear - decay_fear)
-
-        if rel_data.trust > 50.0:
-            rel_data.trust = max(50.0, rel_data.trust - decay_trust)
-
-        rel_data.last_update = now
-
-    def register_interaction(self, world: World, actor_id: int, target_id: int, interaction_name: str) -> None:
-        """
-        Registers a social interaction between two Yukkuris and applies its effects.
-
-        Args:
-            world (World): The ECS world.
-            actor_id (int): The ID of the doer.
-            target_id (int): The ID of the receiver.
-            interaction_name (str): The key in interactions.toml (e.g. "Hit", "Greet").
-
-        Returns:
-            None
+        Handles the direct effect of an interaction (Opinion update, Memory creation).
+        Also triggers Gossip Exchange if it's a "Talk" interaction.
         """
         if not self.trait_service:
-            self.trait_service = world.services.try_get(TraitService)
-            if not self.trait_service:
-                return
+            return
 
         interaction_data = self.trait_service.get_interaction(interaction_name)
         if not interaction_data:
-            logger.warning(f"Unknown interaction: {interaction_name}")
             return
 
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
 
-        # Apply impacts
-        self._apply_impact(world, actor_id, target_id, interaction_data, role="actor", now=now)
-        self._apply_impact(world, target_id, actor_id, interaction_data, role="target", now=now)
+        # Apply impacts to the Target (how they view the Actor)
+        self._apply_impact(world, target_id, actor_id, interaction_data, now)
 
         # Visual Feedback
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
 
+        # Gossip Exchange (if applicable)
+        if interaction_name in ["Talk", "Chat", "Gossip"]:
+            self._exchange_gossip(world, actor_id, target_id)
+
+    def _broadcast_event(self, world: World, event: SocialInteractionEvent) -> None:
+        """
+        Broadcasts the event to entities in the same or adjacent sectors.
+        """
+        # Get Initiator Position
+        transform = world.get_component(event.initiator_id, Transform)
+        if not transform:
+            return
+
+        initiator_pos = (transform.x, transform.y)
+        sector_x = int(initiator_pos[0] // self.sector_size)
+        sector_y = int(initiator_pos[1] // self.sector_size)
+
+        # Get entities from cached map
+        nearby_entities = []
+        for dx in range(-1, 2):
+            for dy in range(-1, 2):
+                key = f"{sector_x+dx},{sector_y+dy}"
+                if key in self.sector_map:
+                    nearby_entities.extend(self.sector_map[key])
+
+        # print(f"DEBUG: Broadcasting event from {sector_x},{sector_y}. Found neighbors: {len(nearby_entities)} in cache. Cache keys: {self.sector_map.keys()}")
+
+        for witness_id in nearby_entities:
+            if witness_id == event.initiator_id or witness_id == event.target_id:
+                continue
+
+            self._witness_event(world, witness_id, event)
+
+    def _witness_event(self, world: World, witness_id: int, event: SocialInteractionEvent) -> None:
+        """
+        A witness observes an event.
+        1. Form an opinion/memory? (Maybe, if significant).
+        2. Generate Gossip Packet.
+        """
+        # Generate Gossip Packet
+        # Impact needs to be retrieved from interaction data
+        interaction_data = self.trait_service.get_interaction(event.interaction_type)
+        if not interaction_data:
+            return
+
+        base_impact = interaction_data.get("base_impact", 0.0)
+
+        # Threshold for gossip?
+        if abs(base_impact) < 5.0:
+            return
+
+        time_service = world.services.try_get(TimeService)
+        now = time_service.time_elapsed if time_service else time.time()
+
+        packet = GossipPacket(
+            timestamp=now,
+            source_id=witness_id,
+            subject_id=event.initiator_id,
+            target_id=event.target_id,
+            action_type=event.interaction_type,
+            impact=base_impact
+        )
+
+        # Add to Witness's Gossip Queue
+        gossip_queue = world.get_component(witness_id, GossipQueue)
+        if not gossip_queue:
+            gossip_queue = GossipQueue()
+            world.add_component(witness_id, gossip_queue)
+
+        # Add and Sort
+        gossip_queue.queue.append(packet)
+        # Sort using GossipPacket.__lt__ which is abs(impact) > abs(other.impact)
+        # So "smaller" means "higher impact".
+        # list.sort() sorts ascending (smallest first).
+        # So high impact comes first.
+        gossip_queue.queue.sort()
+
+        if len(gossip_queue.queue) > 10:
+            gossip_queue.queue = gossip_queue.queue[:10]
+
+        # print(f"DEBUG: Witness {witness_id} added gossip. Queue len: {len(gossip_queue.queue)}")
+
+    def _exchange_gossip(self, world: World, actor_id: int, target_id: int) -> None:
+        """
+        Exchanges top 3 gossip packets between two entities.
+        """
+        actor_queue = world.get_component(actor_id, GossipQueue)
+        target_queue = world.get_component(target_id, GossipQueue)
+
+        if not actor_queue or not target_queue:
+            return
+
+        # Actor shares with Target
+        self._share_packets(actor_queue, target_queue, count=3)
+        # Target shares with Actor
+        self._share_packets(target_queue, actor_queue, count=3)
+
+    def _share_packets(self, source_q: GossipQueue, dest_q: GossipQueue, count: int) -> None:
+        shared = 0
+        for packet in source_q.queue:
+            if shared >= count:
+                break
+
+            # Check if packet already exists in dest
+            exists = False
+            for p in dest_q.queue:
+                if (p.subject_id == packet.subject_id and
+                    p.target_id == packet.target_id and
+                    p.timestamp == packet.timestamp):
+                    exists = True
+                    break
+
+            if not exists:
+                dest_q.queue.append(packet)
+                shared += 1
+
+        # Re-sort destination
+        dest_q.queue.sort() # Highest impact first (due to custom __lt__)
+        if len(dest_q.queue) > 10:
+            dest_q.queue = dest_q.queue[:10]
+
+    def _apply_impact(self, world: World, subject_id: int, actor_id: int, data: Dict[str, Any], now: float) -> None:
+        """
+        Applies social impact: Memory creation + Opinion Update.
+        Subject is the one forming the opinion (e.g., Target of a hit).
+        Actor is the one who did the action.
+        """
+        registry = world.get_component(subject_id, RelationshipRegistry)
+        if not registry:
+            registry = RelationshipRegistry()
+            world.add_component(subject_id, registry)
+
+        if actor_id not in registry.relationships:
+            registry.relationships[actor_id] = RelationshipData(last_update=now)
+
+        rel = registry.relationships[actor_id]
+
+        base_impact_score = data.get("base_impact", 0.0)
+        action_type = data.get("type", "unknown") # e.g. "Physical", "Social"
+
+        # Apply Behavioral Overrides (Lenses)
+        subject_personality = world.get_component(subject_id, Personality)
+        if subject_personality:
+            base_impact_score = self._apply_trait_lenses(world, subject_id, actor_id, base_impact_score, subject_personality)
+
+        # 1. Create Memory (Headline System)
+        self._add_memory(rel, now, actor_id, action_type, base_impact_score)
+
+        # 2. Recalculate Opinion
+        self._recalculate_opinion(world, subject_id, actor_id, rel)
+
+        # 3. Update Familiarity (always increases with interaction)
+        rel.familiarity = min(100.0, rel.familiarity + 1.0)
+
+        # 4. Immediate emotional reaction (EmotionalState)
+        self._trigger_emotional_reaction(world, subject_id, base_impact_score)
+
+    def _apply_trait_lenses(self, world: World, subject_id: int, actor_id: int, base_impact: float, personality: Personality) -> float:
+        """
+        Applies trait-based behavioral overrides (Lenses).
+        """
+        final_impact = base_impact
+
+        # Check Traits
+        for trait in personality.traits:
+            if trait == "GESU": # Scum/Gesu
+                if base_impact > 0:
+                    final_impact *= 0.5
+            elif trait == "NICE":
+                if base_impact > 0:
+                    final_impact *= 1.5
+                elif base_impact < 0:
+                    final_impact *= 0.8
+
+        return final_impact
+
+    def _add_memory(self, rel: RelationshipData, now: float, actor_id: int, action_type: str, impact: float) -> None:
+        """
+        Adds a memory to the appropriate buffer (Trivial vs Core) with Locking logic.
+        """
+        # Threshold for Core Memory
+        CORE_THRESHOLD = 20.0
+        MAX_CORE_MEMORIES = 35
+
+        is_core = abs(impact) >= CORE_THRESHOLD
+
+        is_locked = False
+        if abs(impact) >= 80.0:
+            is_locked = True
+
+        memory = MemoryRecord(
+            timestamp=now,
+            actor_id=actor_id,
+            action_type=action_type,
+            impact=impact,
+            description=f"{action_type} ({impact})",
+            is_locked=is_locked
+        )
+
+        if is_core:
+            if len(rel.core_memories) < MAX_CORE_MEMORIES:
+                rel.core_memories.append(memory)
+            else:
+                # Buffer full. Try to replace an unlocked memory.
+                replaced = False
+                for i, mem in enumerate(rel.core_memories):
+                    if not mem.is_locked:
+                        rel.core_memories[i] = memory
+                        replaced = True
+                        break
+
+                if not replaced:
+                    # All are locked.
+                    pass
+        else:
+            rel.trivial_events.append(memory)
+
+    def _recalculate_opinion(self, world: World, subject_id: int, target_id: int, rel: RelationshipData) -> None:
+        """
+        Opinion = Base Compatibility + Sum(CoreMemories) + Sum(TrivialEvents)
+        """
+        # 1. Base Compatibility
+        base = self._calculate_base_compatibility(world, subject_id, target_id)
+
+        # 2. Sum Memories
+        core_sum = sum(m.impact for m in rel.core_memories)
+        trivial_sum = sum(m.impact for m in rel.trivial_events)
+
+        total_score = base + core_sum + trivial_sum
+
+        rel.affinity = max(-100, min(100, total_score))
+
+        if total_score > 0:
+            rel.trust = min(100, total_score)
+            rel.fear = 0
+        else:
+            rel.trust = 0
+            rel.fear = min(100, abs(total_score))
+
+    def _calculate_base_compatibility(self, world: World, subject_id: int, target_id: int) -> float:
+        """
+        Calculated from Personality Axis comparison.
+        """
+        p1 = world.get_component(subject_id, Personality)
+        p2 = world.get_component(target_id, Personality)
+
+        if not p1 or not p2:
+            return 0.0
+
+        score = 0.0
+
+        # Similarity Bonus
+        score += 20 if abs(p1.kindness - p2.kindness) < 50 else -10
+        score += 10 if abs(p1.energy - p2.energy) < 50 else -5
+
+        if p1.greed > 50 and p2.greed > 50:
+            score -= 30
+
+        return score
+
+    def _trigger_emotional_reaction(self, world: World, entity_id: int, impact: float) -> None:
+        """
+        Adjusts EmotionalState based on impact.
+        """
+        emo = world.get_component(entity_id, EmotionalState)
+        if not emo:
+            return
+
+        # Impact > 0 -> Happiness
+        # Impact < 0 -> Stress + Sadness
+
+        if impact > 0:
+            emo.happiness = min(100, emo.happiness + impact)
+            emo.stress = max(0, emo.stress - (impact * 0.5))
+        else:
+            emo.happiness = max(-100, emo.happiness + impact) # Impact is negative
+            emo.stress = min(100, emo.stress + abs(impact))
+
+        # Sync to YukkuriStats (deprecated fields)
+        stats = world.get_component(entity_id, YukkuriStats)
+        if stats:
+            stats.happiness = emo.happiness
+            stats.stress = emo.stress
+
     def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Dict[str, Any]) -> None:
         """
-        Spawns floating text or icons based on interaction result.
-
-        Args:
-            world (World): The ECS World.
-            entity_id (int): The entity ID.
-            interaction_name (str): The interaction name.
-            data (Dict[str, Any]): The interaction data.
-
-        Returns:
-            None
+        Spawns floating text or icons.
         """
         factory = world.services.try_get(EntityFactory)
         if not factory:
@@ -294,142 +441,26 @@ class SocialSystem(System):
         if not trans:
             return
 
-        # Determine symbol based on impact or name
         text = "!"
         color = (255, 255, 255)
 
         base_impact = data.get("base_impact", 0.0)
 
         if interaction_name in ["Talk", "Greet"]:
-            text = "♪" # Note
+            text = "♪"
             color = (100, 255, 100)
         elif interaction_name in ["Fight", "Hit"]:
-            text = "💢" # Anger
+            text = "💢"
             color = (255, 50, 50)
         elif interaction_name == "Dance":
-            text = "♥" # Heart
+            text = "♥"
             color = (255, 105, 180)
-        elif interaction_name == "Feed":
-            text = "Mogu"
-            color = (255, 200, 50)
 
-        # Override if impact is negative
         if base_impact < -10:
              text = "T_T"
              color = (100, 100, 255)
 
-        # Offset slightly
         fx = trans.x + random.uniform(-10, 10)
         fy = trans.y - 30
 
         factory.create_floating_text(fx, fy, text, color, size=24, lifetime=1.5)
-
-    def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Dict[str, Any], role: str, now: float) -> None:
-        """
-        Applies the social impact to the subject regarding the other.
-
-        Args:
-            world (World): The ECS World.
-            subject_id (int): The subject entity ID.
-            other_id (int): The other entity ID.
-            data (Dict[str, Any]): The interaction data.
-            role (str): The role of the subject ("actor" or "target").
-            now (float): Current game time.
-
-        Returns:
-            None
-        """
-        if role == "actor":
-            # Optional: Actor might feel satisfaction or guilt.
-            return
-
-        registry = world.get_component(subject_id, RelationshipRegistry)
-        if not registry:
-            registry = RelationshipRegistry()
-            world.add_component(subject_id, registry)
-
-        if other_id not in registry.relationships:
-            registry.relationships[other_id] = RelationshipData(last_update=now)
-
-        rel = registry.relationships[other_id]
-
-        # LAZY DECAY: Update decay before applying new impact
-        self._update_relationship_decay(rel, now)
-
-        # Base Impact
-        social_impact = data.get("social_impact", {})
-
-        d_affinity = social_impact.get("affinity", 0.0)
-        d_trust = social_impact.get("trust", 0.0)
-        d_fear = social_impact.get("fear", 0.0)
-        d_familiarity = social_impact.get("familiarity", 0.0)
-        base_impact_score = data.get("base_impact", 0.0)
-
-        # Apply Modifiers
-        subject_personality = world.get_component(subject_id, Personality)
-        modifiers = data.get("modifiers", {})
-
-        if subject_personality:
-            for trait in subject_personality.traits:
-                key = f"trait:{trait}"
-                if key in modifiers:
-                    mod = modifiers[key]
-                    d_affinity += mod.get("affinity", 0.0)
-                    d_trust += mod.get("trust", 0.0)
-                    d_fear += mod.get("fear", 0.0)
-
-            # Check Mood
-            mood_key = f"mood:{subject_personality.mood}"
-            if mood_key in modifiers:
-                mod = modifiers[mood_key]
-                d_affinity += mod.get("affinity", 0.0)
-
-            # Use Values to multiply impacts
-            # Example: High Compassion -> Penalize bad acts more, reward nice acts more
-            # Proposal: "Values act as multipliers for specific types of actions"
-            # Since we don't have explicit 'action type' in impact data, we can infer from base_impact sign
-            compassion = subject_personality.values.get("compassion", 50.0)
-
-            # Compassion Multiplier
-            # > 50 increases positive social impact, > 50 increases negative social impact (sensitivity)
-            comp_mult = 1.0 + (compassion - 50.0) / 100.0 # 0.5 to 1.5
-
-            if base_impact_score > 0:
-                d_affinity *= comp_mult
-                d_trust *= comp_mult
-            elif base_impact_score < 0:
-                # If negative, high compassion means they get MORE upset (lower affinity faster)
-                d_affinity *= comp_mult
-                d_trust *= comp_mult
-                d_fear *= comp_mult
-
-            # UPDATE MOOD based on impact
-            if base_impact_score < -15:
-                # Strong negative event
-                subject_personality.mood = "FURIOUS" if random.random() < 0.5 else "SCARED"
-                subject_personality.mood_score = 100.0
-            elif base_impact_score > 15:
-                subject_personality.mood = "HAPPY"
-                subject_personality.mood_score = 100.0
-
-        # Update values clamped
-        rel.affinity = max(-100, min(100, rel.affinity + d_affinity))
-        rel.trust = max(0, min(100, rel.trust + d_trust))
-        rel.fear = max(0, min(100, rel.fear + d_fear))
-        rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
-
-        # Add Memory
-        if abs(base_impact_score) > 0:
-            memory = MemoryRecord(
-                timestamp=now,
-                actor_id=other_id,
-                action_type=data.get("type", "unknown"),
-                impact=base_impact_score,
-                permanent=False
-            )
-            rel.memories.append(memory)
-            # Trim memories
-            if len(rel.memories) > 20:
-                rel.memories.pop(0)
-
-        logger.debug(f"Interaction {role}: Entity {subject_id} view of {other_id} -> Aff:{rel.affinity:.1f}, Trust:{rel.trust:.1f}")

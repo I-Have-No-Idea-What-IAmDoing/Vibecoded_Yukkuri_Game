@@ -9,7 +9,10 @@ from .components import (
     Transform, Sprite, Selectable, PhysicsBody, FloatingText,
     MovementController, VisualTransform
 )
-from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop, Personality, RelationshipRegistry
+from .yukkuri_components import (
+    YukkuriStats, AIState, ItemStats, Poop, Personality,
+    RelationshipRegistry, EmotionalState, GossipQueue
+)
 from .trait_service import TraitService
 
 if TYPE_CHECKING:
@@ -163,9 +166,23 @@ class EntityFactory:
 
         # Personality & Relationships
         self.world.add_component(entity, RelationshipRegistry())
+
+        # New Social System Components
+        self.world.add_component(entity, EmotionalState())
+        self.world.add_component(entity, GossipQueue())
+
         ts = self._get_trait_service()
         traits = set()
-        base_values = {"compassion": 50.0, "greed": 50.0, "bravery": 50.0}
+
+        # New Quad-Axis Personality System
+        # We need to map old "values" (float) to new "axes" (int -100 to 100).
+        # And handle trait inheritance.
+
+        # For now, random initialization of axes
+        p_kindness = random.randint(-50, 50) # Neutral bias
+        p_energy = random.randint(-50, 50)
+        p_bravery = random.randint(-50, 50)
+        p_greed = random.randint(-50, 50)
 
         # Inheritance logic
         if parents and ts:
@@ -176,15 +193,25 @@ class EntityFactory:
                     for t in pp.traits:
                         if random.random() < 0.5:
                             traits.add(t)
-                # Average base values from parents with some variance
-                for key in base_values:
-                    avg_val = sum(pp.values.get(key, 50.0) for pp in parent_personalities) / len(parent_personalities)
-                    base_values[key] = max(0.0, min(100.0, avg_val + random.uniform(-10.0, 10.0)))
+
+                # Average axes from parents
+                avg_kindness = sum(pp.kindness for pp in parent_personalities) // len(parent_personalities)
+                avg_energy = sum(pp.energy for pp in parent_personalities) // len(parent_personalities)
+                avg_bravery = sum(pp.bravery for pp in parent_personalities) // len(parent_personalities)
+                avg_greed = sum(pp.greed for pp in parent_personalities) // len(parent_personalities)
+
+                p_kindness = max(-100, min(100, avg_kindness + random.randint(-20, 20)))
+                p_energy = max(-100, min(100, avg_energy + random.randint(-20, 20)))
+                p_bravery = max(-100, min(100, avg_bravery + random.randint(-20, 20)))
+                p_greed = max(-100, min(100, avg_greed + random.randint(-20, 20)))
 
         # Random generation if no parents
         if not parents:
-            for key in base_values:
-                base_values[key] = max(0.0, min(100.0, random.gauss(50, 15)))
+            # Gaussian distribution around 0
+            p_kindness = int(max(-100, min(100, random.gauss(0, 40))))
+            p_energy = int(max(-100, min(100, random.gauss(0, 40))))
+            p_bravery = int(max(-100, min(100, random.gauss(0, 40))))
+            p_greed = int(max(-100, min(100, random.gauss(0, 40))))
 
         # Random mutation or random trait if none inherited
         if ts and (random.random() < 0.1 or not traits):
@@ -192,7 +219,13 @@ class EntityFactory:
             if all_traits:
                 traits.add(random.choice(all_traits))
 
-        personality = Personality(traits=traits, values=base_values)
+        personality = Personality(
+            kindness=p_kindness,
+            energy=p_energy,
+            bravery=p_bravery,
+            greed=p_greed,
+            traits=traits
+        )
         self.world.add_component(entity, personality)
 
         # Physics
