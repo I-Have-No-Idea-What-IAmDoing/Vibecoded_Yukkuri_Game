@@ -1,15 +1,13 @@
 """
 Module defining the GameManager logic.
 """
-import json
-import os
-from typing import Any, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from loguru import logger
 from ..engine.ecs import World
 from ..engine.event_bus import EventBus
 from ..engine.audio import AudioManager
-from .components import Transform, Sprite
-from .yukkuri_components import YukkuriStats, ItemStats, EmotionalState
+from .components import Transform
+from .yukkuri_components import YukkuriStats, EmotionalState
 from .services import EconomyService, PersistenceService, TimeService
 from .systems.sector_system import SectorMap, SectorSystem
 from .ai.navigation_service import NavigationService
@@ -46,20 +44,42 @@ class GameManager:
             world (World): The ECS World instance.
         """
         self.world = world
-        from .entity_factory import EntityFactory
-        self.factory = world.services.get(EntityFactory)
-
         self.event_bus = world.services.get(EventBus)
+        self.audio = world.services.try_get(AudioManager)
+
+        self._subscribe_events()
+        self._init_navigation_service()
+        self._init_sector_system()
+
+    def _subscribe_events(self) -> None:
+        """Subscribes to game events."""
         if self.event_bus:
             self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
             self.event_bus.subscribe(PunishEntityRequest, self.on_punish_entity)
             self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
 
-        self.audio = world.services.try_get(AudioManager)
+    def _init_navigation_service(self) -> None:
+        """Initializes the Navigation Service."""
+        game_config = self.world.services.try_get(GameConfig)
+        world_width = 3000
+        world_height = 3000
 
-        # Initialize Navigation Service
-        # The NavigationService handles pathfinding grid initialization.
-        game_config = world.services.try_get(GameConfig)
+        if game_config:
+            world_width = game_config.world.width
+            world_height = game_config.world.height
+            self.world.services.register(
+                 NavigationService(
+                     world_width=world_width,
+                     world_height=world_height,
+                     grid_step_size=game_config.world.grid_step_size
+                 )
+             )
+        else:
+             self.world.services.register(NavigationService(world_width, world_height))
+
+    def _init_sector_system(self) -> None:
+        """Initializes and registers the Sector System and Map."""
+        game_config = self.world.services.try_get(GameConfig)
         world_width = 3000
         world_height = 3000
         sector_size = 500.0
@@ -70,30 +90,9 @@ class GameManager:
             if hasattr(game_config.world, 'sector_size'):
                 sector_size = game_config.world.sector_size
 
-            world.services.register(
-                 NavigationService(
-                     world_width=world_width,
-                     world_height=world_height,
-                     grid_step_size=game_config.world.grid_step_size
-                 )
-             )
-        else:
-             # Fallback if no config (mainly for testing or if config loaded later)
-             world.services.register(NavigationService(world_width, world_height))
-
-        # Register Sector System and Map
-        # SectorMap size should match world size.
-        # SectorSystem needs to be added to the systems list in Main, but here we can register the service.
-        # We create the SectorSystem here and register its map.
         sector_system = SectorSystem(width=world_width, height=world_height, sector_size=sector_size)
-
-        # FIX: Swapped arguments to match ServiceLocator.register(instance, service_type)
-        world.services.register(sector_system.sector_map, SectorMap)
-
-        # We also need to add sector_system to the world's systems list if GameManager doesn't control that.
-        # usually Main.py adds systems.
-        # But if we want it to run, we must ensure it's added.
-        world.add_system(sector_system)
+        self.world.services.register(sector_system.sector_map, SectorMap)
+        self.world.add_system(sector_system)
 
 
     @property
@@ -139,13 +138,13 @@ class GameManager:
         """
         self.world.services.get(EconomyService).set_money(value)
 
-    def calculate_quality_score(self, yukkuri_stats: YukkuriStats, emotional_state: "EmotionalState" = None, update_stats: bool = False) -> int:
+    def calculate_quality_score(self, yukkuri_stats: YukkuriStats, emotional_state: "EmotionalState | None" = None, update_stats: bool = False) -> int:
         """
         Calculates the quality score (value) of a Yukkuri.
 
         Args:
             yukkuri_stats (YukkuriStats): The stats component of the Yukkuri.
-            emotional_state (EmotionalState): The emotional state component.
+            emotional_state (EmotionalState | None): The emotional state component.
             update_stats (bool): Whether to update the stats with the calculated score.
 
         Returns:

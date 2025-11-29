@@ -254,27 +254,65 @@ class EntityFactory:
 
         # Physics
         if self.physics_system:
-            mass = 10
-            inertia = pymunk.moment_for_circle(mass, 0, radius)
-            body = pymunk.Body(mass, inertia)
-            body.position = x, y
-            shape = pymunk.Circle(body, radius)
-            shape.elasticity = 0.5
-            shape.friction = 0.5
-            # Store entity ID in body for lookup
-            body.userdata = entity
-            
-            # Yukkuri collides with Walls and other Yukkuris, but NOT items (to avoid pushing them away)
-            # We want them to be able to overlap with items to eat them.
-            # Eating logic uses distance checks, so physical overlap is safe and desired.
-            shape.filter = pymunk.ShapeFilter(
-                categories=CollisionCategories.YUKKURI,
-                mask=CollisionCategories.WALL | CollisionCategories.YUKKURI | CollisionCategories.POOP
+            self._add_physics(
+                entity=entity,
+                shape_type="circle",
+                mass=10,
+                position=(x, y),
+                radius_or_size=radius,
+                collision_category=CollisionCategories.YUKKURI,
+                collision_mask=CollisionCategories.WALL | CollisionCategories.YUKKURI | CollisionCategories.POOP,
+                elasticity=0.5,
+                friction=0.5,
+                set_userdata=True
             )
-            self.physics_system.space.add(body, shape)
-            self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
         return entity
+
+    def _add_physics(self, entity: int, shape_type: str, mass: float, position: tuple[float, float],
+                 radius_or_size: Any, collision_category: int, collision_mask: int,
+                 elasticity: float = 0.5, friction: float = 0.5, set_userdata: bool = False) -> None:
+        """
+        Adds a physics body to an entity.
+
+        Args:
+            entity (int): The entity ID.
+            shape_type (str): "circle" or "box".
+            mass (float): The mass of the body.
+            position (tuple[float, float]): Initial position (x, y).
+            radius_or_size (Any): Radius (float) if circle, size (tuple) if box.
+            collision_category (int): Bitmask category.
+            collision_mask (int): Bitmask mask.
+            elasticity (float): Bounciness.
+            friction (float): Friction.
+            set_userdata (bool): Whether to set body.userdata to entity ID.
+        """
+        if not self.physics_system:
+            return
+
+        if shape_type == "circle":
+            radius = float(radius_or_size)
+            inertia = pymunk.moment_for_circle(mass, 0, radius)
+            body = pymunk.Body(mass, inertia)
+            shape = pymunk.Circle(body, radius)
+        elif shape_type == "box":
+            width, height = radius_or_size
+            inertia = pymunk.moment_for_box(mass, (width, height))
+            body = pymunk.Body(mass, inertia)
+            shape = pymunk.Poly.create_box(body, (width, height))
+        else:
+            raise ValueError(f"Unknown shape type: {shape_type}")
+
+        body.position = position
+        shape.elasticity = elasticity
+        shape.friction = friction
+        shape.filter = pymunk.ShapeFilter(categories=collision_category, mask=collision_mask)
+
+        if set_userdata:
+            body.userdata = entity
+
+        self.physics_system.space.add(body, shape)
+        self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
     def create_floating_text(self, x: float, y: float, text: str, color: tuple[int, int, int], size: int = 20, lifetime: float = 2.0, velocity_y: float = -50.0) -> int:
         """
@@ -319,17 +357,17 @@ class EntityFactory:
         self.world.add_component(entity, VisualTransform())
 
         if self.physics_system:
-            body = pymunk.Body(1, pymunk.moment_for_circle(1, 0, 10))
-            body.position = x, y
-            shape = pymunk.Circle(body, 10)
-            shape.elasticity = 0.2
-            shape.friction = 0.8
-            shape.filter = pymunk.ShapeFilter(
-                categories=CollisionCategories.POOP,
-                mask=CollisionCategories.ALL
+            self._add_physics(
+                entity=entity,
+                shape_type="circle",
+                mass=1,
+                position=(x, y),
+                radius_or_size=10,
+                collision_category=CollisionCategories.POOP,
+                collision_mask=CollisionCategories.ALL,
+                elasticity=0.2,
+                friction=0.8
             )
-            self.physics_system.space.add(body, shape)
-            self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
         return entity
 
     def create_item(self, type_id: str, x: float, y: float) -> int:
@@ -380,17 +418,16 @@ class EntityFactory:
         self.world.add_component(entity, stats)
 
         if self.physics_system:
-            body = pymunk.Body(1, pymunk.moment_for_box(1, (width, height)))
-            body.position = x, y
-            shape = pymunk.Poly.create_box(body, (width, height))
-            shape.elasticity = 0.5
-            shape.friction = 0.5
-            shape.filter = pymunk.ShapeFilter(
-                categories=CollisionCategories.ITEM,
-                # Items collide with walls, but they don't block Yukkuris
-                mask=CollisionCategories.WALL | CollisionCategories.POOP | CollisionCategories.ITEM
+             self._add_physics(
+                entity=entity,
+                shape_type="box",
+                mass=1,
+                position=(x, y),
+                radius_or_size=(width, height),
+                collision_category=CollisionCategories.ITEM,
+                collision_mask=CollisionCategories.WALL | CollisionCategories.POOP | CollisionCategories.ITEM,
+                elasticity=0.5,
+                friction=0.5
             )
-            self.physics_system.space.add(body, shape)
-            self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
         return entity

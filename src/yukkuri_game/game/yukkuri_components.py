@@ -136,8 +136,8 @@ class RelationshipData:
         self.core_sentiment_sum = sum(m.sentiment for m in self.core_buffer)
 
     def _add_trivial_memory(self, headline: MemoryHeadline):
-        if len(self.trivial_buffer) == self.trivial_buffer.maxlen:
-             removed = self.trivial_buffer.popleft() # Efficient pop from start (oldest)
+        if len(self.trivial_buffer) >= self.TRIVIAL_MAX_LEN:
+             removed = self.trivial_buffer.pop(0) # Remove oldest
              self.trivial_sentiment_sum -= removed.sentiment
 
         self.trivial_buffer.append(headline)
@@ -149,7 +149,7 @@ class RelationshipData:
         If full, only overwrites unlocked memories or lower importance if allowed.
         """
         # If space exists
-        if len(self.core_buffer) < self.core_buffer.maxlen:
+        if len(self.core_buffer) < self.CORE_MAX_LEN:
             self.core_buffer.append(headline)
             self.core_sentiment_sum += headline.sentiment
             return

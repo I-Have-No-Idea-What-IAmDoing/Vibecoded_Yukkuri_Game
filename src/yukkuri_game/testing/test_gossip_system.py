@@ -49,6 +49,18 @@ def test_witness_gossip_spatial(world, event_bus, gossip_system):
     mock_info.shape = mock_shape
 
     physics_system.space.point_query.return_value = [mock_info]
+    # Mock clear line of sight
+    physics_system.space.segment_query_first.return_value = None
+
+    # Register SectorMap
+    from ..game.systems.sector_system import SectorMap
+    sector_map = SectorMap(1000, 1000, 500)
+    world.services.register(sector_map, SectorMap)
+
+    # Update sector map
+    sector_map.update_entity(actor, 100, 100)
+    sector_map.update_entity(target, 110, 100)
+    sector_map.update_entity(witness, 150, 100)
 
     # Trigger Event
     event = SocialInteractionEvent(
@@ -60,6 +72,7 @@ def test_witness_gossip_spatial(world, event_bus, gossip_system):
     # Inject world into system manually (usually done by game manager)
     gossip_system.ecs_world = world
     gossip_system.physics_system = physics_system
+    gossip_system.sector_map = sector_map # Manually set for test
 
     # Call handler
     gossip_system.on_social_interaction(event)

@@ -538,14 +538,14 @@ class GameService:
         """
         self.world = world
 
-    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: set[int] = None) -> int:
+    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: set[int] | None = None) -> int:
         """
         Finds the best item (closest and relevant) for the entity at the given position.
 
         Args:
             position (tuple[float, float]): The (x, y) position of the searching entity.
             stat_criteria (str): The item stat to look for (e.g., "nutrition", "fun", "comfort").
-            exclude_ids (set[int]): Set of entity IDs to exclude from search.
+            exclude_ids (set[int] | None): Set of entity IDs to exclude from search.
 
         Returns:
             int: The entity ID of the best item, or -1 if none found.
