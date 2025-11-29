@@ -61,19 +61,12 @@ class SocialSystem(System):
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
 
-        # 1. Mood Decay (for all entities, but this is lighter than relationship map iteration)
-        # Ideally, this should also be distributed or event-driven, but for now we iterate stats
-        # to decay mood score.
-        entities_with_personality = world.get_entities_with(Personality)
-        for entity in entities_with_personality:
-            pers = world.get_component(entity, Personality)
-            if pers and pers.mood_score > 0:
-                pers.mood_score -= dt * 5.0 # Decay rate
-                if pers.mood_score <= 0:
-                    pers.mood_score = 0
-                    pers.mood = "NEUTRAL"
+        # 1. Update Mood based on Stats and Decay
+        # Iterating over entities that have BOTH Personality and YukkuriStats for mood updates
+        for entity, (pers, stats) in world.get_components_tuple(Personality, YukkuriStats):
+            self._update_mood_components(pers, stats, dt)
 
-        # 2. Distributed Relationship Cleanup
+        # 2. Update Relationships (Cleanup & Compatibility Drift)
         # Only check N entities per frame to remove very old/irrelevant relationships
         all_entities = world.get_entities_with(RelationshipRegistry)
         if not all_entities:
@@ -93,8 +86,10 @@ class SocialSystem(System):
                 max_age = 600 # 10 minutes
 
                 for other_id, rel_data in registry.relationships.items():
+                    # Compatibility Drift
+                    self._process_compatibility_drift(world, eid, other_id, rel_data, dt)
+
                     # If not permanent (family/mate) and old
-                    # (Mate/Family logic usually kept elsewhere or flagged, assuming ID check is enough)
                     other_registry = world.get_component(other_id, RelationshipRegistry)
                     is_special = (other_id == registry.mate_id) or \
                                  (registry.family_group_id is not None and \
@@ -109,6 +104,89 @@ class SocialSystem(System):
                     del registry.relationships[rid]
 
         self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(1, count)
+
+    def _process_compatibility_drift(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData, dt: float) -> None:
+        """
+        Slowly drifts affinity towards the natural compatibility level defined by traits.
+        """
+        if not self.trait_service:
+            return
+
+        subject_pers = world.get_component(subject_id, Personality)
+        other_pers = world.get_component(other_id, Personality)
+
+        if not subject_pers or not other_pers:
+            return
+
+        base_compatibility = 0.0
+
+        # Calculate target compatibility based on Traits
+        for my_trait in subject_pers.traits:
+            trait_data = self.trait_service.get_trait(my_trait)
+            if not trait_data or "social_modifiers" not in trait_data:
+                continue
+
+            social_mods = trait_data["social_modifiers"]
+            if "compatibility" not in social_mods:
+                continue
+
+            comp_map = social_mods["compatibility"]
+            for other_trait in other_pers.traits:
+                if other_trait in comp_map:
+                    base_compatibility += comp_map[other_trait]
+
+        # Drift towards base_compatibility
+        # Rate: 1 point per 60 seconds (approx)
+        drift_speed = 1.0 / 60.0
+
+        diff = base_compatibility - rel_data.affinity
+        # Only drift if significant difference
+        if abs(diff) > 1.0:
+            change = math.copysign(drift_speed * dt, diff)
+            # Don't overshoot
+            if abs(change) > abs(diff):
+                rel_data.affinity = base_compatibility
+            else:
+                rel_data.affinity += change
+
+
+    def _update_mood_components(self, pers: Personality, stats: YukkuriStats, dt: float) -> None:
+        """
+        Updates the mood of an entity based on stats and decay.
+        """
+        # Decay current mood intensity
+        if pers.mood_score > 0:
+            pers.mood_score -= dt * 5.0 # Decay rate
+            if pers.mood_score <= 0:
+                pers.mood_score = 0
+                pers.mood = "NEUTRAL"
+
+        # Check for Stat-driven Moods (Overrides neutral or weak moods)
+        # Priority: SCARED (Critical Health) > FURIOUS (Critical Stress) > SAD (Starving/Unhappy) > HAPPY (High needs)
+
+        # If current mood is strong (>50), we might stick with it unless critical
+        if pers.mood_score > 50.0:
+            return
+
+        new_mood = None
+        new_score = 0.0
+
+        if stats.health < stats.max_health * 0.3:
+            new_mood = "SCARED"
+            new_score = 80.0
+        elif getattr(stats, 'stress', 0.0) > 80.0:
+            new_mood = "FURIOUS"
+            new_score = 70.0
+        elif stats.hunger > 80.0 or stats.happiness < 20.0:
+            new_mood = "SAD"
+            new_score = 60.0
+        elif stats.happiness > 90.0 and stats.hunger < 10.0:
+            new_mood = "HAPPY"
+            new_score = 60.0
+
+        if new_mood and (new_mood != pers.mood or new_score > pers.mood_score):
+            pers.mood = new_mood
+            pers.mood_score = new_score
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         """
@@ -305,6 +383,25 @@ class SocialSystem(System):
             if mood_key in modifiers:
                 mod = modifiers[mood_key]
                 d_affinity += mod.get("affinity", 0.0)
+
+            # Use Values to multiply impacts
+            # Example: High Compassion -> Penalize bad acts more, reward nice acts more
+            # Proposal: "Values act as multipliers for specific types of actions"
+            # Since we don't have explicit 'action type' in impact data, we can infer from base_impact sign
+            compassion = subject_personality.values.get("compassion", 50.0)
+
+            # Compassion Multiplier
+            # > 50 increases positive social impact, > 50 increases negative social impact (sensitivity)
+            comp_mult = 1.0 + (compassion - 50.0) / 100.0 # 0.5 to 1.5
+
+            if base_impact_score > 0:
+                d_affinity *= comp_mult
+                d_trust *= comp_mult
+            elif base_impact_score < 0:
+                # If negative, high compassion means they get MORE upset (lower affinity faster)
+                d_affinity *= comp_mult
+                d_trust *= comp_mult
+                d_fear *= comp_mult
 
             # UPDATE MOOD based on impact
             if base_impact_score < -15:
