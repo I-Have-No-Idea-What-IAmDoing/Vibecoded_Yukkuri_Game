@@ -76,7 +76,7 @@ class SocialSystem(System):
 
         self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(1, count)
 
-    def _update_opinion(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData) -> None:
+    def _update_opinion(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData, force_compatibility_update: bool = False) -> None:
         """
         Recalculates the opinion (affinity) based on the formula:
         Opinion = Base Compatibility + Sum(CoreMemories) + Sum(TrivialEvents)
@@ -84,49 +84,47 @@ class SocialSystem(System):
         if not self.trait_service:
             return
 
-        # 1. Update Base Compatibility (if needed, or just every time for simplicity)
-        subject_pers = world.get_component(subject_id, Personality)
-        other_pers = world.get_component(other_id, Personality)
+        # 1. Update Base Compatibility
+        # We only update if explicitly requested or if it's 0 (uninitialized).
+        # In a real scenario, we might want a dirty flag on Personality.
+        # For now, we rely on the caller or lazy init.
+        if rel_data.base_compatibility == 0.0 or force_compatibility_update:
+            subject_pers = world.get_component(subject_id, Personality)
+            other_pers = world.get_component(other_id, Personality)
 
-        if subject_pers and other_pers:
-            base_compatibility = 0.0
+            if subject_pers and other_pers:
+                base_compatibility = 0.0
 
-            # Calculate from Axis comparison
-            if subject_pers.axis and other_pers.axis:
-                diff_kind = abs(subject_pers.axis.kindness - other_pers.axis.kindness)
-                diff_ener = abs(subject_pers.axis.energy - other_pers.axis.energy)
-                diff_brav = abs(subject_pers.axis.bravery - other_pers.axis.bravery)
-                diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
+                # Calculate from Axis comparison
+                if subject_pers.axis and other_pers.axis:
+                    diff_kind = abs(subject_pers.axis.kindness - other_pers.axis.kindness)
+                    diff_ener = abs(subject_pers.axis.energy - other_pers.axis.energy)
+                    diff_brav = abs(subject_pers.axis.bravery - other_pers.axis.bravery)
+                    diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
 
-                total_diff = diff_kind + diff_ener + diff_brav + diff_gree
-                # 800 diff -> -100. 0 diff -> 100.
-                base_compatibility += (100.0 - (total_diff / 4.0))
+                    total_diff = diff_kind + diff_ener + diff_brav + diff_gree
+                    # 800 diff -> -100. 0 diff -> 100.
+                    base_compatibility += (100.0 - (total_diff / 4.0))
 
-            # Traits compatibility
-            for my_trait in subject_pers.traits:
-                trait_data = self.trait_service.get_trait(my_trait)
-                if not trait_data or "social_modifiers" not in trait_data:
-                    continue
+                # Traits compatibility
+                for my_trait in subject_pers.traits:
+                    trait_data = self.trait_service.get_trait(my_trait)
+                    if not trait_data or "social_modifiers" not in trait_data:
+                        continue
 
-                social_mods = trait_data["social_modifiers"]
-                if "compatibility" not in social_mods:
-                    continue
+                    social_mods = trait_data["social_modifiers"]
+                    if "compatibility" not in social_mods:
+                        continue
 
-                comp_map = social_mods["compatibility"]
-                for other_trait in other_pers.traits:
-                    if other_trait in comp_map:
-                        base_compatibility += comp_map[other_trait]
+                    comp_map = social_mods["compatibility"]
+                    for other_trait in other_pers.traits:
+                        if other_trait in comp_map:
+                            base_compatibility += comp_map[other_trait]
 
-            rel_data.base_compatibility = base_compatibility
+                rel_data.base_compatibility = base_compatibility
 
-        # 2. Sum Memories
-        memory_score = 0.0
-
-        for mem in rel_data.core_buffer:
-            memory_score += mem.sentiment
-
-        for mem in rel_data.trivial_buffer:
-            memory_score += mem.sentiment
+        # 2. Sum Memories (using cached sums)
+        memory_score = rel_data.core_sentiment_sum + rel_data.trivial_sentiment_sum
 
         # 3. Final Calculation
         rel_data.affinity = rel_data.base_compatibility + memory_score
