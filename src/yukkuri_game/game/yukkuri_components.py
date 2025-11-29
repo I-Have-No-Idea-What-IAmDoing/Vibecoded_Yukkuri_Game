@@ -196,6 +196,17 @@ class GossipQueue(Component):
     priority_queue: List[GossipPacket] = field(default_factory=list)
 
     def add_packet(self, packet: GossipPacket, max_length: int = 10):
+        # Merge Duplicates: Check if we already have a packet for this target and event
+        for i, existing in enumerate(self.priority_queue):
+            if existing.target_id == packet.target_id and existing.event_type == packet.event_type:
+                # Keep the one with higher value (importance)
+                if packet.value > existing.value:
+                    self.priority_queue[i] = packet
+                # Sort again after modification
+                self.priority_queue.sort(key=lambda x: x.value, reverse=True)
+                return
+
+        # If not found, add new
         self.priority_queue.append(packet)
         self.priority_queue.sort(key=lambda x: x.value, reverse=True)
         if len(self.priority_queue) > max_length:

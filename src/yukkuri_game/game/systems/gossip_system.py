@@ -167,8 +167,8 @@ class GossipSystem(System):
 
         is_group_member = self._is_in_same_interest_group(world, sender_id, receiver_id)
 
-        # Share top packets
-        for packet in sender_queue.priority_queue:
+        # Share top 3 packets only
+        for packet in sender_queue.priority_queue[:3]:
             # Don't share gossip about the receiver to the receiver
             if packet.target_id == receiver_id:
                 continue
@@ -189,6 +189,11 @@ class GossipSystem(System):
             receiver_queue.add_packet(new_packet, max_length=max_length)
 
     def _add_witness_gossip(self, world: World, witness_id: int, event: SocialInteractionEvent, now: float, value: float):
+        # Threshold Check
+        witness_threshold = 5.0
+        if value < witness_threshold:
+            return
+
         gossip = world.get_component(witness_id, GossipQueue)
         if not gossip: return
 
