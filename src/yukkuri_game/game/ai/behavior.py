@@ -22,7 +22,8 @@ from ..components import (
     Velocity,
 )
 from ..services import GameService
-from ..yukkuri_components import AIState, ItemStats, YukkuriStats, EmotionalState
+from ..yukkuri_components import AIState, ItemStats, YukkuriStats, EmotionalState, Personality
+from ..trait_service import TraitService
 from .base_action import Action
 from .navigation_service import NavigationService
 from .utility_selector import UtilitySelector
@@ -30,8 +31,106 @@ from .utility_selector import UtilitySelector
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
 
+def _is_brave(entity_id: int, world: "World") -> bool:
+    """
+    Helper to check if a yukkuri is brave (Bravery > 0).
+    """
+    personality = world.get_component(entity_id, Personality)
+    if personality and personality.axis:
+        return personality.axis.bravery > 0
+    return False
 
 # --- Behavior Tree Leaves (Actions) ---
+
+class FindFood(Action):
+    """
+    Action to find food.
+    If the entity has the PREDATOR trait (or 'can_eat_yukkuri' modifier),
+    it will also consider other Yukkuris as food.
+    """
+
+    def __init__(self, name: str, entity_id: int, world: "World", stat_criteria: str = "nutrition"):
+        super().__init__(name, entity_id, world)
+        self.stat_criteria = stat_criteria
+
+    def update(self) -> Status:
+        super().update()
+        if self.world is None or self.entity_id is None:
+            return Status.FAILURE
+
+        ai = self.world.get_component(self.entity_id, AIState)
+        trans = self.world.get_component(self.entity_id, Transform)
+
+        if ai is None or trans is None:
+            return Status.FAILURE
+
+        game_service = self.world.services.try_get(GameService)
+        best_target = -1
+
+        # 1. Look for Items
+        if game_service:
+            best_target = game_service.find_best_item(
+                (trans.x, trans.y), self.stat_criteria, exclude_ids=ai.failed_targets
+            )
+
+        # 2. If Predator, look for Prey (Yukkuris)
+        can_eat_yukkuri = False
+        personality = self.world.get_component(self.entity_id, Personality)
+        trait_service = self.world.services.try_get(TraitService)
+
+        if personality and trait_service:
+            # We need to check effective modifiers.
+            overrides = personality.cached_overrides
+            if overrides is None:
+                 overrides = trait_service.calculate_overrides(personality.traits)
+                 personality.cached_overrides = overrides # Cache the result
+
+            if overrides and overrides.get("can_eat_yukkuri"):
+                can_eat_yukkuri = True
+
+        if can_eat_yukkuri:
+            # Find closest Yukkuri (Prey)
+            # TODO: Optimization: Use SectorSystem to avoid O(N) global scan
+            nearby_yukkuris = self.world.get_entities_with(YukkuriStats, Transform)
+
+            min_dist = float('inf')
+            best_prey = -1
+
+            for uid in nearby_yukkuris:
+                if uid == self.entity_id: continue
+                if uid in ai.failed_targets: continue
+
+                u_trans = self.world.get_component(uid, Transform)
+                if not u_trans: continue
+
+                dist = math.hypot(u_trans.x - trans.x, u_trans.y - trans.y)
+                if dist < min_dist:
+                    min_dist = dist
+                    best_prey = uid
+
+            # If we found prey, compare with item (if any)
+            if best_prey != -1:
+                if best_target == -1:
+                    best_target = best_prey
+                else:
+                    # Determine which is closer
+                    # We need item position
+                    item_trans = self.world.get_component(best_target, Transform)
+                    if item_trans:
+                        item_dist = math.hypot(item_trans.x - trans.x, item_trans.y - trans.y)
+                        if min_dist < item_dist:
+                            best_target = best_prey
+
+        if best_target != -1:
+            if ai.current_target_id != best_target:
+                ai.current_target_id = best_target
+                ai.path = None
+            return Status.SUCCESS
+
+        if ai.failed_targets:
+            ai.failed_targets.clear()
+
+        return Status.FAILURE
 
 
 class MoveToTarget(Action):
@@ -92,15 +191,6 @@ class MoveToTarget(Action):
             return Status.FAILURE
 
         # Pathfinding (simplified)
-        # Check if path needs (re)calculation.
-        # This includes if path is empty, OR if we're moving to a dynamic target (entity)
-        # and the target has moved significantly.
-        # For now, just check if empty or None, but also ensure we don't assume empty path means success here.
-
-        # NOTE: One issue might be that ai.path is empty because we just finished a path?
-        # But if we are here, dist_to_final >= acceptance_radius. So we are NOT there yet.
-        # So empty path means we need to find one.
-
         if ai.path is None or len(ai.path) == 0:
             nav_service = self.world.services.try_get(NavigationService)
             if nav_service:
@@ -130,13 +220,10 @@ class MoveToTarget(Action):
         if dist_to_next < 15.0:  # Waypoint acceptance can remain small
             ai.path.pop(0)
             if not ai.path:
-                # Path finished. Check if we are actually at the target.
-                # If target moved or path was partial, we might not be there yet.
                 if dist_to_final < self.acceptance_radius:
                     controller.target_velocity = pymunk.Vec2d(0, 0)
                     return Status.SUCCESS
                 else:
-                    # Not at target yet. Force path recalculation.
                     ai.path = None
                     controller.target_velocity = pymunk.Vec2d(0, 0)
                     return Status.RUNNING
@@ -145,10 +232,18 @@ class MoveToTarget(Action):
             vector_to_next = next_point - current_pos
 
         # Calculate final velocity
-        # Simple speed modifier based on energy
+        # Speed modifier based on Personality Energy (Active/Lazy)
+        # Axis: -100 (Lazy) to 100 (Hyper)
         speed_modifier = 1.0
+        personality = self.world.get_component(self.entity_id, Personality)
+        if personality and personality.axis:
+            # Map -100..100 to 0.5..1.5
+            energy_val = personality.axis.energy
+            speed_modifier = 1.0 + (energy_val / 200.0)
+
+        # Also fatigue penalty from Stats.energy (Stamina)
         if stats.energy < 30:
-            speed_modifier = 0.5
+            speed_modifier *= 0.5
 
         final_speed = self.speed * speed_modifier
         controller.target_velocity = vector_to_next.normalized() * final_speed
@@ -177,14 +272,6 @@ class Wander(Action):
     ):
         """
         Initializes the Wander action.
-
-        Args:
-            name (str): The name of the behavior node.
-            entity_id (Optional[int]): The ID of the entity.
-            world (Optional[World]): The ECS World instance.
-            blackboard (Optional[Any]): The Behavior Tree blackboard.
-            width (int): The width of the area to wander within.
-            height (int): The height of the area to wander within.
         """
         super().__init__(name, entity_id, world, blackboard)
         self.width = width
@@ -194,9 +281,6 @@ class Wander(Action):
     def initialise(self) -> None:
         """
         Selects a random target location and initializes the move action.
-
-        Returns:
-            None
         """
         if self.world is None or self.entity_id is None:
             return
@@ -217,9 +301,6 @@ class Wander(Action):
     def update(self) -> Status:
         """
         Updates the move action.
-
-        Returns:
-            Status: The status of the move action (RUNNING, SUCCESS, FAILURE).
         """
         if self.move_action:
             return self.move_action.update()
@@ -239,26 +320,10 @@ class Interact(Action):
         blackboard: Optional[Any] = None,
         consume: bool = True,
     ):
-        """
-        Initializes the Interact action.
-
-        Args:
-            name (str): The name of the behavior node.
-            entity_id (Optional[int]): The ID of the entity.
-            world (Optional[World]): The ECS World instance.
-            blackboard (Optional[Any]): The Behavior Tree blackboard.
-            consume (bool): Whether the interaction should consume the target.
-        """
         super().__init__(name, entity_id, world, blackboard)
         self.consume = consume
 
     def update(self) -> Status:
-        """
-        Checks distance to target and performs interaction if close enough.
-
-        Returns:
-            Status: SUCCESS if interaction complete, RUNNING if waiting/moving closer (though MoveToTarget handles moving), FAILURE if target invalid.
-        """
         super().update()
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
@@ -270,16 +335,13 @@ class Interact(Action):
             return Status.FAILURE
 
         if ai.current_target_id == -1:
-            # If target lost or not set, check if we can find it again locally or fail
             return Status.FAILURE
 
         target_trans = self.world.get_component(ai.current_target_id, Transform)
         if target_trans is None:
-            # print("Interact Fail: Target trans missing")
             return Status.FAILURE
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
-        # print(f"Interact Check: Dist={dist}")
         if dist <= 30.0:  # Interaction range
             if not self.world.has_component(self.entity_id, InteractionRequest):
                 self.world.add_component(
@@ -288,9 +350,6 @@ class Interact(Action):
                         target_id=ai.current_target_id, consume=self.consume
                     ),
                 )
-            # We return SUCCESS immediately as the request is queued.
-            # The system will handle the rest next frame.
-            # If animations are needed, we might need to wait, but for now immediate success matches previous behavior.
             return Status.SUCCESS
 
         return Status.RUNNING
@@ -304,25 +363,10 @@ class SocialInteract(Action):
     def __init__(
         self, name: str, entity_id: int, world: "World", interaction_type: str
     ):
-        """
-        Initializes the SocialInteract action.
-
-        Args:
-            name (str): The name of the behavior node.
-            entity_id (int): The ID of the entity.
-            world (World): The ECS World instance.
-            interaction_type (str): The type of interaction (e.g., "Talk", "Fight").
-        """
         super().__init__(name, entity_id, world)
         self.interaction_type = interaction_type  # "Talk", "Fight", "Dance"
 
     def update(self) -> Status:
-        """
-        Checks distance and performs the social interaction.
-
-        Returns:
-            Status: SUCCESS if interaction complete, RUNNING if waiting/moving closer, FAILURE if target invalid.
-        """
         super().update()
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
@@ -341,7 +385,7 @@ class SocialInteract(Action):
             return Status.FAILURE
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
-        if dist <= 40.0:  # Interaction range slightly larger for social
+        if dist <= 40.0:
             game_service = self.world.services.try_get(GameService)
             if game_service:
                 success = game_service.interact_social(
@@ -358,25 +402,10 @@ class FindSocialTarget(Action):
     """
 
     def __init__(self, name: str, entity_id: int, world: "World", criteria: str):
-        """
-        Initializes the FindSocialTarget action.
-
-        Args:
-            name (str): The name of the behavior node.
-            entity_id (int): The ID of the entity.
-            world (World): The ECS World instance.
-            criteria (str): Criteria for selecting a target (e.g., "friend", "enemy", "any").
-        """
         super().__init__(name, entity_id, world)
         self.criteria = criteria  # "friend", "enemy", "any"
 
     def update(self) -> Status:
-        """
-        Searches for a suitable social target.
-
-        Returns:
-            Status: SUCCESS if target found, FAILURE otherwise.
-        """
         super().update()
         if not self.world or not self.entity_id:
             return Status.FAILURE
@@ -397,7 +426,6 @@ class FindSocialTarget(Action):
             if uid == self.entity_id:
                 continue
 
-            # Skip failed targets
             if uid in ai.failed_targets:
                 continue
 
@@ -407,7 +435,6 @@ class FindSocialTarget(Action):
             if u_stats is None or u_trans is None:
                 continue
 
-            # Check criteria
             is_compatible = u_stats.type_id == my_stats.type_id
 
             match = False
@@ -445,26 +472,11 @@ class Idle(Action):
         world: Optional["World"] = None,
         blackboard: Optional[Any] = None,
     ):
-        """
-        Initializes the Idle action.
-
-        Args:
-            name (str): The name of the behavior node.
-            entity_id (Optional[int]): The ID of the entity.
-            world (Optional[World]): The ECS World instance.
-            blackboard (Optional[Any]): The Behavior Tree blackboard.
-        """
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:
-        """
-        Stops the entity's physics velocity.
-
-        Returns:
-            Status: Always returns SUCCESS.
-        """
         if self.world is None or self.entity_id is None:
-            return Status.SUCCESS  # Or failure?
+            return Status.SUCCESS
 
         phys = self.world.get_component(self.entity_id, PhysicsBody)
         if phys:
@@ -475,29 +487,13 @@ class Idle(Action):
 class Check(Action):
     """
     A behavior node that checks a condition function.
-
-    Attributes:
-        check_fn (Callable[[], bool]): The function to check.
     """
 
     def __init__(self, name: str, check_fn: Callable[[], bool]):
-        """
-        Initializes the Check behavior.
-
-        Args:
-            name: The name of the behavior node.
-            check_fn: The function to call. Should return True for success.
-        """
         super().__init__(name)
         self.check_fn = check_fn
 
     def update(self) -> Status:
-        """
-        Evaluates the check function.
-
-        Returns:
-            Status: SUCCESS if check_fn returns True, else FAILURE.
-        """
         if self.check_fn():
             return Status.SUCCESS
         return Status.FAILURE
@@ -516,6 +512,45 @@ class CheckEmotion(Action):
         emotion = self.world.get_component(self.entity_id, EmotionalState)
         if emotion and self.check_fn(emotion):
             return Status.SUCCESS
+        return Status.FAILURE
+
+
+class FindItem(Action):
+    """
+    Action to find an item based on criteria.
+    """
+    def __init__(self, name: str, entity_id: int, world: "World", stat_criteria: str):
+        super().__init__(name, entity_id, world)
+        self.stat_criteria = stat_criteria
+
+    def update(self) -> Status:
+        super().update()
+        if self.world is None or self.entity_id is None:
+            return Status.FAILURE
+
+        ai = self.world.get_component(self.entity_id, AIState)
+        trans = self.world.get_component(self.entity_id, Transform)
+
+        if ai is None or trans is None:
+            return Status.FAILURE
+
+        game_service = self.world.services.try_get(GameService)
+        best_item = -1
+
+        if game_service:
+            best_item = game_service.find_best_item(
+                (trans.x, trans.y), self.stat_criteria, exclude_ids=ai.failed_targets
+            )
+
+        if best_item != -1:
+            if ai.current_target_id != best_item:
+                ai.current_target_id = best_item
+                ai.path = None # Force re-pathing
+            return Status.SUCCESS
+
+        if ai.failed_targets:
+            ai.failed_targets.clear()
+
         return Status.FAILURE
 
 
@@ -546,14 +581,6 @@ class BehaviorRegistry:
         ],
         required_component: Optional[Type[Any]] = None,
     ) -> None:
-        """
-        Registers a behavior builder function for a specific goal.
-
-        Args:
-            goal_name (str): The name of the goal.
-            builder (Callable): The function that builds the behavior subtree.
-            required_component (Optional[Type[Any]]): The component required on the target.
-        """
         cls._goals[goal_name] = builder
         if required_component:
             cls._target_requirements[goal_name] = required_component
@@ -568,25 +595,10 @@ class BehaviorRegistry:
             Behaviour,
         ],
     ]:
-        """
-        Retrieves all registered goals.
-
-        Returns:
-            Dict[str, Callable]: A dictionary mapping goal names to builder functions.
-        """
         return cls._goals
 
     @classmethod
     def get_target_requirement(cls, goal_name: str) -> Optional[Type[Any]]:
-        """
-        Retrieves the required component type for a goal's target.
-
-        Args:
-            goal_name (str): The name of the goal.
-
-        Returns:
-            Optional[Type[Any]]: The required component type or None.
-        """
         return cls._target_requirements.get(goal_name)
 
 
@@ -601,20 +613,14 @@ def build_eat_behavior(
     """
     Builds the behavior subtree for the 'Eat' goal.
     """
-    # Use memory=False to ensure we re-evaluate children (allowing for target switching)
     eat_sequence = py_trees.composites.Sequence(name="Eat Sequence", memory=False)
 
     is_eating = Check(name="Goal=Eat?", check_fn=lambda: check_goal_fn("Eat"))
 
-    # Execution Sequence:
-    # 1. Ensure we have the BEST target (FindItem).
-    # 2. Move to target.
-    # 3. Interact.
     eat_execution = py_trees.composites.Sequence(name="Eat Execution", memory=False)
 
-    # FindFood will find the best food. If it changes target, it updates AIState and clears path.
-    # If no food is found, it fails, aborting the sequence.
-    find_food = FindItem(
+    # FindFood will find the best food (Item or Prey).
+    find_food = FindFood(
         name="Find Best Food", entity_id=entity_id, world=world, stat_criteria="nutrition"
     )
 
@@ -628,69 +634,6 @@ def build_eat_behavior(
     return eat_sequence
 
 
-class FindItem(Action):
-    """
-    Action to find an item based on criteria.
-
-    Attributes:
-        stat_criteria (str): The item stat to look for (e.g., "nutrition", "fun").
-    """
-
-    def __init__(self, name: str, entity_id: int, world: "World", stat_criteria: str):
-        """
-        Initializes the FindItem action.
-
-        Args:
-            name (str): The name of the node.
-            entity_id (int): The entity ID.
-            world (World): The ECS World.
-            stat_criteria (str): The stat criteria.
-        """
-        super().__init__(name, entity_id, world)
-        self.stat_criteria = stat_criteria
-
-    def update(self) -> Status:
-        """
-        Searches for the best item matching the criteria.
-
-        Returns:
-            Status: SUCCESS if item found, FAILURE otherwise.
-        """
-        super().update()
-        if self.world is None or self.entity_id is None:
-            return Status.FAILURE
-
-        ai = self.world.get_component(self.entity_id, AIState)
-        trans = self.world.get_component(self.entity_id, Transform)
-
-        if ai is None or trans is None:
-            return Status.FAILURE
-
-        game_service = self.world.services.try_get(GameService)
-        best_item = -1
-
-        if game_service:
-            best_item = game_service.find_best_item(
-                (trans.x, trans.y), self.stat_criteria, exclude_ids=ai.failed_targets
-            )
-
-        if best_item != -1:
-            # Only update and clear path if the target actually changed
-            if ai.current_target_id != best_item:
-                ai.current_target_id = best_item
-                ai.path = None # Force re-pathing
-
-            return Status.SUCCESS
-
-        # If no item found, but we have ignored some targets (failed previously),
-        # clear the failed list so we can retry them next frame.
-        # This prevents the AI from starving if the only food source was momentarily unreachable.
-        if ai.failed_targets:
-            ai.failed_targets.clear()
-
-        return Status.FAILURE
-
-
 def build_sleep_behavior(
     entity_id: int,
     world: "World",
@@ -699,15 +642,11 @@ def build_sleep_behavior(
     check_goal_fn: Callable[[str], bool],
     check_target_fn: Callable[[], bool],
 ) -> Behaviour:
-    """
-    Builds the behavior subtree for the 'Sleep' goal.
-    """
     sleep_sequence = py_trees.composites.Sequence(name="Sleep Sequence", memory=False)
 
     is_sleeping = Check(name="Goal=Sleep?", check_fn=lambda: check_goal_fn("Sleep"))
     sleep_execution = py_trees.composites.Sequence(name="Sleep Execution", memory=False)
 
-    # 1. Find best bed
     find_bed = FindItem(
         name="Find Best Bed", entity_id=entity_id, world=world, stat_criteria="comfort"
     )
@@ -732,15 +671,11 @@ def build_play_behavior(
     check_goal_fn: Callable[[str], bool],
     check_target_fn: Callable[[], bool],
 ) -> Behaviour:
-    """
-    Builds the behavior subtree for the 'Play' goal.
-    """
     play_sequence = py_trees.composites.Sequence(name="Play Sequence", memory=False)
 
     is_playing = Check(name="Goal=Play?", check_fn=lambda: check_goal_fn("Play"))
     play_execution = py_trees.composites.Sequence(name="Play Execution", memory=False)
 
-    # 1. Find best toy
     find_toy = FindItem(
         name="Find Best Toy", entity_id=entity_id, world=world, stat_criteria="fun"
     )
@@ -765,20 +700,6 @@ def build_wander_behavior(
     check_goal_fn: Callable[[str], bool],
     check_target_fn: Callable[[], bool],
 ) -> Behaviour:
-    """
-    Builds the behavior subtree for the 'Wander' goal.
-
-    Args:
-        entity_id (int): The entity ID.
-        world (World): The ECS World.
-        width (int): World width.
-        height (int): World height.
-        check_goal_fn (Callable): Function to check if this is the current goal.
-        check_target_fn (Callable): Function to check if the target exists.
-
-    Returns:
-        Behaviour: The behavior subtree.
-    """
     wander_sequence = py_trees.composites.Sequence(name="Wander Sequence", memory=True)
     is_wandering = Check(
         name="Goal=Wander?",
@@ -797,9 +718,6 @@ def build_talk_behavior(
     check_goal_fn: Callable[[str], bool],
     check_target_fn: Callable[[], bool],
 ) -> Behaviour:
-    """
-    Builds the behavior subtree for the 'Talk' goal.
-    """
     talk_sequence = py_trees.composites.Sequence(name="Talk Sequence", memory=False)
     is_talking = Check(name="Goal=Talk?", check_fn=lambda: check_goal_fn("Talk"))
 
@@ -832,9 +750,6 @@ def build_fight_behavior(
     check_goal_fn: Callable[[str], bool],
     check_target_fn: Callable[[], bool],
 ) -> Behaviour:
-    """
-    Builds the behavior subtree for the 'Fight' goal.
-    """
     fight_sequence = py_trees.composites.Sequence(name="Fight Sequence", memory=False)
     is_fighting = Check(name="Goal=Fight?", check_fn=lambda: check_goal_fn("Fight"))
 
@@ -867,9 +782,6 @@ def build_dance_behavior(
     check_goal_fn: Callable[[str], bool],
     check_target_fn: Callable[[], bool],
 ) -> Behaviour:
-    """
-    Builds the behavior subtree for the 'Dance' goal.
-    """
     dance_sequence = py_trees.composites.Sequence(name="Dance Sequence", memory=False)
     is_dancing = Check(name="Goal=Dance?", check_fn=lambda: check_goal_fn("Dance"))
 
@@ -909,44 +821,15 @@ def create_yukkuri_behavior_tree(
 ) -> py_trees.composites.Sequence:
     """
     Builds the behavior tree for a Yukkuri.
-
-    The tree structure uses a UtilitySelector to pick a goal, then executes that goal.
-    It now includes a "Stress Break" high-priority sequence.
-
-    Args:
-        entity_id (int): The ID of the Yukkuri entity.
-        world (World): The ECS World instance.
-        width (int): The width of the world boundary.
-        height (int): The height of the world boundary.
-
-    Returns:
-        py_trees.composites.Sequence: The root node of the behavior tree.
     """
 
-    # Check Goal Condition
     def check_goal(goal_name: str) -> bool:
-        """
-        Checks if the entity's current AI goal matches the given name.
-
-        Args:
-            goal_name (str): The goal to check.
-
-        Returns:
-            bool: True if matches, False otherwise.
-        """
         ai = world.get_component(entity_id, AIState)
         if not ai:
             return False
         return bool(ai.current_action == goal_name)
 
-    # Check Target Condition
     def check_target_exists() -> bool:
-        """
-        Checks if the entity's current target exists in the world.
-
-        Returns:
-            bool: True if target exists, False otherwise.
-        """
         ai = world.get_component(entity_id, AIState)
         if not ai or ai.current_target_id == -1:
             return False
@@ -955,28 +838,11 @@ def create_yukkuri_behavior_tree(
         if not has_trans:
             return False
 
-        # Context-aware check using BehaviorRegistry metadata
         req_comp = BehaviorRegistry.get_target_requirement(ai.current_action)
         if req_comp:
             return world.has_component(ai.current_target_id, req_comp)
 
         return True
-
-    # --- Root Sequence ---
-    # 0. Stress Break (High Priority)
-    # 1. Select Goal (UtilitySelector)
-    # 2. Execute Goal (Selector)
-    root = py_trees.composites.Sequence(name="Root Sequence", memory=False)
-
-    # 0. Stress Break
-    # If Stress > 90, force panic/tantrum. This should ideally interrupt everything else.
-    # We can use a Selector at the top. If StressBreak succeeds (meaning we are stressed and doing panic),
-    # the rest is skipped. Wait, Sequence runs all. We want a Selector for "Emergency vs Normal".
-
-    # Let's restructure:
-    # Root (Selector)
-    #   -> Stress Break Sequence (Check Stress -> Panic Action)
-    #   -> Normal Behavior Sequence (Utility -> Execution)
 
     root_selector = py_trees.composites.Selector(name="Root Selector", memory=False)
 
@@ -987,21 +853,39 @@ def create_yukkuri_behavior_tree(
         world=world,
         check_fn=lambda e: e.stress > 90
     )
-    # For now, panic is just Idle (freeze in terror) or maybe random movement later.
-    # We can reuse Idle for "Freeze".
+
+    # Response to Stress: Panic (Idle) or Rage (Wander/Fight)
+    # Determined by Bravery axis.
+    # We use a Selector to choose based on Personality.
+
+    stress_response_selector = py_trees.composites.Selector(name="Stress Response Selector", memory=False)
+
+    # Rage Path (Brave)
+    rage_sequence = py_trees.composites.Sequence(name="Rage Sequence", memory=False)
+    check_brave = Check(
+        name="Is Brave?",
+        check_fn=lambda: _is_brave(entity_id, world)
+    )
+    # Rage Action: For now, just Wander aggressively or similar.
+    # Ideally, this would be "Attack anything nearby", but reusing Wander is safer fallback.
+    # We can use Wander with high speed or specialized Rage behavior later.
+    rage_action = Wander(name="Rage Wander", entity_id=entity_id, world=world, width=width, height=height)
+    rage_sequence.add_children([check_brave, rage_action])
+
+    # Panic Path (Default/Coward)
     panic_action = Idle(name="Panic Freeze", entity_id=entity_id, world=world)
-    stress_break.add_children([check_stress, panic_action])
+
+    stress_response_selector.add_children([rage_sequence, panic_action])
+
+    stress_break.add_children([check_stress, stress_response_selector])
 
     root_selector.add_child(stress_break)
 
-    # Normal Behavior
     normal_behavior = py_trees.composites.Sequence(name="Normal Behavior", memory=False)
 
-    # 1. Utility Selector
     utility_selector = UtilitySelector(entity_id=entity_id, world=world)
     normal_behavior.add_child(utility_selector)
 
-    # 2. Execution Selector
     execution_selector = py_trees.composites.Selector(
         name="Execution Selector", memory=False
     )

@@ -143,12 +143,16 @@ class SectorSystem(System):
         for entity, (transform,) in world.get_components_tuple(Transform):
             self.sector_map.update_entity(entity, transform.x, transform.y)
 
-        # TODO: Handle removed entities.
-        # A robust way is needed to detect destroyed entities.
-        # Ideally, we subscribe to an EntityDestroyedEvent if the engine supports it.
-        # Or, we can do a cleanup pass occasionally.
-        # For now, let's assume we might have stale IDs if we don't clean up,
-        # but get_components_tuple iterates current valid entities.
-        # The SectorMap might accumulate dead IDs.
-        # We can implement a "sweep" or handle it in EntityFactory/World.destroy_entity wrapper if possible.
-        # Since we can't easily hook destroy_entity without modifying World, we might just do a periodic cleanup or check existence.
+        self.cleanup_entities(world)
+
+    def cleanup_entities(self, world: World):
+        """
+        Removes entities from the SectorMap if they no longer exist in the World.
+        """
+        to_remove = []
+        for eid in self.sector_map.entity_sectors:
+            if not world.entity_exists(eid):
+                to_remove.append(eid)
+
+        for eid in to_remove:
+            self.sector_map.remove_entity(eid)

@@ -68,7 +68,10 @@ class SocialSystem(System):
                                   other_registry.family_group_id == registry.family_group_id)
 
                     age = now - rel_data.last_update
-                    if not is_special and age > max_age:
+                    # Don't delete if we have Core Memories!
+                    has_core_memories = len(rel_data.core_buffer) > 0
+
+                    if not is_special and not has_core_memories and age > max_age:
                         to_remove.append(other_id)
 
                 for rid in to_remove:
