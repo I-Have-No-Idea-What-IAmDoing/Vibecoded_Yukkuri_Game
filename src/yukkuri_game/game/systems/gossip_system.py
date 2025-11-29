@@ -1,40 +1,33 @@
 """
 Module defining the GossipSystem.
 """
-from typing import List, Tuple
+from typing import List, Tuple, Optional
+import pymunk
 from ...engine.ecs import System, World
 from ..yukkuri_components import GossipQueue, GossipPacket, YukkuriStats
-from ..components import Transform
+from ..components import Transform, PhysicsBody
 from ..events import SocialInteractionEvent
 from ...engine.event_bus import EventBus
 import time
 from ..services import TimeService
+from .physics import PhysicsSystem
 import math
 
 class GossipSystem(System):
     """
     System responsible for managing Gossip (witnessing and exchanging).
+    Uses PhysicsSystem spatial queries for efficient witnessing.
     """
-    SECTOR_SIZE = 1000  # Assuming world is large, e.g. 4000x4000, 4x4 grid -> 1000 per sector
 
     def __init__(self, event_bus: EventBus):
         super().__init__()
         self.event_bus = event_bus
         self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
+        self.physics_system: Optional[PhysicsSystem] = None
 
     def update(self, world: World, dt: float) -> None:
-        pass
-
-    def _get_sector(self, x: float, y: float) -> Tuple[int, int]:
-        return (int(x // self.SECTOR_SIZE), int(y // self.SECTOR_SIZE))
-
-    def _get_adjacent_sectors(self, sector: Tuple[int, int]) -> List[Tuple[int, int]]:
-        x, y = sector
-        sectors = []
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                sectors.append((x + dx, y + dy))
-        return sectors
+        if not self.physics_system:
+            self.physics_system = world.services.try_get(PhysicsSystem)
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         """
@@ -55,29 +48,49 @@ class GossipSystem(System):
             self._exchange_gossip(world, event.target_id, event.initiator_id)
 
         # Handle Witnessing (Visual/Auditory)
-        entities = world.get_entities_with(YukkuriStats, Transform, GossipQueue)
+        # Use Pymunk Point Query
+        if not self.physics_system:
+             self.physics_system = world.services.try_get(PhysicsSystem)
 
-        actor_sector = self._get_sector(actor_trans.x, actor_trans.y)
-        nearby_sectors = self._get_adjacent_sectors(actor_sector)
+        if self.physics_system and self.physics_system.space:
+             self._process_witnesses_spatial(world, event, actor_trans, now)
+        else:
+             # Fallback if physics system not ready (shouldn't happen in normal gameplay)
+             pass
 
-        for eid in entities:
-            if eid == event.initiator_id or eid == event.target_id:
+    def _process_witnesses_spatial(self, world: World, event: SocialInteractionEvent, actor_trans: Transform, now: float):
+        """
+        Uses spatial query to find witnesses.
+        """
+        visual_range = 300.0
+
+        # Pymunk query: query for shapes within visual_range of the actor
+        point = (actor_trans.x, actor_trans.y)
+        results = self.physics_system.space.point_query(point, visual_range, pymunk.ShapeFilter())
+
+        for shape_query_info in results:
+            shape = shape_query_info.shape
+            body = shape.body
+            if not body or not body.userdata:
                 continue
 
-            witness_trans = world.get_component(eid, Transform)
-            witness_sector = self._get_sector(witness_trans.x, witness_trans.y)
+            witness_id = body.userdata
 
-            # Optimization: Only check witnesses in same or adjacent sectors
-            if witness_sector not in nearby_sectors:
+            # Entity ID must be int
+            if not isinstance(witness_id, int):
                 continue
 
-            # Visual Check (LOS/Distance)
-            dist_sq = (witness_trans.x - actor_trans.x)**2 + (witness_trans.y - actor_trans.y)**2
-            visual_range = 300.0
+            if witness_id == event.initiator_id or witness_id == event.target_id:
+                continue
 
-            # TODO: Line of sight check would go here. For now, distance.
-            if dist_sq < visual_range * visual_range:
-                self._add_witness_gossip(world, eid, event, now, value=10.0) # Base value
+            # Must have GossipQueue and YukkuriStats
+            if not world.has_component(witness_id, GossipQueue) or not world.has_component(witness_id, YukkuriStats):
+                continue
+
+            # TODO: LOS Check could go here
+
+            # Add Witness Gossip
+            self._add_witness_gossip(world, witness_id, event, now, value=10.0)
 
     def _exchange_gossip(self, world: World, sender_id: int, receiver_id: int):
         sender_queue = world.get_component(sender_id, GossipQueue)
@@ -86,30 +99,42 @@ class GossipSystem(System):
         if not sender_queue or not receiver_queue:
             return
 
+        # Get Max Gossip Length from Config
+        from ...config import GameConfig
+        config = world.services.try_get(GameConfig)
+        max_length = 10
+        if config and hasattr(config.rules, 'social'):
+            max_length = config.rules.social.max_gossip_length
+
         # Share top packets
         for packet in sender_queue.priority_queue:
-            # Don't share gossip about the receiver to the receiver (unless intended?)
-            # Usually we share "Hey did you know X did Y?"
+            # Don't share gossip about the receiver to the receiver
             if packet.target_id == receiver_id:
                 continue
 
-            # Create a copy or new packet to avoid reference issues
             new_packet = GossipPacket(
                 target_id=packet.target_id,
                 event_type=packet.event_type,
-                value=packet.value * 0.9, # Decay value slightly on transmission?
+                value=packet.value * 0.9,
                 timestamp=packet.timestamp
             )
-            receiver_queue.add_packet(new_packet)
+            receiver_queue.add_packet(new_packet, max_length=max_length)
 
     def _add_witness_gossip(self, world: World, witness_id: int, event: SocialInteractionEvent, now: float, value: float):
         gossip = world.get_component(witness_id, GossipQueue)
         if not gossip: return
 
+        # Get Max Gossip Length from Config
+        from ...config import GameConfig
+        config = world.services.try_get(GameConfig)
+        max_length = 10
+        if config and hasattr(config.rules, 'social'):
+            max_length = config.rules.social.max_gossip_length
+
         packet = GossipPacket(
             target_id=event.initiator_id,
             event_type=event.interaction_type,
-            value=value, # Value should depend on event severity
+            value=value,
             timestamp=now
         )
-        gossip.add_packet(packet)
+        gossip.add_packet(packet, max_length=max_length)

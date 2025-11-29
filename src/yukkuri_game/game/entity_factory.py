@@ -156,6 +156,8 @@ class EntityFactory:
             type_id=type_id,
             max_health=max_health,
             health=max_health,
+            # hunger is float in definition, check usage
+            hunger=0.0,
             age=age,
             growth_stage=growth_stage
         )
@@ -164,8 +166,6 @@ class EntityFactory:
         # Emotional State
         # New system: -100 to 100 for happiness, 0 to 100 for stress
         emotional_state = EmotionalState()
-        # Initialize based on some randomness or type?
-        # For now, start neutral.
         self.world.add_component(entity, emotional_state)
 
         # AI
@@ -240,7 +240,15 @@ class EntityFactory:
         axis.bravery = max(-100, min(100, axis.bravery))
         axis.greed = max(-100, min(100, axis.greed))
 
-        personality = Personality(traits=traits, axis=axis)
+        # Copy axis to base_axis
+        base_axis = PersonalityAxis(
+            kindness=axis.kindness,
+            energy=axis.energy,
+            bravery=axis.bravery,
+            greed=axis.greed
+        )
+
+        personality = Personality(traits=traits, axis=axis, base_axis=base_axis)
         self.world.add_component(entity, personality)
 
         # Physics
@@ -252,6 +260,8 @@ class EntityFactory:
             shape = pymunk.Circle(body, radius)
             shape.elasticity = 0.5
             shape.friction = 0.5
+            # Store entity ID in body for lookup
+            body.userdata = entity
             self.physics_system.space.add(body, shape)
             self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
