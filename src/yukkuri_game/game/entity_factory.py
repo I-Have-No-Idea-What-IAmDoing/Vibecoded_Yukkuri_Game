@@ -11,6 +11,7 @@ from .components import (
 )
 from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop, Personality, RelationshipRegistry
 from .trait_service import TraitService
+from .collision_constants import CollisionCategories
 
 if TYPE_CHECKING:
     from ..engine.resource_manager import ResourceManager
@@ -204,6 +205,12 @@ class EntityFactory:
             shape = pymunk.Circle(body, radius)
             shape.elasticity = 0.5
             shape.friction = 0.5
+            # Yukkuri collides with Walls and other Yukkuris, but NOT items (to avoid pushing them away)
+            # We want them to be able to overlap with items to eat them.
+            shape.filter = pymunk.ShapeFilter(
+                categories=CollisionCategories.YUKKURI,
+                mask=CollisionCategories.WALL | CollisionCategories.YUKKURI | CollisionCategories.POOP
+            )
             self.physics_system.space.add(body, shape)
             self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
@@ -257,6 +264,10 @@ class EntityFactory:
             shape = pymunk.Circle(body, 10)
             shape.elasticity = 0.2
             shape.friction = 0.8
+            shape.filter = pymunk.ShapeFilter(
+                categories=CollisionCategories.POOP,
+                mask=CollisionCategories.ALL
+            )
             self.physics_system.space.add(body, shape)
             self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
         return entity
@@ -314,6 +325,11 @@ class EntityFactory:
             shape = pymunk.Poly.create_box(body, (width, height))
             shape.elasticity = 0.5
             shape.friction = 0.5
+            shape.filter = pymunk.ShapeFilter(
+                categories=CollisionCategories.ITEM,
+                # Items collide with walls, but they don't block Yukkuris
+                mask=CollisionCategories.WALL | CollisionCategories.POOP | CollisionCategories.ITEM
+            )
             self.physics_system.space.add(body, shape)
             self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
