@@ -124,11 +124,11 @@ class EmotionSystem(System):
     def _drift_personality(self, personality: Personality, dt: float) -> None:
         """
         Drifts the current personality axis towards the base axis (resting point).
-        Rate: 1 point per 10 seconds (approx).
+        Rate: Configured in rules file.
         """
         # Points per second probability
-        # 0.1 means 10% chance per second per attribute
-        drift_chance = 0.1 * dt
+        drift_rate = getattr(self.settings, 'personality_drift_rate', 0.1)
+        drift_chance = drift_rate * dt
 
         # Iterate over attributes
         for attr in ['kindness', 'energy', 'bravery', 'greed']:

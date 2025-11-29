@@ -47,6 +47,7 @@ class StatDecaySettings(msgspec.Struct):
     social: float = 0.5
     age: float = 1.0
     starvation_damage: float = 5.0
+    personality_drift_rate: float = 0.1
 
 class LifecycleSettings(msgspec.Struct):
     """
