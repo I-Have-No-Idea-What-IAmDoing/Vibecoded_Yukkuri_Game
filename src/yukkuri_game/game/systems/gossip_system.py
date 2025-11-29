@@ -190,7 +190,12 @@ class GossipSystem(System):
 
     def _add_witness_gossip(self, world: World, witness_id: int, event: SocialInteractionEvent, now: float, value: float):
         # Threshold Check
+        from ...config import GameConfig
+        config = world.services.try_get(GameConfig)
         witness_threshold = 5.0
+        if config and hasattr(config.rules, 'social'):
+            witness_threshold = config.rules.social.witness_threshold
+
         if value < witness_threshold:
             return
 

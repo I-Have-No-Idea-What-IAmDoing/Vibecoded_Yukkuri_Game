@@ -76,6 +76,7 @@ class SocialSettings(msgspec.Struct):
     """
     memory_importance_threshold: float = 50.0
     max_gossip_length: int = 10
+    witness_threshold: float = 5.0
 
 class RulesFile(msgspec.Struct):
     """

@@ -19,3 +19,4 @@ breeding_chance = 0.001
 [social]
 memory_importance_threshold = 50.0
 max_gossip_length = 10
+witness_threshold = 5.0
