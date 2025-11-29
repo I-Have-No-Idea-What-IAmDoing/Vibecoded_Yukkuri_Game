@@ -160,7 +160,7 @@ class GameManager:
         """
         stats = self.world.get_component(entity, YukkuriStats)
         if stats:
-            value = self.calculate_quality_score(stats)
+            value = max(0, self.calculate_quality_score(stats))
             economy = self.world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}")
