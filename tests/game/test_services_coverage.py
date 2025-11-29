@@ -5,7 +5,7 @@ from yukkuri_game.game.services import (
 )
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, AIState
+from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState
 
 class TestTimeService:
     def test_time_elapsed(self):
@@ -183,11 +183,13 @@ class TestGameService:
 
         mock_world.entity_exists.return_value = True
 
-        y_stats = MagicMock(hunger=50, happiness=50)
+        y_stats = MagicMock(hunger=50)
+        emotional = MagicMock(happiness=50)
         i_stats = MagicMock(nutrition=10, fun=5, comfort=0)
 
         def get_component(e, c):
             if e == consumer and c == YukkuriStats: return y_stats
+            if e == consumer and c == EmotionalState: return emotional
             if e == item and c == ItemStats: return i_stats
             return None
 
@@ -198,7 +200,7 @@ class TestGameService:
 
         assert result is True
         assert y_stats.hunger == 40
-        assert y_stats.happiness == 55
+        assert emotional.happiness == 55
         mock_world.destroy_entity.assert_called_with(item)
 
     def test_interact_social_fight(self, mock_world):
@@ -211,12 +213,16 @@ class TestGameService:
 
         mock_world.entity_exists.return_value = True
 
-        p1_stats = MagicMock(health=100, happiness=100, stress=0)
-        p2_stats = MagicMock(health=100, happiness=100, stress=0)
+        p1_stats = MagicMock(health=100)
+        p1_emotional = MagicMock(happiness=100, stress=0)
+        p2_stats = MagicMock(health=100)
+        p2_emotional = MagicMock(happiness=100, stress=0)
 
         def get_component(e, c):
             if e == p1 and c == YukkuriStats: return p1_stats
+            if e == p1 and c == EmotionalState: return p1_emotional
             if e == p2 and c == YukkuriStats: return p2_stats
+            if e == p2 and c == EmotionalState: return p2_emotional
             return None
 
         mock_world.get_component.side_effect = get_component
@@ -224,7 +230,7 @@ class TestGameService:
         service.interact_social(p1, p2, "Fight")
 
         assert p1_stats.health == 95
-        assert p1_stats.happiness == 90
-        assert p1_stats.stress == 10
+        assert p1_emotional.happiness == 90
+        assert p1_emotional.stress == 10
 
         assert p2_stats.health == 95

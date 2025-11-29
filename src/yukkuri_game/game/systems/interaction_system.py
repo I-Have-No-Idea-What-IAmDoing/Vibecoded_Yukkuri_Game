@@ -7,7 +7,7 @@ from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
 from ..components import Transform, InteractionRequest
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState
+from ..yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState
 
 class InteractionSystem(System):
     """
@@ -81,7 +81,9 @@ class InteractionSystem(System):
                 stats.hunger = max(0, stats.hunger - item_stats.nutrition)
 
             if item_stats.fun > 0:
-                stats.happiness = min(100, stats.happiness + item_stats.fun)
+                emotional = world.get_component(entity, EmotionalState)
+                if emotional:
+                    emotional.happiness = min(100, emotional.happiness + item_stats.fun)
 
             if item_stats.comfort > 0:
                 stats.energy = min(100, stats.energy + item_stats.comfort)

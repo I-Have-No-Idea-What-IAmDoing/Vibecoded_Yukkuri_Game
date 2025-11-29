@@ -6,7 +6,7 @@ from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.audio import AudioManager
 from ..components import Transform, FloatingText
-from ..yukkuri_components import YukkuriStats, Dead
+from ..yukkuri_components import YukkuriStats, Dead, EmotionalState
 from ..events import (
     EntitySoldEvent,
     EntityGrewEvent,
@@ -75,8 +75,11 @@ class FeedbackSystem(System):
                 if world.has_component(entity, Dead):
                     continue
 
+                emotional = world.get_component(entity, EmotionalState)
+                happiness = emotional.happiness if emotional else 0.0
+
                 prob = 0.0
-                if stats.happiness < 30.0:
+                if happiness < 30.0:
                     prob = 0.1 * dt # 10% chance per second
                 else:
                     prob = 0.01 * dt # 1% chance per second
