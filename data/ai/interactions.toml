@@ -40,3 +40,13 @@ social_impact = { affinity = 8.0, familiarity = 5.0 }
 
 [interaction.Dance.modifiers]
 "mood:HAPPY" = { affinity = 12.0 }
+
+[interaction.Scream]
+base_impact = -15.0
+social_impact = { fear = 10.0 }
+range_type = "auditory_loud"
+
+[interaction.Shout]
+base_impact = -5.0
+social_impact = { fear = 2.0 }
+range_type = "auditory"

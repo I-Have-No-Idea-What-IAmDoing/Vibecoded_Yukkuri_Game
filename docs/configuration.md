@@ -12,10 +12,12 @@ Contains world and engine settings.
 [world]
 width = 3000
 height = 3000
+sector_size = 500.0
 ```
 
 - `width`: The width of the game world in pixels (default: 3000).
 - `height`: The height of the game world in pixels (default: 3000).
+- `sector_size`: The size of sectors for spatial partitioning (default: 500.0).
 
 ### `rules.toml`
 

@@ -71,7 +71,8 @@ class MemoryHeadline:
     """
     id: int
     timestamp: float
-    importance: float
+    importance: float # Absolute magnitude of the event
+    sentiment: float  # Signed value (-100 to 100) representing opinion change
     event_type: str
     text: str = ""
     is_locked: bool = False
@@ -113,6 +114,9 @@ class RelationshipData:
     fear: float = 0.0
     familiarity: float = 0.0
     last_update: float = 0.0
+
+    # Base compatibility (cached from last calculation to avoid recomputing every frame)
+    base_compatibility: float = 0.0
 
     # Memory Buffers
     trivial_buffer: Deque[MemoryHeadline] = field(default_factory=lambda: deque(maxlen=25))

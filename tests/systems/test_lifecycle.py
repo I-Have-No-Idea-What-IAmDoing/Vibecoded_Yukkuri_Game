@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, Dead
+from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, Dead, EmotionalState
 from yukkuri_game.game.components import Sprite, Transform
 from yukkuri_game.config import LifecycleSettings
 from yukkuri_game.engine.ecs import World
@@ -66,11 +66,13 @@ def test_handle_breeding(lifecycle_system, world):
         type_id="reimu",
         age=600,
         growth_stage="Adult",
-        happiness=90,
         energy=90
     )
+    emotional = EmotionalState(happiness=90.0)
+
     transform = Transform(x=100, y=100)
     world.add_component(entity, stats)
+    world.add_component(entity, emotional)
     world.add_component(entity, transform)
 
     # Run

@@ -12,10 +12,12 @@ class WorldSettings(msgspec.Struct):
         width (int): The width of the world in pixels.
         height (int): The height of the world in pixels.
         grid_step_size (int): The size of the grid step for navigation.
+        sector_size (float): The size of sectors for spatial partitioning.
     """
     width: int = 3000
     height: int = 3000
     grid_step_size: int = 50
+    sector_size: float = 500.0
 
 class ConfigFile(msgspec.Struct):
     """

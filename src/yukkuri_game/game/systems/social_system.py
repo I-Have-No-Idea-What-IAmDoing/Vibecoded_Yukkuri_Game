@@ -20,6 +20,7 @@ from ..events import SocialInteractionEvent
 class SocialSystem(System):
     """
     System responsible for managing social relationships, memory decay, and applying interaction effects.
+    Implements "Headline System" for memory and Opinion Calculation.
     """
 
     def __init__(self, event_bus: EventBus):
@@ -40,7 +41,7 @@ class SocialSystem(System):
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
 
-        # Update Relationships (Cleanup & Compatibility Drift)
+        # Update Relationships (Cleanup & Opinion Update)
         all_entities = world.get_entities_with(RelationshipRegistry)
         if not all_entities:
             return
@@ -57,7 +58,8 @@ class SocialSystem(System):
                 max_age = 600 # 10 minutes
 
                 for other_id, rel_data in registry.relationships.items():
-                    self._process_compatibility_drift(world, eid, other_id, rel_data, dt)
+                    # Recalculate Opinion (Affinity)
+                    self._update_opinion(world, eid, other_id, rel_data)
 
                     other_registry = world.get_component(other_id, RelationshipRegistry)
                     is_special = (other_id == registry.mate_id) or \
@@ -74,82 +76,70 @@ class SocialSystem(System):
 
         self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(1, count)
 
-    def _process_compatibility_drift(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData, dt: float) -> None:
+    def _update_opinion(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData) -> None:
+        """
+        Recalculates the opinion (affinity) based on the formula:
+        Opinion = Base Compatibility + Sum(CoreMemories) + Sum(TrivialEvents)
+        """
         if not self.trait_service:
             return
 
+        # 1. Update Base Compatibility (if needed, or just every time for simplicity)
         subject_pers = world.get_component(subject_id, Personality)
         other_pers = world.get_component(other_id, Personality)
 
-        if not subject_pers or not other_pers:
-            return
+        if subject_pers and other_pers:
+            base_compatibility = 0.0
 
-        base_compatibility = 0.0
+            # Calculate from Axis comparison
+            if subject_pers.axis and other_pers.axis:
+                diff_kind = abs(subject_pers.axis.kindness - other_pers.axis.kindness)
+                diff_ener = abs(subject_pers.axis.energy - other_pers.axis.energy)
+                diff_brav = abs(subject_pers.axis.bravery - other_pers.axis.bravery)
+                diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
 
-        # Calculate from Axis comparison
-        if subject_pers.axis and other_pers.axis:
-            diff_kind = abs(subject_pers.axis.kindness - other_pers.axis.kindness)
-            diff_ener = abs(subject_pers.axis.energy - other_pers.axis.energy)
-            diff_brav = abs(subject_pers.axis.bravery - other_pers.axis.bravery)
-            diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
+                total_diff = diff_kind + diff_ener + diff_brav + diff_gree
+                # 800 diff -> -100. 0 diff -> 100.
+                base_compatibility += (100.0 - (total_diff / 4.0))
 
-            total_diff = diff_kind + diff_ener + diff_brav + diff_gree
-            # 800 diff -> -100. 0 diff -> 100.
-            # val = 100 - (diff / 4)
-            base_compatibility += (100.0 - (total_diff / 4.0))
+            # Traits compatibility
+            for my_trait in subject_pers.traits:
+                trait_data = self.trait_service.get_trait(my_trait)
+                if not trait_data or "social_modifiers" not in trait_data:
+                    continue
 
-        # Traits compatibility
-        for my_trait in subject_pers.traits:
-            trait_data = self.trait_service.get_trait(my_trait)
-            if not trait_data or "social_modifiers" not in trait_data:
-                continue
+                social_mods = trait_data["social_modifiers"]
+                if "compatibility" not in social_mods:
+                    continue
 
-            social_mods = trait_data["social_modifiers"]
-            if "compatibility" not in social_mods:
-                continue
+                comp_map = social_mods["compatibility"]
+                for other_trait in other_pers.traits:
+                    if other_trait in comp_map:
+                        base_compatibility += comp_map[other_trait]
 
-            comp_map = social_mods["compatibility"]
-            for other_trait in other_pers.traits:
-                if other_trait in comp_map:
-                    base_compatibility += comp_map[other_trait]
+            rel_data.base_compatibility = base_compatibility
 
-        # Drift
-        drift_speed = 1.0 / 60.0
-        diff = base_compatibility - rel_data.affinity
-        if abs(diff) > 1.0:
-            change = math.copysign(drift_speed * dt, diff)
-            if abs(change) > abs(diff):
-                rel_data.affinity = base_compatibility
-            else:
-                rel_data.affinity += change
+        # 2. Sum Memories
+        memory_score = 0.0
+
+        for mem in rel_data.core_buffer:
+            memory_score += mem.sentiment
+
+        for mem in rel_data.trivial_buffer:
+            memory_score += mem.sentiment
+
+        # 3. Final Calculation
+        rel_data.affinity = rel_data.base_compatibility + memory_score
+
+        # Clamp? Opinion can go beyond -100/100 locally, but effective range is clamped elsewhere usually.
+        # Let's clamp for sanity to -100, 100 for consumption, or keep it raw?
+        # Proposal says axes are -100 to 100. Opinion likely same.
+        rel_data.affinity = max(-100.0, min(100.0, rel_data.affinity))
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         if not hasattr(self, 'ecs_world'):
             return
         self.register_interaction(self.ecs_world, event.initiator_id, event.target_id, event.interaction_type)
-
-    def _update_relationship_decay(self, rel_data: RelationshipData, now: float) -> None:
-        if rel_data.last_update == 0.0:
-            rel_data.last_update = now
-            return
-
-        elapsed = now - rel_data.last_update
-        decay_affinity = 0.01 * elapsed
-        decay_fear = 0.05 * elapsed
-        decay_trust = 0.005 * elapsed
-
-        if rel_data.affinity > 0.1:
-            rel_data.affinity = max(0, rel_data.affinity - decay_affinity)
-        elif rel_data.affinity < -0.1:
-            rel_data.affinity = min(0, rel_data.affinity + decay_affinity)
-
-        if rel_data.fear > 0.1:
-            rel_data.fear = max(0, rel_data.fear - decay_fear)
-
-        if rel_data.trust > 50.0:
-            rel_data.trust = max(50.0, rel_data.trust - decay_trust)
-
-        rel_data.last_update = now
 
     def register_interaction(self, world: World, actor_id: int, target_id: int, interaction_name: str) -> None:
         if not self.trait_service:
@@ -214,14 +204,20 @@ class SocialSystem(System):
             registry.relationships[other_id] = RelationshipData(last_update=now)
 
         rel = registry.relationships[other_id]
-        self._update_relationship_decay(rel, now)
+
+        # Don't do old decay here, opinion is recalculated.
+        rel.last_update = now
 
         social_impact = data.get("social_impact", {})
+
+        # We need to calculate the "sentiment" change for the memory.
+        # This roughly maps to the affinity change we WOULD have done, but now stored in memory.
+
         d_affinity = social_impact.get("affinity", 0.0)
         d_trust = social_impact.get("trust", 0.0)
         d_fear = social_impact.get("fear", 0.0)
         d_familiarity = social_impact.get("familiarity", 0.0)
-        base_impact_score = data.get("base_impact", 0.0)
+        base_impact_score = data.get("base_impact", 0.0) # Absolute Magnitude
 
         subject_personality = world.get_component(subject_id, Personality)
         modifiers = data.get("modifiers", {})
@@ -259,29 +255,30 @@ class SocialSystem(System):
                 elif base_impact_score > 15:
                     emotional.happiness = min(100.0, emotional.happiness + 20.0)
 
-        rel.affinity = max(-100, min(100, rel.affinity + d_affinity))
+        # Update stats other than affinity (Trust, Fear, Familiarity still seem to be stateful variables)
+        # The proposal only explicitly mentioned Opinion = ... for affinity.
+        # We keep trust/fear/familiarity as accumulators for now unless specified otherwise.
+
+        # rel.affinity is now calculated from memories, so we DO NOT add to it directly.
+        # rel.affinity = ... (Removed)
+
         rel.trust = max(0, min(100, rel.trust + d_trust))
         rel.fear = max(0, min(100, rel.fear + d_fear))
         rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
 
         # Add Headline
+        # Sentiment = d_affinity (the calculated affinity change this event caused)
         if abs(base_impact_score) > 0:
             self.headline_counter += 1
             headline = MemoryHeadline(
                 id=self.headline_counter,
                 timestamp=now,
                 importance=abs(base_impact_score),
+                sentiment=d_affinity, # Store the sentiment
                 is_locked=False,
                 text=data.get("type", "unknown"),
                 event_type=data.get("type", "GENERIC")
             )
-
-            # Retrieve memory threshold from config if available (via GameConfig service if implemented, or default)
-            # Since we don't have direct access to GameConfig here easily without ServiceLocator update, we assume default 50.0
-            # BUT the plan said to make it configurable.
-            # We can try to get GameConfig from world.services if it was registered?
-            # Usually GameManager holds config.
-            # Let's try to get config from somewhere.
 
             from ...config import GameConfig
             config = world.services.try_get(GameConfig)
@@ -290,3 +287,6 @@ class SocialSystem(System):
                 threshold = config.rules.social.memory_importance_threshold
 
             rel.add_headline(headline, threshold=threshold)
+
+            # Immediately recalculate opinion to reflect new memory
+            self._update_opinion(world, subject_id, other_id, rel)

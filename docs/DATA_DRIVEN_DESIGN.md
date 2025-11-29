@@ -53,9 +53,18 @@ comfort = 0
 is_portable = true # Can be carried by Yukkuris
 ```
 
-### Modifying AI
+### Modifying AI and Interactions
 
 The AI is utility-based. See [AI System](ai_system.md) for details on modifying `data/ai/actions.toml`.
+
+Interactions (social events) are defined in `data/ai/interactions.toml`. You can define new interactions or modify existing ones.
+
+```toml
+[interaction.Scream]
+base_impact = -15.0
+social_impact = { fear = 10.0 }
+range_type = "auditory_loud" # visual, auditory, auditory_loud
+```
 
 ### Modifying Game Rules
 
