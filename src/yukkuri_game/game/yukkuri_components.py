@@ -62,6 +62,19 @@ class YukkuriStats(Component):
     quality_score: float = 0.0
     discipline: float = 0.0
 
+    def calculate_value(self, emotional_state: Optional["EmotionalState"] = None) -> int:
+        """
+        Calculates the value of the Yukkuri based on stats and emotional state.
+        """
+        score = 100.0
+        if emotional_state:
+            score += (emotional_state.happiness + 100)
+        score += self.badges * 500
+        if self.health < self.max_health:
+            score -= (self.max_health - self.health) * 2
+        score += int(self.age / 60) * 10
+        return int(score)
+
 @dataclass
 class MemoryHeadline:
     """

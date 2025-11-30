@@ -6,12 +6,11 @@ from typing import TYPE_CHECKING, List
 from ...engine.ecs import World
 from ..components import Transform
 from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState
-from ..services import InputService
+from ..services import InputService, EconomyService, TimeService
 from pygame_gui.windows import UIMessageWindow
 
 if TYPE_CHECKING:
     from .hud_layout import HudLayout
-    from ..game_manager import GameManager
 
 class HudRenderer:
     """
@@ -19,21 +18,18 @@ class HudRenderer:
 
     Attributes:
         layout (HudLayout): The layout component.
-        gm (GameManager): The GameManager instance.
         world (World): The ECS World instance.
         fps (float): The current FPS value to display.
     """
-    def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', world: World):
+    def __init__(self, layout: 'HudLayout', world: World):
         """
         Initializes the HudRenderer.
 
         Args:
             layout (HudLayout): The HudLayout component.
-            game_manager (GameManager): The GameManager instance.
             world (World): The ECS World instance.
         """
         self.layout = layout
-        self.gm = game_manager
         self.world = world
         self.fps = 0.0
 
@@ -49,12 +45,16 @@ class HudRenderer:
         Returns:
             None
         """
+        economy = self.world.services.get(EconomyService)
+        time_service = self.world.services.try_get(TimeService)
+
         # Update Top Bar
         if self.layout.money_label:
-            self.layout.money_label.set_text(f"Money: ${self.gm.money}")
+            self.layout.money_label.set_text(f"Money: ${economy.get_money()}")
 
-        minutes = int(self.gm.time_elapsed / 60)
-        seconds = int(self.gm.time_elapsed % 60)
+        time_elapsed = time_service.time_elapsed if time_service else 0.0
+        minutes = int(time_elapsed / 60)
+        seconds = int(time_elapsed % 60)
         if self.layout.time_label:
             self.layout.time_label.set_text(f"Time: {minutes:02d}:{seconds:02d}")
 
@@ -171,10 +171,6 @@ class HudRenderer:
                 if istats:
                     text = f"<b>{istats.name}</b>"
 
-        # Optimization: Check if text or position significantly changed?
-        # Actually, input_service.hovered_entity_pos changes every mouse move.
-        # But text only changes if entity or stats change.
-        # Let HudLayout handle optimization if needed, or just pass it.
         self.layout.update_hover_tooltip(text, input_service.hovered_entity_pos)
 
     def _update_stats_display(self, selected_entities: List[int]) -> None:
@@ -209,8 +205,7 @@ class HudRenderer:
                     if emotional:
                         total_happiness += emotional.happiness
 
-                    # Calculate sell value using GameManager
-                    total_value += self.gm.calculate_quality_score(ystats, emotional)
+                    total_value += ystats.calculate_value(emotional)
 
                     breed = ystats.type_id.capitalize()
                     yukkuri_breeds[breed] = yukkuri_breeds.get(breed, 0) + 1
@@ -369,17 +364,18 @@ class HudRenderer:
             return
 
         # Accessing private _entities for debug
-        # In a real scenario we might expose entity count publicly
         try:
             entity_count = len(self.world.get_all_entities())
         except:
             entity_count = 0
 
+        economy = self.world.services.get(EconomyService)
+
         debug_text = (
             f"<b>FPS:</b> {self.fps:.2f}<br>"
             f"<b>Entities:</b> {entity_count}<br>"
-            f"<b>Money:</b> {self.gm.money}<br>"
-            f"<b>Time Scale:</b> {self.gm.time_scale if hasattr(self.gm, 'time_scale') else 'N/A'}<br>"
+            f"<b>Money:</b> {economy.get_money()}<br>"
+            f"<b>Time Scale:</b> N/A<br>"
         )
 
         self.layout.debug_text_box.set_text(debug_text)
