@@ -61,61 +61,63 @@ A lightweight **ServiceContainer** will provide access to cross-cutting concerns
 
 ### 7. Data Persistence & State Transfer
 
-To avoid the pitfalls of shared mutable global state and ensure data integrity, we will adopt a **Hydration/Dehydration** model for persistence.
+To avoid the pitfalls of shared mutable global state while solving the performance and boilerplate issues of strict DTOs, we will adopt a **Manifest & Protocol** model.
 
 #### 7.1. Core Principles
 
-- **No Global Session in ECS**: Systems inside a Scene **never** access a global `GameSession`, `SaveFile`, or `Database` object directly. They operate exclusively on local Components.
-- **Explicit Data Transfer**: Data moving between the permanent storage (Session) and the active game (Scene) is always explicit, typed, and snapshotted.
-- **Source of Truth**:
-    - During a Scene's lifecycle, the **ECS World is the single source of truth**.
-    - The persistent storage is updated only during transition boundaries or explicit checkpoints, preventing desync bugs.
+- **No Global Session in ECS**: Systems inside a Scene **never** access a global `GameSession` directly.
+- **Serializable Protocol**: Instead of separate DTO classes, Components that require persistence must implement a `Serializable` protocol (e.g., `to_dict()` and `from_dict()`). This eliminates duplicate class definitions.
+- **Explicit Contracts (Manifests)**: Scenes must declare exactly what data they require from the session. This prevents the "God Object" problem where a SceneManager has to know the internals of every Scene.
 
 #### 7.2. The Lifecycle
 
-1.  **Hydration (Input)**
-    - When the `SceneManager` pushes a new Scene, it extracts necessary data from the Master Save State.
-    - It creates a **SceneContextDTO** (Data Transfer Object). This is a read-only, immutable structure (e.g., a frozen Python dataclass).
+1.  **Scene Manifest (Contract)**
+    - Each Scene class defines a static `Manifest` describing its data dependencies.
     - **Example**:
       ```python
-      @dataclass(frozen=True)
-      class GameplayContext:
-          player_stats: PlayerStatsDTO
-          inventory: List[ItemDTO]
-          active_quests: List[QuestID]
+      class DungeonScene(Scene):
+          MANIFEST = {
+              "required": ["player_inventory", "player_stats"],
+              "optional": ["dungeon_flags"]
+          }
       ```
-    - The Scene's `Initializer` receives this DTO and populates the ECS World. It spawns the Player Entity and attaches `StatsComponent` and `InventoryComponent` filled with values from the DTO.
 
-2.  **Gameplay (Simulation)**
-    - Systems modify Components. For example, the `CombatSystem` reduces `StatsComponent.hp`.
-    - The original DTO is ignored; it is merely the "seed" for the simulation.
-    - The Master Save State is **not** modified during this phase.
+2.  **Hydration (Inject)**
+    - When the `SceneManager` pushes a new Scene, it consults the `MANIFEST`.
+    - It fetches the requested keys from the `SessionStore`.
+    - It injects this data into the Scene as a raw dictionary (`initial_state`).
+    - The Scene's `setup()` method uses component `from_dict()` methods to populate the ECS.
+      ```python
+      def setup(self, world, initial_state):
+          player = world.create_entity()
+          player.add(Inventory.from_dict(initial_state["player_inventory"]))
+      ```
 
-3.  **Dehydration (Output)**
-    - When a Scene is suspended, unloaded, or a checkpoint is reached, the Scene performs an export.
-    - A specialized `PersistenceSystem` (or a `Scene.export_state()` method) queries the ECS World.
-    - It constructs a **SceneResultDTO** containing the new state of persistent elements.
+3.  **Gameplay & Incremental Tracking**
+    - Systems modify Components normally.
+    - To avoid "Stop-the-World" serialization spikes, we introduce **Dirty Flags**.
+    - When a relevant component changes (e.g., item added), it marks itself as `dirty`.
+
+4.  **Commit (Persist)**
+    - On checkpoint or transition, the `PersistenceSystem` queries **only** components marked as `dirty`.
+    - It calls `to_dict()` on them and bundles the changes.
+    - This delta is sent to the `SessionManager`, which upserts the data into the persistent store.
     - **Example**:
       ```python
-      def export_state(self, world) -> GameplayResult:
-          player = world.get_entity_by_tag("player")
-          return GameplayResult(
-              player_stats=player.get(StatsComponent).to_dto(),
-              inventory=player.get(InventoryComponent).to_dto(),
-              ...
-          )
+      # PersistenceSystem
+      updates = {}
+      for entity, (inv,) in world.get_components(Inventory):
+          if inv.is_dirty:
+              updates["player_inventory"] = inv.to_dict()
+              inv.clean() # Reset flag
+      scene_manager.commit_changes(updates)
       ```
-
-4.  **Merging**
-    - The `SceneManager` receives the `SceneResultDTO`.
-    - It passes this result to the `Application`'s Session Manager.
-    - The Session Manager merges the changes back into the Master Save State, handling any necessary logic (e.g., unlocking achievements based on the result).
 
 #### 7.3. Benefits
 
-- **Testability**: Scenes can be tested in isolation by injecting mock DTOs. You don't need a complex database or save file reader to test the `GameplayScene`.
-- **Determinism**: Since input state is explicit, reproducing bugs involves simply capturing the input DTO.
-- **Modularity**: The data format of the Save File is decoupled from the runtime Components. A migration layer can exist between the Save File loading and the creation of the DTOs.
+- **Zero Boilerplate**: No need to maintain parallel `InventoryDTO` classes. The Component is the definition.
+- **Performance**: We only serialize what changed. An autosave in a massive world is cheap if only one chest was opened.
+- **Decoupling**: The `SceneManager` is generic; it simply fulfills the `MANIFEST` contract without knowing what the data means.
 
 ## Architecture Diagram (Conceptual)
 
