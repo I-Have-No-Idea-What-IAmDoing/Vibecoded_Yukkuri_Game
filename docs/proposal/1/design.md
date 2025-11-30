@@ -1,72 +1,72 @@
-# Architecture Redesign Proposal
+# Architecture Redesign Proposal (Revised)
 
 ## Overview
 
-This proposal outlines a refined architecture for the Yukkuri Game Engine. The goal is to enhance modularity, scalability, and maintainability by adopting strict separation of concerns and data-driven design principles.
+This proposal outlines a pragmatic refactoring of the Yukkuri Game Engine. The goal is to address specific scalability issues—specifically input handling, entity definition, and game state management—without over-engineering or introducing unnecessary abstraction layers.
 
 ## Core Components
 
-### 1. Application Lifecycle & Scene Management
+### 1. Simplified Scene State Machine
 
-The current `GameManager` handles too many responsibilities. We propose splitting it into an `Application` class and a `SceneManager`.
+Instead of a complex "Scene Stack", we will implement a deterministic **Scene State Machine**.
 
-- **Application**: Responsible for initializing the engine, the main loop, and window management. It owns the `SceneManager`.
-- **SceneManager**: Manages a stack of `Scene` objects. It handles transitions (push, pop, replace).
-- **Scene**: A container for a specific game state (e.g., `MainMenuScene`, `GameplayScene`). Each Scene owns its own ECS World and specific Systems.
+- **Application**: Initialization and main loop. Holds the *Current Scene*.
+- **Scene Interface**: Defines `update()`, `render()`, `enter()`, and `exit()`.
+- **Shared Context**: A data structure passed between scenes during transitions to persist state (e.g., Player Data, Global Inventory). This avoids the need for a complex stack while ensuring data continuity.
 
-### 2. Enhanced Event System
+### 2. Phase-Based Event System
 
-The current `EventBus` is functional but basic. We propose a more robust `EventManager` that supports:
+To avoid "call stack explosion" without adding the complexity/non-determinism of a fully asynchronous queue:
 
-- **Channels/Topics**: Logical grouping of events.
-- **Immediate vs. Queued Dispatch**: Support for immediate callbacks and frame-delayed processing to prevent call stack explosion and infinite loops.
-- **Prioritized Listeners**: Ability to control the order in which listeners receive events.
+- **Phase-Based Dispatch**: Events are processed at specific points in the frame (e.g., `PreUpdate`, `PostUpdate`).
+- **Typed Events**: Enforce strict typing for event data to aid debugging and IDE support.
+- **Direct Observers**: For critical, high-frequency interactions (e.g., collision), prefer direct system-to-system communication or direct callback registration over the global event bus.
 
-### 3. Input Abstraction Layer
+### 3. Context-Aware Input System
 
-Move away from checking specific keys in systems. Introduce an **Action-based Input System**.
+The Input system must handle different states (Menu vs Gameplay).
 
-- **InputManager**: Captures raw hardware events (keyboard, mouse).
-- **ActionMapper**: Maps raw inputs to logical Actions (e.g., `Key.SPACE` -> `Action.JUMP`). This allows for easy key remapping and multi-device support.
-- Systems query `ActionMapper.is_action_pressed("JUMP")` instead of `Input.is_key_pressed(Key.SPACE)`.
+- **ActionMapper**: Maps raw inputs to logical Actions (`JUMP`, `CONFIRM`).
+- **Input Contexts**: Defines *active* sets of mappings. (e.g., The `UI_Context` maps `Esc` to `Close Menu`, while `Gameplay_Context` maps `Esc` to `Pause`).
+- **Priority**: Contexts can consume inputs, preventing "shoot" actions while clicking a menu button.
 
-### 4. Data-Driven Entity Factory (Prefabs)
+### 4. Validated Data-Driven Prefabs
 
-Expand the `EntityFactory` to support **Prefabs** defined in external data files (YAML or TOML).
+Entities will be defined in data, but with strict validation to prevent runtime errors.
 
-- **PrefabManager**: Loads and caches entity templates.
-- **Template Definition**: YAML/TOML files defining components and initial values.
-- **Instantiation**: Creating an entity by name (e.g., `create_entity("yukkuri_baby")`). This removes hardcoded entity assembly from Python code.
+- **Schema Validation**: Use a library (e.g., Pydantic or specialized Schema validators) to validate YAML/TOML files at load time. Use "Fail Fast" principles.
+- **PrefabManager**: Caches validated templates.
+- **Instantiation**: `create_entity("name")` will raise a clear error if the name implies an invalid or missing template.
 
-### 5. Strict ECS Separation
+### 5. Pragmatic ECS
 
-Reinforce ECS boundaries:
+We will stick to ECS principles but relax dogmatic restrictions:
 
-- **Components**: Pure data classes (dataclasses). No logic.
-- **Systems**: Logic only. Stateless where possible.
-- **World**: The container and query interface.
+- **Components**: Primarily data, but **Helper Methods are allowed** (e.g., `health_component.is_dead()`, `velocity.add_impulse()`) to encapsulate local data transformations.
+- **Systems**: Handle cross-component logic and interactions.
+- **State**: Systems may cache query results or time-deltas for performance, but "Game State" remains in components or the Scene Context.
 
-### 6. Service Architecture
+### 6. Service Access
 
-Refine the `ServiceLocator` into a centralized `ServiceContainer` initialized at startup.
+A lightweight **ServiceContainer** will provide access to cross-cutting concerns (Audio, Logging, Assets).
 
-- Services (Audio, Economy, Persistence) should be registered explicitly.
-- Dependency Injection: Systems can request services via the container, reducing global state usage.
+- **Explicit Registration**: Services are registered at startup.
+- **Facade**: The container acts as a facade, but systems should ideally take dependencies via `__init__` where feasible to improve testability.
 
-## Architecture Diagram (Conceptual)
+## Architecture Diagram (Revised)
 
 ```
 [Application]
   |
-  +-- [ServiceContainer] (Audio, Input, Resources, Settings)
+  +-- [ServiceContainer] (Audio, Assets, config)
   |
-  +-- [SceneManager]
+  +-- [SceneStateMachine]
        |
-       +-- [Active Scene]
+       +-- [Current Scene] <--> [Shared Context] (Inventory, PlayerStats)
             |
             +-- [ECS World]
                  |
-                 +-- [Entities] (ID + Components)
+                 +-- [Entities] (Validated via Schemas)
                  |
-                 +-- [Systems] (Logic)
+                 +-- [Systems] (Context-Aware Input, Logic)
 ```

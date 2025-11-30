@@ -1,36 +1,30 @@
-# Rationale for Architecture Redesign
+# Rationale for Architecture Redesign (Revised)
 
 ## Motivation
 
-The current architecture works for smaller scopes but exhibits signs of coupling that will hinder future growth. The `GameManager` acts as a God Object, and hardcoded entity creation limits moddability and rapid iteration.
+The current `GameManager` is becoming difficult to maintain due to coupled logic (Input mixed with Gameplay) and hardcoded entity definitions (requiring code changes for balance tweaks). We need to solve these specific problems to allow for faster iteration and safer content addition.
 
 ## Benefits
 
-### 1. Decoupling and Modularity
-By introducing a `SceneManager` and `Application` class, we separate the engine lifecycle from the game logic. This makes it easier to add new game modes (e.g., a Sandbox mode or a Tutorial) without cluttering the main loop.
+### 1. Safer Content Creation
+By moving entity definitions to **Validated Prefabs**, we allow designers to tweak values without touching code, while Schema Validation ensures that typos or invalid values are caught immediately at startup, preventing runtime crashes.
 
-### 2. Moddability and Data-Driven Design
-Moving entity definitions to external files (Prefabs) allows designers to tweak gameplay values (health, speed, initial stats) without touching the code. This is a crucial step towards supporting user-generated content and mods.
+### 2. Clearer Game States
+Replacing the monolithic `GameManager` with a **Scene State Machine** clearly separates "Menu Logic" from "Game Logic". The explicit **Shared Context** ensures we know exactly what data persists between these states, eliminating "global variable magic".
 
-### 3. Maintainability
-The Input Abstraction Layer ensures that changing input schemes (e.g., adding Gamepad support) only requires updating the mapping configuration, not every single system that checks for input.
+### 3. Context-Sensitive Input
+The new **Input Contexts** solve the issue of UI inputs conflicting with Gameplay inputs. This removes the need for spaghetti `if not is_menu_open:` checks inside gameplay systems.
 
-### 4. Robustness
-A queued Event System prevents "event cascades" where one event triggers another, leading to deep recursion or unpredictable state changes within a single frame. Deferred processing ensures a stable state during event handling.
-
-### 5. Testability
-Strict separation of Components (data) and Systems (logic) makes unit testing easier. We can instantiate a Component with specific data and run a System on it to verify the outcome without needing to spin up the entire engine.
+### 4. Pragmatic Development
+By relaxing "Strict ECS" rules to allow helper methods on components, we reduce boilerplate and make the code more readable. We avoid the "Second System Effect" by rejecting complex features (like a full Scene Stack or Async Event Queue) that are not immediately necessary.
 
 ## Trade-offs
 
-### 1. Complexity
-The new architecture introduces more layers (SceneManager, ActionMapper). This increases the initial learning curve for new contributors.
+### 1. Schema Maintenance
+We must maintain schemas for our data files. This adds a step when adding new component types (updating the schema), but pays off by preventing data-rot.
 
-### 2. Boilerplate
-Defining Prefabs in YAML/TOML and mapping inputs requires more setup than simply writing `if key == 'A'` or hardcoding an entity in Python.
-
-### 3. Migration Effort
-Refactoring the existing `GameManager` and `EntityFactory` will require significant effort and careful regression testing to ensure existing gameplay features remain functional.
+### 2. Refactoring Cost
+Existing code relies on `GameManager`. Refactoring to `Application` and `Scene` will require touching `main.py` and the core loop.
 
 ## Conclusion
-The long-term benefits of a clean, data-driven, and modular architecture outweigh the initial cost of refactoring. This proposal sets a solid foundation for the Yukkuri Game to grow in complexity and content.
+This revised proposal focuses on high-impact, low-risk architectural changes. It prioritizes stability (Validation) and usability (Input Contexts, Helper Methods) over theoretical purity.

@@ -1,46 +1,38 @@
-# Implementation Tasks
+# Implementation Tasks (Revised)
 
-This document outlines the actionable steps to implement the proposed architecture.
+This document outlines the actionable steps to implement the pragmatic architecture.
 
-## Phase 1: Core Engine Refactoring
+## Phase 1: Core Lifecycle & Scenes
 
-### 1.1. Application & Scene System
-- [ ] Create `engine/application.py` class to handle main loop and window.
-- [ ] Create `engine/scene.py` abstract base class.
-- [ ] Create `engine/scene_manager.py` to handle scene stack.
-- [ ] Refactor `main.py` to use `Application`.
-- [ ] Move current game logic from `GameManager` to `GameplayScene`.
+### 1.1. Application & State Machine
+- [ ] Create `engine/application.py` to handle the main loop and `ServiceContainer` initialization.
+- [ ] Create `engine/scene.py` interface (`enter`, `exit`, `update`, `render`).
+- [ ] Implement `engine/scene_manager.py` as a simple State Machine (no stack, just current/next).
+- [ ] Define `SharedContext` class for data persistence between scenes.
 
-### 1.2. Enhanced Event System
-- [ ] Create `engine/event_manager.py` with support for immediate and queued events.
-- [ ] Implement topic/channel based subscription.
-- [ ] Replace usage of `EventBus` with new `EventManager` across the codebase.
+### 1.2. Phase-Based Events
+- [ ] Implement `EventManager` with simple, typed event dispatch.
+- [ ] Define frame phases (`PreUpdate`, `Update`, `PostUpdate`) in the Application loop.
 
-### 1.3. Service Container
-- [ ] Refactor `ServiceLocator` into `ServiceContainer`.
-- [ ] Ensure all services (Audio, Settings, etc.) are registered during Application startup.
+## Phase 2: Input & Data
 
-## Phase 2: Input & Data-Driven Systems
+### 2.1. Context-Aware Input
+- [ ] Create `engine/input/action_mapper.py` supporting multiple contexts (e.g., `Context("menu")`, `Context("gameplay")`).
+- [ ] Implement `InputSystem` that queries the `ActionMapper` based on the active context stack.
+- [ ] Migrate `InputSystem` to use context-aware checks.
 
-### 2.1. Input Abstraction
-- [ ] Create `engine/input/input_manager.py` for raw input.
-- [ ] Create `engine/input/action_mapper.py` for logical mapping.
-- [ ] Define default keybindings in a configuration file (YAML/TOML).
-- [ ] Refactor `InputSystem` and other systems to use `ActionMapper`.
+### 2.2. Validated Prefabs
+- [ ] Select a validation library (e.g., Pydantic or `schema`).
+- [ ] Define schemas for existing Components.
+- [ ] Create `engine/prefab_manager.py` that loads AND validates YAML/TOML files against schemas.
+- [ ] Migrate Yukkuri entity creation to use validated prefabs.
 
-### 2.2. Prefab System
-- [ ] Design YAML/TOML schema for Entity Prefabs.
-- [ ] Create `engine/prefab_manager.py` to load and validate prefabs.
-- [ ] Refactor `EntityFactory` to use `PrefabManager` for entity creation.
-- [ ] Migrate existing hardcoded entities (Yukkuri, Items) to YAML/TOML prefab files.
+## Phase 3: Cleanup
 
-## Phase 3: Cleanup & Optimization
+### 3.1. Pragmatic Refactoring
+- [ ] Move utility logic into Component methods where it clarifies code (e.g., `Position.distance_to()`).
+- [ ] Remove `GameManager` and distribute responsibilities to `SceneManager` and `Application`.
 
-### 3.1. ECS Strictness
-- [ ] Audit all Components to ensure they contain NO logic methods.
-- [ ] Audit all Systems to ensure they store NO state (state should be in Components or Resources).
-
-### 3.2. Documentation & Tests
-- [ ] Update `ARCHITECTURE.md` with the new design.
-- [ ] Write unit tests for `EventManager`, `SceneManager`, and `ActionMapper`.
-- [ ] Verify that the refactor hasn't introduced regressions in gameplay.
+### 3.2. Verification
+- [ ] Write tests for `SchemaValidation` (ensure bad data fails to load).
+- [ ] Verify Input Context switching works (e.g., opening a menu stops player movement).
