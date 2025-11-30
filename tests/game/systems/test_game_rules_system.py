@@ -1,19 +1,20 @@
 """
-Tests for the GameManager.
+Tests for the GameRulesSystem.
 """
 import pytest
 from unittest.mock import MagicMock
-from yukkuri_game.game.game_manager import GameManager
+from yukkuri_game.game.systems.game_rules_system import GameRulesSystem
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
 from yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.event_bus import EventBus
+from yukkuri_game.engine.audio import AudioManager
 
 @pytest.fixture
-def game_manager_world():
+def game_rules_world():
     """
-    Sets up a world with mocked services for GameManager testing.
+    Sets up a world with mocked services for GameRulesSystem testing.
     """
     world = World()
 
@@ -22,7 +23,10 @@ def game_manager_world():
     time_svc = TimeService()
     persistence = MagicMock(spec=PersistenceService)
     factory = MagicMock(spec=EntityFactory)
-    event_bus = MagicMock(spec=EventBus)
+    event_bus = EventBus() # Use real EventBus to check subscriptions if needed, or mock if we check published events.
+                           # The system subscribes in __init__.
+
+    audio = MagicMock(spec=AudioManager)
 
     # register(instance, service_type=Type)
     world.services.register(economy, EconomyService)
@@ -30,34 +34,18 @@ def game_manager_world():
     world.services.register(persistence, PersistenceService)
     world.services.register(factory, EntityFactory)
     world.services.register(event_bus, EventBus)
+    world.services.register(audio, AudioManager)
 
     return world, economy, time_svc, persistence, factory, event_bus
 
-def test_game_manager_properties(game_manager_world) -> None:
-    """
-    Tests that GameManager properties correctly delegate to services.
-    """
-    world, economy, time_svc, _, _, _ = game_manager_world
-    gm = GameManager(world)
-
-    # Test money property delegation
-    assert gm.money == 1000
-    gm.money = 2000
-    assert gm.money == 2000
-    assert economy.get_money() == 2000
-
-    # Test time_elapsed property delegation
-    assert gm.time_elapsed == 0.0
-    gm.time_elapsed = 10.0
-    assert gm.time_elapsed == 10.0
-    assert time_svc.time_elapsed == 10.0
-
-def test_game_manager_sell_yukkuri(game_manager_world) -> None:
+def test_game_rules_sell_yukkuri(game_rules_world) -> None:
     """
     Tests the sell_yukkuri logic: value calculation, money addition, and entity destruction.
     """
-    world, economy, _, _, _, _ = game_manager_world
-    gm = GameManager(world)
+    world, economy, _, _, _, event_bus = game_rules_world
+
+    system = GameRulesSystem(event_bus)
+    world.add_system(system)
 
     # Create mock yukkuri
     yukkuri = world.create_entity()
@@ -84,7 +72,7 @@ def test_game_manager_sell_yukkuri(game_manager_world) -> None:
     # Total = 100 + 180 + 500 + 20 = 800
     expected_value = 800
 
-    value = gm.sell_yukkuri(yukkuri)
+    value = system.sell_yukkuri(yukkuri)
 
     assert value == expected_value
     assert economy.get_money() == initial_money + expected_value
@@ -92,34 +80,24 @@ def test_game_manager_sell_yukkuri(game_manager_world) -> None:
     # Entity should be destroyed
     assert not world.entity_exists(yukkuri)
 
-def test_game_manager_sell_invalid_entity(game_manager_world) -> None:
+def test_game_rules_sell_invalid_entity(game_rules_world) -> None:
     """
     Tests that selling an entity without stats does nothing.
     """
-    world, economy, _, _, _, _ = game_manager_world
-    gm = GameManager(world)
+    world, economy, _, _, _, event_bus = game_rules_world
+
+    system = GameRulesSystem(event_bus)
+    world.add_system(system)
 
     # Entity without stats
     item = world.create_entity()
 
     initial_money = economy.get_money()
-    value = gm.sell_yukkuri(item)
+    value = system.sell_yukkuri(item)
 
     assert value == 0
     assert economy.get_money() == initial_money
-    # Entity remains (sell_yukkuri checks for stats before destroying? No, it checks stats then proceeds)
+    # Entity remains (sell_yukkuri checks for stats before destroying)
     # If stats missing, it returns 0 and does NOT destroy.
     assert world.entity_exists(item)
 
-def test_game_manager_save_load_delegation(game_manager_world) -> None:
-    """
-    Tests that save/load calls are delegated to the PersistenceService.
-    """
-    world, _, _, persistence, _, _ = game_manager_world
-    gm = GameManager(world)
-
-    gm.save_game("mysave.json")
-    persistence.save_game.assert_called_with("mysave.json")
-
-    gm.load_game("mysave.json")
-    persistence.load_game.assert_called_with("mysave.json")

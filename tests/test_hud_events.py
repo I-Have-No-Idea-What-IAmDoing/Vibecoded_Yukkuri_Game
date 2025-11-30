@@ -7,6 +7,7 @@ import pygame
 import pygame_gui
 from yukkuri_game.game.ui.hud_events import HudEvents
 from yukkuri_game.game.events import PlacementStartedEvent
+from yukkuri_game.game.services import EconomyService
 
 class TestHudEvents(unittest.TestCase):
     """
@@ -17,9 +18,14 @@ class TestHudEvents(unittest.TestCase):
         Sets up mocks for layout, game manager, and event bus.
         """
         self.layout = Mock()
-        self.gm = Mock()
+        self.world = Mock()
         self.event_bus = Mock()
         self.on_error = Mock()
+
+        # Mock EconomyService
+        self.economy = Mock(spec=EconomyService)
+        # Mock world.services.get(EconomyService) -> self.economy
+        self.world.services.get.return_value = self.economy
 
         # Setup mock buttons
         self.layout.buy_buttons = {}
@@ -30,14 +36,14 @@ class TestHudEvents(unittest.TestCase):
         self.cookie_btn = Mock()
         self.layout.buy_buttons[self.cookie_btn] = {"type_id": "cookie", "cost": 10, "category": "item", "name": "Cookie"}
 
-        self.hud_events = HudEvents(self.layout, self.gm, self.event_bus, self.on_error)
+        self.hud_events = HudEvents(self.layout, self.world, self.event_bus, self.on_error)
 
     def test_buy_reimu_success(self) -> None:
         """
         Tests successful purchase of a Yukkuri.
         """
         # Setup
-        self.gm.money = 1000
+        self.economy.get_money.return_value = 1000
         event = Mock(spec=pygame.event.Event)
         event.type = pygame_gui.UI_BUTTON_PRESSED
         event.ui_element = self.reimu_btn
@@ -58,7 +64,7 @@ class TestHudEvents(unittest.TestCase):
         Tests failed purchase of a Yukkuri due to insufficient funds.
         """
         # Setup
-        self.gm.money = 50
+        self.economy.get_money.return_value = 50
         event = Mock(spec=pygame.event.Event)
         event.type = pygame_gui.UI_BUTTON_PRESSED
         event.ui_element = self.reimu_btn
@@ -76,7 +82,7 @@ class TestHudEvents(unittest.TestCase):
         Tests successful purchase of an item.
         """
         # Setup
-        self.gm.money = 100
+        self.economy.get_money.return_value = 100
         event = Mock(spec=pygame.event.Event)
         event.type = pygame_gui.UI_BUTTON_PRESSED
         event.ui_element = self.cookie_btn
@@ -97,7 +103,7 @@ class TestHudEvents(unittest.TestCase):
         Tests failed purchase of an item due to insufficient funds.
         """
         # Setup
-        self.gm.money = 5
+        self.economy.get_money.return_value = 5
         event = Mock(spec=pygame.event.Event)
         event.type = pygame_gui.UI_BUTTON_PRESSED
         event.ui_element = self.cookie_btn

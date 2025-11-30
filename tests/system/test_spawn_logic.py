@@ -18,9 +18,9 @@ def test_initial_setup(game_driver):
     game_driver.run_scenario(scenario())
 
     assert game_driver.game.headless is True
-    from yukkuri_game.game.game_manager import GameManager
+    from yukkuri_game.game.services import GameService
     from yukkuri_game.game.yukkurrium import Yukkurrium
-    assert game_driver.world.services.try_get(GameManager) is not None
+    assert game_driver.world.services.try_get(GameService) is not None
     assert game_driver.world.services.try_get(Yukkurrium) is not None
 
 def test_spawn_reimu(game_driver):
