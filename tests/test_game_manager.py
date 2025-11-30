@@ -1,3 +1,6 @@
+"""
+Tests for the GameManager.
+"""
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.game_manager import GameManager
@@ -9,6 +12,9 @@ from yukkuri_game.engine.event_bus import EventBus
 
 @pytest.fixture
 def game_manager_world():
+    """
+    Sets up a world with mocked services for GameManager testing.
+    """
     world = World()
 
     # Setup services
@@ -27,7 +33,10 @@ def game_manager_world():
 
     return world, economy, time_svc, persistence, factory, event_bus
 
-def test_game_manager_properties(game_manager_world):
+def test_game_manager_properties(game_manager_world) -> None:
+    """
+    Tests that GameManager properties correctly delegate to services.
+    """
     world, economy, time_svc, _, _, _ = game_manager_world
     gm = GameManager(world)
 
@@ -43,7 +52,10 @@ def test_game_manager_properties(game_manager_world):
     assert gm.time_elapsed == 10.0
     assert time_svc.time_elapsed == 10.0
 
-def test_game_manager_sell_yukkuri(game_manager_world):
+def test_game_manager_sell_yukkuri(game_manager_world) -> None:
+    """
+    Tests the sell_yukkuri logic: value calculation, money addition, and entity destruction.
+    """
     world, economy, _, _, _, _ = game_manager_world
     gm = GameManager(world)
 
@@ -80,7 +92,10 @@ def test_game_manager_sell_yukkuri(game_manager_world):
     # Entity should be destroyed
     assert not world.entity_exists(yukkuri)
 
-def test_game_manager_sell_invalid_entity(game_manager_world):
+def test_game_manager_sell_invalid_entity(game_manager_world) -> None:
+    """
+    Tests that selling an entity without stats does nothing.
+    """
     world, economy, _, _, _, _ = game_manager_world
     gm = GameManager(world)
 
@@ -96,7 +111,10 @@ def test_game_manager_sell_invalid_entity(game_manager_world):
     # If stats missing, it returns 0 and does NOT destroy.
     assert world.entity_exists(item)
 
-def test_game_manager_save_load_delegation(game_manager_world):
+def test_game_manager_save_load_delegation(game_manager_world) -> None:
+    """
+    Tests that save/load calls are delegated to the PersistenceService.
+    """
     world, _, _, persistence, _, _ = game_manager_world
     gm = GameManager(world)
 

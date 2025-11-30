@@ -1,4 +1,6 @@
-
+"""
+Tests for HUD Events handling.
+"""
 import unittest
 from unittest.mock import MagicMock, Mock
 import pygame
@@ -7,7 +9,13 @@ from yukkuri_game.game.ui.hud_events import HudEvents
 from yukkuri_game.game.events import PlacementStartedEvent
 
 class TestHudEvents(unittest.TestCase):
-    def setUp(self):
+    """
+    Tests the logic for processing HUD UI events (button clicks).
+    """
+    def setUp(self) -> None:
+        """
+        Sets up mocks for layout, game manager, and event bus.
+        """
         self.layout = Mock()
         self.gm = Mock()
         self.event_bus = Mock()
@@ -24,7 +32,10 @@ class TestHudEvents(unittest.TestCase):
 
         self.hud_events = HudEvents(self.layout, self.gm, self.event_bus, self.on_error)
 
-    def test_buy_reimu_success(self):
+    def test_buy_reimu_success(self) -> None:
+        """
+        Tests successful purchase of a Yukkuri.
+        """
         # Setup
         self.gm.money = 1000
         event = Mock(spec=pygame.event.Event)
@@ -42,7 +53,10 @@ class TestHudEvents(unittest.TestCase):
         self.assertEqual(args[0].type_id, "reimu")
         self.on_error.assert_not_called()
 
-    def test_buy_reimu_not_enough_money(self):
+    def test_buy_reimu_not_enough_money(self) -> None:
+        """
+        Tests failed purchase of a Yukkuri due to insufficient funds.
+        """
         # Setup
         self.gm.money = 50
         event = Mock(spec=pygame.event.Event)
@@ -57,7 +71,10 @@ class TestHudEvents(unittest.TestCase):
         self.event_bus.publish.assert_not_called()
         self.on_error.assert_called_once_with("Not enough money to buy Reimu! Needed: $100")
 
-    def test_buy_cookie_success(self):
+    def test_buy_cookie_success(self) -> None:
+        """
+        Tests successful purchase of an item.
+        """
         # Setup
         self.gm.money = 100
         event = Mock(spec=pygame.event.Event)
@@ -75,7 +92,10 @@ class TestHudEvents(unittest.TestCase):
         self.assertEqual(args[0].type_id, "cookie")
         self.on_error.assert_not_called()
 
-    def test_buy_cookie_not_enough_money(self):
+    def test_buy_cookie_not_enough_money(self) -> None:
+        """
+        Tests failed purchase of an item due to insufficient funds.
+        """
         # Setup
         self.gm.money = 5
         event = Mock(spec=pygame.event.Event)

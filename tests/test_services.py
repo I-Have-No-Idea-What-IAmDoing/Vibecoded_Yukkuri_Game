@@ -1,3 +1,6 @@
+"""
+Tests for Game Services (Economy, Time, Persistence).
+"""
 import pytest
 from unittest.mock import MagicMock, patch, mock_open
 from yukkuri_game.game.services import PersistenceService, EconomyService, TimeService
@@ -8,7 +11,10 @@ from yukkuri_game.game.entity_factory import EntityFactory
 
 # --- Economy Service Tests ---
 
-def test_economy_service_basics():
+def test_economy_service_basics() -> None:
+    """
+    Tests basic economy operations (add, remove, set).
+    """
     service = EconomyService(initial_money=100)
     assert service.get_money() == 100
 
@@ -37,7 +43,10 @@ def test_economy_service_basics():
 
 # --- Time Service Tests ---
 
-def test_time_service():
+def test_time_service() -> None:
+    """
+    Tests time tracking.
+    """
     service = TimeService()
     assert service.time_elapsed == 0.0
 
@@ -50,7 +59,10 @@ def test_time_service():
 # --- Persistence Service Tests ---
 
 @pytest.fixture
-def persistence_world():
+def persistence_world() -> MagicMock:
+    """
+    Creates a mock World for persistence tests.
+    """
     world = World()
     # Mock get_all_entities to return empty list initially
     # But we can't easily mock world methods unless we mock the world object
@@ -61,7 +73,10 @@ def persistence_world():
     mock_world.get_entities_with.return_value = []
     return mock_world
 
-def test_save_game(persistence_world):
+def test_save_game(persistence_world: MagicMock) -> None:
+    """
+    Tests saving game data to a file.
+    """
     world = persistence_world
 
     # Mock services
@@ -103,7 +118,10 @@ def test_save_game(persistence_world):
     # Just verify open was called correctly
     mock_file.assert_called_with("test_saves/test.json", "w")
 
-def test_load_game(persistence_world):
+def test_load_game(persistence_world: MagicMock) -> None:
+    """
+    Tests loading game data from a file.
+    """
     world = persistence_world
 
     economy = EconomyService(0)

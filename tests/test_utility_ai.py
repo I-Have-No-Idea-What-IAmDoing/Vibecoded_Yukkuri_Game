@@ -1,13 +1,20 @@
+"""
+Tests for Utility AI Engine.
+"""
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.ai.utility import UtilityAIEngine, Action, Consideration
 from yukkuri_game.engine.data_models import AIData, AIAction, ActionEffect, ActionConsideration
 
 class MockResourceManager:
+    """Mock resource manager for testing."""
     def __init__(self, actions_data):
         self.ai_actions = actions_data
 
-def test_utility_ai_parsing():
+def test_utility_ai_parsing() -> None:
+    """
+    Tests parsing of AI action data into Action objects.
+    """
     # Mock data matching actions.toml structure but as objects (simulating loaded msgspec)
     mock_actions = {
         "Eat": AIAction(
@@ -38,7 +45,10 @@ def test_utility_ai_parsing():
     assert eat_action.considerations[0].name == "Hunger"
     assert eat_action.considerations[0].curve_type == "linear"
 
-def test_utility_calculation():
+def test_utility_calculation() -> None:
+    """
+    Tests calculation of utility scores and action selection.
+    """
     # Setup Engine with specific actions
     mock_actions = {
         "TestHigh": AIAction(

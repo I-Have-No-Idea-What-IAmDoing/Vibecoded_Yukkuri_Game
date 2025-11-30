@@ -1,3 +1,6 @@
+"""
+Tests for Economy and Persistence services.
+"""
 import pytest
 import os
 import json
@@ -10,28 +13,46 @@ from yukkuri_game.engine.resource_manager import ResourceManager
 from unittest.mock import MagicMock
 
 @pytest.fixture
-def world():
+def world() -> World:
+    """
+    Creates a new ECS World.
+    """
     return World()
 
 @pytest.fixture
-def economy_service():
+def economy_service() -> EconomyService:
+    """
+    Creates a new EconomyService.
+    """
     return EconomyService()
 
-def test_economy_initial_state(economy_service):
+def test_economy_initial_state(economy_service: EconomyService) -> None:
+    """
+    Tests initial money value.
+    """
     assert economy_service.get_money() == 1000
 
-def test_economy_add_money(economy_service):
+def test_economy_add_money(economy_service: EconomyService) -> None:
+    """
+    Tests adding money.
+    """
     economy_service.add_money(500)
     assert economy_service.get_money() == 1500
 
-def test_economy_remove_money(economy_service):
+def test_economy_remove_money(economy_service: EconomyService) -> None:
+    """
+    Tests removing money.
+    """
     assert economy_service.remove_money(500) is True
     assert economy_service.get_money() == 500
 
     assert economy_service.remove_money(1000) is False
     assert economy_service.get_money() == 500
 
-def test_economy_set_money(economy_service):
+def test_economy_set_money(economy_service: EconomyService) -> None:
+    """
+    Tests setting money directly.
+    """
     economy_service.set_money(2000)
     assert economy_service.get_money() == 2000
 
@@ -39,7 +60,10 @@ def test_economy_set_money(economy_service):
     assert economy_service.get_money() == 0
 
 @pytest.fixture
-def setup_world(world):
+def setup_world(world: World) -> tuple[World, PersistenceService]:
+    """
+    Sets up a world with all necessary services for persistence testing.
+    """
     # Mock resources
     resources = MagicMock(spec=ResourceManager)
     # Mock the attributes accessed by EntityFactory
@@ -73,7 +97,10 @@ def setup_world(world):
 
     return world, persistence
 
-def test_persistence_round_trip(setup_world):
+def test_persistence_round_trip(setup_world: tuple[World, PersistenceService]) -> None:
+    """
+    Tests saving and loading game state, verifying economy, time, and entities are restored.
+    """
     world, persistence = setup_world
     economy = world.services.get(EconomyService)
     time_service = world.services.get(TimeService)
@@ -87,17 +114,21 @@ def test_persistence_round_trip(setup_world):
     # Set specific stats
     stats = world.get_component(y_id, YukkuriStats)
     stats.name = "TestReimu"
-    stats.happiness = 99.0
+    # Note: Happiness is now in EmotionalState, but stats might still have a property or we check components
+    # The previous test accessed stats.happiness which might be removed.
+    # Let's assume stats.happiness was moved or kept for compatibility.
+    # If removed, we should check EmotionalState.
+    # Given we just documented components, we know YukkuriStats doesn't have happiness directly
+    # but the persistence service saves "happiness" from EmotionalState.
+    # The factory creates EmotionalState.
+    from yukkuri_game.game.yukkuri_components import EmotionalState
+    emo = world.get_component(y_id, EmotionalState)
+    if emo:
+        emo.happiness = 99.0
 
     i_id = factory.create_item("food", 300, 400)
 
     # Add an entity without Transform to test "get_all_entities"
-    # This requires adding a component that is not Transform but is savable?
-    # Currently PersistenceService only saves Yukkuri or Item.
-    # Both have Transform added by factory.
-    # But if we manually create an entity with only YukkuriStats (broken state but possible in ECS)
-    # it should be saved if we iterate all entities.
-
     broken_id = world.create_entity()
     # Just add YukkuriStats
     world.add_component(broken_id, YukkuriStats(type_id="reimu", name="Broken", max_health=100, health=100))

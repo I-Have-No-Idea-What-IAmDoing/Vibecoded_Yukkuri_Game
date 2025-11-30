@@ -1,3 +1,6 @@
+"""
+Tests for the Resource Manager.
+"""
 import pytest
 from unittest.mock import MagicMock, patch, mock_open
 import os
@@ -7,10 +10,14 @@ from typing import Dict
 import msgspec
 
 class MockModel(msgspec.Struct):
+    """Mock model for testing TOML loading."""
     key: str
     section: Dict[str, int]
 
-def test_load_toml_success():
+def test_load_toml_success() -> None:
+    """
+    Tests successful loading and parsing of a TOML file.
+    """
     rm = ResourceManager()
     toml_content = b'key = "value"\n[section]\nsub = 123'
 
@@ -20,7 +27,10 @@ def test_load_toml_success():
     assert data.key == "value"
     assert data.section["sub"] == 123
 
-def test_load_toml_failure():
+def test_load_toml_failure() -> None:
+    """
+    Tests graceful failure when loading a missing TOML file.
+    """
     rm = ResourceManager()
 
     # Simulate file not found or read error
@@ -31,7 +41,10 @@ def test_load_toml_failure():
 
 @patch("yukkuri_game.engine.resource_manager.pygame.image.load")
 @patch("yukkuri_game.engine.resource_manager.os.path.exists")
-def test_load_image_success(mock_exists, mock_load):
+def test_load_image_success(mock_exists: MagicMock, mock_load: MagicMock) -> None:
+    """
+    Tests successful loading and caching of an image.
+    """
     rm = ResourceManager()
     mock_exists.return_value = True
     mock_surface = MagicMock()
@@ -48,7 +61,10 @@ def test_load_image_success(mock_exists, mock_load):
     mock_load.assert_called_once() # Only called once due to cache
 
 @patch("yukkuri_game.engine.resource_manager.os.path.exists")
-def test_load_image_not_found(mock_exists):
+def test_load_image_not_found(mock_exists: MagicMock) -> None:
+    """
+    Tests that a placeholder image is returned when the file is missing.
+    """
     rm = ResourceManager()
     mock_exists.return_value = False
 
@@ -73,7 +89,10 @@ def test_load_image_not_found(mock_exists):
     # This should work headless if SDL_VIDEODRIVER is dummy, but let's see.
     pass
 
-def test_load_all_data():
+def test_load_all_data() -> None:
+    """
+    Tests loading all game data (types, items, actions).
+    """
     rm = ResourceManager()
 
     # Create mock data objects that match the expected return types of load_toml_model

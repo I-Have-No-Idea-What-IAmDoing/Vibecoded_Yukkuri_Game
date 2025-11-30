@@ -1,3 +1,6 @@
+"""
+Tests for the Physics System.
+"""
 import pytest
 from unittest.mock import MagicMock, patch
 import pymunk
@@ -6,16 +9,25 @@ from yukkuri_game.game.components import Transform, PhysicsBody
 from yukkuri_game.engine.ecs import World
 
 @pytest.fixture
-def physics_system():
+def physics_system() -> PhysicsSystem:
+    """
+    Creates a PhysicsSystem with defined gravity.
+    """
     return PhysicsSystem(gravity=(0, 10))
 
-def test_init(physics_system):
+def test_init(physics_system: PhysicsSystem) -> None:
+    """
+    Tests initialization of the PhysicsSystem.
+    """
     assert physics_system.space.gravity == (0, 10)
     assert physics_system.accumulator == 0.0
     assert physics_system.time_step == 1.0 / 60.0
     assert physics_system.space.damping == 0.9
 
-def test_update_step(physics_system):
+def test_update_step(physics_system: PhysicsSystem) -> None:
+    """
+    Tests that the physics simulation steps correctly when sufficient time passes.
+    """
     world = World()
 
     # Mock space.step
@@ -25,7 +37,10 @@ def test_update_step(physics_system):
         mock_step.assert_called_once_with(1.0 / 60.0)
         assert physics_system.accumulator == 0.0
 
-def test_update_accumulator(physics_system):
+def test_update_accumulator(physics_system: PhysicsSystem) -> None:
+    """
+    Tests that the accumulator handles partial time steps correctly.
+    """
     world = World()
 
     with patch.object(physics_system.space, 'step') as mock_step:
@@ -40,7 +55,10 @@ def test_update_accumulator(physics_system):
         mock_step.assert_called_once_with(1.0 / 60.0)
         # Accumulator might be slightly off due to float precision but should be close to 0
 
-def test_sync_transform(physics_system):
+def test_sync_transform(physics_system: PhysicsSystem) -> None:
+    """
+    Tests that physics body positions are synced to Transform components.
+    """
     world = World()
 
     # Create an entity with PhysicsBody and Transform

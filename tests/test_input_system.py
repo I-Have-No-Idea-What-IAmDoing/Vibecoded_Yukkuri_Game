@@ -1,3 +1,6 @@
+"""
+Tests for InputSystem logic.
+"""
 import unittest
 from unittest.mock import MagicMock
 import pygame
@@ -9,7 +12,13 @@ from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.audio import AudioManager
 
 class TestInputSystem(unittest.TestCase):
-    def setUp(self):
+    """
+    Tests input handling logic, including placement mode and event publishing.
+    """
+    def setUp(self) -> None:
+        """
+        Sets up pygame, mocks, and the InputSystem.
+        """
         # Initialize pygame for event handling
         pygame.init()
 
@@ -35,7 +44,10 @@ class TestInputSystem(unittest.TestCase):
         # Also manually inject audio if update didn't catch it because try_get wasn't mocked yet
         # (Actually I added try_get mock above, so update should work if it calls try_get)
 
-    def tearDown(self):
+    def tearDown(self) -> None:
+        """
+        Cleans up pygame.
+        """
         pygame.quit()
 
     def _get_service(self, service_type):
@@ -50,7 +62,10 @@ class TestInputSystem(unittest.TestCase):
             return self.audio_mock
         return None
 
-    def test_placement_started_updates_service(self):
+    def test_placement_started_updates_service(self) -> None:
+        """
+        Tests that starting placement updates the input service state.
+        """
         event = PlacementStartedEvent("reimu", 100, "yukkuri")
         self.input_system.on_placement_started(event)
 
@@ -59,7 +74,10 @@ class TestInputSystem(unittest.TestCase):
         self.assertEqual(self.input_service.place_cost, 100)
         self.assertEqual(self.input_service.place_entity_type, "yukkuri")
 
-    def test_left_click_emits_placement_requested(self):
+    def test_left_click_emits_placement_requested(self) -> None:
+        """
+        Tests that left clicking while placing emits a PlacementRequestedEvent.
+        """
         # Start placement
         self.input_service.start_placement("reimu", 100, "yukkuri")
 
@@ -75,7 +93,10 @@ class TestInputSystem(unittest.TestCase):
         # Check placement reset
         self.assertFalse(self.input_service.is_placing)
 
-    def test_right_click_cancels_placement(self):
+    def test_right_click_cancels_placement(self) -> None:
+        """
+        Tests that right clicking cancels placement mode.
+        """
         # Start placement
         self.input_service.start_placement("reimu", 100, "yukkuri")
 

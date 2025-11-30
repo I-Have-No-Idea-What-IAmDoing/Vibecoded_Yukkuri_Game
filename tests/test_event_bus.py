@@ -1,3 +1,6 @@
+"""
+Tests for the EventBus system.
+"""
 import unittest
 from unittest.mock import Mock, MagicMock
 from yukkuri_game.engine.event_bus import EventBus, Event
@@ -5,13 +8,23 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class TestEvent(Event):
+    """Event for testing purposes."""
     payload: str
 
 class TestEventBus(unittest.TestCase):
-    def setUp(self):
+    """
+    Tests the EventBus functionality.
+    """
+    def setUp(self) -> None:
+        """
+        Sets up a fresh EventBus for each test.
+        """
         self.event_bus = EventBus()
 
-    def test_subscribe_and_publish(self):
+    def test_subscribe_and_publish(self) -> None:
+        """
+        Tests that subscribed handlers receive published events.
+        """
         mock_handler = Mock()
         self.event_bus.subscribe(TestEvent, mock_handler)
 
@@ -20,7 +33,10 @@ class TestEventBus(unittest.TestCase):
 
         mock_handler.assert_called_once_with(event)
 
-    def test_unsubscribe(self):
+    def test_unsubscribe(self) -> None:
+        """
+        Tests that unsubscribed handlers do not receive events.
+        """
         mock_handler = Mock()
         self.event_bus.subscribe(TestEvent, mock_handler)
         self.event_bus.unsubscribe(TestEvent, mock_handler)
@@ -30,7 +46,10 @@ class TestEventBus(unittest.TestCase):
 
         mock_handler.assert_not_called()
 
-    def test_multiple_subscribers(self):
+    def test_multiple_subscribers(self) -> None:
+        """
+        Tests that multiple handlers can subscribe to the same event type.
+        """
         handler1 = Mock()
         handler2 = Mock()
         self.event_bus.subscribe(TestEvent, handler1)

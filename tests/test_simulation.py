@@ -1,3 +1,6 @@
+"""
+Tests for Game Simulation (Systems integration).
+"""
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
@@ -12,7 +15,10 @@ from yukkuri_game.game.ai.utility import UtilityAIEngine
 from yukkuri_game.game.ai.navigation_service import NavigationService
 
 @pytest.fixture
-def simulation_world():
+def simulation_world() -> tuple[World, int, int]:
+    """
+    Sets up a world with a Yukkuri and an Item for simulation tests.
+    """
     world = World()
     world.services.register(GameService(world))
     world.services.register(NavigationService(1000, 1000))
@@ -33,7 +39,10 @@ def simulation_world():
     return world, yukkuri, item
 
 @pytest.fixture
-def systems():
+def systems() -> tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]:
+    """
+    Sets up the systems used in the simulation tests.
+    """
     mock_ai_engine = MagicMock()
     # Default behavior: return "Idle"
     mock_ai_engine.select_action.return_value = "Idle"
@@ -44,7 +53,10 @@ def systems():
 
     return behavior_system, stat_decay_system, mock_ai_engine, interaction_system
 
-def test_simulation_update_decay(simulation_world, systems):
+def test_simulation_update_decay(simulation_world: tuple[World, int, int], systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]) -> None:
+    """
+    Tests that stats decay over time via the EmotionSystem.
+    """
     world, yukkuri, _ = simulation_world
     _, stat_decay_system, _, _ = systems
 
@@ -64,7 +76,10 @@ def test_simulation_update_decay(simulation_world, systems):
     assert stats.hunger == initial_hunger + 2.0
     assert stats.cleanliness == initial_cleanliness - 2.0
 
-def test_simulation_action_eat(simulation_world, systems):
+def test_simulation_action_eat(simulation_world: tuple[World, int, int], systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]) -> None:
+    """
+    Tests the full 'Eat' action cycle: Utility Selection -> Moving -> Interaction.
+    """
     world, yukkuri, item = simulation_world
     behavior_system, _, mock_ai_engine, interaction_system = systems
 
@@ -124,7 +139,10 @@ def test_simulation_action_eat(simulation_world, systems):
     # Note: EmotionSystem is not running here so no decay added.
     assert stats.hunger == 30.0
 
-def test_simulation_action_wander(simulation_world, systems):
+def test_simulation_action_wander(simulation_world: tuple[World, int, int], systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]) -> None:
+    """
+    Tests the 'Wander' action.
+    """
     world, yukkuri, _ = simulation_world
     behavior_system, _, mock_ai_engine, _ = systems
 

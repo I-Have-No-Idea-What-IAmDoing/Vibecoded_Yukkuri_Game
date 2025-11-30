@@ -1,3 +1,6 @@
+"""
+Tests for Data Integration (msgspec models).
+"""
 import os
 import sys
 import unittest
@@ -11,11 +14,20 @@ from yukkuri_game.engine.data_models import YukkuriType, ItemType, AIAction, Yuk
 from yukkuri_game.engine.resource_manager import ResourceManager
 
 class TestDataIntegration(unittest.TestCase):
+    """
+    Tests the correct parsing of TOML data into msgspec models.
+    """
 
-    def setUp(self):
+    def setUp(self) -> None:
+        """
+        Sets up the test environment.
+        """
         self.resource_manager = ResourceManager()
 
-    def test_yukkuri_model(self):
+    def test_yukkuri_model(self) -> None:
+        """
+        Tests that YukkuriData correctly decodes valid TOML.
+        """
         toml_data = """
         [yukkuris.test]
         name = "Test"
@@ -31,7 +43,10 @@ class TestDataIntegration(unittest.TestCase):
         self.assertEqual(decoded.yukkuris["test"].name, "Test")
         self.assertEqual(decoded.yukkuris["test"].width, 10)
 
-    def test_item_model(self):
+    def test_item_model(self) -> None:
+        """
+        Tests that ItemData correctly decodes valid TOML.
+        """
         toml_data = """
         [items.testitem]
         name = "Test Item"
@@ -49,7 +64,10 @@ class TestDataIntegration(unittest.TestCase):
         self.assertEqual(decoded.items["testitem"].nutrition, 10)
         self.assertIsNone(decoded.items["testitem"].fun)
 
-    def test_ai_model(self):
+    def test_ai_model(self) -> None:
+        """
+        Tests that AIData correctly decodes valid TOML.
+        """
         toml_data = """
         [actions.testaction]
         weight = 1.5
@@ -69,7 +87,10 @@ class TestDataIntegration(unittest.TestCase):
         self.assertEqual(len(decoded.actions["testaction"].considerations), 1)
         self.assertEqual(decoded.actions["testaction"].considerations[0].name, "Test Consider")
 
-    def test_malformed_data(self):
+    def test_malformed_data(self) -> None:
+        """
+        Tests that validation errors are raised for missing required fields.
+        """
         toml_data = """
         [yukkuris.bad]
         name = "Bad"
@@ -78,7 +99,10 @@ class TestDataIntegration(unittest.TestCase):
         with self.assertRaises(msgspec.ValidationError):
             msgspec.toml.decode(toml_data.encode('utf-8'), type=YukkuriData)
 
-    def test_wrong_type(self):
+    def test_wrong_type(self) -> None:
+        """
+        Tests that validation errors are raised for incorrect data types.
+        """
         toml_data = """
         [yukkuris.bad]
         name = 123 # Should be string

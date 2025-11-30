@@ -1,4 +1,6 @@
-
+"""
+Tests for the Emotion Decay system.
+"""
 import pytest
 from ..game.yukkuri_components import EmotionalState, Personality, PersonalityAxis
 from ..game.systems.emotion_system import EmotionSystem
@@ -6,18 +8,37 @@ from ..config import StatDecaySettings
 from ..engine.ecs import World
 
 @pytest.fixture
-def world():
+def world() -> World:
+    """
+    Creates a new ECS World for testing.
+
+    Returns:
+        World: A new ECS World instance.
+    """
     return World()
 
 @pytest.fixture
-def emotion_system():
+def emotion_system() -> EmotionSystem:
+    """
+    Creates an EmotionSystem with accelerated decay rates for testing.
+
+    Returns:
+        EmotionSystem: The configured EmotionSystem.
+    """
     settings = StatDecaySettings()
     # Speed up decay for testing
     settings.stress = 10.0
     settings.happiness = 10.0
     return EmotionSystem(settings)
 
-def test_stress_decay(world, emotion_system):
+def test_stress_decay(world: World, emotion_system: EmotionSystem) -> None:
+    """
+    Tests that stress decays over time.
+
+    Args:
+        world (World): The ECS World fixture.
+        emotion_system (EmotionSystem): The EmotionSystem fixture.
+    """
     entity = world.create_entity()
     # Initial High Stress
     world.add_component(entity, EmotionalState(happiness=0, stress=100))
@@ -33,7 +54,14 @@ def test_stress_decay(world, emotion_system):
     assert state.stress < 100.0
     assert state.stress == 90.0 # 100 - 10*1.0
 
-def test_happiness_decay_to_baseline(world, emotion_system):
+def test_happiness_decay_to_baseline(world: World, emotion_system: EmotionSystem) -> None:
+    """
+    Tests that happiness decays towards the baseline (0).
+
+    Args:
+        world (World): The ECS World fixture.
+        emotion_system (EmotionSystem): The EmotionSystem fixture.
+    """
     entity = world.create_entity()
     # Initial High Happiness
     world.add_component(entity, EmotionalState(happiness=100, stress=0))
@@ -54,7 +82,13 @@ def test_happiness_decay_to_baseline(world, emotion_system):
     assert state.happiness > -100.0
     assert state.happiness == -90.0
 
-def test_dominant_emotion_quadrants(world):
+def test_dominant_emotion_quadrants(world: World) -> None:
+    """
+    Tests the categorization of dominant emotions based on happiness and stress.
+
+    Args:
+        world (World): The ECS World fixture (unused but kept for consistency).
+    """
     state = EmotionalState()
 
     # 1. Content/Relaxed (High Hap, Low Stress)
