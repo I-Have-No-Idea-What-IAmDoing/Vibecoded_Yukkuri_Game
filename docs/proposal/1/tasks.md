@@ -38,11 +38,18 @@ This document outlines the actionable steps to implement the proposed architectu
 
 ## Phase 3: Persistence & Cleanup
 
-### 3.1. Data Persistence
-- [ ] Create `engine/session.py` (or `GameSession`) to hold persistent state.
-- [ ] Integrate Session with `Application` and `ServiceContainer`.
-- [ ] Update persisted Components to inherit from `msgspec.Struct`.
-- [ ] Implement `PersistenceSystem` to handle dirty flags and incremental serialization using `msgspec.msgpack`.
+### 3.1. Data Persistence Infrastructure
+- [ ] Create `engine/persistence/keys.py` module for `Final` constant key definitions.
+- [ ] Implement `engine/persistence/migration_registry.py` to handle versioned schema transformations.
+- [ ] Create `engine/scene_context.py` to hold hydrated data for scene injection.
+- [ ] Implement `SceneManager.hydrate_scene()`:
+    - [ ] Resolve dependencies from `Scene.INJECTIONS`.
+    - [ ] Load raw data and apply migrations via Registry.
+    - [ ] Deserialize into target Component classes.
+- [ ] Implement `SceneManager.snapshot_scene()`:
+    - [ ] Collect data from `Scene.EXPORTS` (Main Thread).
+    - [ ] Implement async background saver (serialization + disk I/O).
+    - [ ] Ensure atomic file writes (temp file + rename).
 
 ### 3.2. Pragmatic ECS Review
 - [ ] Audit Components to add helper methods where they encapsulate data transformation (e.g., `is_dead()`).
@@ -52,4 +59,6 @@ This document outlines the actionable steps to implement the proposed architectu
 ### 3.3. Documentation & Tests
 - [ ] Update `ARCHITECTURE.md` with the new design.
 - [ ] Write unit tests for `EventManager`, `SceneManager`, `ActionMapper`, and Prefabs.
+- [ ] Write unit tests for `MigrationRegistry` (chain validation, breaking/additive changes).
+- [ ] Write integration tests for Save/Load cycle (ensure atomicity and version handling).
 - [ ] Verify that the refactor hasn't introduced regressions in gameplay.

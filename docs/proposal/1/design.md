@@ -61,76 +61,94 @@ A lightweight **ServiceContainer** will provide access to cross-cutting concerns
 
 ### 7. Data Persistence & State Transfer
 
-To ensure robustness, maintainability, and forward compatibility, we propose a decoupled persistence model that relies on standard Python features and explicit versioning.
+We adopt a decoupled, snapshot-based persistence model that enforces strict separation between Data, Logic, and Serialization. This revision addresses concerns regarding boilerplate, pollution, and fragility.
 
 #### 7.1. Core Principles
 
-- **No Global Session in ECS**: Systems inside a Scene **never** access a global `GameSession` directly.
-- **POPOs & Dataclasses**: Components are standard Python `dataclasses` or Plain Old Python Objects. We do **not** inherit from library-specific classes (like `msgspec.Struct`). The serialization layer handles the conversion transparently.
-- **Scoped Keys**: Data keys are namespaced strings (e.g., `"player.inventory"`, `"world.dungeon.flags"`) rather than a monolithic global Enum. This allows modular development without central bottlenecks.
+- **No Global Session in ECS**: Systems operate on Components. Persistence is an infrastructure concern handled by the `SceneManager`.
+- **POPOs & Dataclasses**: Components are standard Python `dataclasses`. They contain **no** serialization logic and **no** migration logic.
+- **Key Constants**: To avoid "stringly typed" errors, persistence keys are defined as `Final` constants in designated `keys` modules (e.g., `keys.player.INVENTORY`), not as raw string literals.
 
-#### 7.2. The Lifecycle
+#### 7.2. Automated Lifecycle (The "No Boilerplate" Rule)
 
-1.  **Scene Manifest (Contract)**
-    - Each Scene declares its data dependencies using namespaced keys.
-    - **Example**:
-      ```python
-      class DungeonScene(Scene):
-          MANIFEST = {
-              "required": ["player.inventory", "player.stats"],
-              "optional": ["dungeon.flags"]
-          }
-      ```
+Instead of manual fetching and deserialization inside `setup`, the engine handles hydration *before* the Scene initializes.
 
-2.  **Hydration (Inject with Versioning)**
-    - The `SessionManager` retrieves data. Each data blob includes a `_version` field.
-    - **Schema Evolution**: Before injection, the data is passed through a migration pipeline if the stored version is older than the current component version.
-    - The data is then decoded into the Component dataclass.
-      ```python
-      # Scene Setup
-      def setup(self, world, initial_state):
-          player = world.create_entity()
-          # Migration and Decoding happen here
-          inv_data = initial_state.get("player.inventory")
-          inv = self.serializer.deserialize(inv_data, target_type=Inventory)
-          player.add(inv)
-      ```
+1.  **Scene Manifest**:
+    The Scene declares its requirements using a typed mapping.
+    ```python
+    class DungeonScene(Scene):
+        # Maps a Persistence Key to a Component Type
+        INJECTIONS = {
+            keys.player.INVENTORY: Inventory,
+            keys.player.STATS: Stats
+        }
+    ```
 
-3.  **Gameplay & Automated Tracking**
-    - **No Manual Dirty Flags**: We avoid manual `is_dirty` flags which are error-prone.
-    - **Strategy**:
-        - *Option A (Preferred)*: Use a `SaveState` system that snapshots critical data at meaningful moments (Checkpoints, Level Transitions, Exit).
-        - *Option B (Optimization)*: If incremental saving is strictly required, use a proxy wrapper or `__setattr__` hook *only* on the `Session` object or specific `ObservedComponents` to track changes automatically, ensuring developers cannot "forget" to flag a change.
+2.  **Auto-Hydration**:
+    The `SceneManager` resolves these dependencies. It loads the raw data, runs necessary migrations (see 7.3), deserializes it into the target Component classes, and bundles them into a `Context`.
 
-4.  **Commit (Persist)**
-    - The `PersistenceSystem` gathers data from relevant components.
-    - It attaches the current `_schema_version` to the data.
-    - The `SessionManager` saves this structured data (e.g., via `msgspec`, `pickle`, or `json` - the format is an implementation detail hidden from the game logic).
+3.  **Setup Injection**:
+    The `setup` method receives these ready-to-use objects.
+    ```python
+    def setup(self, world, context: SceneContext):
+        # context.data is a dict-like object strictly typed by INJECTIONS
+        # No manual deserialization needed.
+        inv = context.data[keys.player.INVENTORY]
+        player = world.create_entity(inv, ...)
+    ```
 
-#### 7.3. Schema Migration Strategy
+#### 7.3. Decoupled Schema Migration & Versioning
 
-To support updates and patches, all persistable components must define a version and a migration hook.
+To prevent "Migration Pollution" in component classes, migration logic is housed in separate Strategy classes.
+
+- **Versioning**: Components define a `_version_ = N` field. This version is monotonic (1, 2, 3...).
+- **Migration Registry**: We register migration functions that transform raw dictionaries.
+- **Migration Semantics**:
+    - **Additive Changes**: Adding a field with a default value does not require a version bump if the default is handled in `__post_init__` or the dataclass definition.
+    - **Breaking Changes**: Renaming fields, changing types, or removing fields requires a version bump and a migration function.
+    - **Ordering**: Migrations are applied sequentially (v1 -> v2 -> v3). The registry validates that a continuous chain exists from the stored version to the current version.
 
 ```python
-@dataclass
-class Inventory:
-    items: list[str]
-    version: int = 2
+# In migrations/inventory.py
+def migrate_v1_to_v2(data: dict) -> dict:
+    data['items'] = convert_list_to_slots(data['items'])
+    return data
 
-    @staticmethod
-    def migrate(data: dict, old_version: int) -> dict:
-        if old_version < 2:
-            # Convert old list format to new format
-            data['items'] = convert_items(data['items'])
-        return data
+# Explicit Registration
+MigrationRegistry.register(Inventory, from_version=1, to_version=2, func=migrate_v1_to_v2)
 ```
 
-#### 7.4. Benefits
+#### 7.4. Persistence Strategy: Snapshotting
 
-- **Vendor Neutrality**: Components are just Python classes. We can switch serialization libraries (JSON, MsgPack, Pickle) without touching game logic.
-- **Safety**: Automated tracking or explicit snapshots prevents "forgot to save" bugs.
-- **Longevity**: Built-in versioning ensures save files from v1.0 still work in v2.0.
-- **Scalability**: Namespaced keys allow multiple developers to work on different game modules without conflicting in a central file.
+We explicitly reject "Dirty Checking" proxies due to their complexity and overhead.
+
+- **Snapshotting**: Data is serialized only at specific lifecycle events:
+    - **Scene Transition**: When leaving a scene.
+    - **Checkpoints**: Explicit calls (e.g., Save Points).
+    - **Background Autosave**: Addressed in 7.6.
+- **Explicit Persistence**: Only entities/components marked with a `Persistable` tag (or registered in a `Scene.EXPORTS` list) are saved. This eliminates ambiguity about "what is relevant".
+- **Registration**: `Scene.EXPORTS` is a static list or a method returning a mapping of `Key -> ComponentInstance`.
+
+#### 7.5. Atomicity, Consistency & Concurrency
+
+To address concerns about data integrity and performance during save operations:
+
+1.  **Atomicity**:
+    - Snapshots are "all-or-nothing". The system serializes all `EXPORTS` data into a temporary buffer/file.
+    - Only after successful serialization and validation (checksums) is the atomic rename or write to the primary save slot performed.
+    - On partial failure (e.g., serialization error), the operation is aborted, the user is notified, and the previous save remains untouched.
+
+2.  **Concurrency (Autosaves)**:
+    - **Main Thread Snapshot**: To avoid race conditions, the **collection** of data (dataclass -> dict) happens on the Main Game Thread at a safe point (e.g., end of frame). This is a fast, in-memory operation (copy).
+    - **Async I/O**: The heavy lifting (compression, disk I/O, encryption) is offloaded to a background thread.
+    - **Performance**: Deep copying large state can be expensive. We mitigate this by only copying strictly `Persistable` components. If performance becomes a bottleneck, we will implement Copy-on-Write (CoW) for specific large datasets (like WorldMap), but purely for optimization, not correctness.
+
+#### 7.6. Benefits
+
+- **Zero Boilerplate**: No manual `deserialize()` calls in scene code.
+- **Clean Architecture**: Components remain pure data; migrations are separate.
+- **Type Safety**: Keys are constants, and migrations are registered against Types.
+- **Predictability**: Snapshotting is deterministic, and atomic commits prevent save corruption.
 
 ## Architecture Diagram (Conceptual)
 
@@ -140,6 +158,8 @@ class Inventory:
   +-- [ServiceContainer] (Audio, Input, Resources, Session)
   |
   +-- [SceneManager]
+       |
+       +-- [Hydration Layer] (Deserializes & Migrates Data)
        |
        +-- [Active Scene]
             |
