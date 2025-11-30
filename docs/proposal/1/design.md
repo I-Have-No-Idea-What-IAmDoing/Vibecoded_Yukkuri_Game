@@ -73,12 +73,18 @@ To avoid the pitfalls of shared mutable global state while solving the performan
 
 1.  **Scene Manifest (Contract)**
     - Each Scene class defines a static `Manifest` describing its data dependencies.
+    - To prevent "stringly typed" errors, we use a `SessionKey` Enum.
     - **Example**:
       ```python
+      class SessionKey(StrEnum):
+          PLAYER_INVENTORY = "player_inventory"
+          PLAYER_STATS = "player_stats"
+          DUNGEON_FLAGS = "dungeon_flags"
+
       class DungeonScene(Scene):
           MANIFEST = {
-              "required": ["player_inventory", "player_stats"],
-              "optional": ["dungeon_flags"]
+              "required": [SessionKey.PLAYER_INVENTORY, SessionKey.PLAYER_STATS],
+              "optional": [SessionKey.DUNGEON_FLAGS]
           }
       ```
 
@@ -91,7 +97,7 @@ To avoid the pitfalls of shared mutable global state while solving the performan
       def setup(self, world, initial_state):
           player = world.create_entity()
           # Automatically decodes into the component struct
-          inv = msgspec.msgpack.decode(initial_state["player_inventory"], type=Inventory)
+          inv = msgspec.msgpack.decode(initial_state[SessionKey.PLAYER_INVENTORY], type=Inventory)
           player.add(inv)
       ```
 
