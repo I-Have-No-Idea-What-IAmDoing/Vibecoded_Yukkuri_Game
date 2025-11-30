@@ -41,7 +41,8 @@ This document outlines the actionable steps to implement the proposed architectu
 ### 3.1. Data Persistence
 - [ ] Create `engine/session.py` (or `GameSession`) to hold persistent state.
 - [ ] Integrate Session with `Application` and `ServiceContainer`.
-- [ ] Implement serialization methods for `GameSession`.
+- [ ] Update persisted Components to inherit from `msgspec.Struct`.
+- [ ] Implement `PersistenceSystem` to handle dirty flags and incremental serialization using `msgspec.msgpack`.
 
 ### 3.2. Pragmatic ECS Review
 - [ ] Audit Components to add helper methods where they encapsulate data transformation (e.g., `is_dead()`).

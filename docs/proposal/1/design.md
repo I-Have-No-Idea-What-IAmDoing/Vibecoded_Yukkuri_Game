@@ -86,12 +86,12 @@ To avoid the pitfalls of shared mutable global state while solving the performan
     - When the `SceneManager` pushes a new Scene, it consults the `MANIFEST`.
     - It fetches the requested keys from the `SessionStore`.
     - It injects this data into the Scene as a `msgspec.Struct` or raw bytes.
-    - The Scene's `setup()` method uses `msgspec.json.decode()` to populate the ECS.
+    - The Scene's `setup()` method uses `msgspec.msgpack.decode()` to populate the ECS.
       ```python
       def setup(self, world, initial_state):
           player = world.create_entity()
           # Automatically decodes into the component struct
-          inv = msgspec.json.decode(initial_state["player_inventory"], type=Inventory)
+          inv = msgspec.msgpack.decode(initial_state["player_inventory"], type=Inventory)
           player.add(inv)
       ```
 
@@ -102,7 +102,7 @@ To avoid the pitfalls of shared mutable global state while solving the performan
 
 4.  **Commit (Persist)**
     - On checkpoint or transition, the `PersistenceSystem` queries **only** components marked as `dirty`.
-    - It calls `msgspec.json.encode()` on them and bundles the changes.
+    - It calls `msgspec.msgpack.encode()` on them and bundles the changes.
     - This delta is sent to the `SessionManager`, which upserts the data into the persistent store.
     - **Example**:
       ```python
@@ -110,7 +110,7 @@ To avoid the pitfalls of shared mutable global state while solving the performan
       updates = {}
       for entity, (inv,) in world.get_components(Inventory):
           if inv.is_dirty:
-              updates["player_inventory"] = msgspec.json.encode(inv)
+              updates["player_inventory"] = msgspec.msgpack.encode(inv)
               inv.clean() # Reset flag
       scene_manager.commit_changes(updates)
       ```
