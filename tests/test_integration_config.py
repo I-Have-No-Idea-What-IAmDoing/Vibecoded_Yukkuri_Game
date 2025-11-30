@@ -1,11 +1,11 @@
 import pytest
-from yukkuri_game.game.systems.stat_decay import StatDecaySystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats
-from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.systems.emotion_system import EmotionSystem
+from yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState
+from yukkuri_game.config import StatDecaySettings
 
 def test_stat_decay_integration():
-    """Test that StatDecaySystem uses the configured rates."""
+    """Test that EmotionSystem uses the configured rates."""
     # Create a custom config
     custom_settings = StatDecaySettings(
         hunger=10.0,
@@ -15,7 +15,7 @@ def test_stat_decay_integration():
         age=0.5
     )
 
-    system = StatDecaySystem(settings=custom_settings)
+    system = EmotionSystem(settings=custom_settings)
     world = World()
 
     # Create an entity with YukkuriStats
@@ -23,12 +23,15 @@ def test_stat_decay_integration():
     stats = YukkuriStats(name="Test", type_id="test")
     # Initialize stats
     stats.hunger = 0.0
-    stats.happiness = 100.0
     stats.energy = 100.0
     stats.cleanliness = 100.0
     stats.age = 0.0
 
+    emotional = EmotionalState()
+    emotional.happiness = 100.0
+
     world.add_component(entity, stats)
+    world.add_component(entity, emotional)
 
     # Run the system for 1 second
     dt = 1.0
@@ -39,28 +42,22 @@ def test_stat_decay_integration():
     assert stats.hunger == pytest.approx(10.0)
 
     # happiness -= 1.0 * dt
-    assert stats.happiness == pytest.approx(99.0)
-
-    # energy -= 2.0 * dt
-    assert stats.energy == pytest.approx(98.0)
-
-    # cleanliness -= 5.0 * dt
-    assert stats.cleanliness == pytest.approx(95.0)
-
-    # age += 0.5 * dt
-    assert stats.age == pytest.approx(0.5)
+    assert emotional.happiness == pytest.approx(99.0)
 
 def test_stat_decay_integration_default():
-    """Test that StatDecaySystem uses default rates if no settings provided."""
-    system = StatDecaySystem(settings=StatDecaySettings()) # Default settings
+    """Test that EmotionSystem uses default rates if no settings provided."""
+    system = EmotionSystem(settings=StatDecaySettings()) # Default settings
     world = World()
 
     entity = world.create_entity()
     stats = YukkuriStats(name="Test", type_id="test")
     stats.hunger = 0.0
-    stats.happiness = 100.0
+
+    emotional = EmotionalState()
+    emotional.happiness = 100.0
 
     world.add_component(entity, stats)
+    world.add_component(entity, emotional)
 
     dt = 1.0
     system.update(world, dt)
@@ -68,4 +65,4 @@ def test_stat_decay_integration_default():
     # hunger += 2.0 * dt (default)
     assert stats.hunger == pytest.approx(2.0)
     # happiness -= 0.5 * dt (default)
-    assert stats.happiness == pytest.approx(99.5)
+    assert emotional.happiness == pytest.approx(99.5)

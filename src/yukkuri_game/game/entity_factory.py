@@ -9,7 +9,10 @@ from .components import (
     Transform, Sprite, Selectable, PhysicsBody, FloatingText,
     MovementController, VisualTransform
 )
-from .yukkuri_components import YukkuriStats, AIState, ItemStats, Poop, Personality, RelationshipRegistry
+from .yukkuri_components import (
+    YukkuriStats, AIState, ItemStats, Poop, Personality, RelationshipRegistry,
+    EmotionalState, PersonalityAxis, GossipQueue
+)
 from .trait_service import TraitService
 from .collision_constants import CollisionCategories
 
@@ -154,19 +157,30 @@ class EntityFactory:
             type_id=type_id,
             max_health=max_health,
             health=max_health,
+            # hunger is float in definition, check usage
+            hunger=0.0,
             age=age,
             growth_stage=growth_stage
         )
         self.world.add_component(entity, stats)
 
+        # Emotional State
+        # New system: -100 to 100 for happiness, 0 to 100 for stress
+        emotional_state = EmotionalState()
+        self.world.add_component(entity, emotional_state)
+
         # AI
         self.world.add_component(entity, AIState())
+        self.world.add_component(entity, GossipQueue())
 
         # Personality & Relationships
         self.world.add_component(entity, RelationshipRegistry())
         ts = self._get_trait_service()
         traits = set()
-        base_values = {"compassion": 50.0, "greed": 50.0, "bravery": 50.0}
+
+        # New Axis system: -100 to 100
+        # Kindness, Energy, Bravery, Greed
+        axis = PersonalityAxis()
 
         # Inheritance logic
         if parents and ts:
@@ -177,15 +191,32 @@ class EntityFactory:
                     for t in pp.traits:
                         if random.random() < 0.5:
                             traits.add(t)
-                # Average base values from parents with some variance
-                for key in base_values:
-                    avg_val = sum(pp.values.get(key, 50.0) for pp in parent_personalities) / len(parent_personalities)
-                    base_values[key] = max(0.0, min(100.0, avg_val + random.uniform(-10.0, 10.0)))
+
+                # Inherit axis values
+                total_kindness = sum(pp.axis.kindness for pp in parent_personalities)
+                total_energy = sum(pp.axis.energy for pp in parent_personalities)
+                total_bravery = sum(pp.axis.bravery for pp in parent_personalities)
+                total_greed = sum(pp.axis.greed for pp in parent_personalities)
+
+                count = len(parent_personalities)
+                axis.kindness = int(total_kindness / count + random.uniform(-10, 10))
+                axis.energy = int(total_energy / count + random.uniform(-10, 10))
+                axis.bravery = int(total_bravery / count + random.uniform(-10, 10))
+                axis.greed = int(total_greed / count + random.uniform(-10, 10))
 
         # Random generation if no parents
         if not parents:
-            for key in base_values:
-                base_values[key] = max(0.0, min(100.0, random.gauss(50, 15)))
+            # Gaussian around 0, sigma 30 -> most within -60 to 60
+            axis.kindness = int(random.gauss(0, 30))
+            axis.energy = int(random.gauss(0, 30))
+            axis.bravery = int(random.gauss(0, 30))
+            axis.greed = int(random.gauss(0, 30))
+
+        # Clamp values
+        axis.kindness = max(-100, min(100, axis.kindness))
+        axis.energy = max(-100, min(100, axis.energy))
+        axis.bravery = max(-100, min(100, axis.bravery))
+        axis.greed = max(-100, min(100, axis.greed))
 
         # Random mutation or random trait if none inherited
         if ts and (random.random() < 0.1 or not traits):
@@ -193,29 +224,95 @@ class EntityFactory:
             if all_traits:
                 traits.add(random.choice(all_traits))
 
-        personality = Personality(traits=traits, values=base_values)
+        # Apply Trait Axis Shifts (Center Shift)
+        if ts:
+            for trait_id in traits:
+                t_data = ts.get_trait(trait_id)
+                if t_data and "axis_shift" in t_data:
+                    shifts = t_data["axis_shift"]
+                    axis.kindness += shifts.get("kindness", 0)
+                    axis.energy += shifts.get("energy", 0)
+                    axis.bravery += shifts.get("bravery", 0)
+                    axis.greed += shifts.get("greed", 0)
+
+        # Re-clamp after shifts
+        axis.kindness = max(-100, min(100, axis.kindness))
+        axis.energy = max(-100, min(100, axis.energy))
+        axis.bravery = max(-100, min(100, axis.bravery))
+        axis.greed = max(-100, min(100, axis.greed))
+
+        # Copy axis to base_axis
+        base_axis = PersonalityAxis(
+            kindness=axis.kindness,
+            energy=axis.energy,
+            bravery=axis.bravery,
+            greed=axis.greed
+        )
+
+        personality = Personality(traits=traits, axis=axis, base_axis=base_axis)
         self.world.add_component(entity, personality)
 
         # Physics
         if self.physics_system:
-            mass = 10
-            inertia = pymunk.moment_for_circle(mass, 0, radius)
-            body = pymunk.Body(mass, inertia)
-            body.position = x, y
-            shape = pymunk.Circle(body, radius)
-            shape.elasticity = 0.5
-            shape.friction = 0.5
-            # Yukkuri collides with Walls and other Yukkuris, but NOT items (to avoid pushing them away)
-            # We want them to be able to overlap with items to eat them.
-            # Eating logic uses distance checks, so physical overlap is safe and desired.
-            shape.filter = pymunk.ShapeFilter(
-                categories=CollisionCategories.YUKKURI,
-                mask=CollisionCategories.WALL | CollisionCategories.YUKKURI | CollisionCategories.POOP
+            self._add_physics(
+                entity=entity,
+                shape_type="circle",
+                mass=10,
+                position=(x, y),
+                radius_or_size=radius,
+                collision_category=CollisionCategories.YUKKURI,
+                collision_mask=CollisionCategories.WALL | CollisionCategories.YUKKURI | CollisionCategories.POOP,
+                elasticity=0.5,
+                friction=0.5,
+                set_userdata=True
             )
-            self.physics_system.space.add(body, shape)
-            self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
         return entity
+
+    def _add_physics(self, entity: int, shape_type: str, mass: float, position: tuple[float, float],
+                 radius_or_size: Any, collision_category: int, collision_mask: int,
+                 elasticity: float = 0.5, friction: float = 0.5, set_userdata: bool = False) -> None:
+        """
+        Adds a physics body to an entity.
+
+        Args:
+            entity (int): The entity ID.
+            shape_type (str): "circle" or "box".
+            mass (float): The mass of the body.
+            position (tuple[float, float]): Initial position (x, y).
+            radius_or_size (Any): Radius (float) if circle, size (tuple) if box.
+            collision_category (int): Bitmask category.
+            collision_mask (int): Bitmask mask.
+            elasticity (float): Bounciness.
+            friction (float): Friction.
+            set_userdata (bool): Whether to set body.userdata to entity ID.
+        """
+        if not self.physics_system:
+            return
+
+        if shape_type == "circle":
+            radius = float(radius_or_size)
+            inertia = pymunk.moment_for_circle(mass, 0, radius)
+            body = pymunk.Body(mass, inertia)
+            shape = pymunk.Circle(body, radius)
+        elif shape_type == "box":
+            width, height = radius_or_size
+            inertia = pymunk.moment_for_box(mass, (width, height))
+            body = pymunk.Body(mass, inertia)
+            shape = pymunk.Poly.create_box(body, (width, height))
+        else:
+            raise ValueError(f"Unknown shape type: {shape_type}")
+
+        body.position = position
+        shape.elasticity = elasticity
+        shape.friction = friction
+        shape.filter = pymunk.ShapeFilter(categories=collision_category, mask=collision_mask)
+
+        if set_userdata:
+            body.userdata = entity
+
+        self.physics_system.space.add(body, shape)
+        self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
     def create_floating_text(self, x: float, y: float, text: str, color: tuple[int, int, int], size: int = 20, lifetime: float = 2.0, velocity_y: float = -50.0) -> int:
         """
@@ -260,17 +357,17 @@ class EntityFactory:
         self.world.add_component(entity, VisualTransform())
 
         if self.physics_system:
-            body = pymunk.Body(1, pymunk.moment_for_circle(1, 0, 10))
-            body.position = x, y
-            shape = pymunk.Circle(body, 10)
-            shape.elasticity = 0.2
-            shape.friction = 0.8
-            shape.filter = pymunk.ShapeFilter(
-                categories=CollisionCategories.POOP,
-                mask=CollisionCategories.ALL
+            self._add_physics(
+                entity=entity,
+                shape_type="circle",
+                mass=1,
+                position=(x, y),
+                radius_or_size=10,
+                collision_category=CollisionCategories.POOP,
+                collision_mask=CollisionCategories.ALL,
+                elasticity=0.2,
+                friction=0.8
             )
-            self.physics_system.space.add(body, shape)
-            self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
         return entity
 
     def create_item(self, type_id: str, x: float, y: float) -> int:
@@ -321,17 +418,16 @@ class EntityFactory:
         self.world.add_component(entity, stats)
 
         if self.physics_system:
-            body = pymunk.Body(1, pymunk.moment_for_box(1, (width, height)))
-            body.position = x, y
-            shape = pymunk.Poly.create_box(body, (width, height))
-            shape.elasticity = 0.5
-            shape.friction = 0.5
-            shape.filter = pymunk.ShapeFilter(
-                categories=CollisionCategories.ITEM,
-                # Items collide with walls, but they don't block Yukkuris
-                mask=CollisionCategories.WALL | CollisionCategories.POOP | CollisionCategories.ITEM
+             self._add_physics(
+                entity=entity,
+                shape_type="box",
+                mass=1,
+                position=(x, y),
+                radius_or_size=(width, height),
+                collision_category=CollisionCategories.ITEM,
+                collision_mask=CollisionCategories.WALL | CollisionCategories.POOP | CollisionCategories.ITEM,
+                elasticity=0.5,
+                friction=0.5
             )
-            self.physics_system.space.add(body, shape)
-            self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
         return entity

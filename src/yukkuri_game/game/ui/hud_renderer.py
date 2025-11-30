@@ -4,8 +4,8 @@ Module for rendering the HUD overlay.
 import pygame
 from typing import TYPE_CHECKING, List
 from ...engine.ecs import World
-from ..components import Selectable, Transform
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality
+from ..components import Transform
+from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState
 from ..services import InputService
 from pygame_gui.windows import UIMessageWindow
 
@@ -201,13 +201,16 @@ class HudRenderer:
 
             for eid in selected_entities:
                 ystats = self.world.get_component(eid, YukkuriStats)
+                emotional = self.world.get_component(eid, EmotionalState)
                 if ystats:
                     yukkuris_count += 1
                     total_hp += ystats.health
                     total_hunger += ystats.hunger
-                    total_happiness += ystats.happiness
+                    if emotional:
+                        total_happiness += emotional.happiness
+
                     # Calculate sell value using GameManager
-                    total_value += self.gm.calculate_quality_score(ystats)
+                    total_value += self.gm.calculate_quality_score(ystats, emotional)
 
                     breed = ystats.type_id.capitalize()
                     yukkuri_breeds[breed] = yukkuri_breeds.get(breed, 0) + 1
@@ -246,6 +249,8 @@ class HudRenderer:
         elif len(selected_entities) == 1:
             selected_entity = selected_entities[0]
             stats = self.world.get_component(selected_entity, YukkuriStats)
+            emotional = self.world.get_component(selected_entity, EmotionalState)
+
             if stats:
                 ai_state = self.world.get_component(selected_entity, AIState)
                 action = ai_state.current_action if ai_state else "None"
@@ -257,10 +262,17 @@ class HudRenderer:
                 traits_str = "None"
                 mood_str = "Neutral"
 
+                happiness = 0
+                stress = 0
+
+                if emotional:
+                    mood_str = emotional.get_dominant_emotion()
+                    happiness = int(emotional.happiness)
+                    stress = int(emotional.stress)
+
                 if pers:
                     if pers.traits:
                         traits_str = ", ".join(list(pers.traits))
-                    mood_str = pers.mood
 
                 # Format
                 text = (f"<b>Name:</b> {stats.name}<br>"
@@ -270,18 +282,48 @@ class HudRenderer:
                         f"<br>"
                         f"<b>Health:</b> {int(stats.health)}<br>"
                         f"<b>Hunger:</b> {int(stats.hunger)}<br>"
-                        f"<b>Happiness:</b> {int(stats.happiness)}<br>"
-                        f"<b>Stress:</b> {int(stats.stress)}<br>"
+                        f"<b>Happiness:</b> {happiness}<br>"
+                        f"<b>Stress:</b> {stress}<br>"
                         f"<b>Badges:</b> {stats.badges}<br>"
                         f"<b>Action:</b> {action}")
 
-                if pers and pers.values:
-                    text += "<br><br><b>Personality Values:</b>"
-                    for k, v in pers.values.items():
-                        text += f"<br> {k.capitalize()}: {v:.1f}"
+                if pers and pers.axis:
+                    text += "<br><br><b>Personality Axis:</b>"
+                    text += f"<br> Kindness: {pers.axis.kindness}"
+                    text += f"<br> Energy: {pers.axis.energy}"
+                    text += f"<br> Bravery: {pers.axis.bravery}"
+                    text += f"<br> Greed: {pers.axis.greed}"
 
-                if rel_reg and rel_reg.family_group_id:
-                     text += f"<br><b>Family ID:</b> {rel_reg.family_group_id}"
+                if rel_reg:
+                    if rel_reg.family_group_id:
+                        text += f"<br><b>Family ID:</b> {rel_reg.family_group_id}"
+
+                    # Memory Inspector (Debug)
+                    if self.layout.debug_window and self.layout.debug_window.visible:
+                         text += "<br><br><b>Memory Inspector:</b>"
+                         if not rel_reg.relationships:
+                             text += "<br> No relationships."
+                         else:
+                             # Just show memory for the first few relationships or most recent
+                             # Sort by affinity or recent?
+                             sorted_rels = sorted(rel_reg.relationships.items(), key=lambda x: x[1].last_update, reverse=True)
+                             count = 0
+                             for other_id, rel_data in sorted_rels:
+                                 if count >= 3: break
+                                 count += 1
+                                 other_stats = self.world.get_component(other_id, YukkuriStats)
+                                 name = other_stats.name if other_stats else f"ID {other_id}"
+
+                                 text += f"<br> <b>{name}</b> (Aff: {rel_data.affinity:.1f})"
+                                 # Show top headlines
+                                 if rel_data.core_buffer:
+                                     text += "<br>  Core:"
+                                     for h in rel_data.core_buffer[-2:]: # Last 2
+                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f} {'(L)' if h.is_locked else ''}"
+                                 if rel_data.trivial_buffer:
+                                     text += "<br>  Trivial:"
+                                     for h in rel_data.trivial_buffer[-2:]: # Last 2
+                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f}"
 
             else:
                 istats = self.world.get_component(selected_entity, ItemStats)

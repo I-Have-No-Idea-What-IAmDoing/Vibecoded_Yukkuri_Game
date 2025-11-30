@@ -1,16 +1,15 @@
 """
 Module defining the GameManager logic.
 """
-import json
-import os
-from typing import Any, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from loguru import logger
 from ..engine.ecs import World
 from ..engine.event_bus import EventBus
 from ..engine.audio import AudioManager
-from .components import Transform, Sprite
-from .yukkuri_components import YukkuriStats, ItemStats
+from .components import Transform
+from .yukkuri_components import YukkuriStats, EmotionalState
 from .services import EconomyService, PersistenceService, TimeService
+from .systems.sector_system import SectorMap, SectorSystem
 from .ai.navigation_service import NavigationService
 from .events import (
     TrainEntityRequest,
@@ -45,31 +44,55 @@ class GameManager:
             world (World): The ECS World instance.
         """
         self.world = world
-        from .entity_factory import EntityFactory
-        self.factory = world.services.get(EntityFactory)
-
         self.event_bus = world.services.get(EventBus)
+        self.audio = world.services.try_get(AudioManager)
+
+        self._subscribe_events()
+        self._init_navigation_service()
+        self._init_sector_system()
+
+    def _subscribe_events(self) -> None:
+        """Subscribes to game events."""
         if self.event_bus:
             self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
             self.event_bus.subscribe(PunishEntityRequest, self.on_punish_entity)
             self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
 
-        self.audio = world.services.try_get(AudioManager)
+    def _init_navigation_service(self) -> None:
+        """Initializes the Navigation Service."""
+        game_config = self.world.services.try_get(GameConfig)
+        world_width = 3000
+        world_height = 3000
 
-        # Initialize Navigation Service
-        # The NavigationService handles pathfinding grid initialization.
-        game_config = world.services.try_get(GameConfig)
         if game_config:
-             world.services.register(
+            world_width = game_config.world.width
+            world_height = game_config.world.height
+            self.world.services.register(
                  NavigationService(
-                     world_width=game_config.world.width,
-                     world_height=game_config.world.height,
+                     world_width=world_width,
+                     world_height=world_height,
                      grid_step_size=game_config.world.grid_step_size
                  )
              )
         else:
-             # Fallback if no config (mainly for testing or if config loaded later)
-             world.services.register(NavigationService(3000, 3000))
+             self.world.services.register(NavigationService(world_width, world_height))
+
+    def _init_sector_system(self) -> None:
+        """Initializes and registers the Sector System and Map."""
+        game_config = self.world.services.try_get(GameConfig)
+        world_width = 3000
+        world_height = 3000
+        sector_size = 500.0
+
+        if game_config:
+            world_width = game_config.world.width
+            world_height = game_config.world.height
+            if hasattr(game_config.world, 'sector_size'):
+                sector_size = game_config.world.sector_size
+
+        sector_system = SectorSystem(width=world_width, height=world_height, sector_size=sector_size)
+        self.world.services.register(sector_system.sector_map, SectorMap)
+        self.world.add_system(sector_system)
 
 
     @property
@@ -115,12 +138,13 @@ class GameManager:
         """
         self.world.services.get(EconomyService).set_money(value)
 
-    def calculate_quality_score(self, yukkuri_stats: YukkuriStats, update_stats: bool = False) -> int:
+    def calculate_quality_score(self, yukkuri_stats: YukkuriStats, emotional_state: "EmotionalState | None" = None, update_stats: bool = False) -> int:
         """
         Calculates the quality score (value) of a Yukkuri.
 
         Args:
             yukkuri_stats (YukkuriStats): The stats component of the Yukkuri.
+            emotional_state (EmotionalState | None): The emotional state component.
             update_stats (bool): Whether to update the stats with the calculated score.
 
         Returns:
@@ -130,7 +154,10 @@ class GameManager:
         score = 100.0
 
         # Happiness factor
-        score += yukkuri_stats.happiness * 2
+        if emotional_state:
+             # Normalized from -100..100 to 0..200 approx for scoring?
+             # Old: 0-100. New: -100-100.
+             score += (emotional_state.happiness + 100)
 
         # Badges
         score += yukkuri_stats.badges * 500
@@ -159,8 +186,9 @@ class GameManager:
             int: The amount of money gained, or 0 if the entity is not a Yukkuri.
         """
         stats = self.world.get_component(entity, YukkuriStats)
+        emotional_state = self.world.get_component(entity, EmotionalState)
         if stats:
-            value = max(0, self.calculate_quality_score(stats))
+            value = max(0, self.calculate_quality_score(stats, emotional_state))
             economy = self.world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}")
@@ -196,9 +224,11 @@ class GameManager:
             event (TrainEntityRequest): The event containing the entity ID to train.
         """
         stats = self.world.get_component(event.entity_id, YukkuriStats)
+        emotional_state = self.world.get_component(event.entity_id, EmotionalState)
         if stats:
             stats.badges += 1
-            stats.happiness += 10
+            if emotional_state:
+                emotional_state.happiness = min(100.0, emotional_state.happiness + 10.0)
 
             # Get position for visual feedback
             transform = self.world.get_component(event.entity_id, Transform)
@@ -219,9 +249,13 @@ class GameManager:
             event (PunishEntityRequest): The event containing the entity ID to punish.
         """
         stats = self.world.get_component(event.entity_id, YukkuriStats)
+        emotional_state = self.world.get_component(event.entity_id, EmotionalState)
         if stats:
             stats.health = max(0.0, stats.health - 10.0)
-            stats.happiness = max(0.0, stats.happiness - 20.0)
+            if emotional_state:
+                emotional_state.happiness = max(-100.0, emotional_state.happiness - 20.0)
+                emotional_state.stress = min(100.0, emotional_state.stress + 20.0)
+
             stats.discipline = min(100.0, stats.discipline + 10.0)
 
             # Get position for visual feedback

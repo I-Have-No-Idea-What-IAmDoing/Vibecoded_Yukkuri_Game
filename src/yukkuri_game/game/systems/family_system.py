@@ -8,7 +8,7 @@ from loguru import logger
 
 from ...engine.ecs import System, World
 from ..services import TimeService
-from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, AIState
+from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, AIState, EmotionalState
 
 class FamilySystem(System):
     """
@@ -113,6 +113,7 @@ class FamilySystem(System):
             stats = world.get_component(eid, YukkuriStats)
             trans = world.get_component(eid, Transform)
             ai = world.get_component(eid, AIState)
+            emotional = world.get_component(eid, EmotionalState)
 
             if stats is None or trans is None or ai is None:
                 continue
@@ -128,6 +129,7 @@ class FamilySystem(System):
                 other_trans = world.get_component(other_eid, Transform)
                 other_ai = world.get_component(other_eid, AIState)
                 other_stats = world.get_component(other_eid, YukkuriStats)
+                other_emotional = world.get_component(other_eid, EmotionalState)
 
                 if other_trans is None or other_ai is None or other_stats is None:
                     continue
@@ -136,30 +138,32 @@ class FamilySystem(System):
                 if dist_sq < 150 * 150: # Range for family benefits
 
                     # 1. Base "Together" Happiness
-                    stats.happiness = min(100.0, stats.happiness + 0.5)
-                    stats.stress = max(0.0, stats.stress - 0.5)
-                    other_stats.happiness = min(100.0, other_stats.happiness + 0.5)
-                    other_stats.stress = max(0.0, other_stats.stress - 0.5)
+                    if emotional:
+                        emotional.happiness = min(100.0, emotional.happiness + 0.5)
+                        emotional.stress = max(0.0, emotional.stress - 0.5)
+                    if other_emotional:
+                        other_emotional.happiness = min(100.0, other_emotional.happiness + 0.5)
+                        other_emotional.stress = max(0.0, other_emotional.stress - 0.5)
 
                     # 2. Resource Sharing: Food
                     # If one is eating, share nutrition/happiness with hungry partner
                     # (Simulates "Here, have some" or calling to food)
                     if ai.current_action == "Eat" and other_stats.hunger > 50.0:
                             other_stats.hunger = max(0.0, other_stats.hunger - 1.0) # Share small benefit
-                            other_stats.happiness += 0.5
+                            if other_emotional: other_emotional.happiness = min(100.0, other_emotional.happiness + 0.5)
                             logger.debug(f"Family Share: {stats.name} sharing food with {other_stats.name}")
 
                     elif other_ai.current_action == "Eat" and stats.hunger > 50.0:
                             stats.hunger = max(0.0, stats.hunger - 1.0)
-                            stats.happiness += 0.5
+                            if emotional: emotional.happiness = min(100.0, emotional.happiness + 0.5)
                             logger.debug(f"Family Share: {other_stats.name} sharing food with {stats.name}")
 
                     # 3. Resource Sharing: Nest/Sleep
                     # If one is sleeping, boost comfort/recovery for nearby partner (simulating shared nest)
                     if ai.current_action == "Sleep":
                         other_stats.energy = min(100.0, other_stats.energy + 0.5)
-                        other_stats.stress = max(0.0, other_stats.stress - 1.0)
+                        if other_emotional: other_emotional.stress = max(0.0, other_emotional.stress - 1.0)
 
                     if other_ai.current_action == "Sleep":
                         stats.energy = min(100.0, stats.energy + 0.5)
-                        stats.stress = max(0.0, stats.stress - 1.0)
+                        if emotional: emotional.stress = max(0.0, emotional.stress - 1.0)

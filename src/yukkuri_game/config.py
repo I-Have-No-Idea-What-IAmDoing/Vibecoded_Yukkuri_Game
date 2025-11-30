@@ -12,10 +12,12 @@ class WorldSettings(msgspec.Struct):
         width (int): The width of the world in pixels.
         height (int): The height of the world in pixels.
         grid_step_size (int): The size of the grid step for navigation.
+        sector_size (float): The size of sectors for spatial partitioning.
     """
     width: int = 3000
     height: int = 3000
     grid_step_size: int = 50
+    sector_size: float = 500.0
 
 class ConfigFile(msgspec.Struct):
     """
@@ -41,11 +43,13 @@ class StatDecaySettings(msgspec.Struct):
     """
     hunger: float = 2.0
     happiness: float = 0.5
+    stress: float = 5.0
     energy: float = 0.5
     cleanliness: float = 0.2
     social: float = 0.5
     age: float = 1.0
     starvation_damage: float = 5.0
+    personality_drift_rate: float = 0.1
 
 class LifecycleSettings(msgspec.Struct):
     """
@@ -66,6 +70,14 @@ class LifecycleSettings(msgspec.Struct):
     breeding_cost: float = 50.0
     breeding_chance: float = 0.001
 
+class SocialSettings(msgspec.Struct):
+    """
+    Configuration for social system.
+    """
+    memory_importance_threshold: float = 50.0
+    max_gossip_length: int = 10
+    witness_threshold: float = 5.0
+
 class RulesFile(msgspec.Struct):
     """
     Represents the structure of the rules.toml file.
@@ -73,9 +85,11 @@ class RulesFile(msgspec.Struct):
     Attributes:
         stat_decay (StatDecaySettings): The stat decay configuration.
         lifecycle (LifecycleSettings): The lifecycle configuration.
+        social (SocialSettings): The social system configuration.
     """
     stat_decay: StatDecaySettings = msgspec.field(default_factory=StatDecaySettings)
     lifecycle: LifecycleSettings = msgspec.field(default_factory=LifecycleSettings)
+    social: SocialSettings = msgspec.field(default_factory=SocialSettings)
 
 class GameConfig(msgspec.Struct):
     """

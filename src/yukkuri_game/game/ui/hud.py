@@ -2,12 +2,11 @@
 Module defining the HUD logic.
 """
 import pygame
-from typing import Optional, Callable, Any, Dict, TYPE_CHECKING, List
 import pygame_gui
+from typing import TYPE_CHECKING, List, Optional, Callable
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
-from ..events import EntitySelectedEvent, GamePausedEvent, PlacementStartedEvent, LogMessageEvent
-from ..components import Selectable, Transform
+from ..events import EntitySelectedEvent, GamePausedEvent, LogMessageEvent
 from ..yukkuri_components import YukkuriStats
 
 # Import new components
@@ -26,21 +25,6 @@ class HUD:
     Manages the UI layout, event handling, and rendering of game status and entity information.
     This class acts as a facade, delegating responsibilities to specialized sub-components:
     HudLayout, HudEvents, and HudRenderer.
-
-    Attributes:
-        manager (pygame_gui.UIManager): The UI manager instance.
-        gm (GameManager): The game manager instance.
-        world (World): The ECS World instance.
-        factory (EntityFactory): The entity factory.
-        width (int): The width of the screen.
-        height (int): The height of the screen.
-        layout (HudLayout): Manages the arrangement of UI elements.
-        events (HudEvents): Manages UI event handling.
-        renderer (HudRenderer): Manages the updating of UI element content.
-        selected_entities (List[int]): The IDs of the currently selected entities.
-        show_debug (bool): Whether to show the debug window.
-        fps (float): The current frames per second.
-        event_bus (EventBus): The event bus.
     """
 
     def __init__(self, ui_manager: pygame_gui.UIManager, world: World):
@@ -111,7 +95,8 @@ class HUD:
 
             # Scroll to bottom
             if hasattr(self.layout.log_box, "scroll_bar") and self.layout.log_box.scroll_bar:
-                self.layout.log_box.scroll_bar.scroll_position = self.layout.log_box.scroll_bar.scrollable_height
+                # Type checking ignore because pygame_gui stubs might not cover scroll_bar attributes fully or dynamically
+                self.layout.log_box.scroll_bar.scroll_position = self.layout.log_box.scroll_bar.scrollable_height # type: ignore
                 # Force update to apply scroll immediately if needed, though usually next update handles it.
                 self.layout.log_box.scroll_bar.update(0)
 
@@ -230,7 +215,7 @@ class HUD:
         Returns:
             None
         """
-        handled = self.events.process_event(event)
+        _ = self.events.process_event(event)
 
         # Check if event processing resulted in state changes we need to react to immediately
         # For example, if sold, we need to clear selection

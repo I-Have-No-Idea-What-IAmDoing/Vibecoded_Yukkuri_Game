@@ -1,6 +1,22 @@
 [stat_decay]
 hunger = 2.0
 happiness = 0.5
+stress = 5.0
 energy = 0.5
 cleanliness = 0.2
 age = 1.0
+starvation_damage = 5.0
+personality_drift_rate = 0.1
+
+[lifecycle]
+baby_age_threshold = 100.0
+child_age_threshold = 300.0
+breeding_happiness_threshold = 80.0
+breeding_energy_threshold = 80.0
+breeding_cost = 50.0
+breeding_chance = 0.001
+
+[social]
+memory_importance_threshold = 50.0
+max_gossip_length = 10
+witness_threshold = 5.0

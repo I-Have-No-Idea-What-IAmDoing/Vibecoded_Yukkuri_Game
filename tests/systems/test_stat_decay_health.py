@@ -1,10 +1,10 @@
 import unittest
 from unittest.mock import MagicMock
-from yukkuri_game.game.systems.stat_decay import StatDecaySystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.systems.emotion_system import EmotionSystem
+from yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState
 from yukkuri_game.config import StatDecaySettings
 
-class TestStatDecaySystemHealthClamp(unittest.TestCase):
+class TestEmotionSystemHealthClamp(unittest.TestCase):
     def test_health_clamping(self):
         mock_world = MagicMock()
         mock_world.has_component.return_value = False # Not dead
@@ -14,7 +14,11 @@ class TestStatDecaySystemHealthClamp(unittest.TestCase):
 
         mock_world.get_components_tuple.return_value = [(1, (stats,))]
 
-        system = StatDecaySystem(settings=StatDecaySettings())
+        # Mock EmotionalState to return None or a valid object
+        # If None, the system skips emotional update
+        mock_world.get_component.return_value = None
+
+        system = EmotionSystem(settings=StatDecaySettings())
         dt = 0.0 # No decay
         system.update(mock_world, dt)
 
@@ -30,7 +34,10 @@ class TestStatDecaySystemHealthClamp(unittest.TestCase):
 
         mock_world.get_components_tuple.return_value = [(1, (stats,))]
 
-        system = StatDecaySystem(settings=StatDecaySettings())
+        # Mock EmotionalState to return None
+        mock_world.get_component.return_value = None
+
+        system = EmotionSystem(settings=StatDecaySettings())
         dt = 0.0 # No decay
         system.update(mock_world, dt)
 

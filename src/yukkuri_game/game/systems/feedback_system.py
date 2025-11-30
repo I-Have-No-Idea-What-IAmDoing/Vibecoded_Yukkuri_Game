@@ -6,7 +6,7 @@ from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.audio import AudioManager
 from ..components import Transform, FloatingText
-from ..yukkuri_components import YukkuriStats, Dead
+from ..yukkuri_components import YukkuriStats, Dead, EmotionalState
 from ..events import (
     EntitySoldEvent,
     EntityGrewEvent,
@@ -75,11 +75,24 @@ class FeedbackSystem(System):
                 if world.has_component(entity, Dead):
                     continue
 
-                prob = 0.0
-                if stats.happiness < 30.0:
-                    prob = 0.1 * dt # 10% chance per second
+                # Check for EmotionalState
+                emotional = world.get_component(entity, EmotionalState)
+
+                # Default probability logic
+                prob = 0.01 * dt # 1% chance per second
+
+                if emotional:
+                    # Happiness: -100 to 100
+                    # Unhappy threshold < -50 maybe? Or < 30 (old)?
+                    # Old was 0-100, so 30 was low.
+                    # New is -100 to 100. Let's say < -30 is unhappy enough to cry more.
+                    if emotional.happiness < -30.0:
+                        prob = 0.1 * dt # 10% chance per second
+                    else:
+                        prob = 0.01 * dt
                 else:
-                    prob = 0.01 * dt # 1% chance per second
+                    # Fallback if no emotional state
+                    prob = 0.01 * dt
 
                 if random.random() < prob:
                     audio.play_sound("cry")
@@ -117,11 +130,6 @@ class FeedbackSystem(System):
                 size=24
             )
 
-        # Emit Log Message
-        # We don't have the name here, but we can't get it easily as entity is destroyed.
-        # Maybe just say "Sold Yukkuri". Or if EntitySoldEvent contained name...
-        # But we can't change event now easily without changing GameManager.
-        # For now: "Sold entity for $..."
         if self.event_bus:
             self.event_bus.publish(LogMessageEvent(
                 message=f"Sold entity for ${event.value}.",
@@ -138,7 +146,6 @@ class FeedbackSystem(System):
         Returns:
             None
         """
-        # Look up name if possible
         name = "Entity"
         stats = self.world.get_component(event.entity_id, YukkuriStats)
         if stats:

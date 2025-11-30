@@ -7,7 +7,7 @@ from py_trees.common import Status
 from .utility import UtilityAIEngine
 from .base_action import Action
 
-from ..yukkuri_components import AIState, YukkuriStats, Personality
+from ..yukkuri_components import AIState, YukkuriStats, Personality, EmotionalState
 from ..components import Transform
 from ..trait_service import TraitService
 
@@ -88,6 +88,7 @@ class UtilitySelector(Action):
 
         stats = self.world.get_component(self.entity_id, YukkuriStats)
         personality = self.world.get_component(self.entity_id, Personality)
+        emotional = self.world.get_component(self.entity_id, EmotionalState)
 
         if not stats:
             print("UtilitySelector: Missing YukkuriStats component")
@@ -124,16 +125,24 @@ class UtilitySelector(Action):
                         else:
                             nearby_enemies += 1
 
+        # Extract emotional state
+        happiness = 50.0
+        stress = 0.0
+        if emotional:
+            # Normalize -100..100 to 0..100 for AI consumption
+            happiness = (emotional.happiness + 100.0) / 2.0
+            stress = emotional.stress
+
         context = {
             "hunger": stats.hunger,
             "hunger_inv": 100.0 - stats.hunger, # Inverse hunger (Satiety)
             "energy": stats.energy,
             "energy_inv": 100.0 - stats.energy, # Inverse energy (Tiredness)
-            "happiness": stats.happiness,
-            "happiness_inv": 100.0 - stats.happiness, # Sadness
-            "social": getattr(stats, 'social', 50.0),
-            "social_inv": 100.0 - getattr(stats, 'social', 50.0),
-            "stress": getattr(stats, 'stress', 0.0),
+            "happiness": happiness,
+            "happiness_inv": 100.0 - happiness, # Sadness
+            "social": stats.social,
+            "social_inv": 100.0 - stats.social,
+            "stress": stress,
             "cleanliness": stats.cleanliness,
             "nearby_friends": float(nearby_friends),
             "nearby_enemies": float(nearby_enemies),
@@ -144,8 +153,16 @@ class UtilitySelector(Action):
         # Inject Personality Values into Context
         # Allows AI to make decisions based on personality traits (e.g. "Lazy" might value rest more)
         if personality:
-            for key, val in personality.values.items():
-                context[f"val_{key}"] = val
+            # Inject Axis values (normalized to 0-100?)
+            if personality.axis:
+                 # Map axes to approximate old values for compatibility or new ones
+                 context["val_kindness"] = (personality.axis.kindness + 100) / 2.0
+                 context["val_energy"] = (personality.axis.energy + 100) / 2.0
+                 context["val_bravery"] = (personality.axis.bravery + 100) / 2.0
+                 context["val_greed"] = (personality.axis.greed + 100) / 2.0
+
+                 # Alias for backward compatibility if actions.toml uses 'compassion' etc
+                 context["val_compassion"] = context["val_kindness"]
 
             # Inject Traits as binary flags for conditional considerations
             for trait in personality.traits:

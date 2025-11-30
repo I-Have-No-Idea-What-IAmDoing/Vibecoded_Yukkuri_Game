@@ -18,7 +18,7 @@ from .game.settings_service import SettingsService
 from .game.trait_service import TraitService
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
-from .game.systems.stat_decay import StatDecaySystem
+from .game.systems.emotion_system import EmotionSystem
 from .game.systems.lifecycle import LifecycleSystem
 from .game.systems.behavior import BehaviorSystem
 from .game.systems.physics import PhysicsSystem
@@ -29,10 +29,10 @@ from .game.systems.poop_system import PoopSystem
 from .game.systems.feedback_system import FeedbackSystem
 from .game.systems.interaction_system import InteractionSystem
 from .game.systems.social_system import SocialSystem
+from .game.systems.gossip_system import GossipSystem
 from .game.systems.family_system import FamilySystem
 from .game.ui.hud import HUD
 from .game.input_system import InputSystem
-from .game.yukkuri_components import AIState # Fix import for HUD string check if needed
 from .config import load_config
 
 class YukkuriGame(GameLoop):
@@ -79,8 +79,19 @@ class YukkuriGame(GameLoop):
         # Core Systems & Service Registration
         self.yukkurrium = Yukkurrium(settings=self.game_config.world)
         self.audio = AudioManager()
+        self._load_sounds()
 
-        # Load sounds
+        self.physics_system = PhysicsSystem()
+        self.event_bus = EventBus()
+
+        self._register_core_services()
+        self._register_game_services()
+        self._apply_initial_settings()
+        self._register_factories_and_managers()
+        self._register_systems()
+
+    def _load_sounds(self) -> None:
+        """Loads sounds from configuration or fallback."""
         if os.path.exists("data/sounds.toml"):
             if sys.version_info >= (3, 11):
                 import tomllib
@@ -93,53 +104,54 @@ class YukkuriGame(GameLoop):
                     for name, path in sounds.get("sounds", {}).items():
                         self.audio.load_sound(name, path)
             else:
-                # Fallback if no toml parser
-                self.audio.load_sound("click", "data/audio/click.wav")
-                self.audio.load_sound("place", "data/audio/place.wav")
-                self.audio.load_sound("cancel", "data/audio/cancel.wav")
-                self.audio.load_sound("sell", "data/audio/sell.wav")
-                self.audio.load_sound("train", "data/audio/train.wav")
-                self.audio.load_sound("eat", "data/audio/eat.wav")
-                self.audio.load_sound("cry", "data/audio/cry.wav")
+                self._load_fallback_sounds()
         else:
-             # Hardcoded fallback
-            self.audio.load_sound("click", "data/audio/click.wav")
-            self.audio.load_sound("place", "data/audio/place.wav")
-            self.audio.load_sound("cancel", "data/audio/cancel.wav")
-            self.audio.load_sound("sell", "data/audio/sell.wav")
-            self.audio.load_sound("train", "data/audio/train.wav")
-            self.audio.load_sound("eat", "data/audio/eat.wav")
-            self.audio.load_sound("cry", "data/audio/cry.wav")
+            self._load_fallback_sounds()
 
-        self.physics_system = PhysicsSystem()
-        self.event_bus = EventBus()
+    def _load_fallback_sounds(self) -> None:
+        """Loads fallback sounds if configuration fails."""
+        defaults = {
+            "click": "data/audio/click.wav",
+            "place": "data/audio/place.wav",
+            "cancel": "data/audio/cancel.wav",
+            "sell": "data/audio/sell.wav",
+            "train": "data/audio/train.wav",
+            "eat": "data/audio/eat.wav",
+            "cry": "data/audio/cry.wav"
+        }
+        for name, path in defaults.items():
+            self.audio.load_sound(name, path)
 
+    def _register_core_services(self) -> None:
+        """Registers core services to the ServiceLocator."""
         self.world.services.register(self.resources, ResourceManager)
         self.world.services.register(self.audio, AudioManager)
-        self.world.services.register(self.yukkurrium)
-        self.world.services.register(self.physics_system)
-        self.world.services.register(self.event_bus)
+        self.world.services.register(self.yukkurrium, Yukkurrium)
+        self.world.services.register(self.physics_system, PhysicsSystem)
+        self.world.services.register(self.event_bus, EventBus)
 
-        # Services
+    def _register_game_services(self) -> None:
+        """Registers game-specific services."""
         self.economy_service = EconomyService()
-        self.world.services.register(self.economy_service)
+        self.world.services.register(self.economy_service, EconomyService)
 
         self.time_service = TimeService()
-        self.world.services.register(self.time_service)
+        self.world.services.register(self.time_service, TimeService)
 
         self.input_service = InputService()
-        self.world.services.register(self.input_service)
+        self.world.services.register(self.input_service, InputService)
 
         self.persistence_service = PersistenceService(self.world)
-        self.world.services.register(self.persistence_service)
+        self.world.services.register(self.persistence_service, PersistenceService)
 
         self.settings_service = SettingsService()
-        self.world.services.register(self.settings_service)
+        self.world.services.register(self.settings_service, SettingsService)
 
         self.trait_service = TraitService(self.world)
-        self.world.services.register(self.trait_service)
+        self.world.services.register(self.trait_service, TraitService)
 
-        # Apply initial settings
+    def _apply_initial_settings(self) -> None:
+        """Applies initial audio and video settings."""
         audio_settings = self.settings_service.settings.get("audio", {})
         self.audio.set_master_volume(audio_settings.get("master_volume", 0.5))
         self.audio.set_bgm_volume(audio_settings.get("bgm_volume", 0.5))
@@ -150,47 +162,43 @@ class YukkuriGame(GameLoop):
         height = window_settings.get("height", 720)
         fullscreen = window_settings.get("fullscreen", False)
 
-        # Apply window settings if different from default
         if not self.headless:
              flags = pygame.RESIZABLE
              if fullscreen:
                  flags |= pygame.FULLSCREEN
              try:
-                 # Update screen and ui_manager if resolution changed
                  if width != self.width or height != self.height or fullscreen:
                       self.screen = pygame.display.set_mode((width, height), flags)
                       self.width = width
                       self.height = height
                       self.ui_manager.set_window_resolution((width, height))
-                      # Also update hud layout dimensions if needed, but hud is created after this
              except pygame.error as e:
                  print(f"Failed to set initial video mode: {e}")
 
-        # Factory & Game Manager
+    def _register_factories_and_managers(self) -> None:
+        """Registers factories and high-level managers."""
         self.factory = EntityFactory(self.world)
-        self.world.services.register(self.factory)
+        self.world.services.register(self.factory, EntityFactory)
 
         self.gm = GameManager(self.world)
-        self.world.services.register(self.gm)
+        self.world.services.register(self.gm, GameManager)
 
-        # Game Logic Service
         self.game_service = GameService(self.world)
-        self.world.services.register(self.game_service)
+        self.world.services.register(self.game_service, GameService)
 
-        # AI
         self.ai_engine = UtilityAIEngine(self.resources)
         self.ai_engine.validate_actions()
-        # Could register AI engine if needed by others, e.g. YukkuriAISystem might fetch it?
-        # For now YukkuriAISystem takes it in constructor, but let's register it just in case.
-        self.world.services.register(self.ai_engine)
+        self.world.services.register(self.ai_engine, UtilityAIEngine)
 
-        # Add Systems
+    def _register_systems(self) -> None:
+        """Registers and adds all ECS systems."""
         self.input_system = InputSystem(self.yukkurrium)
-        self.world.add_system(self.input_system) # Update doesn't do much, events handled separately
+        self.world.add_system(self.input_system)
 
         self.world.add_system(TimeSystem())
         self.world.add_system(self.physics_system)
-        self.world.add_system(StatDecaySystem(settings=self.game_config.rules.stat_decay))
+
+        self.world.add_system(EmotionSystem(settings=self.game_config.rules.stat_decay))
         self.world.add_system(LifecycleSystem(settings=self.game_config.rules.lifecycle, entity_factory=self.factory))
         self.world.add_system(BehaviorSystem(float(self.yukkurrium.width), float(self.yukkurrium.height)))
         self.world.add_system(MovementSystem())
@@ -200,6 +208,7 @@ class YukkuriGame(GameLoop):
         self.world.add_system(FeedbackSystem(self.world))
         self.world.add_system(InteractionSystem())
         self.world.add_system(SocialSystem(self.event_bus))
+        self.world.add_system(GossipSystem(self.event_bus))
         self.world.add_system(FamilySystem())
 
         if not self.headless:
