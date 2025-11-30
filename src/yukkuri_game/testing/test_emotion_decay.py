@@ -7,7 +7,7 @@ from ..game.systems.emotion_system import EmotionSystem
 from ..config import StatDecaySettings
 from ..engine.ecs import World
 
-@pytest.fixture
+@pytest.fixture # type: ignore[misc]
 def world() -> World:
     """
     Creates a new ECS World for testing.
@@ -17,7 +17,7 @@ def world() -> World:
     """
     return World()
 
-@pytest.fixture
+@pytest.fixture # type: ignore[misc]
 def emotion_system() -> EmotionSystem:
     """
     Creates an EmotionSystem with accelerated decay rates for testing.
@@ -51,6 +51,7 @@ def test_stress_decay(world: World, emotion_system: EmotionSystem) -> None:
     emotion_system.update(world, 1.0)
 
     state = world.get_component(entity, EmotionalState)
+    assert state is not None
     assert state.stress < 100.0
     assert state.stress == 90.0 # 100 - 10*1.0
 
@@ -73,6 +74,7 @@ def test_happiness_decay_to_baseline(world: World, emotion_system: EmotionSystem
     emotion_system.update(world, 1.0)
 
     state = world.get_component(entity, EmotionalState)
+    assert state is not None
     assert state.happiness < 100.0
     assert state.happiness == 90.0
 

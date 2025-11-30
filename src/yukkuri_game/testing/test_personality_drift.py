@@ -7,7 +7,7 @@ from ..game.systems.emotion_system import EmotionSystem
 from ..config import StatDecaySettings
 from ..engine.ecs import World
 
-@pytest.fixture
+@pytest.fixture # type: ignore[misc]
 def world() -> World:
     """
     Creates a new ECS World for testing.
@@ -17,7 +17,7 @@ def world() -> World:
     """
     return World()
 
-@pytest.fixture
+@pytest.fixture # type: ignore[misc]
 def emotion_system() -> EmotionSystem:
     """
     Creates an EmotionSystem for testing.

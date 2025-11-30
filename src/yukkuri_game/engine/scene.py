@@ -3,6 +3,7 @@ Scene Management Module.
 """
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional
+import pygame
 from .ecs import World
 
 if TYPE_CHECKING:
@@ -19,17 +20,17 @@ class Scene(ABC):
         self.world = World()
 
     @abstractmethod
-    def on_enter(self):
+    def on_enter(self) -> None:
         """Called when the scene becomes active."""
         pass
 
     @abstractmethod
-    def on_exit(self):
+    def on_exit(self) -> None:
         """Called when the scene is no longer active."""
         pass
 
     @abstractmethod
-    def update(self, dt: float):
+    def update(self, dt: float) -> None:
         """
         Update scene logic.
 
@@ -39,12 +40,12 @@ class Scene(ABC):
         self.world.update(dt)
 
     @abstractmethod
-    def render(self):
+    def render(self) -> None:
         """Render the scene."""
         pass
 
     @abstractmethod
-    def handle_event(self, event):
+    def handle_event(self, event: pygame.event.Event) -> None:
         """
         Handle input events.
 

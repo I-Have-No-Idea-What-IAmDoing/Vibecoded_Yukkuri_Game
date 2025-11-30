@@ -51,7 +51,7 @@ class SectorMap:
 
         return (col, row)
 
-    def update_entity(self, entity_id: int, x: float, y: float):
+    def update_entity(self, entity_id: int, x: float, y: float) -> None:
         """
         Updates the entity's position in the sector map.
         """
@@ -69,7 +69,7 @@ class SectorMap:
         self.sectors[new_sector].add(entity_id)
         self.entity_sectors[entity_id] = new_sector
 
-    def remove_entity(self, entity_id: int):
+    def remove_entity(self, entity_id: int) -> None:
         """
         Removes an entity from the sector map.
         """
@@ -137,7 +137,7 @@ class SectorSystem(System):
             self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
             self._subscribed = True
 
-    def on_entity_destroyed(self, event: EntityDestroyedEvent):
+    def on_entity_destroyed(self, event: EntityDestroyedEvent) -> None:
         """
         Handler for when an entity is destroyed.
         """
@@ -169,7 +169,7 @@ class SectorSystem(System):
             self.cleanup_timer = 0.0
             self.cleanup_dead_entities(world)
 
-    def cleanup_dead_entities(self, world: World):
+    def cleanup_dead_entities(self, world: World) -> None:
         """
         Removes entities from SectorMap that no longer exist in the world or have no Transform.
         """

@@ -220,7 +220,7 @@ class SocialSystem(System):
             world.add_component(entity_id, registry)
         return registry
 
-    def _calculate_impact_deltas(self, world: World, subject_id: int, social_impact: Dict, modifiers: Dict, base_impact_score: float) -> tuple:
+    def _calculate_impact_deltas(self, world: World, subject_id: int, social_impact: Dict[str, float], modifiers: Dict[str, Dict[str, float]], base_impact_score: float) -> tuple[float, float, float, float]:
         d_affinity = social_impact.get("affinity", 0.0)
         d_trust = social_impact.get("trust", 0.0)
         d_fear = social_impact.get("fear", 0.0)

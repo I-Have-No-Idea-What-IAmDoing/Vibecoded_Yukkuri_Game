@@ -131,14 +131,14 @@ class RelationshipData:
     TRIVIAL_MAX_LEN: int = 25
     CORE_MAX_LEN: int = 35
 
-    def add_headline(self, headline: MemoryHeadline, threshold: float = 50.0):
+    def add_headline(self, headline: MemoryHeadline, threshold: float = 50.0) -> None:
         """Adds a headline to the appropriate buffer."""
         if headline.importance > threshold or headline.is_locked:
             self._add_core_memory(headline)
         else:
             self._add_trivial_memory(headline)
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: Dict[str, Any]) -> None:
         """
         Support for pickling: Ensure running sums are consistent when loading old data
         or data that wasn't saved with sums.
@@ -148,7 +148,7 @@ class RelationshipData:
         self.trivial_sentiment_sum = sum(m.sentiment for m in self.trivial_buffer)
         self.core_sentiment_sum = sum(m.sentiment for m in self.core_buffer)
 
-    def _add_trivial_memory(self, headline: MemoryHeadline):
+    def _add_trivial_memory(self, headline: MemoryHeadline) -> None:
         if len(self.trivial_buffer) >= self.TRIVIAL_MAX_LEN:
              removed = self.trivial_buffer.pop(0) # Remove oldest
              self.trivial_sentiment_sum -= removed.sentiment
@@ -156,7 +156,7 @@ class RelationshipData:
         self.trivial_buffer.append(headline)
         self.trivial_sentiment_sum += headline.sentiment
 
-    def _add_core_memory(self, headline: MemoryHeadline):
+    def _add_core_memory(self, headline: MemoryHeadline) -> None:
         """
         Adds to core buffer with Locking logic.
         If full, only overwrites unlocked memories or lower importance if allowed.
@@ -226,14 +226,14 @@ class GossipPacket:
     value: float
     timestamp: float = 0.0
 
-    def __lt__(self, other):
+    def __lt__(self, other: "GossipPacket") -> bool:
         return self.value < other.value
 
 @dataclass
 class GossipQueue(Component):
     priority_queue: List[GossipPacket] = field(default_factory=list)
 
-    def add_packet(self, packet: GossipPacket, max_length: int = 10):
+    def add_packet(self, packet: GossipPacket, max_length: int = 10) -> None:
         """
         Adds a packet to the queue, merging duplicates and keeping the list sorted by value (descending).
         """

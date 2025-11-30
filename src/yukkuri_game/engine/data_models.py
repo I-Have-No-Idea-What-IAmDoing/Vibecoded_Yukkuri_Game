@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 import msgspec
 
 
-class AnimationDefinition(msgspec.Struct):
+class AnimationDefinition(msgspec.Struct): # type: ignore[misc]
     """
     Data model representing an animation sequence.
 
@@ -31,7 +31,7 @@ class AnimationDefinition(msgspec.Struct):
     height: Optional[int] = None
 
 
-class YukkuriType(msgspec.Struct):
+class YukkuriType(msgspec.Struct): # type: ignore[misc]
     """
     Data model representing a type of Yukkuri.
 
@@ -54,7 +54,7 @@ class YukkuriType(msgspec.Struct):
     cost: int = 100
     animations: Dict[str, AnimationDefinition] = {}
 
-class ItemType(msgspec.Struct):
+class ItemType(msgspec.Struct): # type: ignore[misc]
     """
     Data model representing a type of Item.
 
@@ -79,7 +79,7 @@ class ItemType(msgspec.Struct):
     comfort: Optional[int] = None
     fun: Optional[int] = None
 
-class ActionEffect(msgspec.Struct):
+class ActionEffect(msgspec.Struct): # type: ignore[misc]
     """
     Data model representing the effects of an AI action.
 
@@ -94,7 +94,7 @@ class ActionEffect(msgspec.Struct):
     consume: bool = False
     stat_changes: Dict[str, float] = {}
 
-class ActionConsideration(msgspec.Struct):
+class ActionConsideration(msgspec.Struct): # type: ignore[misc]
     """
     Data model representing a consideration (input factor) for an AI action.
 
@@ -109,7 +109,7 @@ class ActionConsideration(msgspec.Struct):
     curve: str
     params: Dict[str, float] = {}
 
-class AIAction(msgspec.Struct):
+class AIAction(msgspec.Struct): # type: ignore[misc]
     """
     Data model representing an AI action definition.
 
@@ -124,7 +124,7 @@ class AIAction(msgspec.Struct):
 
 # --- Game Tuning Data Models (from yukkuri_tuning.json) ---
 
-class MovementVisuals(msgspec.Struct):
+class MovementVisuals(msgspec.Struct): # type: ignore[misc]
     """
     Tuning for movement visual effects.
 
@@ -135,7 +135,7 @@ class MovementVisuals(msgspec.Struct):
     bob_height: float = 10.0
     bob_speed: float = 5.0
 
-class VisualTuning(msgspec.Struct):
+class VisualTuning(msgspec.Struct): # type: ignore[misc]
     """
     Container for all visual-related tuning.
 
@@ -144,7 +144,7 @@ class VisualTuning(msgspec.Struct):
     """
     movement: MovementVisuals
 
-class GameTuning(msgspec.Struct):
+class GameTuning(msgspec.Struct): # type: ignore[misc]
     """
     Root container for the main JSON tuning file.
 
@@ -154,7 +154,7 @@ class GameTuning(msgspec.Struct):
     visuals: VisualTuning
 
 # --- Root containers for the TOML structure ---
-class YukkuriData(msgspec.Struct):
+class YukkuriData(msgspec.Struct): # type: ignore[misc]
     """
     Root container for Yukkuri type definitions loaded from TOML.
 
@@ -163,7 +163,7 @@ class YukkuriData(msgspec.Struct):
     """
     yukkuris: Dict[str, YukkuriType]
 
-class ItemData(msgspec.Struct):
+class ItemData(msgspec.Struct): # type: ignore[misc]
     """
     Root container for Item type definitions loaded from TOML.
 
@@ -172,7 +172,7 @@ class ItemData(msgspec.Struct):
     """
     items: Dict[str, ItemType]
 
-class AIData(msgspec.Struct):
+class AIData(msgspec.Struct): # type: ignore[misc]
     """
     Root container for AI action definitions loaded from TOML.
 

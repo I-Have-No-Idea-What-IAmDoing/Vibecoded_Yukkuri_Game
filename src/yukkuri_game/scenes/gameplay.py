@@ -40,13 +40,13 @@ class GameplayScene(Scene):
         self.ui_manager = pygame_gui.UIManager((self.application.width, self.application.height))
         self.dt = 0.0
 
-    def on_enter(self):
+    def on_enter(self) -> None:
         logger.info("Entered Gameplay Scene")
         if not self.is_setup:
             self.setup()
         self.ui_manager.set_window_resolution((self.application.width, self.application.height))
 
-    def setup(self):
+    def setup(self) -> None:
         """Sets up the game environment."""
         # Load Config
         self.game_config = load_config()
@@ -64,7 +64,7 @@ class GameplayScene(Scene):
 
         self.is_setup = True
 
-    def _register_services(self):
+    def _register_services(self) -> None:
         """Registers services to the world."""
         # Use application's resource manager
         self.world.services.register(self.application.resources, type(self.application.resources))
@@ -131,13 +131,13 @@ class GameplayScene(Scene):
         self.world.services.register(sector_system.sector_map, SectorMap)
         self.world.add_system(sector_system)
 
-    def _apply_initial_settings(self):
+    def _apply_initial_settings(self) -> None:
         audio_settings = self.settings_service.settings.get("audio", {})
         self.audio.set_master_volume(audio_settings.get("master_volume", 0.5))
         self.audio.set_bgm_volume(audio_settings.get("bgm_volume", 0.5))
         self.audio.set_sfx_volume(audio_settings.get("sfx_volume", 0.5))
 
-    def _register_factories_and_managers(self):
+    def _register_factories_and_managers(self) -> None:
         self.factory = EntityFactory(self.world)
         self.world.services.register(self.factory, EntityFactory)
 
@@ -148,7 +148,7 @@ class GameplayScene(Scene):
         self.ai_engine.validate_actions()
         self.world.services.register(self.ai_engine, UtilityAIEngine)
 
-    def _register_systems(self):
+    def _register_systems(self) -> None:
         self.input_system = SystemRegistry.register_systems(
             self.world,
             self.game_config,
@@ -175,14 +175,14 @@ class GameplayScene(Scene):
             self.yukkurrium.camera_x = float(start_x)
             self.yukkurrium.camera_y = float(start_y)
 
-    def on_exit(self):
+    def on_exit(self) -> None:
         logger.info("Exited Gameplay Scene")
         self.ui_manager.clear_and_reset()
 
-    def toggle_pause(self):
+    def toggle_pause(self) -> None:
         self.paused = not self.paused
 
-    def cycle_speed(self):
+    def cycle_speed(self) -> None:
         speeds = [1.0, 2.0, 5.0, 0.5]
         try:
             current_idx = speeds.index(self.time_scale)
@@ -228,7 +228,7 @@ class GameplayScene(Scene):
         pygame.image.save(self.application.screen, filename)
         logger.info(f"Screenshot saved to {filename}")
 
-    def update(self, dt: float):
+    def update(self, dt: float) -> None:
         self.dt = dt
         self.ui_manager.update(dt) # Update local UI
 
@@ -245,18 +245,18 @@ class GameplayScene(Scene):
             self.hud.fps = self.application.clock.get_fps()
             self.hud.update(dt)
 
-    def render(self):
+    def render(self) -> None:
         self.render_world()
 
         if not self.application.headless:
             self.hud.draw(self.application.screen)
             self.ui_manager.draw_ui(self.application.screen)
 
-    def render_world(self):
+    def render_world(self) -> None:
         if hasattr(self, 'render_system') and self.render_system:
             self.render_system.update(self.world, self.dt)
 
-    def handle_event(self, event):
+    def handle_event(self, event: pygame.event.Event) -> None:
         self.ui_manager.process_events(event)
 
         # Always handle input system events

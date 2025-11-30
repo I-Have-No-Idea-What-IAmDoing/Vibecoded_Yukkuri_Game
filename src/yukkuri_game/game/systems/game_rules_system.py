@@ -27,7 +27,10 @@ class GameRulesSystem(System):
         self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
         self.event_bus.subscribe(PunishEntityRequest, self.on_punish_entity)
         self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
-        self.ecs_world: World = None # Injected by World.add_system
+        # self.ecs_world is injected by World.add_system, so it can be None initially
+        # but typing it as World assumes it will be set.
+        # We can use Optional[World] and cast or ignore if we want to be strict.
+        self.ecs_world: World = None  # type: ignore
 
     def update(self, world: World, dt: float) -> None:
         # This system is event-driven, so update loop might not be needed

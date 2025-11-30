@@ -382,6 +382,14 @@ class RenderSystem(System):
         rm = world.services.get(ResourceManager)
         self.renderer = WorldRenderer(screen, yukkurrium, rm)
 
+    @property
+    def screen(self) -> pygame.Surface:
+        return self.renderer.screen
+
+    @screen.setter
+    def screen(self, value: pygame.Surface) -> None:
+        self.renderer.screen = value
+
     def update(self, world: World, dt: float) -> None:
         """
         Renders the world grid and all visible entities.
