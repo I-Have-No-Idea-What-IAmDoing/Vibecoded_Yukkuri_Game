@@ -2,7 +2,10 @@
 Module defining the PhysicsSystem logic.
 """
 import pymunk
+from typing import Optional
 from ...engine.ecs import System, World
+from ...engine.event_bus import EventBus, Event
+from ...engine.events import EntityDestroyedEvent
 from ..components import Transform, PhysicsBody
 
 class PhysicsSystem(System):
@@ -29,6 +32,28 @@ class PhysicsSystem(System):
         self.accumulator = 0.0
         self.time_step = 1.0 / 60.0
         self.max_frame_time = 0.25
+        self.event_bus: Optional[EventBus] = None
+
+    def on_entity_destroyed(self, event: Event) -> None:
+        """
+        Handles EntityDestroyedEvent to cleanup physics bodies.
+
+        Args:
+            event (Event): The event data.
+        """
+        if not isinstance(event, EntityDestroyedEvent):
+            return
+
+        # Access World via stored reference or event if available
+        # Event handlers in this codebase don't receive 'world', so we rely on self.ecs_world
+        # which is injected by World.add_system
+        if hasattr(self, 'ecs_world'):
+            phys = self.ecs_world.get_component(event.entity_id, PhysicsBody)
+            if phys:
+                if phys.body in self.space.bodies:
+                    self.space.remove(phys.body)
+                if phys.shape in self.space.shapes:
+                    self.space.remove(phys.shape)
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -43,6 +68,11 @@ class PhysicsSystem(System):
         Returns:
             None
         """
+        if self.event_bus is None:
+            self.event_bus = world.services.try_get(EventBus)
+            if self.event_bus:
+                self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
+
         # Clamp dt to avoid spiral of death with high time scales or lag
         if dt > self.max_frame_time:
             dt = self.max_frame_time
