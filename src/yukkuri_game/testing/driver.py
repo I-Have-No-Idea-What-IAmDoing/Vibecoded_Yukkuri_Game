@@ -7,7 +7,7 @@ import pygame
 import os
 from typing import Generator, Any, Callable, Union, List, Optional
 from dataclasses import dataclass
-from ..main import YukkuriGame
+from ..engine.application import Application
 
 # --- Predicates & Commands ---
 
@@ -55,7 +55,7 @@ class GameDriver:
     """
     Controls a YukkuriGame instance for deterministic headless testing.
     """
-    def __init__(self, game_instance: YukkuriGame, fixed_dt: float = 1.0/60.0):
+    def __init__(self, game_instance: Application, fixed_dt: float = 1.0/60.0):
         self.game = game_instance
         self.fixed_dt = fixed_dt
         self.simulated_time = 0.0
@@ -74,27 +74,34 @@ class GameDriver:
     def setup(self) -> None:
         """Sets up the game instance."""
         self.seed_rng()
-        if not self.game.headless:
+        if hasattr(self.game, 'set_headless') and not self.game.headless:
              self.game.set_headless(True)
-        self.game.setup()
+
+        # Application initializes on creation. Ensure GameplayScene is active.
+        if isinstance(self.game, Application):
+             from ..scenes.gameplay import GameplayScene
+             if not self.game.scene_manager.current_scene:
+                 self.game.scene_manager.push(GameplayScene(self.game))
+        elif hasattr(self.game, 'setup'):
+             self.game.setup()
 
     def create_yukkuri(self, type_id: str, x: float, y: float) -> int:
         from ..game.entity_factory import EntityFactory
-        factory = self.game.world.services.try_get(EntityFactory)
+        factory = self.world.services.try_get(EntityFactory)
         if factory:
             return factory.create_yukkuri(type_id, x, y)
         return -1
 
     def create_item(self, type_id: str, x: float, y: float) -> int:
         from ..game.entity_factory import EntityFactory
-        factory = self.game.world.services.try_get(EntityFactory)
+        factory = self.world.services.try_get(EntityFactory)
         if factory:
             return factory.create_item(type_id, x, y)
         return -1
 
     def set_ai_target_pos(self, entity_id: int, x: float, y: float) -> None:
         from ..game.yukkuri_components import AIState
-        ai = self.game.world.get_component(entity_id, AIState)
+        ai = self.world.get_component(entity_id, AIState)
         if ai:
             if ai.state_data is None:
                 ai.state_data = {}
@@ -105,7 +112,7 @@ class GameDriver:
 
     def set_ai_action(self, entity_id: int, action: str, target_id: int = -1) -> None:
         from ..game.yukkuri_components import AIState
-        ai = self.game.world.get_component(entity_id, AIState)
+        ai = self.world.get_component(entity_id, AIState)
         if ai:
             ai.current_action = action
             if target_id != -1:
@@ -164,7 +171,10 @@ class GameDriver:
             pygame.event.pump()
 
         # 2. Update Game State
-        self.game.tick(self.fixed_dt)
+        if hasattr(self.game, "update"):
+            self.game.update(self.fixed_dt)
+        elif hasattr(self.game, "tick"):
+            self.game.tick(self.fixed_dt)
 
         self.simulated_time += self.fixed_dt
         self.frame_count += 1
@@ -199,11 +209,11 @@ class GameDriver:
 
     def get_transform(self, entity_id: int) -> Optional[Any]:
         from ..game.components import Transform
-        return self.game.world.get_component(entity_id, Transform)
+        return self.world.get_component(entity_id, Transform)
 
     def reset(self) -> None:
         # Clear the ECS world to remove all entities
-        self.game.world.clear()
+        self.world.clear()
 
         # Reset game setup flag so setup() runs again if needed (to create initial entities)
         # However, setup() also adds systems. If clear() keeps systems, we shouldn't re-add them.
@@ -220,7 +230,12 @@ class GameDriver:
 
     @property
     def world(self) -> Any:
-        return self.game.world
+        if isinstance(self.game, Application):
+             if self.game.scene_manager.current_scene:
+                 return self.game.scene_manager.current_scene.world
+        if hasattr(self.game, 'world'):
+            return self.game.world
+        return None
 
     def save_screenshot(self, filename: str) -> None:
         """Saves the current screen state to a file."""

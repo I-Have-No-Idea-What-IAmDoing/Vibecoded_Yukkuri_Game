@@ -5,7 +5,7 @@ import pytest
 import sys
 import os
 import pygame
-from yukkuri_game.main import YukkuriGame
+from yukkuri_game.engine.application import Application
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.testing.environment import TestEnvironment
 
@@ -26,7 +26,7 @@ def game_driver() -> GameDriver:
     """
     with TestEnvironment():
         # Initialize game in headless mode
-        game = YukkuriGame(headless=True)
+        game = Application(headless=True)
 
         # Note: Render system init is handled lazily by GameDriver/YukkuriGame
         # when needed (e.g. for screenshots), after game.setup() is called

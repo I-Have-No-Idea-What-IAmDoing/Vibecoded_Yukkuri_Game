@@ -3,18 +3,20 @@ from unittest.mock import MagicMock, patch
 import pygame
 import os
 from datetime import datetime
-from yukkuri_game.main import YukkuriGame
+from yukkuri_game.engine.application import Application
 
 class TestScreenshot(unittest.TestCase):
-    @patch('yukkuri_game.main.pygame')
-    @patch('yukkuri_game.main.os')
-    @patch('yukkuri_game.main.datetime')
-    @patch('yukkuri_game.engine.core.pygame')
-    @patch('yukkuri_game.engine.core.pygame_gui')
-    def test_take_screenshot(self, mock_pygame_gui_core, mock_pygame_core, mock_datetime, mock_os, mock_pygame_main):
+    @patch('yukkuri_game.engine.application.pygame')
+    @patch('yukkuri_game.scenes.gameplay.pygame') # Patch pygame used in GameplayScene
+    @patch('yukkuri_game.scenes.gameplay.os')
+    @patch('yukkuri_game.scenes.gameplay.datetime')
+    @patch('yukkuri_game.engine.application.pygame_gui')
+    @patch('yukkuri_game.scenes.gameplay.pygame_gui') # Patch pygame_gui in GameplayScene to avoid font loading
+    def test_take_screenshot(self, mock_pygame_gui_scene, mock_pygame_gui_app, mock_datetime, mock_os, mock_pygame_scene, mock_pygame_app):
         # Setup mocks
         mock_screen = MagicMock()
-        mock_pygame_core.display.set_mode.return_value = mock_screen
+        # application.__init__ calls pygame.display.set_mode
+        mock_pygame_app.display.set_mode.return_value = mock_screen
 
         # Mock datetime to return a fixed time
         fixed_date = datetime(2023, 10, 27, 12, 0, 0)
@@ -24,21 +26,31 @@ class TestScreenshot(unittest.TestCase):
         # Mock os.path.exists to return False initially (so makedirs is called)
         mock_os.path.exists.return_value = False
 
-        # Create game instance
-        # We need to patch GameLoop.__init__ or ensure it doesn't fail
-        # GameLoop.__init__ calls pygame.init, pygame.display.set_mode, ResourceManager, etc.
-        # We might need to mock more things if YukkuriGame instantiation is complex.
+        # Application needs ResourceManager.
+        with patch('yukkuri_game.engine.application.ResourceManager') as mock_res_mgr:
 
-        # Let's try to instantiate. We mocked pygame in main and core.
-        with patch('yukkuri_game.engine.core.ResourceManager') as mock_res_mgr, \
-             patch('yukkuri_game.engine.core.World') as mock_world:
+            # Setup ResourceManager mock to prevent loading real data
+            mock_res_mgr.return_value.load_all_data.return_value = None
 
-            game = YukkuriGame()
-            # Manually set screen because __init__ sets it from pygame.display.set_mode
+            game = Application()
             game.screen = mock_screen
 
-            # Call take_screenshot
-            game.take_screenshot()
+            # Let's mock the scene manager or just create the scene
+            from yukkuri_game.scenes.gameplay import GameplayScene
+
+            # We need to mock things inside GameplayScene.__init__/setup
+            with patch('yukkuri_game.scenes.gameplay.load_config'), \
+                 patch('yukkuri_game.scenes.gameplay.Yukkurrium'), \
+                 patch('yukkuri_game.scenes.gameplay.AudioManager'), \
+                 patch('yukkuri_game.scenes.gameplay.PhysicsSystem'), \
+                 patch('yukkuri_game.scenes.gameplay.EventBus'), \
+                 patch('yukkuri_game.scenes.gameplay.EntityFactory'), \
+                 patch('yukkuri_game.scenes.gameplay.GameManager'), \
+                 patch('yukkuri_game.scenes.gameplay.UtilityAIEngine'), \
+                 patch('yukkuri_game.scenes.gameplay.SystemRegistry'):
+
+                 scene = GameplayScene(game)
+                 scene.take_screenshot()
 
             # Verify directory creation
             mock_os.path.exists.assert_called_with("screenshots")
@@ -46,19 +58,19 @@ class TestScreenshot(unittest.TestCase):
 
             # Verify save call
             expected_filename = "screenshots/screenshot_20231027_120000.png"
-            # Note: we are checking if mock_pygame_main.image.save was called.
-            # Since we mocked 'src.yukkuri_game.main.pygame', game.take_screenshot uses that mock.
-            mock_pygame_main.image.save.assert_called_with(mock_screen, expected_filename)
+            # GameplayScene uses its imported pygame
+            mock_pygame_scene.image.save.assert_called_with(mock_screen, expected_filename)
 
-    @patch('yukkuri_game.main.pygame')
-    @patch('yukkuri_game.main.os')
-    @patch('yukkuri_game.main.datetime')
-    @patch('yukkuri_game.engine.core.pygame')
-    @patch('yukkuri_game.engine.core.pygame_gui')
-    def test_take_screenshot_dir_exists(self, mock_pygame_gui_core, mock_pygame_core, mock_datetime, mock_os, mock_pygame_main):
+    @patch('yukkuri_game.engine.application.pygame')
+    @patch('yukkuri_game.scenes.gameplay.pygame') # Patch pygame used in GameplayScene
+    @patch('yukkuri_game.scenes.gameplay.os')
+    @patch('yukkuri_game.scenes.gameplay.datetime')
+    @patch('yukkuri_game.engine.application.pygame_gui')
+    @patch('yukkuri_game.scenes.gameplay.pygame_gui') # Patch pygame_gui in GameplayScene to avoid font loading
+    def test_take_screenshot_dir_exists(self, mock_pygame_gui_scene, mock_pygame_gui_app, mock_datetime, mock_os, mock_pygame_scene, mock_pygame_app):
         # Setup mocks
         mock_screen = MagicMock()
-        mock_pygame_core.display.set_mode.return_value = mock_screen
+        mock_pygame_app.display.set_mode.return_value = mock_screen
 
         fixed_date = datetime(2023, 10, 27, 12, 0, 0)
         mock_datetime.now.return_value = fixed_date
@@ -66,13 +78,26 @@ class TestScreenshot(unittest.TestCase):
         # Mock os.path.exists to return True
         mock_os.path.exists.return_value = True
 
-        with patch('yukkuri_game.engine.core.ResourceManager'), \
-             patch('yukkuri_game.engine.core.World'):
+        with patch('yukkuri_game.engine.application.ResourceManager') as mock_res_mgr:
+            mock_res_mgr.return_value.load_all_data.return_value = None
 
-            game = YukkuriGame()
+            game = Application()
             game.screen = mock_screen
 
-            game.take_screenshot()
+            from yukkuri_game.scenes.gameplay import GameplayScene
+
+            with patch('yukkuri_game.scenes.gameplay.load_config'), \
+                 patch('yukkuri_game.scenes.gameplay.Yukkurrium'), \
+                 patch('yukkuri_game.scenes.gameplay.AudioManager'), \
+                 patch('yukkuri_game.scenes.gameplay.PhysicsSystem'), \
+                 patch('yukkuri_game.scenes.gameplay.EventBus'), \
+                 patch('yukkuri_game.scenes.gameplay.EntityFactory'), \
+                 patch('yukkuri_game.scenes.gameplay.GameManager'), \
+                 patch('yukkuri_game.scenes.gameplay.UtilityAIEngine'), \
+                 patch('yukkuri_game.scenes.gameplay.SystemRegistry'):
+
+                 scene = GameplayScene(game)
+                 scene.take_screenshot()
 
             # Verify directory creation is NOT called
             mock_os.path.exists.assert_called_with("screenshots")
@@ -80,7 +105,7 @@ class TestScreenshot(unittest.TestCase):
 
             # Verify save call
             expected_filename = "screenshots/screenshot_20231027_120000.png"
-            mock_pygame_main.image.save.assert_called_with(mock_screen, expected_filename)
+            mock_pygame_scene.image.save.assert_called_with(mock_screen, expected_filename)
 
 if __name__ == '__main__':
     unittest.main()
