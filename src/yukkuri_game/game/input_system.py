@@ -10,6 +10,7 @@ from .events import PlacementStartedEvent, EntitySelectedEvent, PlacementRequest
 from .components import Transform, Selectable
 from .yukkuri_components import Poop
 from .services import InputService
+from ..engine.input_manager import InputManager
 
 if TYPE_CHECKING:
     from .yukkurrium import Yukkurrium
@@ -41,6 +42,7 @@ class InputSystem(System):
         self.yukkurrium = yukkurrium
         self.event_bus: Optional[EventBus] = None
         self.input_service: Optional[InputService] = None
+        self.input_manager: Optional[InputManager] = None
         self.audio: Optional[AudioManager] = None
         self.drag_start_pos: Optional[Tuple[float, float]] = None
         self.drag_end_pos: Optional[Tuple[float, float]] = None
@@ -92,6 +94,8 @@ class InputSystem(System):
         # Lazy initialization of dependencies
         if self.input_service is None:
             self.input_service = world.services.get(InputService)
+        if self.input_manager is None:
+            self.input_manager = world.services.try_get(InputManager)
         if self.event_bus is None:
             self.event_bus = world.services.get(EventBus)
             self.event_bus.subscribe(PlacementStartedEvent, self.on_placement_started)
@@ -247,6 +251,10 @@ class InputSystem(System):
 
         # Handle Shift key for multi-select
         is_shift_pressed = pygame.key.get_pressed()[pygame.K_LSHIFT]
+        # Use input manager if available, though modifier keys might need specific handling
+        if self.input_manager:
+             # InputManager doesn't track modifiers explicitly yet, could add it or check raw
+             pass
 
         # If not appending, clear previous selection first (unless we click nothing, handled later)
         if not is_shift_pressed:

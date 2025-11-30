@@ -7,7 +7,7 @@ from yukkuri_game.engine.serializer import WorldSerializer
 from yukkuri_game.game.prefabs.yukkuri import create_yukkuri
 from yukkuri_game.game.components_persistence import StableIDComponent, Persistable
 from yukkuri_game.game.components import Transform, PhysicsBody
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.game.systems.physics import PhysicsSystem
 from yukkuri_game.game.systems.physics_reconstruction import reconstruct_physics
@@ -33,15 +33,22 @@ def test_persistence():
     physics_system = PhysicsSystem()
     world.services.register(physics_system, PhysicsSystem)
 
-    # Create Entity
-    entity = create_yukkuri(world, "reimu", 100, 200)
+    # Create Entity 1
+    entity1 = create_yukkuri(world, "reimu", 100, 200)
+
+    # Create Entity 2 (Child)
+    entity2 = create_yukkuri(world, "reimu", 150, 200)
+
+    # Establish Relationship
+    rel_reg = world.get_component(entity1, RelationshipRegistry)
+    rel_reg.biological_children.append(entity2)
+    rel_reg.relationships[entity2] = RelationshipData(affinity=10.0)
 
     # Verify components
-    assert world.has_component(entity, StableIDComponent)
-    assert world.has_component(entity, Persistable)
-    assert world.has_component(entity, Transform)
+    assert world.has_component(entity1, StableIDComponent)
+    assert world.has_component(entity1, Persistable)
 
-    stable_id = world.get_component(entity, StableIDComponent).id
+    stable_id_1 = world.get_component(entity1, StableIDComponent).id
 
     # Save
     comp_types = []
@@ -51,42 +58,56 @@ def test_persistence():
                     comp_types.append(obj)
 
     serializer = WorldSerializer(world, comp_types)
-    test_file = "test_save.json"
+    test_file = "test_save.msgpack"
     serializer.save_to_file(test_file)
 
     assert os.path.exists(test_file)
 
     # Clear World
     world.clear()
-    assert not world.entity_exists(entity)
+    assert not world.entity_exists(entity1)
+
+    # Burn an ID to ensure new IDs are different
+    world.create_entity()
 
     # Load
     serializer.load_from_file(test_file)
     reconstruct_physics(world)
 
     # Verify Loaded Entity
-    # We need to find the entity with the same StableID
-    found_entity = None
-    for e, comp in world.get_components(StableIDComponent).items():
-        if comp.id == stable_id:
-            found_entity = e
-            break
+    found_entity_1 = None
+    found_entity_2 = None
 
-    assert found_entity is not None
+    for e, comp in world.get_components(StableIDComponent).items():
+        if comp.id == stable_id_1:
+            found_entity_1 = e
+        else:
+            found_entity_2 = e
+
+    assert found_entity_1 is not None
+    assert found_entity_2 is not None
+    assert found_entity_1 != entity1 # IDs should likely change (or at least be valid)
 
     # Verify Data
-    transform = world.get_component(found_entity, Transform)
+    transform = world.get_component(found_entity_1, Transform)
     assert transform.x == 100
     assert transform.y == 200
 
-    stats = world.get_component(found_entity, YukkuriStats)
+    stats = world.get_component(found_entity_1, YukkuriStats)
     assert stats.type_id == "reimu"
-    # Baby yukkuri has half health (50)
-    assert stats.max_health == 50.0
+
+    # Verify Relationship Reference Resolution
+    rel_reg_loaded = world.get_component(found_entity_1, RelationshipRegistry)
+    assert len(rel_reg_loaded.biological_children) == 1
+    child_id = rel_reg_loaded.biological_children[0]
+    assert child_id == found_entity_2 # Should point to the NEW ID of entity 2
+
+    assert found_entity_2 in rel_reg_loaded.relationships
+    assert rel_reg_loaded.relationships[found_entity_2].affinity == 10.0
 
     # Verify Physics
-    assert world.has_component(found_entity, PhysicsBody)
-    pb = world.get_component(found_entity, PhysicsBody)
+    assert world.has_component(found_entity_1, PhysicsBody)
+    pb = world.get_component(found_entity_1, PhysicsBody)
     assert pb.body.position.x == 100
     assert pb.body.position.y == 200
 

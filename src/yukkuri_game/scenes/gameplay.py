@@ -323,8 +323,8 @@ class GameplayScene(Scene):
                 elif event.key == pygame.K_F12:
                     self.take_screenshot()
                 elif event.key == pygame.K_F5:
-                    self.save("quicksave.json")
+                    self.save("quicksave.msgpack")
                 elif event.key == pygame.K_F9:
-                    self.load("quicksave.json")
+                    self.load("quicksave.msgpack")
 
             self.hud.process_event(event)

@@ -3,7 +3,6 @@ Serialization Module.
 """
 from typing import Any, Dict, Type, Optional, Iterable
 import msgspec
-import json
 from loguru import logger
 from .ecs import World
 
@@ -26,7 +25,7 @@ class WorldSerializer:
     def serialize_entity(self, entity: int) -> Optional[Dict[str, Any]]:
         """
         Serializes a single entity.
-        Returns a dict containing 'stable_id', 'components'.
+        Returns a dict containing 'entity_id', 'stable_id', 'components'.
         """
         if not self._persistable_type or not self.world.has_component(entity, self._persistable_type):
             return None
@@ -50,14 +49,9 @@ class WorldSerializer:
 
             try:
                 # Using msgspec for efficient serialization if it's a struct/dataclass
-                # Or just simple dict conversion if possible
                 if hasattr(component, "__dataclass_fields__") or isinstance(component, msgspec.Struct):
-                    # Simple workaround: use msgspec tojson then fromjson to get a clean dict
-                    # Or better, msgspec.to_builtins
-                    # But msgspec.to_builtins requires a defined schema usually.
-                    # Let's try msgspec.json.encode -> decode
-                    encoded = msgspec.json.encode(component)
-                    decoded = msgspec.json.decode(encoded)
+                    # Convert to python builtins (dict/list/etc) which msgspec.msgpack can encode
+                    decoded = msgspec.to_builtins(component)
                     components_data[component_type.__name__] = decoded
                 else:
                     # Fallback or skip
@@ -66,12 +60,13 @@ class WorldSerializer:
                 logger.warning(f"Failed to serialize component {component_type.__name__} for entity {entity}: {e}")
 
         return {
+            "entity_id": entity,
             "stable_id": stable_id,
             "components": components_data
         }
 
     def save_to_file(self, filepath: str):
-        """Saves all persistable entities to a file."""
+        """Saves all persistable entities to a file using MessagePack."""
         if not self._persistable_type:
             logger.warning("Persistable component type not registered. Cannot save.")
             return
@@ -84,49 +79,76 @@ class WorldSerializer:
             if data:
                 entities_data.append(data)
 
-        with open(filepath, "w") as f:
-            json.dump(entities_data, f, indent=2)
+        with open(filepath, "wb") as f:
+            f.write(msgspec.msgpack.encode(entities_data))
         logger.info(f"Saved {len(entities_data)} entities to {filepath}")
 
     def load_from_file(self, filepath: str):
         """
-        Loads entities from a file.
+        Loads entities from a file using MessagePack with two-pass reference resolution.
         """
         try:
-            with open(filepath, "r") as f:
-                entities_data = json.load(f)
+            with open(filepath, "rb") as f:
+                data = f.read()
+                entities_data = msgspec.msgpack.decode(data)
         except FileNotFoundError:
             logger.error(f"Save file {filepath} not found.")
             return
 
+        # Pass 1: Create Entities and Mapping
+        id_map: Dict[int, int] = {} # old_id -> new_id
+
         for entity_data in entities_data:
+            old_id = entity_data.get("entity_id")
             stable_id = entity_data.get("stable_id")
             components_data = entity_data.get("components", {})
 
-            # Create entity
-            entity = self.world.create_entity()
+            # Create new entity
+            new_entity = self.world.create_entity()
+            if old_id is not None:
+                id_map[old_id] = new_entity
 
             # Add StableID if exists
             if stable_id and self._stable_id_type:
-                self.world.add_component(entity, self._stable_id_type(id=stable_id))
+                self.world.add_component(new_entity, self._stable_id_type(id=stable_id))
 
             for comp_name, comp_data in components_data.items():
                 comp_class = self.component_map.get(comp_name)
                 if comp_class:
                     try:
-                        # Attempt to instantiate dataclass/struct from dict
-                        # This works for simple dataclasses.
-                        # Complex nested types might need msgspec.convert
                         component = msgspec.convert(comp_data, comp_class)
-                        self.world.add_component(entity, component)
+                        self.world.add_component(new_entity, component)
                     except Exception as e:
                         logger.warning(f"Failed to deserialize component {comp_name}: {e}")
                 else:
                     logger.warning(f"Unknown component type: {comp_name}")
 
-            # Post-load hooks?
-            # e.g. Recreate PhysicsBody from Transform/Stats
-            # This logic should typically be in a System or a "PostLoad" phase.
-            # For now we leave it as data-only.
+        # Pass 2: Resolve References
+        for new_entity in id_map.values():
+            all_components = self.world.get_all_components(new_entity)
+            for component in all_components:
+                if hasattr(component, "_references"):
+                    ref_fields = getattr(component, "_references")
+                    for field_name in ref_fields:
+                        if not hasattr(component, field_name):
+                            continue
+
+                        val = getattr(component, field_name)
+
+                        # Remap logic
+                        if isinstance(val, int):
+                            if val in id_map:
+                                setattr(component, field_name, id_map[val])
+                        elif isinstance(val, list):
+                            # Assume list of IDs
+                            new_list = [id_map.get(x, x) if isinstance(x, int) else x for x in val]
+                            setattr(component, field_name, new_list)
+                        elif isinstance(val, set):
+                            new_set = {id_map.get(x, x) if isinstance(x, int) else x for x in val}
+                            setattr(component, field_name, new_set)
+                        elif isinstance(val, dict):
+                            # Assume keys are IDs
+                            new_dict = {id_map.get(k, k) if isinstance(k, int) else k: v for k, v in val.items()}
+                            setattr(component, field_name, new_dict)
 
         logger.info(f"Loaded {len(entities_data)} entities from {filepath}")

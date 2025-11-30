@@ -219,6 +219,10 @@ class RelationshipRegistry:
     family_group_id: Optional[int] = None
     mate_id: Optional[int] = None
 
+    # Metadata for serialization remapping
+    # Fields that contain EntityIDs that need remapping
+    _references: Set[str] = field(default_factory=lambda: {"relationships", "biological_parents", "biological_children", "family_group_id", "mate_id"}, repr=False, init=False)
+
 @dataclass
 class GossipPacket:
     target_id: int
@@ -232,6 +236,13 @@ class GossipPacket:
 @dataclass
 class GossipQueue(Component):
     priority_queue: List[GossipPacket] = field(default_factory=list)
+
+    # Metadata for serialization remapping
+    # Note: GossipPacket contains target_id, so we might need deep inspection or just clear it on load?
+    # Retaining gossip across saves is complex if we have to remap inside nested objects in a list.
+    # For now, we will NOT remap GossipQueue and accept that IDs might be stale (or we clear it on load).
+    # Ideally, we should iterate priority_queue.
+    # _references: Set[str] = field(default_factory=lambda: {"priority_queue"}, repr=False, init=False)
 
     def add_packet(self, packet: GossipPacket, max_length: int = 10) -> None:
         """
@@ -275,6 +286,9 @@ class AIState:
     state_data: Optional[Dict[str, Any]] = None
     failed_targets: Set[int] = field(default_factory=set)
     manual_override: bool = False
+
+    # Metadata for serialization remapping
+    _references: Set[str] = field(default_factory=lambda: {"current_target_id", "failed_targets"}, repr=False, init=False)
 
 @dataclass
 class ItemStats:
