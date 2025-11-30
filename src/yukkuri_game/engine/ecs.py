@@ -143,6 +143,10 @@ class World:
         except KeyError:
             return None
 
+    def try_get_component(self, entity: int, component_type: Type[T]) -> Optional[T]:
+        """Alias for get_component."""
+        return self.get_component(entity, component_type)
+
     def has_component(self, entity: int, component_type: Type[Any]) -> bool:
         """
         Checks if an entity has a specific component type.
@@ -228,6 +232,22 @@ class World:
         self._switch()
         # noinspection PyTypeChecker
         return esper.get_components(*component_types) # type: ignore[no-any-return]
+
+    def get_all_components(self, entity: int) -> Tuple[Any, ...]:
+        """
+        Retrieves all components for a specific entity.
+
+        Args:
+            entity (int): The entity ID.
+
+        Returns:
+            Tuple[Any, ...]: A tuple of all component instances attached to the entity.
+        """
+        self._switch()
+        try:
+            return esper.components_for_entity(entity)
+        except KeyError:
+            return ()
 
     def add_system(self, system: 'System') -> None:
         """

@@ -93,3 +93,15 @@ class PhysicsSystem(System):
             trans.x = phys.body.position.x
             trans.y = phys.body.position.y
             # Rotation could also be synced if Transform supported it
+
+    def clear(self) -> None:
+        """
+        Clears all bodies, shapes, and constraints from the physics space.
+        """
+        # Pymunk doesn't have a clear() method on space, so we remove everything.
+        for shape in list(self.space.shapes):
+            self.space.remove(shape)
+        for body in list(self.space.bodies):
+            self.space.remove(body)
+        for constraint in list(self.space.constraints):
+            self.space.remove(constraint)

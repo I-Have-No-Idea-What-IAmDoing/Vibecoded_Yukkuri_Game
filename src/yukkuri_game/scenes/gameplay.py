@@ -20,11 +20,17 @@ from ..game.services import EconomyService, PersistenceService, TimeService, Inp
 from ..game.settings_service import SettingsService
 from ..game.trait_service import TraitService
 from ..engine.event_bus import EventBus
+from ..engine.event_manager import EventManager, GamePhase
+from ..engine.input_manager import InputManager, InputContext
 from ..engine.audio import AudioManager
+import inspect
+from ..engine.serializer import WorldSerializer
 from ..config import load_config
+from ..game import components, yukkuri_components, components_persistence
 from ..game.ai.utility import UtilityAIEngine
 from ..game.systems.sector_system import SectorMap, SectorSystem
 from ..game.ai.navigation_service import NavigationService
+from ..game.systems.physics_reconstruction import reconstruct_physics
 
 class GameplayScene(Scene):
     """
@@ -56,7 +62,18 @@ class GameplayScene(Scene):
         self.audio.load_from_config()
 
         self.physics_system = PhysicsSystem()
-        self.event_bus = EventBus()
+        self.event_manager = EventManager()
+        self.event_bus = self.event_manager.bus # Use the bus from the manager
+        self.input_manager = InputManager()
+        self.input_manager.switch_context(InputContext.GAMEPLAY)
+
+        # Collect component types for serializer
+        comp_types = []
+        for module in [components, yukkuri_components, components_persistence]:
+            for _, obj in inspect.getmembers(module):
+                if inspect.isclass(obj):
+                     comp_types.append(obj)
+        self.serializer = WorldSerializer(self.world, comp_types)
 
         self._register_services()
         self._register_factories_and_managers()
@@ -72,7 +89,9 @@ class GameplayScene(Scene):
         self.world.services.register(self.audio, AudioManager)
         self.world.services.register(self.yukkurrium, Yukkurrium)
         self.world.services.register(self.physics_system, PhysicsSystem)
+        self.world.services.register(self.event_manager, EventManager)
         self.world.services.register(self.event_bus, EventBus)
+        self.world.services.register(self.input_manager, InputManager)
 
         self.economy_service = EconomyService()
         self.world.services.register(self.economy_service, EconomyService)
@@ -228,9 +247,33 @@ class GameplayScene(Scene):
         pygame.image.save(self.application.screen, filename)
         logger.info(f"Screenshot saved to {filename}")
 
+    def save(self, filepath: str) -> None:
+        """Save the game world."""
+        self.serializer.save_to_file(filepath)
+
+    def load(self, filepath: str) -> None:
+        """Load the game world."""
+        self.world.clear_database()
+        if hasattr(self, 'physics_system'):
+            self.physics_system.clear()
+        self.yukkurrium.clear() # Clear spatial partition if needed
+        # Re-register singletons or systems? clear_database clears components and entities.
+        # Systems are separate in Esper.
+        # However, we might need to re-setup some basic state.
+
+        self.serializer.load_from_file(filepath)
+
+        # Reconstruct physics bodies
+        reconstruct_physics(self.world)
+        logger.info("World loaded. Physics bodies reconstructed.")
+
     def update(self, dt: float) -> None:
         self.dt = dt
         self.ui_manager.update(dt) # Update local UI
+        self.input_manager.update()
+
+        # Process Pre-Update Events
+        self.event_manager.process_phase(GamePhase.PRE_UPDATE)
 
         if not self.paused:
             sim_dt = dt * self.time_scale
@@ -238,8 +281,11 @@ class GameplayScene(Scene):
             if hasattr(self, 'time_service'):
                 self.time_service.time_elapsed += sim_dt
 
+            self.event_manager.process_phase(GamePhase.UPDATE)
             self.world.update(sim_dt)
             self.yukkurrium.update(sim_dt)
+
+        self.event_manager.process_phase(GamePhase.POST_UPDATE)
 
         if not self.application.headless:
             self.hud.fps = self.application.clock.get_fps()
@@ -258,8 +304,15 @@ class GameplayScene(Scene):
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.ui_manager.process_events(event)
+        self.input_manager.process_event(event)
+
+        if self.input_manager.is_action_just_pressed("pause"):
+            from .main_menu import MainMenuScene
+            self.application.scene_manager.replace(MainMenuScene(self.application))
+            return
 
         # Always handle input system events
+        # TODO: Refactor legacy input system to use InputManager completely
         if hasattr(self, 'input_system') and self.input_system:
             self.input_system.handle_event(event, self.world, self.application.width, self.application.height, self.ui_manager)
 
@@ -269,8 +322,9 @@ class GameplayScene(Scene):
                     self.hud.toggle_debug()
                 elif event.key == pygame.K_F12:
                     self.take_screenshot()
-                elif event.key == pygame.K_ESCAPE:
-                    from .main_menu import MainMenuScene
-                    self.application.scene_manager.replace(MainMenuScene(self.application))
+                elif event.key == pygame.K_F5:
+                    self.save("quicksave.json")
+                elif event.key == pygame.K_F9:
+                    self.load("quicksave.json")
 
             self.hud.process_event(event)

@@ -53,3 +53,15 @@ class Scene(ABC):
             event: The pygame event.
         """
         pass
+
+    def save(self, filepath: str) -> None:
+        """
+        Save the scene state to a file.
+        """
+        pass
+
+    def load(self, filepath: str) -> None:
+        """
+        Load the scene state from a file.
+        """
+        pass

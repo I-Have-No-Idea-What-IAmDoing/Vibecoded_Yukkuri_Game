@@ -1,9 +1,35 @@
+"""
+Typed Event Definitions.
+"""
 from dataclasses import dataclass
+from typing import Optional
 from .event_bus import Event
+
+# Input Events
+@dataclass(frozen=True)
+class ActionEvent(Event):
+    action: str
+    context: str
+
+@dataclass(frozen=True)
+class MoveEvent(ActionEvent):
+    x: float
+    y: float
+
+# Entity Events
+@dataclass(frozen=True)
+class EntityCreatedEvent(Event):
+    entity_id: int
 
 @dataclass(frozen=True)
 class EntityDestroyedEvent(Event):
-    """
-    Event fired when an entity is destroyed.
-    """
     entity_id: int
+
+# Gameplay Events
+@dataclass(frozen=True)
+class PauseEvent(Event):
+    paused: bool
+
+@dataclass(frozen=True)
+class SpeedChangeEvent(Event):
+    speed: float

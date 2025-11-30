@@ -6,6 +6,7 @@ import pygame_gui
 from loguru import logger
 from ..engine.scene import Scene
 from ..engine.application import Application
+from ..engine.input_manager import InputManager, InputContext
 
 class MainMenuScene(Scene):
     """
@@ -14,6 +15,8 @@ class MainMenuScene(Scene):
     def __init__(self, application: Application):
         super().__init__(application)
         self.ui_manager = pygame_gui.UIManager((self.application.width, self.application.height))
+        self.input_manager = InputManager()
+        self.input_manager.switch_context(InputContext.MENU)
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -44,6 +47,7 @@ class MainMenuScene(Scene):
 
     def update(self, dt: float) -> None:
         super().update(dt)
+        self.input_manager.update()
         self.ui_manager.update(dt)
 
     def render(self) -> None:
@@ -51,6 +55,10 @@ class MainMenuScene(Scene):
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.ui_manager.process_events(event)
+        self.input_manager.process_event(event)
+
+        if self.input_manager.is_action_just_pressed("cancel"):
+            self.application.quit()
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             if event.ui_element == self.start_button:
