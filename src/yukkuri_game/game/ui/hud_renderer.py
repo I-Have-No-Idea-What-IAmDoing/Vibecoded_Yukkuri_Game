@@ -4,7 +4,7 @@ Module for rendering the HUD overlay.
 import pygame
 from typing import TYPE_CHECKING, List
 from ...engine.ecs import World
-from ..components import Selectable, Transform
+from ..components import Transform
 from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState
 from ..services import InputService
 from pygame_gui.windows import UIMessageWindow
@@ -316,13 +316,13 @@ class HudRenderer:
 
                                  text += f"<br> <b>{name}</b> (Aff: {rel_data.affinity:.1f})"
                                  # Show top headlines
-                                 if rel_data.core_buffer.items:
+                                 if rel_data.core_buffer:
                                      text += "<br>  Core:"
-                                     for h in rel_data.core_buffer.items[-2:]: # Last 2
+                                     for h in rel_data.core_buffer[-2:]: # Last 2
                                          text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f} {'(L)' if h.is_locked else ''}"
-                                 if rel_data.trivial_buffer.items:
+                                 if rel_data.trivial_buffer:
                                      text += "<br>  Trivial:"
-                                     for h in rel_data.trivial_buffer.items[-2:]: # Last 2
+                                     for h in rel_data.trivial_buffer[-2:]: # Last 2
                                          text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f}"
 
             else:

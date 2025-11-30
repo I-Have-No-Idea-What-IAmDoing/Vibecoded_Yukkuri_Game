@@ -62,10 +62,13 @@ class GossipSystem(System):
         if self.sector_map:
              self._process_witnesses_sector(world, event, actor_trans, now)
 
-    def _process_witnesses_sector(self, world: World, event: SocialInteractionEvent, actor_trans: Transform, now: float):
+    def _process_witnesses_sector(self, world: World, event: SocialInteractionEvent, actor_trans: Transform, now: float) -> None:
         """
         Uses SectorMap to find witnesses.
         """
+        if not self.sector_map:
+            return
+
         range_type = "visual"
 
         # Determine range type from TraitService if available
@@ -151,7 +154,7 @@ class GossipSystem(System):
 
         return False
 
-    def _exchange_gossip(self, world: World, sender_id: int, receiver_id: int):
+    def _exchange_gossip(self, world: World, sender_id: int, receiver_id: int) -> None:
         sender_queue = world.get_component(sender_id, GossipQueue)
         receiver_queue = world.get_component(receiver_id, GossipQueue)
 
@@ -189,7 +192,7 @@ class GossipSystem(System):
             )
             receiver_queue.add_packet(new_packet, max_length=max_length)
 
-    def _add_witness_gossip(self, world: World, witness_id: int, event: SocialInteractionEvent, now: float, value: float):
+    def _add_witness_gossip(self, world: World, witness_id: int, event: SocialInteractionEvent, now: float, value: float) -> None:
         # Threshold Check
         from ...config import GameConfig
         config = world.services.try_get(GameConfig)

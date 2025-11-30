@@ -120,8 +120,8 @@ class SocialSystem(System):
             rel_data.base_compatibility = base_compatibility
 
         # 2. Use Cached Memory Sums (O(1))
-        # rel_data.sum_core_sentiment and rel_data.sum_trivial_sentiment are maintained by add_headline
-        memory_score = rel_data.sum_core_sentiment + rel_data.sum_trivial_sentiment
+        # rel_data.core_sentiment_sum and rel_data.trivial_sentiment_sum are maintained by add_headline
+        memory_score = rel_data.core_sentiment_sum + rel_data.trivial_sentiment_sum
 
         # 3. Final Calculation
         rel_data.affinity = rel_data.base_compatibility + memory_score
@@ -185,36 +185,48 @@ class SocialSystem(System):
 
     def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Dict[str, Any], role: str, now: float) -> None:
         if role == "actor":
-            # Optional: Actor feeling
             return
 
-        registry = world.get_component(subject_id, RelationshipRegistry)
-        if not registry:
-            registry = RelationshipRegistry()
-            world.add_component(subject_id, registry)
-
+        registry = self._get_or_create_registry(world, subject_id)
         if other_id not in registry.relationships:
             registry.relationships[other_id] = RelationshipData(last_update=now)
-
         rel = registry.relationships[other_id]
-
-        # Don't do old decay here, opinion is recalculated.
         rel.last_update = now
 
         social_impact = data.get("social_impact", {})
+        base_impact_score = data.get("base_impact", 0.0)
 
-        # We need to calculate the "sentiment" change for the memory.
-        # This roughly maps to the affinity change we WOULD have done, but now stored in memory.
+        # Calculate deltas based on traits and personality
+        d_affinity, d_trust, d_fear, d_familiarity = self._calculate_impact_deltas(
+            world, subject_id, social_impact, data.get("modifiers", {}), base_impact_score
+        )
 
+        # Update Emotional State
+        self._update_emotional_state(world, subject_id, base_impact_score)
+
+        # Update non-affinity relationship stats
+        rel.trust = max(0, min(100, rel.trust + d_trust))
+        rel.fear = max(0, min(100, rel.fear + d_fear))
+        rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
+
+        # Add Memory and Update Opinion
+        self._add_memory_headline(world, rel, base_impact_score, d_affinity, data.get("type", "GENERIC"), now)
+        self._update_opinion(world, subject_id, other_id, rel)
+
+    def _get_or_create_registry(self, world: World, entity_id: int) -> RelationshipRegistry:
+        registry = world.get_component(entity_id, RelationshipRegistry)
+        if not registry:
+            registry = RelationshipRegistry()
+            world.add_component(entity_id, registry)
+        return registry
+
+    def _calculate_impact_deltas(self, world: World, subject_id: int, social_impact: Dict, modifiers: Dict, base_impact_score: float) -> tuple:
         d_affinity = social_impact.get("affinity", 0.0)
         d_trust = social_impact.get("trust", 0.0)
         d_fear = social_impact.get("fear", 0.0)
         d_familiarity = social_impact.get("familiarity", 0.0)
-        base_impact_score = data.get("base_impact", 0.0) # Absolute Magnitude
 
         subject_personality = world.get_component(subject_id, Personality)
-        modifiers = data.get("modifiers", {})
-
         if subject_personality:
             for trait in subject_personality.traits:
                 key = f"trait:{trait}"
@@ -239,38 +251,28 @@ class SocialSystem(System):
                 d_trust *= comp_mult
                 d_fear *= comp_mult
 
-            # UPDATE EMOTIONAL STATE
-            emotional = world.get_component(subject_id, EmotionalState)
-            if emotional:
-                if base_impact_score < -15:
-                    emotional.happiness = max(-100.0, emotional.happiness - 20.0)
-                    emotional.stress = min(100.0, emotional.stress + 20.0)
-                elif base_impact_score > 15:
-                    emotional.happiness = min(100.0, emotional.happiness + 20.0)
+        return d_affinity, d_trust, d_fear, d_familiarity
 
-        # Update stats other than affinity (Trust, Fear, Familiarity still seem to be stateful variables)
-        # The proposal only explicitly mentioned Opinion = ... for affinity.
-        # We keep trust/fear/familiarity as accumulators for now unless specified otherwise.
+    def _update_emotional_state(self, world: World, subject_id: int, base_impact_score: float) -> None:
+        emotional = world.get_component(subject_id, EmotionalState)
+        if emotional:
+            if base_impact_score < -15:
+                emotional.happiness = max(-100.0, emotional.happiness - 20.0)
+                emotional.stress = min(100.0, emotional.stress + 20.0)
+            elif base_impact_score > 15:
+                emotional.happiness = min(100.0, emotional.happiness + 20.0)
 
-        # rel.affinity is now calculated from memories, so we DO NOT add to it directly.
-        # rel.affinity = ... (Removed)
-
-        rel.trust = max(0, min(100, rel.trust + d_trust))
-        rel.fear = max(0, min(100, rel.fear + d_fear))
-        rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
-
-        # Add Headline
-        # Sentiment = d_affinity (the calculated affinity change this event caused)
+    def _add_memory_headline(self, world: World, rel: RelationshipData, base_impact_score: float, d_affinity: float, event_type: str, now: float) -> None:
         if abs(base_impact_score) > 0:
             self.headline_counter += 1
             headline = MemoryHeadline(
                 id=self.headline_counter,
                 timestamp=now,
                 importance=abs(base_impact_score),
-                sentiment=d_affinity, # Store the sentiment
+                sentiment=d_affinity,
                 is_locked=False,
-                text=data.get("type", "unknown"),
-                event_type=data.get("type", "GENERIC")
+                text=event_type,
+                event_type=event_type
             )
 
             from ...config import GameConfig
@@ -280,6 +282,3 @@ class SocialSystem(System):
                 threshold = config.rules.social.memory_importance_threshold
 
             rel.add_headline(headline, threshold=threshold)
-
-            # Immediately recalculate opinion to reflect new memory
-            self._update_opinion(world, subject_id, other_id, rel)

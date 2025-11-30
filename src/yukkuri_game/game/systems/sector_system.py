@@ -130,6 +130,9 @@ class SectorSystem(System):
         self.event_bus = event_bus
         self._subscribed = False
 
+        self.cleanup_timer = 0.0
+        self.cleanup_interval = 5.0 # Seconds
+
         if self.event_bus:
             self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
             self._subscribed = True
@@ -139,8 +142,6 @@ class SectorSystem(System):
         Handler for when an entity is destroyed.
         """
         self.sector_map.remove_entity(event.entity_id)
-        self.cleanup_timer = 0.0
-        self.cleanup_interval = 5.0 # Seconds
 
     def update(self, world: World, dt: float) -> None:
         """

@@ -9,7 +9,7 @@ The Yukkuri Raising Game is built on a modular architecture designed to separate
 The game uses the **Entity Component System** pattern, implemented using the `esper` library and wrapped in `src/yukkuri_game/engine/ecs.py`.
 
 *   **Entities**: Integers representing objects in the game world. They have no data or behavior themselves but are containers for components.
-*   **Components**: Data classes that hold state (e.g., `Transform`, `Velocity`, `Sprite`, `YukkuriStats`). Components have no behavior.
+*   **Components**: Data classes that hold state (e.g., `Transform`, `Sprite`, `YukkuriStats`). Components have no behavior.
 *   **Systems**: Logic processors that operate on entities with specific components. Examples: `MovementSystem`, `RenderSystem`, `BehaviorSystem`.
 
 This approach decouples data from logic, making it easier to add new features without modifying existing classes.
