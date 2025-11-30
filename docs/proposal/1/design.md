@@ -97,12 +97,16 @@ Instead of manual fetching and deserialization inside `setup`, the engine handle
         player = world.create_entity(inv, ...)
     ```
 
-#### 7.3. Decoupled Schema Migration
+#### 7.3. Decoupled Schema Migration & Versioning
 
 To prevent "Migration Pollution" in component classes, migration logic is housed in separate Strategy classes.
 
-- **Versioning**: Components define a simple `_version_ = N` field.
+- **Versioning**: Components define a `_version_ = N` field. This version is monotonic (1, 2, 3...).
 - **Migration Registry**: We register migration functions that transform raw dictionaries.
+- **Migration Semantics**:
+    - **Additive Changes**: Adding a field with a default value does not require a version bump if the default is handled in `__post_init__` or the dataclass definition.
+    - **Breaking Changes**: Renaming fields, changing types, or removing fields requires a version bump and a migration function.
+    - **Ordering**: Migrations are applied sequentially (v1 -> v2 -> v3). The registry validates that a continuous chain exists from the stored version to the current version.
 
 ```python
 # In migrations/inventory.py
@@ -110,11 +114,9 @@ def migrate_v1_to_v2(data: dict) -> dict:
     data['items'] = convert_list_to_slots(data['items'])
     return data
 
-# Registration (at startup)
+# Explicit Registration
 MigrationRegistry.register(Inventory, from_version=1, to_version=2, func=migrate_v1_to_v2)
 ```
-
-The deserializer automatically applies the chain of migrations (v1 -> v2 -> v3) before converting the dict to the Dataclass.
 
 #### 7.4. Persistence Strategy: Snapshotting
 
@@ -123,15 +125,30 @@ We explicitly reject "Dirty Checking" proxies due to their complexity and overhe
 - **Snapshotting**: Data is serialized only at specific lifecycle events:
     - **Scene Transition**: When leaving a scene.
     - **Checkpoints**: Explicit calls (e.g., Save Points).
-    - **Background Autosave**: A background task triggers a snapshot of `Persistable` components every N minutes to mitigate crash data loss.
+    - **Background Autosave**: Addressed in 7.6.
 - **Explicit Persistence**: Only entities/components marked with a `Persistable` tag (or registered in a `Scene.EXPORTS` list) are saved. This eliminates ambiguity about "what is relevant".
+- **Registration**: `Scene.EXPORTS` is a static list or a method returning a mapping of `Key -> ComponentInstance`.
 
-#### 7.5. Benefits
+#### 7.5. Atomicity, Consistency & Concurrency
+
+To address concerns about data integrity and performance during save operations:
+
+1.  **Atomicity**:
+    - Snapshots are "all-or-nothing". The system serializes all `EXPORTS` data into a temporary buffer/file.
+    - Only after successful serialization and validation (checksums) is the atomic rename or write to the primary save slot performed.
+    - On partial failure (e.g., serialization error), the operation is aborted, the user is notified, and the previous save remains untouched.
+
+2.  **Concurrency (Autosaves)**:
+    - **Main Thread Snapshot**: To avoid race conditions, the **collection** of data (dataclass -> dict) happens on the Main Game Thread at a safe point (e.g., end of frame). This is a fast, in-memory operation (copy).
+    - **Async I/O**: The heavy lifting (compression, disk I/O, encryption) is offloaded to a background thread.
+    - **Performance**: Deep copying large state can be expensive. We mitigate this by only copying strictly `Persistable` components. If performance becomes a bottleneck, we will implement Copy-on-Write (CoW) for specific large datasets (like WorldMap), but purely for optimization, not correctness.
+
+#### 7.6. Benefits
 
 - **Zero Boilerplate**: No manual `deserialize()` calls in scene code.
 - **Clean Architecture**: Components remain pure data; migrations are separate.
 - **Type Safety**: Keys are constants, and migrations are registered against Types.
-- **Predictability**: Snapshotting is deterministic, unlike magic proxy wrappers.
+- **Predictability**: Snapshotting is deterministic, and atomic commits prevent save corruption.
 
 ## Architecture Diagram (Conceptual)
 
