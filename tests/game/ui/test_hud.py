@@ -7,51 +7,63 @@ from yukkuri_game.game.ui.hud import HUD
 from yukkuri_game.game.ui.hud_events import HudEvents
 from yukkuri_game.game.ui.hud_layout import HudLayout
 from yukkuri_game.game.ui.hud_renderer import HudRenderer
-from yukkuri_game.game.game_manager import GameManager
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
 from yukkuri_game.game.events import PlacementStartedEvent, TogglePauseRequest, CycleSpeedRequest, TrainEntityRequest, SellEntityRequest, LogMessageEvent, ResolutionChangedEvent
+from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
 
 @pytest.fixture
 def mock_ui_manager():
     return MagicMock(spec=pygame_gui.UIManager)
 
 @pytest.fixture
-def mock_game_manager():
-    gm = MagicMock(spec=GameManager)
-    gm.money = 1000
-    gm.time_elapsed = 125 # 2 min 5 sec
-    gm.time_scale = 1.0
-
-    # Setup gm.world.services.try_get
-    services = MagicMock()
-    # If try_get is called, return None by default or specific mocks
-    services.try_get.return_value = None
-
-    # Setup world
-    world = MagicMock(spec=World)
-    world.services = services
-    gm.world = world
-
-    return gm
-
-@pytest.fixture
 def mock_world():
     world = MagicMock(spec=World)
+
     # Mock services
+    services = MagicMock()
+    world.services = services
+
     input_service = MagicMock()
     input_service.hovered_entity_id = -1
     input_service.hovered_entity_pos = (0, 0)
-    # Fix drag positions for tests
     input_service.is_dragging = False
     input_service.drag_start_pos = (0, 0)
     input_service.drag_current_pos = (10, 10)
 
-    services = MagicMock()
-    services.try_get.return_value = input_service
+    economy_service = MagicMock(spec=EconomyService)
+    economy_service.get_money.return_value = 1000
 
-    world.services = services
+    time_service = MagicMock(spec=TimeService)
+    time_service.time_elapsed = 125 # 2 min 5 sec
+
+    persistence_service = MagicMock(spec=PersistenceService)
+
+    # Setup services.try_get logic
+    def try_get(service_type):
+        if service_type == EconomyService:
+            return economy_service
+        if service_type == TimeService:
+            return time_service
+        if service_type == PersistenceService:
+            return persistence_service
+        return None
+
+    # Setup services.get logic
+    def get(service_type):
+        if service_type == EconomyService:
+            return economy_service
+        if service_type == TimeService:
+            return time_service
+        if service_type == PersistenceService:
+            return persistence_service
+        return MagicMock()
+
+    services.try_get.side_effect = try_get
+    services.get.side_effect = get
+    services.input_service = input_service # Accessed as property sometimes? No, usually services.get(InputService)
+
     return world
 
 @pytest.fixture
@@ -70,12 +82,14 @@ def hud_layout(mock_ui_manager):
     return layout
 
 @pytest.fixture
-def hud_events(hud_layout, mock_game_manager, mock_event_bus):
-    return HudEvents(hud_layout, mock_game_manager, mock_event_bus)
+def hud_events(hud_layout, mock_world, mock_event_bus):
+    # HUD uses world instead of game_manager now
+    return HudEvents(hud_layout, mock_world, mock_event_bus)
 
 @pytest.fixture
-def hud_renderer(hud_layout, mock_game_manager, mock_world):
-    return HudRenderer(hud_layout, mock_game_manager, mock_world)
+def hud_renderer(hud_layout, mock_world):
+    # HUD uses world instead of game_manager now
+    return HudRenderer(hud_layout, mock_world)
 
 class TestHudLayout:
     def test_init(self, mock_ui_manager):
@@ -149,23 +163,28 @@ class TestHudLayout:
             mock_rebuild.assert_called_once()
 
 class TestHudEvents:
-    def test_process_event_save(self, hud_events, hud_layout, mock_game_manager):
+    def test_process_event_save(self, hud_events, hud_layout, mock_world):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
         event.ui_element = hud_layout.save_btn
 
-        assert hud_events.process_event(event) is True
-        mock_game_manager.save_game.assert_called_once()
+        # Access the mock persistence service from mock_world
+        persistence = mock_world.services.get(PersistenceService)
 
-    def test_process_event_load(self, hud_events, hud_layout, mock_game_manager):
+        assert hud_events.process_event(event) is True
+        persistence.save_game.assert_called()
+
+    def test_process_event_load(self, hud_events, hud_layout, mock_world):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
         # Make sure objects are identical/comparable
         hud_layout.load_btn = MagicMock()
         event.ui_element = hud_layout.load_btn
 
+        persistence = mock_world.services.get(PersistenceService)
+
         assert hud_events.process_event(event) is True
-        mock_game_manager.load_game.assert_called_once()
+        persistence.load_game.assert_called()
 
     def test_process_event_pause(self, hud_events, hud_layout, mock_event_bus):
         event = MagicMock()
@@ -187,7 +206,7 @@ class TestHudEvents:
         # Check that CycleSpeedRequest was published
         mock_event_bus.publish.assert_called_with(CycleSpeedRequest())
 
-    def test_process_event_buy_reimu(self, hud_events, hud_layout, mock_game_manager, mock_event_bus):
+    def test_process_event_buy_reimu(self, hud_events, hud_layout, mock_world, mock_event_bus):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
 
@@ -195,7 +214,7 @@ class TestHudEvents:
         hud_layout.buy_buttons = {reimu_btn: {"type_id": "reimu", "cost": 100, "category": "yukkuri", "name": "Reimu"}}
 
         event.ui_element = reimu_btn
-        mock_game_manager.money = 200 # Enough money
+        # mock_world already set up with 1000 money
 
         assert hud_events.process_event(event) is True
         # Verify event published
@@ -207,7 +226,7 @@ class TestHudEvents:
         assert args[0].type_id == "reimu"
         assert args[0].entity_type == "yukkuri"
 
-    def test_process_event_buy_reimu_insufficient_funds(self, hud_events, hud_layout, mock_game_manager, mock_event_bus):
+    def test_process_event_buy_reimu_insufficient_funds(self, hud_events, hud_layout, mock_world, mock_event_bus):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
 
@@ -215,7 +234,10 @@ class TestHudEvents:
         hud_layout.buy_buttons = {reimu_btn: {"type_id": "reimu", "cost": 100, "category": "yukkuri", "name": "Reimu"}}
 
         event.ui_element = reimu_btn
-        mock_game_manager.money = 50 # Not enough money
+
+        # Override money return value
+        economy = mock_world.services.get(EconomyService)
+        economy.get_money.return_value = 50
 
         assert hud_events.process_event(event) is True # Handled, but no action
         mock_event_bus.publish.assert_not_called()
@@ -276,16 +298,18 @@ class TestHudRenderer:
         hud_layout.info_label = MagicMock()
 
         # Fix TypeError: YukkuriStats missing arguments
-        stats = YukkuriStats(name="TestReimu", type_id="reimu")
+        stats = YukkuriStats(name="TestReimu", type_id="reimu", badges=3, health=70.0, max_health=100.0, age=0.0)
         stats.hunger = 50.0
-        stats.happiness = 60.0
-        stats.health = 70.0
-        stats.badges = 3 # Badges is an int
 
         ai = AIState()
         ai.current_action = "Eating"
 
-        mock_world.get_component.side_effect = lambda e, t: stats if t == YukkuriStats else (ai if t == AIState else None)
+        def get_comp(ent, comp_type):
+            if comp_type == YukkuriStats: return stats
+            if comp_type == AIState: return ai
+            return None
+
+        mock_world.get_component.side_effect = get_comp
         mock_world.has_component.side_effect = lambda e, t: t == YukkuriStats
 
         with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
@@ -298,7 +322,6 @@ class TestHudRenderer:
         assert "TestReimu" in text
         assert "Eating" in text
         assert "<b>Badges:</b> 3" in text
-        # assert "Gold" in text # We removed Gold badge logic from test setup as badges is int
 
     def test_update_selection_item(self, hud_renderer, hud_layout, mock_world):
         hud_layout.selection_window = MagicMock()
@@ -340,8 +363,6 @@ class TestHudRenderer:
 
         assert hud_layout.debug_text_box.set_text.called
         text = hud_layout.debug_text_box.set_text.call_args[0][0]
-        # Fix comparison logic or text expectation
-        # "<b>FPS:</b> {self.fps:.2f}<br>..."
         assert "<b>FPS:</b> 60.00" in text
         assert "<b>Entities:</b> 3" in text
 

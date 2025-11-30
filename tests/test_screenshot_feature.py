@@ -45,7 +45,7 @@ class TestScreenshot(unittest.TestCase):
                  patch('yukkuri_game.scenes.gameplay.PhysicsSystem'), \
                  patch('yukkuri_game.scenes.gameplay.EventBus'), \
                  patch('yukkuri_game.scenes.gameplay.EntityFactory'), \
-                 patch('yukkuri_game.scenes.gameplay.GameManager'), \
+                 patch('yukkuri_game.scenes.gameplay.GameService'), \
                  patch('yukkuri_game.scenes.gameplay.UtilityAIEngine'), \
                  patch('yukkuri_game.scenes.gameplay.SystemRegistry'):
 
@@ -92,7 +92,7 @@ class TestScreenshot(unittest.TestCase):
                  patch('yukkuri_game.scenes.gameplay.PhysicsSystem'), \
                  patch('yukkuri_game.scenes.gameplay.EventBus'), \
                  patch('yukkuri_game.scenes.gameplay.EntityFactory'), \
-                 patch('yukkuri_game.scenes.gameplay.GameManager'), \
+                 patch('yukkuri_game.scenes.gameplay.GameService'), \
                  patch('yukkuri_game.scenes.gameplay.UtilityAIEngine'), \
                  patch('yukkuri_game.scenes.gameplay.SystemRegistry'):
 
