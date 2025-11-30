@@ -20,7 +20,6 @@ from .game.systems.family_system import FamilySystem
 from .game.systems.game_rules_system import GameRulesSystem
 from .game.input_system import InputSystem
 from .game.yukkurrium import TimeSystem
-from .game.entity_factory import EntityFactory
 
 if TYPE_CHECKING:
     from .config import GameConfig
@@ -33,7 +32,7 @@ class SystemRegistry:
 
     @staticmethod
     def register_systems(world: World, game_config: 'GameConfig', yukkurrium: 'Yukkurrium',
-                        factory: EntityFactory, event_bus: EventBus, physics_system: PhysicsSystem) -> InputSystem:
+                        event_bus: EventBus, physics_system: PhysicsSystem) -> InputSystem:
         """
         Registers all game systems.
 
@@ -41,7 +40,6 @@ class SystemRegistry:
             world (World): The ECS World.
             game_config (GameConfig): The game configuration.
             yukkurrium (Yukkurrium): The game world view.
-            factory (EntityFactory): The entity factory.
             event_bus (EventBus): The event bus.
             physics_system (PhysicsSystem): The physics system (pre-initialized).
 
@@ -56,7 +54,7 @@ class SystemRegistry:
         world.add_system(physics_system)
 
         world.add_system(EmotionSystem(settings=game_config.rules.stat_decay))
-        world.add_system(LifecycleSystem(settings=game_config.rules.lifecycle, entity_factory=factory))
+        world.add_system(LifecycleSystem(settings=game_config.rules.lifecycle))
         world.add_system(BehaviorSystem(float(yukkurrium.width), float(yukkurrium.height)))
         world.add_system(MovementSystem())
         world.add_system(ConstructionSystem())

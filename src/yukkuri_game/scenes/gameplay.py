@@ -9,8 +9,6 @@ from datetime import datetime
 from ..engine.scene import Scene
 from ..engine.application import Application
 from ..engine.ecs import World
-# GameManager is removed
-from ..game.entity_factory import EntityFactory
 from ..game.yukkurrium import Yukkurrium, RenderSystem
 from ..game.ui.hud import HUD
 from ..game.systems.physics import PhysicsSystem
@@ -31,6 +29,7 @@ from ..game.ai.utility import UtilityAIEngine
 from ..game.systems.sector_system import SectorMap, SectorSystem
 from ..game.ai.navigation_service import NavigationService
 from ..game.systems.physics_reconstruction import reconstruct_physics
+from ..game.prefabs.yukkuri import create_yukkuri
 
 class GameplayScene(Scene):
     """
@@ -157,9 +156,6 @@ class GameplayScene(Scene):
         self.audio.set_sfx_volume(audio_settings.get("sfx_volume", 0.5))
 
     def _register_factories_and_managers(self) -> None:
-        self.factory = EntityFactory(self.world)
-        self.world.services.register(self.factory, EntityFactory)
-
         self.game_service = GameService(self.world)
         self.world.services.register(self.game_service, GameService)
 
@@ -172,10 +168,10 @@ class GameplayScene(Scene):
             self.world,
             self.game_config,
             self.yukkurrium,
-            self.factory,
             self.event_bus,
             self.physics_system
         )
+        self.input_system.set_ui_manager(self.ui_manager)
 
         if not self.application.headless:
             self.render_system = RenderSystem(self.application.screen, self.world)
@@ -190,7 +186,7 @@ class GameplayScene(Scene):
         if not self.application.headless:
             start_x = float(self.yukkurrium.width) / 2.0
             start_y = float(self.yukkurrium.height) / 2.0
-            self.factory.create_yukkuri("reimu", start_x, start_y)
+            create_yukkuri(self.world, "reimu", start_x, start_y)
             self.yukkurrium.camera_x = float(start_x)
             self.yukkurrium.camera_y = float(start_y)
 
@@ -256,10 +252,7 @@ class GameplayScene(Scene):
         self.world.clear_database()
         if hasattr(self, 'physics_system'):
             self.physics_system.clear()
-        self.yukkurrium.clear() # Clear spatial partition if needed
-        # Re-register singletons or systems? clear_database clears components and entities.
-        # Systems are separate in Esper.
-        # However, we might need to re-setup some basic state.
+        self.yukkurrium.clear()
 
         self.serializer.load_from_file(filepath)
 
@@ -306,25 +299,23 @@ class GameplayScene(Scene):
         self.ui_manager.process_events(event)
         self.input_manager.process_event(event)
 
+        # Handle Camera Input directly
+        if hasattr(self, 'yukkurrium'):
+             self.yukkurrium.handle_input(event, self.application.width, self.application.height)
+
         if self.input_manager.is_action_just_pressed("pause"):
             from .main_menu import MainMenuScene
             self.application.scene_manager.replace(MainMenuScene(self.application))
             return
 
-        # Always handle input system events
-        # TODO: Refactor legacy input system to use InputManager completely
-        if hasattr(self, 'input_system') and self.input_system:
-            self.input_system.handle_event(event, self.world, self.application.width, self.application.height, self.ui_manager)
-
         if not self.application.headless:
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_F3:
-                    self.hud.toggle_debug()
-                elif event.key == pygame.K_F12:
-                    self.take_screenshot()
-                elif event.key == pygame.K_F5:
-                    self.save("quicksave.msgpack")
-                elif event.key == pygame.K_F9:
-                    self.load("quicksave.msgpack")
+            if self.input_manager.is_action_just_pressed("debug_toggle"):
+                 self.hud.toggle_debug()
+            elif self.input_manager.is_action_just_pressed("screenshot"):
+                 self.take_screenshot()
+            elif self.input_manager.is_action_just_pressed("quicksave"):
+                 self.save("quicksave.msgpack")
+            elif self.input_manager.is_action_just_pressed("quickload"):
+                 self.load("quicksave.msgpack")
 
             self.hud.process_event(event)
