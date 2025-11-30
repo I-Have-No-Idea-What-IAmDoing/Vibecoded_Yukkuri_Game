@@ -43,7 +43,7 @@ class Application:
         self.fixed_dt = 1.0 / 60.0
         self.accumulator = 0.0
 
-    def run(self):
+    def run(self) -> None:
         """Starts the main application loop."""
         logger.info("Application Started")
         current_time = pygame.time.get_ticks() / 1000.0
@@ -72,7 +72,7 @@ class Application:
         pygame.quit()
         logger.info("Application Ended")
 
-    def handle_events(self):
+    def handle_events(self) -> None:
         """Process input events."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -81,7 +81,7 @@ class Application:
             self.ui_manager.process_events(event)
             self.scene_manager.handle_event(event)
 
-    def update(self, dt: float):
+    def update(self, dt: float) -> None:
         """
         Update application logic.
 
@@ -91,13 +91,13 @@ class Application:
         self.ui_manager.update(dt)
         self.scene_manager.update(dt)
 
-    def render(self):
+    def render(self) -> None:
         """Render the application."""
         self.screen.fill((0, 0, 0))
         self.scene_manager.render()
         self.ui_manager.draw_ui(self.screen)
         pygame.display.flip()
 
-    def quit(self):
+    def quit(self) -> None:
         """Stops the application."""
         self.running = False

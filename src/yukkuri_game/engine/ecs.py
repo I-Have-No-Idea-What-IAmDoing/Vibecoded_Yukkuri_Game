@@ -54,7 +54,7 @@ class World:
         """
         self._switch()
         # Create entity in the active esper world context
-        return esper.create_entity(*components)
+        return int(esper.create_entity(*components))
 
     def destroy_entity(self, entity: int) -> None:
         """
@@ -91,7 +91,7 @@ class World:
             bool: True if the entity exists, False otherwise.
         """
         self._switch()
-        return esper.entity_exists(entity)
+        return bool(esper.entity_exists(entity))
 
     def add_component(self, entity: int, component: Any) -> None:
         """
@@ -138,7 +138,8 @@ class World:
         self._switch()
         try:
             # Cast because esper might return Any or not be fully typed
-            return esper.component_for_entity(entity, component_type)
+            # noinspection PyTypeHints
+            return esper.component_for_entity(entity, component_type) # type: ignore[no-any-return]
         except KeyError:
             return None
 
@@ -155,7 +156,7 @@ class World:
         """
         self._switch()
         try:
-            return esper.has_component(entity, component_type)
+            return bool(esper.has_component(entity, component_type))
         except KeyError:
             return False
 
@@ -225,7 +226,8 @@ class World:
             List[Tuple[int, Tuple[Any, ...]]]: A list of (entity, (component1, component2, ...)).
         """
         self._switch()
-        return esper.get_components(*component_types)
+        # noinspection PyTypeChecker
+        return esper.get_components(*component_types) # type: ignore[no-any-return]
 
     def add_system(self, system: 'System') -> None:
         """
@@ -241,7 +243,7 @@ class World:
         # Inject world reference into system
         # We use 'ecs_world' to avoid conflict with any internal 'world' attribute if esper ever sets one
         system.ecs_world = self
-        esper.add_processor(system)  # type: ignore[arg-type]
+        esper.add_processor(system)
 
     def update(self, dt: float) -> None:
         """
@@ -255,6 +257,7 @@ class World:
         """
         self._switch()
         # Process all registered systems (Processors) in order of priority
+        # noinspection PyTypeChecker
         esper.process(dt)
 
     def clear(self) -> None:

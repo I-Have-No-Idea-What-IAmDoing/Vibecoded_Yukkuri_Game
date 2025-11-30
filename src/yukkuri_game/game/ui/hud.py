@@ -93,7 +93,7 @@ class HUD:
             # Scroll to bottom
             if hasattr(self.layout.log_box, "scroll_bar") and self.layout.log_box.scroll_bar:
                 # Type checking ignore because pygame_gui stubs might not cover scroll_bar attributes fully or dynamically
-                self.layout.log_box.scroll_bar.scroll_position = self.layout.log_box.scroll_bar.scrollable_height # type: ignore
+                self.layout.log_box.scroll_bar.scroll_position = self.layout.log_box.scroll_bar.scrollable_height
                 # Force update to apply scroll immediately if needed, though usually next update handles it.
                 self.layout.log_box.scroll_bar.update(0)
 

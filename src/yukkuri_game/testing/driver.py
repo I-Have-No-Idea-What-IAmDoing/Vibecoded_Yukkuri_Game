@@ -89,14 +89,14 @@ class GameDriver:
         from ..game.entity_factory import EntityFactory
         factory = self.world.services.try_get(EntityFactory)
         if factory:
-            return factory.create_yukkuri(type_id, x, y)
+            return int(factory.create_yukkuri(type_id, x, y))
         return -1
 
     def create_item(self, type_id: str, x: float, y: float) -> int:
         from ..game.entity_factory import EntityFactory
         factory = self.world.services.try_get(EntityFactory)
         if factory:
-            return factory.create_item(type_id, x, y)
+            return int(factory.create_item(type_id, x, y))
         return -1
 
     def set_ai_target_pos(self, entity_id: int, x: float, y: float) -> None:

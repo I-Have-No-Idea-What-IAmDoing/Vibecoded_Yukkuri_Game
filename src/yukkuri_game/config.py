@@ -4,7 +4,7 @@ Module for loading and managing game configuration.
 import msgspec
 from pathlib import Path
 
-class WorldSettings(msgspec.Struct):
+class WorldSettings(msgspec.Struct): # type: ignore[misc]
     """
     Configuration settings for the game world.
 
@@ -19,7 +19,7 @@ class WorldSettings(msgspec.Struct):
     grid_step_size: int = 50
     sector_size: float = 500.0
 
-class ConfigFile(msgspec.Struct):
+class ConfigFile(msgspec.Struct): # type: ignore[misc]
     """
     Represents the structure of the main config.toml file.
 
@@ -28,7 +28,7 @@ class ConfigFile(msgspec.Struct):
     """
     world: WorldSettings = msgspec.field(default_factory=WorldSettings)
 
-class StatDecaySettings(msgspec.Struct):
+class StatDecaySettings(msgspec.Struct): # type: ignore[misc]
     """
     Configuration settings for stat decay rates.
 
@@ -51,7 +51,7 @@ class StatDecaySettings(msgspec.Struct):
     starvation_damage: float = 5.0
     personality_drift_rate: float = 0.1
 
-class LifecycleSettings(msgspec.Struct):
+class LifecycleSettings(msgspec.Struct): # type: ignore[misc]
     """
     Configuration settings for lifecycle events (birth, growth, death).
 
@@ -70,7 +70,7 @@ class LifecycleSettings(msgspec.Struct):
     breeding_cost: float = 50.0
     breeding_chance: float = 0.001
 
-class SocialSettings(msgspec.Struct):
+class SocialSettings(msgspec.Struct): # type: ignore[misc]
     """
     Configuration for social system.
     """
@@ -78,7 +78,7 @@ class SocialSettings(msgspec.Struct):
     max_gossip_length: int = 10
     witness_threshold: float = 5.0
 
-class RulesFile(msgspec.Struct):
+class RulesFile(msgspec.Struct): # type: ignore[misc]
     """
     Represents the structure of the rules.toml file.
 
@@ -91,7 +91,7 @@ class RulesFile(msgspec.Struct):
     lifecycle: LifecycleSettings = msgspec.field(default_factory=LifecycleSettings)
     social: SocialSettings = msgspec.field(default_factory=SocialSettings)
 
-class GameConfig(msgspec.Struct):
+class GameConfig(msgspec.Struct): # type: ignore[misc]
     """
     Combined configuration for the game.
 

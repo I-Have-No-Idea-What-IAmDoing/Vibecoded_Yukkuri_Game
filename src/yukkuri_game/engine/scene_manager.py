@@ -2,6 +2,7 @@
 Scene Manager Module.
 """
 from typing import Optional, List, TYPE_CHECKING
+import pygame
 
 if TYPE_CHECKING:
     from .scene import Scene
@@ -10,14 +11,14 @@ class SceneManager:
     """
     Manages a stack of Scene objects.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self._scenes: List['Scene'] = []
 
     @property
     def current_scene(self) -> Optional['Scene']:
         return self._scenes[-1] if self._scenes else None
 
-    def push(self, scene: 'Scene'):
+    def push(self, scene: 'Scene') -> None:
         """
         Push a new scene onto the stack.
 
@@ -30,7 +31,7 @@ class SceneManager:
         self._scenes.append(scene)
         scene.on_enter()
 
-    def pop(self):
+    def pop(self) -> None:
         """Pop the current scene from the stack."""
         if self._scenes:
             scene = self._scenes.pop()
@@ -39,7 +40,7 @@ class SceneManager:
             # Currently `on_enter` is for initialization, maybe `on_resume`?
             # For now, we assume simple stack behavior.
 
-    def replace(self, scene: 'Scene'):
+    def replace(self, scene: 'Scene') -> None:
         """
         Replace the current scene with a new one.
 
@@ -50,7 +51,7 @@ class SceneManager:
             self.pop()
         self.push(scene)
 
-    def update(self, dt: float):
+    def update(self, dt: float) -> None:
         """
         Update the current scene.
 
@@ -60,12 +61,12 @@ class SceneManager:
         if self.current_scene:
             self.current_scene.update(dt)
 
-    def render(self):
+    def render(self) -> None:
         """Render the current scene."""
         if self.current_scene:
             self.current_scene.render()
 
-    def handle_event(self, event):
+    def handle_event(self, event: pygame.event.Event) -> None:
         """
         Handle events in the current scene.
 

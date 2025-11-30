@@ -50,7 +50,9 @@ module = [
     "pathfinding.*",
     "py_trees.*",
     "loguru.*",
-    "esper.*"
+    "esper.*",
+    "pytest.*",
+    "numpy.*"
 ]
 ignore_missing_imports = true
 

@@ -16,7 +16,7 @@ class MainMenuScene(Scene):
         self.ui_manager = pygame_gui.UIManager((self.application.width, self.application.height))
         self._setup_ui()
 
-    def _setup_ui(self):
+    def _setup_ui(self) -> None:
         """Sets up the main menu UI."""
         center_x = self.application.width / 2
         center_y = self.application.height / 2
@@ -33,23 +33,23 @@ class MainMenuScene(Scene):
             manager=self.ui_manager
         )
 
-    def on_enter(self):
+    def on_enter(self) -> None:
         logger.info("Entered Main Menu Scene")
         # Ensure we have the right resolution for UI
         self.ui_manager.set_window_resolution((self.application.width, self.application.height))
 
-    def on_exit(self):
+    def on_exit(self) -> None:
         logger.info("Exited Main Menu Scene")
         self.ui_manager.clear_and_reset()
 
-    def update(self, dt: float):
+    def update(self, dt: float) -> None:
         super().update(dt)
         self.ui_manager.update(dt)
 
-    def render(self):
+    def render(self) -> None:
         self.ui_manager.draw_ui(self.application.screen)
 
-    def handle_event(self, event):
+    def handle_event(self, event: pygame.event.Event) -> None:
         self.ui_manager.process_events(event)
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:

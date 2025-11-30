@@ -63,7 +63,7 @@ class HudEvents:
             self.audio_manager = self.world.services.try_get(AudioManager)
 
         # Map layout attribute names to handlers
-        self._static_handlers = {
+        self._static_handlers: Dict[str, Callable[[], None]] = {
             'save_btn': self._save_game,
             'load_btn': self._load_game,
             'pause_btn': lambda: self.event_bus.publish(TogglePauseRequest()),
@@ -170,6 +170,7 @@ class HudEvents:
             category = data["category"]
             name = data["name"]
 
+            # We don't need to specify the generic type here, as get is generic
             economy = self.world.services.get(EconomyService)
             if economy.get_money() >= cost:
                 self.event_bus.publish(PlacementStartedEvent(type_id, cost, category))

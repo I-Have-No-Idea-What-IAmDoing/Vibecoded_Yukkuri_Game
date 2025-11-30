@@ -11,7 +11,7 @@ from ..engine.ecs import World
 from ..engine.event_bus import EventBus
 import pymunk
 
-@pytest.fixture
+@pytest.fixture # type: ignore[misc]
 def world() -> World:
     """
     Creates a new ECS World for testing.
@@ -21,7 +21,7 @@ def world() -> World:
     """
     return World()
 
-@pytest.fixture
+@pytest.fixture # type: ignore[misc]
 def event_bus() -> EventBus:
     """
     Creates a new EventBus for testing.
@@ -31,7 +31,7 @@ def event_bus() -> EventBus:
     """
     return EventBus()
 
-@pytest.fixture
+@pytest.fixture # type: ignore[misc]
 def gossip_system(event_bus: EventBus) -> GossipSystem:
     """
     Creates a GossipSystem for testing.
@@ -110,6 +110,7 @@ def test_witness_gossip_spatial(world: World, event_bus: EventBus, gossip_system
 
     # Verify Witness got gossip
     queue = world.get_component(witness, GossipQueue)
+    assert queue is not None
     assert len(queue.priority_queue) == 1
     packet = queue.priority_queue[0]
     assert packet.target_id == actor
