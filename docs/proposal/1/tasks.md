@@ -54,7 +54,7 @@ This document outlines the actionable steps to implement the proposed architectu
 ### 3.2. Data Persistence Infrastructure (Dynamic World)
 - [ ] Implement `engine/persistence/world_serializer.py`:
     - [ ] Create mechanism to iterate and serialize all entities with `Persistable` component.
-    - [ ] Implement `UUIDComponent` for stable entity identification.
+    - [ ] Implement `StableIDComponent` for persistent entity identification (UUIDs or Sequential Integers).
 - [ ] Implement Entity Reference Resolution:
     - [ ] Implement two-pass loading (Create Entities -> Resolve References).
     - [ ] Update components referencing other entities to support ID remapping.

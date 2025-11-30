@@ -102,9 +102,9 @@ For saving the state of a specific level (e.g., 50 enemies, dropped items):
 - **WorldSerializer**: A dedicated subsystem that iterates over all entities with a `Persistable` component.
 - **Dynamic Collections**: Unlike `INJECTIONS` (which map 1:1), `WorldSerializer` saves a list of entities.
 - **Entity ID Remapping**:
-    - **Stable IDs**: Persistent entities are assigned a UUID.
+    - **Stable IDs**: Persistent entities are assigned a stable ID. This can be a UUID (universally unique) or a simple monotonically increasing integer managed by the Scene, depending on complexity requirements.
     - **Reference Handling**: When deserializing, a two-pass approach is used.
-        1.  **Create Entities**: Instantiate all entities and map their `SavedUUID` to the new runtime `EntityID`.
+        1.  **Create Entities**: Instantiate all entities and map their `SavedID` to the new runtime `EntityID`.
         2.  **Resolve References**: Components that reference other entities (e.g., `Owner(target_id)`) use the map to update `target_id` to the correct runtime ID.
 
 #### 7.4. Decoupled Schema Migration & Versioning
