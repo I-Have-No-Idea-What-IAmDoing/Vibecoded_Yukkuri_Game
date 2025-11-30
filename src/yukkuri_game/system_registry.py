@@ -17,6 +17,7 @@ from .game.systems.interaction_system import InteractionSystem
 from .game.systems.social_system import SocialSystem
 from .game.systems.gossip_system import GossipSystem
 from .game.systems.family_system import FamilySystem
+from .game.systems.game_rules_system import GameRulesSystem
 from .game.input_system import InputSystem
 from .game.yukkurrium import TimeSystem
 from .game.entity_factory import EntityFactory
@@ -66,5 +67,6 @@ class SystemRegistry:
         world.add_system(SocialSystem(event_bus))
         world.add_system(GossipSystem(event_bus))
         world.add_system(FamilySystem())
+        world.add_system(GameRulesSystem(event_bus))
 
         return input_system

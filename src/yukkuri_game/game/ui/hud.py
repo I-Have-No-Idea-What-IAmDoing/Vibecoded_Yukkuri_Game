@@ -15,7 +15,6 @@ from .hud_events import HudEvents
 from .hud_renderer import HudRenderer
 
 if TYPE_CHECKING:
-    from ..game_manager import GameManager
     from ..entity_factory import EntityFactory
 
 class HUD:
@@ -37,9 +36,7 @@ class HUD:
         """
         self.manager = ui_manager
         self.world = world
-        from ..game_manager import GameManager
         from ..entity_factory import EntityFactory
-        self.gm = world.services.get(GameManager)
         self.factory = world.services.get(EntityFactory)
         self.event_bus = world.services.get(EventBus)
 
@@ -50,9 +47,9 @@ class HUD:
         rm = self.factory.rm
         self.layout = HudLayout(self.manager, self.width, self.height, rm.yukkuri_types, rm.item_types)
 
-        self.events = HudEvents(self.layout, self.gm, self.event_bus, self.show_error)
+        self.events = HudEvents(self.layout, self.world, self.event_bus, self.show_error)
 
-        self.renderer = HudRenderer(self.layout, self.gm, self.world)
+        self.renderer = HudRenderer(self.layout, self.world)
 
         # State
         self.selected_entities: List[int] = []
@@ -169,14 +166,8 @@ class HUD:
             has_stats = self.world.has_component(entity_id, YukkuriStats)
             self.layout.create_selection_window(has_stats, 1)
         else:
-            # Multiple selection
-            # Check if all have stats or mixed?
-            # For now, just enable bulk actions if possible, or generic window
-            # Assuming mixed selection might not have specific actions yet,
-            # but if all are yukkuris we can show bulk actions.
-
             all_yukkuris = all(self.world.has_component(eid, YukkuriStats) for eid in self.selected_entities)
-            self.layout.create_selection_window(all_yukkuris, len(self.selected_entities)) # Pass True if we want to show buttons for bulk actions
+            self.layout.create_selection_window(all_yukkuris, len(self.selected_entities))
 
     def toggle_debug(self) -> None:
         """

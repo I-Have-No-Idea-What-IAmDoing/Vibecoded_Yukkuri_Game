@@ -9,7 +9,7 @@ from datetime import datetime
 from ..engine.scene import Scene
 from ..engine.application import Application
 from ..engine.ecs import World
-from ..game.game_manager import GameManager
+# GameManager is removed
 from ..game.entity_factory import EntityFactory
 from ..game.yukkurrium import Yukkurrium, RenderSystem
 from ..game.ui.hud import HUD
@@ -23,6 +23,8 @@ from ..engine.event_bus import EventBus
 from ..engine.audio import AudioManager
 from ..config import load_config
 from ..game.ai.utility import UtilityAIEngine
+from ..game.systems.sector_system import SectorMap, SectorSystem
+from ..game.ai.navigation_service import NavigationService
 
 class GameplayScene(Scene):
     """
@@ -90,7 +92,44 @@ class GameplayScene(Scene):
         self.trait_service = TraitService(self.world)
         self.world.services.register(self.trait_service, TraitService)
 
+        self._init_navigation_service()
+        self._init_sector_system()
+
         self._apply_initial_settings()
+
+    def _init_navigation_service(self) -> None:
+        """Initializes the Navigation Service."""
+        world_width = 3000
+        world_height = 3000
+
+        if self.game_config:
+            world_width = self.game_config.world.width
+            world_height = self.game_config.world.height
+            self.world.services.register(
+                 NavigationService(
+                     world_width=world_width,
+                     world_height=world_height,
+                     grid_step_size=self.game_config.world.grid_step_size
+                 )
+             )
+        else:
+             self.world.services.register(NavigationService(world_width, world_height))
+
+    def _init_sector_system(self) -> None:
+        """Initializes and registers the Sector System and Map."""
+        world_width = 3000
+        world_height = 3000
+        sector_size = 500.0
+
+        if self.game_config:
+            world_width = self.game_config.world.width
+            world_height = self.game_config.world.height
+            if hasattr(self.game_config.world, 'sector_size'):
+                sector_size = self.game_config.world.sector_size
+
+        sector_system = SectorSystem(width=world_width, height=world_height, sector_size=sector_size)
+        self.world.services.register(sector_system.sector_map, SectorMap)
+        self.world.add_system(sector_system)
 
     def _apply_initial_settings(self):
         audio_settings = self.settings_service.settings.get("audio", {})
@@ -101,9 +140,6 @@ class GameplayScene(Scene):
     def _register_factories_and_managers(self):
         self.factory = EntityFactory(self.world)
         self.world.services.register(self.factory, EntityFactory)
-
-        self.gm = GameManager(self.world)
-        self.world.services.register(self.gm, GameManager)
 
         self.game_service = GameService(self.world)
         self.world.services.register(self.game_service, GameService)
@@ -170,11 +206,7 @@ class GameplayScene(Scene):
         self.application.width = event.width
         self.application.height = event.height
 
-        # Handle screen update if necessary (though usually pygame.display.set_mode is handled elsewhere or here)
-        # Assuming HudEvents handles the pygame.display.set_mode call or we do it here.
-        # In `main.py`, `YukkuriGame._apply_initial_settings` handled initial.
-        # `YukkuriGame.on_resolution_changed` also handled update.
-
+        # Handle screen update
         surface = pygame.display.get_surface()
         if surface:
             self.application.screen = surface
@@ -202,9 +234,10 @@ class GameplayScene(Scene):
 
         if not self.paused:
             sim_dt = dt * self.time_scale
-            self.gm.time_elapsed += sim_dt
+            # Update time service directly
             if hasattr(self, 'time_service'):
-                self.time_service.time_elapsed = self.gm.time_elapsed
+                self.time_service.time_elapsed += sim_dt
+
             self.world.update(sim_dt)
             self.yukkurrium.update(sim_dt)
 
@@ -220,7 +253,7 @@ class GameplayScene(Scene):
             self.ui_manager.draw_ui(self.application.screen)
 
     def render_world(self):
-         if hasattr(self, 'render_system') and self.render_system:
+        if hasattr(self, 'render_system') and self.render_system:
             self.render_system.update(self.world, self.dt)
 
     def handle_event(self, event):

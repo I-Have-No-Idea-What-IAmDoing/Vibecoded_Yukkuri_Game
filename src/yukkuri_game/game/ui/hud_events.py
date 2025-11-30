@@ -8,6 +8,8 @@ from loguru import logger
 from ...engine.event_bus import EventBus
 from ...engine.audio import AudioManager
 from ..settings_service import SettingsService
+from ..services import EconomyService, PersistenceService
+from ...engine.ecs import World
 from ..events import (
     PlacementStartedEvent,
     TogglePauseRequest,
@@ -21,7 +23,6 @@ from ..events import (
 
 if TYPE_CHECKING:
     from .hud_layout import HudLayout
-    from ..game_manager import GameManager
 
 class HudEvents:
     """
@@ -29,7 +30,7 @@ class HudEvents:
 
     Attributes:
         layout (HudLayout): The layout component containing UI elements.
-        gm (GameManager): The GameManager instance for game logic.
+        world (World): The ECS World instance.
         event_bus (EventBus): The event bus.
         selected_entities (list[int]): The IDs of the currently selected entities.
         settings_service (Optional[SettingsService]): The settings service.
@@ -37,39 +38,49 @@ class HudEvents:
         on_error (Optional[Callable[[str], None]]): Callback for error reporting.
         _static_handlers (Dict[str, Callable[[], None]]): Map of layout attribute names to handler functions.
     """
-    def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', event_bus: EventBus, on_error: Optional[Callable[[str], None]] = None):
+    def __init__(self, layout: 'HudLayout', world: World, event_bus: EventBus, on_error: Optional[Callable[[str], None]] = None):
         """
         Initializes the HudEvents handler.
 
         Args:
             layout (HudLayout): The HudLayout component.
-            game_manager (GameManager): The GameManager instance.
+            world (World): The ECS World instance.
             event_bus (EventBus): The event bus.
             on_error (Callable[[str], None], optional): Callback for error reporting.
         """
         self.layout = layout
-        self.gm = game_manager
+        self.world = world
         self.event_bus = event_bus
         self.on_error = on_error
         self.selected_entities: list[int] = []
 
         self.settings_service: Optional[SettingsService] = None
-        if hasattr(self.gm.world.services, 'try_get'):
-             self.settings_service = self.gm.world.services.try_get(SettingsService)
+        if hasattr(self.world.services, 'try_get'):
+             self.settings_service = self.world.services.try_get(SettingsService)
 
         self.audio_manager: Optional[AudioManager] = None
-        if hasattr(self.gm.world.services, 'try_get'):
-            self.audio_manager = self.gm.world.services.try_get(AudioManager)
+        if hasattr(self.world.services, 'try_get'):
+            self.audio_manager = self.world.services.try_get(AudioManager)
 
         # Map layout attribute names to handlers
         self._static_handlers = {
-            'save_btn': self.gm.save_game,
-            'load_btn': self.gm.load_game,
+            'save_btn': self._save_game,
+            'load_btn': self._load_game,
             'pause_btn': lambda: self.event_bus.publish(TogglePauseRequest()),
             'speed_btn': lambda: self.event_bus.publish(CycleSpeedRequest()),
             'settings_btn': self._open_settings,
             'clean_btn': lambda: self.event_bus.publish(CleanToolRequestedEvent()),
         }
+
+    def _save_game(self) -> None:
+        persistence = self.world.services.try_get(PersistenceService)
+        if persistence:
+            persistence.save_game("savegame.json")
+
+    def _load_game(self) -> None:
+        persistence = self.world.services.try_get(PersistenceService)
+        if persistence:
+            persistence.load_game("savegame.json")
 
     def set_selected_entities(self, entity_ids: list[int]) -> None:
         """
@@ -159,7 +170,8 @@ class HudEvents:
             category = data["category"]
             name = data["name"]
 
-            if self.gm.money >= cost:
+            economy = self.world.services.get(EconomyService)
+            if economy.get_money() >= cost:
                 self.event_bus.publish(PlacementStartedEvent(type_id, cost, category))
             elif self.on_error:
                 self.on_error(f"Not enough money to buy {name}! Needed: ${cost}")
@@ -192,7 +204,7 @@ class HudEvents:
         """Opens the settings window."""
         if not self.settings_service:
             # Try getting it again if it wasn't available at init
-             self.settings_service = self.gm.world.services.try_get(SettingsService)
+             self.settings_service = self.world.services.try_get(SettingsService)
 
         if self.settings_service:
             self.layout.create_settings_window(self.settings_service.settings)
