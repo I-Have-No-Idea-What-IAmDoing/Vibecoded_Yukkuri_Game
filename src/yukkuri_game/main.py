@@ -11,29 +11,18 @@ from .engine.audio import AudioManager
 from .engine.resource_manager import ResourceManager
 from .engine.event_bus import EventBus
 from .game.events import GamePausedEvent, TogglePauseRequest, CycleSpeedRequest, ResolutionChangedEvent
-from .game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem
+from .game.yukkurrium import Yukkurrium, RenderSystem
 from .game.game_manager import GameManager
 from .game.services import EconomyService, PersistenceService, TimeService, InputService, GameService
 from .game.settings_service import SettingsService
 from .game.trait_service import TraitService
 from .game.entity_factory import EntityFactory
 from .game.ai.utility import UtilityAIEngine
-from .game.systems.emotion_system import EmotionSystem
-from .game.systems.lifecycle import LifecycleSystem
-from .game.systems.behavior import BehaviorSystem
 from .game.systems.physics import PhysicsSystem
-from .game.systems.movement_system import MovementSystem
-from .game.systems.construction_system import ConstructionSystem
-from .game.systems.animation import AnimationSystem
-from .game.systems.poop_system import PoopSystem
-from .game.systems.feedback_system import FeedbackSystem
-from .game.systems.interaction_system import InteractionSystem
-from .game.systems.social_system import SocialSystem
-from .game.systems.gossip_system import GossipSystem
-from .game.systems.family_system import FamilySystem
 from .game.ui.hud import HUD
-from .game.input_system import InputSystem
 from .config import load_config
+from .system_registry import SystemRegistry
+from loguru import logger
 
 class YukkuriGame(GameLoop):
     """
@@ -79,7 +68,7 @@ class YukkuriGame(GameLoop):
         # Core Systems & Service Registration
         self.yukkurrium = Yukkurrium(settings=self.game_config.world)
         self.audio = AudioManager()
-        self._load_sounds()
+        self.audio.load_from_config()
 
         self.physics_system = PhysicsSystem()
         self.event_bus = EventBus()
@@ -89,38 +78,6 @@ class YukkuriGame(GameLoop):
         self._apply_initial_settings()
         self._register_factories_and_managers()
         self._register_systems()
-
-    def _load_sounds(self) -> None:
-        """Loads sounds from configuration or fallback."""
-        if os.path.exists("data/sounds.toml"):
-            if sys.version_info >= (3, 11):
-                import tomllib
-            else:
-                import tomli as tomllib
-
-            if tomllib:
-                with open("data/sounds.toml", "rb") as f:
-                    sounds = tomllib.load(f)
-                    for name, path in sounds.get("sounds", {}).items():
-                        self.audio.load_sound(name, path)
-            else:
-                self._load_fallback_sounds()
-        else:
-            self._load_fallback_sounds()
-
-    def _load_fallback_sounds(self) -> None:
-        """Loads fallback sounds if configuration fails."""
-        defaults = {
-            "click": "data/audio/click.wav",
-            "place": "data/audio/place.wav",
-            "cancel": "data/audio/cancel.wav",
-            "sell": "data/audio/sell.wav",
-            "train": "data/audio/train.wav",
-            "eat": "data/audio/eat.wav",
-            "cry": "data/audio/cry.wav"
-        }
-        for name, path in defaults.items():
-            self.audio.load_sound(name, path)
 
     def _register_core_services(self) -> None:
         """Registers core services to the ServiceLocator."""
@@ -173,7 +130,7 @@ class YukkuriGame(GameLoop):
                       self.height = height
                       self.ui_manager.set_window_resolution((width, height))
              except pygame.error as e:
-                 print(f"Failed to set initial video mode: {e}")
+                 logger.error(f"Failed to set initial video mode: {e}")
 
     def _register_factories_and_managers(self) -> None:
         """Registers factories and high-level managers."""
@@ -192,24 +149,14 @@ class YukkuriGame(GameLoop):
 
     def _register_systems(self) -> None:
         """Registers and adds all ECS systems."""
-        self.input_system = InputSystem(self.yukkurrium)
-        self.world.add_system(self.input_system)
-
-        self.world.add_system(TimeSystem())
-        self.world.add_system(self.physics_system)
-
-        self.world.add_system(EmotionSystem(settings=self.game_config.rules.stat_decay))
-        self.world.add_system(LifecycleSystem(settings=self.game_config.rules.lifecycle, entity_factory=self.factory))
-        self.world.add_system(BehaviorSystem(float(self.yukkurrium.width), float(self.yukkurrium.height)))
-        self.world.add_system(MovementSystem())
-        self.world.add_system(ConstructionSystem())
-        self.world.add_system(AnimationSystem())
-        self.world.add_system(PoopSystem())
-        self.world.add_system(FeedbackSystem(self.world))
-        self.world.add_system(InteractionSystem())
-        self.world.add_system(SocialSystem(self.event_bus))
-        self.world.add_system(GossipSystem(self.event_bus))
-        self.world.add_system(FamilySystem())
+        self.input_system = SystemRegistry.register_systems(
+            self.world,
+            self.game_config,
+            self.yukkurrium,
+            self.factory,
+            self.event_bus,
+            self.physics_system
+        )
 
         if not self.headless:
             self.render_system = RenderSystem(self.screen, self.world)
@@ -390,7 +337,7 @@ class YukkuriGame(GameLoop):
 
         filename = f"screenshots/screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         pygame.image.save(self.screen, filename)
-        print(f"Screenshot saved to {filename}")
+        logger.info(f"Screenshot saved to {filename}")
 
 def main() -> None:
     """

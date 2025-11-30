@@ -4,6 +4,7 @@ Module for handling UI events from the HUD.
 import pygame
 import pygame_gui
 from typing import Optional, Callable, Dict, Any, TYPE_CHECKING
+from loguru import logger
 from ...engine.event_bus import EventBus
 from ...engine.audio import AudioManager
 from ..settings_service import SettingsService
@@ -34,6 +35,7 @@ class HudEvents:
         settings_service (Optional[SettingsService]): The settings service.
         audio_manager (Optional[AudioManager]): The audio manager.
         on_error (Optional[Callable[[str], None]]): Callback for error reporting.
+        _static_handlers (Dict[str, Callable[[], None]]): Map of layout attribute names to handler functions.
     """
     def __init__(self, layout: 'HudLayout', game_manager: 'GameManager', event_bus: EventBus, on_error: Optional[Callable[[str], None]] = None):
         """
@@ -58,6 +60,16 @@ class HudEvents:
         self.audio_manager: Optional[AudioManager] = None
         if hasattr(self.gm.world.services, 'try_get'):
             self.audio_manager = self.gm.world.services.try_get(AudioManager)
+
+        # Map layout attribute names to handlers
+        self._static_handlers = {
+            'save_btn': self.gm.save_game,
+            'load_btn': self.gm.load_game,
+            'pause_btn': lambda: self.event_bus.publish(TogglePauseRequest()),
+            'speed_btn': lambda: self.event_bus.publish(CycleSpeedRequest()),
+            'settings_btn': self._open_settings,
+            'clean_btn': lambda: self.event_bus.publish(CleanToolRequestedEvent()),
+        }
 
     def set_selected_entities(self, entity_ids: list[int]) -> None:
         """
@@ -96,49 +108,50 @@ class HudEvents:
 
         ui_element = event.ui_element
 
-        if ui_element == self.layout.save_btn:
-            self.gm.save_game()
-            return True
-
-        if ui_element == self.layout.load_btn:
-            self.gm.load_game()
-            return True
-
-        if ui_element == self.layout.pause_btn:
-            self.event_bus.publish(TogglePauseRequest())
-            return True
-
-        if ui_element == self.layout.speed_btn:
-            self.event_bus.publish(CycleSpeedRequest())
-            return True
-
-        if ui_element == self.layout.settings_btn:
-            self._open_settings()
-            return True
-
-        if ui_element == self.layout.clean_btn:
-            self.event_bus.publish(CleanToolRequestedEvent())
-            return True
-
-        # Settings Window Buttons
-        if self.layout.settings_window:
-            if ui_element == self.layout.settings_controls.get("save_btn"):
-                self._save_settings()
-                self.layout.close_settings_window()
-                return True
-            if ui_element == self.layout.settings_controls.get("cancel_btn"):
-                # Revert changes if needed, but for now just close as sliders apply realtime?
-                # Actually sliders apply realtime for feedback, but we should revert if canceled.
-                # To revert, we need to restore original values.
-                # Simplest is to just reload from service which hasn't been saved yet.
-                self._revert_audio_settings()
-                self.layout.close_settings_window()
-                return True
-            if ui_element == self.layout.settings_controls.get("fullscreen_btn"):
-                self._toggle_fullscreen_btn()
+        # 1. Check static handlers (by looking up current button on layout)
+        for attr_name, handler in self._static_handlers.items():
+            # Check if layout has this button and if it matches the event element
+            if hasattr(self.layout, attr_name) and getattr(self.layout, attr_name) == ui_element:
+                handler()
                 return True
 
-        # Dynamic Buy Buttons
+        # 2. Check settings window buttons
+        if self._handle_settings_buttons(ui_element):
+            return True
+
+        # 3. Check dynamic buy buttons
+        if self._handle_buy_buttons(ui_element):
+            return True
+
+        # 4. Check selection window buttons
+        if self._handle_selection_buttons(ui_element):
+            return True
+
+        return False
+
+    def _handle_settings_buttons(self, ui_element: Any) -> bool:
+        """Handles buttons within the settings window."""
+        if not self.layout.settings_window:
+            return False
+
+        if ui_element == self.layout.settings_controls.get("save_btn"):
+            self._save_settings()
+            self.layout.close_settings_window()
+            return True
+
+        if ui_element == self.layout.settings_controls.get("cancel_btn"):
+            self._revert_audio_settings()
+            self.layout.close_settings_window()
+            return True
+
+        if ui_element == self.layout.settings_controls.get("fullscreen_btn"):
+            self._toggle_fullscreen_btn()
+            return True
+
+        return False
+
+    def _handle_buy_buttons(self, ui_element: Any) -> bool:
+        """Handles dynamic buy buttons."""
         if ui_element in self.layout.buy_buttons:
             data = self.layout.buy_buttons[ui_element]
             type_id = data["type_id"]
@@ -151,22 +164,27 @@ class HudEvents:
             elif self.on_error:
                 self.on_error(f"Not enough money to buy {name}! Needed: ${cost}")
             return True
+        return False
 
-        if self.layout.selection_window:
-            if hasattr(self.layout, 'sell_btn') and ui_element == self.layout.sell_btn:
-                for entity_id in self.selected_entities:
-                     self.event_bus.publish(SellEntityRequest(entity_id))
-                return True
+    def _handle_selection_buttons(self, ui_element: Any) -> bool:
+        """Handles buttons in the selection window."""
+        if not self.layout.selection_window:
+            return False
 
-            if hasattr(self.layout, 'train_btn') and ui_element == self.layout.train_btn:
-                for entity_id in self.selected_entities:
-                    self.event_bus.publish(TrainEntityRequest(entity_id))
-                return True
+        if hasattr(self.layout, 'sell_btn') and ui_element == self.layout.sell_btn:
+            for entity_id in self.selected_entities:
+                    self.event_bus.publish(SellEntityRequest(entity_id))
+            return True
 
-            if hasattr(self.layout, 'punish_btn') and ui_element == self.layout.punish_btn:
-                for entity_id in self.selected_entities:
-                    self.event_bus.publish(PunishEntityRequest(entity_id))
-                return True
+        if hasattr(self.layout, 'train_btn') and ui_element == self.layout.train_btn:
+            for entity_id in self.selected_entities:
+                self.event_bus.publish(TrainEntityRequest(entity_id))
+            return True
+
+        if hasattr(self.layout, 'punish_btn') and ui_element == self.layout.punish_btn:
+            for entity_id in self.selected_entities:
+                self.event_bus.publish(PunishEntityRequest(entity_id))
+            return True
 
         return False
 
@@ -272,7 +290,7 @@ class HudEvents:
             if self.on_error:
                 self.on_error(f"Failed to change display mode: {e}")
             else:
-                print(f"Failed to change display mode: {e}")
+                logger.error(f"Failed to change display mode: {e}")
 
     def _revert_audio_settings(self) -> None:
         """Reverts audio settings to what is stored in SettingsService."""

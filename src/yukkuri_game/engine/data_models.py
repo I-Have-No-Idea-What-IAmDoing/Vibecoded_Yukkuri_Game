@@ -1,39 +1,11 @@
 """
 Module defining data models for game configuration (TOML schema).
 """
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, Optional
 import msgspec
 
-if TYPE_CHECKING:
-    # Mypy doesn't play nice with msgspec extension types sometimes
-    class YukkuriTypeBase: ...
-    class ItemTypeBase: ...
-    class ActionEffectBase: ...
-    class ActionConsiderationBase: ...
-    class AIActionBase: ...
-    class AnimationDefinitionBase: ...
-    class YukkuriDataBase: ...
-    class ItemDataBase: ...
-    class AIDataBase: ...
-    class MovementVisualsBase: ...
-    class VisualTuningBase: ...
-    class GameTuningBase: ...
-else:
-    YukkuriTypeBase = msgspec.Struct
-    ItemTypeBase = msgspec.Struct
-    ActionEffectBase = msgspec.Struct
-    ActionConsiderationBase = msgspec.Struct
-    AIActionBase = msgspec.Struct
-    AnimationDefinitionBase = msgspec.Struct
-    YukkuriDataBase = msgspec.Struct
-    ItemDataBase = msgspec.Struct
-    AIDataBase = msgspec.Struct
-    MovementVisualsBase = msgspec.Struct
-    VisualTuningBase = msgspec.Struct
-    GameTuningBase = msgspec.Struct
 
-
-class AnimationDefinition(AnimationDefinitionBase):
+class AnimationDefinition(msgspec.Struct):
     """
     Data model representing an animation sequence.
 
@@ -59,7 +31,7 @@ class AnimationDefinition(AnimationDefinitionBase):
     height: Optional[int] = None
 
 
-class YukkuriType(YukkuriTypeBase):
+class YukkuriType(msgspec.Struct):
     """
     Data model representing a type of Yukkuri.
 
@@ -82,7 +54,7 @@ class YukkuriType(YukkuriTypeBase):
     cost: int = 100
     animations: Dict[str, AnimationDefinition] = {}
 
-class ItemType(ItemTypeBase):
+class ItemType(msgspec.Struct):
     """
     Data model representing a type of Item.
 
@@ -107,7 +79,7 @@ class ItemType(ItemTypeBase):
     comfort: Optional[int] = None
     fun: Optional[int] = None
 
-class ActionEffect(ActionEffectBase):
+class ActionEffect(msgspec.Struct):
     """
     Data model representing the effects of an AI action.
 
@@ -122,7 +94,7 @@ class ActionEffect(ActionEffectBase):
     consume: bool = False
     stat_changes: Dict[str, float] = {}
 
-class ActionConsideration(ActionConsiderationBase):
+class ActionConsideration(msgspec.Struct):
     """
     Data model representing a consideration (input factor) for an AI action.
 
@@ -137,7 +109,7 @@ class ActionConsideration(ActionConsiderationBase):
     curve: str
     params: Dict[str, float] = {}
 
-class AIAction(AIActionBase):
+class AIAction(msgspec.Struct):
     """
     Data model representing an AI action definition.
 
@@ -152,7 +124,7 @@ class AIAction(AIActionBase):
 
 # --- Game Tuning Data Models (from yukkuri_tuning.json) ---
 
-class MovementVisuals(MovementVisualsBase):
+class MovementVisuals(msgspec.Struct):
     """
     Tuning for movement visual effects.
 
@@ -163,7 +135,7 @@ class MovementVisuals(MovementVisualsBase):
     bob_height: float = 10.0
     bob_speed: float = 5.0
 
-class VisualTuning(VisualTuningBase):
+class VisualTuning(msgspec.Struct):
     """
     Container for all visual-related tuning.
 
@@ -172,7 +144,7 @@ class VisualTuning(VisualTuningBase):
     """
     movement: MovementVisuals
 
-class GameTuning(GameTuningBase):
+class GameTuning(msgspec.Struct):
     """
     Root container for the main JSON tuning file.
 
@@ -182,7 +154,7 @@ class GameTuning(GameTuningBase):
     visuals: VisualTuning
 
 # --- Root containers for the TOML structure ---
-class YukkuriData(YukkuriDataBase):
+class YukkuriData(msgspec.Struct):
     """
     Root container for Yukkuri type definitions loaded from TOML.
 
@@ -191,7 +163,7 @@ class YukkuriData(YukkuriDataBase):
     """
     yukkuris: Dict[str, YukkuriType]
 
-class ItemData(ItemDataBase):
+class ItemData(msgspec.Struct):
     """
     Root container for Item type definitions loaded from TOML.
 
@@ -200,7 +172,7 @@ class ItemData(ItemDataBase):
     """
     items: Dict[str, ItemType]
 
-class AIData(AIDataBase):
+class AIData(msgspec.Struct):
     """
     Root container for AI action definitions loaded from TOML.
 

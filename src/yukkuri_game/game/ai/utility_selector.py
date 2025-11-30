@@ -3,6 +3,7 @@ Module defining the UtilitySelector behavior tree node.
 """
 from typing import Optional, Any, TYPE_CHECKING
 from py_trees.common import Status
+from loguru import logger
 
 from .utility import UtilityAIEngine
 from .base_action import Action
@@ -67,7 +68,7 @@ class UtilitySelector(Action):
         ai = self.world.get_component(self.entity_id, AIState)
 
         if not ai:
-            print("UtilitySelector: Missing AIState component")
+            logger.warning(f"UtilitySelector: Entity {self.entity_id} Missing AIState component")
             return Status.FAILURE
 
         # Check for manual override
@@ -79,7 +80,7 @@ class UtilitySelector(Action):
         if not self.engine:
              self.engine = self.world.services.try_get(UtilityAIEngine)
              if not self.engine:
-                print("UtilitySelector: No Engine found")
+                logger.error("UtilitySelector: No Engine found")
                 return Status.FAILURE
 
         # Also try to grab trait service again if missing
@@ -91,7 +92,7 @@ class UtilitySelector(Action):
         emotional = self.world.get_component(self.entity_id, EmotionalState)
 
         if not stats:
-            print("UtilitySelector: Missing YukkuriStats component")
+            logger.warning(f"UtilitySelector: Entity {self.entity_id} Missing YukkuriStats component")
             return Status.FAILURE
 
         # Build Context for Utility Evaluation

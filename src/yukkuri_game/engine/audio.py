@@ -4,6 +4,7 @@ Module for managing audio playback.
 import pygame
 from loguru import logger
 import os
+import sys
 
 class AudioManager:
     """
@@ -36,6 +37,47 @@ class AudioManager:
         self.master_volume = 1.0
         self.bgm_volume = 1.0
         self.sfx_volume = 1.0
+
+    def load_from_config(self, config_path: str = "data/sounds.toml") -> None:
+        """
+        Loads sounds from configuration or fallback.
+
+        Args:
+            config_path (str): Path to the sounds configuration file.
+        """
+        if os.path.exists(config_path):
+            if sys.version_info >= (3, 11):
+                import tomllib
+            else:
+                import tomli as tomllib
+
+            if tomllib:
+                try:
+                    with open(config_path, "rb") as f:
+                        sounds = tomllib.load(f)
+                        for name, path in sounds.get("sounds", {}).items():
+                            self.load_sound(name, path)
+                except Exception as e:
+                    logger.error(f"Failed to load sound config from {config_path}: {e}")
+                    self._load_fallback_sounds()
+            else:
+                self._load_fallback_sounds()
+        else:
+            self._load_fallback_sounds()
+
+    def _load_fallback_sounds(self) -> None:
+        """Loads fallback sounds if configuration fails."""
+        defaults = {
+            "click": "data/audio/click.wav",
+            "place": "data/audio/place.wav",
+            "cancel": "data/audio/cancel.wav",
+            "sell": "data/audio/sell.wav",
+            "train": "data/audio/train.wav",
+            "eat": "data/audio/eat.wav",
+            "cry": "data/audio/cry.wav"
+        }
+        for name, path in defaults.items():
+            self.load_sound(name, path)
 
     def load_sound(self, name: str, filepath: str) -> None:
         """
