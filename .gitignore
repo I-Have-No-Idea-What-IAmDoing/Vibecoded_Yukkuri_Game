@@ -149,3 +149,30 @@ cython_debug/
 pygame_gui.log
 
 uv.lock
+
+# --- Added Best Practices ---
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.directory
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.bak
+.settings/
+.classpath
+.project
+
+# General
+tmp/
+temp/
