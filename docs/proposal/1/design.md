@@ -61,71 +61,76 @@ A lightweight **ServiceContainer** will provide access to cross-cutting concerns
 
 ### 7. Data Persistence & State Transfer
 
-To avoid the pitfalls of shared mutable global state while solving the performance and boilerplate issues of strict DTOs, we will adopt a **Manifest & Protocol** model.
+To ensure robustness, maintainability, and forward compatibility, we propose a decoupled persistence model that relies on standard Python features and explicit versioning.
 
 #### 7.1. Core Principles
 
 - **No Global Session in ECS**: Systems inside a Scene **never** access a global `GameSession` directly.
-- **MsgSpec for Serialization**: Instead of writing manual `to_dict` methods, Components that require persistence should inherit from `msgspec.Struct`. This provides high-performance, validation-ready serialization out of the box.
-- **Explicit Contracts (Manifests)**: Scenes must declare exactly what data they require from the session. This prevents the "God Object" problem where a SceneManager has to know the internals of every Scene.
+- **POPOs & Dataclasses**: Components are standard Python `dataclasses` or Plain Old Python Objects. We do **not** inherit from library-specific classes (like `msgspec.Struct`). The serialization layer handles the conversion transparently.
+- **Scoped Keys**: Data keys are namespaced strings (e.g., `"player.inventory"`, `"world.dungeon.flags"`) rather than a monolithic global Enum. This allows modular development without central bottlenecks.
 
 #### 7.2. The Lifecycle
 
 1.  **Scene Manifest (Contract)**
-    - Each Scene class defines a static `Manifest` describing its data dependencies.
-    - To prevent "stringly typed" errors, we use a `SessionKey` Enum.
+    - Each Scene declares its data dependencies using namespaced keys.
     - **Example**:
       ```python
-      class SessionKey(StrEnum):
-          PLAYER_INVENTORY = "player_inventory"
-          PLAYER_STATS = "player_stats"
-          DUNGEON_FLAGS = "dungeon_flags"
-
       class DungeonScene(Scene):
           MANIFEST = {
-              "required": [SessionKey.PLAYER_INVENTORY, SessionKey.PLAYER_STATS],
-              "optional": [SessionKey.DUNGEON_FLAGS]
+              "required": ["player.inventory", "player.stats"],
+              "optional": ["dungeon.flags"]
           }
       ```
 
-2.  **Hydration (Inject)**
-    - When the `SceneManager` pushes a new Scene, it consults the `MANIFEST`.
-    - It fetches the requested keys from the `SessionStore`.
-    - It injects this data into the Scene as a `msgspec.Struct` or raw bytes.
-    - The Scene's `setup()` method uses `msgspec.msgpack.decode()` to populate the ECS.
+2.  **Hydration (Inject with Versioning)**
+    - The `SessionManager` retrieves data. Each data blob includes a `_version` field.
+    - **Schema Evolution**: Before injection, the data is passed through a migration pipeline if the stored version is older than the current component version.
+    - The data is then decoded into the Component dataclass.
       ```python
+      # Scene Setup
       def setup(self, world, initial_state):
           player = world.create_entity()
-          # Automatically decodes into the component struct
-          inv = msgspec.msgpack.decode(initial_state[SessionKey.PLAYER_INVENTORY], type=Inventory)
+          # Migration and Decoding happen here
+          inv_data = initial_state.get("player.inventory")
+          inv = self.serializer.deserialize(inv_data, target_type=Inventory)
           player.add(inv)
       ```
 
-3.  **Gameplay & Incremental Tracking**
-    - Systems modify Components normally.
-    - To avoid "Stop-the-World" serialization spikes, we introduce **Dirty Flags**.
-    - When a relevant component changes (e.g., item added), it marks itself as `dirty`.
+3.  **Gameplay & Automated Tracking**
+    - **No Manual Dirty Flags**: We avoid manual `is_dirty` flags which are error-prone.
+    - **Strategy**:
+        - *Option A (Preferred)*: Use a `SaveState` system that snapshots critical data at meaningful moments (Checkpoints, Level Transitions, Exit).
+        - *Option B (Optimization)*: If incremental saving is strictly required, use a proxy wrapper or `__setattr__` hook *only* on the `Session` object or specific `ObservedComponents` to track changes automatically, ensuring developers cannot "forget" to flag a change.
 
 4.  **Commit (Persist)**
-    - On checkpoint or transition, the `PersistenceSystem` queries **only** components marked as `dirty`.
-    - It calls `msgspec.msgpack.encode()` on them and bundles the changes.
-    - This delta is sent to the `SessionManager`, which upserts the data into the persistent store.
-    - **Example**:
-      ```python
-      # PersistenceSystem
-      updates = {}
-      for entity, (inv,) in world.get_components(Inventory):
-          if inv.is_dirty:
-              updates["player_inventory"] = msgspec.msgpack.encode(inv)
-              inv.clean() # Reset flag
-      scene_manager.commit_changes(updates)
-      ```
+    - The `PersistenceSystem` gathers data from relevant components.
+    - It attaches the current `_schema_version` to the data.
+    - The `SessionManager` saves this structured data (e.g., via `msgspec`, `pickle`, or `json` - the format is an implementation detail hidden from the game logic).
 
-#### 7.3. Benefits
+#### 7.3. Schema Migration Strategy
 
-- **Zero Boilerplate**: No need to maintain parallel `InventoryDTO` classes or manual `to_dict` methods. The Component is the definition.
-- **Performance**: We only serialize what changed. An autosave in a massive world is cheap if only one chest was opened.
-- **Decoupling**: The `SceneManager` is generic; it simply fulfills the `MANIFEST` contract without knowing what the data means.
+To support updates and patches, all persistable components must define a version and a migration hook.
+
+```python
+@dataclass
+class Inventory:
+    items: list[str]
+    version: int = 2
+
+    @staticmethod
+    def migrate(data: dict, old_version: int) -> dict:
+        if old_version < 2:
+            # Convert old list format to new format
+            data['items'] = convert_items(data['items'])
+        return data
+```
+
+#### 7.4. Benefits
+
+- **Vendor Neutrality**: Components are just Python classes. We can switch serialization libraries (JSON, MsgPack, Pickle) without touching game logic.
+- **Safety**: Automated tracking or explicit snapshots prevents "forgot to save" bugs.
+- **Longevity**: Built-in versioning ensures save files from v1.0 still work in v2.0.
+- **Scalability**: Namespaced keys allow multiple developers to work on different game modules without conflicting in a central file.
 
 ## Architecture Diagram (Conceptual)
 
