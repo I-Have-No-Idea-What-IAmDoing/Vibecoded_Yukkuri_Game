@@ -676,9 +676,9 @@ class GameService:
 
             if init_gossip and target_gossip:
                 for packet in init_gossip.priority_queue[:3]:
-                    target_gossip.priority_queue.append(packet)
+                    target_gossip.add_packet(packet)
                 for packet in target_gossip.priority_queue[:3]:
-                    init_gossip.priority_queue.append(packet)
+                    init_gossip.add_packet(packet)
 
             if audio:
                  # Use duck typing check or try/except to handle mocks
