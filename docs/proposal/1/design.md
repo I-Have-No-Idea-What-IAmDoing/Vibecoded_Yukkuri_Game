@@ -59,73 +59,49 @@ A lightweight **ServiceContainer** will provide access to cross-cutting concerns
 - **Explicit Registration**: Services are registered at startup.
 - **Facade**: The container acts as a facade, but systems should ideally take dependencies via `__init__` where feasible to improve testability.
 
-### 7. Data Persistence & State Transfer
+### 7. Data Persistence & State Management
 
-To avoid the pitfalls of shared mutable global state while solving the performance and boilerplate issues of strict DTOs, we will adopt a **Manifest & Protocol** model.
+To address the complexity of state management, we distinguish between **Global Session State** (Data that persists across the entire game, e.g., Inventory, Quest Flags) and **Local World State** (Data specific to a scene instance, e.g., Enemy positions, dropped items).
 
-#### 7.1. Core Principles
+#### 7.1. Global Session State (Manifest & Protocol)
 
-- **No Global Session in ECS**: Systems inside a Scene **never** access a global `GameSession` directly.
-- **MsgSpec for Serialization**: Instead of writing manual `to_dict` methods, Components that require persistence should inherit from `msgspec.Struct`. This provides high-performance, validation-ready serialization out of the box.
-- **Explicit Contracts (Manifests)**: Scenes must declare exactly what data they require from the session. This prevents the "God Object" problem where a SceneManager has to know the internals of every Scene.
+- **Purpose**: Managing data that must survive Scene transitions.
+- **Mechanism**: The `SessionManager` holds the "Truth". Scenes request access via a `Manifest`.
+- **Versioning**: Components inheriting from `msgspec.Struct` must include a `_version` field. The Persistence layer includes a **Migration Registry** to transform old data schemas to new ones during load, decoupling runtime logic from disk format.
 
-#### 7.2. The Lifecycle
+#### 7.2. Local World State (Scene Snapshots)
 
-1.  **Scene Manifest (Contract)**
-    - Each Scene class defines a static `Manifest` describing its data dependencies.
-    - To prevent "stringly typed" errors, we use a `SessionKey` Enum.
-    - **Example**:
-      ```python
-      class SessionKey(StrEnum):
-          PLAYER_INVENTORY = "player_inventory"
-          PLAYER_STATS = "player_stats"
-          DUNGEON_FLAGS = "dungeon_flags"
+- **Purpose**: Persisting the state of a dynamic world (e.g., 100 enemies, 50 chests) without creating thousands of global keys.
+- **Mechanism**:
+    - The `Scene` is responsible for serializing its own entities using a `WorldSerializer`.
+    - This data is stored as a blob associated with the `(SceneID, SaveSlot)`.
+    - On load, the Scene checks for a snapshot. If one exists, it hydrates the entities from the snapshot instead of the default level layout.
 
-      class DungeonScene(Scene):
-          MANIFEST = {
-              "required": [SessionKey.PLAYER_INVENTORY, SessionKey.PLAYER_STATS],
-              "optional": [SessionKey.DUNGEON_FLAGS]
-          }
-      ```
+#### 7.3. The Lifecycle
 
-2.  **Hydration (Inject)**
-    - When the `SceneManager` pushes a new Scene, it consults the `MANIFEST`.
-    - It fetches the requested keys from the `SessionStore`.
-    - It injects this data into the Scene as a `msgspec.Struct` or raw bytes.
-    - The Scene's `setup()` method uses `msgspec.msgpack.decode()` to populate the ECS.
-      ```python
-      def setup(self, world, initial_state):
-          player = world.create_entity()
-          # Automatically decodes into the component struct
-          inv = msgspec.msgpack.decode(initial_state[SessionKey.PLAYER_INVENTORY], type=Inventory)
-          player.add(inv)
-      ```
+1.  **Injection (Global Data)**
+    - Scene declares `MANIFEST` for Session Data (e.g., `SessionKey.PLAYER_STATS`).
+    - `SceneManager` injects these **References** into the Scene Context. Shared state means multiple stacked scenes see the same data object.
 
-3.  **Gameplay & Incremental Tracking**
-    - Systems modify Components normally.
-    - To avoid "Stop-the-World" serialization spikes, we introduce **Dirty Flags**.
-    - When a relevant component changes (e.g., item added), it marks itself as `dirty`.
+2.  **Hydration (Local Data)**
+    - Scene `setup()` calls `WorldSerializer.load_or_default(scene_id)`.
+    - This populates the ECS with entities.
+
+3.  **Gameplay (No Manual Dirty Flags)**
+    - Systems modify components normally.
+    - We **removed manual dirty flags**. Instead, we rely on efficient full-state serialization (Snapshotting) at key moments (Checkpoints, Save Points, Scene Transitions).
+    - *Optimization*: If performance becomes an issue, the `WorldSerializer` can implement internal diffing (comparing current hash vs last saved hash) transparently to the developer.
 
 4.  **Commit (Persist)**
-    - On checkpoint or transition, the `PersistenceSystem` queries **only** components marked as `dirty`.
-    - It calls `msgspec.msgpack.encode()` on them and bundles the changes.
-    - This delta is sent to the `SessionManager`, which upserts the data into the persistent store.
-    - **Example**:
-      ```python
-      # PersistenceSystem
-      updates = {}
-      for entity, (inv,) in world.get_components(Inventory):
-          if inv.is_dirty:
-              updates["player_inventory"] = msgspec.msgpack.encode(inv)
-              inv.clean() # Reset flag
-      scene_manager.commit_changes(updates)
-      ```
+    - `SessionManager` serializes the Global State.
+    - `WorldSerializer` serializes the Entity World.
+    - Both are written to the persistence store transactionally.
 
-#### 7.3. Benefits
+#### 7.4. Benefits
 
-- **Zero Boilerplate**: No need to maintain parallel `InventoryDTO` classes or manual `to_dict` methods. The Component is the definition.
-- **Performance**: We only serialize what changed. An autosave in a massive world is cheap if only one chest was opened.
-- **Decoupling**: The `SceneManager` is generic; it simply fulfills the `MANIFEST` contract without knowing what the data means.
+- **Scalability**: Handles both the "Link" (Global) and "Pot" (Local/Dynamic) problems effectively.
+- **Safety**: Removes the human error of "forgetting to mark dirty."
+- **Robustness**: Migration Registry prevents save corruption when code changes.
 
 ## Architecture Diagram (Conceptual)
 
@@ -138,9 +114,9 @@ To avoid the pitfalls of shared mutable global state while solving the performan
        |
        +-- [Active Scene]
             |
-            +-- [ECS World]
-                 |
-                 +-- [Entities] (ID + Components)
-                 |
-                 +-- [Systems] (Logic)
+            +-- [ECS World] (Entities: Loaded from Snapshot or Default)
+            |    |
+            |    +-- [Components] (Some are references to Session Data)
+            |
+            +-- [Systems]
 ```
