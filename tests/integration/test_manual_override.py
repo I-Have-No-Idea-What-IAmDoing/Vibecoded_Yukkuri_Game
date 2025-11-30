@@ -1,7 +1,7 @@
 
 import pytest
 import math
-from yukkuri_game.main import YukkuriGame
+from yukkuri_game.engine.application import Application
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState
 from yukkuri_game.game.components import Transform, MovementController
