@@ -59,14 +59,63 @@ A lightweight **ServiceContainer** will provide access to cross-cutting concerns
 - **Explicit Registration**: Services are registered at startup.
 - **Facade**: The container acts as a facade, but systems should ideally take dependencies via `__init__` where feasible to improve testability.
 
-### 7. Description of data persistence between scenes
+### 7. Data Persistence & State Transfer
 
-To ensure critical game data persists across scene boundaries (e.g. from Main Menu to Gameplay, or between Levels):
+To avoid the pitfalls of shared mutable global state and ensure data integrity, we will adopt a **Hydration/Dehydration** model for persistence.
 
-- **Session Context**: A dedicated `GameSession` object that lives within the `Application` scope, outside of any specific `Scene`.
-- **State Separation**: Volatile level state remains in the `Scene` (ECS World), while persistent state (Inventory, Player Stats, Global Flags) is stored in the `GameSession`.
-- **Serialization**: The `GameSession` is the primary target for Save/Load operations.
-- **Injection**: The `GameSession` is passed to Scenes upon initialization or accessible via the `ServiceContainer`.
+#### 7.1. Core Principles
+
+- **No Global Session in ECS**: Systems inside a Scene **never** access a global `GameSession`, `SaveFile`, or `Database` object directly. They operate exclusively on local Components.
+- **Explicit Data Transfer**: Data moving between the permanent storage (Session) and the active game (Scene) is always explicit, typed, and snapshotted.
+- **Source of Truth**:
+    - During a Scene's lifecycle, the **ECS World is the single source of truth**.
+    - The persistent storage is updated only during transition boundaries or explicit checkpoints, preventing desync bugs.
+
+#### 7.2. The Lifecycle
+
+1.  **Hydration (Input)**
+    - When the `SceneManager` pushes a new Scene, it extracts necessary data from the Master Save State.
+    - It creates a **SceneContextDTO** (Data Transfer Object). This is a read-only, immutable structure (e.g., a frozen Python dataclass).
+    - **Example**:
+      ```python
+      @dataclass(frozen=True)
+      class GameplayContext:
+          player_stats: PlayerStatsDTO
+          inventory: List[ItemDTO]
+          active_quests: List[QuestID]
+      ```
+    - The Scene's `Initializer` receives this DTO and populates the ECS World. It spawns the Player Entity and attaches `StatsComponent` and `InventoryComponent` filled with values from the DTO.
+
+2.  **Gameplay (Simulation)**
+    - Systems modify Components. For example, the `CombatSystem` reduces `StatsComponent.hp`.
+    - The original DTO is ignored; it is merely the "seed" for the simulation.
+    - The Master Save State is **not** modified during this phase.
+
+3.  **Dehydration (Output)**
+    - When a Scene is suspended, unloaded, or a checkpoint is reached, the Scene performs an export.
+    - A specialized `PersistenceSystem` (or a `Scene.export_state()` method) queries the ECS World.
+    - It constructs a **SceneResultDTO** containing the new state of persistent elements.
+    - **Example**:
+      ```python
+      def export_state(self, world) -> GameplayResult:
+          player = world.get_entity_by_tag("player")
+          return GameplayResult(
+              player_stats=player.get(StatsComponent).to_dto(),
+              inventory=player.get(InventoryComponent).to_dto(),
+              ...
+          )
+      ```
+
+4.  **Merging**
+    - The `SceneManager` receives the `SceneResultDTO`.
+    - It passes this result to the `Application`'s Session Manager.
+    - The Session Manager merges the changes back into the Master Save State, handling any necessary logic (e.g., unlocking achievements based on the result).
+
+#### 7.3. Benefits
+
+- **Testability**: Scenes can be tested in isolation by injecting mock DTOs. You don't need a complex database or save file reader to test the `GameplayScene`.
+- **Determinism**: Since input state is explicit, reproducing bugs involves simply capturing the input DTO.
+- **Modularity**: The data format of the Save File is decoupled from the runtime Components. A migration layer can exist between the Save File loading and the creation of the DTOs.
 
 ## Architecture Diagram (Conceptual)
 
