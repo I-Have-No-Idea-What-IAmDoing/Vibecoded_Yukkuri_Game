@@ -5,7 +5,8 @@ import pytest
 import sys
 import os
 import pygame
-from yukkuri_game.main import YukkuriGame
+# from yukkuri_game.main import YukkuriGame
+from yukkuri_game.engine.application import Application as YukkuriGame
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.testing.environment import TestEnvironment
 

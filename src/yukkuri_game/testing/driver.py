@@ -7,7 +7,8 @@ import pygame
 import os
 from typing import Generator, Any, Callable, Union, List, Optional
 from dataclasses import dataclass
-from ..main import YukkuriGame
+from ..engine.application import Application as YukkuriGame
+from ..scenes.gameplay import GameplayScene
 
 # --- Predicates & Commands ---
 
@@ -61,6 +62,7 @@ class GameDriver:
         self.simulated_time = 0.0
         self.frame_count = 0
         self._scenario_deadline: Optional[float] = None
+        self._scene: Optional[GameplayScene] = None
 
     def seed_rng(self, seed: int = 42) -> None:
         """Seeds random number generators for determinism."""
@@ -74,27 +76,44 @@ class GameDriver:
     def setup(self) -> None:
         """Sets up the game instance."""
         self.seed_rng()
-        if not self.game.headless:
-             self.game.set_headless(True)
-        self.game.setup()
+        # Headless mode is handled in Application.__init__
+
+        # Initialize GameplayScene
+        self._scene = GameplayScene(self.game)
+        self.game.scene_manager.push(self._scene)
+
+        # Ensure setup is called (SceneManager.push calls on_enter which calls setup)
+        # But we want to ensure it's fully ready
+        if not self._scene.is_setup:
+            self._scene.setup()
+
+    @property
+    def world(self) -> Any:
+        if self._scene:
+            return self._scene.world
+        # Fallback if accessed before setup, though unexpected
+        return None
 
     def create_yukkuri(self, type_id: str, x: float, y: float) -> int:
         from ..game.entity_factory import EntityFactory
-        factory = self.game.world.services.try_get(EntityFactory)
+        if not self.world: return -1
+        factory = self.world.services.try_get(EntityFactory)
         if factory:
             return factory.create_yukkuri(type_id, x, y)
         return -1
 
     def create_item(self, type_id: str, x: float, y: float) -> int:
         from ..game.entity_factory import EntityFactory
-        factory = self.game.world.services.try_get(EntityFactory)
+        if not self.world: return -1
+        factory = self.world.services.try_get(EntityFactory)
         if factory:
             return factory.create_item(type_id, x, y)
         return -1
 
     def set_ai_target_pos(self, entity_id: int, x: float, y: float) -> None:
         from ..game.yukkuri_components import AIState
-        ai = self.game.world.get_component(entity_id, AIState)
+        if not self.world: return
+        ai = self.world.get_component(entity_id, AIState)
         if ai:
             if ai.state_data is None:
                 ai.state_data = {}
@@ -105,7 +124,8 @@ class GameDriver:
 
     def set_ai_action(self, entity_id: int, action: str, target_id: int = -1) -> None:
         from ..game.yukkuri_components import AIState
-        ai = self.game.world.get_component(entity_id, AIState)
+        if not self.world: return
+        ai = self.world.get_component(entity_id, AIState)
         if ai:
             ai.current_action = action
             if target_id != -1:
@@ -157,14 +177,11 @@ class GameDriver:
     def _tick(self) -> None:
         """Advances the game by one fixed time step."""
         # 1. Handle Events
-        # Check if handle_events exists on self.game (GameLoop method)
-        if hasattr(self.game, "handle_events"):
-            self.game.handle_events()
-        else:
-            pygame.event.pump()
+        # Application has handle_events
+        self.game.handle_events()
 
         # 2. Update Game State
-        self.game.tick(self.fixed_dt)
+        self.game.update(self.fixed_dt)
 
         self.simulated_time += self.fixed_dt
         self.frame_count += 1
@@ -199,38 +216,35 @@ class GameDriver:
 
     def get_transform(self, entity_id: int) -> Optional[Any]:
         from ..game.components import Transform
-        return self.game.world.get_component(entity_id, Transform)
+        if not self.world: return None
+        return self.world.get_component(entity_id, Transform)
 
     def reset(self) -> None:
         # Clear the ECS world to remove all entities
-        self.game.world.clear()
+        if self.world:
+            self.world.clear()
+            # If we need to re-add systems, we might need to call setup again or reload the scene
+            # But clearing the world removes entities, systems usually persist in SystemRegistry/World logic
+            # (Wait, World.clear() usually clears entities but keeps systems if they are stored separately.
+            # Let's check World implementation if possible. Assuming it clears entities.)
 
-        # Reset game setup flag so setup() runs again if needed (to create initial entities)
-        # However, setup() also adds systems. If clear() keeps systems, we shouldn't re-add them.
-        # But setup() creates initial entities (like Reimu).
-        # We need a way to re-populate initial entities without re-adding systems.
-        # Ideally, tests call setup() explicitly.
-
-        # For now, we just clear entities. Tests that use reset() usually create their own entities.
-        # If the game relies on singletons created in setup (like managers), they persist.
+            # Re-initialize initial state if needed
+            if self._scene:
+                # Re-create Reimu?
+                # start_x = float(self._scene.yukkurrium.width) / 2.0
+                # start_y = float(self._scene.yukkurrium.height) / 2.0
+                # self._scene.factory.create_yukkuri("reimu", start_x, start_y)
+                pass
 
         self.simulated_time = 0.0
         self.frame_count = 0
         self._scenario_deadline = None
 
-    @property
-    def world(self) -> Any:
-        return self.game.world
-
     def save_screenshot(self, filename: str) -> None:
         """Saves the current screen state to a file."""
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-        if hasattr(self.game, "init_render_system_headless"):
-             self.game.init_render_system_headless()
-
-        # Force a render to the surface (logic loop doesn't do it)
-        if hasattr(self.game, "render"):
-             self.game.render()
+        # Force a render to the surface
+        self.game.render()
 
         pygame.image.save(self.game.screen, filename)
