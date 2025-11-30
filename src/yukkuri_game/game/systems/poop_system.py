@@ -6,6 +6,7 @@ import math
 from ...engine.ecs import System, World
 from ..yukkuri_components import YukkuriStats, Poop, AIState
 from ..components import Transform
+from ..prefabs.item import create_poop
 
 class PoopSystem(System):
     """
@@ -38,41 +39,29 @@ class PoopSystem(System):
         Returns:
             None
         """
-        from ..entity_factory import EntityFactory
-        factory = world.services.try_get(EntityFactory)
-
         # 1. Spawning Poop
         # Iterate over Yukkuris
         for entity, (stats, transform, ai) in world.get_components_tuple(YukkuriStats, Transform, AIState):
             should_poop = False
 
             # Periodic/Random spawning logic
-            # We could use a timer in AIState or just random chance.
-            # Let's use a simple random chance for now.
             if random.random() < self.spawn_chance_per_second * dt:
                 should_poop = True
 
             # Or if cleanliness is very low (lose control)
-            # Note: Task said "Spawn ... when cleanliness drops below threshold".
-            # This implies low cleanliness -> poop.
             if stats.cleanliness < 10.0:
                  if random.random() < (self.spawn_chance_per_second * 5) * dt:
                      should_poop = True
 
-            if should_poop and factory:
+            if should_poop:
                 # Spawn behind them? or just at position.
-                # Add a small offset so they don't get stuck inside it immediately if using physics
                 offset_x = random.uniform(-10, 10)
                 offset_y = random.uniform(-10, 10)
-                factory.create_poop(transform.x + offset_x, transform.y + offset_y)
+                create_poop(world, transform.x + offset_x, transform.y + offset_y)
 
                 # Feedback: Pooping might raise cleanliness slightly (relief) or lower it (dirty)?
-                # Task says "Poop entities lower cleanliness", implying environmental.
-                # Usually pooping itself might lower internal cleanliness?
                 # Let's say they get a bit dirtier by pooping.
                 stats.cleanliness = max(0, stats.cleanliness - 5)
-
-                # Play sound? (Access AudioManager if needed)
 
         # 2. Environmental Effect
         # Find all poop entities
@@ -91,7 +80,6 @@ class PoopSystem(System):
                 dist_sq = (p_trans.x - y_trans.x)**2 + (p_trans.y - y_trans.y)**2
 
                 if dist_sq < self.poop_radius**2:
-                    # Calculate falloff? Or constant?
                     # Constant decay if within radius
                     y_stats.cleanliness -= self.smell_strength * dt
                     y_stats.cleanliness = max(0, y_stats.cleanliness)

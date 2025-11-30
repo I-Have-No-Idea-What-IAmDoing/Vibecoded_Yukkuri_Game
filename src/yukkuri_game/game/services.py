@@ -10,9 +10,8 @@ from ..engine.audio import AudioManager
 from .components import Transform
 from .yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState, Personality, GossipQueue
 from ..engine.service_locator import ServiceLocator
-
-if TYPE_CHECKING:
-    from .entity_factory import EntityFactory
+from .prefabs.yukkuri import create_yukkuri
+from .prefabs.item import create_item
 
 class TimeService:
     """
@@ -105,15 +104,8 @@ class PersistenceService:
         try:
             all_entities = self.world.get_all_entities()
         except AttributeError:
-             # Fallback if ECS doesn't have get_all_entities
-             # Use transform as proxy, but this is not ideal
              logger.warning("World.get_all_entities not available. Falling back to Transform-based iteration.")
              all_entities = self.world.get_entities_with(Transform)
-
-        # First pass: Create ID mapping for all entities to be saved.
-        # We iterate through all entities, but we only assign SaveIDs to those that will be saved.
-        # However, since we don't know which ones are saved until we check components,
-        # we'll do the filtering logic twice or store the list.
 
         entities_to_save: List[int] = []
         id_map: Dict[int, int] = {}
@@ -178,7 +170,6 @@ class PersistenceService:
                     "current_target_id": mapped_target_id,
                     "action_progress": float(ai.action_progress),
                     "state_data": ai.state_data,
-                    # Helper to convert path tuples to list if needed (json handles list of lists)
                     "path": [list(p) for p in ai.path] if ai.path else None
                 }
 
@@ -213,7 +204,6 @@ class PersistenceService:
             if hasattr(economy_service, 'set_money'):
                 economy_service.set_money(data.get("money", 1000))
             else:
-                # If no set_money, maybe add/remove to match?
                 current = economy_service.get_money()
                 target = data.get("money", 1000)
                 if target > current:
@@ -233,9 +223,6 @@ class PersistenceService:
         except AttributeError:
              pass
 
-        from .entity_factory import EntityFactory
-        factory = self.world.services.get(EntityFactory)
-
         # Map SaveID (index in data list) -> NewEntityID
         loaded_entities: List[int] = []
 
@@ -252,7 +239,7 @@ class PersistenceService:
             eid = -1
             if "yukkuri" in ent_data:
                 y_data = ent_data["yukkuri"]
-                eid = factory.create_yukkuri(y_data["type_id"], x, y)
+                eid = create_yukkuri(self.world, y_data["type_id"], x, y)
                 stats = self.world.get_component(eid, YukkuriStats)
                 emotional = self.world.get_component(eid, EmotionalState)
                 if stats:
@@ -278,7 +265,7 @@ class PersistenceService:
 
             elif "item" in ent_data:
                 i_data = ent_data["item"]
-                eid = factory.create_item(i_data["type_id"], x, y)
+                eid = create_item(self.world, i_data["type_id"], x, y)
 
             # We append eid even if it's -1 (failed creation) to keep index sync
             loaded_entities.append(eid)
@@ -628,10 +615,6 @@ class GameService:
                 if ai and ai.current_target_id == item_id:
                     ai.current_target_id = -1
             else:
-                # Check if we should clear target if not consuming?
-                # Usually for continuous actions like sleeping, we might want to keep target until done.
-                # But this function is called once per interaction tick or once per action completion.
-                # If it's one-shot, we might want to clear target.
                 pass
 
             return True
@@ -681,7 +664,6 @@ class GameService:
                     init_gossip.add_packet(packet)
 
             if audio:
-                 # Use duck typing check or try/except to handle mocks
                  if hasattr(audio, 'play_sound'):
                      audio.play_sound("talk")
 
@@ -708,7 +690,6 @@ class GameService:
             if target_emo: target_emo.happiness = min(100.0, target_emo.happiness + 10.0)
             init_stats.social = min(100.0, init_stats.social + 10.0)
             target_stats.social = min(100.0, target_stats.social + 10.0)
-            # Maybe trigger animation if possible
 
         # --- Integrate with SocialSystem via EventBus ---
         from ..engine.event_bus import EventBus

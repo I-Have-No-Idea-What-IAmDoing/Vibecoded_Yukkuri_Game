@@ -14,8 +14,8 @@ from ..components import Transform
 from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState
 from ..trait_service import TraitService
 from ..services import TimeService
-from ..entity_factory import EntityFactory
 from ..events import SocialInteractionEvent
+from ..prefabs.effects import create_floating_text
 
 class SocialSystem(System):
     """
@@ -120,14 +120,10 @@ class SocialSystem(System):
             rel_data.base_compatibility = base_compatibility
 
         # 2. Use Cached Memory Sums (O(1))
-        # rel_data.core_sentiment_sum and rel_data.trivial_sentiment_sum are maintained by add_headline
         memory_score = rel_data.core_sentiment_sum + rel_data.trivial_sentiment_sum
 
         # 3. Final Calculation
         rel_data.affinity = rel_data.base_compatibility + memory_score
-
-        # We do not clamp opinion here, as deep history should allow for resilience (or permanent hatred).
-        # Any consuming system should handle values outside -100/100 if necessary.
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         if not hasattr(self, 'ecs_world'):
@@ -153,8 +149,6 @@ class SocialSystem(System):
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
 
     def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Dict[str, Any]) -> None:
-        factory = world.services.try_get(EntityFactory)
-        if not factory: return
         trans = world.get_component(entity_id, Transform)
         if not trans: return
 
@@ -181,7 +175,7 @@ class SocialSystem(System):
 
         fx = trans.x + random.uniform(-10, 10)
         fy = trans.y - 30
-        factory.create_floating_text(fx, fy, text, color, size=24, lifetime=1.5)
+        create_floating_text(world, fx, fy, text, color, size=24, lifetime=1.5)
 
     def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Dict[str, Any], role: str, now: float) -> None:
         if role == "actor":

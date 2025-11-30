@@ -8,14 +8,12 @@ from ...engine.ecs import World
 from ...engine.event_bus import EventBus
 from ..events import EntitySelectedEvent, GamePausedEvent, LogMessageEvent
 from ..yukkuri_components import YukkuriStats
+from ...engine.resource_manager import ResourceManager
 
 # Import new components
 from .hud_layout import HudLayout
 from .hud_events import HudEvents
 from .hud_renderer import HudRenderer
-
-if TYPE_CHECKING:
-    from ..entity_factory import EntityFactory
 
 class HUD:
     """
@@ -36,15 +34,13 @@ class HUD:
         """
         self.manager = ui_manager
         self.world = world
-        from ..entity_factory import EntityFactory
-        self.factory = world.services.get(EntityFactory)
         self.event_bus = world.services.get(EventBus)
+        rm = world.services.get(ResourceManager)
 
         self.width = 1280
         self.height = 720
 
         # Initialize Components
-        rm = self.factory.rm
         self.layout = HudLayout(self.manager, self.width, self.height, rm.yukkuri_types, rm.item_types)
 
         self.events = HudEvents(self.layout, self.world, self.event_bus, self.show_error)
@@ -92,9 +88,7 @@ class HUD:
 
             # Scroll to bottom
             if hasattr(self.layout.log_box, "scroll_bar") and self.layout.log_box.scroll_bar:
-                # Type checking ignore because pygame_gui stubs might not cover scroll_bar attributes fully or dynamically
                 self.layout.log_box.scroll_bar.scroll_position = self.layout.log_box.scroll_bar.scrollable_height
-                # Force update to apply scroll immediately if needed, though usually next update handles it.
                 self.layout.log_box.scroll_bar.update(0)
 
     def on_entity_selected(self, event: EntitySelectedEvent) -> None:
