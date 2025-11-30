@@ -1,4 +1,6 @@
-
+"""
+Tests for Memory Locking mechanics.
+"""
 import pytest
 from ..game.yukkuri_components import RelationshipData, MemoryHeadline as Headline
 
@@ -9,7 +11,16 @@ from ..game.yukkuri_components import RelationshipData, MemoryHeadline as Headli
 # The logic is in RelationshipData.add_headline and _add_core_memory.
 # So I should update this test to test RelationshipData.
 
-def test_memory_locking():
+def test_memory_locking() -> None:
+    """
+    Tests the memory locking mechanism within RelationshipData.
+
+    Verifies that:
+    - Buffers fill up correctly.
+    - New memories push out old ones.
+    - Locked memories are preserved.
+    - Significantly more important memories can overwrite locked ones.
+    """
     # Setup
     rel = RelationshipData()
     # Mock buffers to small size for testing

@@ -1,32 +1,43 @@
+"""
+Tests for the ECS (Entity Component System) module.
+"""
 import pytest
 from yukkuri_game.engine.ecs import World, System, Component
 
 # Define some simple components for testing
 class Position(Component):
-    def __init__(self, x, y):
+    """Component for testing position."""
+    def __init__(self, x: float, y: float) -> None:
         self.x = x
         self.y = y
 
 class Velocity(Component):
-    def __init__(self, vx, vy):
+    """Component for testing velocity."""
+    def __init__(self, vx: float, vy: float) -> None:
         self.vx = vx
         self.vy = vy
 
 class Health(Component):
-    def __init__(self, hp):
+    """Component for testing health."""
+    def __init__(self, hp: float) -> None:
         self.hp = hp
 
 # Define a simple system for testing
 class MovementSystem(System):
+    """System for testing movement updates."""
     def update(self, world: World, dt: float) -> None:
         entities = world.get_entities_with(Position, Velocity)
         for entity in entities:
             pos = world.get_component(entity, Position)
             vel = world.get_component(entity, Velocity)
-            pos.x += vel.vx * dt
-            pos.y += vel.vy * dt
+            if pos and vel:
+                pos.x += vel.vx * dt
+                pos.y += vel.vy * dt
 
-def test_create_destroy_entity():
+def test_create_destroy_entity() -> None:
+    """
+    Tests entity creation and destruction.
+    """
     world = World()
     entity1 = world.create_entity()
     entity2 = world.create_entity()
@@ -39,7 +50,10 @@ def test_create_destroy_entity():
     assert not world.entity_exists(entity1)
     assert world.entity_exists(entity2)
 
-def test_add_get_remove_component():
+def test_add_get_remove_component() -> None:
+    """
+    Tests adding, retrieving, and removing components.
+    """
     world = World()
     entity = world.create_entity()
 
@@ -53,7 +67,10 @@ def test_add_get_remove_component():
     assert not world.has_component(entity, Position)
     assert world.get_component(entity, Position) is None
 
-def test_get_entities_with():
+def test_get_entities_with() -> None:
+    """
+    Tests querying entities by component types.
+    """
     world = World()
     e1 = world.create_entity()
     e2 = world.create_entity()
@@ -77,7 +94,10 @@ def test_get_entities_with():
     assert e2 in entities_pos
     assert e3 not in entities_pos
 
-def test_system_update():
+def test_system_update() -> None:
+    """
+    Tests that systems update components correctly.
+    """
     world = World()
     system = MovementSystem()
     world.add_system(system)
@@ -101,7 +121,10 @@ def test_system_update():
     assert pos2.x == 10
     assert pos2.y == 10
 
-def test_get_components():
+def test_get_components() -> None:
+    """
+    Tests retrieving all components of a specific type.
+    """
     world = World()
     e1 = world.create_entity()
     e2 = world.create_entity()

@@ -1,4 +1,6 @@
-
+"""
+Tests for the Gossip System.
+"""
 import pytest
 from unittest.mock import MagicMock
 from ..game.systems.gossip_system import GossipSystem
@@ -10,18 +12,47 @@ from ..engine.event_bus import EventBus
 import pymunk
 
 @pytest.fixture
-def world():
+def world() -> World:
+    """
+    Creates a new ECS World for testing.
+
+    Returns:
+        World: A new ECS World instance.
+    """
     return World()
 
 @pytest.fixture
-def event_bus():
+def event_bus() -> EventBus:
+    """
+    Creates a new EventBus for testing.
+
+    Returns:
+        EventBus: A new EventBus instance.
+    """
     return EventBus()
 
 @pytest.fixture
-def gossip_system(event_bus):
+def gossip_system(event_bus: EventBus) -> GossipSystem:
+    """
+    Creates a GossipSystem for testing.
+
+    Args:
+        event_bus (EventBus): The event bus to use.
+
+    Returns:
+        GossipSystem: A new GossipSystem instance.
+    """
     return GossipSystem(event_bus)
 
-def test_witness_gossip_spatial(world, event_bus, gossip_system):
+def test_witness_gossip_spatial(world: World, event_bus: EventBus, gossip_system: GossipSystem) -> None:
+    """
+    Tests that a witness entity correctly receives gossip when an interaction occurs nearby.
+
+    Args:
+        world (World): The ECS World fixture.
+        event_bus (EventBus): The EventBus fixture.
+        gossip_system (GossipSystem): The GossipSystem fixture.
+    """
     # Mock PhysicsSystem
     physics_system = MagicMock()
     from ..game.systems.physics import PhysicsSystem
