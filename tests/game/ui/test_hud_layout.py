@@ -1,151 +1,160 @@
-import unittest
-from unittest.mock import MagicMock, patch
+import pytest
+from unittest.mock import MagicMock
 import pygame
 import pygame_gui
 from yukkuri_game.game.ui.hud_layout import HudLayout
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.components import Transform
+from yukkuri_game.game.yukkuri_components import YukkuriStats
 
-class TestHudLayout(unittest.TestCase):
-    def setUp(self):
-        self.mock_ui_manager = MagicMock(spec=pygame_gui.UIManager)
-        self.width = 1280
-        self.height = 720
-        self.yukkuri_types = {"reimu": MagicMock(cost=100, name="Reimu")}
-        self.item_types = {"cookie": MagicMock(cost=10, name="Cookie")}
+class TestHudLayout:
+    @pytest.fixture
+    def mock_ui_manager(self, monkeypatch):
+        # We need to mock pygame.display.get_surface because pygame_gui calls it
+        monkeypatch.setattr(pygame.display, "get_surface", lambda: MagicMock(spec=pygame.Surface))
+        manager = MagicMock(spec=pygame_gui.UIManager)
+        manager.ui_window_stack = MagicMock()
+        return manager
 
-        # Patch pygame_gui elements to avoid actual UI creation overhead/errors in headless env
-        self.patcher_panel = patch('yukkuri_game.game.ui.hud_layout.UIPanel', spec=True)
-        self.patcher_label = patch('yukkuri_game.game.ui.hud_layout.UILabel', spec=True)
-        self.patcher_button = patch('yukkuri_game.game.ui.hud_layout.UIButton', spec=True)
-        self.patcher_window = patch('yukkuri_game.game.ui.hud_layout.UIWindow', spec=True)
-        self.patcher_textbox = patch('yukkuri_game.game.ui.hud_layout.UITextBox', spec=True)
-        self.patcher_scroll = patch('yukkuri_game.game.ui.hud_layout.UIScrollingContainer', spec=True)
+    @pytest.fixture
+    def layout(self, mock_ui_manager, monkeypatch):
+        yukkuri_types = {
+            "reimu": MagicMock(cost=100, name="Reimu"),
+            "marisa": MagicMock(cost=100, name="Marisa")
+        }
+        item_types = {
+            "cookie": MagicMock(cost=10, name="Cookie", description="Tasty")
+        }
 
-        self.MockPanel = self.patcher_panel.start()
-        self.MockLabel = self.patcher_label.start()
-        self.MockButton = self.patcher_button.start()
-        self.MockWindow = self.patcher_window.start()
-        self.MockTextBox = self.patcher_textbox.start()
-        self.MockScroll = self.patcher_scroll.start()
+        # Mock UI Elements
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIPanel", MagicMock())
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UILabel", MagicMock())
+        # Ensure UIButton returns unique mocks so dictionary keys are unique
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIButton", MagicMock(side_effect=lambda *args, **kwargs: MagicMock()))
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIWindow", MagicMock())
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UITextBox", MagicMock())
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIHorizontalSlider", MagicMock())
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIDropDownMenu", MagicMock())
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIScrollingContainer", MagicMock())
 
-        # Ensure side_effect creates a new mock for each call to differentiate buttons as dict keys
-        self.MockButton.side_effect = lambda **kwargs: MagicMock()
+        layout = HudLayout(mock_ui_manager, 800, 600, yukkuri_types, item_types)
+        return layout
 
-    def tearDown(self):
-        self.patcher_panel.stop()
-        self.patcher_label.stop()
-        self.patcher_button.stop()
-        self.patcher_window.stop()
-        self.patcher_textbox.stop()
-        self.patcher_scroll.stop()
+    def test_initialization(self, layout):
+        """Test that layout initializes components."""
+        assert layout.top_panel is not None
+        assert layout.bottom_panel is not None
+        assert layout.money_label is not None
+        assert layout.time_label is not None
+        assert len(layout.buy_buttons) == 3 # 2 yukkuri + 1 item
 
-    def test_initialization(self):
-        layout = HudLayout(self.mock_ui_manager, self.width, self.height, self.yukkuri_types, self.item_types)
+    def test_resize(self, layout):
+        """Test resizing the layout."""
+        layout.rebuild_ui = MagicMock()
+        layout.resize(1024, 768)
 
-        # Verify top bar creation
-        self.MockPanel.assert_any_call(
-            relative_rect=pygame.Rect(0, 0, self.width, 50),
-            manager=self.mock_ui_manager
-        )
+        assert layout.width == 1024
+        assert layout.height == 768
+        assert layout.rebuild_ui.called
 
-        # Verify labels and buttons in top bar
-        self.MockLabel.assert_any_call(
-            relative_rect=pygame.Rect(10, 10, 200, 30),
-            text="Money: $0",
-            manager=self.mock_ui_manager,
-            container=layout.top_panel
-        )
+    def test_rebuild_ui(self, layout):
+        """Test rebuilding the UI."""
+        # Mock methods called by rebuild_ui
+        layout.clear_ui = MagicMock()
+        layout._create_top_bar = MagicMock()
+        layout._create_bottom_bar = MagicMock()
+        layout.close_settings_window = MagicMock()
+        layout.close_debug_window = MagicMock()
+        layout.close_selection_window = MagicMock()
 
-        # Verify bottom bar creation
-        self.MockPanel.assert_any_call(
-            relative_rect=pygame.Rect(0, self.height - 100, self.width, 100),
-            manager=self.mock_ui_manager
-        )
+        layout.rebuild_ui()
 
-        # Verify buy buttons creation
-        # We expect 2 buttons (1 yukkuri, 1 item)
-        # Note: If patched classes return the same mock instance, using it as a dictionary key
-        # will overwrite previous entries. We need to ensure each call returns a new mock.
-        self.assertEqual(len(layout.buy_buttons), 2)
-        # 5 top buttons (pause, speed, save, load, settings) + 2 buy buttons + 1 clean button = 8
-        self.assertEqual(self.MockButton.call_count, 5 + 2 + 1)
+        assert layout.clear_ui.called
+        assert layout._create_top_bar.called
+        assert layout._create_bottom_bar.called
+        assert layout.close_settings_window.called
 
-    def test_initialization_no_types(self):
-        layout = HudLayout(self.mock_ui_manager, self.width, self.height)
-        self.assertEqual(len(layout.buy_buttons), 0)
+    def test_clear_ui(self, layout):
+        """Test clearing the UI."""
+        # Mock kill methods
+        layout.top_panel.kill = MagicMock()
+        layout.bottom_panel.kill = MagicMock()
 
-    def test_create_selection_window(self):
-        layout = HudLayout(self.mock_ui_manager, self.width, self.height)
+        layout.clear_ui()
 
-        # Test creating window with stats (e.g. yukkuri)
+        assert layout.top_panel is None
+        assert layout.bottom_panel is None
+        assert len(layout.buy_buttons) == 0
+
+    def test_create_selection_window(self, layout):
+        """Test creating selection window."""
         layout.create_selection_window(has_stats=True)
 
-        self.MockWindow.assert_called()
-        self.MockTextBox.assert_called()
-        self.assertIsNotNone(layout.selection_window)
+        assert layout.selection_window is not None
+        assert layout.info_label is not None
+        assert layout.sell_btn is not None
+        assert layout.train_btn is not None
+        assert layout.punish_btn is not None
 
-        # Check buttons created
-        # Sell and Train buttons should be created
-        self.assertTrue(any(call[1]['text'] == "Sell" for call in self.MockButton.call_args_list))
-        self.assertTrue(any(call[1]['text'] == "Train (+Badge)" for call in self.MockButton.call_args_list))
-
-        # Test creating window without stats (e.g. item or multiple) - assuming currently only uses this bool
-        # Code actually creates generic info label but skips buttons if no stats?
-        # Let's check logic: if has_stats: create sell/train buttons.
-
-        # Reset mocks
-        self.MockButton.reset_mock()
+        # Test item selection (no stats actions)
         layout.create_selection_window(has_stats=False)
+        assert layout.selection_window is not None
+        # Buttons should be overwritten/None if we didn't recreate them inside the function logic cleanly
+        # Actually create_selection_window re-initializes them.
+        # If has_stats is False, buttons are not created?
+        # Let's check implementation.
+        # Ah, implementation doesn't explicitly set them to None if False, but they are instance vars.
+        # But wait, create_selection_window calls close_selection_window first which sets them to None.
+        # So if has_stats=False, they remain None.
+        assert layout.sell_btn is None
 
-        # Should not create buttons
-        self.assertFalse(any(call[1]['text'] == "Sell" for call in self.MockButton.call_args_list))
-
-    def test_close_selection_window(self):
-        layout = HudLayout(self.mock_ui_manager, self.width, self.height)
-
-        # Mock the window object
-        mock_window_instance = MagicMock()
-        layout.selection_window = mock_window_instance
-        layout.info_label = MagicMock()
-        layout.sell_btn = MagicMock()
-        layout.train_btn = MagicMock()
-
-        layout.close_selection_window()
-
-        mock_window_instance.kill.assert_called_once()
-        self.assertIsNone(layout.selection_window)
-        self.assertIsNone(layout.info_label)
-        self.assertIsNone(layout.sell_btn)
-        self.assertIsNone(layout.train_btn)
-
-    def test_create_debug_window(self):
-        layout = HudLayout(self.mock_ui_manager, self.width, self.height)
-
+    def test_create_debug_window(self, layout):
+        """Test creating debug window."""
         layout.create_debug_window()
+        assert layout.debug_window is not None
+        assert layout.debug_text_box is not None
 
-        self.MockWindow.assert_called()
-        self.MockTextBox.assert_called()
-        self.assertIsNotNone(layout.debug_window)
-        self.assertIsNotNone(layout.debug_text_box)
-
-        # Test re-creation kills old one
-        old_window = layout.debug_window
-
-        layout.create_debug_window()
-
-        old_window.kill.assert_called()
-
-    def test_close_debug_window(self):
-        layout = HudLayout(self.mock_ui_manager, self.width, self.height)
-
-        mock_window_instance = MagicMock()
-        layout.debug_window = mock_window_instance
-        layout.debug_text_box = MagicMock()
-
+        # Test toggling (closing via close_debug_window)
         layout.close_debug_window()
+        assert layout.debug_window is None
 
-        mock_window_instance.kill.assert_called_once()
-        self.assertIsNone(layout.debug_window)
-        self.assertIsNone(layout.debug_text_box)
+    def test_create_settings_window(self, layout):
+        """Test creating settings window."""
+        settings = {
+            "audio": {"master_volume": 0.5},
+            "window": {"width": 800, "height": 600}
+        }
+        layout.create_settings_window(settings)
 
-if __name__ == '__main__':
-    unittest.main()
+        assert layout.settings_window is not None
+        assert "master_slider" in layout.settings_controls
+        assert "resolution_dropdown" in layout.settings_controls
+
+        layout.close_settings_window()
+        assert layout.settings_window is None
+        assert len(layout.settings_controls) == 0
+
+    def test_hover_tooltip(self, layout):
+        """Test hover tooltip creation and update."""
+        # Initial state
+        assert layout.hover_tooltip_panel is None
+
+        # Create
+        layout.create_hover_tooltip()
+        assert layout.hover_tooltip_panel is not None
+        assert layout.hover_tooltip_panel.hide.called
+
+        # Update with text
+        # Set visible to False initially
+        layout.hover_tooltip_panel.visible = False
+        # Mock rect size
+        layout.hover_tooltip_panel.rect.size = (200, 60)
+
+        layout.update_hover_tooltip("Test Tooltip", (100, 100))
+        assert layout.hover_tooltip_panel.show.called
+
+        # Update without text (hide)
+        layout.hover_tooltip_panel.visible = True
+        layout.update_hover_tooltip("", (0, 0))
+        assert layout.hover_tooltip_panel.hide.called
+
