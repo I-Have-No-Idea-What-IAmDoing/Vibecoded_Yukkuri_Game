@@ -20,7 +20,7 @@ To avoid "call stack explosion" without adding the complexity/non-determinism of
 
 - **Phase-Based Dispatch**: Events are processed at specific points in the frame (e.g., `PreUpdate`, `PostUpdate`).
 - **Typed Events**: Enforce strict typing for event data to aid debugging and IDE support.
-- **Direct Observers**: For critical, high-frequency interactions (e.g., collision), prefer direct system-to-system communication or direct callback registration over the global event bus.
+- **System Decoupling**: For critical, high-frequency interactions, prefer explicitly defined interfaces or callbacks (e.g., C#-style Delegates or Signals) rather than hard system-to-system dependencies. This maintains decoupling while avoiding global event bus overhead.
 
 ### 3. Context-Aware Input System
 
@@ -61,17 +61,17 @@ A lightweight **ServiceContainer** will provide access to cross-cutting concerns
 
 ### 7. Data Persistence & State Transfer
 
-We adopt a decoupled, snapshot-based persistence model that enforces strict separation between Data, Logic, and Serialization. This revision addresses concerns regarding boilerplate, pollution, and fragility.
+We adopt a decoupled, snapshot-based persistence model that enforces strict separation between Data, Logic, and Serialization. This revision addresses concerns regarding boilerplate, pollution, and fragility, and now explicitly handles dynamic world state and entity references.
 
 #### 7.1. Core Principles
 
 - **No Global Session in ECS**: Systems operate on Components. Persistence is an infrastructure concern handled by the `SceneManager`.
 - **POPOs & Dataclasses**: Components are standard Python `dataclasses`. They contain **no** serialization logic and **no** migration logic.
-- **Key Constants**: To avoid "stringly typed" errors, persistence keys are defined as `Final` constants in designated `keys` modules (e.g., `keys.player.INVENTORY`), not as raw string literals.
+- **Key Constants**: To avoid "stringly typed" errors, persistence keys for global state are defined as `Final` constants.
 
-#### 7.2. Automated Lifecycle (The "No Boilerplate" Rule)
+#### 7.2. Global State Injection (The "Context" Layer)
 
-Instead of manual fetching and deserialization inside `setup`, the engine handles hydration *before* the Scene initializes.
+For singleton data (Player Inventory, Quest State) that persists *across* scenes:
 
 1.  **Scene Manifest**:
     The Scene declares its requirements using a typed mapping.
@@ -85,83 +85,70 @@ Instead of manual fetching and deserialization inside `setup`, the engine handle
     ```
 
 2.  **Auto-Hydration**:
-    The `SceneManager` resolves these dependencies. It loads the raw data, runs necessary migrations (see 7.3), deserializes it into the target Component classes, and bundles them into a `Context`.
+    The `SceneManager` resolves these dependencies, migrating data if necessary, and injects them into the `SceneContext`.
 
 3.  **Setup Injection**:
-    The `setup` method receives these ready-to-use objects.
     ```python
     def setup(self, world, context: SceneContext):
-        # context.data is a dict-like object strictly typed by INJECTIONS
-        # No manual deserialization needed.
+        # Injected data is ready to use
         inv = context.data[keys.player.INVENTORY]
         player = world.create_entity(inv, ...)
     ```
 
-#### 7.3. Decoupled Schema Migration & Versioning
+#### 7.3. Dynamic World Persistence (The "Level" Layer)
+
+For saving the state of a specific level (e.g., 50 enemies, dropped items):
+
+- **WorldSerializer**: A dedicated subsystem that iterates over all entities with a `Persistable` component.
+- **Dynamic Collections**: Unlike `INJECTIONS` (which map 1:1), `WorldSerializer` saves a list of entities.
+- **Entity ID Remapping**:
+    - **Stable IDs**: Persistent entities are assigned a stable ID. This can be a UUID (universally unique) or a simple monotonically increasing integer managed by the Scene, depending on complexity requirements.
+    - **Reference Handling**: When deserializing, a two-pass approach is used.
+        1.  **Create Entities**: Instantiate all entities and map their `SavedID` to the new runtime `EntityID`.
+        2.  **Resolve References**: Components that reference other entities (e.g., `Owner(target_id)`) use the map to update `target_id` to the correct runtime ID.
+
+#### 7.4. Decoupled Schema Migration & Versioning
 
 To prevent "Migration Pollution" in component classes, migration logic is housed in separate Strategy classes.
 
-- **Versioning**: Components define a `_version_ = N` field. This version is monotonic (1, 2, 3...).
+- **Versioning**: Components define a `_version_ = N` field.
 - **Migration Registry**: We register migration functions that transform raw dictionaries.
 - **Migration Semantics**:
-    - **Additive Changes**: Adding a field with a default value does not require a version bump if the default is handled in `__post_init__` or the dataclass definition.
-    - **Breaking Changes**: Renaming fields, changing types, or removing fields requires a version bump and a migration function.
-    - **Ordering**: Migrations are applied sequentially (v1 -> v2 -> v3). The registry validates that a continuous chain exists from the stored version to the current version.
+    - **Additive Changes**: Handled by default values.
+    - **Breaking Changes**: Require a registered migration function.
+    - **Ordering**: Migrations are applied sequentially.
 
 ```python
-# In migrations/inventory.py
-def migrate_v1_to_v2(data: dict) -> dict:
-    data['items'] = convert_list_to_slots(data['items'])
-    return data
-
-# Explicit Registration
 MigrationRegistry.register(Inventory, from_version=1, to_version=2, func=migrate_v1_to_v2)
 ```
 
-#### 7.4. Persistence Strategy: Snapshotting
+#### 7.5. Persistence Strategy: Snapshotting
 
-We explicitly reject "Dirty Checking" proxies due to their complexity and overhead.
-
-- **Snapshotting**: Data is serialized only at specific lifecycle events:
-    - **Scene Transition**: When leaving a scene.
-    - **Checkpoints**: Explicit calls (e.g., Save Points).
-    - **Background Autosave**: Addressed in 7.6.
-- **Explicit Persistence**: Only entities/components marked with a `Persistable` tag (or registered in a `Scene.EXPORTS` list) are saved. This eliminates ambiguity about "what is relevant".
-- **Registration**: `Scene.EXPORTS` is a static list or a method returning a mapping of `Key -> ComponentInstance`.
-
-#### 7.5. Atomicity, Consistency & Concurrency
-
-To address concerns about data integrity and performance during save operations:
-
-1.  **Atomicity**:
-    - Snapshots are "all-or-nothing". The system serializes all `EXPORTS` data into a temporary buffer/file.
-    - Only after successful serialization and validation (checksums) is the atomic rename or write to the primary save slot performed.
-    - On partial failure (e.g., serialization error), the operation is aborted, the user is notified, and the previous save remains untouched.
-
-2.  **Concurrency (Autosaves)**:
-    - **Main Thread Snapshot**: To avoid race conditions, the **collection** of data (dataclass -> dict) happens on the Main Game Thread at a safe point (e.g., end of frame). This is a fast, in-memory operation (copy).
-    - **Async I/O**: The heavy lifting (compression, disk I/O, encryption) is offloaded to a background thread.
-    - **Performance**: Deep copying large state can be expensive. We mitigate this by only copying strictly `Persistable` components. If performance becomes a bottleneck, we will implement Copy-on-Write (CoW) for specific large datasets (like WorldMap), but purely for optimization, not correctness.
+- **Snapshotting**: Data is serialized only at specific lifecycle events (Transition, Checkpoint).
+- **Atomicity**: Snapshots are "all-or-nothing" with atomic file writes.
+- **Concurrency**: Data collection happens on the Main Thread; I/O is Async.
 
 #### 7.6. Benefits
 
-- **Zero Boilerplate**: No manual `deserialize()` calls in scene code.
-- **Clean Architecture**: Components remain pure data; migrations are separate.
-- **Type Safety**: Keys are constants, and migrations are registered against Types.
-- **Predictability**: Snapshotting is deterministic, and atomic commits prevent save corruption.
+- **Complete Persistence**: Handles both Global State (Player) and Dynamic Level State (Enemies).
+- **Referential Integrity**: Entity relationships are preserved across save/load.
+- **Zero Boilerplate**: No manual `deserialize()` calls in scene code for injected dependencies.
+- **Clean Architecture**: Components remain pure data.
 
 ## Architecture Diagram (Conceptual)
 
 ```
 [Application]
   |
-  +-- [ServiceContainer] (Audio, Input, Resources, Session)
+  +-- [ServiceContainer]
   |
   +-- [SceneManager]
        |
-       +-- [Hydration Layer] (Deserializes & Migrates Data)
+       +-- [Hydration Layer] (Deserializes Global State)
        |
        +-- [Active Scene]
+            |
+            +-- [WorldSerializer] (Handles Dynamic Entities & ID Remapping)
             |
             +-- [ECS World]
                  |
