@@ -36,6 +36,27 @@ class World:
         esper.switch_world(self.name)
         # Note: esper doesn't have explicit world creation, switching to a new name creates it.
         self.services = ServiceLocator()
+        self._next_stable_id = 1
+
+    def get_next_stable_id(self) -> int:
+        """
+        Returns the next unique stable ID for this world.
+
+        Returns:
+            int: The next stable ID.
+        """
+        sid = self._next_stable_id
+        self._next_stable_id += 1
+        return sid
+
+    def set_next_stable_id(self, next_id: int) -> None:
+        """
+        Sets the next stable ID. Used during loading.
+
+        Args:
+            next_id (int): The next stable ID to use.
+        """
+        self._next_stable_id = next_id
 
     def _switch(self) -> None:
         """Switches to this world's context."""

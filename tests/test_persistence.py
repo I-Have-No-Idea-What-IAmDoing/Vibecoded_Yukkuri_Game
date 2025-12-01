@@ -17,7 +17,7 @@ def test_msgpack_persistence():
 
     # Create an entity
     entity = world.create_entity()
-    world.add_component(entity, StableIDComponent(id="test-uuid"))
+    world.add_component(entity, StableIDComponent(id=1))
     world.add_component(entity, Persistable())
     world.add_component(entity, Transform(x=10, y=20))
     world.add_component(entity, Selectable(selected=True))
@@ -43,7 +43,7 @@ def test_msgpack_persistence():
     assert len(decoded_data) == 1
     entity_data = decoded_data[0]
 
-    assert entity_data["stable_id"] == "test-uuid"
+    assert entity_data["stable_id"] == 1
     assert "Transform" in entity_data["components"]
     assert "Selectable" in entity_data["components"]
     assert "StableIDComponent" not in entity_data["components"] # Verification of optimization
@@ -60,7 +60,7 @@ def test_msgpack_persistence():
     new_entity = list(new_world.get_all_entities())[0]
 
     stable_id = new_world.get_component(new_entity, StableIDComponent)
-    assert stable_id.id == "test-uuid"
+    assert stable_id.id == 1
 
     transform = new_world.get_component(new_entity, Transform)
     assert transform.x == 10.0
