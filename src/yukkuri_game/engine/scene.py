@@ -2,10 +2,15 @@
 Scene Management Module.
 """
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional, Dict, Any, Type, ClassVar
+from typing import TYPE_CHECKING, Optional, Dict, Any, Type, ClassVar, Set
 from dataclasses import dataclass, field
 import pygame
 from .ecs import World
+from .resource_manager import ResourceManager
+from .input_manager import InputManager
+from .event_manager import EventManager
+from .serializer import WorldSerializer
+from ..game.components_persistence import Persistable, StableIDComponent
 
 if TYPE_CHECKING:
     from .application import Application
@@ -30,6 +35,23 @@ class Scene(ABC):
     def __init__(self, application: 'Application'):
         self.application = application
         self.world = World()
+        self.registered_components: Set[Type] = {Persistable, StableIDComponent}
+
+        # Register global services
+        # Note: application.resources is instance of ResourceManager
+        if hasattr(application, 'resources'):
+            self.world.services.register(application.resources, ResourceManager)
+        if hasattr(application, 'input_manager'):
+            self.world.services.register(application.input_manager, InputManager)
+        if hasattr(application, 'event_manager'):
+            self.world.services.register(application.event_manager, EventManager)
+
+    def register_component(self, component_type: Type) -> None:
+        """
+        Register a component type for serialization support.
+        Must be called during setup/init for any component that might be saved/loaded.
+        """
+        self.registered_components.add(component_type)
 
     def setup(self, context: SceneContext) -> None:
         """
@@ -79,10 +101,25 @@ class Scene(ABC):
         """
         Save the scene state to a file.
         """
-        pass
+        # Use explicitly registered types to ensure serializer knows about
+        # components even if they aren't currently active on any entity.
+        serializer = WorldSerializer(self.world, self.registered_components)
+        try:
+            serializer.save_to_file(filepath)
+        except Exception as e:
+            # Re-raise to let the caller (SceneManager or UI) handle the failure
+            raise IOError(f"Failed to save scene to {filepath}") from e
 
     def load(self, filepath: str) -> None:
         """
         Load the scene state from a file.
         """
-        pass
+        if not self.registered_components:
+            # Warn developer if they forgot to register components
+            print(f"Warning: Loading scene {self.__class__.__name__} with no registered components. deserialization may fail.")
+
+        serializer = WorldSerializer(self.world, self.registered_components)
+        try:
+            serializer.load_from_file(filepath)
+        except Exception as e:
+            raise IOError(f"Failed to load scene from {filepath}") from e
