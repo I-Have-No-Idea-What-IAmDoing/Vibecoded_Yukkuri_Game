@@ -94,6 +94,7 @@ class GameplayScene(Scene):
         self.world.services.register(self.yukkurrium, Yukkurrium)
         self.world.services.register(self.physics_system, PhysicsSystem)
         self.world.services.register(self.event_bus, EventBus)
+        self.world.services.register(self.input_manager, InputManager)
         # EventManager and InputManager are registered by Scene base class if present in Application
 
         # Inject Global State
