@@ -10,7 +10,7 @@ from yukkuri_game.game.ui.hud_renderer import HudRenderer
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
-from yukkuri_game.game.events import PlacementStartedEvent, TogglePauseRequest, CycleSpeedRequest, TrainEntityRequest, SellEntityRequest, LogMessageEvent, ResolutionChangedEvent
+from yukkuri_game.game.events import PlacementStartedEvent, TogglePauseRequest, CycleSpeedRequest, TrainEntityRequest, SellEntityRequest, LogMessageEvent, ResolutionChangedEvent, SaveGameRequest, LoadGameRequest
 from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
 
 @pytest.fixture
@@ -163,28 +163,24 @@ class TestHudLayout:
             mock_rebuild.assert_called_once()
 
 class TestHudEvents:
-    def test_process_event_save(self, hud_events, hud_layout, mock_world):
+    def test_process_event_save(self, hud_events, hud_layout, mock_event_bus):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
         event.ui_element = hud_layout.save_btn
 
-        # Access the mock persistence service from mock_world
-        persistence = mock_world.services.get(PersistenceService)
-
         assert hud_events.process_event(event) is True
-        persistence.save_game.assert_called()
+        # Check event published instead of direct service call
+        mock_event_bus.publish.assert_called_with(SaveGameRequest("savegame"))
 
-    def test_process_event_load(self, hud_events, hud_layout, mock_world):
+    def test_process_event_load(self, hud_events, hud_layout, mock_event_bus):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
         # Make sure objects are identical/comparable
         hud_layout.load_btn = MagicMock()
         event.ui_element = hud_layout.load_btn
 
-        persistence = mock_world.services.get(PersistenceService)
-
         assert hud_events.process_event(event) is True
-        persistence.load_game.assert_called()
+        mock_event_bus.publish.assert_called_with(LoadGameRequest("savegame"))
 
     def test_process_event_pause(self, hud_events, hud_layout, mock_event_bus):
         event = MagicMock()

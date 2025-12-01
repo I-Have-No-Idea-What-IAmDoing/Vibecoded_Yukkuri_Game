@@ -118,11 +118,14 @@ class TestPersistenceService:
         mock_world.get_all_entities.return_value = [1]
         mock_world.has_component.side_effect = lambda e, c: True
 
-        mock_trans = MagicMock(x=10, y=20)
-        mock_stats = MagicMock(type_id="reimu", health=100, hunger=50, badges=0, age=1)
-        mock_stats.name = "Reimu"
-        mock_emotional = MagicMock(happiness=80, stress=0)
-        mock_ai = MagicMock(current_action="Idle", current_target_id=-1, action_progress=0, state_data={}, path=[])
+        # Use real component classes to ensure correct serialization keys
+        mock_trans = Transform(x=10, y=20)
+
+        mock_stats = YukkuriStats(type_id="reimu", name="Reimu", health=100, hunger=50, badges=0, age=1, max_health=100)
+
+        mock_emotional = EmotionalState(happiness=80, stress=0)
+
+        mock_ai = AIState(current_action="Idle", current_target_id=-1, action_progress=0, state_data={}, path=[])
 
         def get_component_side_effect(e, c):
             if c == Transform: return mock_trans
@@ -133,6 +136,14 @@ class TestPersistenceService:
 
         mock_world.get_component.side_effect = get_component_side_effect
 
+        # Mock get_components for iterating persistable entities
+        # Returns {entity_id: component}
+        from yukkuri_game.game.components_persistence import Persistable
+        mock_world.get_components.return_value = {1: MagicMock()}
+
+        # Mock get_all_components for serialization
+        mock_world.get_all_components.return_value = (mock_trans, mock_stats, mock_emotional, mock_ai)
+
         service.save_game("test_save.json")
 
         mock_json.dump.assert_called_once()
@@ -141,8 +152,13 @@ class TestPersistenceService:
 
         assert data["money"] == 500
         assert len(data["entities"]) == 1
-        assert data["entities"][0]["transform"]["x"] == 10
-        assert data["entities"][0]["yukkuri"]["name"] == "Reimu"
+        # WorldSerializer uses ClassName as key (e.g. "Transform")
+        # Check if Transform is present
+        assert "Transform" in data["entities"][0]["components"]
+        assert data["entities"][0]["components"]["Transform"]["x"] == 10
+
+        assert "YukkuriStats" in data["entities"][0]["components"]
+        assert data["entities"][0]["components"]["YukkuriStats"]["name"] == "Reimu"
         # Since I mocked EmotionalState, I should probably check if it's saved,
         # but PersistenceService needs to know about it.
         # Assuming PersistenceService was updated to save EmotionalState.

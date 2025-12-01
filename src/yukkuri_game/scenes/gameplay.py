@@ -88,15 +88,13 @@ class GameplayScene(Scene):
 
     def _register_services(self, context: SceneContext) -> None:
         """Registers services to the world."""
-        # Use application's resource manager
-        self.world.services.register(self.application.resources, type(self.application.resources))
+        # ResourceManager is already registered by Scene base class
 
         self.world.services.register(self.audio, AudioManager)
         self.world.services.register(self.yukkurrium, Yukkurrium)
         self.world.services.register(self.physics_system, PhysicsSystem)
-        self.world.services.register(self.event_manager, EventManager)
         self.world.services.register(self.event_bus, EventBus)
-        self.world.services.register(self.input_manager, InputManager)
+        # EventManager and InputManager are registered by Scene base class if present in Application
 
         # Inject Global State
         money = context.data.get("money", 1000)
@@ -163,6 +161,10 @@ class GameplayScene(Scene):
         self.audio.set_sfx_volume(audio_settings.get("sfx_volume", 0.5))
 
     def _register_factories_and_managers(self) -> None:
+        from ..game.entity_factory import EntityFactory
+        self.entity_factory = EntityFactory(self.world)
+        self.world.services.register(self.entity_factory, EntityFactory)
+
         self.game_service = GameService(self.world)
         self.world.services.register(self.game_service, GameService)
 

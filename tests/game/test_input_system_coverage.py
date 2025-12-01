@@ -5,8 +5,10 @@ from yukkuri_game.game.input_system import InputSystem
 from yukkuri_game.game.components import Transform, Selectable
 from yukkuri_game.game.yukkuri_components import Poop
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.events import EntitySelectedEvent, CleanToolRequestedEvent
 from yukkuri_game.game.services import InputService
+from yukkuri_game.engine.input_manager import InputManager
 
 # Mock pygame.key.get_pressed
 @pytest.fixture
@@ -101,19 +103,41 @@ def test_clean_tool_requested_event():
     assert system.input_service.start_cleaning.called
 
 def test_handle_event_mouse_motion_drag():
-    # Test visual drag rect update
-    system = InputSystem(MagicMock())
-    system.input_service = MagicMock()
-    system.input_service.is_dragging = True
+    # Test drag position update
+    world = World()
+    yukkurrium = MagicMock()
+    yukkurrium.screen_to_world.return_value = (100.0, 100.0)
+    system = InputSystem(yukkurrium)
+
+    # Setup Services
+    input_service = InputService()
+    input_service.is_dragging = True
+    world.services.register(input_service, InputService)
+
+    input_manager = MagicMock(spec=InputManager)
+    input_manager.get_mouse_position.return_value = (100, 100)
+    input_manager.is_action_just_pressed.return_value = False
+    input_manager.is_action_just_released.return_value = False
+    world.services.register(input_manager, InputManager)
+
+    # Register EventBus
+    event_bus = MagicMock(spec=EventBus)
+    world.services.register(event_bus, EventBus)
+
+    # Pre-set dependencies on system
+    system.input_service = input_service
+    system.input_manager = input_manager
     system.drag_start_pos = (0, 0)
-    system.yukkurrium.world_to_screen.return_value = (0, 0)
-    system.yukkurrium.screen_to_world.return_value = (100.0, 100.0)
 
-    event = MagicMock()
-    event.type = pygame.MOUSEMOTION
-    event.pos = (100, 100)
+    # Mock pygame.display
+    with patch('pygame.display.get_surface') as mock_get_surface:
+        mock_surface = MagicMock()
+        mock_surface.get_size.return_value = (800, 600)
+        mock_get_surface.return_value = mock_surface
 
-    system.handle_event(event, MagicMock(), 800, 600)
+        # Call update
+        system.update(world, 0.1)
 
-    # We now track drag_current_pos instead of selection_rect
-    assert system.input_service.drag_current_pos == (100, 100)
+    # Verify input_service updated
+    assert input_service.drag_current_pos == (100, 100)
+    assert system.drag_end_pos == (100.0, 100.0)

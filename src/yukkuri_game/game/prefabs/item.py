@@ -7,6 +7,7 @@ from ...engine.ecs import World
 from ...engine.resource_manager import ResourceManager
 from ..components import Transform, Sprite, Selectable, VisualTransform, PhysicsBody
 from ..yukkuri_components import ItemStats, Poop
+from ..components_persistence import StableIDComponent, Persistable
 from ..collision_constants import CollisionCategories
 from ..systems.physics import PhysicsSystem
 
@@ -42,6 +43,8 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
     ))
     world.add_component(entity, Selectable())
     world.add_component(entity, VisualTransform())
+    world.add_component(entity, StableIDComponent(id=world.get_next_stable_id()))
+    world.add_component(entity, Persistable())
 
     stats = ItemStats(
         name=_get_attr(data, 'name', "Item"),
