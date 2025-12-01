@@ -1,12 +1,15 @@
 """
 Application Module.
 """
+import sys
 import pygame
 import pygame_gui
 import os
 from loguru import logger
 from .resource_manager import ResourceManager
 from .scene_manager import SceneManager
+from .input_manager import InputManager
+from .event_manager import EventManager, GamePhase
 
 class Application:
     """
@@ -35,6 +38,9 @@ class Application:
         self.resources = ResourceManager()
         self.resources.load_all_data()
 
+        self.input_manager = InputManager()
+        self.event_manager = EventManager()
+
         self.scene_manager = SceneManager()
 
         # Global UI Manager (for overlays or shared UI resources)
@@ -42,6 +48,8 @@ class Application:
 
         self.fixed_dt = 1.0 / 60.0
         self.accumulator = 0.0
+
+        logger.info("Application initialized.")
 
     def run(self) -> None:
         """Starts the main application loop."""
@@ -57,7 +65,7 @@ class Application:
             self.accumulator += frame_time
 
             # Input processing should happen every frame
-            self.handle_events()
+            self.process_events()
 
             while self.accumulator >= self.fixed_dt:
                 self.update(self.fixed_dt)
@@ -69,15 +77,15 @@ class Application:
             else:
                 self.clock.tick(60)
 
-        pygame.quit()
-        logger.info("Application Ended")
+        self.quit()
 
-    def handle_events(self) -> None:
+    def process_events(self) -> None:
         """Process input events."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.quit()
+                self.running = False
 
+            self.input_manager.process_event(event)
             self.ui_manager.process_events(event)
             self.scene_manager.handle_event(event)
 
@@ -88,8 +96,21 @@ class Application:
         Args:
             dt (float): Delta time in seconds.
         """
+        # 1. Update Input State (transitions, hold durations)
+        self.input_manager.update()
+
+        # 2. Pre-Update Phase (Prepare systems)
+        self.event_manager.process_phase(GamePhase.PRE_UPDATE)
+
+        # 3. Main Game Logic
         self.ui_manager.update(dt)
         self.scene_manager.update(dt)
+
+        # 4. Update Phase (Systems responding to frame logic)
+        self.event_manager.process_phase(GamePhase.UPDATE)
+
+        # 5. Post-Update (Cleanup)
+        self.event_manager.process_phase(GamePhase.POST_UPDATE)
 
     def render(self) -> None:
         """Render the application."""
@@ -100,4 +121,9 @@ class Application:
 
     def quit(self) -> None:
         """Stops the application."""
-        self.running = False
+        logger.info("Application Ended")
+        if self.running:
+             self.running = False
+        pygame.quit()
+        if not self.headless:
+             sys.exit()
