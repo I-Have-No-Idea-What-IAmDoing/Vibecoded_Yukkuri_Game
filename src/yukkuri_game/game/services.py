@@ -3,7 +3,7 @@ Module defining core game services.
 """
 import os
 import json
-from typing import Dict, Any, List, TYPE_CHECKING, Optional
+from typing import Dict, Any, List, TYPE_CHECKING, Optional, Set
 from loguru import logger
 from ..engine.ecs import World
 from ..engine.audio import AudioManager
@@ -20,8 +20,20 @@ from . import yukkuri_components
 class PersistenceService:
     """
     Service responsible for saving and loading game state.
+
+    Attributes:
+        world (World): The ECS world instance.
+        save_dir (str): The directory to save games in.
+        serializer (WorldSerializer): The serializer instance.
     """
     def __init__(self, world: World, save_dir: str = "saves"):
+        """
+        Initializes the PersistenceService.
+
+        Args:
+            world (World): The ECS world instance.
+            save_dir (str): The directory path for save files.
+        """
         self.world = world
         self.save_dir = save_dir
         if not os.path.exists(save_dir):
@@ -46,6 +58,12 @@ class PersistenceService:
     def save_game(self, filename: str) -> bool:
         """
         Saves the current game state to a JSON file.
+
+        Args:
+            filename (str): The name of the save file.
+
+        Returns:
+            bool: True if successful, False otherwise.
         """
         filepath = os.path.join(self.save_dir, filename)
 
@@ -77,6 +95,12 @@ class PersistenceService:
     def load_game(self, filename: str) -> bool:
         """
         Loads the game state from a JSON file.
+
+        Args:
+            filename (str): The name of the save file.
+
+        Returns:
+            bool: True if successful, False otherwise.
         """
         filepath = os.path.join(self.save_dir, filename)
         if not os.path.exists(filepath):
@@ -125,6 +149,7 @@ class TimeService:
 
     @property
     def time_elapsed(self) -> float:
+        """float: The total elapsed game time in seconds."""
         return self._time_elapsed
 
     @time_elapsed.setter
@@ -132,6 +157,12 @@ class TimeService:
         self._time_elapsed = value
 
     def add_time(self, dt: float) -> None:
+        """
+        Adds time to the total elapsed time.
+
+        Args:
+            dt (float): The time delta to add.
+        """
         self._time_elapsed += dt
 
 class EconomyService:
@@ -142,17 +173,45 @@ class EconomyService:
         _money (int): The current amount of money.
     """
     def __init__(self, initial_money: int = 1000):
+        """
+        Initializes the EconomyService.
+
+        Args:
+            initial_money (int): The starting amount of money.
+        """
         self._money = initial_money
 
     def get_money(self) -> int:
+        """Returns the current amount of money."""
         return self._money
 
     def add_money(self, amount: int) -> None:
+        """
+        Adds money to the player's funds.
+
+        Args:
+            amount (int): The amount to add (must be positive).
+
+        Raises:
+            ValueError: If amount is negative.
+        """
         if amount < 0:
             raise ValueError("Cannot add negative money.")
         self._money += amount
 
     def remove_money(self, amount: int) -> bool:
+        """
+        Removes money from the player's funds.
+
+        Args:
+            amount (int): The amount to remove (must be positive).
+
+        Returns:
+            bool: True if funds were sufficient and removed, False otherwise.
+
+        Raises:
+             ValueError: If amount is negative.
+        """
         if amount < 0:
              raise ValueError("Cannot remove negative money.")
         if self._money >= amount:
@@ -161,6 +220,12 @@ class EconomyService:
         return False
 
     def set_money(self, amount: int) -> None:
+        """
+        Sets the player's money directly.
+
+        Args:
+            amount (int): The new money amount. Clamped to 0 minimum.
+        """
         if amount < 0:
              self._money = 0
         else:
@@ -169,8 +234,21 @@ class EconomyService:
 class InputService:
     """
     Service responsible for managing input state, specifically placement mode and selection.
+
+    Attributes:
+        _placing_mode (bool): Whether placement mode is active.
+        _place_type (str): The ID of the item/yukkuri being placed.
+        _place_cost (int): The cost of the item being placed.
+        _place_entity_type (str): The type of entity ("yukkuri" or "item").
+        _cleaning_mode (bool): Whether cleaning mode is active.
+        hovered_entity_id (int): The ID of the entity under the cursor.
+        hovered_entity_pos (tuple[int, int]): Screen position of hovered entity.
+        drag_start_pos (tuple[int, int]): Screen position where drag started.
+        drag_current_pos (tuple[int, int]): Current screen position during drag.
+        is_dragging (bool): Whether a drag operation is in progress.
     """
     def __init__(self) -> None:
+        """Initializes the InputService."""
         self._placing_mode = False
         self._place_type: str = ""
         self._place_cost: int = 0
@@ -186,25 +264,38 @@ class InputService:
 
     @property
     def is_placing(self) -> bool:
+        """bool: True if in placement mode."""
         return self._placing_mode
 
     @property
     def is_cleaning(self) -> bool:
+        """bool: True if in cleaning mode."""
         return self._cleaning_mode
 
     @property
     def place_type(self) -> str:
+        """str: ID of the type being placed."""
         return self._place_type
 
     @property
     def place_cost(self) -> int:
+        """int: Cost of the item being placed."""
         return self._place_cost
 
     @property
     def place_entity_type(self) -> str:
+        """str: Type category of the entity being placed."""
         return self._place_entity_type
 
     def start_placement(self, type_id: str, cost: int, entity_type: str) -> None:
+        """
+        Enters placement mode.
+
+        Args:
+            type_id (str): The type ID of the entity to place.
+            cost (int): The cost of the entity.
+            entity_type (str): "yukkuri" or "item".
+        """
         self._placing_mode = True
         self._cleaning_mode = False
         self._place_type = type_id
@@ -212,26 +303,49 @@ class InputService:
         self._place_entity_type = entity_type
 
     def cancel_placement(self) -> None:
+        """Cancels placement mode."""
         self._placing_mode = False
         self._place_type = ""
         self._place_cost = 0
         self._place_entity_type = ""
 
     def start_cleaning(self) -> None:
+        """Enters cleaning mode."""
         self._cleaning_mode = True
         self._placing_mode = False
 
     def stop_cleaning(self) -> None:
+        """Stops cleaning mode."""
         self._cleaning_mode = False
 
 class GameService:
     """
     Service providing game-specific logic and utilities.
+
+    Attributes:
+        world (World): The ECS world.
     """
     def __init__(self, world: World):
+        """
+        Initializes the GameService.
+
+        Args:
+            world (World): The ECS World instance.
+        """
         self.world = world
 
-    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: set[int] | None = None) -> int:
+    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: Set[int] | None = None) -> int:
+        """
+        Finds the best item near a position based on criteria.
+
+        Args:
+            position (tuple[float, float]): The search origin (x, y).
+            stat_criteria (str): The ItemStats attribute to maximize (e.g. "nutrition").
+            exclude_ids (Set[int] | None): IDs to ignore.
+
+        Returns:
+            int: The ID of the best item, or -1 if none found.
+        """
         import math
         best_dist = float('inf')
         best_item = -1
@@ -260,6 +374,17 @@ class GameService:
         return best_item
 
     def interact_with_item(self, consumer_id: int, item_id: int, consume: bool = True) -> bool:
+        """
+        Logic for a Yukkuri interacting with (eating) an item.
+
+        Args:
+            consumer_id (int): The ID of the Yukkuri.
+            item_id (int): The ID of the Item.
+            consume (bool): Whether the item should be destroyed after interaction.
+
+        Returns:
+            bool: True if interaction was successful, False otherwise.
+        """
         from .components import Transform
         from .yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState
 
@@ -300,6 +425,17 @@ class GameService:
         return False
 
     def interact_social(self, initiator_id: int, target_id: int, interaction_type: str) -> bool:
+        """
+        Logic for social interactions between Yukkuris.
+
+        Args:
+            initiator_id (int): ID of the entity starting the interaction.
+            target_id (int): ID of the target entity.
+            interaction_type (str): Type of interaction ("Talk", "Fight", "Dance").
+
+        Returns:
+            bool: True if interaction occurred, False otherwise.
+        """
         if not self.world.entity_exists(initiator_id) or not self.world.entity_exists(target_id):
             return False
 

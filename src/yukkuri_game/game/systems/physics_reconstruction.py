@@ -10,9 +10,16 @@ from ..collision_constants import CollisionCategories
 from ..systems.physics import PhysicsSystem
 from ..physics_utils import add_physics_body, get_yukkuri_radius
 
-def reconstruct_physics(world: World):
+def reconstruct_physics(world: World) -> None:
     """
     Iterates over entities that need physics bodies but don't have them (e.g. after load).
+    Recreates Pymunk bodies and shapes based on entity components.
+
+    Args:
+        world (World): The ECS World.
+
+    Returns:
+        None
     """
     # Reconstruct Yukkuris
     for entity, (transform, stats) in world.get_components_tuple(Transform, YukkuriStats):

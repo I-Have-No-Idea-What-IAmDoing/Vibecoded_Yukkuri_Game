@@ -14,6 +14,18 @@ from ..systems.physics import PhysicsSystem
 def create_item(world: World, type_id: str, x: float, y: float) -> int:
     """
     Creates an Item entity.
+
+    Args:
+        world (World): The ECS World.
+        type_id (str): The item type identifier.
+        x (float): World x-coordinate.
+        y (float): World y-coordinate.
+
+    Returns:
+        int: The created entity ID.
+
+    Raises:
+        ValueError: If the item type is unknown.
     """
     rm = world.services.get(ResourceManager)
     physics_system = world.services.try_get(PhysicsSystem)
@@ -78,6 +90,14 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
 def create_poop(world: World, x: float, y: float) -> int:
     """
     Creates a Poop entity.
+
+    Args:
+        world (World): The ECS World.
+        x (float): World x-coordinate.
+        y (float): World y-coordinate.
+
+    Returns:
+        int: The created entity ID.
     """
     physics_system = world.services.try_get(PhysicsSystem)
 

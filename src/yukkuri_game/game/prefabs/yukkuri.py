@@ -30,6 +30,20 @@ def create_yukkuri(
 ) -> int:
     """
     Creates a Yukkuri entity.
+
+    Args:
+        world (World): The ECS World.
+        type_id (str): The Yukkuri type identifier.
+        x (float): World x-coordinate.
+        y (float): World y-coordinate.
+        age (float): Initial age in seconds.
+        parents (Optional[List[int]]): IDs of parent entities for genetic inheritance.
+
+    Returns:
+        int: The created entity ID.
+
+    Raises:
+        ValueError: If the Yukkuri type is unknown.
     """
     rm = world.services.get(ResourceManager)
     physics_system = world.services.try_get(PhysicsSystem)
