@@ -7,7 +7,7 @@ from yukkuri_game.engine.event_bus import EventBus, Event
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
-class TestEvent(Event):
+class MockEvent(Event):
     """Event for testing purposes."""
     payload: str
 
@@ -26,9 +26,9 @@ class TestEventBus(unittest.TestCase):
         Tests that subscribed handlers receive published events.
         """
         mock_handler = Mock()
-        self.event_bus.subscribe(TestEvent, mock_handler)
+        self.event_bus.subscribe(MockEvent, mock_handler)
 
-        event = TestEvent("test")
+        event = MockEvent("test")
         self.event_bus.publish(event)
 
         mock_handler.assert_called_once_with(event)
@@ -38,10 +38,10 @@ class TestEventBus(unittest.TestCase):
         Tests that unsubscribed handlers do not receive events.
         """
         mock_handler = Mock()
-        self.event_bus.subscribe(TestEvent, mock_handler)
-        self.event_bus.unsubscribe(TestEvent, mock_handler)
+        self.event_bus.subscribe(MockEvent, mock_handler)
+        self.event_bus.unsubscribe(MockEvent, mock_handler)
 
-        event = TestEvent("test")
+        event = MockEvent("test")
         self.event_bus.publish(event)
 
         mock_handler.assert_not_called()
@@ -52,10 +52,10 @@ class TestEventBus(unittest.TestCase):
         """
         handler1 = Mock()
         handler2 = Mock()
-        self.event_bus.subscribe(TestEvent, handler1)
-        self.event_bus.subscribe(TestEvent, handler2)
+        self.event_bus.subscribe(MockEvent, handler1)
+        self.event_bus.subscribe(MockEvent, handler2)
 
-        event = TestEvent("test")
+        event = MockEvent("test")
         self.event_bus.publish(event)
 
         handler1.assert_called_once_with(event)
