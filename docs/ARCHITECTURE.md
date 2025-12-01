@@ -1,67 +1,64 @@
-# Architecture
+# Yukkuri Game Engine Architecture
 
-The Yukkuri Raising Game is built on a modular architecture designed to separate concerns and allow for data-driven content.
+## Overview
+
+This document outlines the architecture of the Yukkuri Game Engine, focusing on modularity, scalability, and maintainability.
 
 ## Core Components
 
-### 1. Entity Component System (ECS)
+### 1. Application Lifecycle & Scene Management
 
-The game uses the **Entity Component System** pattern, implemented using the `esper` library and wrapped in `src/yukkuri_game/engine/ecs.py`.
+- **Application (`engine/application.py`)**: The entry point. Handles the main loop, window management, and initializes the `SceneManager`.
+- **SceneManager (`engine/scene_manager.py`)**: Manages a stack of `Scene` objects (push, pop, replace).
+- **Scene (`engine/scene.py`)**: Abstract base class for game states (e.g., `MainMenuScene`, `GameplayScene`). Each Scene owns its own ECS `World`.
 
-*   **Entities**: Integers representing objects in the game world. They have no data or behavior themselves but are containers for components.
-*   **Components**: Data classes that hold state (e.g., `Transform`, `Sprite`, `YukkuriStats`). Components have no behavior.
-*   **Systems**: Logic processors that operate on entities with specific components. Examples: `MovementSystem`, `RenderSystem`, `BehaviorSystem`.
+### 2. Entity Component System (ECS)
 
-This approach decouples data from logic, making it easier to add new features without modifying existing classes.
+- **ECS Wrapper (`engine/ecs.py`)**: Wraps the `esper` library to provide a context-based `World` API.
+- **Components**: Data containers (mostly `dataclasses`).
+- **Systems**: Logic processors that operate on entities with specific components.
 
-### 2. Event Bus
+### 3. Event System (`engine/event_manager.py`)
 
-The **Event Bus** (`src/yukkuri_game/engine/event_bus.py`) provides a publish-subscribe mechanism for decoupled communication between systems.
+- **Phase-Based Dispatch**: Events are processed at specific phases (`PreUpdate`, `Update`, `PostUpdate`).
+- **Event Bus (`engine/event_bus.py`)**: Handles subscription and publishing of typed events.
+- **Typed Events (`engine/events.py`)**: All events are dataclasses for type safety.
 
-*   **Publishers**: Any part of the code can publish an event (e.g., "yukkuri_died", "item_placed").
-*   **Subscribers**: Systems or other components can subscribe to specific event types and react to them.
+### 4. Input System (`engine/input_manager.py`)
 
-This avoids tight coupling where one system needs to directly call methods on another.
+- **Context-Aware**: `InputManager` manages `InputContext`s (e.g., `GAMEPLAY`, `MENU`).
+- **Action Mapping**: Maps physical keys to logical actions.
 
-### 3. Service Locator
+### 5. Prefabs (`game/prefabs/`)
 
-The **Service Locator** (`src/yukkuri_game/engine/service_locator.py`) provides global access to essential services that don't fit well into the ECS model or need to be shared widely.
+- Python functions (e.g., `create_yukkuri`) that construct and return fully configured entities.
+- Replaces configuration files for entity definition logic.
 
-*   **Services**: `ResourceManager`, `AudioManager`, `InputService`, `TimeService`, `EconomyService`.
-*   **Access**: `ServiceLocator.get_service("name")`.
+### 6. Service Access (`engine/service_locator.py`)
 
-### 4. Game Loop
+- **ServiceLocator**: Provides access to cross-cutting concerns (Audio, Logging, Assets) via `world.services`.
+- **Registration**: Services are registered at startup or scene initialization.
 
-The `GameLoop` (`src/yukkuri_game/engine/core.py`) manages the main execution loop.
+### 7. Persistence (`engine/serializer.py`)
 
-1.  **Process Input**: Collects events from Pygame (keyboard, mouse).
-2.  **Update**: Advances the game state by calling `world.update(dt)`.
-3.  **Render**: Draws the current state to the screen.
+- **Snapshot-Based**: The world state is serialized to MessagePack (via `msgspec`) for performance and compactness.
+- **Components**: `Persistable` marker component indicates entities to save. `StableIDComponent` ensures identity preservation across saves.
+- **Serializer**: `WorldSerializer` handles serialization/deserialization, including reference resolution for Entity IDs.
 
 ## Directory Structure
 
-*   `src/yukkuri_game/engine/`: Generic game engine code (ECS wrapper, Event Bus, etc.).
-*   `src/yukkuri_game/game/`: Game-specific logic (Systems, Components, UI).
-*   `src/yukkuri_game/game/systems/`: ECS Systems.
-*   `src/yukkuri_game/game/components.py`: General components.
-*   `src/yukkuri_game/game/yukkuri_components.py`: Game-specific components.
-*   `data/`: TOML configuration files.
-*   `assets/`: Images and sounds.
+- `engine/`: Core engine systems (Application, ECS, Input, Events, Audio, Serializer).
+- `game/`: Game-specific logic (Components, Systems, Prefabs).
+- `scenes/`: Scene implementations.
+- `assets/`: Game assets.
 
-## Data Flow
+## Usage
 
-1.  **Initialization**:
-    *   `GameConfig` loads settings from `data/`.
-    *   `ResourceManager` loads assets.
-    *   `YukkuriGame` initializes the World, adds Systems, and starts the loop.
+### Adding a New Entity
+Define a prefab function in `game/prefabs/` that creates an entity and adds components.
 
-2.  **Update Loop**:
-    *   `TimeService` calculates delta time (`dt`).
-    *   `InputSystem` processes user input and updates `InputComponent`s.
-    *   `BehaviorSystem` updates AI decision trees.
-    *   `PhysicsSystem` updates positions based on velocity and collisions.
-    *   `RenderSystem` draws entities to the screen.
+### Adding a New System
+Inherit from `System` in `engine/ecs.py` and implement `update(self, world, dt)`. Register it in the `Scene`.
 
-3.  **Inter-System Communication**:
-    *   Systems communicate via components (e.g., AI sets `Target` component, Movement reads it).
-    *   Systems communicate via events (e.g., `DeathSystem` publishes `EntityDiedEvent`, `SocialSystem` hears it and reduces happiness of friends).
+### Saving/Loading
+Call `scene.save(filepath)` or `scene.load(filepath)`. Ensure entities have `Persistable` and `StableIDComponent`.
