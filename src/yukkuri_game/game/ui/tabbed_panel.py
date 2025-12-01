@@ -76,8 +76,6 @@ class TabbedPanel(UITabContainer):
         """
         # We must use self._root_container as container for children, verified by test.
 
-        self.rebuild(len(self.tabs) + 1)
-
         # Calculate button rect
         if self.orientation == 'vertical':
             furthest_bottom = 0
