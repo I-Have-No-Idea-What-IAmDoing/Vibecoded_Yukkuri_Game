@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.feedback_system import FeedbackSystem
@@ -65,11 +65,12 @@ class TestFeedbackSystem:
         assert text.lifetime < 0
         mock_world.destroy_entity.assert_called_with(e1)
 
-    def test_on_entity_sold(self, system, mock_world):
+    @patch('yukkuri_game.game.systems.feedback_system.create_floating_text')
+    def test_on_entity_sold(self, mock_create, system, mock_world):
         event = EntitySoldEvent(entity_id=1, value=100, position=(10, 20))
         system.on_entity_sold(event)
 
-        system.factory.create_floating_text.assert_called_with(10, -10, "+$100", (255, 215, 0), size=24)
+        mock_create.assert_called_with(system.world, 10, -10, "+$100", (255, 215, 0), size=24)
 
         # Verify log message
         assert system.event_bus.publish.called
@@ -77,55 +78,60 @@ class TestFeedbackSystem:
         assert isinstance(args[0], LogMessageEvent)
         assert "Sold entity" in args[0].message
 
-    def test_on_growth(self, system, mock_world):
+    @patch('yukkuri_game.game.systems.feedback_system.create_floating_text')
+    def test_on_growth(self, mock_create, system, mock_world):
         stats = YukkuriStats(name="Y1", type_id="reimu")
         mock_world.get_component.return_value = stats
 
         event = EntityGrewEvent(entity_id=1, new_stage="Adult", position=(10, 20))
         system.on_growth(event)
 
-        system.factory.create_floating_text.assert_called()
+        mock_create.assert_called()
         assert system.event_bus.publish.called
         args, _ = system.event_bus.publish.call_args
         assert "Y1 grew into a Adult" in args[0].message
 
-    def test_on_death(self, system, mock_world):
+    @patch('yukkuri_game.game.systems.feedback_system.create_floating_text')
+    def test_on_death(self, mock_create, system, mock_world):
         stats = YukkuriStats(name="Y1", type_id="reimu")
         mock_world.get_component.return_value = stats
 
         event = EntityDiedEvent(entity_id=1, position=(10, 20))
         system.on_death(event)
 
-        system.factory.create_floating_text.assert_called()
+        mock_create.assert_called()
         assert system.event_bus.publish.called
         args, _ = system.event_bus.publish.call_args
         assert "Y1 has died" in args[0].message
 
-    def test_on_trained(self, system, mock_world):
+    @patch('yukkuri_game.game.systems.feedback_system.create_floating_text')
+    def test_on_trained(self, mock_create, system, mock_world):
         stats = YukkuriStats(name="Y1", type_id="reimu")
         mock_world.get_component.return_value = stats
 
         event = EntityTrainedEvent(entity_id=1, position=(10, 20))
         system.on_trained(event)
 
-        system.factory.create_floating_text.assert_called()
+        mock_create.assert_called()
         assert system.event_bus.publish.called
         args, _ = system.event_bus.publish.call_args
         assert "Y1 trained successfully" in args[0].message
 
-    def test_on_punished(self, system, mock_world):
+    @patch('yukkuri_game.game.systems.feedback_system.create_floating_text')
+    def test_on_punished(self, mock_create, system, mock_world):
         stats = YukkuriStats(name="Y1", type_id="reimu")
         mock_world.get_component.return_value = stats
 
         event = EntityPunishedEvent(entity_id=1, position=(10, 20))
         system.on_punished(event)
 
-        system.factory.create_floating_text.assert_called()
+        mock_create.assert_called()
         assert system.event_bus.publish.called
         args, _ = system.event_bus.publish.call_args
         assert "Y1 was punished" in args[0].message
 
-    def test_handlers_missing_stats(self, system, mock_world):
+    @patch('yukkuri_game.game.systems.feedback_system.create_floating_text')
+    def test_handlers_missing_stats(self, mock_create, system, mock_world):
         # Test case where YukkuriStats is missing (e.g. invalid entity)
         mock_world.get_component.return_value = None
 

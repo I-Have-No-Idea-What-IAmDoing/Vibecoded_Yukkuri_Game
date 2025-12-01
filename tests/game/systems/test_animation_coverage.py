@@ -33,7 +33,7 @@ def test_animation_event_trigger():
     assert event_bus.publish.called
     args, _ = event_bus.publish.call_args
     event = args[0]
-    assert event.event_name == "hit"
+    assert event.event_type == "hit"
     assert event.frame_index == 1
 
 def test_sync_ai_animation():

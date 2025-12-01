@@ -2,8 +2,9 @@
 Module defining the Entity Component System (ECS) wrapper.
 """
 from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING
-import esper
 import uuid
+import esper
+
 from .service_locator import ServiceLocator
 from .events import EntityDestroyedEvent
 from .event_bus import EventBus
@@ -14,8 +15,8 @@ class Component:
     """
     Base class for components.
 
-    In Esper, components can be any object, but we keep this class for backward compatibility
-    and potential type hinting.
+    In Esper, components can be any object, but we keep this class for
+    explicit typing and potential future extension.
     """
     pass
 
@@ -83,22 +84,16 @@ class World:
 
         Args:
             entity (int): The ID of the entity to destroy.
-
-        Returns:
-            None
         """
         self._switch()
         try:
-            # Notify before deletion (or after, but typically useful to know ID is gone)
+            # Notify before deletion
             event_bus = self.services.try_get(EventBus)
             if event_bus:
                 event_bus.publish(EntityDestroyedEvent(entity))
 
-            # print(f"DEBUG: destroy_entity {entity} in world {self.name}")
             esper.delete_entity(entity, immediate=True)
-            # print(f"DEBUG: exists after delete? {esper.entity_exists(entity)}")
         except KeyError:
-            # print(f"DEBUG: destroy_entity {entity} KeyError")
             pass
 
     def entity_exists(self, entity: int) -> bool:
@@ -121,9 +116,6 @@ class World:
         Args:
             entity (int): The ID of the entity.
             component (Any): The component instance to add.
-
-        Returns:
-            None
         """
         self._switch()
         esper.add_component(entity, component)
@@ -135,9 +127,6 @@ class World:
         Args:
             entity (int): The ID of the entity.
             component_type (Type[Any]): The type of component to remove.
-
-        Returns:
-            None
         """
         self._switch()
         try:
@@ -159,8 +148,7 @@ class World:
         self._switch()
         try:
             # Cast because esper might return Any or not be fully typed
-            # noinspection PyTypeHints
-            return esper.component_for_entity(entity, component_type) # type: ignore[no-any-return]
+            return esper.component_for_entity(entity, component_type)  # type: ignore[no-any-return]
         except KeyError:
             return None
 
@@ -209,17 +197,10 @@ class World:
         self._switch()
         # esper._entities is a dictionary {entity_id: {component_type: component_instance}}
         # Since esper doesn't provide a public method to get all entities, we access the internal storage.
-        # This is safe because we are wrapping esper and this class is the designated interface.
-        # Note: 'esper._entities' is a module-level variable that points to the entity map of the
-        # currently active world context (managed by switch_world).
         try:
             # Accessing the internal _entities attribute of esper directly is necessary
-            # because the public API focuses on component-based queries.
-            # Note: This depends on esper's internal implementation detail `_entities`.
             return list(esper._entities.keys())
         except AttributeError:
-            # Fallback if internal implementation changes (unlikely for stable esper)
-            # A more robust but slower way would be to query for a common component if we knew one.
             return []
 
     def get_entities_with(self, *component_types: Type[Any]) -> List[int]:
@@ -251,8 +232,7 @@ class World:
             List[Tuple[int, Tuple[Any, ...]]]: A list of (entity, (component1, component2, ...)).
         """
         self._switch()
-        # noinspection PyTypeChecker
-        return esper.get_components(*component_types) # type: ignore[no-any-return]
+        return esper.get_components(*component_types)  # type: ignore[no-any-return]
 
     def get_all_components(self, entity: int) -> Tuple[Any, ...]:
         """
@@ -276,13 +256,9 @@ class World:
 
         Args:
             system (System): The System instance to add.
-
-        Returns:
-            None
         """
         self._switch()
         # Inject world reference into system
-        # We use 'ecs_world' to avoid conflict with any internal 'world' attribute if esper ever sets one
         system.ecs_world = self
         esper.add_processor(system)
 
@@ -292,13 +268,9 @@ class World:
 
         Args:
             dt (float): The time elapsed since the last update in seconds.
-
-        Returns:
-            None
         """
         self._switch()
         # Process all registered systems (Processors) in order of priority
-        # noinspection PyTypeChecker
         esper.process(dt)
 
     def clear_database(self) -> None:
@@ -343,18 +315,10 @@ class System(ProcessorBase):
 
         Args:
             dt (float): The time elapsed since the last update in seconds.
-
-        Returns:
-            None
         """
         # We need to ensure we are operating on the correct world context
-        # esper.process is called within the context, so global esper calls are safe.
-        # We pass self.ecs_world (our wrapper) to the update method.
         if hasattr(self, 'ecs_world'):
-             self.update(self.ecs_world, dt)
-        else:
-             # This should not happen if added via World.add_system
-             pass
+            self.update(self.ecs_world, dt)
 
     def update(self, world: World, dt: float) -> None:
         """

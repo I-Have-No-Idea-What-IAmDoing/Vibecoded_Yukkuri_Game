@@ -8,18 +8,21 @@ class EntityDestroyedEvent:
 @dataclass
 class EntityDiedEvent:
     entity_id: int
-    cause: str
+    position: Tuple[float, float]
+    cause: str = "Unknown"
 
 @dataclass
 class EntityGrewEvent:
     entity_id: int
     new_stage: str
+    position: Tuple[float, float]
 
 @dataclass
 class AnimationEvent:
     entity_id: int
-    event_type: str # "started", "finished"
+    event_type: str # "started", "finished", or custom event name
     animation_name: str
+    frame_index: int = -1
 
 @dataclass
 class PlacementStartedEvent:
@@ -73,7 +76,8 @@ class TrainEntityRequest:
 @dataclass
 class EntityTrainedEvent:
     entity_id: int
-    success: bool
+    position: Tuple[float, float]
+    success: bool = True
 
 @dataclass
 class PunishEntityRequest:
@@ -82,6 +86,7 @@ class PunishEntityRequest:
 @dataclass
 class EntityPunishedEvent:
     entity_id: int
+    position: Tuple[float, float]
 
 @dataclass
 class SellEntityRequest:
@@ -91,6 +96,7 @@ class SellEntityRequest:
 class EntitySoldEvent:
     entity_id: int
     value: int
+    position: Tuple[float, float]
 
 @dataclass
 class CleanToolRequestedEvent:

@@ -17,6 +17,8 @@ class DictComponent:
     threats: Dict[int, int] = field(default_factory=dict) # Key=ID, Value=Amount. Should remap Key.
     metadata: Dict[int, str] = field(default_factory=dict) # Key=ID, Value=String. Should remap Key.
 
+    _references = {"threats", "metadata"}
+
 class TestSerializerFix(unittest.TestCase):
     def setUp(self):
         self.world = World()

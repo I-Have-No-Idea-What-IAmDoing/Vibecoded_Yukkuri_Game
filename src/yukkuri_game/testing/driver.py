@@ -213,7 +213,7 @@ class GameDriver:
 
     def reset(self) -> None:
         # Clear the ECS world to remove all entities
-        self.world.clear()
+        self.world.clear_database()
 
         # Reset game setup flag so setup() runs again if needed (to create initial entities)
         # However, setup() also adds systems. If clear() keeps systems, we shouldn't re-add them.

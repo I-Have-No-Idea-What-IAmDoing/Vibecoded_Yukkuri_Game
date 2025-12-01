@@ -13,8 +13,7 @@ def test_lifecycle_scaling_correctness():
     # Setup
     world = World()
     settings = MagicMock()
-    factory = MagicMock()
-    system = LifecycleSystem(settings, factory)
+    system = LifecycleSystem(settings)
 
     entity = world.create_entity()
     # Correct initialization for a Baby is scale 0.5 (verified in EntityFactory)
@@ -48,8 +47,7 @@ def test_lifecycle_scaling_incorrect_initialization():
     """
     world = World()
     settings = MagicMock()
-    factory = MagicMock()
-    system = LifecycleSystem(settings, factory)
+    system = LifecycleSystem(settings)
 
     entity = world.create_entity()
     # Incorrect initialization: Baby at scale 1.0

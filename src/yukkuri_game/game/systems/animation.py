@@ -149,7 +149,7 @@ class AnimationSystem(System):
                 if event_name:
                     self.event_bus.publish(AnimationEvent(
                         entity_id=entity_id,
-                        event_name=event_name,
+                        event_type=event_name,
                         animation_name=animator.current_animation,
                         frame_index=animator.current_frame_index
                     ))
