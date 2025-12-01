@@ -1,10 +1,13 @@
 """
 Module defining the Entity Component System (ECS) wrapper.
-"""
-from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING
-import uuid
-import esper
 
+This module provides a wrapper around the `esper` library to offer a more
+structured and type-safe interface for managing entities and components.
+"""
+
+import uuid
+from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING
+import esper
 from .service_locator import ServiceLocator
 from .events import EntityDestroyedEvent
 from .event_bus import EventBus
@@ -75,7 +78,6 @@ class World:
             int: The unique ID of the newly created entity.
         """
         self._switch()
-        # Create entity in the active esper world context
         return int(esper.create_entity(*components))
 
     def destroy_entity(self, entity: int) -> None:
@@ -147,7 +149,6 @@ class World:
         """
         self._switch()
         try:
-            # Cast because esper might return Any or not be fully typed
             return esper.component_for_entity(entity, component_type)  # type: ignore[no-any-return]
         except KeyError:
             return None
@@ -184,7 +185,6 @@ class World:
             Dict[int, T]: A dictionary mapping entity IDs to component instances.
         """
         self._switch()
-        # esper.get_component returns List[Tuple[int, T]]
         return {entity: component for entity, component in esper.get_component(component_type)}
 
     def get_all_entities(self) -> List[int]:
@@ -195,8 +195,6 @@ class World:
             List[int]: A list of all entity IDs.
         """
         self._switch()
-        # esper._entities is a dictionary {entity_id: {component_type: component_instance}}
-        # Since esper doesn't provide a public method to get all entities, we access the internal storage.
         try:
             # Accessing the internal _entities attribute of esper directly is necessary
             return list(esper._entities.keys())
@@ -216,7 +214,6 @@ class World:
         self._switch()
         if not component_types:
             return []
-        # esper.get_components returns Iterable[Tuple[int, Tuple[Any, ...]]]
         return [entity for entity, _ in esper.get_components(*component_types)]
 
     def get_components_tuple(self, *component_types: Type[Any]) -> List[Tuple[int, Tuple[Any, ...]]]:

@@ -1,21 +1,25 @@
 """
 Module defining core game services.
 """
+
 import os
 import json
-from typing import Dict, Any, List, TYPE_CHECKING, Optional, Set
+from typing import Set, TYPE_CHECKING
 from loguru import logger
+
 from ..engine.ecs import World
 from ..engine.audio import AudioManager
 from .components import Transform
-from .yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState, Personality, GossipQueue
-from ..engine.service_locator import ServiceLocator
-from .prefabs.yukkuri import create_yukkuri
-from .prefabs.item import create_item
+from .yukkuri_components import (
+    YukkuriStats, ItemStats, AIState, EmotionalState, GossipQueue
+)
 from ..engine.serializer import WorldSerializer
 from .components_persistence import Persistable, StableIDComponent
 from . import components
 from . import yukkuri_components
+
+if TYPE_CHECKING:
+    from .yukkuri_components import Personality  # pylint: disable=unused-import
 
 class PersistenceService:
     """
@@ -26,6 +30,7 @@ class PersistenceService:
         save_dir (str): The directory to save games in.
         serializer (WorldSerializer): The serializer instance.
     """
+
     def __init__(self, world: World, save_dir: str = "saves"):
         """
         Initializes the PersistenceService.
@@ -40,7 +45,7 @@ class PersistenceService:
             try:
                 os.makedirs(save_dir)
             except OSError:
-                pass # Might exist or permission error
+                pass  # Might exist or permission error
 
         # Gather all component types for the serializer
         self.component_types = []
@@ -48,7 +53,7 @@ class PersistenceService:
             for name in dir(module):
                 obj = getattr(module, name)
                 if isinstance(obj, type) and hasattr(obj, "__dataclass_fields__"):
-                     self.component_types.append(obj)
+                    self.component_types.append(obj)
         # Add persistence components
         self.component_types.append(Persistable)
         self.component_types.append(StableIDComponent)
@@ -143,6 +148,7 @@ class TimeService:
     Attributes:
         _time_elapsed (float): The total elapsed game time in seconds.
     """
+
     def __init__(self, time_elapsed: float = 0.0) -> None:
         """Initializes the TimeService."""
         self._time_elapsed = time_elapsed
@@ -172,6 +178,7 @@ class EconomyService:
     Attributes:
         _money (int): The current amount of money.
     """
+
     def __init__(self, initial_money: int = 1000):
         """
         Initializes the EconomyService.
@@ -213,7 +220,7 @@ class EconomyService:
              ValueError: If amount is negative.
         """
         if amount < 0:
-             raise ValueError("Cannot remove negative money.")
+            raise ValueError("Cannot remove negative money.")
         if self._money >= amount:
             self._money -= amount
             return True
@@ -227,9 +234,9 @@ class EconomyService:
             amount (int): The new money amount. Clamped to 0 minimum.
         """
         if amount < 0:
-             self._money = 0
+            self._money = 0
         else:
-             self._money = amount
+            self._money = amount
 
 class InputService:
     """
@@ -247,12 +254,13 @@ class InputService:
         drag_current_pos (tuple[int, int]): Current screen position during drag.
         is_dragging (bool): Whether a drag operation is in progress.
     """
+
     def __init__(self) -> None:
         """Initializes the InputService."""
         self._placing_mode = False
         self._place_type: str = ""
         self._place_cost: int = 0
-        self._place_entity_type: str = "" # "yukkuri" or "item"
+        self._place_entity_type: str = ""  # "yukkuri" or "item"
         self._cleaning_mode = False
         self.hovered_entity_id: int = -1
         self.hovered_entity_pos: tuple[int, int] = (0, 0)
@@ -325,6 +333,7 @@ class GameService:
     Attributes:
         world (World): The ECS world.
     """
+
     def __init__(self, world: World):
         """
         Initializes the GameService.
@@ -352,9 +361,6 @@ class GameService:
 
         if exclude_ids is None:
             exclude_ids = set()
-
-        from .components import Transform
-        from .yukkuri_components import ItemStats
 
         items = self.world.get_entities_with(ItemStats, Transform)
 
@@ -385,9 +391,6 @@ class GameService:
         Returns:
             bool: True if interaction was successful, False otherwise.
         """
-        from .components import Transform
-        from .yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState
-
         if not self.world.entity_exists(consumer_id) or not self.world.entity_exists(item_id):
             return False
 
@@ -450,9 +453,11 @@ class GameService:
         audio = self.world.services.try_get(AudioManager)
 
         if interaction_type == "Talk":
-            if init_emo: init_emo.happiness = min(100.0, init_emo.happiness + 5.0)
+            if init_emo:
+                init_emo.happiness = min(100.0, init_emo.happiness + 5.0)
             init_stats.social = min(100.0, init_stats.social + 15.0)
-            if target_emo: target_emo.happiness = min(100.0, target_emo.happiness + 5.0)
+            if target_emo:
+                target_emo.happiness = min(100.0, target_emo.happiness + 5.0)
             target_stats.social = min(100.0, target_stats.social + 15.0)
 
             init_gossip = self.world.get_component(initiator_id, GossipQueue)
@@ -465,8 +470,8 @@ class GameService:
                     init_gossip.add_packet(packet)
 
             if audio:
-                 if hasattr(audio, 'play_sound'):
-                     audio.play_sound("talk")
+                if hasattr(audio, 'play_sound'):
+                    audio.play_sound("talk")
 
         elif interaction_type == "Fight":
             damage = 5.0
@@ -481,12 +486,14 @@ class GameService:
                 target_emo.stress = min(100.0, target_emo.stress + 10.0)
 
             if audio:
-                 if hasattr(audio, 'play_sound'):
+                if hasattr(audio, 'play_sound'):
                     audio.play_sound("hit")
 
         elif interaction_type == "Dance":
-            if init_emo: init_emo.happiness = min(100.0, init_emo.happiness + 10.0)
-            if target_emo: target_emo.happiness = min(100.0, target_emo.happiness + 10.0)
+            if init_emo:
+                init_emo.happiness = min(100.0, init_emo.happiness + 10.0)
+            if target_emo:
+                target_emo.happiness = min(100.0, target_emo.happiness + 10.0)
             init_stats.social = min(100.0, init_stats.social + 10.0)
             target_stats.social = min(100.0, target_stats.social + 10.0)
 
