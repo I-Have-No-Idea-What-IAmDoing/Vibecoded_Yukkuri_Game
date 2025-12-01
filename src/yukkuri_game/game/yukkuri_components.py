@@ -1,3 +1,6 @@
+"""
+Yukkuri Components Module.
+"""
 from dataclasses import dataclass, field
 from typing import Set, Dict, Any, Optional, List, Deque
 from collections import deque
@@ -7,6 +10,12 @@ from ..engine.ecs import Component
 class PersonalityAxis:
     """
     The 4-Axis integer system (-100 to +100) for personality.
+
+    Attributes:
+        kindness (int): Kindness vs Selfishness.
+        energy (int): Energy vs Laziness.
+        bravery (int): Bravery vs Cowardice.
+        greed (int): Greed vs Generosity.
     """
     kindness: int = 0
     energy: int = 0
@@ -17,6 +26,10 @@ class PersonalityAxis:
 class EmotionalState(Component):
     """
     Component for the 2D Stress-Happiness Graph and derived emotions.
+
+    Attributes:
+        happiness (float): -100 to 100.
+        stress (float): 0 to 100.
     """
     happiness: float = 0.0 # -100 to 100
     stress: float = 0.0    # 0 to 100
@@ -24,6 +37,12 @@ class EmotionalState(Component):
     def get_dominant_emotion(self, bravery: int = 0) -> str:
         """
         Derives the mood based on the 4 quadrants and Bravery.
+
+        Args:
+            bravery (int): The bravery stat of the entity.
+
+        Returns:
+            str: The name of the dominant emotion.
         """
         is_happy = self.happiness >= 0
         is_stressed = self.stress >= 50
@@ -46,7 +65,21 @@ class EmotionalState(Component):
 class YukkuriStats(Component):
     """
     Component containing the statistics and state of a Yukkuri.
-    Removed happiness/stress in favor of EmotionalState.
+
+    Attributes:
+        name (str): Name of the Yukkuri.
+        type_id (str): Type identifier.
+        health (float): Current health.
+        max_health (float): Maximum health.
+        hunger (float): Current hunger (0-100).
+        social (float): Current social satisfaction (0-100).
+        energy (float): Current energy (0-100).
+        cleanliness (float): Current cleanliness (0-100).
+        age (float): Current age in seconds.
+        growth_stage (str): Current growth stage (e.g., "Baby", "Adult").
+        badges (int): Number of badges earned.
+        quality_score (float): Calculated quality score.
+        discipline (float): Current discipline level (0-100).
     """
     name: str
     type_id: str
@@ -65,6 +98,12 @@ class YukkuriStats(Component):
     def calculate_value(self, emotional_state: Optional["EmotionalState"] = None) -> int:
         """
         Calculates the value of the Yukkuri based on stats and emotional state.
+
+        Args:
+            emotional_state (Optional[EmotionalState]): The emotional state component.
+
+        Returns:
+            int: The calculated monetary value.
         """
         score = 100.0
         if emotional_state:
@@ -79,6 +118,15 @@ class YukkuriStats(Component):
 class MemoryHeadline:
     """
     Represents a significant memory/event.
+
+    Attributes:
+        id (int): Unique ID of the memory.
+        timestamp (float): Time when the event occurred.
+        importance (float): Absolute magnitude of the event's impact.
+        sentiment (float): Signed value (-100 to 100) representing opinion change.
+        event_type (str): Type of the event.
+        text (str): Description of the event.
+        is_locked (bool): Whether the memory is locked (cannot be forgotten).
     """
     id: int
     timestamp: float
@@ -108,6 +156,20 @@ class Personality:
 class RelationshipData:
     """
     Stores data about a relationship with another entity.
+
+    Attributes:
+        affinity (float): Affection/Liking (-100 to 100).
+        trust (float): Trust level (-100 to 100).
+        fear (float): Fear level (0 to 100).
+        familiarity (float): How well they know each other.
+        last_update (float): Timestamp of last interaction.
+        base_compatibility (float): Cached base compatibility score.
+        trivial_sentiment_sum (float): Sum of sentiments in trivial buffer.
+        core_sentiment_sum (float): Sum of sentiments in core buffer.
+        trivial_buffer (List[MemoryHeadline]): List of trivial memories.
+        core_buffer (List[MemoryHeadline]): List of core memories.
+        TRIVIAL_MAX_LEN (int): Max size of trivial buffer.
+        CORE_MAX_LEN (int): Max size of core buffer.
     """
     affinity: float = 0.0
     trust: float = 0.0
@@ -132,7 +194,13 @@ class RelationshipData:
     CORE_MAX_LEN: int = 35
 
     def add_headline(self, headline: MemoryHeadline, threshold: float = 50.0) -> None:
-        """Adds a headline to the appropriate buffer."""
+        """
+        Adds a headline to the appropriate buffer.
+
+        Args:
+            headline (MemoryHeadline): The memory to add.
+            threshold (float): Importance threshold for core memories.
+        """
         if headline.importance > threshold or headline.is_locked:
             self._add_core_memory(headline)
         else:
@@ -212,6 +280,13 @@ class RelationshipData:
 class RelationshipRegistry:
     """
     Component tracking social relationships and family ties.
+
+    Attributes:
+        relationships (Dict[int, RelationshipData]): Map of EntityID to RelationshipData.
+        biological_parents (List[int]): List of parent entity IDs.
+        biological_children (List[int]): List of children entity IDs.
+        family_group_id (Optional[int]): ID of the family group they belong to.
+        mate_id (Optional[int]): ID of the mate entity.
     """
     relationships: Dict[int, RelationshipData] = field(default_factory=dict)
     biological_parents: List[int] = field(default_factory=list)
@@ -219,8 +294,15 @@ class RelationshipRegistry:
     family_group_id: Optional[int] = None
     mate_id: Optional[int] = None
 
+    # Metadata for serialization remapping
+    # Fields that contain EntityIDs that need remapping
+    _references: Set[str] = field(default_factory=lambda: {"relationships", "biological_parents", "biological_children", "family_group_id", "mate_id"}, repr=False, init=False)
+
 @dataclass
 class GossipPacket:
+    """
+    Represents a single piece of gossip or social information.
+    """
     target_id: int
     event_type: str
     value: float
@@ -231,11 +313,25 @@ class GossipPacket:
 
 @dataclass
 class GossipQueue(Component):
+    """
+    Component managing a queue of gossip packets.
+    """
     priority_queue: List[GossipPacket] = field(default_factory=list)
+
+    # Metadata for serialization remapping
+    # Note: GossipPacket contains target_id, so we might need deep inspection or just clear it on load?
+    # Retaining gossip across saves is complex if we have to remap inside nested objects in a list.
+    # For now, we will NOT remap GossipQueue and accept that IDs might be stale (or we clear it on load).
+    # Ideally, we should iterate priority_queue.
+    # _references: Set[str] = field(default_factory=lambda: {"priority_queue"}, repr=False, init=False)
 
     def add_packet(self, packet: GossipPacket, max_length: int = 10) -> None:
         """
         Adds a packet to the queue, merging duplicates and keeping the list sorted by value (descending).
+
+        Args:
+            packet (GossipPacket): The gossip packet to add.
+            max_length (int): Maximum length of the queue.
         """
         # 1. Check for duplicates
         duplicate_index = -1
@@ -267,6 +363,15 @@ class GossipQueue(Component):
 class AIState:
     """
     Component maintaining the AI state of an entity.
+
+    Attributes:
+        current_action (str): The name of the current action.
+        current_target_id (int): The ID of the current target entity.
+        path (Optional[List[Any]]): The current navigation path.
+        action_progress (float): Progress of the current action (0.0 to 1.0).
+        state_data (Optional[Dict[str, Any]]): Arbitrary data for the current state.
+        failed_targets (Set[int]): Set of target IDs that failed recently.
+        manual_override (bool): Whether AI is overridden by manual control.
     """
     current_action: str = "Idle"
     current_target_id: int = -1
@@ -276,10 +381,22 @@ class AIState:
     failed_targets: Set[int] = field(default_factory=set)
     manual_override: bool = False
 
+    # Metadata for serialization remapping
+    _references: Set[str] = field(default_factory=lambda: {"current_target_id", "failed_targets"}, repr=False, init=False)
+
 @dataclass
 class ItemStats:
     """
     Component containing statistics for an Item.
+
+    Attributes:
+        name (str): Name of the item.
+        type_id (str): Type identifier.
+        cost (int): Cost in money.
+        nutrition (float): Nutrition value.
+        fun (float): Fun value.
+        comfort (float): Comfort value.
+        is_portable (bool): Whether it can be carried.
     """
     name: str
     type_id: str

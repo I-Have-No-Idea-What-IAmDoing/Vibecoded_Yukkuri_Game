@@ -21,8 +21,18 @@ from ..events import (
 class GameRulesSystem(System):
     """
     System that enforces game rules and handles player actions like selling/training.
+
+    Attributes:
+        event_bus (EventBus): The event bus for subscription and publishing.
+        ecs_world (World): The ECS World instance (injected).
     """
     def __init__(self, event_bus: EventBus):
+        """
+        Initializes the GameRulesSystem.
+
+        Args:
+            event_bus (EventBus): The event bus instance.
+        """
         self.event_bus = event_bus
         self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
         self.event_bus.subscribe(PunishEntityRequest, self.on_punish_entity)
@@ -33,12 +43,32 @@ class GameRulesSystem(System):
         self.ecs_world: World = None  # type: ignore
 
     def update(self, world: World, dt: float) -> None:
+        """
+        Updates the system.
+        This system is primarily event-driven, so this is a no-op.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+
+        Returns:
+            None
+        """
         # This system is event-driven, so update loop might not be needed
         # unless we want to process a queue. For now, immediate handlers are fine
         # as per previous implementation (GameManager was not a System but had handlers).
         pass
 
     def sell_yukkuri(self, entity: int) -> int:
+        """
+        Sells a Yukkuri entity and destroys it.
+
+        Args:
+            entity (int): The ID of the entity to sell.
+
+        Returns:
+            int: The value the entity was sold for.
+        """
         stats = self.ecs_world.get_component(entity, YukkuriStats)
         emotional_state = self.ecs_world.get_component(entity, EmotionalState)
         if stats:
@@ -60,9 +90,28 @@ class GameRulesSystem(System):
         return 0
 
     def on_sell_entity(self, event: SellEntityRequest) -> None:
+        """
+        Handles the SellEntityRequest event.
+
+        Args:
+            event (SellEntityRequest): The event data.
+
+        Returns:
+            None
+        """
         self.sell_yukkuri(event.entity_id)
 
     def on_train_entity(self, event: TrainEntityRequest) -> None:
+        """
+        Handles the TrainEntityRequest event.
+        Increases badges and happiness.
+
+        Args:
+            event (TrainEntityRequest): The event data.
+
+        Returns:
+            None
+        """
         stats = self.ecs_world.get_component(event.entity_id, YukkuriStats)
         emotional_state = self.ecs_world.get_component(event.entity_id, EmotionalState)
         if stats:
@@ -81,6 +130,16 @@ class GameRulesSystem(System):
             logger.info(f"Trained entity {event.entity_id}. Badges: {stats.badges}")
 
     def on_punish_entity(self, event: PunishEntityRequest) -> None:
+        """
+        Handles the PunishEntityRequest event.
+        Decreases health/happiness, increases stress/discipline.
+
+        Args:
+            event (PunishEntityRequest): The event data.
+
+        Returns:
+            None
+        """
         stats = self.ecs_world.get_component(event.entity_id, YukkuriStats)
         emotional_state = self.ecs_world.get_component(event.entity_id, EmotionalState)
         if stats:

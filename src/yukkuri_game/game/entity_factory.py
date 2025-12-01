@@ -1,433 +1,84 @@
 """
-Module responsible for creating game entities.
+Entity Factory Module.
 """
-import pymunk
-import random
-from typing import Any, Optional, TYPE_CHECKING, List
+from typing import Any, Optional, Tuple, List
 from ..engine.ecs import World
-from .components import (
-    Transform, Sprite, Selectable, PhysicsBody, FloatingText,
-    MovementController, VisualTransform
-)
-from .yukkuri_components import (
-    YukkuriStats, AIState, ItemStats, Poop, Personality, RelationshipRegistry,
-    EmotionalState, PersonalityAxis, GossipQueue
-)
-from .trait_service import TraitService
-from .collision_constants import CollisionCategories
-
-if TYPE_CHECKING:
-    from ..engine.resource_manager import ResourceManager
-    from .systems.physics import PhysicsSystem
+from .prefabs.yukkuri import create_yukkuri
+from .prefabs.item import create_item, create_poop
+from .prefabs.effects import create_floating_text
 
 class EntityFactory:
     """
-    Factory class for creating game entities.
-
-    Handles the creation of Yukkuris and Items, attaching necessary components.
+    Factory for creating entities within the game world.
+    Delegates specific entity creation logic to prefab functions.
 
     Attributes:
-        world (World): The ECS World instance where entities are created.
-        rm (ResourceManager): The resource manager to fetch entity data.
-        physics_system (PhysicsSystem): The physics system instance, used to add bodies to the space.
+        world (World): The ECS world instance.
     """
-
-    def __init__(self, world: World):
+    def __init__(self, world: World) -> None:
         """
         Initializes the EntityFactory.
 
         Args:
-            world (World): The ECS World instance.
+            world (World): The ECS world instance.
         """
         self.world = world
-        from ..engine.resource_manager import ResourceManager
-        from .systems.physics import PhysicsSystem
-        self.rm = world.services.get(ResourceManager)
-        self.physics_system = world.services.try_get(PhysicsSystem)
-
-    def _get_trait_service(self) -> Optional[TraitService]:
-         """
-         Retrieves the TraitService from the world's service locator.
-
-         Returns:
-             Optional[TraitService]: The TraitService instance, or None if not found.
-         """
-         ts = self.world.services.try_get(TraitService)
-         if ts is None:
-             from loguru import logger
-             logger.error("TraitService not found in EntityFactory! Yukkuri created without traits.")
-         return ts
-
-    def _get_attr(self, data: Any, key: str, default: Any = None) -> Any:
-        """
-        Helper to get an attribute from either a dict or an object (msgspec struct).
-
-        Args:
-            data (Any): The data object (dict or msgspec.Struct).
-            key (str): The attribute key.
-            default (Any): The default value if the key is missing.
-
-        Returns:
-            Any: The attribute value or the default.
-        """
-        if isinstance(data, dict):
-            return data.get(key, default)
-        return getattr(data, key, default)
 
     def create_yukkuri(self, type_id: str, x: float, y: float, age: float = 0.0, parents: Optional[List[int]] = None) -> int:
         """
         Creates a Yukkuri entity.
 
-        Constructs a Yukkuri entity with all necessary components including Transform, Sprite,
-        Physics, Stats, AI, Personality, and Relations.
-
         Args:
             type_id (str): The type identifier of the Yukkuri (e.g., 'reimu').
             x (float): The initial x-coordinate.
             y (float): The initial y-coordinate.
-            age (float): The initial age of the Yukkuri. Defaults to 0.0.
-            parents (Optional[List[int]]): List of parent entity IDs. Defaults to None.
+            age (float, optional): The initial age of the Yukkuri. Defaults to 0.0.
+            parents (Optional[List[int]], optional): List of parent entity IDs. Defaults to None.
 
         Returns:
-            int: The unique ID of the created entity.
-
-        Raises:
-            ValueError: If the type_id is not found in loaded resources.
+            int: The ID of the created entity.
         """
-        data = self.rm.yukkuri_types.get(type_id)
-        if not data:
-            raise ValueError(f"Unknown yukkuri type: {type_id}")
-
-        entity = self.world.create_entity()
-
-        image = self._get_attr(data, 'image', "yukkuri_default.png")
-        width = self._get_attr(data, 'width', 64)
-        height = self._get_attr(data, 'height', 64)
-        max_health = self._get_attr(data, 'max_health', 100)
-
-        # Determine growth stage and scale based on age
-        # This logic should match the LifecycleSystem thresholds
-        scale = 1.0
-        radius = 20
-        growth_stage = "Baby"
-
-        if age >= 300:
-            growth_stage = "Adult"
-            scale = 1.0
-            radius = 20
-        elif age >= 100:
-            growth_stage = "Child"
-            scale = 0.75
-            radius = 15
-        else:
-            growth_stage = "Baby"
-            scale = 0.5
-            radius = 10
-            max_health *= 0.5
-
-        frame_count = self._get_attr(data, 'frame_count', 1)
-        frame_duration = self._get_attr(data, 'frame_duration', 0.1)
-        loop = self._get_attr(data, 'loop', True)
-
-        # Core Components
-        self.world.add_component(entity, Transform(x=x, y=y, scale=scale))
-        self.world.add_component(entity, Sprite(
-            image_name=image,
-            width=width,
-            height=height,
-            frame_count=frame_count,
-            frame_duration=frame_duration,
-            loop=loop,
-            is_animating=(frame_count > 1)
-        ))
-        self.world.add_component(entity, Selectable())
-
-        # New Movement & Visual Components
-        movement_controller = MovementController()
-        if self.rm.tuning:
-            visuals = self.rm.tuning.visuals.movement
-            movement_controller.bob_height = visuals.bob_height
-            movement_controller.bob_speed = visuals.bob_speed
-        self.world.add_component(entity, movement_controller)
-        self.world.add_component(entity, VisualTransform())
-
-        # Yukkuri Stats
-        stats = YukkuriStats(
-            name=f"{type_id}_{entity}",
-            type_id=type_id,
-            max_health=max_health,
-            health=max_health,
-            # hunger is float in definition, check usage
-            hunger=0.0,
-            age=age,
-            growth_stage=growth_stage
-        )
-        self.world.add_component(entity, stats)
-
-        # Emotional State
-        # New system: -100 to 100 for happiness, 0 to 100 for stress
-        emotional_state = EmotionalState()
-        self.world.add_component(entity, emotional_state)
-
-        # AI
-        self.world.add_component(entity, AIState())
-        self.world.add_component(entity, GossipQueue())
-
-        # Personality & Relationships
-        self.world.add_component(entity, RelationshipRegistry())
-        ts = self._get_trait_service()
-        traits = set()
-
-        # New Axis system: -100 to 100
-        # Kindness, Energy, Bravery, Greed
-        axis = PersonalityAxis()
-
-        # Inheritance logic
-        if parents and ts:
-            parent_personalities = [p for p in (self.world.get_component(pid, Personality) for pid in parents) if p]
-            if parent_personalities:
-                # 50% chance to inherit each trait from parents
-                for pp in parent_personalities:
-                    for t in pp.traits:
-                        if random.random() < 0.5:
-                            traits.add(t)
-
-                # Inherit axis values
-                total_kindness = sum(pp.axis.kindness for pp in parent_personalities)
-                total_energy = sum(pp.axis.energy for pp in parent_personalities)
-                total_bravery = sum(pp.axis.bravery for pp in parent_personalities)
-                total_greed = sum(pp.axis.greed for pp in parent_personalities)
-
-                count = len(parent_personalities)
-                axis.kindness = int(total_kindness / count + random.uniform(-10, 10))
-                axis.energy = int(total_energy / count + random.uniform(-10, 10))
-                axis.bravery = int(total_bravery / count + random.uniform(-10, 10))
-                axis.greed = int(total_greed / count + random.uniform(-10, 10))
-
-        # Random generation if no parents
-        if not parents:
-            # Gaussian around 0, sigma 30 -> most within -60 to 60
-            axis.kindness = int(random.gauss(0, 30))
-            axis.energy = int(random.gauss(0, 30))
-            axis.bravery = int(random.gauss(0, 30))
-            axis.greed = int(random.gauss(0, 30))
-
-        # Clamp values
-        axis.kindness = max(-100, min(100, axis.kindness))
-        axis.energy = max(-100, min(100, axis.energy))
-        axis.bravery = max(-100, min(100, axis.bravery))
-        axis.greed = max(-100, min(100, axis.greed))
-
-        # Random mutation or random trait if none inherited
-        if ts and (random.random() < 0.1 or not traits):
-            all_traits = ts.get_all_trait_ids()
-            if all_traits:
-                traits.add(random.choice(all_traits))
-
-        # Apply Trait Axis Shifts (Center Shift)
-        if ts:
-            for trait_id in traits:
-                t_data = ts.get_trait(trait_id)
-                if t_data and "axis_shift" in t_data:
-                    shifts = t_data["axis_shift"]
-                    axis.kindness += shifts.get("kindness", 0)
-                    axis.energy += shifts.get("energy", 0)
-                    axis.bravery += shifts.get("bravery", 0)
-                    axis.greed += shifts.get("greed", 0)
-
-        # Re-clamp after shifts
-        axis.kindness = max(-100, min(100, axis.kindness))
-        axis.energy = max(-100, min(100, axis.energy))
-        axis.bravery = max(-100, min(100, axis.bravery))
-        axis.greed = max(-100, min(100, axis.greed))
-
-        # Copy axis to base_axis
-        base_axis = PersonalityAxis(
-            kindness=axis.kindness,
-            energy=axis.energy,
-            bravery=axis.bravery,
-            greed=axis.greed
-        )
-
-        personality = Personality(traits=traits, axis=axis, base_axis=base_axis)
-        self.world.add_component(entity, personality)
-
-        # Physics
-        if self.physics_system:
-            self._add_physics(
-                entity=entity,
-                shape_type="circle",
-                mass=10,
-                position=(x, y),
-                radius_or_size=radius,
-                collision_category=CollisionCategories.YUKKURI,
-                collision_mask=CollisionCategories.WALL | CollisionCategories.YUKKURI | CollisionCategories.POOP,
-                elasticity=0.5,
-                friction=0.5,
-                set_userdata=True
-            )
-
-        return entity
-
-    def _add_physics(self, entity: int, shape_type: str, mass: float, position: tuple[float, float],
-                 radius_or_size: Any, collision_category: int, collision_mask: int,
-                 elasticity: float = 0.5, friction: float = 0.5, set_userdata: bool = False) -> None:
-        """
-        Adds a physics body to an entity.
-
-        Args:
-            entity (int): The entity ID.
-            shape_type (str): "circle" or "box".
-            mass (float): The mass of the body.
-            position (tuple[float, float]): Initial position (x, y).
-            radius_or_size (Any): Radius (float) if circle, size (tuple) if box.
-            collision_category (int): Bitmask category.
-            collision_mask (int): Bitmask mask.
-            elasticity (float): Bounciness.
-            friction (float): Friction.
-            set_userdata (bool): Whether to set body.userdata to entity ID.
-        """
-        if not self.physics_system:
-            return
-
-        if shape_type == "circle":
-            radius = float(radius_or_size)
-            inertia = pymunk.moment_for_circle(mass, 0, radius)
-            body = pymunk.Body(mass, inertia)
-            shape = pymunk.Circle(body, radius)
-        elif shape_type == "box":
-            width, height = radius_or_size
-            inertia = pymunk.moment_for_box(mass, (width, height))
-            body = pymunk.Body(mass, inertia)
-            shape = pymunk.Poly.create_box(body, (width, height))
-        else:
-            raise ValueError(f"Unknown shape type: {shape_type}")
-
-        body.position = position
-        shape.elasticity = elasticity
-        shape.friction = friction
-        shape.filter = pymunk.ShapeFilter(categories=collision_category, mask=collision_mask)
-
-        if set_userdata:
-            body.userdata = entity
-
-        self.physics_system.space.add(body, shape)
-        self.world.add_component(entity, PhysicsBody(body=body, shape=shape))
-
-    def create_floating_text(self, x: float, y: float, text: str, color: tuple[int, int, int], size: int = 20, lifetime: float = 2.0, velocity_y: float = -50.0) -> int:
-        """
-        Creates a floating text entity.
-
-        Args:
-            x (float): The x-coordinate.
-            y (float): The y-coordinate.
-            text (str): The text content.
-            color (tuple[int, int, int]): The text color.
-            size (int): The font size. Defaults to 20.
-            lifetime (float): Duration in seconds before the text is removed. Defaults to 2.0.
-            velocity_y (float): Vertical velocity in pixels/second. Defaults to -50.0.
-
-        Returns:
-            int: The unique ID of the created entity.
-        """
-        entity = self.world.create_entity()
-        self.world.add_component(entity, Transform(x=x, y=y))
-        self.world.add_component(entity, FloatingText(
-            text=text, color=color, lifetime=lifetime, max_lifetime=lifetime,
-            velocity_y=velocity_y, size=size
-        ))
-        return entity
-
-    def create_poop(self, x: float, y: float) -> int:
-        """
-        Creates a Poop entity.
-
-        Args:
-            x (float): The x-coordinate.
-            y (float): The y-coordinate.
-
-        Returns:
-            int: The unique ID of the created entity.
-        """
-        entity = self.world.create_entity()
-        self.world.add_component(entity, Transform(x=x, y=y))
-        self.world.add_component(entity, Sprite(image_name="poop.png", width=32, height=32))
-        self.world.add_component(entity, Selectable())
-        self.world.add_component(entity, Poop())
-        self.world.add_component(entity, VisualTransform())
-
-        if self.physics_system:
-            self._add_physics(
-                entity=entity,
-                shape_type="circle",
-                mass=1,
-                position=(x, y),
-                radius_or_size=10,
-                collision_category=CollisionCategories.POOP,
-                collision_mask=CollisionCategories.ALL,
-                elasticity=0.2,
-                friction=0.8
-            )
-        return entity
+        return create_yukkuri(self.world, type_id, x, y, age, parents)
 
     def create_item(self, type_id: str, x: float, y: float) -> int:
         """
         Creates an Item entity.
 
         Args:
-            type_id (str): The item type identifier.
-            x (float): The x-coordinate.
-            y (float): The y-coordinate.
+            type_id (str): The type identifier of the item.
+            x (float): The initial x-coordinate.
+            y (float): The initial y-coordinate.
 
         Returns:
-            int: The unique ID of the created entity.
-
-        Raises:
-            ValueError: If the item type is unknown.
+            int: The ID of the created entity.
         """
-        data = self.rm.item_types.get(type_id)
-        if not data:
-            raise ValueError(f"Unknown item type: {type_id}")
+        return create_item(self.world, type_id, x, y)
 
-        entity = self.world.create_entity()
-        self.world.add_component(entity, Transform(x=x, y=y))
+    def create_poop(self, x: float, y: float) -> int:
+        """
+        Creates a Poop entity.
 
-        image = self._get_attr(data, 'image', "item_default.png")
-        width = self._get_attr(data, 'width', 32)
-        height = self._get_attr(data, 'height', 32)
-        frame_count = self._get_attr(data, 'frame_count', 1)
-        frame_duration = self._get_attr(data, 'frame_duration', 0.1)
-        loop = self._get_attr(data, 'loop', True)
+        Args:
+            x (float): The initial x-coordinate.
+            y (float): The initial y-coordinate.
 
-        self.world.add_component(entity, Sprite(
-            image_name=image, width=width, height=height, frame_count=frame_count,
-            frame_duration=frame_duration, loop=loop, is_animating=(frame_count > 1)
-        ))
-        self.world.add_component(entity, Selectable())
-        self.world.add_component(entity, VisualTransform())
+        Returns:
+            int: The ID of the created entity.
+        """
+        return create_poop(self.world, x, y)
 
-        stats = ItemStats(
-            name=self._get_attr(data, 'name', "Item"),
-            type_id=type_id,
-            cost=self._get_attr(data, 'cost', 10),
-            nutrition=self._get_attr(data, 'nutrition', 0) or 0,
-            fun=self._get_attr(data, 'fun', 0) or 0,
-            comfort=self._get_attr(data, 'comfort', 0) or 0,
-            is_portable=self._get_attr(data, 'is_portable', False)
-        )
-        self.world.add_component(entity, stats)
+    def create_floating_text(self, x: float, y: float, text: str, color: Tuple[int, int, int], size: int = 20) -> int:
+        """
+        Creates a floating text effect entity.
 
-        if self.physics_system:
-             self._add_physics(
-                entity=entity,
-                shape_type="box",
-                mass=1,
-                position=(x, y),
-                radius_or_size=(width, height),
-                collision_category=CollisionCategories.ITEM,
-                collision_mask=CollisionCategories.WALL | CollisionCategories.POOP | CollisionCategories.ITEM,
-                elasticity=0.5,
-                friction=0.5
-            )
+        Args:
+            x (float): The initial x-coordinate.
+            y (float): The initial y-coordinate.
+            text (str): The text to display.
+            color (Tuple[int, int, int]): The RGB color of the text.
+            size (int, optional): The font size. Defaults to 20.
 
-        return entity
+        Returns:
+            int: The ID of the created entity.
+        """
+        return create_floating_text(self.world, x, y, text, color, size)

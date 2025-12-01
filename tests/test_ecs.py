@@ -139,3 +139,43 @@ def test_get_components() -> None:
     assert len(comps) == 2
     assert comps[e1] == p1
     assert comps[e2] == p2
+
+def test_get_all_entities() -> None:
+    """
+    Tests retrieving all entities in the world.
+    """
+    world = World()
+    e1 = world.create_entity()
+    e2 = world.create_entity()
+
+    all_e = world.get_all_entities()
+    assert len(all_e) == 2
+    assert e1 in all_e
+    assert e2 in all_e
+
+def test_multiple_worlds() -> None:
+    """
+    Tests that multiple world instances are independent.
+    """
+    w1 = World()
+    w2 = World()
+
+    e1 = w1.create_entity()
+    e2 = w2.create_entity()
+
+    assert w1.entity_exists(e1)
+
+    # esper entity IDs are just integers starting from 1.
+    # They are shared across contexts if contexts share state, but here contexts are switched.
+    # However, if e1 is 1, and e2 is 1 (in different world), then w2.entity_exists(1) is True.
+    # So we should check if we get same ID but they are actually different entities.
+
+    # If esper implementation restarts ID counter for new context, then e1 == e2 == 1.
+    # w1 has entity 1. w2 has entity 1.
+    # So w2.entity_exists(e1) (which is 1) will be true.
+
+    # Let's verify if IDs are same
+    if e1 == e2:
+            assert w2.entity_exists(e1)
+    else:
+            assert not w2.entity_exists(e1)

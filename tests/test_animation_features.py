@@ -118,7 +118,7 @@ class TestAnimationFeatures(unittest.TestCase):
 
         event = self.event_handler.call_args[0][0]
         self.assertIsInstance(event, AnimationEvent)
-        self.assertEqual(event.event_name, "hit")
+        self.assertEqual(event.event_type, "hit")
         self.assertEqual(event.frame_index, 1)
 
     def test_auto_transition(self):

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, Dead, EmotionalState
 from yukkuri_game.game.components import Sprite, Transform
@@ -15,8 +15,7 @@ def lifecycle_system():
         breeding_energy_threshold=80.0,
         breeding_chance=1.0 # 100% chance for testing
     )
-    factory = MagicMock()
-    return LifecycleSystem(settings, factory)
+    return LifecycleSystem(settings)
 
 @pytest.fixture
 def world():
@@ -58,7 +57,8 @@ def test_handle_growth(lifecycle_system, world):
     assert stats.max_health == 150
     assert stats.health == 100
 
-def test_handle_breeding(lifecycle_system, world):
+@patch('yukkuri_game.game.systems.lifecycle.create_yukkuri')
+def test_handle_breeding(mock_create_yukkuri, lifecycle_system, world):
     # Setup Adult
     entity = world.create_entity()
     stats = YukkuriStats(
@@ -80,11 +80,22 @@ def test_handle_breeding(lifecycle_system, world):
 
     # Verify
     assert stats.energy == 90 - lifecycle_system.settings.breeding_cost
-    lifecycle_system.factory.create_yukkuri.assert_called_once()
+    mock_create_yukkuri.assert_called_once()
+
     # Check arguments
-    call_args = lifecycle_system.factory.create_yukkuri.call_args
-    assert call_args[1]['type_id'] == "reimu"
-    assert call_args[1]['age'] == 0.0
-    # Coordinates should be close to parent
-    assert abs(call_args[1]['x'] - 100) <= 20
-    assert abs(call_args[1]['y'] - 100) <= 20
+    # create_yukkuri(world, type_id=..., x=..., y=..., age=..., parents=...)
+    # We check keyword args if used, or positional
+    call_kwargs = mock_create_yukkuri.call_args.kwargs
+    if not call_kwargs:
+        # Fallback to positional if kwargs not used by call
+        args = mock_create_yukkuri.call_args.args
+        # args[0] is world
+        assert args[1] == "reimu" # type_id
+        assert abs(args[2] - 100) <= 20 # x
+        assert abs(args[3] - 100) <= 20 # y
+        assert args[4] == 0.0 # age
+    else:
+        assert call_kwargs['type_id'] == "reimu"
+        assert call_kwargs['age'] == 0.0
+        assert abs(call_kwargs['x'] - 100) <= 20
+        assert abs(call_kwargs['y'] - 100) <= 20

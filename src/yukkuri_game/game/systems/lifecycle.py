@@ -8,11 +8,9 @@ from ..yukkuri_components import YukkuriStats, AIState, Dead, EmotionalState
 from ..components import Sprite, Transform, PhysicsBody
 from ..events import EntityDiedEvent, EntityGrewEvent
 from ...config import LifecycleSettings
+from ..prefabs.yukkuri import create_yukkuri
 from typing import TYPE_CHECKING
 from loguru import logger
-
-if TYPE_CHECKING:
-    from ..entity_factory import EntityFactory
 
 class LifecycleSystem(System):
     """
@@ -20,19 +18,16 @@ class LifecycleSystem(System):
 
     Attributes:
         settings (LifecycleSettings): The configuration settings.
-        factory (EntityFactory): Factory to create new entities (babies).
     """
 
-    def __init__(self, settings: LifecycleSettings, entity_factory: "EntityFactory"):
+    def __init__(self, settings: LifecycleSettings):
         """
         Initializes the LifecycleSystem.
 
         Args:
             settings (LifecycleSettings): Lifecycle settings.
-            entity_factory (EntityFactory): Entity factory instance.
         """
         self.settings = settings
-        self.factory = entity_factory
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -153,12 +148,10 @@ class LifecycleSystem(System):
             # But we can't scale a circle shape directly easily?
             # Actually, `shape.unsafe_set_radius` exists for circles.
             if hasattr(physics.shape, "unsafe_set_radius"):
-                 # Original radius was 20.
-                 # Baby: 10, Child: 15, Adult: 20
-                 if new_stage == "Child":
-                     physics.shape.unsafe_set_radius(15)
-                 elif new_stage == "Adult":
-                     physics.shape.unsafe_set_radius(20)
+                 # Scale the radius proportionally
+                 # This supports non-standard sized entities (e.g. giants, minis) correctly
+                 new_radius = physics.shape.radius * scale_multiplier
+                 physics.shape.unsafe_set_radius(new_radius)
             elif hasattr(physics.shape, "unsafe_set_vertices"): # Box
                 pass # Complex
 
@@ -220,11 +213,11 @@ class LifecycleSystem(System):
         offset_x = random.uniform(-20, 20)
         offset_y = random.uniform(-20, 20)
 
-        child_id = self.factory.create_yukkuri(
+        create_yukkuri(
+            world,
             type_id=parent_stats.type_id,
             x=parent_transform.x + offset_x,
             y=parent_transform.y + offset_y,
-            age=0.0 # Explicitly 0
+            age=0.0,
+            parents=[parent_entity]
         )
-
-        # Ensure child is Baby (should be default, but handled in factory now)

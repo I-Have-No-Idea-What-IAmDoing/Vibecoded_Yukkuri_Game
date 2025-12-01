@@ -36,14 +36,31 @@ class Screenshot:
 # --- Input Helpers ---
 
 def Click(x: int, y: int) -> InjectInput:
-    """Creates a full click (Down + Up) event at x, y."""
+    """
+    Creates a full click (Down + Up) event at x, y.
+
+    Args:
+        x (int): X coordinate.
+        y (int): Y coordinate.
+
+    Returns:
+        InjectInput: The input injection command.
+    """
     return InjectInput([
         pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"pos": (x, y), "button": 1}),
         pygame.event.Event(pygame.MOUSEBUTTONUP, {"pos": (x, y), "button": 1})
     ])
 
 def KeyPress(key: int) -> InjectInput:
-    """Creates a key press (Down + Up) event."""
+    """
+    Creates a key press (Down + Up) event.
+
+    Args:
+        key (int): The pygame key code.
+
+    Returns:
+        InjectInput: The input injection command.
+    """
     return InjectInput([
         pygame.event.Event(pygame.KEYDOWN, {"key": key}),
         pygame.event.Event(pygame.KEYUP, {"key": key})
@@ -54,8 +71,21 @@ def KeyPress(key: int) -> InjectInput:
 class GameDriver:
     """
     Controls a YukkuriGame instance for deterministic headless testing.
+
+    Attributes:
+        game (Application): The game application instance.
+        fixed_dt (float): Fixed time step for simulation ticks.
+        simulated_time (float): Total time simulated so far.
+        frame_count (int): Total frames simulated.
     """
     def __init__(self, game_instance: Application, fixed_dt: float = 1.0/60.0):
+        """
+        Initializes the GameDriver.
+
+        Args:
+            game_instance (Application): The application instance.
+            fixed_dt (float): The fixed delta time for simulation updates.
+        """
         self.game = game_instance
         self.fixed_dt = fixed_dt
         self.simulated_time = 0.0
@@ -63,7 +93,12 @@ class GameDriver:
         self._scenario_deadline: Optional[float] = None
 
     def seed_rng(self, seed: int = 42) -> None:
-        """Seeds random number generators for determinism."""
+        """
+        Seeds random number generators for determinism.
+
+        Args:
+            seed (int): The seed value.
+        """
         random.seed(seed)
         try:
             import numpy as np
@@ -72,7 +107,10 @@ class GameDriver:
             pass
 
     def setup(self) -> None:
-        """Sets up the game instance."""
+        """
+        Sets up the game instance.
+        Ensures headless mode and active scene.
+        """
         self.seed_rng()
         if hasattr(self.game, 'set_headless') and not self.game.headless:
              self.game.set_headless(True)
@@ -86,21 +124,54 @@ class GameDriver:
              self.game.setup()
 
     def create_yukkuri(self, type_id: str, x: float, y: float) -> int:
+        """
+        Creates a Yukkuri entity in the current world.
+
+        Args:
+            type_id (str): The Yukkuri type ID.
+            x (float): X coordinate.
+            y (float): Y coordinate.
+
+        Returns:
+            int: The entity ID, or -1 if failed.
+        """
         from ..game.entity_factory import EntityFactory
+        if not self.world: return -1
         factory = self.world.services.try_get(EntityFactory)
         if factory:
             return int(factory.create_yukkuri(type_id, x, y))
         return -1
 
     def create_item(self, type_id: str, x: float, y: float) -> int:
+        """
+        Creates an item entity in the current world.
+
+        Args:
+            type_id (str): The item type ID.
+            x (float): X coordinate.
+            y (float): Y coordinate.
+
+        Returns:
+            int: The entity ID, or -1 if failed.
+        """
         from ..game.entity_factory import EntityFactory
+        if not self.world: return -1
         factory = self.world.services.try_get(EntityFactory)
         if factory:
             return int(factory.create_item(type_id, x, y))
         return -1
 
     def set_ai_target_pos(self, entity_id: int, x: float, y: float) -> None:
+        """
+        Manually sets an AI target position override.
+
+        Args:
+            entity_id (int): The entity ID.
+            x (float): Target X.
+            y (float): Target Y.
+        """
         from ..game.yukkuri_components import AIState
+        if not self.world: return
         ai = self.world.get_component(entity_id, AIState)
         if ai:
             if ai.state_data is None:
@@ -111,7 +182,16 @@ class GameDriver:
             ai.manual_override = True
 
     def set_ai_action(self, entity_id: int, action: str, target_id: int = -1) -> None:
+        """
+        Manually forces a specific AI action.
+
+        Args:
+            entity_id (int): The entity ID.
+            action (str): The action name.
+            target_id (int): Optional target entity ID.
+        """
         from ..game.yukkuri_components import AIState
+        if not self.world: return
         ai = self.world.get_component(entity_id, AIState)
         if ai:
             ai.current_action = action
@@ -127,6 +207,14 @@ class GameDriver:
     def run_scenario(self, scenario_gen: Generator[Any, None, None], timeout: float = 10.0) -> None:
         """
         Runs a test scenario generator.
+
+        Args:
+            scenario_gen (Generator): The scenario generator yielding commands.
+            timeout (float): Max simulated time for the scenario.
+
+        Raises:
+            TimeoutError: If the scenario exceeds the timeout.
+            Exception: Re-raises any exception from the scenario.
         """
         self.setup()
         start_sim_time = self.simulated_time
@@ -181,14 +269,17 @@ class GameDriver:
         self._check_global_timeout()
 
     def _check_global_timeout(self) -> None:
+        """Checks if the scenario deadline has been exceeded."""
         if self._scenario_deadline is not None and self.simulated_time > self._scenario_deadline:
              raise TimeoutError("Scenario exceeded global simulated time limit")
 
     def _wait_frames(self, condition: WaitFrames) -> None:
+        """Waits for a specified number of frames."""
         for _ in range(condition.frames):
             self._tick()
 
     def _wait_until(self, condition: WaitUntil) -> None:
+        """Waits until a predicate is true or timeout."""
         start_time = self.simulated_time
         timeout = condition.timeout
 
@@ -198,7 +289,12 @@ class GameDriver:
             self._tick()
 
     def run_for(self, seconds: float) -> None:
-        """Runs the simulation for a specific amount of time."""
+        """
+        Runs the simulation for a specific amount of time.
+
+        Args:
+            seconds (float): Duration to run.
+        """
         target_time = self.simulated_time + seconds
         # Avoid infinite loop if dt is 0 or something weird
         if self.fixed_dt <= 0:
@@ -208,12 +304,26 @@ class GameDriver:
             self._tick()
 
     def get_transform(self, entity_id: int) -> Optional[Any]:
+        """
+        Retrieves the Transform component for an entity.
+
+        Args:
+            entity_id (int): The entity ID.
+
+        Returns:
+            Optional[Transform]: The transform component.
+        """
         from ..game.components import Transform
+        if not self.world: return None
         return self.world.get_component(entity_id, Transform)
 
     def reset(self) -> None:
-        # Clear the ECS world to remove all entities
-        self.world.clear()
+        """
+        Resets the simulation state (clears entities).
+        """
+        if self.world:
+            # Clear the ECS world to remove all entities
+            self.world.clear_database()
 
         # Reset game setup flag so setup() runs again if needed (to create initial entities)
         # However, setup() also adds systems. If clear() keeps systems, we shouldn't re-add them.
@@ -230,6 +340,12 @@ class GameDriver:
 
     @property
     def world(self) -> Any:
+        """
+        Retrieves the active ECS World.
+
+        Returns:
+            Any: The ECS World instance, or None.
+        """
         if isinstance(self.game, Application):
              if self.game.scene_manager.current_scene:
                  return self.game.scene_manager.current_scene.world
@@ -238,7 +354,12 @@ class GameDriver:
         return None
 
     def save_screenshot(self, filename: str) -> None:
-        """Saves the current screen state to a file."""
+        """
+        Saves the current screen state to a file.
+
+        Args:
+            filename (str): The path to save the screenshot.
+        """
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
         if hasattr(self.game, "init_render_system_headless"):

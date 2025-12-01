@@ -1,11 +1,13 @@
 """
 Module for managing game resources like images, sounds, and data files.
 """
+
 import os
+from typing import Any, Dict, Type, TypeVar, Optional
+
 import msgspec
 import pygame
 from loguru import logger
-from typing import Any, Dict, Type, TypeVar, Optional
 
 from .data_models import (
     YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction, GameTuning
@@ -26,7 +28,7 @@ class ResourceManager:
         yukkuri_types (Dict[str, YukkuriType]): Loaded Yukkuri type definitions.
         item_types (Dict[str, ItemType]): Loaded Item type definitions.
         ai_actions (Dict[str, AIAction]): Loaded AI action definitions.
-        tuning (GameTuning): Loaded game tuning parameters.
+        tuning (Optional[GameTuning]): Loaded game tuning parameters.
     """
 
     def __init__(self, data_dir: str = "data", assets_dir: str = "assets"):
@@ -68,7 +70,7 @@ class ResourceManager:
             # noinspection PyTypeChecker
             decoded = msgspec.toml.decode(data, type=model)
             logger.info(f"Loaded TOML: {filepath}")
-            return decoded # type: ignore[no-any-return]
+            return decoded  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Failed to load TOML {filepath}: {e}")
             return None
@@ -94,7 +96,7 @@ class ResourceManager:
             if not os.path.exists(full_path):
                 logger.warning(f"Image not found: {filename}. Creating placeholder.")
                 surf = pygame.Surface((32, 32))
-                surf.fill((255, 0, 255)) # Magenta placeholder
+                surf.fill((255, 0, 255))  # Magenta placeholder
                 self.images[filename] = surf
                 return surf
 

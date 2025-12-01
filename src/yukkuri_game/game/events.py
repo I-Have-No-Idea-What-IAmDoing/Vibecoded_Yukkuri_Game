@@ -1,236 +1,189 @@
 """
-Module defining the game events.
+Game Events Module.
 """
 from dataclasses import dataclass
-from typing import Optional
-from ..engine.event_bus import Event
+from typing import List, Tuple
 
-@dataclass(frozen=True)
-class EntitySelectedEvent(Event):
+@dataclass
+class EntityDestroyedEvent:
     """
-    Event published when entities are selected or deselected.
-
-    Attributes:
-        entity_ids (list[int]): The IDs of the selected entities. Empty list if deselected.
+    Event triggered when an entity is destroyed.
     """
-    entity_ids: list[int]
+    entity_id: int
 
-@dataclass(frozen=True)
-class PlacementStartedEvent(Event):
+@dataclass
+class EntityDiedEvent:
     """
-    Event published when placement mode is initiated.
+    Event triggered when an entity dies (gameplay logic).
+    """
+    entity_id: int
+    position: Tuple[float, float]
+    cause: str = "Unknown"
 
-    Attributes:
-        type_id (str): The ID of the type being placed.
-        cost (int): The cost of the item/yukkuri.
-        entity_type (str): The category of the entity ("yukkuri" or "item").
+@dataclass
+class EntityGrewEvent:
+    """
+    Event triggered when an entity grows to a new stage (e.g., Baby -> Child).
+    """
+    entity_id: int
+    new_stage: str
+    position: Tuple[float, float]
+
+@dataclass
+class AnimationEvent:
+    """
+    Event triggered by animation system (e.g. keyframes or completion).
+    """
+    entity_id: int
+    event_type: str # "started", "finished", or custom event name
+    animation_name: str
+    frame_index: int = -1
+
+@dataclass
+class PlacementStartedEvent:
+    """
+    Event triggered when the user starts the placement mode.
     """
     type_id: str
     cost: int
     entity_type: str # "yukkuri" or "item"
 
-@dataclass(frozen=True)
-class PlacementRequestedEvent(Event):
+@dataclass
+class PlacementRequestedEvent:
     """
-    Event published when the user requests to place an entity at a location.
-
-    Attributes:
-        x (float): The x-coordinate of the placement.
-        y (float): The y-coordinate of the placement.
-        type_id (str): The ID of the type being placed.
-        cost (int): The cost of the entity.
-        entity_type (str): The category of the entity ("yukkuri" or "item").
+    Event triggered when the user clicks to place an entity.
     """
     x: float
     y: float
     type_id: str
     cost: int
-    entity_type: str # "yukkuri" or "item"
+    entity_type: str
 
-@dataclass(frozen=True)
-class PlacementCancelledEvent(Event):
+@dataclass
+class PlacementCancelledEvent:
     """
-    Event published when placement mode is cancelled.
+    Event triggered when the user cancels placement mode.
     """
     pass
 
-@dataclass(frozen=True)
-class GamePausedEvent(Event):
+@dataclass
+class EntitySelectedEvent:
     """
-    Event published when the game paused state changes.
+    Event triggered when entities are selected.
+    """
+    entity_ids: List[int]
 
-    Attributes:
-        paused (bool): True if the game is now paused, False otherwise.
+@dataclass
+class LogMessageEvent:
+    """
+    Event to log a message to the in-game console/log.
+    """
+    message: str
+    color: Tuple[int, int, int] = (255, 255, 255)
+
+@dataclass
+class TogglePauseRequest:
+    """
+    Request to toggle game pause state.
+    """
+    pass
+
+@dataclass
+class GamePausedEvent:
+    """
+    Event indicating the game pause state has changed.
     """
     paused: bool
 
-@dataclass(frozen=True)
-class TogglePauseRequest(Event):
+@dataclass
+class CycleSpeedRequest:
     """
-    Event published when a request to toggle the game pause state is made.
-    """
-    pass
-
-@dataclass(frozen=True)
-class CycleSpeedRequest(Event):
-    """
-    Event published when a request to cycle the game speed is made.
+    Request to cycle through game speeds.
     """
     pass
 
-@dataclass(frozen=True)
-class TrainEntityRequest(Event):
+@dataclass
+class ResolutionChangedEvent:
     """
-    Event published when a request to train an entity is made.
-
-    Attributes:
-        entity_id (int): The ID of the entity to train.
-    """
-    entity_id: int
-
-@dataclass(frozen=True)
-class PunishEntityRequest(Event):
-    """
-    Event published when a request to punish an entity is made.
-
-    Attributes:
-        entity_id (int): The ID of the entity to punish.
-    """
-    entity_id: int
-
-@dataclass(frozen=True)
-class SellEntityRequest(Event):
-    """
-    Event published when a request to sell an entity is made.
-
-    Attributes:
-        entity_id (int): The ID of the entity to sell.
-    """
-    entity_id: int
-
-@dataclass(frozen=True)
-class CleanToolRequestedEvent(Event):
-    """
-    Event triggered when the Clean tool is requested via UI.
-    """
-    pass
-
-@dataclass(frozen=True)
-class AnimationEvent(Event):
-    """
-    Event published when an animation triggers a specific event.
-
-    Attributes:
-        entity_id (int): The ID of the entity.
-        event_name (str): The name of the trigger event (e.g., "step", "attack_hit").
-        animation_name (str): The name of the animation playing.
-        frame_index (int): The frame index where the event occurred.
-    """
-    entity_id: int
-    event_name: str
-    animation_name: str
-    frame_index: int
-
-@dataclass(frozen=True)
-class LogMessageEvent(Event):
-    """
-    Event published to display a message in the HUD log.
-
-    Attributes:
-        message (str): The message text.
-        color (tuple[int, int, int]): The RGB color of the message text.
-    """
-    message: str
-    color: tuple[int, int, int] = (255, 255, 255)
-
-@dataclass(frozen=True)
-class EntitySoldEvent(Event):
-    """
-    Event published when an entity is sold.
-
-    Attributes:
-        entity_id (int): The ID of the sold entity.
-        value (int): The value the entity was sold for.
-        position (tuple[float, float]): The position where the entity was.
-    """
-    entity_id: int
-    value: int
-    position: tuple[float, float]
-
-@dataclass(frozen=True)
-class EntityPunishedEvent(Event):
-    """
-    Event published when an entity is punished.
-
-    Attributes:
-        entity_id (int): The ID of the punished entity.
-        position (tuple[float, float]): The position of the entity.
-    """
-    entity_id: int
-    position: tuple[float, float]
-
-@dataclass(frozen=True)
-class ResolutionChangedEvent(Event):
-    """
-    Event published when the window resolution or fullscreen mode changes.
-
-    Attributes:
-        width (int): New width.
-        height (int): New height.
-        fullscreen (bool): New fullscreen state.
+    Event indicating the window resolution has changed.
     """
     width: int
     height: int
     fullscreen: bool
 
-@dataclass(frozen=True)
-class EntityGrewEvent(Event):
+@dataclass
+class TrainEntityRequest:
     """
-    Event published when an entity grows to a new stage.
-
-    Attributes:
-        entity_id (int): The ID of the growing entity.
-        new_stage (str): The new growth stage.
-        position (tuple[float, float]): The position of the entity.
+    Request to train a specific entity.
     """
     entity_id: int
-    new_stage: str
-    position: tuple[float, float]
 
-@dataclass(frozen=True)
-class EntityTrainedEvent(Event):
+@dataclass
+class EntityTrainedEvent:
     """
-    Event published when an entity is trained.
-
-    Attributes:
-        entity_id (int): The ID of the trained entity.
-        position (tuple[float, float]): The position of the entity.
+    Event indicating an entity was trained.
     """
     entity_id: int
-    position: tuple[float, float]
+    position: Tuple[float, float]
+    success: bool = True
 
-@dataclass(frozen=True)
-class EntityDiedEvent(Event):
+@dataclass
+class PunishEntityRequest:
     """
-    Event published when an entity dies.
-
-    Attributes:
-        entity_id (int): The ID of the died entity.
-        position (tuple[float, float]): The position of the entity.
+    Request to punish a specific entity.
     """
     entity_id: int
-    position: tuple[float, float]
 
-@dataclass(frozen=True)
-class SocialInteractionEvent(Event):
+@dataclass
+class EntityPunishedEvent:
     """
-    Event published when a social interaction occurs between two entities.
+    Event indicating an entity was punished.
+    """
+    entity_id: int
+    position: Tuple[float, float]
 
-    Attributes:
-        initiator_id (int): The ID of the initiating entity.
-        target_id (int): The ID of the target entity.
-        interaction_type (str): The type of interaction (e.g., "Talk", "Fight").
+@dataclass
+class SellEntityRequest:
+    """
+    Request to sell a specific entity.
+    """
+    entity_id: int
+
+@dataclass
+class EntitySoldEvent:
+    """
+    Event indicating an entity was sold.
+    """
+    entity_id: int
+    value: int
+    position: Tuple[float, float]
+
+@dataclass
+class CleanToolRequestedEvent:
+    """
+    Request to activate the cleaning tool.
+    """
+    pass
+
+@dataclass
+class SocialInteractionEvent:
+    """
+    Event indicating a social interaction occurred between two entities.
     """
     initiator_id: int
     target_id: int
-    interaction_type: str
+    interaction_type: str # "Talk", "Fight", "Dance"
+
+@dataclass
+class SaveGameRequest:
+    """
+    Request to save the game.
+    """
+    filename: str = "savegame"
+
+@dataclass
+class LoadGameRequest:
+    """
+    Request to load a game.
+    """
+    filename: str = "savegame"

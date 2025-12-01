@@ -1,9 +1,11 @@
 """
 Module defining the core GameLoop class.
 """
+
 import pygame
 import pygame_gui
 from loguru import logger
+
 from .resource_manager import ResourceManager
 from .ecs import World
 
@@ -26,9 +28,12 @@ class GameLoop:
         time_scale (float): The scale factor for game time (e.g., 2.0 for 2x speed).
         paused (bool): Flag indicating if the game simulation is paused.
         dt (float): The time elapsed since the last frame in seconds.
+        accumulator (float): Time accumulator for fixed timestep.
+        fixed_dt (float): The fixed timestep duration (default 1/60s).
     """
 
-    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game", headless: bool = False):
+    def __init__(self, width: int = 1280, height: int = 720,
+                 title: str = "Yukkuri Raising Game", headless: bool = False):
         """
         Initializes the GameLoop.
 
@@ -80,9 +85,6 @@ class GameLoop:
         Sets up the game state.
 
         Override this method to add systems and initial entities.
-
-        Returns:
-            None
         """
         pass
 
@@ -91,9 +93,6 @@ class GameLoop:
         Handles Pygame events.
 
         Processes quit events, UI events, and calls on_event for custom handling.
-
-        Returns:
-            None
         """
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -110,9 +109,6 @@ class GameLoop:
 
         Args:
             event (pygame.event.Event): The Pygame event to handle.
-
-        Returns:
-            None
         """
         pass
 
@@ -123,9 +119,6 @@ class GameLoop:
 
         Args:
             dt (float): The delta time in seconds.
-
-        Returns:
-            None
         """
         self.dt = dt
         self.ui_manager.update(dt)
@@ -138,17 +131,12 @@ class GameLoop:
     def update(self) -> None:
         """
         Updates the game state using a fixed timestep loop.
-        """
-        # We still limit the loop speed to avoid using 100% CPU in simple scenes,
-        # but the physics update will be fixed.
-        # Note: tick() returns time since last call in milliseconds.
-        # If we want uncapped FPS rendering but fixed physics, we should use get_ticks() diff.
-        # For now, we'll keep the 60 FPS cap for rendering but ensure physics is fixed.
-        # Actually, "Fix Your Timestep" suggests decoupling.
-        # Let's use get_ticks for accurate time tracking.
 
-        # self.clock.tick(60) # Optional: cap frame rate
-        pass # The loop is now controlled in run()
+        Note: The actual loop control logic is now in `run()`.
+        This method is kept for potential subclasses that might rely on it,
+        but it does not perform the loop itself.
+        """
+        pass
 
     def draw(self) -> None:
         """
@@ -161,7 +149,7 @@ class GameLoop:
         Performs rendering operations.
         Separated from update/tick for headless efficiency.
         """
-        self.screen.fill((30, 30, 30)) # Dark background
+        self.screen.fill((30, 30, 30))  # Dark background
         self.render_world()
         self.ui_manager.draw_ui(self.screen)
         pygame.display.flip()
@@ -171,9 +159,6 @@ class GameLoop:
         Renders the game entities.
 
         Override this method to implement custom rendering logic.
-
-        Returns:
-            None
         """
         pass
 
@@ -188,9 +173,6 @@ class GameLoop:
         """
         Runs the main game loop using "Fix Your Timestep" logic.
         This ensures consistent game physics regardless of frame rate.
-
-        Returns:
-            None
         """
         self.setup()
         logger.info("Game Loop Started")
@@ -235,8 +217,5 @@ class GameLoop:
 
         Args:
             headless (bool): True to enable headless mode, False otherwise.
-
-        Returns:
-            None
         """
         self.headless = headless

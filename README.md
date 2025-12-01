@@ -168,7 +168,7 @@ This project follows a modular structure separating core engine features from ga
 
 ## Development
 
-The codebase is fully documented using **Google Style Python Docstrings**. Every public function, method, and class includes a docstring detailing its purpose, arguments, and return values.
+The codebase is fully documented using **Google Style Python Docstrings**. Every public function, method, and class includes a docstring detailing its purpose, arguments, and return values. This comprehensive documentation supports new developers in understanding and extending the engine.
 
 ### Documentation Standards
 When contributing, ensure all new code includes comprehensive docstrings:

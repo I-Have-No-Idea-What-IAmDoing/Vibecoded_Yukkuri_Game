@@ -14,16 +14,29 @@ from ..components import Transform
 from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState
 from ..trait_service import TraitService
 from ..services import TimeService
-from ..entity_factory import EntityFactory
 from ..events import SocialInteractionEvent
+from ..prefabs.effects import create_floating_text
 
 class SocialSystem(System):
     """
     System responsible for managing social relationships, memory decay, and applying interaction effects.
     Implements "Headline System" for memory and Opinion Calculation.
+
+    Attributes:
+        trait_service (Optional[TraitService]): The trait service.
+        cleanup_index (int): Index for partial update loop.
+        cleanup_batch_size (int): Number of entities to process per frame.
+        event_bus (EventBus): The event bus.
+        headline_counter (int): Counter for unique memory IDs.
     """
 
     def __init__(self, event_bus: EventBus):
+        """
+        Initializes the SocialSystem.
+
+        Args:
+            event_bus (EventBus): The event bus instance.
+        """
         super().__init__()
         self.trait_service: Optional[TraitService] = None
         self.cleanup_index = 0
@@ -35,6 +48,13 @@ class SocialSystem(System):
         self.headline_counter = 0
 
     def update(self, world: World, dt: float) -> None:
+        """
+        Updates the social system (memory decay, relationship cleanup).
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+        """
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
 
@@ -80,6 +100,13 @@ class SocialSystem(System):
         """
         Recalculates the opinion (affinity) based on the formula:
         Opinion = Base Compatibility + Sum(CoreMemories) + Sum(TrivialEvents)
+
+        Args:
+            world (World): The ECS World.
+            subject_id (int): The entity holding the opinion.
+            other_id (int): The target of the opinion.
+            rel_data (RelationshipData): The relationship data object.
+            force_compatibility_update (bool): Whether to force recompute base compatibility.
         """
         if not self.trait_service:
             return
@@ -120,21 +147,32 @@ class SocialSystem(System):
             rel_data.base_compatibility = base_compatibility
 
         # 2. Use Cached Memory Sums (O(1))
-        # rel_data.core_sentiment_sum and rel_data.trivial_sentiment_sum are maintained by add_headline
         memory_score = rel_data.core_sentiment_sum + rel_data.trivial_sentiment_sum
 
         # 3. Final Calculation
         rel_data.affinity = rel_data.base_compatibility + memory_score
 
-        # We do not clamp opinion here, as deep history should allow for resilience (or permanent hatred).
-        # Any consuming system should handle values outside -100/100 if necessary.
-
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
+        """
+        Handler for SocialInteractionEvent.
+
+        Args:
+            event (SocialInteractionEvent): The event data.
+        """
         if not hasattr(self, 'ecs_world'):
             return
         self.register_interaction(self.ecs_world, event.initiator_id, event.target_id, event.interaction_type)
 
     def register_interaction(self, world: World, actor_id: int, target_id: int, interaction_name: str) -> None:
+        """
+        Registers a social interaction, applying effects to both parties.
+
+        Args:
+            world (World): The ECS World.
+            actor_id (int): The initiator.
+            target_id (int): The target.
+            interaction_name (str): The interaction type name.
+        """
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
             if not self.trait_service:
@@ -153,8 +191,15 @@ class SocialSystem(System):
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
 
     def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Dict[str, Any]) -> None:
-        factory = world.services.try_get(EntityFactory)
-        if not factory: return
+        """
+        Spawns visual feedback (floating text/icon) for the interaction.
+
+        Args:
+            world (World): The ECS World.
+            entity_id (int): The entity to show feedback on.
+            interaction_name (str): The name of the interaction.
+            data (Dict[str, Any]): The interaction data definition.
+        """
         trans = world.get_component(entity_id, Transform)
         if not trans: return
 
@@ -181,9 +226,20 @@ class SocialSystem(System):
 
         fx = trans.x + random.uniform(-10, 10)
         fy = trans.y - 30
-        factory.create_floating_text(fx, fy, text, color, size=24, lifetime=1.5)
+        create_floating_text(world, fx, fy, text, color, size=24, lifetime=1.5)
 
     def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Dict[str, Any], role: str, now: float) -> None:
+        """
+        Applies the social impact of an interaction to a subject.
+
+        Args:
+            world (World): The ECS World.
+            subject_id (int): The entity receiving the impact.
+            other_id (int): The other entity involved.
+            data (Dict[str, Any]): Interaction data.
+            role (str): "actor" or "target".
+            now (float): Current timestamp.
+        """
         if role == "actor":
             return
 
@@ -214,6 +270,16 @@ class SocialSystem(System):
         self._update_opinion(world, subject_id, other_id, rel)
 
     def _get_or_create_registry(self, world: World, entity_id: int) -> RelationshipRegistry:
+        """
+        Helper to get or create RelationshipRegistry component.
+
+        Args:
+            world (World): The ECS World.
+            entity_id (int): The entity ID.
+
+        Returns:
+            RelationshipRegistry: The component.
+        """
         registry = world.get_component(entity_id, RelationshipRegistry)
         if not registry:
             registry = RelationshipRegistry()
@@ -221,6 +287,19 @@ class SocialSystem(System):
         return registry
 
     def _calculate_impact_deltas(self, world: World, subject_id: int, social_impact: Dict[str, float], modifiers: Dict[str, Dict[str, float]], base_impact_score: float) -> tuple[float, float, float, float]:
+        """
+        Calculates impact deltas considering personality and traits.
+
+        Args:
+            world (World): The ECS World.
+            subject_id (int): The subject ID.
+            social_impact (Dict): Base social impact map.
+            modifiers (Dict): Trait modifiers map.
+            base_impact_score (float): Base impact score.
+
+        Returns:
+            tuple[float, float, float, float]: (d_affinity, d_trust, d_fear, d_familiarity).
+        """
         d_affinity = social_impact.get("affinity", 0.0)
         d_trust = social_impact.get("trust", 0.0)
         d_fear = social_impact.get("fear", 0.0)
@@ -254,6 +333,14 @@ class SocialSystem(System):
         return d_affinity, d_trust, d_fear, d_familiarity
 
     def _update_emotional_state(self, world: World, subject_id: int, base_impact_score: float) -> None:
+        """
+        Updates emotional state based on interaction impact.
+
+        Args:
+            world (World): The ECS World.
+            subject_id (int): The subject entity ID.
+            base_impact_score (float): The impact score.
+        """
         emotional = world.get_component(subject_id, EmotionalState)
         if emotional:
             if base_impact_score < -15:
@@ -263,6 +350,17 @@ class SocialSystem(System):
                 emotional.happiness = min(100.0, emotional.happiness + 20.0)
 
     def _add_memory_headline(self, world: World, rel: RelationshipData, base_impact_score: float, d_affinity: float, event_type: str, now: float) -> None:
+        """
+        Adds a memory headline to the relationship.
+
+        Args:
+            world (World): The ECS World.
+            rel (RelationshipData): The relationship data.
+            base_impact_score (float): The importance score.
+            d_affinity (float): The sentiment change.
+            event_type (str): The event type string.
+            now (float): Current timestamp.
+        """
         if abs(base_impact_score) > 0:
             self.headline_counter += 1
             headline = MemoryHeadline(

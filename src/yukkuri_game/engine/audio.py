@@ -1,10 +1,12 @@
 """
 Module for managing audio playback.
 """
-import pygame
-from loguru import logger
+
 import os
 import sys
+import pygame
+from loguru import logger
+from typing import Dict, Optional
 
 class AudioManager:
     """
@@ -12,8 +14,9 @@ class AudioManager:
 
     Attributes:
         enabled (bool): Whether audio is enabled (initialized successfully).
-        sounds (dict[str, pygame.mixer.Sound]): A dictionary mapping sound names to pygame.mixer.Sound objects.
-        music (pygame.mixer.Music): The current background music (not currently used).
+        sounds (Dict[str, pygame.mixer.Sound]): A dictionary mapping sound names to
+            pygame.mixer.Sound objects.
+        music (Optional[Any]): The current background music (not currently used).
         master_volume (float): The global volume level (0.0 to 1.0).
         bgm_volume (float): The background music volume level (0.0 to 1.0).
         sfx_volume (float): The sound effects volume level (0.0 to 1.0).
@@ -32,11 +35,11 @@ class AudioManager:
             logger.warning(f"Audio initialization failed (likely no device): {e}")
             self.enabled = False
 
-        self.sounds: dict[str, pygame.mixer.Sound] = {}
-        self.music = None
-        self.master_volume = 1.0
-        self.bgm_volume = 1.0
-        self.sfx_volume = 1.0
+        self.sounds: Dict[str, pygame.mixer.Sound] = {}
+        self.music: Optional[Any] = None
+        self.master_volume: float = 1.0
+        self.bgm_volume: float = 1.0
+        self.sfx_volume: float = 1.0
 
     def load_from_config(self, config_path: str = "data/sounds.toml") -> None:
         """
@@ -47,9 +50,12 @@ class AudioManager:
         """
         if os.path.exists(config_path):
             if sys.version_info >= (3, 11):
-                import tomllib
+                import tomllib  # type: ignore
             else:
-                import tomli as tomllib
+                try:
+                    import tomli as tomllib  # type: ignore
+                except ImportError:
+                    tomllib = None
 
             if tomllib:
                 try:
@@ -61,6 +67,7 @@ class AudioManager:
                     logger.error(f"Failed to load sound config from {config_path}: {e}")
                     self._load_fallback_sounds()
             else:
+                logger.warning("tomllib not available, falling back to default sounds.")
                 self._load_fallback_sounds()
         else:
             self._load_fallback_sounds()
@@ -86,9 +93,6 @@ class AudioManager:
         Args:
             name (str): The name to assign to the sound.
             filepath (str): The path to the sound file.
-
-        Returns:
-            None
         """
         if not self.enabled:
             return
@@ -106,9 +110,6 @@ class AudioManager:
 
         Args:
             name (str): The name of the sound to play.
-
-        Returns:
-            None
         """
         if not self.enabled:
             return
@@ -122,9 +123,6 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 and 1.0.
-
-        Returns:
-            None
         """
         # Clamp volume
         self.master_volume = max(0.0, min(1.0, volume))
@@ -136,13 +134,10 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 and 1.0.
-
-        Returns:
-            None
         """
         self.bgm_volume = max(0.0, min(1.0, volume))
-        if self.music:
-            pygame.mixer.music.set_volume(self.master_volume * self.bgm_volume)
+        if self.enabled and pygame.mixer.get_init():
+             pygame.mixer.music.set_volume(self.master_volume * self.bgm_volume)
 
     def set_sfx_volume(self, volume: float) -> None:
         """
@@ -150,9 +145,6 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 and 1.0.
-
-        Returns:
-            None
         """
         self.sfx_volume = max(0.0, min(1.0, volume))
         self._update_all_volumes()
@@ -163,18 +155,12 @@ class AudioManager:
 
         Args:
             sound (pygame.mixer.Sound): The sound object to update.
-
-        Returns:
-            None
         """
         sound.set_volume(self.master_volume * self.sfx_volume)
 
     def _update_all_volumes(self) -> None:
         """
         Updates volumes for all loaded sounds and music.
-
-        Returns:
-            None
         """
         if not self.enabled:
             return
@@ -192,8 +178,5 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 (mute) and 1.0 (max).
-
-        Returns:
-            None
         """
         self.set_master_volume(volume)

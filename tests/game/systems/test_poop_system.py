@@ -27,14 +27,15 @@ def test_poop_system_spawning():
     world.add_component(entity, ai)
 
     # Force spawn by mocking random.random to return 0.0
-    with patch('random.random', return_value=0.0):
+    with patch('random.random', return_value=0.0), \
+         patch('yukkuri_game.game.systems.poop_system.create_poop') as mock_create_poop:
         system.spawn_chance_per_second = 0.1 # Set > 0
 
         # Run update
         system.update(world, 1.0)
 
-    # Verify create_poop was called
-    assert factory.create_poop.called
+        # Verify create_poop was called
+        mock_create_poop.assert_called()
 
     # Check cleanliness reduction after pooping
     assert stats.cleanliness < 100.0 # Default starts at 100
@@ -43,11 +44,7 @@ def test_poop_system_low_cleanliness_spawning():
     world = World()
     system = PoopSystem()
 
-    factory = MagicMock(spec=EntityFactory)
-    world.services.register(factory)
-    # Ensure try_get returns our mock
-    world.services.try_get = MagicMock(return_value=factory)
-
+    # Create entity
     entity = world.create_entity()
     stats = YukkuriStats(name="Test", type_id="reimu")
     stats.cleanliness = 5.0 # Very low
@@ -58,22 +55,13 @@ def test_poop_system_low_cleanliness_spawning():
     world.add_component(entity, transform)
     world.add_component(entity, ai)
 
-    # We want to test the low cleanliness branch.
-    # The code checks: if random.random() < (self.spawn_chance_per_second * 5) * dt:
-
-    # We can't easily distinguish which check triggered it without precise control or reading internal state
-    # But we can verify that with very low chance, normal won't trigger but low clean might.
-
     system.spawn_chance_per_second = 0.001
-    # 0.001 * 1.0 = 0.001 normal chance
-    # 0.001 * 5 * 1.0 = 0.005 boosted chance
 
-    # If we patch random to return 0.003, normal fails (0.003 > 0.001), boosted passes (0.003 < 0.005)
-
-    with patch('random.random', return_value=0.003):
+    with patch('random.random', return_value=0.003), \
+         patch('yukkuri_game.game.systems.poop_system.create_poop') as mock_create_poop:
         system.update(world, 1.0)
 
-    assert factory.create_poop.called
+        mock_create_poop.assert_called()
 
 def test_poop_smell_effect():
     world = World()

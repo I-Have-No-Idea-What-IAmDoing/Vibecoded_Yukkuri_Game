@@ -49,7 +49,7 @@ def lifecycle_system(entity_factory):
         baby_age_threshold=100.0,
         child_age_threshold=300.0
     )
-    return LifecycleSystem(settings, entity_factory)
+    return LifecycleSystem(settings)
 
 def test_growth_max_health_inconsistency(lifecycle_system, entity_factory, world):
     """
