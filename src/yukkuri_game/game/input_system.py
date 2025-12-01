@@ -21,11 +21,25 @@ class InputSystem(System):
     System responsible for handling user input related to the game world.
 
     Handles entity selection and triggers placement requests via events.
+
+    Attributes:
+        yukkurrium (Yukkurrium): The world view manager.
+        event_bus (Optional[EventBus]): The event bus service.
+        input_service (Optional[InputService]): The input service.
+        input_manager (Optional[InputManager]): The input manager service.
+        audio (Optional[AudioManager]): The audio manager.
+        ui_manager (Optional[pygame_gui.UIManager]): The UI manager.
+        drag_start_pos (Optional[Tuple[float, float]]): World coordinates where drag started.
+        drag_end_pos (Optional[Tuple[float, float]]): World coordinates where drag ended.
+        drag_start_screen_pos (Optional[Tuple[int, int]]): Screen coordinates where drag started.
     """
 
     def __init__(self, yukkurrium: 'Yukkurrium'):
         """
         Initializes the InputSystem.
+
+        Args:
+            yukkurrium (Yukkurrium): The game world view manager.
         """
         self.yukkurrium = yukkurrium
         self.event_bus: Optional[EventBus] = None
@@ -38,12 +52,22 @@ class InputSystem(System):
         self.drag_end_pos: Optional[Tuple[float, float]] = None
         self.drag_start_screen_pos: Optional[Tuple[int, int]] = None
 
-    def set_ui_manager(self, ui_manager: 'pygame_gui.UIManager'):
-        """Sets the UI Manager to check for UI interaction."""
+    def set_ui_manager(self, ui_manager: 'pygame_gui.UIManager') -> None:
+        """
+        Sets the UI Manager to check for UI interaction.
+
+        Args:
+            ui_manager (pygame_gui.UIManager): The UI manager.
+        """
         self.ui_manager = ui_manager
 
     def on_placement_started(self, event: Event) -> None:
-        """Handles the PlacementStartedEvent."""
+        """
+        Handles the PlacementStartedEvent.
+
+        Args:
+            event (Event): The event instance.
+        """
         if not isinstance(event, PlacementStartedEvent):
             return
 
@@ -51,7 +75,12 @@ class InputSystem(System):
             self.input_service.start_placement(event.type_id, event.cost, event.entity_type)
 
     def on_clean_tool_requested(self, event: Event) -> None:
-        """Handles the CleanToolRequestedEvent."""
+        """
+        Handles the CleanToolRequestedEvent.
+
+        Args:
+            event (Event): The event instance.
+        """
         if not isinstance(event, CleanToolRequestedEvent):
             return
 
@@ -59,7 +88,13 @@ class InputSystem(System):
             self.input_service.start_cleaning()
 
     def update(self, world: World, dt: float) -> None:
-        """Updates the input system by polling InputManager."""
+        """
+        Updates the input system by polling InputManager.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+        """
         # Lazy initialization of dependencies
         if self.input_service is None:
             self.input_service = world.services.get(InputService)
@@ -166,6 +201,12 @@ class InputSystem(System):
     def _handle_selection(self, world: World, start_pos: tuple[float, float], end_pos: tuple[float, float], drag_dist: float) -> None:
         """
         Handles selecting entities within the given world coordinate box.
+
+        Args:
+            world (World): The ECS World.
+            start_pos (tuple[float, float]): The drag start position (world coords).
+            end_pos (tuple[float, float]): The drag end position (world coords).
+            drag_dist (float): The distance dragged in screen pixels.
         """
         x1, y1 = start_pos
         x2, y2 = end_pos
@@ -235,6 +276,11 @@ class InputSystem(System):
     def _handle_cleaning(self, world: World, wx: float, wy: float) -> None:
         """
         Handles logic when clicking in cleaning mode.
+
+        Args:
+            world (World): The ECS World.
+            wx (float): World x-coordinate.
+            wy (float): World y-coordinate.
         """
         click_radius = 32.0
         poop_entities = world.get_entities_with(Poop, Transform)
@@ -256,6 +302,13 @@ class InputSystem(System):
     def _check_hover(self, world: World, wx: float, wy: float, mx: int, my: int) -> None:
         """
         Checks for entities under the mouse cursor and updates the input service.
+
+        Args:
+            world (World): The ECS World.
+            wx (float): World x-coordinate.
+            wy (float): World y-coordinate.
+            mx (int): Screen x-coordinate.
+            my (int): Screen y-coordinate.
         """
         hover_radius = 32.0
         entities = world.get_entities_with(Transform, Selectable)

@@ -6,6 +6,9 @@ from enum import Enum, auto, IntEnum
 import pygame
 
 class InputContext(IntEnum):
+    """
+    Enum representing input contexts with priority levels.
+    """
     # Higher value = Higher Priority
     GAMEPLAY = 1
     MENU = 10
@@ -13,8 +16,22 @@ class InputContext(IntEnum):
 class InputManager:
     """
     Manages input state and contexts with priority-based consumption.
+
+    Attributes:
+        _active_contexts (Set[InputContext]): The set of currently active input contexts.
+        _keys_pressed (Set[int]): Set of keys currently held down.
+        _keys_down (Set[int]): Set of keys pressed in the current frame.
+        _keys_up (Set[int]): Set of keys released in the current frame.
+        _mouse_buttons (Set[int]): Set of mouse buttons currently held down.
+        _mouse_buttons_down (Set[int]): Set of mouse buttons pressed in the current frame.
+        _mouse_buttons_up (Set[int]): Set of mouse buttons released in the current frame.
+        _mouse_pos (Tuple[int, int]): The current mouse position (x, y).
+        _mouse_wheel (float): The mouse wheel delta.
+        _key_mappings (Dict[InputContext, Dict[str, int]]): Mapping of contexts to key actions.
+        _mouse_mappings (Dict[InputContext, Dict[str, int]]): Mapping of contexts to mouse actions.
     """
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initializes the InputManager."""
         self._active_contexts: Set[InputContext] = {InputContext.MENU}
         self._keys_pressed: Set[int] = set()
         self._keys_down: Set[int] = set()
@@ -60,20 +77,36 @@ class InputManager:
             }
         }
 
-    def set_context(self, context: InputContext, active: bool = True):
-        """Enable or disable an input context."""
+    def set_context(self, context: InputContext, active: bool = True) -> None:
+        """
+        Enable or disable an input context.
+
+        Args:
+            context (InputContext): The context to modify.
+            active (bool): True to enable the context, False to disable.
+        """
         if active:
             self._active_contexts.add(context)
         else:
             self._active_contexts.discard(context)
 
-    def switch_context(self, context: InputContext):
-        """Switch to a single active context."""
+    def switch_context(self, context: InputContext) -> None:
+        """
+        Switch to a single active context, disabling all others.
+
+        Args:
+            context (InputContext): The context to make active.
+        """
         self._active_contexts.clear()
         self._active_contexts.add(context)
 
-    def process_event(self, event: pygame.event.Event):
-        """Process pygame input events."""
+    def process_event(self, event: pygame.event.Event) -> None:
+        """
+        Process pygame input events.
+
+        Args:
+            event (pygame.event.Event): The pygame event to process.
+        """
         if event.type == pygame.KEYDOWN:
             self._keys_pressed.add(event.key)
             self._keys_down.add(event.key)
@@ -94,8 +127,11 @@ class InputManager:
         elif event.type == pygame.MOUSEWHEEL:
              self._mouse_wheel = event.y
 
-    def update(self):
-        """Clear frame-transient state."""
+    def update(self) -> None:
+        """
+        Clear frame-transient state.
+        Should be called at the beginning or end of each frame.
+        """
         self._keys_down.clear()
         self._keys_up.clear()
         self._mouse_buttons_down.clear()
@@ -105,6 +141,14 @@ class InputManager:
     def _is_consumed(self, key_or_btn: int, current_context: InputContext, is_mouse: bool = False) -> bool:
         """
         Check if a key/button is consumed by a higher priority context.
+
+        Args:
+            key_or_btn (int): The key code or mouse button ID.
+            current_context (InputContext): The context checking for input.
+            is_mouse (bool): True if checking a mouse button, False for keyboard key.
+
+        Returns:
+            bool: True if the input is consumed by a higher priority context, False otherwise.
         """
         for context in self._active_contexts:
             if context.value > current_context.value:
@@ -119,6 +163,14 @@ class InputManager:
     def _check_action_in_collection(self, action: str, key_collection: Set[int], mouse_collection: Set[int]) -> bool:
         """
         Helper to check if an action is triggered within the active contexts, respecting priority.
+
+        Args:
+            action (str): The name of the action to check.
+            key_collection (Set[int]): The set of keys to check (e.g., pressed, down).
+            mouse_collection (Set[int]): The set of mouse buttons to check.
+
+        Returns:
+            bool: True if the action is triggered, False otherwise.
         """
         # Sort contexts high to low.
         # If a higher context consumes the input, lower contexts are blocked.
@@ -142,7 +194,15 @@ class InputManager:
         return False
 
     def is_action_pressed(self, action: str) -> bool:
-        """Check if an action is active (key/button held down)."""
+        """
+        Check if an action is active (key/button held down).
+
+        Args:
+            action (str): The action name.
+
+        Returns:
+            bool: True if the action is currently active.
+        """
         return self._check_action_in_collection(
             action,
             self._keys_pressed,
@@ -150,7 +210,15 @@ class InputManager:
         )
 
     def is_action_just_pressed(self, action: str) -> bool:
-        """Check if an action was just pressed this frame."""
+        """
+        Check if an action was just pressed this frame.
+
+        Args:
+            action (str): The action name.
+
+        Returns:
+            bool: True if the action was just pressed.
+        """
         return self._check_action_in_collection(
             action,
             self._keys_down,
@@ -158,7 +226,15 @@ class InputManager:
         )
 
     def is_action_just_released(self, action: str) -> bool:
-        """Check if an action was just released this frame."""
+        """
+        Check if an action was just released this frame.
+
+        Args:
+            action (str): The action name.
+
+        Returns:
+            bool: True if the action was just released.
+        """
         return self._check_action_in_collection(
             action,
             self._keys_up,
@@ -166,9 +242,19 @@ class InputManager:
         )
 
     def get_mouse_position(self) -> Tuple[int, int]:
-        """Returns the current mouse position."""
+        """
+        Returns the current mouse position.
+
+        Returns:
+            Tuple[int, int]: The (x, y) coordinates of the mouse.
+        """
         return self._mouse_pos
 
     def get_mouse_wheel(self) -> float:
-        """Returns the mouse wheel delta."""
+        """
+        Returns the mouse wheel delta.
+
+        Returns:
+            float: The amount the mouse wheel was scrolled.
+        """
         return self._mouse_wheel
