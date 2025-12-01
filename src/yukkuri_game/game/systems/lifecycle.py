@@ -148,12 +148,10 @@ class LifecycleSystem(System):
             # But we can't scale a circle shape directly easily?
             # Actually, `shape.unsafe_set_radius` exists for circles.
             if hasattr(physics.shape, "unsafe_set_radius"):
-                 # Original radius was 20.
-                 # Baby: 10, Child: 15, Adult: 20
-                 if new_stage == "Child":
-                     physics.shape.unsafe_set_radius(15)
-                 elif new_stage == "Adult":
-                     physics.shape.unsafe_set_radius(20)
+                 # Scale the radius proportionally
+                 # This supports non-standard sized entities (e.g. giants, minis) correctly
+                 new_radius = physics.shape.radius * scale_multiplier
+                 physics.shape.unsafe_set_radius(new_radius)
             elif hasattr(physics.shape, "unsafe_set_vertices"): # Box
                 pass # Complex
 
