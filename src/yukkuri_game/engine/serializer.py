@@ -12,13 +12,15 @@ class WorldSerializer:
     Handles serialization and deserialization of the game world.
     """
 
-    # Heuristic: Fields ending with these are considered references
-    REF_SUFFIXES = ("_id", "_ids")
+    # Exact matches for these fields are considered references.
+    # We prefer explicit registration via _references in components,
+    # but these common names are supported for convenience.
+    REF_EXACT_NAMES = {
+        "parent", "owner", "target",
+        "parent_id", "owner_id", "target_id"
+    }
 
-    # Heuristic: Exact matches for these fields
-    REF_EXACT_NAMES = {"parent", "owner", "target"}
-
-    # Blocklist: Fields that match suffixes but are definitely NOT entity references
+    # Blocklist is less relevant if we don't use suffixes, but kept for safety if we re-enable them.
     REF_BLOCKLIST = {
         "type_id", "sprite_id", "sound_id", "texture_id", "animation_id",
         "action_id", "behavior_id", "shader_id", "layer_id", "region_id",
@@ -179,14 +181,13 @@ class WorldSerializer:
                          ref_fields = getattr(component, "_references")
                          is_explicit_ref = True
                     else:
-                        # Fallback to implicit heuristic
+                        # Strict Heuristic: Only allow known exact names
+                        # We removed the broad 'endswith' check to prevent corruption of data like 'item_ids'
                         for field_name in component.__dataclass_fields__:
                             if field_name in self.REF_BLOCKLIST:
                                 continue
 
                             if field_name in self.REF_EXACT_NAMES:
-                                ref_fields.add(field_name)
-                            elif field_name.endswith(self.REF_SUFFIXES):
                                 ref_fields.add(field_name)
 
                     if not ref_fields:
@@ -200,22 +201,14 @@ class WorldSerializer:
 
                         if val is not None:
                             # Handle Scalars, Lists, Sets, Dicts
-                            # CRITICAL FIX: explicit check 'not isinstance(val, bool)'
-                            # because in Python isinstance(True, int) is True.
                             if isinstance(val, int) and not isinstance(val, bool):
                                 if val in id_map:
                                     setattr(component, field_name, id_map[val])
                                 elif val > 0:
-                                    # Dangling reference or false positive heuristic.
-                                    is_actually_explicit = is_explicit_ref and field_name in ref_fields
-
-                                    if is_actually_explicit:
-                                        # Explicitly defined as reference, so safe to clear
-                                        setattr(component, field_name, 0)
-                                    else:
-                                        # Heuristic. Risky. Log warning and clear.
-                                        logger.warning(f"Cleared dangling reference '{field_name}'={val} in {type(component).__name__}. If this is not an entity reference, add it to REF_BLOCKLIST.")
-                                        setattr(component, field_name, 0)
+                                    # If it's explicitly marked as a reference (or in REF_EXACT_NAMES),
+                                    # and it's missing in id_map, it's a dangling reference.
+                                    # Safe to clear.
+                                    setattr(component, field_name, 0)
 
                             elif isinstance(val, list):
                                 # Remap list items, ignoring booleans
@@ -223,8 +216,6 @@ class WorldSerializer:
                                 for x in val:
                                     if isinstance(x, int) and not isinstance(x, bool):
                                         # Remap or clear dangling (>0 becomes 0)
-                                        # Only clear if it was an entity reference, but here we can't easily warn per item?
-                                        # We will apply the safe remap logic:
                                         remapped = id_map.get(x, 0 if x > 0 else x)
                                         new_list.append(remapped)
                                     else:
