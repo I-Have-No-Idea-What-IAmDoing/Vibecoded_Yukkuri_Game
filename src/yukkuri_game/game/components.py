@@ -2,7 +2,7 @@
 Module defining core game components.
 """
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
 from ..engine.data_models import AnimationDefinition
@@ -135,6 +135,9 @@ class InteractionRequest:
     target_id: int
     consume: bool = True
     interaction_type: str = "DEFAULT"
+
+    # Metadata for serialization remapping
+    _references: Set[str] = field(default_factory=lambda: {"target_id"}, repr=False, init=False)
 
 @dataclass
 class MovementController:
