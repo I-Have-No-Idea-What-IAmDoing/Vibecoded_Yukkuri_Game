@@ -119,6 +119,13 @@ class Yukkurrium:
                     self.target_zoom -= 0.1
                     self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
 
+    def clear(self) -> None:
+        """Reset camera to default."""
+        self.camera_x = 0.0
+        self.camera_y = 0.0
+        self.zoom = 1.0
+        self.target_zoom = 1.0
+
     def update(self, dt: float) -> None:
         """
         Updates the camera state (e.g., smooth zoom).

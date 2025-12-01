@@ -1,18 +1,21 @@
 """
 Scene Manager Module.
 """
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING, Dict, Any
 import pygame
+from loguru import logger
+from .scene import Scene, SceneContext
 
 if TYPE_CHECKING:
-    from .scene import Scene
+    pass
 
 class SceneManager:
     """
-    Manages a stack of Scene objects.
+    Manages a stack of Scene objects and handles global persistence state.
     """
     def __init__(self) -> None:
         self._scenes: List['Scene'] = []
+        self.persistent_data: Dict[str, Any] = {}
 
     @property
     def current_scene(self) -> Optional['Scene']:
@@ -25,9 +28,19 @@ class SceneManager:
         Args:
             scene (Scene): The scene to push.
         """
-        # Note: We might want to call on_exit (suspend) on the current scene
-        # but the proposal says "Each Scene owns its own ECS World", so they are independent.
-        # Suspending is not strictly required unless we want to pause logic.
+        # Resolve injections
+        context_data = {}
+        for key, expected_type in scene.INJECTIONS.items():
+            if key in self.persistent_data:
+                context_data[key] = self.persistent_data[key]
+            else:
+                logger.warning(f"Scene {type(scene).__name__} requested injection '{key}' but it was not found in persistent data.")
+
+        context = SceneContext(data=context_data)
+
+        # Call setup with context
+        scene.setup(context)
+
         self._scenes.append(scene)
         scene.on_enter()
 
@@ -36,9 +49,6 @@ class SceneManager:
         if self._scenes:
             scene = self._scenes.pop()
             scene.on_exit()
-            # If there is a scene below, we might want to "resume" it.
-            # Currently `on_enter` is for initialization, maybe `on_resume`?
-            # For now, we assume simple stack behavior.
 
     def replace(self, scene: 'Scene') -> None:
         """
@@ -75,3 +85,15 @@ class SceneManager:
         """
         if self.current_scene:
             self.current_scene.handle_event(event)
+
+    def set_global_data(self, key: str, value: Any) -> None:
+        """
+        Sets a global persistent data value.
+        """
+        self.persistent_data[key] = value
+
+    def get_global_data(self, key: str, default: Any = None) -> Any:
+        """
+        Gets a global persistent data value.
+        """
+        return self.persistent_data.get(key, default)

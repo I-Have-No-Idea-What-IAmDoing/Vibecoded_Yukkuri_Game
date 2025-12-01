@@ -6,15 +6,17 @@ import pygame
 import pygame_gui
 import os
 from datetime import datetime
-from ..engine.scene import Scene
+from typing import ClassVar, Dict, Type
+
+from ..engine.scene import Scene, SceneContext
 from ..engine.application import Application
 from ..engine.ecs import World
 from ..game.yukkurrium import Yukkurrium, RenderSystem
 from ..game.ui.hud import HUD
 from ..game.systems.physics import PhysicsSystem
 from ..system_registry import SystemRegistry
-from ..game.events import TogglePauseRequest, CycleSpeedRequest, ResolutionChangedEvent
-from ..game.services import EconomyService, PersistenceService, TimeService, InputService, GameService
+from ..game.events import TogglePauseRequest, CycleSpeedRequest, ResolutionChangedEvent, SaveGameRequest, LoadGameRequest
+from ..game.services import EconomyService, TimeService, InputService, GameService
 from ..game.settings_service import SettingsService
 from ..game.trait_service import TraitService
 from ..engine.event_bus import EventBus
@@ -36,22 +38,26 @@ class GameplayScene(Scene):
     The main gameplay scene.
     Manages the game world, systems, and UI.
     """
+
+    INJECTIONS: ClassVar[Dict[str, Type]] = {
+        "money": int,
+        "time": float
+    }
+
     def __init__(self, application: Application):
         super().__init__(application)
         self.is_setup = False
         self.paused = False
         self.time_scale = 1.0
-        # Use a local UI manager to prevent state leaks when switching scenes
         self.ui_manager = pygame_gui.UIManager((self.application.width, self.application.height))
         self.dt = 0.0
 
     def on_enter(self) -> None:
         logger.info("Entered Gameplay Scene")
-        if not self.is_setup:
-            self.setup()
+        # setup is called by SceneManager before on_enter
         self.ui_manager.set_window_resolution((self.application.width, self.application.height))
 
-    def setup(self) -> None:
+    def setup(self, context: SceneContext) -> None:
         """Sets up the game environment."""
         # Load Config
         self.game_config = load_config()
@@ -62,7 +68,7 @@ class GameplayScene(Scene):
 
         self.physics_system = PhysicsSystem()
         self.event_manager = EventManager()
-        self.event_bus = self.event_manager.bus # Use the bus from the manager
+        self.event_bus = self.event_manager.bus
         self.input_manager = InputManager()
         self.input_manager.switch_context(InputContext.GAMEPLAY)
 
@@ -74,13 +80,13 @@ class GameplayScene(Scene):
                      comp_types.append(obj)
         self.serializer = WorldSerializer(self.world, comp_types)
 
-        self._register_services()
+        self._register_services(context)
         self._register_factories_and_managers()
         self._register_systems()
 
         self.is_setup = True
 
-    def _register_services(self) -> None:
+    def _register_services(self, context: SceneContext) -> None:
         """Registers services to the world."""
         # Use application's resource manager
         self.world.services.register(self.application.resources, type(self.application.resources))
@@ -92,17 +98,18 @@ class GameplayScene(Scene):
         self.world.services.register(self.event_bus, EventBus)
         self.world.services.register(self.input_manager, InputManager)
 
-        self.economy_service = EconomyService()
+        # Inject Global State
+        money = context.data.get("money", 1000)
+        time_elapsed = context.data.get("time", 0.0)
+
+        self.economy_service = EconomyService(initial_money=money)
         self.world.services.register(self.economy_service, EconomyService)
 
-        self.time_service = TimeService()
+        self.time_service = TimeService(time_elapsed=time_elapsed)
         self.world.services.register(self.time_service, TimeService)
 
         self.input_service = InputService()
         self.world.services.register(self.input_service, InputService)
-
-        self.persistence_service = PersistenceService(self.world)
-        self.world.services.register(self.persistence_service, PersistenceService)
 
         self.settings_service = SettingsService()
         self.world.services.register(self.settings_service, SettingsService)
@@ -175,15 +182,22 @@ class GameplayScene(Scene):
 
         if not self.application.headless:
             self.render_system = RenderSystem(self.application.screen, self.world)
-            # Use local UI manager
             self.hud = HUD(self.ui_manager, self.world)
 
             self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
             self.event_bus.subscribe(CycleSpeedRequest, lambda e: self.cycle_speed())
             self.event_bus.subscribe(ResolutionChangedEvent, self.on_resolution_changed)
+            self.event_bus.subscribe(SaveGameRequest, lambda e: self.save(e.filename))
+            self.event_bus.subscribe(LoadGameRequest, lambda e: self.load(e.filename))
 
-        # Initial Population
-        if not self.application.headless:
+        # Initial Population if empty
+        # Note: In a real scenario, we might want to check if we loaded data first.
+        # Since we use `setup` for new games too, we need a flag or logic.
+        # But `load` clears database.
+
+        # If we just started a NEW game (not loaded), we might want initial population.
+        # For now, we'll assume if no entities, create defaults.
+        if not self.application.headless and len(self.world.get_all_entities()) == 0:
             start_x = float(self.yukkurrium.width) / 2.0
             start_y = float(self.yukkurrium.height) / 2.0
             create_yukkuri(self.world, "reimu", start_x, start_y)
@@ -193,6 +207,12 @@ class GameplayScene(Scene):
     def on_exit(self) -> None:
         logger.info("Exited Gameplay Scene")
         self.ui_manager.clear_and_reset()
+
+        # Sync back global state to Application/SceneManager
+        if hasattr(self, 'economy_service'):
+             self.application.scene_manager.set_global_data("money", self.economy_service.get_money())
+        if hasattr(self, 'time_service'):
+             self.application.scene_manager.set_global_data("time", self.time_service.time_elapsed)
 
     def toggle_pause(self) -> None:
         self.paused = not self.paused
@@ -209,33 +229,22 @@ class GameplayScene(Scene):
             self.hud.layout.speed_btn.set_text(f"{self.time_scale}x")
 
     def on_resolution_changed(self, event: ResolutionChangedEvent) -> None:
-        """
-        Handles resolution change events.
-
-        Args:
-            event (ResolutionChangedEvent): The resolution changed event.
-        """
         if self.application.headless:
             return
 
         self.application.width = event.width
         self.application.height = event.height
 
-        # Handle screen update
         surface = pygame.display.get_surface()
         if surface:
             self.application.screen = surface
             self.render_system.screen = surface
 
         self.ui_manager.set_window_resolution((event.width, event.height))
-        # Notify HUD
         if self.hud:
             self.hud.resize(event.width, event.height)
 
     def take_screenshot(self) -> None:
-        """
-        Captures a screenshot and saves it to the 'screenshots' directory.
-        """
         if not os.path.exists("screenshots"):
             os.makedirs("screenshots")
 
@@ -244,33 +253,72 @@ class GameplayScene(Scene):
         logger.info(f"Screenshot saved to {filename}")
 
     def save(self, filepath: str) -> None:
-        """Save the game world."""
-        self.serializer.save_to_file(filepath)
+        """
+        Save the game state (Level + Global).
+        We'll save global state to a sidecar file or handle it via SceneManager.
+        To keep it simple per requirements:
+        - Save entities using WorldSerializer (msgpack)
+        - Save global state (money, time) to json sidecar
+        """
+        base_path, _ = os.path.splitext(filepath)
+        global_path = base_path + ".global.json"
+        level_path = base_path + ".level.msgpack"
+
+        # Save Level Data
+        self.serializer.save_to_file(level_path)
+
+        # Save Global Data
+        import json
+        global_data = {
+            "money": self.economy_service.get_money(),
+            "time": self.time_service.time_elapsed
+        }
+        with open(global_path, "w") as f:
+            json.dump(global_data, f)
+
+        logger.info(f"Game saved to {level_path} and {global_path}")
 
     def load(self, filepath: str) -> None:
         """Load the game world."""
+        base_path, _ = os.path.splitext(filepath)
+        global_path = base_path + ".global.json"
+        level_path = base_path + ".level.msgpack"
+
+        # Check files
+        if not os.path.exists(level_path) or not os.path.exists(global_path):
+            logger.error(f"Save files not found: {level_path} or {global_path}")
+            return
+
+        # Clear World
         self.world.clear_database()
         if hasattr(self, 'physics_system'):
             self.physics_system.clear()
         self.yukkurrium.clear()
 
-        self.serializer.load_from_file(filepath)
+        # Load Global Data
+        import json
+        with open(global_path, "r") as f:
+            global_data = json.load(f)
+
+        self.economy_service.set_money(global_data.get("money", 0))
+        self.time_service.time_elapsed = global_data.get("time", 0.0)
+
+        # Load Level Data
+        self.serializer.load_from_file(level_path)
 
         # Reconstruct physics bodies
         reconstruct_physics(self.world)
-        logger.info("World loaded. Physics bodies reconstructed.")
+        logger.info("World loaded.")
 
     def update(self, dt: float) -> None:
         self.dt = dt
-        self.ui_manager.update(dt) # Update local UI
+        self.ui_manager.update(dt)
         self.input_manager.update()
 
-        # Process Pre-Update Events
         self.event_manager.process_phase(GamePhase.PRE_UPDATE)
 
         if not self.paused:
             sim_dt = dt * self.time_scale
-            # Update time service directly
             if hasattr(self, 'time_service'):
                 self.time_service.time_elapsed += sim_dt
 
@@ -299,11 +347,14 @@ class GameplayScene(Scene):
         self.ui_manager.process_events(event)
         self.input_manager.process_event(event)
 
-        # Handle Camera Input directly
         if hasattr(self, 'yukkurrium'):
              self.yukkurrium.handle_input(event, self.application.width, self.application.height)
 
         if self.input_manager.is_action_just_pressed("pause"):
+            # Update global state before leaving
+            self.application.scene_manager.set_global_data("money", self.economy_service.get_money())
+            self.application.scene_manager.set_global_data("time", self.time_service.time_elapsed)
+
             from .main_menu import MainMenuScene
             self.application.scene_manager.replace(MainMenuScene(self.application))
             return
@@ -314,8 +365,8 @@ class GameplayScene(Scene):
             elif self.input_manager.is_action_just_pressed("screenshot"):
                  self.take_screenshot()
             elif self.input_manager.is_action_just_pressed("quicksave"):
-                 self.save("quicksave.msgpack")
+                 self.save("quicksave")
             elif self.input_manager.is_action_just_pressed("quickload"):
-                 self.load("quicksave.msgpack")
+                 self.load("quicksave")
 
             self.hud.process_event(event)
