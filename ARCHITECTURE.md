@@ -34,11 +34,16 @@ This document outlines the architecture of the Yukkuri Game Engine, focusing on 
 - Python functions (e.g., `create_yukkuri`) that construct and return fully configured entities.
 - Replaces configuration files for entity definition logic.
 
-### 6. Persistence (`engine/serializer.py`)
+### 6. Service Access (`engine/service_locator.py`)
 
-- **Snapshot-Based**: The world state is serialized to JSON.
-- **Components**: `Persistable` marker component indicates entities to save. `StableIDComponent` ensures identity preservation.
-- **Serializer**: `WorldSerializer` handles serialization/deserialization of components using `msgspec`.
+- **ServiceLocator**: Provides access to cross-cutting concerns (Audio, Logging, Assets) via `world.services`.
+- **Registration**: Services are registered at startup or scene initialization.
+
+### 7. Persistence (`engine/serializer.py`)
+
+- **Snapshot-Based**: The world state is serialized to MessagePack (via `msgspec`) for performance and compactness.
+- **Components**: `Persistable` marker component indicates entities to save. `StableIDComponent` ensures identity preservation across saves.
+- **Serializer**: `WorldSerializer` handles serialization/deserialization, including reference resolution for Entity IDs.
 
 ## Directory Structure
 
