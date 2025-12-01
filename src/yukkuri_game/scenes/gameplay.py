@@ -315,7 +315,6 @@ class GameplayScene(Scene):
     def update(self, dt: float) -> None:
         self.dt = dt
         self.ui_manager.update(dt)
-        self.input_manager.update()
 
         self.event_manager.process_phase(GamePhase.PRE_UPDATE)
 
@@ -329,6 +328,9 @@ class GameplayScene(Scene):
             self.yukkurrium.update(sim_dt)
 
         self.event_manager.process_phase(GamePhase.POST_UPDATE)
+
+        # Clear input state at the end of the frame, after all systems have processed input.
+        self.input_manager.update()
 
         if not self.application.headless:
             self.hud.fps = self.application.clock.get_fps()
