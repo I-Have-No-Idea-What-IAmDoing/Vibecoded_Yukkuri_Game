@@ -1,7 +1,7 @@
 """
 Serialization Module.
 """
-from typing import Any, Dict, Type, Optional, Iterable
+from typing import Any, Dict, Type, Optional, Iterable, Set
 import msgspec
 from loguru import logger
 from .ecs import World
@@ -11,6 +11,16 @@ class WorldSerializer:
     """
     Handles serialization and deserialization of the game world.
     """
+
+    # Heuristic: Fields ending with these are considered references
+    REF_SUFFIXES = ("_id", "_ids")
+
+    # Heuristic: Exact matches for these fields
+    REF_EXACT_NAMES = {"parent", "owner", "target"}
+
+    # Blocklist: Fields that match suffixes but are definitely NOT entity references
+    REF_BLOCKLIST = {"type_id", "sprite_id", "sound_id", "texture_id", "animation_id", "action_id", "behavior_id"}
+
     def __init__(self, world: World, component_types: Iterable[Type[Any]]):
         self.world = world
         self.component_map = {c.__name__: c for c in component_types}
@@ -138,38 +148,31 @@ class WorldSerializer:
         for new_entity in id_map.values():
             all_components = self.world.get_all_components(new_entity)
             for component in all_components:
-                # Heuristic: Check all fields if no explicit _references definition
-                # Or adhere strictly to _references if defined.
-                # The critique suggested applying a heuristic to avoid corruption if _references isn't used everywhere.
-                # However, the previous code ONLY looked at _references.
-                # The critique implies "It iterates over *all* fields...".
-                # Wait, the previous code `if hasattr(component, "_references")` means it WAS safe IF `_references` was used.
-                # But maybe the critique implies I should use a heuristic INSTEAD or IN ADDITION because `_references` might be missing?
-                # "It iterates over *all* fields of a component and replaces any integer value..." -
-                # My previous code: `if hasattr(component, "_references"): ref_fields = getattr(component, "_references")`
-                # So it ONLY iterated over `_references`.
-                # BUT, `AIState` for example might not have `_references` defined but has `current_target_id`.
-                # If I want to be safe and robust without manually annotating every component with `_references`, I should use the heuristic on ALL components.
-
-                # Let's switch to iterating all fields (dataclasses) and applying the heuristic,
-                # OR using _references if present.
-                # The critique provided a patch that iterates dataclass fields.
-
                 if hasattr(component, "__dataclass_fields__"):
-                    for field_name in component.__dataclass_fields__:
-                        # Check if this field should be remapped
-                        # 1. Explicit _references
-                        is_ref = False
-                        if hasattr(component, "_references") and field_name in getattr(component, "_references"):
-                            is_ref = True
 
-                        # 2. Heuristic
-                        if not is_ref:
-                            if field_name.endswith("_id") or field_name.endswith("_ids") or field_name in ("parent", "owner", "target"):
-                                is_ref = True
+                    # Determine which fields to remap
+                    ref_fields: Set[str] = set()
 
-                        if not is_ref:
-                            continue
+                    if hasattr(component, "_references"):
+                         # Explicit definition takes precedence
+                         ref_fields = getattr(component, "_references")
+                    else:
+                        # Fallback to implicit heuristic
+                        for field_name in component.__dataclass_fields__:
+                            if field_name in self.REF_BLOCKLIST:
+                                continue
+
+                            if field_name in self.REF_EXACT_NAMES:
+                                ref_fields.add(field_name)
+                            elif field_name.endswith(self.REF_SUFFIXES):
+                                ref_fields.add(field_name)
+
+                    if not ref_fields:
+                        continue
+
+                    for field_name in ref_fields:
+                        if not hasattr(component, field_name):
+                             continue
 
                         val = getattr(component, field_name)
 
@@ -184,7 +187,12 @@ class WorldSerializer:
                             new_set = {id_map.get(x, x) if isinstance(x, int) else x for x in val}
                             setattr(component, field_name, new_set)
                         elif isinstance(val, dict):
-                            new_dict = {id_map.get(k, k) if isinstance(k, int) else k: v for k, v in val.items()}
+                            # Remap KEYS if they are IDs.
+                            # Do NOT remap values by default to avoid corruption (e.g. threat table).
+                            new_dict = {}
+                            for k, v in val.items():
+                                new_k = id_map.get(k, k) if isinstance(k, int) else k
+                                new_dict[new_k] = v
                             setattr(component, field_name, new_dict)
 
         logger.info(f"Loaded {len(entities_data)} entities from {filepath}")
