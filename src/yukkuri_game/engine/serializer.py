@@ -19,7 +19,12 @@ class WorldSerializer:
     REF_EXACT_NAMES = {"parent", "owner", "target"}
 
     # Blocklist: Fields that match suffixes but are definitely NOT entity references
-    REF_BLOCKLIST = {"type_id", "sprite_id", "sound_id", "texture_id", "animation_id", "action_id", "behavior_id"}
+    REF_BLOCKLIST = {
+        "type_id", "sprite_id", "sound_id", "texture_id", "animation_id",
+        "action_id", "behavior_id", "shader_id", "layer_id", "region_id",
+        "quest_id", "dialogue_id", "scene_id", "music_id", "effect_id",
+        "frame_id", "tile_id", "map_id"
+    }
 
     def __init__(self, world: World, component_types: Iterable[Type[Any]]):
         self.world = world
@@ -167,10 +172,12 @@ class WorldSerializer:
 
                     # Determine which fields to remap
                     ref_fields: Set[str] = set()
+                    is_explicit_ref = False
 
                     if hasattr(component, "_references"):
                          # Explicit definition takes precedence
                          ref_fields = getattr(component, "_references")
+                         is_explicit_ref = True
                     else:
                         # Fallback to implicit heuristic
                         for field_name in component.__dataclass_fields__:
@@ -191,23 +198,55 @@ class WorldSerializer:
 
                         val = getattr(component, field_name)
 
-                        # Remap logic
-                        if isinstance(val, int):
-                            if val in id_map:
-                                setattr(component, field_name, id_map[val])
-                        elif isinstance(val, list):
-                            new_list = [id_map.get(x, x) if isinstance(x, int) else x for x in val]
-                            setattr(component, field_name, new_list)
-                        elif isinstance(val, set):
-                            new_set = {id_map.get(x, x) if isinstance(x, int) else x for x in val}
-                            setattr(component, field_name, new_set)
-                        elif isinstance(val, dict):
-                            # Remap KEYS if they are IDs.
-                            # Do NOT remap values by default to avoid corruption (e.g. threat table).
-                            new_dict = {}
-                            for k, v in val.items():
-                                new_k = id_map.get(k, k) if isinstance(k, int) else k
-                                new_dict[new_k] = v
-                            setattr(component, field_name, new_dict)
+                        if val is not None:
+                            # Handle Scalars, Lists, Sets, Dicts
+                            # CRITICAL FIX: explicit check 'not isinstance(val, bool)'
+                            # because in Python isinstance(True, int) is True.
+                            if isinstance(val, int) and not isinstance(val, bool):
+                                if val in id_map:
+                                    setattr(component, field_name, id_map[val])
+                                elif val > 0:
+                                    # Dangling reference or false positive heuristic.
+                                    is_actually_explicit = is_explicit_ref and field_name in ref_fields
+
+                                    if is_actually_explicit:
+                                        # Explicitly defined as reference, so safe to clear
+                                        setattr(component, field_name, 0)
+                                    else:
+                                        # Heuristic. Risky. Log warning and clear.
+                                        logger.warning(f"Cleared dangling reference '{field_name}'={val} in {type(component).__name__}. If this is not an entity reference, add it to REF_BLOCKLIST.")
+                                        setattr(component, field_name, 0)
+
+                            elif isinstance(val, list):
+                                # Remap list items, ignoring booleans
+                                new_list = []
+                                for x in val:
+                                    if isinstance(x, int) and not isinstance(x, bool):
+                                        # Remap or clear dangling (>0 becomes 0)
+                                        # Only clear if it was an entity reference, but here we can't easily warn per item?
+                                        # We will apply the safe remap logic:
+                                        remapped = id_map.get(x, 0 if x > 0 else x)
+                                        new_list.append(remapped)
+                                    else:
+                                        new_list.append(x)
+                                setattr(component, field_name, new_list)
+
+                            elif isinstance(val, set):
+                                new_set = {id_map.get(x, 0 if isinstance(x, int) and not isinstance(x, bool) and x > 0 else x) if isinstance(x, int) and not isinstance(x, bool) else x for x in val}
+                                setattr(component, field_name, new_set)
+
+                            elif isinstance(val, dict):
+                                # Remap KEYS if they are IDs.
+                                new_dict = {}
+                                for k, v in val.items():
+                                    if isinstance(k, int) and not isinstance(k, bool):
+                                        new_k = id_map.get(k, 0 if k > 0 else k)
+                                        # Fix: Prune dangling keys to avoid collision at key '0'
+                                        if new_k == 0 and k > 0:
+                                            continue
+                                    else:
+                                        new_k = k
+                                    new_dict[new_k] = v
+                                setattr(component, field_name, new_dict)
 
         logger.info(f"Loaded {len(entities_data)} entities from data")
