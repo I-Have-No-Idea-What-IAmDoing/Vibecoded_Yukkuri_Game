@@ -1,37 +1,46 @@
 """
 Gameplay Scene.
 """
-from loguru import logger
-import pygame
-import pygame_gui
+
+import inspect
 import os
 from datetime import datetime
 from typing import ClassVar, Dict, Type
 
-from ..engine.scene import Scene, SceneContext
+import pygame
+import pygame_gui
+from loguru import logger
+
+from ..config import load_config
 from ..engine.application import Application
+from ..engine.audio import AudioManager
 from ..engine.ecs import World
-from ..game.yukkurrium import Yukkurrium, RenderSystem
-from ..game.ui.hud import HUD
-from ..game.systems.physics import PhysicsSystem
-from ..system_registry import SystemRegistry
-from ..game.events import TogglePauseRequest, CycleSpeedRequest, ResolutionChangedEvent, SaveGameRequest, LoadGameRequest
-from ..game.services import EconomyService, TimeService, InputService, GameService
-from ..game.settings_service import SettingsService
-from ..game.trait_service import TraitService
 from ..engine.event_bus import EventBus
 from ..engine.event_manager import EventManager, GamePhase
-from ..engine.input_manager import InputManager, InputContext
-from ..engine.audio import AudioManager
-import inspect
+from ..engine.input_manager import InputContext, InputManager
+from ..engine.scene import Scene, SceneContext
 from ..engine.serializer import WorldSerializer
-from ..config import load_config
-from ..game import components, yukkuri_components, components_persistence
-from ..game.ai.utility import UtilityAIEngine
-from ..game.systems.sector_system import SectorMap, SectorSystem
+from ..game import components, components_persistence, yukkuri_components
 from ..game.ai.navigation_service import NavigationService
-from ..game.systems.physics_reconstruction import reconstruct_physics
+from ..game.ai.utility import UtilityAIEngine
+from ..game.events import (
+    CycleSpeedRequest,
+    LoadGameRequest,
+    ResolutionChangedEvent,
+    SaveGameRequest,
+    TogglePauseRequest,
+)
 from ..game.prefabs.yukkuri import create_yukkuri
+from ..game.services import EconomyService, GameService, InputService, TimeService
+from ..game.settings_service import SettingsService
+from ..game.systems.physics import PhysicsSystem
+from ..game.systems.physics_reconstruction import reconstruct_physics
+from ..game.systems.sector_system import SectorMap, SectorSystem
+from ..game.trait_service import TraitService
+from ..game.ui.hud import HUD
+from ..game.yukkurrium import RenderSystem, Yukkurrium
+from ..system_registry import SystemRegistry
+
 
 class GameplayScene(Scene):
     """
@@ -39,23 +48,24 @@ class GameplayScene(Scene):
     Manages the game world, systems, and UI.
     """
 
-    INJECTIONS: ClassVar[Dict[str, Type]] = {
-        "money": int,
-        "time": float
-    }
+    INJECTIONS: ClassVar[Dict[str, Type]] = {"money": int, "time": float}
 
     def __init__(self, application: Application):
         super().__init__(application)
         self.is_setup = False
         self.paused = False
         self.time_scale = 1.0
-        self.ui_manager = pygame_gui.UIManager((self.application.width, self.application.height))
+        self.ui_manager = pygame_gui.UIManager(
+            (self.application.width, self.application.height)
+        )
         self.dt = 0.0
 
     def on_enter(self) -> None:
         logger.info("Entered Gameplay Scene")
         # setup is called by SceneManager before on_enter
-        self.ui_manager.set_window_resolution((self.application.width, self.application.height))
+        self.ui_manager.set_window_resolution(
+            (self.application.width, self.application.height)
+        )
 
     def setup(self, context: SceneContext) -> None:
         """Sets up the game environment."""
@@ -77,7 +87,7 @@ class GameplayScene(Scene):
         for module in [components, yukkuri_components, components_persistence]:
             for _, obj in inspect.getmembers(module):
                 if inspect.isclass(obj):
-                     comp_types.append(obj)
+                    comp_types.append(obj)
         self.serializer = WorldSerializer(self.world, comp_types)
 
         self._register_services(context)
@@ -94,7 +104,6 @@ class GameplayScene(Scene):
         self.world.services.register(self.yukkurrium, Yukkurrium)
         self.world.services.register(self.physics_system, PhysicsSystem)
         self.world.services.register(self.event_bus, EventBus)
-        self.world.services.register(self.input_manager, InputManager)
         # EventManager and InputManager are registered by Scene base class if present in Application
 
         # Inject Global State
@@ -130,14 +139,14 @@ class GameplayScene(Scene):
             world_width = self.game_config.world.width
             world_height = self.game_config.world.height
             self.world.services.register(
-                 NavigationService(
-                     world_width=world_width,
-                     world_height=world_height,
-                     grid_step_size=self.game_config.world.grid_step_size
-                 )
-             )
+                NavigationService(
+                    world_width=world_width,
+                    world_height=world_height,
+                    grid_step_size=self.game_config.world.grid_step_size,
+                )
+            )
         else:
-             self.world.services.register(NavigationService(world_width, world_height))
+            self.world.services.register(NavigationService(world_width, world_height))
 
     def _init_sector_system(self) -> None:
         """Initializes and registers the Sector System and Map."""
@@ -148,10 +157,12 @@ class GameplayScene(Scene):
         if self.game_config:
             world_width = self.game_config.world.width
             world_height = self.game_config.world.height
-            if hasattr(self.game_config.world, 'sector_size'):
+            if hasattr(self.game_config.world, "sector_size"):
                 sector_size = self.game_config.world.sector_size
 
-        sector_system = SectorSystem(width=world_width, height=world_height, sector_size=sector_size)
+        sector_system = SectorSystem(
+            width=world_width, height=world_height, sector_size=sector_size
+        )
         self.world.services.register(sector_system.sector_map, SectorMap)
         self.world.add_system(sector_system)
 
@@ -163,6 +174,7 @@ class GameplayScene(Scene):
 
     def _register_factories_and_managers(self) -> None:
         from ..game.entity_factory import EntityFactory
+
         self.entity_factory = EntityFactory(self.world)
         self.world.services.register(self.entity_factory, EntityFactory)
 
@@ -179,7 +191,7 @@ class GameplayScene(Scene):
             self.game_config,
             self.yukkurrium,
             self.event_bus,
-            self.physics_system
+            self.physics_system,
         )
         self.input_system.set_ui_manager(self.ui_manager)
 
@@ -212,10 +224,14 @@ class GameplayScene(Scene):
         self.ui_manager.clear_and_reset()
 
         # Sync back global state to Application/SceneManager
-        if hasattr(self, 'economy_service'):
-             self.application.scene_manager.set_global_data("money", self.economy_service.get_money())
-        if hasattr(self, 'time_service'):
-             self.application.scene_manager.set_global_data("time", self.time_service.time_elapsed)
+        if hasattr(self, "economy_service"):
+            self.application.scene_manager.set_global_data(
+                "money", self.economy_service.get_money()
+            )
+        if hasattr(self, "time_service"):
+            self.application.scene_manager.set_global_data(
+                "time", self.time_service.time_elapsed
+            )
 
     def toggle_pause(self) -> None:
         self.paused = not self.paused
@@ -251,7 +267,9 @@ class GameplayScene(Scene):
         if not os.path.exists("screenshots"):
             os.makedirs("screenshots")
 
-        filename = f"screenshots/screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        filename = (
+            f"screenshots/screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        )
         pygame.image.save(self.application.screen, filename)
         logger.info(f"Screenshot saved to {filename}")
 
@@ -272,9 +290,10 @@ class GameplayScene(Scene):
 
         # Save Global Data
         import json
+
         global_data = {
             "money": self.economy_service.get_money(),
-            "time": self.time_service.time_elapsed
+            "time": self.time_service.time_elapsed,
         }
         with open(global_path, "w") as f:
             json.dump(global_data, f)
@@ -294,12 +313,13 @@ class GameplayScene(Scene):
 
         # Clear World
         self.world.clear_database()
-        if hasattr(self, 'physics_system'):
+        if hasattr(self, "physics_system"):
             self.physics_system.clear()
         self.yukkurrium.clear()
 
         # Load Global Data
         import json
+
         with open(global_path, "r") as f:
             global_data = json.load(f)
 
@@ -321,7 +341,7 @@ class GameplayScene(Scene):
 
         if not self.paused:
             sim_dt = dt * self.time_scale
-            if hasattr(self, 'time_service'):
+            if hasattr(self, "time_service"):
                 self.time_service.time_elapsed += sim_dt
 
             self.event_manager.process_phase(GamePhase.UPDATE)
@@ -345,33 +365,40 @@ class GameplayScene(Scene):
             self.ui_manager.draw_ui(self.application.screen)
 
     def render_world(self) -> None:
-        if hasattr(self, 'render_system') and self.render_system:
+        if hasattr(self, "render_system") and self.render_system:
             self.render_system.update(self.world, self.dt)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.ui_manager.process_events(event)
         self.input_manager.process_event(event)
 
-        if hasattr(self, 'yukkurrium'):
-             self.yukkurrium.handle_input(event, self.application.width, self.application.height)
+        if hasattr(self, "yukkurrium"):
+            self.yukkurrium.handle_input(
+                event, self.application.width, self.application.height
+            )
 
         if self.input_manager.is_action_just_pressed("pause"):
             # Update global state before leaving
-            self.application.scene_manager.set_global_data("money", self.economy_service.get_money())
-            self.application.scene_manager.set_global_data("time", self.time_service.time_elapsed)
+            self.application.scene_manager.set_global_data(
+                "money", self.economy_service.get_money()
+            )
+            self.application.scene_manager.set_global_data(
+                "time", self.time_service.time_elapsed
+            )
 
             from .main_menu import MainMenuScene
+
             self.application.scene_manager.replace(MainMenuScene(self.application))
             return
 
         if not self.application.headless:
             if self.input_manager.is_action_just_pressed("debug_toggle"):
-                 self.hud.toggle_debug()
+                self.hud.toggle_debug()
             elif self.input_manager.is_action_just_pressed("screenshot"):
-                 self.take_screenshot()
+                self.take_screenshot()
             elif self.input_manager.is_action_just_pressed("quicksave"):
-                 self.save("quicksave")
+                self.save("quicksave")
             elif self.input_manager.is_action_just_pressed("quickload"):
-                 self.load("quicksave")
+                self.load("quicksave")
 
             self.hud.process_event(event)
