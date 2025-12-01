@@ -36,6 +36,7 @@ class TestHudLayout:
         monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIHorizontalSlider", MagicMock())
         monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIDropDownMenu", MagicMock())
         monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIScrollingContainer", MagicMock())
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.NonBlockingTextBox", MagicMock())
 
         layout = HudLayout(mock_ui_manager, 800, 600, yukkuri_types, item_types)
         return layout
@@ -137,24 +138,24 @@ class TestHudLayout:
     def test_hover_tooltip(self, layout):
         """Test hover tooltip creation and update."""
         # Initial state
-        assert layout.hover_tooltip_panel is None
+        assert layout.hover_tooltip_label is None
 
         # Create
         layout.create_hover_tooltip()
-        assert layout.hover_tooltip_panel is not None
-        assert layout.hover_tooltip_panel.hide.called
+        assert layout.hover_tooltip_label is not None
+        assert layout.hover_tooltip_label.hide.called
 
         # Update with text
         # Set visible to False initially
-        layout.hover_tooltip_panel.visible = False
+        layout.hover_tooltip_label.visible = False
         # Mock rect size
-        layout.hover_tooltip_panel.rect.size = (200, 60)
+        layout.hover_tooltip_label.rect.size = (200, 60)
 
         layout.update_hover_tooltip("Test Tooltip", (100, 100))
-        assert layout.hover_tooltip_panel.show.called
+        assert layout.hover_tooltip_label.show.called
 
         # Update without text (hide)
-        layout.hover_tooltip_panel.visible = True
+        layout.hover_tooltip_label.visible = True
         layout.update_hover_tooltip("", (0, 0))
-        assert layout.hover_tooltip_panel.hide.called
+        assert layout.hover_tooltip_label.hide.called
 

@@ -5,6 +5,7 @@ import pygame
 import pygame_gui
 from typing import Optional, Dict, Any
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox, UIHorizontalSlider, UIDropDownMenu, UIScrollingContainer
+from .custom_elements import NonBlockingTextBox
 
 class HudLayout:
     """
@@ -34,8 +35,7 @@ class HudLayout:
         debug_text_box (Optional[UITextBox]): Text box within the debug window.
         settings_window (Optional[UIWindow]): The settings window.
         settings_controls (Dict[str, Any]): Dictionary of controls in the settings window.
-        hover_tooltip_panel (Optional[UIPanel]): The tooltip panel.
-        hover_tooltip_label (Optional[UITextBox]): The tooltip text box.
+        hover_tooltip_label (Optional[NonBlockingTextBox]): The tooltip text box.
         buy_buttons (Dict[UIButton, Dict[str, Any]]): Mapping of buy buttons to entity data.
         yukkuri_types (Dict[str, Any]): Loaded Yukkuri type data.
         item_types (Dict[str, Any]): Loaded Item type data.
@@ -93,8 +93,7 @@ class HudLayout:
         self.settings_controls: Dict[str, Any] = {}
 
         # Hover Tooltip Elements
-        self.hover_tooltip_panel: Optional[UIPanel] = None
-        self.hover_tooltip_label: Optional[UITextBox] = None
+        self.hover_tooltip_label: Optional[NonBlockingTextBox] = None
 
         self._create_top_bar()
         self._create_bottom_bar()
@@ -501,25 +500,19 @@ class HudLayout:
 
     def create_hover_tooltip(self) -> None:
         """
-        Creates the hover tooltip panel and label if they don't exist.
+        Creates the hover tooltip label if it doesn't exist.
 
         Returns:
             None
         """
-        if self.hover_tooltip_panel is None:
-            self.hover_tooltip_panel = UIPanel(
+        if self.hover_tooltip_label is None:
+            self.hover_tooltip_label = NonBlockingTextBox(
+                html_text="",
                 relative_rect=pygame.Rect(0, 0, 200, 60),
                 manager=self.manager
             )
             # Start hidden
-            self.hover_tooltip_panel.hide()
-
-            self.hover_tooltip_label = UITextBox(
-                html_text="",
-                relative_rect=pygame.Rect(5, 5, 190, 50),
-                manager=self.manager,
-                container=self.hover_tooltip_panel
-            )
+            self.hover_tooltip_label.hide()
 
     def update_hover_tooltip(self, text: str, pos: tuple[int, int]) -> None:
         """
@@ -532,22 +525,21 @@ class HudLayout:
         Returns:
             None
         """
-        if not self.hover_tooltip_panel:
+        if not self.hover_tooltip_label:
             self.create_hover_tooltip()
 
         if text:
-            if self.hover_tooltip_panel:
-                if not self.hover_tooltip_panel.visible:
-                    self.hover_tooltip_panel.show()
+            if self.hover_tooltip_label:
+                if not self.hover_tooltip_label.visible:
+                    self.hover_tooltip_label.show()
 
-                if self.hover_tooltip_label:
-                    # Only update if text changed (optimization)
-                    if self.hover_tooltip_label.html_text != text:
-                        self.hover_tooltip_label.set_text(text)
+                # Only update if text changed (optimization)
+                if self.hover_tooltip_label.html_text != text:
+                    self.hover_tooltip_label.set_text(text)
 
                 # Adjust position to not go off screen
                 x, y = pos
-                width, height = self.hover_tooltip_panel.rect.size
+                width, height = self.hover_tooltip_label.rect.size
 
                 # Offset slightly
                 x += 15
@@ -558,11 +550,11 @@ class HudLayout:
                 if y + height > self.height:
                     y = self.height - height
 
-                self.hover_tooltip_panel.set_position((x, y))
+                self.hover_tooltip_label.set_position((x, y))
 
                 # Bring to front
-                self.manager.ui_window_stack.move_window_to_front(self.hover_tooltip_panel)
+                self.manager.ui_window_stack.move_window_to_front(self.hover_tooltip_label)
 
         else:
-            if self.hover_tooltip_panel and self.hover_tooltip_panel.visible:
-                self.hover_tooltip_panel.hide()
+            if self.hover_tooltip_label and self.hover_tooltip_label.visible:
+                self.hover_tooltip_label.hide()
