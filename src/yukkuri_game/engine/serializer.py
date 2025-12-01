@@ -74,18 +74,24 @@ class WorldSerializer:
             "components": components_data
         }
 
-    def save_to_file(self, filepath: str):
-        """Saves all persistable entities to a file using MessagePack."""
+    def get_persistable_entities_data(self) -> list[Dict[str, Any]]:
+        """
+        Returns a list of serialized data for all persistable entities.
+        """
         if not self._persistable_type:
             logger.warning("Persistable component type not registered. Cannot save.")
-            return
+            return []
 
         entities_data = []
         for entity, _ in self.world.get_components(self._persistable_type).items():
             data = self.serialize_entity(entity)
             if data:
                 entities_data.append(data)
+        return entities_data
 
+    def save_to_file(self, filepath: str):
+        """Saves all persistable entities to a file using MessagePack."""
+        entities_data = self.get_persistable_entities_data()
         with open(filepath, "wb") as f:
             f.write(msgspec.msgpack.encode(entities_data))
         logger.info(f"Saved {len(entities_data)} entities to {filepath}")
@@ -100,6 +106,15 @@ class WorldSerializer:
                 entities_data = msgspec.msgpack.decode(data)
         except FileNotFoundError:
             logger.error(f"Save file {filepath} not found.")
+            return
+
+        self.load_from_data(entities_data)
+
+    def load_from_data(self, entities_data: list[Dict[str, Any]]) -> None:
+        """
+        Loads entities from a list of entity data dicts with two-pass reference resolution.
+        """
+        if not entities_data:
             return
 
         # Pass 1: Create Entities and Mapping
@@ -195,4 +210,4 @@ class WorldSerializer:
                                 new_dict[new_k] = v
                             setattr(component, field_name, new_dict)
 
-        logger.info(f"Loaded {len(entities_data)} entities from {filepath}")
+        logger.info(f"Loaded {len(entities_data)} entities from data")

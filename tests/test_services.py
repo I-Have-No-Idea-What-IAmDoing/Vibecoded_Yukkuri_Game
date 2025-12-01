@@ -152,15 +152,17 @@ def test_load_game(persistence_world: MagicMock) -> None:
         "time": 60.0,
         "entities": [
             {
-                "transform": {"x": 5, "y": 5},
-                "yukkuri": {
-                    "type_id": "reimu",
-                    "name": "Loaded Reimu",
-                    "health": 100,
-                    "hunger": 50,
-                    "happiness": 50,
-                    "badges": 0,
-                    "age": 10
+                "entity_id": 1,
+                "stable_id": 100,
+                "components": {
+                    "Transform": {"x": 5.0, "y": 5.0, "scale": 1.0},
+                    "YukkuriStats": {
+                        "name": "Loaded Reimu",
+                        "type_id": "reimu",
+                        "health": 100,
+                        "hunger": 50,
+                        "age": 10
+                    }
                 }
             }
         ]
@@ -175,4 +177,7 @@ def test_load_game(persistence_world: MagicMock) -> None:
     assert economy.get_money() == 999
     assert time_svc.time_elapsed == 60.0
 
-    factory.create_yukkuri.assert_called_with("reimu", 5.0, 5.0)
+    # Verification: Check if entity was created in world
+    # Since we mocked world, we check calls to create_entity and add_component
+    assert world.create_entity.called
+    assert world.add_component.called
