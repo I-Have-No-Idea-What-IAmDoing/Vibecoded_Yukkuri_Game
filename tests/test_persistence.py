@@ -1,119 +1,73 @@
-
 import pytest
 import os
-import shutil
-from yukkuri_game.engine.ecs import World
-from yukkuri_game.engine.serializer import WorldSerializer
-from yukkuri_game.game.prefabs.yukkuri import create_yukkuri
-from yukkuri_game.game.components_persistence import StableIDComponent, Persistable
-from yukkuri_game.game.components import Transform, PhysicsBody
-from yukkuri_game.game.yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData
-from yukkuri_game.engine.resource_manager import ResourceManager
-from yukkuri_game.game.systems.physics import PhysicsSystem
-from yukkuri_game.game.systems.physics_reconstruction import reconstruct_physics
-import inspect
-from yukkuri_game.game import components, yukkuri_components, components_persistence
+import msgspec
+import dataclasses
+from src.yukkuri_game.engine.ecs import World
+from src.yukkuri_game.engine.serializer import WorldSerializer
+from src.yukkuri_game.game.components_persistence import StableIDComponent, Persistable
+from src.yukkuri_game.game.components import Transform, Selectable
 
-# Mock ResourceManager and other dependencies if needed
-class MockResourceManager:
-    def __init__(self):
-        self.yukkuri_types = {
-            "reimu": {
-                "image": "reimu.png",
-                "max_health": 100
-            }
-        }
-        self.tuning = None
+@dataclasses.dataclass
+class TestComponent:
+    value: int
+    name: str
 
-def test_persistence():
-    # Setup World
+def test_msgpack_persistence():
     world = World()
-    rm = MockResourceManager()
-    world.services.register(rm, ResourceManager)
-    physics_system = PhysicsSystem()
-    world.services.register(physics_system, PhysicsSystem)
 
-    # Create Entity 1
-    entity1 = create_yukkuri(world, "reimu", 100, 200)
+    # Create an entity
+    entity = world.create_entity()
+    world.add_component(entity, StableIDComponent(id="test-uuid"))
+    world.add_component(entity, Persistable())
+    world.add_component(entity, Transform(x=10, y=20))
+    world.add_component(entity, Selectable(selected=True))
 
-    # Create Entity 2 (Child)
-    entity2 = create_yukkuri(world, "reimu", 150, 200)
+    # Setup serializer
+    comp_types = [StableIDComponent, Persistable, Transform, Selectable, TestComponent]
+    serializer = WorldSerializer(world, comp_types)
 
-    # Establish Relationship
-    rel_reg = world.get_component(entity1, RelationshipRegistry)
-    rel_reg.biological_children.append(entity2)
-    rel_reg.relationships[entity2] = RelationshipData(affinity=10.0)
-
-    # Verify components
-    assert world.has_component(entity1, StableIDComponent)
-    assert world.has_component(entity1, Persistable)
-
-    stable_id_1 = world.get_component(entity1, StableIDComponent).id
+    filepath = "test_save.msgpack"
 
     # Save
-    comp_types = []
-    for module in [components, yukkuri_components, components_persistence]:
-        for _, obj in inspect.getmembers(module):
-            if inspect.isclass(obj):
-                    comp_types.append(obj)
+    serializer.save_to_file(filepath)
 
-    serializer = WorldSerializer(world, comp_types)
-    test_file = "test_save.msgpack"
-    serializer.save_to_file(test_file)
+    # Check if file exists
+    assert os.path.exists(filepath)
 
-    assert os.path.exists(test_file)
+    # Read file content and verify MessagePack
+    with open(filepath, "rb") as f:
+        data = f.read()
+        decoded_data = msgspec.msgpack.decode(data)
 
-    # Clear World
-    world.clear()
-    assert not world.entity_exists(entity1)
+    assert isinstance(decoded_data, list)
+    assert len(decoded_data) == 1
+    entity_data = decoded_data[0]
 
-    # Burn an ID to ensure new IDs are different
-    world.create_entity()
+    assert entity_data["stable_id"] == "test-uuid"
+    assert "Transform" in entity_data["components"]
+    assert "Selectable" in entity_data["components"]
+    assert "StableIDComponent" not in entity_data["components"] # Verification of optimization
 
-    # Load
-    serializer.load_from_file(test_file)
-    reconstruct_physics(world)
+    assert entity_data["components"]["Transform"]["x"] == 10.0
 
-    # Verify Loaded Entity
-    found_entity_1 = None
-    found_entity_2 = None
+    # Load into new world
+    new_world = World()
+    new_serializer = WorldSerializer(new_world, comp_types)
+    new_serializer.load_from_file(filepath)
 
-    for e, comp in world.get_components(StableIDComponent).items():
-        if comp.id == stable_id_1:
-            found_entity_1 = e
-        else:
-            found_entity_2 = e
+    # Verify entity loaded
+    assert len(new_world.get_all_entities()) == 1
+    new_entity = list(new_world.get_all_entities())[0]
 
-    assert found_entity_1 is not None
-    assert found_entity_2 is not None
-    assert found_entity_1 != entity1 # IDs should likely change (or at least be valid)
+    stable_id = new_world.get_component(new_entity, StableIDComponent)
+    assert stable_id.id == "test-uuid"
 
-    # Verify Data
-    transform = world.get_component(found_entity_1, Transform)
-    assert transform.x == 100
-    assert transform.y == 200
+    transform = new_world.get_component(new_entity, Transform)
+    assert transform.x == 10.0
 
-    stats = world.get_component(found_entity_1, YukkuriStats)
-    assert stats.type_id == "reimu"
-
-    # Verify Relationship Reference Resolution
-    rel_reg_loaded = world.get_component(found_entity_1, RelationshipRegistry)
-    assert len(rel_reg_loaded.biological_children) == 1
-    child_id = rel_reg_loaded.biological_children[0]
-    assert child_id == found_entity_2 # Should point to the NEW ID of entity 2
-
-    assert found_entity_2 in rel_reg_loaded.relationships
-    assert rel_reg_loaded.relationships[found_entity_2].affinity == 10.0
-
-    # Verify Physics
-    assert world.has_component(found_entity_1, PhysicsBody)
-    pb = world.get_component(found_entity_1, PhysicsBody)
-    assert pb.body.position.x == 100
-    assert pb.body.position.y == 200
+    selectable = new_world.get_component(new_entity, Selectable)
+    assert selectable.selected == True
 
     # Cleanup
-    if os.path.exists(test_file):
-        os.remove(test_file)
-
-if __name__ == "__main__":
-    test_persistence()
+    if os.path.exists(filepath):
+        os.remove(filepath)

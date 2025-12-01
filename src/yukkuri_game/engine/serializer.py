@@ -17,8 +17,6 @@ class WorldSerializer:
         self.world = world
         self.component_map = {c.__name__: c for c in component_types}
         # We need to know Persistable and StableIDComponent types to identify them.
-        # We can look them up by name in the map, or require them explicitly?
-        # For decoupled design, we look up by name.
         self._persistable_type = self.component_map.get("Persistable")
         self._stable_id_type = self.component_map.get("StableIDComponent")
 
@@ -47,10 +45,14 @@ class WorldSerializer:
             if component_type.__name__ == "PhysicsBody":
                 continue
 
+            # Avoid serializing StableIDComponent twice (it's in stable_id field)
+            if self._stable_id_type and component_type == self._stable_id_type:
+                continue
+
             try:
                 # Using msgspec for efficient serialization if it's a struct/dataclass
                 if hasattr(component, "__dataclass_fields__") or isinstance(component, msgspec.Struct):
-                    # Convert to python builtins (dict/list/etc) which msgspec.msgpack can encode
+                    # Convert to python builtins (dict/list/etc) which msgspec can encode
                     decoded = msgspec.to_builtins(component)
                     components_data[component_type.__name__] = decoded
                 else:
@@ -79,6 +81,7 @@ class WorldSerializer:
             if data:
                 entities_data.append(data)
 
+        # Using msgspec.msgpack for Binary serialization
         with open(filepath, "wb") as f:
             f.write(msgspec.msgpack.encode(entities_data))
         logger.info(f"Saved {len(entities_data)} entities to {filepath}")
