@@ -319,13 +319,18 @@ class SocialSystem(System):
             if subject_personality.axis:
                 kindness = subject_personality.axis.kindness
 
-            comp_mult = 1.0 + (kindness / 100.0)
-            if comp_mult < 0: comp_mult = 0.0
-
             if base_impact_score > 0:
+                comp_mult = 1.0 + (kindness / 100.0)
+                comp_mult = max(0.1, comp_mult)
                 d_affinity *= comp_mult
                 d_trust *= comp_mult
             elif base_impact_score < 0:
+                # For negative impacts, selfish yukkuris should be vindictive (react strongly),
+                # while kind ones might be forgiving (react weakly) or sensitive (react strongly).
+                # Current design choice: Selfish = Vindictive (High reaction), Kind = Forgiving (Low reaction).
+                comp_mult = 1.0 - (kindness / 100.0)
+                comp_mult = max(0.1, comp_mult)
+
                 d_affinity *= comp_mult
                 d_trust *= comp_mult
                 d_fear *= comp_mult
