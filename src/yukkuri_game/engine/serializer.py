@@ -94,6 +94,7 @@ class WorldSerializer:
 
         # Pass 1: Create Entities and Mapping
         id_map: Dict[int, int] = {} # old_id -> new_id
+        max_stable_id = 0
 
         for entity_data in entities_data:
             old_id = entity_data.get("entity_id")
@@ -106,8 +107,10 @@ class WorldSerializer:
                 id_map[old_id] = new_entity
 
             # Add StableID if exists
-            if stable_id and self._stable_id_type:
+            if stable_id is not None and self._stable_id_type:
                 self.world.add_component(new_entity, self._stable_id_type(id=stable_id))
+                if isinstance(stable_id, int):
+                    max_stable_id = max(max_stable_id, stable_id)
 
             for comp_name, comp_data in components_data.items():
                 comp_class = self.component_map.get(comp_name)
@@ -126,6 +129,10 @@ class WorldSerializer:
                         logger.warning(f"Failed to deserialize component {comp_name}: {e}")
                 else:
                     logger.warning(f"Unknown component type: {comp_name}")
+
+        # Update World's next stable ID
+        if hasattr(self.world, "set_next_stable_id"):
+            self.world.set_next_stable_id(max_stable_id + 1)
 
         # Pass 2: Resolve References
         for new_entity in id_map.values():

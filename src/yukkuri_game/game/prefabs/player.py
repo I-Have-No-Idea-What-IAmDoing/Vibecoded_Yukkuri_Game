@@ -11,6 +11,6 @@ def create_player(world: World, x: float = 0, y: float = 0) -> int:
     """
     entity = world.create_entity()
     world.add_component(entity, Transform(x=x, y=y))
-    world.add_component(entity, StableIDComponent(id="player")) # Fixed ID for player
+    world.add_component(entity, StableIDComponent(id=0)) # Fixed ID for player
     world.add_component(entity, Persistable())
     return entity

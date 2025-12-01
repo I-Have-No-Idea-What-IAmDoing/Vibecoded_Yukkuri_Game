@@ -84,7 +84,7 @@ def create_yukkuri(
         is_animating=(frame_count > 1)
     ))
     world.add_component(entity, Selectable())
-    world.add_component(entity, StableIDComponent.create_new())
+    world.add_component(entity, StableIDComponent(id=world.get_next_stable_id()))
     world.add_component(entity, Persistable())
 
     # Movement & Visual Components
