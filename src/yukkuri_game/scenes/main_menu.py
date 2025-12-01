@@ -15,7 +15,7 @@ class MainMenuScene(Scene):
     def __init__(self, application: Application):
         super().__init__(application)
         self.ui_manager = pygame_gui.UIManager((self.application.width, self.application.height))
-        self.input_manager = InputManager()
+        self.input_manager = self.world.services.get(InputManager)
         self.input_manager.switch_context(InputContext.MENU)
         self._setup_ui()
 
@@ -47,7 +47,6 @@ class MainMenuScene(Scene):
 
     def update(self, dt: float) -> None:
         super().update(dt)
-        self.input_manager.update()
         self.ui_manager.update(dt)
 
     def render(self) -> None:
@@ -55,7 +54,7 @@ class MainMenuScene(Scene):
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.ui_manager.process_events(event)
-        self.input_manager.process_event(event)
+        # InputManager processing is handled by Application
 
         if self.input_manager.is_action_just_pressed("cancel"):
             self.application.quit()

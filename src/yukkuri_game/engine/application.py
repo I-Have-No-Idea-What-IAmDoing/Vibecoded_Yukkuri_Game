@@ -96,21 +96,21 @@ class Application:
         Args:
             dt (float): Delta time in seconds.
         """
-        # 1. Update Input State (transitions, hold durations)
-        self.input_manager.update()
-
-        # 2. Pre-Update Phase (Prepare systems)
+        # 1. Pre-Update Phase (Prepare systems)
         self.event_manager.process_phase(GamePhase.PRE_UPDATE)
 
-        # 3. Main Game Logic
+        # 2. Main Game Logic
         self.ui_manager.update(dt)
         self.scene_manager.update(dt)
 
-        # 4. Update Phase (Systems responding to frame logic)
+        # 3. Update Phase (Systems responding to frame logic)
         self.event_manager.process_phase(GamePhase.UPDATE)
 
-        # 5. Post-Update (Cleanup)
+        # 4. Post-Update (Cleanup)
         self.event_manager.process_phase(GamePhase.POST_UPDATE)
+
+        # 5. Update Input State (Clear transient state)
+        self.input_manager.update()
 
     def render(self) -> None:
         """Render the application."""

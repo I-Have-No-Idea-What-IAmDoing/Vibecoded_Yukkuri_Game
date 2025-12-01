@@ -79,7 +79,7 @@ class GameplayScene(Scene):
         self.physics_system = PhysicsSystem()
         self.event_manager = EventManager()
         self.event_bus = self.event_manager.bus
-        self.input_manager = InputManager()
+        self.input_manager = self.world.services.get(InputManager)
         self.input_manager.switch_context(InputContext.GAMEPLAY)
 
         # Collect component types for serializer
@@ -350,9 +350,6 @@ class GameplayScene(Scene):
 
         self.event_manager.process_phase(GamePhase.POST_UPDATE)
 
-        # Clear input state at the end of the frame, after all systems have processed input.
-        self.input_manager.update()
-
         if not self.application.headless:
             self.hud.fps = self.application.clock.get_fps()
             self.hud.update(dt)
@@ -370,7 +367,7 @@ class GameplayScene(Scene):
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.ui_manager.process_events(event)
-        self.input_manager.process_event(event)
+        # InputManager processing is handled by Application
 
         if hasattr(self, "yukkurrium"):
             self.yukkurrium.handle_input(
