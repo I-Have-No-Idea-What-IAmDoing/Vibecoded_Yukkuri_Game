@@ -1,17 +1,18 @@
 """
 Input Manager Module.
 """
-from typing import Dict, List, Optional, Set, Tuple
-from enum import Enum, auto
+from typing import Dict, List, Optional, Set, Tuple, Union
+from enum import Enum, auto, IntEnum
 import pygame
 
-class InputContext(Enum):
-    GAMEPLAY = auto()
-    MENU = auto()
+class InputContext(IntEnum):
+    # Higher value = Higher Priority
+    GAMEPLAY = 1
+    MENU = 10
 
 class InputManager:
     """
-    Manages input state and contexts.
+    Manages input state and contexts with priority-based consumption.
     """
     def __init__(self):
         self._active_contexts: Set[InputContext] = {InputContext.MENU}
@@ -101,46 +102,68 @@ class InputManager:
         self._mouse_buttons_up.clear()
         self._mouse_wheel = 0.0
 
-    def is_action_pressed(self, action: str) -> bool:
-        """Check if an action is active (key/button held down)."""
+    def _is_consumed(self, key_or_btn: int, current_context: InputContext, is_mouse: bool = False) -> bool:
+        """
+        Check if a key/button is consumed by a higher priority context.
+        """
         for context in self._active_contexts:
-            # Check keys
+            if context.value > current_context.value:
+                if is_mouse:
+                    if context in self._mouse_mappings and key_or_btn in self._mouse_mappings[context].values():
+                        return True
+                else:
+                    if context in self._key_mappings and key_or_btn in self._key_mappings[context].values():
+                        return True
+        return False
+
+    def _check_action_in_collection(self, action: str, key_collection: Set[int], mouse_collection: Set[int]) -> bool:
+        """
+        Helper to check if an action is triggered within the active contexts, respecting priority.
+        """
+        # Sort contexts high to low.
+        # If a higher context consumes the input, lower contexts are blocked.
+        sorted_contexts = sorted(self._active_contexts, key=lambda c: c.value, reverse=True)
+
+        for context in sorted_contexts:
+            # Check Keys
             if context in self._key_mappings:
                 key = self._key_mappings[context].get(action)
-                if key and key in self._keys_pressed:
-                    return True
-            # Check mouse
+                if key and key in key_collection:
+                    if not self._is_consumed(key, context, is_mouse=False):
+                        return True
+
+            # Check Mouse
             if context in self._mouse_mappings:
                 btn = self._mouse_mappings[context].get(action)
-                if btn and btn in self._mouse_buttons:
-                    return True
+                if btn and btn in mouse_collection:
+                    if not self._is_consumed(btn, context, is_mouse=True):
+                        return True
+
         return False
+
+    def is_action_pressed(self, action: str) -> bool:
+        """Check if an action is active (key/button held down)."""
+        return self._check_action_in_collection(
+            action,
+            self._keys_pressed,
+            self._mouse_buttons
+        )
 
     def is_action_just_pressed(self, action: str) -> bool:
         """Check if an action was just pressed this frame."""
-        for context in self._active_contexts:
-            if context in self._key_mappings:
-                key = self._key_mappings[context].get(action)
-                if key and key in self._keys_down:
-                    return True
-            if context in self._mouse_mappings:
-                btn = self._mouse_mappings[context].get(action)
-                if btn and btn in self._mouse_buttons_down:
-                    return True
-        return False
+        return self._check_action_in_collection(
+            action,
+            self._keys_down,
+            self._mouse_buttons_down
+        )
 
     def is_action_just_released(self, action: str) -> bool:
         """Check if an action was just released this frame."""
-        for context in self._active_contexts:
-            if context in self._key_mappings:
-                key = self._key_mappings[context].get(action)
-                if key and key in self._keys_up:
-                    return True
-            if context in self._mouse_mappings:
-                btn = self._mouse_mappings[context].get(action)
-                if btn and btn in self._mouse_buttons_up:
-                    return True
-        return False
+        return self._check_action_in_collection(
+            action,
+            self._keys_up,
+            self._mouse_buttons_up
+        )
 
     def get_mouse_position(self) -> Tuple[int, int]:
         """Returns the current mouse position."""

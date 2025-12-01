@@ -1,7 +1,7 @@
 """
 Module defining core game components.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Optional
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
@@ -139,7 +139,8 @@ class InteractionRequest:
 @dataclass
 class MovementController:
     """A simple component that holds movement commands and visual state."""
-    target_velocity: Vector2 = Vector2(0, 0)
+    # Safety Fix: Use default_factory for mutable Vector2
+    target_velocity: Vector2 = field(default_factory=lambda: Vector2(0, 0))
 
     # --- Visual Tuning ---
     visual_bob_timer: float = 0.0
@@ -150,4 +151,5 @@ class MovementController:
 class VisualTransform:
     """Holds visual-only transform data, decoupling rendering from physics."""
     vertical_offset: float = 0.0
-    shadow_position: Vector2 = Vector2(0, 0)
+    # Safety Fix: Use default_factory for mutable Vector2
+    shadow_position: Vector2 = field(default_factory=lambda: Vector2(0, 0))
