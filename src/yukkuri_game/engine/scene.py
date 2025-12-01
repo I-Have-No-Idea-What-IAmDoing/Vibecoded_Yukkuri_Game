@@ -2,12 +2,20 @@
 Scene Management Module.
 """
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Dict, Any, Type, ClassVar
+from dataclasses import dataclass, field
 import pygame
 from .ecs import World
 
 if TYPE_CHECKING:
     from .application import Application
+
+@dataclass
+class SceneContext:
+    """
+    Holds data injected into a scene from the global state.
+    """
+    data: Dict[str, Any] = field(default_factory=dict)
 
 class Scene(ABC):
     """
@@ -15,9 +23,22 @@ class Scene(ABC):
     Each scene has its own ECS World.
     """
 
+    # Declarative injections mapping keys to expected types/classes
+    # e.g. { "player_inventory": InventoryComponent }
+    INJECTIONS: ClassVar[Dict[str, Type]] = {}
+
     def __init__(self, application: 'Application'):
         self.application = application
         self.world = World()
+
+    def setup(self, context: SceneContext) -> None:
+        """
+        Called after initialization to inject dependencies and setup the world.
+
+        Args:
+            context (SceneContext): The context containing injected data.
+        """
+        pass
 
     @abstractmethod
     def on_enter(self) -> None:

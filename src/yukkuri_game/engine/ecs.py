@@ -280,7 +280,7 @@ class World:
         # noinspection PyTypeChecker
         esper.process(dt)
 
-    def clear(self) -> None:
+    def clear_database(self) -> None:
         """
         Clears all entities and components from the world.
         Note: This does NOT remove Processors (Systems).
