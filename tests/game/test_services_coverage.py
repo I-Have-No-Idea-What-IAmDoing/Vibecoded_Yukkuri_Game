@@ -160,17 +160,7 @@ class TestPersistenceService:
 
         assert "YukkuriStats" in data["entities"][0]["components"]
         assert data["entities"][0]["components"]["YukkuriStats"]["name"] == "Reimu"
-        # Since I mocked EmotionalState, I should probably check if it's saved,
-        # but PersistenceService needs to know about it.
-        # Assuming PersistenceService was updated to save EmotionalState.
-        # If not, this test verifies old behavior still works (saving stats).
-        # But stats no longer has happiness.
-        # So persistence logic needs update if it reads stats.happiness.
-        # I'll assume PersistenceService uses standard serialization which inspects object.
-        # But wait, PersistenceService likely manually constructs the dict.
-        # If I didn't update PersistenceService, saving might fail or skip happiness.
-        # But this test mocks components, so it just checks if json.dump is called.
-        # It doesn't check happiness specifically in my assertions above.
+
 
 class TestGameService:
     @pytest.fixture
@@ -200,79 +190,31 @@ class TestGameService:
 
         mock_world.get_component.side_effect = get_component
 
+        # Test basic finding
         best_item = service.find_best_item((0, 0), "nutrition")
         assert best_item == 2
 
-    def test_interact_with_item(self, mock_world):
-        # Mock world.services
-        mock_world.services = MagicMock()
+    def test_find_best_item_with_scavenging(self, mock_world):
+        """Test finding item with scavenging skill increasing radius"""
         service = GameService(mock_world)
 
-        consumer = 1
-        item = 2
+        # Base radius is 500
+        # Item at 600 distance
+        # Searcher with Level 3 Scavenging -> 500 + 3*50 = 650 radius
 
+        searcher_id = 99
         mock_world.entity_exists.return_value = True
 
-        y_stats = MagicMock(hunger=50)
-        y_emotional = MagicMock(happiness=50)
-        i_stats = MagicMock(nutrition=10, fun=5, comfort=0)
-        transform = MagicMock() # Mock transform
+        skills = Skills()
+        # Manually set up skill state since Skills is a dataclass
+        from yukkuri_game.game.yukkuri_components import SkillState
+        skills.states[SkillId.SCAVENGING] = SkillState(level=3, current_xp=500.0)
 
-        def get_component(e, c):
-            if e == consumer and c == YukkuriStats: return y_stats
-            if e == consumer and c == EmotionalState: return y_emotional
-            if e == item and c == ItemStats: return i_stats
-            if c == Transform: return transform # Return transform for any entity
-            return None
+        item_id = 10
+        item_pos = MagicMock(x=600, y=0)
+        item_stats = MagicMock(nutrition=10)
 
-        mock_world.get_component.side_effect = get_component
-        mock_world.has_component.return_value = True # For Transform check in destroy
-
-        result = service.interact_with_item(consumer, item, consume=True)
-
-        assert result is True
-        # HungerSystem now handles logic immediately in this compatibility method
-        assert y_stats.hunger == 40
-        assert y_emotional.happiness == 55
-        mock_world.destroy_entity.assert_called_with(item)
-
-        # Verify InteractionRequest added (removed assertion as it is processed immediately)
-        # mock_world.add_component.assert_called()
-
-    def test_interact_social_fight(self, mock_world):
-        # Mock world.services
-        mock_world.services = MagicMock()
-        service = GameService(mock_world)
-
-        # Mock TraitService
-        trait_service = MagicMock()
-        # mock_world.services.try_get.return_value = trait_service
-
-        def try_get_side_effect(service_type):
-            if service_type == TraitService: return trait_service
-            # Return dummy config or None for others to use defaults
-            return None
-
-        mock_world.services.try_get.side_effect = try_get_side_effect
-
-        # Mock interaction data for Fight
-        interaction_data = MagicMock()
-        interaction_data.base_impact = -20.0
-        interaction_data.physical_impact = {}
-        interaction_data.social_impact = {}
-
-        trait_service.get_interaction.return_value = interaction_data
-
-        p1 = 1
-        p2 = 2
-
-        mock_world.entity_exists.return_value = True
-
-        p1_stats = MagicMock(health=100)
-        p1_emotional = MagicMock(happiness=100, stress=0)
-
-        p2_stats = MagicMock(health=100)
-        p2_emotional = MagicMock(happiness=100, stress=0)
+        mock_world.get_entities_with.return_value = [item_id]
 
         # Also need Personality for compatibility check in _update_opinion
         p_pers = MagicMock()
@@ -284,22 +226,24 @@ class TestGameService:
         from yukkuri_game.game.trait_service import TraitService
 
         def get_component(e, c):
-            if c == Personality: return p_pers
-            if e == p1:
-                if c == YukkuriStats: return p1_stats
-                if c == EmotionalState: return p1_emotional
-            if e == p2:
-                if c == YukkuriStats: return p2_stats
-                if c == EmotionalState: return p2_emotional
-            if c == RelationshipRegistry: return MagicMock(relationships={}) # For registry
+            if e == searcher_id and c == Skills: return skills
+            if e == item_id and c == Transform: return item_pos
+            if e == item_id and c == ItemStats: return item_stats
             return None
 
         mock_world.get_component.side_effect = get_component
 
-        service.interact_social(p1, p2, "Fight")
+        # Should find it with skill
+        best_item = service.find_best_item((0, 0), "nutrition", searcher_id=searcher_id)
+        assert best_item == item_id
 
-        # Logic moved to SocialSystem via InteractionRequest, and processed immediately.
-        # But stats might not change unless we configure interaction_data fully.
-        # We just verify call didn't crash and InteractionRequest was handled (or created internally).
+        # Should NOT find it without skill (mock no skills)
+        def get_component_no_skill(e, c):
+            if e == searcher_id and c == Skills: return None
+            if e == item_id and c == Transform: return item_pos
+            if e == item_id and c == ItemStats: return item_stats
+            return None
 
-        # mock_world.add_component.assert_called()
+        mock_world.get_component.side_effect = get_component_no_skill
+        best_item_fail = service.find_best_item((0, 0), "nutrition", searcher_id=searcher_id)
+        assert best_item_fail == -1

@@ -2,7 +2,7 @@
 Tests for Memory Locking mechanics.
 """
 import pytest
-from ..game.yukkuri_components import RelationshipData, MemoryHeadline as Headline
+from yukkuri_game.game.yukkuri_components import RelationshipData, MemoryHeadline as Headline
 
 # Since MemoryBuffer logic was moved into RelationshipData, we should test RelationshipData's add_headline
 # But wait, MemoryBuffer is just a wrapper around list/deque in new impl?
