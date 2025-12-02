@@ -4,6 +4,8 @@ Module defining the kinematic movement system.
 import math
 from ...engine.ecs import System, World
 from ..components import PhysicsBody, MovementController, VisualTransform
+from ..skill_service import SkillService
+from ..skill_constants import SkillId
 
 class MovementSystem(System):
     """
@@ -30,6 +32,12 @@ class MovementSystem(System):
             # Only animate bobbing if the entity is moving appreciably.
             if phys.body.velocity.length > 0.1:
                 controller.visual_bob_timer += dt * controller.bob_speed
+
+                # Award Athletics XP for moving
+                # Rate: 0.1 XP per second of movement (example)
+                skill_service = world.services.try_get(SkillService)
+                if skill_service:
+                    skill_service.add_xp(entity, SkillId.ATHLETICS.value, 0.1 * dt)
 
             # 3. Calculate the vertical offset for the bobbing effect
             # Simple absolute sine wave creates a hopping/bobbing motion typical of Yukkuri.

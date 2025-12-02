@@ -14,6 +14,10 @@ stress_decay = 1.5
 [traits.GESU.social_modifiers]
 compatibility = { NICE = -50.0, GESU = 10.0 }
 
+[traits.GESU.skill_modifiers]
+socialization = { passion_multiplier = 0.5, soft_cap_offset = -2 }
+combat = { passion_multiplier = 1.5, soft_cap_offset = 2 }
+
 [traits.NICE]
 name = "Nice"
 description = "Kind and gentle. Enjoys helping others."
@@ -29,6 +33,10 @@ social_decay = 1.2
 
 [traits.NICE.social_modifiers]
 compatibility = { NICE = 20.0, GESU = -50.0 }
+
+[traits.NICE.skill_modifiers]
+socialization = { passion_multiplier = 1.5, soft_cap_offset = 2 }
+combat = { passion_multiplier = 0.5, soft_cap_offset = -2 }
 
 [traits.GLUTTON]
 name = "Glutton"
@@ -52,6 +60,10 @@ social_decay = 0.5
 
 [traits.LONER.ai_modifiers]
 "Social/Play" = { curve = "linear", params = { m = 0.5 } }
+
+[traits.LONER.skill_modifiers]
+socialization = { passion_multiplier = 0.5, soft_cap_offset = -2 }
+scavenging = { passion_multiplier = 1.5, soft_cap_offset = 2 }
 
 [traits.PREDATOR]
 name = "Predator"
