@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 from loguru import logger
 
 from ..engine.ecs import World
-from .yukkuri_components import Skills, SkillState, Personality, YukkuriStats
+from .yukkuri_components import Skills, SkillState, Personality, YukkuriStats, EmotionalState
 from .skill_constants import SkillId, PassionLevel
 from .services import TimeService
 from .trait_service import TraitService
@@ -130,17 +130,25 @@ class SkillService:
             gain_multiplier = 0.1
 
         # Intelligence factor.
-        # We don't have an explicit INT stat in YukkuriStats yet.
-        # We can use discipline as a proxy (0-100) -> 0.5 to 1.5?
         stats = self.world.get_component(entity_id, YukkuriStats)
         int_factor = 1.0
         if stats:
-            # Map discipline 0-100 to 0.5-1.5
-            int_factor = 0.5 + (stats.discipline / 100.0)
+            int_factor = stats.get_intelligence()
 
         final_xp = amount * state.passion * int_factor * gain_multiplier
 
         state.current_xp += final_xp
+
+        # Burning Passion Effect: Gain happiness
+        if state.passion >= PassionLevel.BURNING.value:
+            emotional_state = self.world.get_component(entity_id, EmotionalState)
+            if emotional_state:
+                # Small happiness boost.
+                # Capping it to avoid overflow is handled by logic elsewhere presumably,
+                # but let's be safe or just add it. EmotionalState has limits -100 to 100?
+                # The component definition says -100 to 100 but doesn't enforce it in the data class.
+                # Usually systems enforce limits. We will just add a small amount.
+                emotional_state.happiness = min(100.0, emotional_state.happiness + 1.0)
 
         # Update usage time
         time_service = self.world.services.try_get(TimeService)
