@@ -126,7 +126,7 @@ class GameplayScene(Scene):
         self.trait_service = TraitService(self.world)
         self.world.services.register(self.trait_service, TraitService)
 
-        self.skill_service = SkillService(self.world)
+        self.skill_service = SkillService(self.world, self.game_config.rules.skills)
         self.world.services.register(self.skill_service, SkillService)
 
         self._init_navigation_service()

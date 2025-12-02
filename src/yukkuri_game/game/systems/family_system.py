@@ -9,6 +9,7 @@ from loguru import logger
 from ...engine.ecs import System, World
 from ..services import TimeService
 from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, AIState, EmotionalState
+from ..systems.sector_system import SectorMap
 
 class FamilySystem(System):
     """
@@ -102,7 +103,69 @@ class FamilySystem(System):
         """
         from ..components import Transform
 
-        # Optimization: Quadtree or spatial hash would be better, but O(N^2) for small N is fine
+        sector_map = world.services.try_get(SectorMap)
+
+        if sector_map:
+            # Optimization: Use SectorMap if available
+            self._process_benefits_with_sectors(world, sector_map)
+        else:
+            # Fallback to O(N^2)
+            self._process_benefits_fallback(world)
+
+    def _process_benefits_with_sectors(self, world: World, sector_map: SectorMap) -> None:
+        from ..components import Transform
+
+        entities = world.get_entities_with(RelationshipRegistry, YukkuriStats, Transform, AIState)
+
+        # To avoid processing pairs twice, we only process if eid < other_eid.
+        # But sector queries return neighbors, so we just filter.
+
+        for eid in entities:
+            reg = world.get_component(eid, RelationshipRegistry)
+            if reg is None or reg.family_group_id is None:
+                continue
+
+            stats = world.get_component(eid, YukkuriStats)
+            trans = world.get_component(eid, Transform)
+            ai = world.get_component(eid, AIState)
+            emotional = world.get_component(eid, EmotionalState)
+
+            if stats is None or trans is None or ai is None:
+                continue
+
+            # Get neighbors (Visual range includes adjacent sectors which is usually enough for 150px)
+            # Sector size is 500, so "Same + Adjacent" covers 1500x1500 area centered on sector.
+            neighbors = sector_map.get_entities_in_range(trans.x, trans.y, "visual")
+
+            for other_eid in neighbors:
+                if other_eid <= eid: # Ensure unique pair (A, B) and avoid (A, A)
+                    continue
+
+                # Check components existence for neighbor
+                # Optimization: We could use `world.has_components` but retrieving them checks anyway.
+                other_reg = world.get_component(other_eid, RelationshipRegistry)
+                if other_reg is None or other_reg.family_group_id != reg.family_group_id:
+                    continue
+
+                other_trans = world.get_component(other_eid, Transform)
+                other_ai = world.get_component(other_eid, AIState)
+                other_stats = world.get_component(other_eid, YukkuriStats)
+                other_emotional = world.get_component(other_eid, EmotionalState)
+
+                if other_trans is None or other_ai is None or other_stats is None:
+                    continue
+
+                self._apply_benefit_pair(
+                    eid, other_eid,
+                    stats, other_stats,
+                    trans, other_trans,
+                    ai, other_ai,
+                    emotional, other_emotional
+                )
+
+    def _process_benefits_fallback(self, world: World) -> None:
+        from ..components import Transform
+
         entities = world.get_entities_with(RelationshipRegistry, YukkuriStats, Transform, AIState)
 
         for i, eid in enumerate(entities):
@@ -134,36 +197,53 @@ class FamilySystem(System):
                 if other_trans is None or other_ai is None or other_stats is None:
                     continue
 
-                dist_sq = (trans.x - other_trans.x)**2 + (trans.y - other_trans.y)**2
-                if dist_sq < 150 * 150: # Range for family benefits
+                self._apply_benefit_pair(
+                    eid, other_eid,
+                    stats, other_stats,
+                    trans, other_trans,
+                    ai, other_ai,
+                    emotional, other_emotional
+                )
 
-                    # 1. Base "Together" Happiness
-                    if emotional:
-                        emotional.happiness = min(100.0, emotional.happiness + 0.5)
-                        emotional.stress = max(0.0, emotional.stress - 0.5)
-                    if other_emotional:
-                        other_emotional.happiness = min(100.0, other_emotional.happiness + 0.5)
-                        other_emotional.stress = max(0.0, other_emotional.stress - 0.5)
+    def _apply_benefit_pair(
+        self, eid: int, other_eid: int,
+        stats: YukkuriStats, other_stats: YukkuriStats,
+        trans: object, other_trans: object,
+        ai: AIState, other_ai: AIState,
+        emotional: Optional[EmotionalState], other_emotional: Optional[EmotionalState]
+    ) -> None:
+        """Helper to apply benefits between two entities."""
 
-                    # 2. Resource Sharing: Food
-                    # If one is eating, share nutrition/happiness with hungry partner
-                    # (Simulates "Here, have some" or calling to food)
-                    if ai.current_action == "Eat" and other_stats.hunger > 50.0:
-                            other_stats.hunger = max(0.0, other_stats.hunger - 1.0) # Share small benefit
-                            if other_emotional: other_emotional.happiness = min(100.0, other_emotional.happiness + 0.5)
-                            logger.debug(f"Family Share: {stats.name} sharing food with {other_stats.name}")
+        dist_sq = (trans.x - other_trans.x)**2 + (trans.y - other_trans.y)**2
+        if dist_sq < 150 * 150: # Range for family benefits
 
-                    elif other_ai.current_action == "Eat" and stats.hunger > 50.0:
-                            stats.hunger = max(0.0, stats.hunger - 1.0)
-                            if emotional: emotional.happiness = min(100.0, emotional.happiness + 0.5)
-                            logger.debug(f"Family Share: {other_stats.name} sharing food with {stats.name}")
+            # 1. Base "Together" Happiness
+            if emotional:
+                emotional.happiness = min(100.0, emotional.happiness + 0.5)
+                emotional.stress = max(0.0, emotional.stress - 0.5)
+            if other_emotional:
+                other_emotional.happiness = min(100.0, other_emotional.happiness + 0.5)
+                other_emotional.stress = max(0.0, other_emotional.stress - 0.5)
 
-                    # 3. Resource Sharing: Nest/Sleep
-                    # If one is sleeping, boost comfort/recovery for nearby partner (simulating shared nest)
-                    if ai.current_action == "Sleep":
-                        other_stats.energy = min(100.0, other_stats.energy + 0.5)
-                        if other_emotional: other_emotional.stress = max(0.0, other_emotional.stress - 1.0)
+            # 2. Resource Sharing: Food
+            # If one is eating, share nutrition/happiness with hungry partner
+            # (Simulates "Here, have some" or calling to food)
+            if ai.current_action == "Eat" and other_stats.hunger > 50.0:
+                    other_stats.hunger = max(0.0, other_stats.hunger - 1.0) # Share small benefit
+                    if other_emotional: other_emotional.happiness = min(100.0, other_emotional.happiness + 0.5)
+                    logger.debug(f"Family Share: {stats.name} sharing food with {other_stats.name}")
 
-                    if other_ai.current_action == "Sleep":
-                        stats.energy = min(100.0, stats.energy + 0.5)
-                        if emotional: emotional.stress = max(0.0, emotional.stress - 1.0)
+            elif other_ai.current_action == "Eat" and stats.hunger > 50.0:
+                    stats.hunger = max(0.0, stats.hunger - 1.0)
+                    if emotional: emotional.happiness = min(100.0, emotional.happiness + 0.5)
+                    logger.debug(f"Family Share: {other_stats.name} sharing food with {stats.name}")
+
+            # 3. Resource Sharing: Nest/Sleep
+            # If one is sleeping, boost comfort/recovery for nearby partner (simulating shared nest)
+            if ai.current_action == "Sleep":
+                other_stats.energy = min(100.0, other_stats.energy + 0.5)
+                if other_emotional: other_emotional.stress = max(0.0, other_emotional.stress - 1.0)
+
+            if other_ai.current_action == "Sleep":
+                stats.energy = min(100.0, stats.energy + 0.5)
+                if emotional: emotional.stress = max(0.0, emotional.stress - 1.0)
