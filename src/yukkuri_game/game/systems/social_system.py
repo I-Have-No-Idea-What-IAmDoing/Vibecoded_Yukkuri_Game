@@ -10,6 +10,7 @@ from collections import deque
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
+from ...engine.evaluator import ConditionEvaluator
 from ..components import Transform, InteractionRequest
 from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState, Skills
 from ..trait_service import TraitService
@@ -206,26 +207,44 @@ class SocialSystem(System):
             return
         self.register_interaction(self.ecs_world, event.initiator_id, event.target_id, event.interaction_type)
 
-    def _check_condition(self, world: World, entity_id: int, condition: Dict[str, Any]) -> bool:
+    def _check_condition(self, world: World, entity_id: int, condition: Any) -> bool:
         """
         Checks if a condition is met by the entity.
 
         Args:
             world (World): The ECS World.
             entity_id (int): The entity to check.
-            condition (Dict[str, Any]): The condition definition.
+            condition (Any): The condition definition (dict or expression string).
 
         Returns:
             bool: True if condition is met.
         """
-        cond_type = condition.get("type")
-        if cond_type == "skill_check":
-            skill_id = condition.get("skill")
-            min_level = condition.get("min_level", 0)
-            skills = world.get_component(entity_id, Skills)
-            if skills and skill_id in skills.states:
-                return skills.states[skill_id].level >= min_level
-            return False # Skill not found -> Fail
+        # Handle string expressions directly
+        if isinstance(condition, str):
+            evaluator = world.services.try_get(ConditionEvaluator)
+            if evaluator:
+                ctx = evaluator.build_context(world, entity_id)
+                return evaluator.evaluate(condition, ctx)
+            return False
+
+        # Handle dict-based conditions
+        if isinstance(condition, dict):
+            # Support explicit expression key
+            if "expression" in condition:
+                evaluator = world.services.try_get(ConditionEvaluator)
+                if evaluator:
+                    ctx = evaluator.build_context(world, entity_id)
+                    return evaluator.evaluate(condition["expression"], ctx)
+                return False
+
+            cond_type = condition.get("type")
+            if cond_type == "skill_check":
+                skill_id = condition.get("skill")
+                min_level = condition.get("min_level", 0)
+                skills = world.get_component(entity_id, Skills)
+                if skills and skill_id in skills.states:
+                    return skills.states[skill_id].level >= min_level
+                return False # Skill not found -> Fail
 
         # Add other condition types here (e.g. stat check)
         return True
@@ -437,37 +456,20 @@ class SocialSystem(System):
                     d_trust += mod.get("trust", 0.0)
                     d_fear += mod.get("fear", 0.0)
 
-            # Handle Skill Modifiers (Check OTHER/ACTOR skills)
-            skills = world.get_component(other_id, Skills)
-            if skills:
+            # Handle Expressions (Check OTHER/ACTOR context)
+            evaluator = world.services.try_get(ConditionEvaluator)
+            if evaluator:
+                actor_context = evaluator.build_context(world, other_id)
                 for key, mod in modifiers.items():
-                    # Parse "skill:social > 10"
-                    if key.startswith("skill:"):
-                        try:
-                            # Split "skill:social > 10"
-                            # Expected format: skill:{skill_id} > {level}
-                            # Let's simple split by space
-                            parts = key.split(' ')
-                            if len(parts) >= 3:
-                                skill_ref = parts[0].split(':')[1] # "social"
-                                op = parts[1] # ">"
-                                val = int(parts[2]) # 10
+                    # Skip trait/mood keys as they are subject-based or legacy
+                    if key.startswith("trait:") or key.startswith("mood:"):
+                        continue
 
-                                if skill_ref in skills.states:
-                                    level = skills.states[skill_ref].level
-                                    match = False
-                                    if op == ">": match = level > val
-                                    elif op == ">=": match = level >= val
-                                    elif op == "<": match = level < val
-                                    elif op == "<=": match = level <= val
-                                    elif op == "==": match = level == val
-
-                                    if match:
-                                        d_affinity += mod.get("affinity", 0.0)
-                                        d_trust += mod.get("trust", 0.0)
-                                        d_fear += mod.get("fear", 0.0)
-                        except Exception:
-                            logger.error(f"Failed to parse skill modifier key: {key}")
+                    # Evaluate expression against Actor
+                    if evaluator.evaluate(key, actor_context):
+                        d_affinity += mod.get("affinity", 0.0)
+                        d_trust += mod.get("trust", 0.0)
+                        d_fear += mod.get("fear", 0.0)
 
 
             kindness = 0
