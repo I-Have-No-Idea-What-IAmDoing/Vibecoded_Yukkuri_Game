@@ -208,7 +208,7 @@ class FamilySystem(System):
     def _apply_benefit_pair(
         self, eid: int, other_eid: int,
         stats: YukkuriStats, other_stats: YukkuriStats,
-        trans: object, other_trans: object,
+        trans: "Transform", other_trans: "Transform",
         ai: AIState, other_ai: AIState,
         emotional: Optional[EmotionalState], other_emotional: Optional[EmotionalState]
     ) -> None:
