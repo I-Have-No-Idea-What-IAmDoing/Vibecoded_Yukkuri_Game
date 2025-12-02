@@ -10,6 +10,8 @@ from ..skill_service import SkillService
 from ...config import StatDecaySettings
 import random
 
+SECONDS_PER_DAY = 3600.0
+
 class EmotionSystem(System):
     """
     System responsible for decaying Yukkuri stats and updating Emotional State over time.
@@ -46,7 +48,6 @@ class EmotionSystem(System):
         skill_service = world.services.try_get(SkillService)
 
         if time_service and skill_service:
-            SECONDS_PER_DAY = 3600.0
             current_day_index = int(time_service.time_elapsed / SECONDS_PER_DAY)
 
             if self.last_day_index == -1:
