@@ -1,13 +1,12 @@
 """
-Module handling the game world view and rendering.
+Module handling the game world view and rendering logic.
 """
 import pygame
 from loguru import logger
-from ..engine.ecs import System, World
+from ..engine.ecs import World
 from .components import Transform, Sprite, Selectable, FloatingText, PhysicsBody, VisualTransform
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
-from .services import InputService
 from typing import Tuple
 
 class Yukkurrium:
@@ -190,8 +189,6 @@ class WorldRenderer:
         """
         if size not in self.font_cache:
             # SysFont returns a Font object, but if not found or None, it returns a default font.
-            # However, SysFont implementation in pygame-ce might return Font or SysFont (which wraps Font).
-            # The type hint in stubs for SysFont returns Font.
             self.font_cache[size] = pygame.font.SysFont(None, size)
         return self.font_cache[size]
 
@@ -211,8 +208,6 @@ class WorldRenderer:
         # Render entities
         entities = world.get_entities_with(Transform, Sprite, PhysicsBody, VisualTransform)
         # Sort by Y for depth (ground position)
-        # Handle cases where component might be missing (though get_entities_with should ensure it)
-        # We use a default value if not found, but it should be found.
         entities.sort(key=lambda e: getattr(world.get_component(e, Transform), 'y', 0))
 
         sw, sh = self.screen.get_size()
@@ -224,7 +219,6 @@ class WorldRenderer:
             visual_transform = world.get_component(ent, VisualTransform)
 
             if transform is None or sprite is None or phys_body is None or visual_transform is None:
-                # logger.warning(f"Entity {ent} is missing one or more required components for rendering.")
                 continue
 
             # --- Draw Shadow ---
@@ -259,8 +253,6 @@ class WorldRenderer:
 
                 # Ensure source_rect is within image bounds
                 if source_rect.right > img_width or source_rect.bottom > img_height:
-                    # If image is smaller than expected (e.g. placeholder), scale it or clip
-                    # For placeholder (which is usually small), we just use the whole image
                     if img_width < sprite.width or img_height < sprite.height:
                         frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
                     else:
@@ -268,8 +260,6 @@ class WorldRenderer:
                 else:
                     frame_img = img.subsurface(source_rect)
             else:
-                # Single frame: if dimensions don't match, we assume we want to scale
-                # to fit the target sprite size (e.g., high-res asset for smaller item).
                 if img_width != sprite.width or img_height != sprite.height:
                     frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
                 else:
@@ -368,71 +358,3 @@ class WorldRenderer:
             y = row * grid_size
             _, sy = self.yukkurrium.world_to_screen(0, y, sw, sh)
             pygame.draw.line(self.screen, (50, 50, 50), (0, int(sy)), (sw, int(sy)))
-
-class RenderSystem(System):
-    """
-    System responsible for rendering the game world and entities.
-
-    Attributes:
-        renderer (WorldRenderer): The world renderer.
-    """
-
-    def __init__(self, screen: pygame.Surface, world: World):
-        """
-        Initializes the RenderSystem.
-
-        Args:
-            screen (pygame.Surface): The target Pygame surface.
-            world (World): The ECS World instance (used to locate services).
-        """
-        yukkurrium = world.services.get(Yukkurrium)
-        rm = world.services.get(ResourceManager)
-        self.renderer = WorldRenderer(screen, yukkurrium, rm)
-
-    @property
-    def screen(self) -> pygame.Surface:
-        return self.renderer.screen
-
-    @screen.setter
-    def screen(self, value: pygame.Surface) -> None:
-        self.renderer.screen = value
-
-    def update(self, world: World, dt: float) -> None:
-        """
-        Renders the world grid and all visible entities.
-
-        Args:
-            world (World): The ECS World.
-            dt (float): Delta time.
-
-        Returns:
-            None
-        """
-        self.renderer.render(world)
-
-class TimeSystem(System):
-    """
-    System that tracks the total elapsed game time.
-
-    Attributes:
-        total_time (float): The total accumulated time.
-        game_speed (float): The speed multiplier for time.
-    """
-
-    def __init__(self) -> None:
-        """Initializes the TimeSystem."""
-        self.total_time = 0.0
-        self.game_speed = 1.0
-
-    def update(self, world: World, dt: float) -> None:
-        """
-        Updates the total time.
-
-        Args:
-            world (World): The ECS World.
-            dt (float): Delta time.
-
-        Returns:
-            None
-        """
-        self.total_time += dt * self.game_speed
