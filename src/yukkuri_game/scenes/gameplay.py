@@ -39,7 +39,8 @@ from ..game.systems.sector_system import SectorMap, SectorSystem
 from ..game.trait_service import TraitService
 from ..game.skill_service import SkillService
 from ..game.ui.hud import HUD
-from ..game.yukkurrium import RenderSystem, Yukkurrium
+from ..game.yukkurrium import Yukkurrium
+from ..game.systems.render_system import RenderSystem
 from ..system_registry import SystemRegistry
 from ..game.utils.evaluator import ConditionEvaluator
 
