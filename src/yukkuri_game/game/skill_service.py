@@ -197,8 +197,10 @@ class SkillService:
 
             days_since_use = (current_time - state.last_used_gametime) / SECONDS_PER_DAY
 
+            # Apply flat daily decay if outside grace period.
+            # This function is expected to be called exactly once per day by the game loop.
             if days_since_use > 1.0:
-                loss = decay_rate * (days_since_use - 1.0)
+                loss = decay_rate
 
                 # Check floor: cannot drop below required XP for current level start.
                 # Actually, our current_xp is "progress towards NEXT level".
