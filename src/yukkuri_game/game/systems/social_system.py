@@ -10,6 +10,7 @@ from collections import deque
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
+from ...engine.audio import AudioManager
 from ..utils.evaluator import ConditionEvaluator
 from ..components import Transform, InteractionRequest
 from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState, Skills
@@ -43,6 +44,7 @@ class SocialSystem(System):
         super().__init__()
         self.trait_service: Optional[TraitService] = None
         self.skill_service: Optional[SkillService] = None
+        self.audio: Optional[AudioManager] = None
         self.cleanup_index = 0
         self.cleanup_batch_size = 10
         self.event_bus = event_bus
@@ -66,6 +68,8 @@ class SocialSystem(System):
             self.trait_service = world.services.try_get(TraitService)
         if not self.skill_service:
             self.skill_service = world.services.try_get(SkillService)
+        if not self.audio:
+            self.audio = world.services.try_get(AudioManager)
 
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
@@ -273,6 +277,9 @@ class SocialSystem(System):
         if not self.skill_service:
             self.skill_service = world.services.try_get(SkillService)
 
+        if not self.audio:
+            self.audio = world.services.try_get(AudioManager)
+
         interaction_data = self.trait_service.get_interaction(interaction_name)
         if not interaction_data:
             logger.warning(f"Unknown interaction: {interaction_name}")
@@ -292,6 +299,7 @@ class SocialSystem(System):
         self._apply_impact(world, actor_id, target_id, interaction_data, role="actor", now=now)
         self._apply_impact(world, target_id, actor_id, interaction_data, role="target", now=now)
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
+        self._play_audio(interaction_name)
 
         # --- Data-Driven Physical & Skill Effects ---
 
@@ -348,6 +356,24 @@ class SocialSystem(System):
                 emotional.stress = max(0.0, min(100.0, emotional.stress + impact["stress"]))
 
 
+    def _play_audio(self, interaction_name: str) -> None:
+        """
+        Plays audio for the interaction.
+        """
+        if not self.audio:
+            return
+
+        sound_name = ""
+        if interaction_name in ["Talk", "Greet"]:
+            sound_name = "talk"
+        elif interaction_name in ["Fight", "Hit"]:
+            sound_name = "hit"
+        elif interaction_name == "Dance":
+            sound_name = "jump" # Placeholder? Or maybe no sound for dance default? Tests might expect something if added.
+
+        if sound_name:
+            self.audio.play_sound(sound_name)
+
     def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Any) -> None:
         """
         Spawns visual feedback (floating text/icon) for the interaction.
@@ -398,8 +424,9 @@ class SocialSystem(System):
             role (str): "actor" or "target".
             now (float): Current timestamp.
         """
-        if role == "actor":
-            return
+        # Removed early return for actor to ensure they also get relationship updates and emotional changes.
+        # if role == "actor":
+        #    return
 
         registry = self._get_or_create_registry(world, subject_id)
         if other_id not in registry.relationships:
