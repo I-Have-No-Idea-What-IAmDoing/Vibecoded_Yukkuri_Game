@@ -11,7 +11,7 @@ from ..engine.ecs import World
 from ..engine.audio import AudioManager
 from .components import Transform
 from .yukkuri_components import (
-    YukkuriStats, ItemStats, AIState, EmotionalState, GossipQueue
+    YukkuriStats, ItemStats, AIState, EmotionalState, GossipQueue, Skills
 )
 from ..engine.serializer import WorldSerializer
 from .components_persistence import Persistable, StableIDComponent
@@ -20,6 +20,8 @@ from . import yukkuri_components
 
 if TYPE_CHECKING:
     from .yukkuri_components import Personality  # pylint: disable=unused-import
+    from .trait_service import TraitService
+    from .skill_service import SkillService
 
 class PersistenceService:
     """
@@ -442,22 +444,77 @@ class GameService:
         if not self.world.entity_exists(initiator_id) or not self.world.entity_exists(target_id):
             return False
 
+        from .trait_service import TraitService
+        from .skill_service import SkillService
+
+        trait_service = self.world.services.try_get(TraitService)
+        skill_service = self.world.services.try_get(SkillService)
+
         init_stats = self.world.get_component(initiator_id, YukkuriStats)
         target_stats = self.world.get_component(target_id, YukkuriStats)
         init_emo = self.world.get_component(initiator_id, EmotionalState)
         target_emo = self.world.get_component(target_id, EmotionalState)
+        init_skills = self.world.get_component(initiator_id, Skills)
 
         if not init_stats or not target_stats:
             return False
 
+        # Load interaction definition
+        interaction_def = {}
+        if trait_service:
+            interaction_def = trait_service.get_interaction(interaction_type) or {}
+
+        # Default values if no definition
+        affinity_bonus = 0.0
+        familiarity_bonus = 0.0
+
+        if interaction_def and "social_impact" in interaction_def:
+            social = interaction_def["social_impact"]
+            affinity_bonus = social.get("affinity", 0.0)
+            familiarity_bonus = social.get("familiarity", 0.0)
+
+        # Check conditions (Skills)
+        conditions_passed = True
+        condition_bonus_affinity = 0.0
+
+        if interaction_def and "conditions" in interaction_def and init_skills:
+            for cond in interaction_def["conditions"]:
+                if cond.get("type") == "skill_check":
+                    skill_id = cond.get("skill")
+                    min_level = cond.get("min_level", 0)
+
+                    current_level = 0
+                    if skill_id in init_skills.states:
+                        current_level = init_skills.states[skill_id].level
+
+                    if current_level >= min_level:
+                        # Condition Met
+                        if "result" in cond:
+                            res = cond["result"]
+                            condition_bonus_affinity += res.get("affinity", 0.0)
+
+        affinity_bonus += condition_bonus_affinity
+
+        # --- Base Behavior (Legacy Fallback + New Logic) ---
         audio = self.world.services.try_get(AudioManager)
 
         if interaction_type == "Talk":
+            # Apply XP
+            if skill_service:
+                skill_service.add_xp(initiator_id, "socialization", 5.0)
+
             if init_emo:
                 init_emo.happiness = min(100.0, init_emo.happiness + 5.0)
+
+            # Apply affinity to relationship if we had that system exposed here
+            # For now updating stats directly
+
+            # Legacy stats update + new bonuses
             init_stats.social = min(100.0, init_stats.social + 15.0)
+
             if target_emo:
-                target_emo.happiness = min(100.0, target_emo.happiness + 5.0)
+                target_emo.happiness = min(100.0, target_emo.happiness + 5.0 + affinity_bonus)
+
             target_stats.social = min(100.0, target_stats.social + 15.0)
 
             init_gossip = self.world.get_component(initiator_id, GossipQueue)
@@ -474,6 +531,9 @@ class GameService:
                     audio.play_sound("talk")
 
         elif interaction_type == "Fight":
+            if skill_service:
+                skill_service.add_xp(initiator_id, "combat", 10.0)
+
             damage = 5.0
             init_stats.health = max(0.0, init_stats.health - damage)
             if init_emo:
@@ -490,6 +550,10 @@ class GameService:
                     audio.play_sound("hit")
 
         elif interaction_type == "Dance":
+            if skill_service:
+                skill_service.add_xp(initiator_id, "athletics", 5.0)
+                skill_service.add_xp(initiator_id, "socialization", 2.0)
+
             if init_emo:
                 init_emo.happiness = min(100.0, init_emo.happiness + 10.0)
             if target_emo:

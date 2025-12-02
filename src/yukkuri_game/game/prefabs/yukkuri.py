@@ -17,6 +17,7 @@ from ..yukkuri_components import (
 from ..components_persistence import StableIDComponent, Persistable
 from ..collision_constants import CollisionCategories
 from ..trait_service import TraitService
+from ..skill_service import SkillService
 from ..systems.physics import PhysicsSystem
 from ..physics_utils import add_physics_body, get_yukkuri_radius
 
@@ -48,6 +49,7 @@ def create_yukkuri(
     rm = world.services.get(ResourceManager)
     physics_system = world.services.try_get(PhysicsSystem)
     trait_service = world.services.try_get(TraitService)
+    skill_service = world.services.try_get(SkillService)
 
     data = rm.yukkuri_types.get(type_id)
     if not data:
@@ -204,6 +206,10 @@ def create_yukkuri(
 
     personality = Personality(traits=traits, axis=axis, base_axis=base_axis)
     world.add_component(entity, personality)
+
+    # Initialize Skills
+    if skill_service:
+        skill_service.initialize_skills(entity)
 
     # Physics
     add_physics_body(

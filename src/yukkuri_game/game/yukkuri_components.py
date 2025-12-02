@@ -407,6 +407,32 @@ class ItemStats:
     is_portable: bool = False
 
 @dataclass
+class SkillState:
+    """
+    Tracks the state of a single skill.
+
+    Attributes:
+        level (int): Current skill level.
+        current_xp (float): XP accumulated towards the next level.
+        passion (float): Multiplier for XP gain.
+        last_used_gametime (float): Timestamp of last skill usage.
+    """
+    level: int = 0
+    current_xp: float = 0.0
+    passion: float = 1.0
+    last_used_gametime: float = 0.0
+
+@dataclass
+class Skills(Component):
+    """
+    Component holding all skills for an entity.
+
+    Attributes:
+        states (Dict[str, SkillState]): Map of SkillId to SkillState.
+    """
+    states: Dict[str, SkillState] = field(default_factory=dict)
+
+@dataclass
 class Poop:
     """
     Tag component identifying an entity as Poop.

@@ -53,6 +53,17 @@ social_decay = 0.5
 [traits.LONER.ai_modifiers]
 "Social/Play" = { curve = "linear", params = { m = 0.5 } }
 
+[traits.LONER.skill_modifiers]
+socialization = { passion_multiplier = 0.5, soft_cap_offset = -2 }
+
+[traits.ATHLETIC]
+name = "Athletic"
+description = "Physically active."
+axis_shift = { energy = 50 }
+
+[traits.ATHLETIC.skill_modifiers]
+athletics = { passion_multiplier = 1.5, soft_cap_offset = 5 }
+
 [traits.PREDATOR]
 name = "Predator"
 description = "Sees other Yukkuris as food."

@@ -8,9 +8,11 @@ from loguru import logger
 from .utility import UtilityAIEngine
 from .base_action import Action
 
-from ..yukkuri_components import AIState, YukkuriStats, Personality, EmotionalState
+from ..yukkuri_components import AIState, YukkuriStats, Personality, EmotionalState, Skills
 from ..components import Transform
 from ..trait_service import TraitService
+from ..skill_service import SkillService
+from ..skill_constants import SkillId
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
@@ -90,6 +92,7 @@ class UtilitySelector(Action):
         stats = self.world.get_component(self.entity_id, YukkuriStats)
         personality = self.world.get_component(self.entity_id, Personality)
         emotional = self.world.get_component(self.entity_id, EmotionalState)
+        skills = self.world.get_component(self.entity_id, Skills)
 
         if not stats:
             logger.warning(f"UtilitySelector: Entity {self.entity_id} Missing YukkuriStats component")
@@ -150,6 +153,11 @@ class UtilitySelector(Action):
             "constant_100": 100.0,
             "constant_0": 0.0
         }
+
+        # Inject Skills into Context
+        if skills:
+            for skill_id, state in skills.states.items():
+                context[f"skill_{skill_id}"] = float(state.level)
 
         # Inject Personality Values into Context
         # Allows AI to make decisions based on personality traits (e.g. "Lazy" might value rest more)
