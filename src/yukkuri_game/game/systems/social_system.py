@@ -10,7 +10,7 @@ from collections import deque
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ...engine.evaluator import ConditionEvaluator
+from ..utils.evaluator import ConditionEvaluator
 from ..components import Transform, InteractionRequest
 from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState, Skills
 from ..trait_service import TraitService

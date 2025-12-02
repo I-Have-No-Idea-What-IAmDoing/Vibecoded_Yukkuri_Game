@@ -1,7 +1,7 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from loguru import logger
-from src.yukkuri_game.engine.evaluator import ConditionEvaluator
+from src.yukkuri_game.game.utils.evaluator import ConditionEvaluator
 from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState, Skills, Personality, SkillState
 
@@ -86,3 +86,41 @@ def test_evaluator_type_checking():
 
     finally:
         logger.remove(handler_id)
+
+def test_mood_injection():
+    evaluator = ConditionEvaluator()
+    world = MagicMock(spec=World)
+    entity_id = 1
+
+    emotion = EmotionalState(happiness=50.0, stress=0.0)
+    pers = Personality(traits=set(), axis=None) # Default axis is 0 bravery
+
+    def side_effect(eid, t):
+        if t == EmotionalState: return emotion
+        if t == Personality: return pers
+        return None
+
+    world.get_component.side_effect = side_effect
+
+    ctx = evaluator.build_context(world, entity_id)
+    assert 'mood' in ctx
+    # "Content/Relaxed" logic: Happy >= 0, Stress < 50
+    assert ctx['mood'] == "Content/Relaxed"
+
+    # Test expression using mood
+    assert evaluator.evaluate("mood == 'Content/Relaxed'", ctx)
+
+def test_caching():
+    evaluator = ConditionEvaluator()
+    ctx = {"val": 10}
+
+    # Spy on parse
+    with patch.object(evaluator.evaluator, 'parse', wraps=evaluator.evaluator.parse) as mock_parse:
+        evaluator.evaluate("val > 5", ctx)
+        assert mock_parse.call_count == 1
+
+        evaluator.evaluate("val > 5", ctx)
+        assert mock_parse.call_count == 1 # Should not increment (hit cache)
+
+        evaluator.evaluate("val < 5", ctx)
+        assert mock_parse.call_count == 2 # New expression

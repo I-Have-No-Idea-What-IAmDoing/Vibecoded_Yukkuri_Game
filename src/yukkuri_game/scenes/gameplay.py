@@ -41,7 +41,7 @@ from ..game.skill_service import SkillService
 from ..game.ui.hud import HUD
 from ..game.yukkurrium import RenderSystem, Yukkurrium
 from ..system_registry import SystemRegistry
-from ..engine.evaluator import ConditionEvaluator
+from ..game.utils.evaluator import ConditionEvaluator
 
 
 class GameplayScene(Scene):

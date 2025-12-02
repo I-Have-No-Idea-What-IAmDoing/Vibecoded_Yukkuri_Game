@@ -1,12 +1,13 @@
 from typing import Any, Dict, Optional, Type
 from simpleeval import SimpleEval
 from loguru import logger
-from .ecs import World
-from ..game.yukkuri_components import YukkuriStats, EmotionalState, Skills, Personality
+from ...engine.ecs import World
+from ..yukkuri_components import YukkuriStats, EmotionalState, Skills, Personality
 
 class ConditionEvaluator:
     def __init__(self) -> None:
         self.evaluator = SimpleEval()
+        self._cache: Dict[str, Any] = {}
 
         def has_trait(trait: str) -> bool:
             # Access traits from the current evaluation context
@@ -35,21 +36,7 @@ class ConditionEvaluator:
             context['discipline'] = stats.discipline
             context['age'] = stats.age
 
-        # Emotion
-        emotion = world.get_component(entity_id, EmotionalState)
-        if emotion:
-            context['happiness'] = emotion.happiness
-            context['stress'] = emotion.stress
-
-        # Skills (Flattened for easy access: skills.athletics)
-        skills = world.get_component(entity_id, Skills)
-        skill_map: Dict[str, int] = {}
-        if skills:
-            for s_id, s_state in skills.states.items():
-                skill_map[s_id] = s_state.level
-        context['skills'] = skill_map
-
-        # Personality
+        # Personality (Fetch first to use for mood)
         pers = world.get_component(entity_id, Personality)
         if pers:
             context['traits'] = list(pers.traits)
@@ -58,6 +45,26 @@ class ConditionEvaluator:
                 context['greed'] = pers.axis.greed
                 context['energy'] = pers.axis.energy
                 context['bravery'] = pers.axis.bravery
+
+        # Emotion
+        emotion = world.get_component(entity_id, EmotionalState)
+        if emotion:
+            context['happiness'] = emotion.happiness
+            context['stress'] = emotion.stress
+
+            # Inject Mood
+            bravery = 0
+            if pers and pers.axis:
+                 bravery = pers.axis.bravery
+            context['mood'] = emotion.get_dominant_emotion(bravery)
+
+        # Skills (Flattened for easy access: skills.athletics)
+        skills = world.get_component(entity_id, Skills)
+        skill_map: Dict[str, int] = {}
+        if skills:
+            for s_id, s_state in skills.states.items():
+                skill_map[s_id] = s_state.level
+        context['skills'] = skill_map
 
         return context
 
@@ -75,7 +82,19 @@ class ConditionEvaluator:
         """
         self.evaluator.names = context
         try:
-            result = self.evaluator.eval(expression)
+            # Check cache
+            if expression not in self._cache:
+                node = self.evaluator.parse(expression)
+                # Unwrap ast.Expr if needed
+                if hasattr(node, 'value'):
+                    node = node.value
+                self._cache[expression] = node
+
+            cached_node = self._cache[expression]
+
+            # Use internal _eval with cached AST
+            # Note: _eval takes (node) and uses self.names
+            result = self.evaluator._eval(cached_node)
 
             if expected_type is bool and not isinstance(result, bool):
                  # Log warning for type mismatch, but proceed with implicit conversion
