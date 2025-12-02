@@ -404,28 +404,5 @@ class GameService:
 
         return best_item
 
-    def interact_with_item(self, consumer_id: int, item_id: int, consume: bool = True) -> bool:
-        """
-        Logic for a Yukkuri interacting with (eating) an item.
-        DEPRECATED: Use HungerSystem.
-        """
-        # Forwarding to system logic or issuing request is possible, but for refactoring
-        # we should identify callers and update them.
-        # For now, we'll issue an InteractionRequest component so HungerSystem picks it up.
-        from .components import InteractionRequest
-        if self.world.entity_exists(consumer_id):
-            self.world.add_component(consumer_id, InteractionRequest(item_id, consume=consume))
-            return True
-        return False
-
-    def interact_social(self, initiator_id: int, target_id: int, interaction_type: str) -> bool:
-        """
-        Logic for social interactions between Yukkuris.
-        DEPRECATED: Use SocialSystem via InteractionRequest.
-        """
-        # Forwarding to system logic via InteractionRequest
-        from .components import InteractionRequest
-        if self.world.entity_exists(initiator_id) and self.world.entity_exists(target_id):
-            self.world.add_component(initiator_id, InteractionRequest(target_id, consume=False, action=interaction_type))
-            return True
-        return False
+    # interact_with_item and interact_social were removed as they are deprecated and logic has moved to ECS systems.
+    # Use InteractionRequest component to trigger these actions.

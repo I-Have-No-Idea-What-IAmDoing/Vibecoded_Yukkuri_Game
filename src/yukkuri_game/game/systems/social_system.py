@@ -274,38 +274,59 @@ class SocialSystem(System):
         self._apply_impact(world, target_id, actor_id, interaction_data, role="target", now=now)
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
 
-        # --- Specific Gameplay Logic (Hardcoded migration from GameService) ---
-        # TODO: Move these into data-driven InteractionDefinition in the future
+        # --- Data-Driven Physical & Skill Effects ---
 
-        # 1. Damage (Fight)
-        if interaction_name == "Fight":
-            damage = 5.0
-            self._apply_damage(world, actor_id, damage)
-            self._apply_damage(world, target_id, damage)
+        # 1. Physical Impact (Health, Energy, Hunger, etc.)
+        # Default physical impact applies to both unless specified
+        physical_impact = self._get_attr(interaction_data, "physical_impact", {})
+        if physical_impact:
+            self._apply_physical_impact(world, actor_id, physical_impact)
+            self._apply_physical_impact(world, target_id, physical_impact)
 
-            # Additional Stress/Happiness impact for Fight is usually handled by data,
-            # but legacy code had specific logic. The data model should handle emotional impact.
-            # We assume TOML covers happiness/stress changes.
+        # Target specific impact
+        target_physical_impact = self._get_attr(interaction_data, "target_physical_impact", {})
+        if target_physical_impact:
+            self._apply_physical_impact(world, target_id, target_physical_impact)
 
-        # 2. Skill XP
-        if self.skill_service:
-            if interaction_name == "Fight":
-                self.skill_service.add_xp(actor_id, "combat", 10.0)
-            elif interaction_name == "Dance":
-                self.skill_service.add_xp(actor_id, "athletics", 5.0)
-                self.skill_service.add_xp(actor_id, "socialization", 2.0)
-            elif interaction_name == "Talk":
-                self.skill_service.add_xp(actor_id, "socialization", 5.0)
-            else:
-                # Default fallback
-                xp_amount = 5.0
-                self.skill_service.add_xp(actor_id, "socialization", xp_amount)
+        # Actor specific impact
+        actor_physical_impact = self._get_attr(interaction_data, "actor_physical_impact", {})
+        if actor_physical_impact:
+            self._apply_physical_impact(world, actor_id, actor_physical_impact)
 
-    def _apply_damage(self, world: World, entity_id: int, amount: float) -> None:
-        """Helper to apply damage to an entity."""
+        # 2. Skill Rewards
+        skill_rewards = self._get_attr(interaction_data, "skill_rewards", {})
+        if skill_rewards and self.skill_service:
+            for skill_id, xp_amount in skill_rewards.items():
+                # Apply to actor (doing the action)
+                self.skill_service.add_xp(actor_id, skill_id, xp_amount)
+
+    def _apply_physical_impact(self, world: World, entity_id: int, impact: Dict[str, float]) -> None:
+        """
+        Helper to apply physical stat changes to an entity.
+
+        Args:
+            world (World): The ECS World.
+            entity_id (int): The entity ID.
+            impact (Dict[str, float]): Map of stat name to change amount (e.g. {"health": -5.0}).
+        """
         stats = world.get_component(entity_id, YukkuriStats)
+        emotional = world.get_component(entity_id, EmotionalState)
+
         if stats:
-            stats.health = max(0.0, stats.health - amount)
+            if "health" in impact:
+                stats.health = max(0.0, min(stats.max_health, stats.health + impact["health"]))
+            if "energy" in impact:
+                stats.energy = max(0.0, min(100.0, stats.energy + impact["energy"]))
+            if "hunger" in impact:
+                stats.hunger = max(0.0, min(100.0, stats.hunger + impact["hunger"]))
+            if "cleanliness" in impact:
+                stats.cleanliness = max(0.0, min(100.0, stats.cleanliness + impact["cleanliness"]))
+
+        if emotional:
+            if "happiness" in impact:
+                emotional.happiness = max(-100.0, min(100.0, emotional.happiness + impact["happiness"]))
+            if "stress" in impact:
+                emotional.stress = max(0.0, min(100.0, emotional.stress + impact["stress"]))
 
 
     def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Any) -> None:
