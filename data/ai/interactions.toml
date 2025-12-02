@@ -15,8 +15,8 @@ social_impact = { affinity = 2.0, familiarity = 1.0 }
 [interaction.Greet.modifiers]
 "trait:GESU" = { affinity = -5.0 }
 "mood:FURIOUS" = { affinity = -10.0 }
-"skill:socialization > 10" = { affinity = 5.0 }
-"skill:socialization < 5" = { affinity = -2.0 }
+"skills.socialization > 10" = { affinity = 5.0 }
+"skills.socialization < 5" = { affinity = -2.0 }
 
 [interaction.Feed]
 base_impact = 10.0
@@ -29,13 +29,13 @@ base_impact = 5.0
 social_impact = { affinity = 3.0, familiarity = 2.0, trust = 1.0 }
 skill_rewards = { socialization = 5.0 }
 conditions = [
-    { type = "skill_check", skill = "socialization", min_level = 5, result = { affinity = 5.0 } }
+    { expression = "skills.socialization >= 5" }
 ]
 
 [interaction.Talk.modifiers]
 "trait:GESU" = { affinity = -2.0 } # Gesu finds talking boring unless it's abuse?
 "trait:LONER" = { affinity = 0.0, familiarity = 0.5 } # Loners get less out of talk
-"skill:socialization > 15" = { affinity = 5.0, trust = 2.0 }
+"skills.socialization > 15" = { affinity = 5.0, trust = 2.0 }
 
 [interaction.Fight]
 base_impact = -25.0
@@ -46,8 +46,8 @@ skill_rewards = { combat = 10.0 }
 [interaction.Fight.modifiers]
 "trait:WEAK" = { fear = 20.0 }
 "trait:GESU" = { fear = -5.0 } # Gesu might enjoy the fight or be arrogant
-"skill:combat > 10" = { fear = 10.0 } # Skilled fighters are scarier
-"skill:combat < 5" = { fear = -5.0 } # Weak fighters are less scary
+"skills.combat > 10" = { fear = 10.0 } # Skilled fighters are scarier
+"skills.combat < 5" = { fear = -5.0 } # Weak fighters are less scary
 
 [interaction.Dance]
 base_impact = 10.0

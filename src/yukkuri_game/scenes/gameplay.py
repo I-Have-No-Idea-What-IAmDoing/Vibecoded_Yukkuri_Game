@@ -41,6 +41,7 @@ from ..game.skill_service import SkillService
 from ..game.ui.hud import HUD
 from ..game.yukkurrium import RenderSystem, Yukkurrium
 from ..system_registry import SystemRegistry
+from ..game.utils.evaluator import ConditionEvaluator
 
 
 class GameplayScene(Scene):
@@ -128,6 +129,9 @@ class GameplayScene(Scene):
 
         self.skill_service = SkillService(self.world, self.game_config.rules.skills)
         self.world.services.register(self.skill_service, SkillService)
+
+        self.evaluator = ConditionEvaluator()
+        self.world.services.register(self.evaluator, ConditionEvaluator)
 
         self._init_navigation_service()
         self._init_sector_system()
