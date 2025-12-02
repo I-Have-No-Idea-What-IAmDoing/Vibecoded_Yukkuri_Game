@@ -35,11 +35,13 @@ class StatDecaySettings(msgspec.Struct): # type: ignore[misc]
     Attributes:
         hunger (float): Decay rate for hunger.
         happiness (float): Decay rate for happiness.
+        stress (float): Decay rate for stress.
         energy (float): Decay rate for energy.
         cleanliness (float): Decay rate for cleanliness.
         social (float): Decay rate for social needs.
         age (float): Decay rate for age (or growth rate).
         starvation_damage (float): Damage per tick when starving.
+        personality_drift_rate (float): Rate at which personality traits can drift.
     """
     hunger: float = 2.0
     happiness: float = 0.5
@@ -72,7 +74,12 @@ class LifecycleSettings(msgspec.Struct): # type: ignore[misc]
 
 class SocialSettings(msgspec.Struct): # type: ignore[misc]
     """
-    Configuration for social system.
+    Configuration for the social system.
+
+    Attributes:
+        memory_importance_threshold (float): Threshold for memory importance.
+        max_gossip_length (int): Maximum length of gossip chains.
+        witness_threshold (float): Threshold for witnessing events.
     """
     memory_importance_threshold: float = 50.0
     max_gossip_length: int = 10
@@ -80,7 +87,11 @@ class SocialSettings(msgspec.Struct): # type: ignore[misc]
 
 class SkillsSettings(msgspec.Struct): # type: ignore[misc]
     """
-    Configuration for skill system.
+    Configuration for the skill system.
+
+    Attributes:
+        xp_base (float): Base XP required for level up.
+        xp_exponent (float): Exponent for XP scaling.
     """
     xp_base: float = 100.0
     xp_exponent: float = 1.5
