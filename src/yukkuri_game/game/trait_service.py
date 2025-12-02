@@ -1,23 +1,11 @@
 """
 Module for managing personality traits and social interaction definitions.
 """
-import os
-import sys
-
-# For now we use the built-in tomllib for loading.
-# If performance becomes an issue or we need validation, we can switch to msgspec/pydantic.
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    # Fallback for older python, though project says >= 3.11
-    try:
-        import tomli as tomllib
-    except ImportError:
-        import tomllib
-
 from typing import Dict, Any, List, Optional
 from loguru import logger
 from ..engine.ecs import World
+from ..engine.resource_manager import ResourceManager
+from ..engine.data_models import TraitDefinition, InteractionDefinition
 
 class TraitService:
     """
@@ -25,9 +13,8 @@ class TraitService:
 
     Attributes:
         world (Optional[World]): The ECS world instance.
-        traits (Dict[str, Any]): Loaded trait data.
-        interactions (Dict[str, Any]): Loaded interaction data.
-        data_dir (str): Directory containing the data files.
+        traits (Dict[str, TraitDefinition]): Loaded trait data.
+        interactions (Dict[str, InteractionDefinition]): Loaded interaction data.
     """
 
     def __init__(self, world: Optional[World] = None):
@@ -38,48 +25,32 @@ class TraitService:
             world (Optional[World]): The ECS World instance.
         """
         self.world = world
-        self.traits: Dict[str, Any] = {}
-        self.interactions: Dict[str, Any] = {}
-        self.data_dir = os.path.join("data") # Base data directory
+        self.traits: Dict[str, TraitDefinition] = {}
+        self.interactions: Dict[str, InteractionDefinition] = {}
 
         self.load_data()
 
     def load_data(self) -> None:
         """
-        Loads trait and interaction data from TOML files.
+        Loads trait and interaction data from ResourceManager.
 
         Returns:
             None
         """
-        traits_path = os.path.join(self.data_dir, "traits", "traits.toml")
-        interactions_path = os.path.join(self.data_dir, "ai", "interactions.toml")
+        if not self.world:
+            logger.warning("TraitService initialized without World, cannot load data.")
+            return
 
-        self.traits = self._load_toml(traits_path).get("traits", {})
-        self.interactions = self._load_toml(interactions_path).get("interaction", {})
+        rm = self.world.services.try_get(ResourceManager)
+        if rm:
+            self.traits = rm.traits
+            self.interactions = rm.interactions
+        else:
+            logger.warning("ResourceManager not found in World.")
 
         logger.info(f"Loaded {len(self.traits)} traits and {len(self.interactions)} interactions.")
 
-    def _load_toml(self, filepath: str) -> Dict[str, Any]:
-        """
-        Helper to load a TOML file safely.
-
-        Args:
-            filepath (str): Path to the TOML file.
-
-        Returns:
-            Dict[str, Any]: The parsed data, or empty dict on failure.
-        """
-        if not os.path.exists(filepath):
-            logger.warning(f"File not found: {filepath}")
-            return {}
-        try:
-            with open(filepath, "rb") as f:
-                return tomllib.load(f)
-        except Exception as e:
-            logger.error(f"Failed to load {filepath}: {e}")
-            return {}
-
-    def get_trait(self, trait_id: str) -> Optional[Dict[str, Any]]:
+    def get_trait(self, trait_id: str) -> Optional[TraitDefinition]:
         """
         Returns the data for a specific trait.
 
@@ -87,11 +58,11 @@ class TraitService:
             trait_id (str): The ID of the trait to retrieve.
 
         Returns:
-            Optional[Dict[str, Any]]: The trait data, or None if not found.
+            Optional[TraitDefinition]: The trait definition, or None if not found.
         """
         return self.traits.get(trait_id)
 
-    def get_interaction(self, interaction_id: str) -> Optional[Dict[str, Any]]:
+    def get_interaction(self, interaction_id: str) -> Optional[InteractionDefinition]:
         """
         Returns the data for a specific interaction.
 
@@ -99,7 +70,7 @@ class TraitService:
             interaction_id (str): The ID of the interaction to retrieve.
 
         Returns:
-            Optional[Dict[str, Any]]: The interaction data, or None if not found.
+            Optional[InteractionDefinition]: The interaction definition, or None if not found.
         """
         return self.interactions.get(interaction_id)
 
@@ -126,7 +97,9 @@ class TraitService:
         overrides = {}
         for trait_id in traits:
             trait_data = self.get_trait(trait_id)
-            if trait_data and "ai_modifiers" in trait_data:
-                for cons_name, mod in trait_data["ai_modifiers"].items():
-                    overrides[cons_name] = mod
+            if trait_data:
+                # Use attribute access for msgspec Struct
+                if trait_data.ai_modifiers:
+                    for cons_name, mod in trait_data.ai_modifiers.items():
+                        overrides[cons_name] = mod
         return overrides

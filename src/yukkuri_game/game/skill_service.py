@@ -1,18 +1,8 @@
 """
 Service for managing Skill mechanics: XP gain, Leveling, and Decay.
 """
-import sys
-import os
 import math
 from typing import Dict, Any, Optional
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    try:
-        import tomli as tomllib
-    except ImportError:
-        import tomllib
 
 from loguru import logger
 
@@ -21,7 +11,7 @@ from .yukkuri_components import Skills, SkillState, Personality, YukkuriStats
 from .skill_constants import SkillId, PassionLevel
 from .services import TimeService
 from .trait_service import TraitService
-# We might need events for leveling up
+from ..engine.resource_manager import ResourceManager
 
 class SkillService:
     """
@@ -34,19 +24,14 @@ class SkillService:
         self.load_skill_definitions()
 
     def load_skill_definitions(self):
-        """Loads skill definitions from TOML."""
-        filepath = os.path.join("data", "skills", "skills.toml")
-        if not os.path.exists(filepath):
-            logger.warning(f"Skills definition file not found: {filepath}")
-            return
-
-        try:
-            with open(filepath, "rb") as f:
-                data = tomllib.load(f)
-                self.skill_definitions = data.get("skills", {})
-            logger.info(f"Loaded {len(self.skill_definitions)} skills.")
-        except Exception as e:
-            logger.error(f"Failed to load skills definitions: {e}")
+        """Loads skill definitions from ResourceManager."""
+        rm = self.world.services.try_get(ResourceManager)
+        if rm:
+            # We use the raw dictionary/struct from ResourceManager
+            # rm.skills is Dict[str, SkillDefinition]
+            self.skill_definitions = rm.skills
+        else:
+             logger.warning("ResourceManager not found in World.")
 
     def initialize_skills(self, entity_id: int):
         """
@@ -99,7 +84,18 @@ class SkillService:
             if not trait_data:
                 continue
 
-            skill_modifiers = trait_data.get("skill_modifiers", {})
+            # Use getattr because TraitDefinition is a struct, but for compatibility
+            # with existing TraitService that might return dict (if unmodified) or struct (if modified)
+            # I should verify TraitService return type.
+            # Assuming TraitService will be updated to return struct, but let's be safe.
+            # Actually, TraitService hasn't been updated yet.
+
+            skill_modifiers = {}
+            if isinstance(trait_data, dict):
+                 skill_modifiers = trait_data.get("skill_modifiers", {})
+            else:
+                 skill_modifiers = getattr(trait_data, "skill_modifiers", {})
+
             for skill_id_str, mods in skill_modifiers.items():
                 if skill_id_str in skills.states:
                     passion_mult = mods.get("passion_multiplier", 1.0)
@@ -117,14 +113,18 @@ class SkillService:
             return
 
         state = skills.states[skill_id]
-        definition = self.skill_definitions.get(skill_id, {})
-        max_level = definition.get("max_level", 20)
+        definition = self.skill_definitions.get(skill_id)
+        if not definition:
+             return
+
+        # definition is msgspec Struct
+        max_level = definition.max_level
 
         if state.level >= max_level:
             return
 
         # Logic for Soft Cap
-        soft_cap_base = definition.get("soft_cap_base_level", 10)
+        soft_cap_base = definition.soft_cap_base_level
         # Passion affects soft cap: Cap = BaseCap + (Passion * 2)
         # Passion is float (0.5 to 2.5), so e.g. 1.0 -> +2 levels. 2.5 -> +5 levels.
         soft_cap_level = soft_cap_base + (state.passion * 2)
@@ -184,21 +184,16 @@ class SkillService:
             return
 
         current_time = time_service.time_elapsed
-        # Assume time is in seconds. A day is... let's say 24h?
-        # In this game, time scaling might be different.
-        # Usually we assume 'days' for decay.
-        # If we don't know the scale, let's assume 1 day = 86400 seconds (real time)
-        # or maybe the game has shorter days.
-        # For safety, let's check TimeService.
-        # But TimeService just stores elapsed time.
-        # Let's assume we pass in "days since last decay" or we calculate based on last_used.
 
         # Plan says: Loss = DecayRate * (DaysSinceLastUse - 1.0)
         SECONDS_PER_DAY = 3600.0 # 1 hour = 1 day
 
         for skill_id, state in skills.states.items():
-            definition = self.skill_definitions.get(skill_id, {})
-            decay_rate = definition.get("decay_rate", 0.0)
+            definition = self.skill_definitions.get(skill_id)
+            if not definition:
+                continue
+
+            decay_rate = definition.decay_rate
             if decay_rate <= 0:
                 continue
 

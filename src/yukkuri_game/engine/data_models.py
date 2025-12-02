@@ -1,7 +1,7 @@
 """
 Module defining data models for game configuration (TOML schema).
 """
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import msgspec
 
 
@@ -119,8 +119,50 @@ class AIAction(msgspec.Struct): # type: ignore[misc]
         considerations (List[ActionConsideration]): A list of considerations that influence the action's score.
     """
     weight: float
-    effects: ActionEffect
+    effects: Optional[ActionEffect] = None
     considerations: List[ActionConsideration] = []
+
+class SkillDefinition(msgspec.Struct): # type: ignore[misc]
+    """
+    Data model representing a Skill definition.
+
+    Attributes:
+        name (str): Display name of the skill.
+        description (str): Description of the skill.
+        max_level (int): Maximum level achievable.
+        decay_rate (float): XP loss per day.
+        soft_cap_base_level (int): Level where soft cap starts.
+    """
+    name: str
+    description: str
+    max_level: int = 20
+    decay_rate: float = 0.0
+    soft_cap_base_level: int = 10
+
+class TraitDefinition(msgspec.Struct): # type: ignore[misc]
+    """
+    Data model for a Personality Trait.
+    """
+    name: str
+    description: str
+    conflicts: List[str] = []
+    axis_shift: Dict[str, int] = {}
+    stat_modifiers: Dict[str, float] = {}
+    ai_modifiers: Dict[str, Dict[str, Any]] = {} # Complex structure, kept generic
+    skill_modifiers: Dict[str, Dict[str, float]] = {}
+    social_modifiers: Dict[str, Dict[str, float]] = {}
+
+# Interaction definitions are complex because they have conditions and modifiers.
+# For now we use Dict[str, Any] for flexibility or define a loose struct.
+class InteractionDefinition(msgspec.Struct): # type: ignore[misc]
+    """
+    Data model for a Social Interaction.
+    """
+    base_impact: float = 0.0
+    social_impact: Dict[str, float] = {}
+    range_type: str = "touch"
+    conditions: List[Dict[str, Any]] = [] # e.g. [{type="skill_check", ...}]
+    modifiers: Dict[str, Dict[str, float]] = {}
 
 # --- Game Tuning Data Models (from yukkuri_tuning.json) ---
 
@@ -180,3 +222,21 @@ class AIData(msgspec.Struct): # type: ignore[misc]
         actions (Dict[str, AIAction]): A dictionary mapping action names to their definitions.
     """
     actions: Dict[str, AIAction]
+
+class SkillData(msgspec.Struct): # type: ignore[misc]
+    """
+    Root container for Skill definitions.
+    """
+    skills: Dict[str, SkillDefinition]
+
+class TraitData(msgspec.Struct): # type: ignore[misc]
+    """
+    Root container for Trait definitions.
+    """
+    traits: Dict[str, TraitDefinition]
+
+class InteractionData(msgspec.Struct): # type: ignore[misc]
+    """
+    Root container for Interaction definitions.
+    """
+    interaction: Dict[str, InteractionDefinition]

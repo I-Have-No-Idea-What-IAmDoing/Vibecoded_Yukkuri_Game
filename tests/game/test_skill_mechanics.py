@@ -7,21 +7,27 @@ from yukkuri_game.game.services import TimeService
 from yukkuri_game.game.skill_service import SkillService
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.game.skill_constants import SkillId, PassionLevel
+from yukkuri_game.engine.resource_manager import ResourceManager
+from yukkuri_game.engine.data_models import SkillDefinition, TraitDefinition
 
 # Mock TraitService for test
 class MockTraitService(TraitService):
     def __init__(self, world):
         self.traits = {
-            "ATHLETIC": {
-                "skill_modifiers": {
-                    "athletics": {"passion_multiplier": 1.5, "soft_cap_offset": 5}
+            "ATHLETIC": TraitDefinition(
+                name="Athletic",
+                description="test",
+                skill_modifiers={
+                    "athletics": {"passion_multiplier": 1.5, "soft_cap_offset": 5.0}
                 }
-            },
-            "LONER": {
-                "skill_modifiers": {
-                    "socialization": {"passion_multiplier": 0.5, "soft_cap_offset": -2}
+            ),
+            "LONER": TraitDefinition(
+                name="Loner",
+                description="test",
+                skill_modifiers={
+                    "socialization": {"passion_multiplier": 0.5, "soft_cap_offset": -2.0}
                 }
-            }
+            )
         }
         self.interactions = {}
 
@@ -31,10 +37,35 @@ class MockTraitService(TraitService):
     def get_trait(self, trait_id):
         return self.traits.get(trait_id)
 
+class MockResourceManager(ResourceManager):
+    def __init__(self):
+        self.skills = {
+            "athletics": SkillDefinition(
+                name="Athletics",
+                description="test",
+                max_level=20,
+                decay_rate=10.0,
+                soft_cap_base_level=10
+            ),
+            "socialization": SkillDefinition(
+                name="Socialization",
+                description="test",
+                max_level=20,
+                decay_rate=5.0,
+                soft_cap_base_level=10
+            )
+        }
+        self.traits = {}
+        self.interactions = {}
+
 @pytest.fixture
 def world():
     w = World()
     w.services.register(TimeService(), TimeService)
+
+    rm = MockResourceManager()
+    w.services.register(rm, ResourceManager)
+
     # Use real skill service but mock trait service
     w.services.register(MockTraitService(w), TraitService)
     w.services.register(SkillService(w), SkillService)

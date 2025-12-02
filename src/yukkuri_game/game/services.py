@@ -460,16 +460,17 @@ class GameService:
             return False
 
         # Load interaction definition
-        interaction_def = {}
+        interaction_def = None
         if trait_service:
-            interaction_def = trait_service.get_interaction(interaction_type) or {}
+            interaction_def = trait_service.get_interaction(interaction_type)
 
         # Default values if no definition
         affinity_bonus = 0.0
         familiarity_bonus = 0.0
 
-        if interaction_def and "social_impact" in interaction_def:
-            social = interaction_def["social_impact"]
+        # Use attribute access for msgspec Struct
+        if interaction_def and interaction_def.social_impact:
+            social = interaction_def.social_impact
             affinity_bonus = social.get("affinity", 0.0)
             familiarity_bonus = social.get("familiarity", 0.0)
 
@@ -477,8 +478,8 @@ class GameService:
         conditions_passed = True
         condition_bonus_affinity = 0.0
 
-        if interaction_def and "conditions" in interaction_def and init_skills:
-            for cond in interaction_def["conditions"]:
+        if interaction_def and interaction_def.conditions and init_skills:
+            for cond in interaction_def.conditions:
                 if cond.get("type") == "skill_check":
                     skill_id = cond.get("skill")
                     min_level = cond.get("min_level", 0)
