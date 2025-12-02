@@ -46,7 +46,10 @@ class SocialSystem(System):
         self.cleanup_batch_size = 10
         self.event_bus = event_bus
 
-        self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
+        # Note: We no longer subscribe to SocialInteractionEvent for resolution logic
+        # because we trigger logic via InteractionRequest directly.
+        # This avoids double-triggering logic when we publish the event ourselves.
+        # self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
 
         self.headline_counter = 0
 
@@ -72,6 +75,7 @@ class SocialSystem(System):
 
         entities_with_requests = list(world.get_components_tuple(InteractionRequest, Transform))
         for entity_id, (request, _) in entities_with_requests:
+            # logger.info(f"Processing request for {entity_id}: {request.action}")
             if request.action in ["Talk", "Fight", "Dance"]:
                 self.process_interaction_request(world, entity_id, request)
                 if world.has_component(entity_id, InteractionRequest):
@@ -270,10 +274,38 @@ class SocialSystem(System):
         self._apply_impact(world, target_id, actor_id, interaction_data, role="target", now=now)
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
 
-        # Award XP for Socialization
+        # --- Specific Gameplay Logic (Hardcoded migration from GameService) ---
+        # TODO: Move these into data-driven InteractionDefinition in the future
+
+        # 1. Damage (Fight)
+        if interaction_name == "Fight":
+            damage = 5.0
+            self._apply_damage(world, actor_id, damage)
+            self._apply_damage(world, target_id, damage)
+
+            # Additional Stress/Happiness impact for Fight is usually handled by data,
+            # but legacy code had specific logic. The data model should handle emotional impact.
+            # We assume TOML covers happiness/stress changes.
+
+        # 2. Skill XP
         if self.skill_service:
-            xp_amount = 10.0
-            self.skill_service.add_xp(actor_id, "socialization", xp_amount)
+            if interaction_name == "Fight":
+                self.skill_service.add_xp(actor_id, "combat", 10.0)
+            elif interaction_name == "Dance":
+                self.skill_service.add_xp(actor_id, "athletics", 5.0)
+                self.skill_service.add_xp(actor_id, "socialization", 2.0)
+            elif interaction_name == "Talk":
+                self.skill_service.add_xp(actor_id, "socialization", 5.0)
+            else:
+                # Default fallback
+                xp_amount = 5.0
+                self.skill_service.add_xp(actor_id, "socialization", xp_amount)
+
+    def _apply_damage(self, world: World, entity_id: int, amount: float) -> None:
+        """Helper to apply damage to an entity."""
+        stats = world.get_component(entity_id, YukkuriStats)
+        if stats:
+            stats.health = max(0.0, stats.health - amount)
 
 
     def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Any) -> None:
