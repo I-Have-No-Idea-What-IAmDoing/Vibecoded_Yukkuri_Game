@@ -13,6 +13,7 @@ from .game.systems.construction_system import ConstructionSystem
 from .game.systems.animation import AnimationSystem
 from .game.systems.poop_system import PoopSystem
 from .game.systems.feedback_system import FeedbackSystem
+from .game.systems.hunger_system import HungerSystem
 from .game.systems.interaction_system import InteractionSystem
 from .game.systems.social_system import SocialSystem
 from .game.systems.gossip_system import GossipSystem
@@ -61,6 +62,7 @@ class SystemRegistry:
         world.add_system(AnimationSystem())
         world.add_system(PoopSystem())
         world.add_system(FeedbackSystem(world))
+        world.add_system(HungerSystem())
         world.add_system(InteractionSystem())
         world.add_system(SocialSystem(event_bus))
         world.add_system(GossipSystem(event_bus))

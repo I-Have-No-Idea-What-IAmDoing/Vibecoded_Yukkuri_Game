@@ -45,7 +45,11 @@ def test_fight_damage_and_xp(social_env):
     world.add_component(defender, RelationshipRegistry())
 
     # Mock interaction definition for Fight
-    trait_service.get_interaction.side_effect = lambda t: {"base_impact": -10.0} if t == "Fight" else None
+    trait_service.get_interaction.side_effect = lambda t: {
+        "base_impact": -10.0,
+        "physical_impact": {"health": -5.0},
+        "skill_rewards": {"combat": 10.0}
+    } if t == "Fight" else None
 
     # 2. Trigger Fight via Request
     req = InteractionRequest(target_id=EntityID(defender), action="Fight")
@@ -77,7 +81,10 @@ def test_dance_xp(social_env):
     world.add_component(partner, Transform(x=10, y=0))
     world.add_component(partner, RelationshipRegistry())
 
-    trait_service.get_interaction.side_effect = lambda t: {"base_impact": 10.0} if t == "Dance" else None
+    trait_service.get_interaction.side_effect = lambda t: {
+        "base_impact": 10.0,
+        "skill_rewards": {"athletics": 5.0, "socialization": 2.0}
+    } if t == "Dance" else None
 
     req = InteractionRequest(target_id=EntityID(partner), action="Dance")
     world.add_component(dancer, req)
@@ -104,7 +111,10 @@ def test_talk_xp(social_env):
     world.add_component(listener, Transform(x=10, y=0))
     world.add_component(listener, RelationshipRegistry())
 
-    trait_service.get_interaction.side_effect = lambda t: {"base_impact": 5.0} if t == "Talk" else None
+    trait_service.get_interaction.side_effect = lambda t: {
+        "base_impact": 5.0,
+        "skill_rewards": {"socialization": 5.0}
+    } if t == "Talk" else None
 
     req = InteractionRequest(target_id=EntityID(listener), action="Talk")
     world.add_component(talker, req)
