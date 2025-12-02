@@ -6,6 +6,7 @@ import pygame_gui
 from typing import Optional, Dict, Any
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox, UIHorizontalSlider, UIDropDownMenu, UIScrollingContainer
 from .custom_elements import NonBlockingTextBox
+from .tabbed_panel import TabbedPanel
 
 class HudLayout:
     """
@@ -73,8 +74,11 @@ class HudLayout:
 
         # Selection Window Elements
         self.selection_window: Optional[UIWindow] = None
+        self.selection_tab_container: Optional[TabbedPanel] = None
         self.info_label: Optional[UITextBox] = None
         self.info_scroll_container: Optional[UIScrollingContainer] = None
+        self.skills_label: Optional[UITextBox] = None
+        self.skills_scroll_container: Optional[UIScrollingContainer] = None
         self.sell_btn: Optional[UIButton] = None
         self.train_btn: Optional[UIButton] = None
         self.punish_btn: Optional[UIButton] = None
@@ -300,21 +304,71 @@ class HudLayout:
             resizable=True
         )
 
-        self.info_scroll_container = UIScrollingContainer(
-            relative_rect=pygame.Rect(10, 10, 290, 200),
-            manager=self.manager,
-            container=self.selection_window,
-            anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'left'}
-        )
+        # Use TabbedPanel if has_stats (is Yukkuri), otherwise just simple display
+        if has_stats and selection_count == 1:
+            self.selection_tab_container = TabbedPanel(
+                relative_rect=pygame.Rect(10, 10, 290, 200),
+                manager=self.manager,
+                container=self.selection_window,
+                anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'left'},
+                tab_button_size=(100, 30)
+            )
 
-        self.info_label = UITextBox(
-            html_text="",
-            relative_rect=pygame.Rect(0, 0, 270, -1),
-            manager=self.manager,
-            container=self.info_scroll_container,
-            wrap_to_height=True,
-            anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'left'}
-        )
+            # Tab 1: Info
+            self.selection_tab_container.add_tab("Info")
+            info_container = self.selection_tab_container.tabs[0]["container"]
+
+            self.info_scroll_container = UIScrollingContainer(
+                relative_rect=pygame.Rect(0, 0, 290, 170), # Slightly smaller to fit in tab container
+                manager=self.manager,
+                container=info_container,
+                anchors={'top': 'top', 'bottom': 'bottom', 'left': 'left', 'right': 'right'}
+            )
+
+            self.info_label = UITextBox(
+                html_text="",
+                relative_rect=pygame.Rect(0, 0, 270, -1),
+                manager=self.manager,
+                container=self.info_scroll_container,
+                wrap_to_height=True
+            )
+
+            # Tab 2: Skills
+            self.selection_tab_container.add_tab("Skills")
+            skills_container = self.selection_tab_container.tabs[1]["container"]
+
+            self.skills_scroll_container = UIScrollingContainer(
+                relative_rect=pygame.Rect(0, 0, 290, 170),
+                manager=self.manager,
+                container=skills_container,
+                anchors={'top': 'top', 'bottom': 'bottom', 'left': 'left', 'right': 'right'}
+            )
+
+            self.skills_label = UITextBox(
+                html_text="",
+                relative_rect=pygame.Rect(0, 0, 270, -1),
+                manager=self.manager,
+                container=self.skills_scroll_container,
+                wrap_to_height=True
+            )
+
+        else:
+             # Standard display for items or multiple selection
+            self.info_scroll_container = UIScrollingContainer(
+                relative_rect=pygame.Rect(10, 10, 290, 200),
+                manager=self.manager,
+                container=self.selection_window,
+                anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'left'}
+            )
+
+            self.info_label = UITextBox(
+                html_text="",
+                relative_rect=pygame.Rect(0, 0, 270, -1),
+                manager=self.manager,
+                container=self.info_scroll_container,
+                wrap_to_height=True,
+                anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'left'}
+            )
 
         if has_stats:
             sell_text = f"Sell All ({selection_count})" if selection_count > 1 else "Sell"
@@ -353,8 +407,11 @@ class HudLayout:
         if self.selection_window:
             self.selection_window.kill()
             self.selection_window = None
+            self.selection_tab_container = None
             self.info_label = None
             self.info_scroll_container = None
+            self.skills_label = None
+            self.skills_scroll_container = None
             self.sell_btn = None
             self.train_btn = None
             self.punish_btn = None

@@ -137,6 +137,18 @@ class MemoryHeadline:
     is_locked: bool = False
 
 @dataclass
+class SkillData:
+    level: int = 0
+    xp: float = 0.0
+    passion: float = 1.0 # Multiplier derived from Traits/Genetics
+    last_used: float = 0.0 # Timestamp
+
+@dataclass
+class Skills:
+    # Map of skill_id (str) -> SkillData
+    skills: Dict[str, SkillData] = field(default_factory=dict)
+
+@dataclass
 class Personality:
     """
     Component defining the personality of a Yukkuri.

@@ -1,0 +1,17 @@
+[skills.athletics]
+name = "Athletics"
+description = "Physical fitness and movement speed."
+max_level = 20
+decay_rate = 0.1 # XP lost per day if unused
+
+[skills.social]
+name = "Socialization"
+description = "Ability to interact positively with others."
+max_level = 20
+decay_rate = 0.05
+
+[skills.scavenging]
+name = "Scavenging"
+description = "Improves the ability to find food or items."
+max_level = 20
+decay_rate = 0.05

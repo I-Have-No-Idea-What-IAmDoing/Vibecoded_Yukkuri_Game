@@ -8,11 +8,13 @@ from loguru import logger
 import random
 from collections import deque
 
+import re
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ..components import Transform
-from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState
+from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState, Skills
 from ..trait_service import TraitService
+from ..skill_service import SkillService
 from ..services import TimeService
 from ..events import SocialInteractionEvent
 from ..prefabs.effects import create_floating_text
@@ -240,6 +242,14 @@ class SocialSystem(System):
             role (str): "actor" or "target".
             now (float): Current timestamp.
         """
+        # Gain Social XP (runs for both actor and target)
+        skill_service = world.services.try_get(SkillService)
+        if skill_service:
+            xp_gain = 5.0
+            if data.get("base_impact", 0.0) < 0:
+                xp_gain = 2.0
+            skill_service.gain_xp(subject_id, "social", xp_gain)
+
         if role == "actor":
             return
 
@@ -334,6 +344,39 @@ class SocialSystem(System):
                 d_affinity *= comp_mult
                 d_trust *= comp_mult
                 d_fear *= comp_mult
+
+        # Skill Modifiers
+        # Check for "skill:social > 10" type modifiers
+        skills_comp = world.get_component(subject_id, Skills)
+        if skills_comp:
+            for mod_key, mod_values in modifiers.items():
+                if mod_key.startswith("skill:"):
+                    # Parse "skill:social > 10"
+                    try:
+                        # Regex to handle loose spacing
+                        match = re.match(r"skill:(\w+)\s*([><=!]+)\s*([\d.]+)", mod_key)
+                        if match:
+                            skill_name = match.group(1)
+                            op = match.group(2)
+                            val = float(match.group(3))
+
+                            if skill_name in skills_comp.skills:
+                                level = skills_comp.skills[skill_name].level
+                                condition_met = False
+                                if op == '>': condition_met = level > val
+                                elif op == '>=': condition_met = level >= val
+                                elif op == '<': condition_met = level < val
+                                elif op == '<=': condition_met = level <= val
+                                elif op == '==': condition_met = level == val
+
+                                if condition_met:
+                                    d_affinity += mod_values.get("affinity", 0.0)
+                                    d_trust += mod_values.get("trust", 0.0)
+                                    d_fear += mod_values.get("fear", 0.0)
+                                    d_familiarity += mod_values.get("familiarity", 0.0)
+
+                    except Exception as e:
+                        logger.warning(f"Failed to parse skill modifier '{mod_key}': {e}")
 
         return d_affinity, d_trust, d_fear, d_familiarity
 

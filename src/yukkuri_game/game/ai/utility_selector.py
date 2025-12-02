@@ -8,9 +8,10 @@ from loguru import logger
 from .utility import UtilityAIEngine
 from .base_action import Action
 
-from ..yukkuri_components import AIState, YukkuriStats, Personality, EmotionalState
+from ..yukkuri_components import AIState, YukkuriStats, Personality, EmotionalState, Skills
 from ..components import Transform
 from ..trait_service import TraitService
+from ..skill_service import SkillService
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
@@ -168,6 +169,12 @@ class UtilitySelector(Action):
             # Inject Traits as binary flags for conditional considerations
             for trait in personality.traits:
                 context[f"trait_{trait}"] = 1.0
+
+        # Inject Skills into Context
+        skills_comp = self.world.get_component(self.entity_id, Skills)
+        if skills_comp:
+            for skill_id, skill_data in skills_comp.skills.items():
+                context[f"skill_{skill_id}"] = float(skill_data.level)
 
         # Select Action
 

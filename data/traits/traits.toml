@@ -14,6 +14,9 @@ stress_decay = 1.5
 [traits.GESU.social_modifiers]
 compatibility = { NICE = -50.0, GESU = 10.0 }
 
+[traits.GESU.skill_modifiers.social]
+passion = 0.5
+
 [traits.NICE]
 name = "Nice"
 description = "Kind and gentle. Enjoys helping others."
@@ -29,6 +32,9 @@ social_decay = 1.2
 
 [traits.NICE.social_modifiers]
 compatibility = { NICE = 20.0, GESU = -50.0 }
+
+[traits.NICE.skill_modifiers.social]
+passion = 1.5
 
 [traits.GLUTTON]
 name = "Glutton"
@@ -60,3 +66,17 @@ axis_shift = { bravery = 50, kindness = -50, greed = 20 }
 
 [traits.PREDATOR.ai_modifiers]
 can_eat_yukkuri = true
+
+[traits.PREDATOR.skill_modifiers.athletics]
+passion = 2.0
+
+[traits.PREDATOR.skill_modifiers.scavenging]
+passion = 1.5
+
+[traits.ATHLETIC]
+name = "Athletic"
+description = "Naturally fit and energetic."
+axis_shift = { energy = 50, bravery = 20 }
+
+[traits.ATHLETIC.skill_modifiers.athletics]
+passion = 2.5

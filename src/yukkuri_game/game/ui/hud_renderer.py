@@ -5,8 +5,9 @@ import pygame
 from typing import TYPE_CHECKING, List
 from ...engine.ecs import World
 from ..components import Transform
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState
+from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState, Skills
 from ..services import InputService, EconomyService, TimeService
+from ..skill_service import SkillService
 from pygame_gui.windows import UIMessageWindow
 
 if TYPE_CHECKING:
@@ -289,36 +290,67 @@ class HudRenderer:
                     text += f"<br> Bravery: {pers.axis.bravery}"
                     text += f"<br> Greed: {pers.axis.greed}"
 
-                if rel_reg:
-                    if rel_reg.family_group_id:
-                        text += f"<br><b>Family ID:</b> {rel_reg.family_group_id}"
+        # Skills Text
+        skills_text = ""
+        skills_comp = self.world.get_component(selected_entity, Skills)
+        skill_service = self.world.services.try_get(SkillService)
 
-                    # Memory Inspector (Debug)
-                    if self.layout.debug_window and self.layout.debug_window.visible:
-                         text += "<br><br><b>Memory Inspector:</b>"
-                         if not rel_reg.relationships:
-                             text += "<br> No relationships."
-                         else:
-                             # Just show memory for the first few relationships or most recent
-                             # Sort by affinity or recent?
-                             sorted_rels = sorted(rel_reg.relationships.items(), key=lambda x: x[1].last_update, reverse=True)
-                             count = 0
-                             for other_id, rel_data in sorted_rels:
-                                 if count >= 3: break
-                                 count += 1
-                                 other_stats = self.world.get_component(other_id, YukkuriStats)
-                                 name = other_stats.name if other_stats else f"ID {other_id}"
+        if skills_comp and skill_service:
+            # Sort skills by passion or name?
+            # Proposal: "Display Skill Level, XP Bar, and Passion Icon (flame)."
+            # We don't have icons easily here in text box, but we can use emojis.
 
-                                 text += f"<br> <b>{name}</b> (Aff: {rel_data.affinity:.1f})"
-                                 # Show top headlines
-                                 if rel_data.core_buffer:
-                                     text += "<br>  Core:"
-                                     for h in rel_data.core_buffer[-2:]: # Last 2
-                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f} {'(L)' if h.is_locked else ''}"
-                                 if rel_data.trivial_buffer:
-                                     text += "<br>  Trivial:"
-                                     for h in rel_data.trivial_buffer[-2:]: # Last 2
-                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f}"
+            for skill_id, skill_data in skills_comp.skills.items():
+                defn = skill_service.skill_definitions.get(skill_id, {})
+                name = defn.get("name", skill_id.capitalize())
+
+                passion_icon = ""
+                if skill_data.passion > 2.0: passion_icon = "🔥"
+                elif skill_data.passion > 1.2: passion_icon = "✨"
+                elif skill_data.passion < 0.8: passion_icon = "💤"
+
+                skills_text += f"<br><b>{name}</b> {passion_icon}"
+                skills_text += f"<br> Lvl: {skill_data.level} (XP: {int(skill_data.xp)})"
+
+        if self.layout.skills_label:
+            if self.layout.skills_label.html_text != skills_text:
+                self.layout.skills_label.set_text(skills_text)
+
+                # Check height update
+                new_height = self.layout.skills_label.rect.height
+                if self.layout.skills_scroll_container:
+                     self.layout.skills_scroll_container.set_scrollable_area_dimensions((270, new_height))
+
+        if rel_reg:
+            if rel_reg.family_group_id:
+                text += f"<br><b>Family ID:</b> {rel_reg.family_group_id}"
+
+            # Memory Inspector (Debug)
+            if self.layout.debug_window and self.layout.debug_window.visible:
+                 text += "<br><br><b>Memory Inspector:</b>"
+                 if not rel_reg.relationships:
+                     text += "<br> No relationships."
+                 else:
+                     # Just show memory for the first few relationships or most recent
+                     # Sort by affinity or recent?
+                     sorted_rels = sorted(rel_reg.relationships.items(), key=lambda x: x[1].last_update, reverse=True)
+                     count = 0
+                     for other_id, rel_data in sorted_rels:
+                         if count >= 3: break
+                         count += 1
+                         other_stats = self.world.get_component(other_id, YukkuriStats)
+                         name = other_stats.name if other_stats else f"ID {other_id}"
+
+                         text += f"<br> <b>{name}</b> (Aff: {rel_data.affinity:.1f})"
+                         # Show top headlines
+                         if rel_data.core_buffer:
+                             text += "<br>  Core:"
+                             for h in rel_data.core_buffer[-2:]: # Last 2
+                                 text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f} {'(L)' if h.is_locked else ''}"
+                         if rel_data.trivial_buffer:
+                             text += "<br>  Trivial:"
+                             for h in rel_data.trivial_buffer[-2:]: # Last 2
+                                 text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f}"
 
             else:
                 istats = self.world.get_component(selected_entity, ItemStats)

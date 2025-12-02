@@ -33,9 +33,11 @@ from ..game.events import (
 from ..game.prefabs.yukkuri import create_yukkuri
 from ..game.services import EconomyService, GameService, InputService, TimeService
 from ..game.settings_service import SettingsService
+from ..game.skill_service import SkillService
 from ..game.systems.physics import PhysicsSystem
 from ..game.systems.physics_reconstruction import reconstruct_physics
 from ..game.systems.sector_system import SectorMap, SectorSystem
+from ..game.systems.skill_system import SkillSystem
 from ..game.trait_service import TraitService
 from ..game.ui.hud import HUD
 from ..game.yukkurrium import RenderSystem, Yukkurrium
@@ -125,6 +127,9 @@ class GameplayScene(Scene):
         self.trait_service = TraitService(self.world)
         self.world.services.register(self.trait_service, TraitService)
 
+        self.skill_service = SkillService(self.world)
+        self.world.services.register(self.skill_service, SkillService)
+
         self._init_navigation_service()
         self._init_sector_system()
 
@@ -194,6 +199,9 @@ class GameplayScene(Scene):
             self.physics_system,
         )
         self.input_system.set_ui_manager(self.ui_manager)
+
+        # Register SkillSystem
+        self.world.add_system(SkillSystem())
 
         if not self.application.headless:
             self.render_system = RenderSystem(self.application.screen, self.world)
