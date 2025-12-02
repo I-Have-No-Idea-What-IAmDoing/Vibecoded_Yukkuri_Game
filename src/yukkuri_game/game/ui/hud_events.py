@@ -20,8 +20,12 @@ from ..events import (
     CleanToolRequestedEvent,
     ResolutionChangedEvent,
     SaveGameRequest,
-    LoadGameRequest
+    LoadGameRequest,
+    LevelUpEvent
 )
+
+from ..components import Transform
+from ..prefabs.effects import create_floating_text
 
 if TYPE_CHECKING:
     from .hud_layout import HudLayout
@@ -45,6 +49,9 @@ class HudEvents:
         if hasattr(self.world.services, 'try_get'):
             self.audio_manager = self.world.services.try_get(AudioManager)
 
+        # Listen for Level Up events
+        self.event_bus.subscribe(LevelUpEvent, self.on_level_up)
+
         # Map layout attribute names to handlers
         self._static_handlers: Dict[str, Callable[[], None]] = {
             'save_btn': self._save_game,
@@ -61,6 +68,21 @@ class HudEvents:
 
     def _load_game(self) -> None:
         self.event_bus.publish(LoadGameRequest("savegame"))
+
+    def on_level_up(self, event: LevelUpEvent) -> None:
+        """Handles LevelUpEvent to show floating text."""
+        trans = self.world.get_component(event.entity_id, Transform)
+        if trans:
+            text = f"{event.skill_id.capitalize()} Lv.{event.new_level}!"
+            create_floating_text(
+                self.world,
+                trans.x,
+                trans.y - 40,
+                text,
+                (255, 215, 0), # Gold color
+                size=24,
+                velocity_y=-30.0
+            )
 
     def set_selected_entities(self, entity_ids: list[int]) -> None:
         self.selected_entities = entity_ids
@@ -130,20 +152,22 @@ class HudEvents:
         return False
 
     def _handle_selection_buttons(self, ui_element: Any) -> bool:
-        if not self.layout.selection_window:
+        if not self.layout.entity_info_panel or not self.layout.entity_info_panel.window:
             return False
 
-        if hasattr(self.layout, 'sell_btn') and ui_element == self.layout.sell_btn:
+        panel = self.layout.entity_info_panel
+
+        if panel.sell_btn and ui_element == panel.sell_btn:
             for entity_id in self.selected_entities:
                     self.event_bus.publish(SellEntityRequest(entity_id))
             return True
 
-        if hasattr(self.layout, 'train_btn') and ui_element == self.layout.train_btn:
+        if panel.train_btn and ui_element == panel.train_btn:
             for entity_id in self.selected_entities:
                 self.event_bus.publish(TrainEntityRequest(entity_id))
             return True
 
-        if hasattr(self.layout, 'punish_btn') and ui_element == self.layout.punish_btn:
+        if panel.punish_btn and ui_element == panel.punish_btn:
             for entity_id in self.selected_entities:
                 self.event_bus.publish(PunishEntityRequest(entity_id))
             return True

@@ -11,6 +11,8 @@ from .yukkuri_components import Skills, SkillState, Personality, YukkuriStats
 from .skill_constants import SkillId, PassionLevel
 from .services import TimeService
 from .trait_service import TraitService
+from ..engine.event_bus import EventBus
+from .events import LevelUpEvent
 from ..engine.resource_manager import ResourceManager
 from ..engine.data_models import TraitDefinition
 
@@ -155,7 +157,12 @@ class SkillService:
             state.current_xp -= required
             state.level += 1
             logger.info(f"Entity {entity_id} leveled up {skill_id} to {state.level}!")
-            # Publish event?
+
+            # Publish event
+            event_bus = self.world.services.try_get(EventBus)
+            if event_bus:
+                event_bus.publish(LevelUpEvent(entity_id, skill_id, state.level))
+
             required = self.get_required_xp(state.level)
 
     def get_required_xp(self, level: int) -> float:

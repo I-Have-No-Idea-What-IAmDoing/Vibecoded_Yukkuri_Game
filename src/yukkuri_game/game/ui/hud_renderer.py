@@ -5,8 +5,9 @@ import pygame
 from typing import TYPE_CHECKING, List
 from ...engine.ecs import World
 from ..components import Transform
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState
+from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState, Skills
 from ..services import InputService, EconomyService, TimeService
+from ..skill_service import SkillService
 from pygame_gui.windows import UIMessageWindow
 
 if TYPE_CHECKING:
@@ -59,8 +60,9 @@ class HudRenderer:
             self.layout.time_label.set_text(f"Time: {minutes:02d}:{seconds:02d}")
 
         # Update Selection Window
-        if self.layout.selection_window and selected_entities:
+        if self.layout.entity_info_panel and selected_entities:
             self._update_stats_display(selected_entities)
+            self._update_skills_display(selected_entities)
 
         # Update Debug Window
         if show_debug:
@@ -179,9 +181,6 @@ class HudRenderer:
 
         Args:
             selected_entities (list[int]): The IDs of the selected entities.
-
-        Returns:
-            None
         """
         text = "Unknown"
 
@@ -325,30 +324,61 @@ class HudRenderer:
                 if istats:
                     text = f"<b>Item:</b> {istats.name}<br><b>Val:</b> {istats.cost}"
 
-        if self.layout.info_label:
-            # Only update if text actually changed
-            if self.layout.info_label.html_text != text:
-                # Get current dimensions
-                old_height = self.layout.info_label.rect.height
+        if self.layout.entity_info_panel:
+            self.layout.entity_info_panel.update_stats(text)
 
-                self.layout.info_label.set_text(text)
+    def _update_skills_display(self, selected_entities: List[int]) -> None:
+        """
+        Updates the skills display for the selected entity.
+        """
+        if not self.layout.entity_info_panel:
+            return
 
-                # Check if dimensions changed
-                new_height = self.layout.info_label.rect.height
+        text = ""
+        if len(selected_entities) == 1:
+            eid = selected_entities[0]
+            skills = self.world.get_component(eid, Skills)
 
-                if old_height != new_height and self.layout.info_scroll_container:
-                    # Save scroll position
-                    scroll_pos = 0.0
-                    if self.layout.info_scroll_container.vert_scroll_bar:
-                        scroll_pos = self.layout.info_scroll_container.vert_scroll_bar.start_percentage
+            if skills:
+                skill_service = self.world.services.try_get(SkillService)
+                # Need definitions to get names and required xp
 
-                    # Update scrolling container dimensions
-                    # We set width to 270 (matching creation width) and height to new content height
-                    self.layout.info_scroll_container.set_scrollable_area_dimensions((270, new_height))
+                text_lines = []
+                for skill_id, state in skills.states.items():
+                    name = skill_id.capitalize()
 
-                    # Restore scroll position
-                    if self.layout.info_scroll_container.vert_scroll_bar:
-                        self.layout.info_scroll_container.vert_scroll_bar.set_scroll_from_start_percentage(scroll_pos)
+                    if skill_service and skill_id in skill_service.skill_definitions:
+                        defn = skill_service.skill_definitions[skill_id]
+                        name = defn.name
+
+                    level = state.level
+                    xp = state.current_xp
+
+                    req_xp = 100.0 * (1.5 ** level)
+                    if skill_service:
+                        req_xp = skill_service.get_required_xp(level)
+
+                    percentage = int((xp / req_xp) * 100) if req_xp > 0 else 0
+
+                    passion_icon = ""
+                    if state.passion > 1.5: passion_icon = "🔥"
+                    elif state.passion > 1.0: passion_icon = "✨"
+                    elif state.passion < 1.0: passion_icon = "❄️"
+
+                    text_lines.append(f"<b>{name}</b> {passion_icon}")
+                    text_lines.append(f" Lv. {level} | XP: {int(xp)}/{int(req_xp)} ({percentage}%)")
+                    text_lines.append(f"") # Spacer
+
+                if not text_lines:
+                    text = "No skills learned."
+                else:
+                    text = "<br>".join(text_lines)
+            else:
+                text = "No skills component."
+        else:
+            text = "Multiple selection not supported for Skills."
+
+        self.layout.entity_info_panel.update_skills(text)
 
     def _update_debug_window(self, dt: float) -> None:
         """
