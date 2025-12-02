@@ -17,11 +17,15 @@ from ..engine.serializer import WorldSerializer
 from .components_persistence import Persistable, StableIDComponent
 from . import components
 from . import yukkuri_components
+from .skill_constants import SkillId
 
 if TYPE_CHECKING:
     from .yukkuri_components import Personality  # pylint: disable=unused-import
     from .trait_service import TraitService
     from .skill_service import SkillService
+
+BASE_SCAVENGING_RADIUS = 500.0
+SCAVENGING_RADIUS_PER_LEVEL = 50.0
 
 class PersistenceService:
     """
@@ -359,7 +363,6 @@ class GameService:
             int: The ID of the best item, or -1 if none found.
         """
         import math
-        from .skill_constants import SkillId
 
         best_dist = float('inf')
         best_item = -1
@@ -374,10 +377,10 @@ class GameService:
             if skills and SkillId.SCAVENGING in skills.states:
                 level = skills.states[SkillId.SCAVENGING].level
                 # Base radius 500 + 50 per level
-                max_radius = 500.0 + (level * 50.0)
+                max_radius = BASE_SCAVENGING_RADIUS + (level * SCAVENGING_RADIUS_PER_LEVEL)
             else:
                 # Default radius for unskilled
-                max_radius = 500.0
+                max_radius = BASE_SCAVENGING_RADIUS
 
         items = self.world.get_entities_with(ItemStats, Transform)
 
@@ -432,7 +435,6 @@ class GameService:
 
             # Apply Scavenging XP
             from .skill_service import SkillService
-            from .skill_constants import SkillId
             skill_service = self.world.services.try_get(SkillService)
             if skill_service:
                 # Award XP for successfully finding and using an item
