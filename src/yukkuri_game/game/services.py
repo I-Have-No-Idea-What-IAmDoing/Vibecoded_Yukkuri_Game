@@ -17,6 +17,9 @@ from ..engine.serializer import WorldSerializer
 from .components_persistence import Persistable, StableIDComponent
 from . import components
 from . import yukkuri_components
+from .skill_service import SkillService
+from .skill_constants import SkillId
+from .trait_service import TraitService
 
 if TYPE_CHECKING:
     from .yukkuri_components import Personality  # pylint: disable=unused-import
@@ -134,6 +137,16 @@ class PersistenceService:
                 # A proper load usually clears the world first.
                 # For this service, we just load what's in the file.
                 self.serializer.load_from_data(save_data["entities"])
+
+            # Migration: Ensure all Yukkuris have Skills component
+            skill_service = self.world.services.try_get(SkillService)
+            if skill_service:
+                from .yukkuri_components import Skills, YukkuriStats
+                entities = self.world.get_entities_with(YukkuriStats)
+                for entity in entities:
+                    if not self.world.has_component(entity, Skills):
+                        logger.info(f"Migration: Initializing skills for entity {entity}")
+                        skill_service.initialize_skills(entity)
 
             logger.info(f"Game loaded from {filepath}")
             return True
@@ -451,10 +464,38 @@ class GameService:
             return False
 
         audio = self.world.services.try_get(AudioManager)
+        skill_service = self.world.services.try_get(SkillService)
+        trait_service = self.world.services.try_get(TraitService)
+
+        # Apply modifiers from interactions.toml
+        modifiers_impact = {"affinity": 0.0, "happiness": 0.0, "stress": 0.0, "fear": 0.0}
+
+        if trait_service:
+            # Map interaction_type string to key in interactions.toml
+            # e.g. "Talk" -> "Talk"
+            interaction_def = trait_service.get_interaction(interaction_type)
+            if interaction_def and "modifiers" in interaction_def:
+                for cond_str, mods in interaction_def["modifiers"].items():
+                    # Handle "skill:" conditions
+                    if cond_str.startswith("skill:"):
+                        if skill_service and skill_service.evaluate_condition(initiator_id, cond_str):
+                            for k, v in mods.items():
+                                if k in modifiers_impact:
+                                    modifiers_impact[k] += v
+                    # Handle "trait:" conditions (simplified check for initiator)
+                    elif cond_str.startswith("trait:"):
+                        trait_key = cond_str.split(":")[1]
+                        # Need to check initiator personality
+                        from .yukkuri_components import Personality
+                        init_p = self.world.get_component(initiator_id, Personality)
+                        if init_p and trait_key in init_p.traits:
+                             for k, v in mods.items():
+                                if k in modifiers_impact:
+                                    modifiers_impact[k] += v
 
         if interaction_type == "Talk":
             if init_emo:
-                init_emo.happiness = min(100.0, init_emo.happiness + 5.0)
+                init_emo.happiness = min(100.0, init_emo.happiness + 5.0 + modifiers_impact["affinity"]) # Mapping affinity to happiness impact for now
             init_stats.social = min(100.0, init_stats.social + 15.0)
             if target_emo:
                 target_emo.happiness = min(100.0, target_emo.happiness + 5.0)
@@ -473,29 +514,60 @@ class GameService:
                 if hasattr(audio, 'play_sound'):
                     audio.play_sound("talk")
 
+            if skill_service:
+                skill_service.add_xp(initiator_id, SkillId.SOCIALIZATION.value, 5.0)
+                skill_service.add_xp(target_id, SkillId.SOCIALIZATION.value, 5.0)
+
         elif interaction_type == "Fight":
             damage = 5.0
             init_stats.health = max(0.0, init_stats.health - damage)
             if init_emo:
-                init_emo.happiness = max(-100.0, init_emo.happiness - 10.0)
-                init_emo.stress = min(100.0, init_emo.stress + 10.0)
+                init_emo.happiness = max(-100.0, init_emo.happiness - 10.0 + modifiers_impact["happiness"])
+                init_emo.stress = min(100.0, init_emo.stress + 10.0 + modifiers_impact["stress"])
 
             target_stats.health = max(0.0, target_stats.health - damage)
             if target_emo:
                 target_emo.happiness = max(-100.0, target_emo.happiness - 10.0)
-                target_emo.stress = min(100.0, target_emo.stress + 10.0)
+                # Apply fear/stress to target? interactions.toml usually defines impact on target or initiator?
+                # "social_impact" in interactions.toml is usually for relationship (affinity, fear, trust).
+                # But here we are modifying EmotionalState directly.
+                # Assuming modifiers_impact applies to initiator's experience or relationship update.
+                # But standard interaction logic updates relationship via SocialSystem (not shown here).
+                # This function updates STATS and EMOTION.
+                # If interactions.toml says "fear = 20", it likely means target fears initiator?
+                # Or initiator fears target?
+                # Given "skill:combat > 5 = { fear = 20.0 }", if I have high combat, I cause fear? Or I feel fear?
+                # Usually "I cause fear".
+                # But modifiers here are collected from initiator's perspective.
+                # "modifiers_impact" is what happens to the INTERACTION.
+                # So if interaction causes +20 Fear, the target should gain Fear towards Initiator.
+                # The generic logic here doesn't update Relationships directly (RelationshipRegistry is separate).
+                # It updates EmotionalState.
+                # Ideally, this function should return the impact or event bus handles it.
+                # But sticking to what's here:
+                target_emo.stress = min(100.0, target_emo.stress + 10.0 + modifiers_impact["fear"])
 
             if audio:
                 if hasattr(audio, 'play_sound'):
                     audio.play_sound("hit")
 
+            if skill_service:
+                skill_service.add_xp(initiator_id, SkillId.COMBAT.value, 10.0)
+                skill_service.add_xp(target_id, SkillId.COMBAT.value, 5.0)
+
         elif interaction_type == "Dance":
             if init_emo:
-                init_emo.happiness = min(100.0, init_emo.happiness + 10.0)
+                init_emo.happiness = min(100.0, init_emo.happiness + 10.0 + modifiers_impact["happiness"] + modifiers_impact["affinity"])
             if target_emo:
                 target_emo.happiness = min(100.0, target_emo.happiness + 10.0)
             init_stats.social = min(100.0, init_stats.social + 10.0)
             target_stats.social = min(100.0, target_stats.social + 10.0)
+
+            if skill_service:
+                skill_service.add_xp(initiator_id, SkillId.ATHLETICS.value, 2.0)
+                skill_service.add_xp(initiator_id, SkillId.SOCIALIZATION.value, 2.0)
+                skill_service.add_xp(target_id, SkillId.ATHLETICS.value, 2.0)
+                skill_service.add_xp(target_id, SkillId.SOCIALIZATION.value, 2.0)
 
         from ..engine.event_bus import EventBus
         from .events import SocialInteractionEvent

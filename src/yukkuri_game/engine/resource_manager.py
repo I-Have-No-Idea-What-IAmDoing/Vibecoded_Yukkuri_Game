@@ -10,7 +10,8 @@ import pygame
 from loguru import logger
 
 from .data_models import (
-    YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction, GameTuning
+    YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction, GameTuning,
+    SkillData, SkillDefinition
 )
 
 T = TypeVar("T")
@@ -49,6 +50,7 @@ class ResourceManager:
         self.yukkuri_types: Dict[str, YukkuriType] = {}
         self.item_types: Dict[str, ItemType] = {}
         self.ai_actions: Dict[str, AIAction] = {}
+        self.skills: Dict[str, SkillDefinition] = {}
         self.tuning: Optional[GameTuning] = None
 
     def load_toml_model(self, filepath: str, model: Type[T]) -> Optional[T]:
@@ -138,6 +140,13 @@ class ResourceManager:
             self.ai_actions = ai_data.actions
         else:
             self.ai_actions = {}
+
+        # Load Skills
+        skill_data = self.load_toml_model("skills/skills.toml", SkillData)
+        if skill_data:
+            self.skills = skill_data.skills
+        else:
+            self.skills = {}
 
         # Load Game Tuning
         self.tuning = self.load_toml_model("yukkuri_tuning.toml", GameTuning)

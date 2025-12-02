@@ -122,6 +122,23 @@ class AIAction(msgspec.Struct): # type: ignore[misc]
     effects: ActionEffect
     considerations: List[ActionConsideration] = []
 
+class SkillDefinition(msgspec.Struct): # type: ignore[misc]
+    """
+    Data model representing a Skill definition.
+
+    Attributes:
+        name (str): The display name of the skill.
+        description (str): Description of the skill.
+        max_level (int): Maximum level achievable.
+        decay_rate (float): XP loss per day if unused.
+        soft_cap_base_level (int): Base level for soft cap.
+    """
+    name: str
+    description: str
+    max_level: int = 20
+    decay_rate: float = 0.0
+    soft_cap_base_level: int = 10
+
 # --- Game Tuning Data Models (from yukkuri_tuning.json) ---
 
 class MovementVisuals(msgspec.Struct): # type: ignore[misc]
@@ -180,3 +197,12 @@ class AIData(msgspec.Struct): # type: ignore[misc]
         actions (Dict[str, AIAction]): A dictionary mapping action names to their definitions.
     """
     actions: Dict[str, AIAction]
+
+class SkillData(msgspec.Struct): # type: ignore[misc]
+    """
+    Root container for Skill definitions loaded from TOML.
+
+    Attributes:
+        skills (Dict[str, SkillDefinition]): A dictionary mapping skill IDs to their definitions.
+    """
+    skills: Dict[str, SkillDefinition]

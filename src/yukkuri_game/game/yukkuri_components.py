@@ -419,3 +419,30 @@ class Dead:
     Tag component for dead entities.
     """
     pass
+
+@dataclass
+class SkillState:
+    """
+    Represents the state of a single skill.
+
+    Attributes:
+        level (int): Proficiency level.
+        current_xp (float): XP progress towards next level.
+        passion (float): Learning rate multiplier.
+        last_used_gametime (float): Timestamp of last use.
+    """
+    level: int = 0
+    current_xp: float = 0.0
+    passion: float = 1.0
+    last_used_gametime: float = 0.0
+    last_decay_gametime: float = 0.0
+
+@dataclass
+class Skills(Component):
+    """
+    Component holding the skills of an entity.
+
+    Attributes:
+        states (Dict[str, SkillState]): Map of skill ID to skill state.
+    """
+    states: Dict[str, SkillState] = field(default_factory=dict)
