@@ -107,7 +107,7 @@ def test_load_all_data() -> None:
 
     mock_tuning_data = MagicMock()
 
-    with patch.object(rm, 'load_toml_model', side_effect=[mock_yukkuri_data, mock_item_data, mock_ai_data, mock_tuning_data]) as mock_load:
+    with patch.object(rm, 'load_toml_model', side_effect=[mock_yukkuri_data, mock_item_data, mock_ai_data, mock_tuning_data, MagicMock(), MagicMock(), MagicMock()]) as mock_load:
         rm.load_all_data()
 
         assert rm.yukkuri_types == {"Reimu": {}}
@@ -115,4 +115,4 @@ def test_load_all_data() -> None:
         assert rm.ai_actions == {"Eat": {}}
         assert rm.tuning == mock_tuning_data
 
-        assert mock_load.call_count == 4
+        assert mock_load.call_count == 7

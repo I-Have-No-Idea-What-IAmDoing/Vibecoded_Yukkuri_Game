@@ -120,27 +120,11 @@ class InteractionSystem(System):
             return
 
         # Handle Interaction with Item
+        # Deprecated: Logic moved to HungerSystem.
+        # This block is intentionally left empty or removed as HungerSystem now handles ItemStats interactions.
         item_stats = world.get_component(target_id, ItemStats)
         if item_stats:
-            if item_stats.nutrition > 0:
-                stats.hunger = max(0, stats.hunger - item_stats.nutrition)
-
-            if item_stats.fun > 0:
-                emotional = world.get_component(entity, EmotionalState)
-                if emotional:
-                    emotional.happiness = min(100, emotional.happiness + item_stats.fun)
-
-            if item_stats.comfort > 0:
-                stats.energy = min(100, stats.energy + item_stats.comfort)
-
-            if request.consume:
-                if self.audio:
-                    self.audio.play_sound("eat")
-
-                # Destroy the item
-                world.destroy_entity(target_id)
-
-                # Update consumer AI state if needed (e.g. reset target)
-                ai = world.get_component(entity, AIState)
-                if ai and ai.current_target_id == target_id:
-                    ai.current_target_id = -1
+            # If HungerSystem runs before this, the request might be gone.
+            # If it runs after, we should skip processing here so HungerSystem picks it up.
+            # Ideally, InteractionSystem should only handle Social/Physical interactions not covered by specific systems.
+            pass

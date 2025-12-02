@@ -129,6 +129,12 @@ def test_simulation_action_eat(simulation_world: tuple[World, int, int], systems
     behavior_system.update(world, 0.1)
 
     # Behavior adds InteractionRequest. Now run InteractionSystem.
+    # Updated: Need HungerSystem for food
+    from yukkuri_game.game.systems.hunger_system import HungerSystem
+    hunger_system = HungerSystem()
+    hunger_system.update(world, 0.1)
+
+    # InteractionSystem runs cleanup/other interactions
     interaction_system.update(world, 0.1)
 
     # Check if item consumed

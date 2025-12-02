@@ -36,6 +36,12 @@ class EntityInfoPanel:
         self.close()
 
         rect = pygame.Rect(position[0], position[1], self.width, self.height)
+
+        # Ensure position is within safe bounds or at least handled if container is used
+        # In this specific issue, pygame_gui calculates dimensions using container size.
+        # If we are root, it uses manager.root_container.
+        # We assume self.manager is valid.
+
         self.window = UIWindow(
             rect=rect,
             manager=self.manager,

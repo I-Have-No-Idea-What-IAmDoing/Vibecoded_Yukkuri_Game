@@ -178,8 +178,10 @@ class SkillService:
 
     def apply_decay(self, entity_id: int):
         """
-        Applies decay to all skills for an entity.
-        Should be called periodically (e.g. daily).
+        Applies decay to all skills for an entity based on time since last use.
+        This calculates accumulated decay since last use.
+
+        Formula: Loss = DecayRate * (DaysSinceLastUse - GracePeriod)
         """
         skills = self.world.get_component(entity_id, Skills)
         if not skills:
@@ -190,8 +192,6 @@ class SkillService:
             return
 
         current_time = time_service.time_elapsed
-
-        # Plan says: Loss = DecayRate * (DaysSinceLastUse - 1.0)
         SECONDS_PER_DAY = 3600.0 # 1 hour = 1 day
 
         for skill_id, state in skills.states.items():
@@ -205,14 +205,10 @@ class SkillService:
 
             days_since_use = (current_time - state.last_used_gametime) / SECONDS_PER_DAY
 
-            # Apply flat daily decay if outside grace period.
-            # This function is expected to be called exactly once per day by the game loop.
             if days_since_use > 1.0:
-                loss = decay_rate
-
-                # Check floor: cannot drop below required XP for current level start.
-                # Actually, our current_xp is "progress towards NEXT level".
-                # So if current_xp drops below 0, does it de-level?
-                # Plan says: "No de-leveling."
+                # Accumulate decay for the days past grace period
+                # If days_since_use is 2.5, and grace is 1.0, we decay for 1.5 days worth
+                excess_days = days_since_use - 1.0
+                loss = decay_rate * excess_days
 
                 state.current_xp = max(0.0, state.current_xp - loss)

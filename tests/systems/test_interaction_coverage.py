@@ -41,6 +41,13 @@ def test_eat_item(interaction_env):
     req = InteractionRequest(target_id=item, consume=True)
     world.add_component(consumer, req)
 
+    # Need HungerSystem to process food now
+    from yukkuri_game.game.systems.hunger_system import HungerSystem
+    hunger_system = HungerSystem()
+    hunger_system.audio = audio # Manually inject mock
+    hunger_system.update(world, 0.1)
+
+    # InteractionSystem runs cleanup if needed (though HungerSystem removes req)
     system.update(world, 0.1)
 
     assert stats.hunger == 30 # 50 - 20
@@ -145,6 +152,12 @@ def test_ai_target_reset(interaction_env):
     req = InteractionRequest(target_id=item, consume=True)
     world.add_component(consumer, req)
 
+    # Need HungerSystem
+    from yukkuri_game.game.systems.hunger_system import HungerSystem
+    hunger_system = HungerSystem()
+    hunger_system.update(world, 0.1)
+
+    # InteractionSystem (legacy check)
     system.update(world, 0.1)
 
     assert ai.current_target_id == -1

@@ -228,9 +228,16 @@ class TestGameService:
         result = service.interact_with_item(consumer, item, consume=True)
 
         assert result is True
-        assert y_stats.hunger == 40
-        assert y_emotional.happiness == 55
-        mock_world.destroy_entity.assert_called_with(item)
+        # DEPRECATED: HungerSystem now handles logic, so these assertions are invalid here
+        # assert y_stats.hunger == 40
+        # assert y_emotional.happiness == 55
+        # mock_world.destroy_entity.assert_called_with(item)
+
+        # Verify InteractionRequest added
+        mock_world.add_component.assert_called()
+        args = mock_world.add_component.call_args[0]
+        assert args[0] == consumer
+        assert args[1].target_id == item
 
     def test_interact_social_fight(self, mock_world):
         # Mock world.services
@@ -261,8 +268,15 @@ class TestGameService:
 
         service.interact_social(p1, p2, "Fight")
 
-        assert p1_stats.health == 95
-        assert p1_emotional.happiness == 90
-        assert p1_emotional.stress == 10
+        # DEPRECATED: Logic moved to SocialSystem via InteractionRequest
+        # So we assert that InteractionRequest was added, not that health changed here
+        # assert p1_stats.health == 95
+        # assert p1_emotional.happiness == 90
+        # assert p1_emotional.stress == 10
+        # assert p2_stats.health == 95
 
-        assert p2_stats.health == 95
+        mock_world.add_component.assert_called()
+        args = mock_world.add_component.call_args[0]
+        assert args[0] == p1
+        assert args[1].target_id == p2
+        assert args[1].action == "Fight"

@@ -10,7 +10,7 @@ from collections import deque
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ..components import Transform
+from ..components import Transform, InteractionRequest
 from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState, Skills
 from ..trait_service import TraitService
 from ..skill_service import SkillService
@@ -46,7 +46,10 @@ class SocialSystem(System):
         self.cleanup_batch_size = 10
         self.event_bus = event_bus
 
-        self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
+        # Note: We no longer subscribe to SocialInteractionEvent for resolution logic
+        # because we trigger logic via InteractionRequest directly.
+        # This avoids double-triggering logic when we publish the event ourselves.
+        # self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
 
         self.headline_counter = 0
 
@@ -65,6 +68,18 @@ class SocialSystem(System):
 
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
+
+        # Process Interaction Requests (Talk/Fight/Dance etc)
+        # We look for InteractionRequest with specific actions (not "Eat" which is handled by HungerSystem)
+        # Note: HungerSystem might have already processed food items, so here we mostly see Social.
+
+        entities_with_requests = list(world.get_components_tuple(InteractionRequest, Transform))
+        for entity_id, (request, _) in entities_with_requests:
+            # logger.info(f"Processing request for {entity_id}: {request.action}")
+            if request.action in ["Talk", "Fight", "Dance"]:
+                self.process_interaction_request(world, entity_id, request)
+                if world.has_component(entity_id, InteractionRequest):
+                    world.remove_component(entity_id, InteractionRequest)
 
         # Update Relationships (Cleanup & Opinion Update)
         all_entities = world.get_entities_with(RelationshipRegistry)
@@ -100,6 +115,22 @@ class SocialSystem(System):
                     del registry.relationships[rid]
 
         self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(1, count)
+
+    def process_interaction_request(self, world: World, initiator_id: int, request: InteractionRequest) -> None:
+        """
+        Process a direct social interaction request from the behavior tree.
+        """
+        target_id = request.target_id
+        action = request.action
+
+        if not world.entity_exists(target_id):
+            return
+
+        # Perform the interaction logic
+        self.register_interaction(world, initiator_id, target_id, action)
+
+        # Dispatch event for other listeners (e.g. GossipSystem)
+        self.event_bus.publish(SocialInteractionEvent(initiator_id, target_id, action))
 
     def _update_opinion(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData, force_compatibility_update: bool = False) -> None:
         """
@@ -243,10 +274,38 @@ class SocialSystem(System):
         self._apply_impact(world, target_id, actor_id, interaction_data, role="target", now=now)
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
 
-        # Award XP for Socialization
+        # --- Specific Gameplay Logic (Hardcoded migration from GameService) ---
+        # TODO: Move these into data-driven InteractionDefinition in the future
+
+        # 1. Damage (Fight)
+        if interaction_name == "Fight":
+            damage = 5.0
+            self._apply_damage(world, actor_id, damage)
+            self._apply_damage(world, target_id, damage)
+
+            # Additional Stress/Happiness impact for Fight is usually handled by data,
+            # but legacy code had specific logic. The data model should handle emotional impact.
+            # We assume TOML covers happiness/stress changes.
+
+        # 2. Skill XP
         if self.skill_service:
-            xp_amount = 10.0
-            self.skill_service.add_xp(actor_id, "socialization", xp_amount)
+            if interaction_name == "Fight":
+                self.skill_service.add_xp(actor_id, "combat", 10.0)
+            elif interaction_name == "Dance":
+                self.skill_service.add_xp(actor_id, "athletics", 5.0)
+                self.skill_service.add_xp(actor_id, "socialization", 2.0)
+            elif interaction_name == "Talk":
+                self.skill_service.add_xp(actor_id, "socialization", 5.0)
+            else:
+                # Default fallback
+                xp_amount = 5.0
+                self.skill_service.add_xp(actor_id, "socialization", xp_amount)
+
+    def _apply_damage(self, world: World, entity_id: int, amount: float) -> None:
+        """Helper to apply damage to an entity."""
+        stats = world.get_component(entity_id, YukkuriStats)
+        if stats:
+            stats.health = max(0.0, stats.health - amount)
 
 
     def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Any) -> None:

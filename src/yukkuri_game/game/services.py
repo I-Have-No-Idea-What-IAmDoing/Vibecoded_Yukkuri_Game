@@ -407,196 +407,25 @@ class GameService:
     def interact_with_item(self, consumer_id: int, item_id: int, consume: bool = True) -> bool:
         """
         Logic for a Yukkuri interacting with (eating) an item.
-
-        Args:
-            consumer_id (int): The ID of the Yukkuri.
-            item_id (int): The ID of the Item.
-            consume (bool): Whether the item should be destroyed after interaction.
-
-        Returns:
-            bool: True if interaction was successful, False otherwise.
+        DEPRECATED: Use HungerSystem.
         """
-        if not self.world.entity_exists(consumer_id) or not self.world.entity_exists(item_id):
-            return False
-
-        item_stats = self.world.get_component(item_id, ItemStats)
-        yukkuri_stats = self.world.get_component(consumer_id, YukkuriStats)
-        emotional = self.world.get_component(consumer_id, EmotionalState)
-
-        if item_stats and yukkuri_stats:
-            if item_stats.nutrition > 0:
-                yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
-
-            if item_stats.fun > 0 and emotional:
-                emotional.happiness = min(100, emotional.happiness + item_stats.fun)
-
-            if item_stats.comfort > 0:
-                yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
-
-            # Apply Scavenging XP
-            from .skill_service import SkillService
-            skill_service = self.world.services.try_get(SkillService)
-            if skill_service:
-                # Award XP for successfully finding and using an item
-                skill_service.add_xp(consumer_id, SkillId.SCAVENGING, 5.0)
-
-            audio = self.world.services.try_get(AudioManager)
-
-            if consume:
-                if audio:
-                    audio.play_sound("eat")
-                self.world.destroy_entity(item_id)
-                if self.world.has_component(item_id, Transform):
-                    self.world.remove_component(item_id, Transform)
-
-                ai = self.world.get_component(consumer_id, AIState)
-                if ai and ai.current_target_id == item_id:
-                    ai.current_target_id = -1
-            else:
-                pass
-
+        # Forwarding to system logic or issuing request is possible, but for refactoring
+        # we should identify callers and update them.
+        # For now, we'll issue an InteractionRequest component so HungerSystem picks it up.
+        from .components import InteractionRequest
+        if self.world.entity_exists(consumer_id):
+            self.world.add_component(consumer_id, InteractionRequest(item_id, consume=consume))
             return True
-
         return False
 
     def interact_social(self, initiator_id: int, target_id: int, interaction_type: str) -> bool:
         """
         Logic for social interactions between Yukkuris.
-
-        Args:
-            initiator_id (int): ID of the entity starting the interaction.
-            target_id (int): ID of the target entity.
-            interaction_type (str): Type of interaction ("Talk", "Fight", "Dance").
-
-        Returns:
-            bool: True if interaction occurred, False otherwise.
+        DEPRECATED: Use SocialSystem via InteractionRequest.
         """
-        if not self.world.entity_exists(initiator_id) or not self.world.entity_exists(target_id):
-            return False
-
-        from .trait_service import TraitService
-        from .skill_service import SkillService
-
-        trait_service = self.world.services.try_get(TraitService)
-        skill_service = self.world.services.try_get(SkillService)
-
-        init_stats = self.world.get_component(initiator_id, YukkuriStats)
-        target_stats = self.world.get_component(target_id, YukkuriStats)
-        init_emo = self.world.get_component(initiator_id, EmotionalState)
-        target_emo = self.world.get_component(target_id, EmotionalState)
-        init_skills = self.world.get_component(initiator_id, Skills)
-
-        if not init_stats or not target_stats:
-            return False
-
-        # Load interaction definition
-        interaction_def = None
-        if trait_service:
-            interaction_def = trait_service.get_interaction(interaction_type)
-
-        # Default values if no definition
-        affinity_bonus = 0.0
-        familiarity_bonus = 0.0
-
-        # Use attribute access for msgspec Struct
-        if interaction_def and interaction_def.social_impact:
-            social = interaction_def.social_impact
-            affinity_bonus = social.get("affinity", 0.0)
-            familiarity_bonus = social.get("familiarity", 0.0)
-
-        # Check conditions (Skills)
-        conditions_passed = True
-        condition_bonus_affinity = 0.0
-
-        if interaction_def and interaction_def.conditions and init_skills:
-            for cond in interaction_def.conditions:
-                if cond.get("type") == "skill_check":
-                    skill_id = cond.get("skill")
-                    min_level = cond.get("min_level", 0)
-
-                    current_level = 0
-                    if skill_id in init_skills.states:
-                        current_level = init_skills.states[skill_id].level
-
-                    if current_level >= min_level:
-                        # Condition Met
-                        if "result" in cond:
-                            res = cond["result"]
-                            condition_bonus_affinity += res.get("affinity", 0.0)
-
-        affinity_bonus += condition_bonus_affinity
-
-        # --- Base Behavior (Legacy Fallback + New Logic) ---
-        audio = self.world.services.try_get(AudioManager)
-
-        if interaction_type == "Talk":
-            # Apply XP
-            if skill_service:
-                skill_service.add_xp(initiator_id, "socialization", 5.0)
-
-            if init_emo:
-                init_emo.happiness = min(100.0, init_emo.happiness + 5.0)
-
-            # Apply affinity to relationship if we had that system exposed here
-            # For now updating stats directly
-
-            # Legacy stats update + new bonuses
-            init_stats.social = min(100.0, init_stats.social + 15.0)
-
-            if target_emo:
-                target_emo.happiness = min(100.0, target_emo.happiness + 5.0 + affinity_bonus)
-
-            target_stats.social = min(100.0, target_stats.social + 15.0)
-
-            init_gossip = self.world.get_component(initiator_id, GossipQueue)
-            target_gossip = self.world.get_component(target_id, GossipQueue)
-
-            if init_gossip and target_gossip:
-                for packet in init_gossip.priority_queue[:3]:
-                    target_gossip.add_packet(packet)
-                for packet in target_gossip.priority_queue[:3]:
-                    init_gossip.add_packet(packet)
-
-            if audio:
-                if hasattr(audio, 'play_sound'):
-                    audio.play_sound("talk")
-
-        elif interaction_type == "Fight":
-            if skill_service:
-                skill_service.add_xp(initiator_id, "combat", 10.0)
-
-            damage = 5.0
-            init_stats.health = max(0.0, init_stats.health - damage)
-            if init_emo:
-                init_emo.happiness = max(-100.0, init_emo.happiness - 10.0)
-                init_emo.stress = min(100.0, init_emo.stress + 10.0)
-
-            target_stats.health = max(0.0, target_stats.health - damage)
-            if target_emo:
-                target_emo.happiness = max(-100.0, target_emo.happiness - 10.0)
-                target_emo.stress = min(100.0, target_emo.stress + 10.0)
-
-            if audio:
-                if hasattr(audio, 'play_sound'):
-                    audio.play_sound("hit")
-
-        elif interaction_type == "Dance":
-            if skill_service:
-                skill_service.add_xp(initiator_id, "athletics", 5.0)
-                skill_service.add_xp(initiator_id, "socialization", 2.0)
-
-            if init_emo:
-                init_emo.happiness = min(100.0, init_emo.happiness + 10.0)
-            if target_emo:
-                target_emo.happiness = min(100.0, target_emo.happiness + 10.0)
-            init_stats.social = min(100.0, init_stats.social + 10.0)
-            target_stats.social = min(100.0, target_stats.social + 10.0)
-
-        from ..engine.event_bus import EventBus
-        from .events import SocialInteractionEvent
-
-        event_bus = self.world.services.try_get(EventBus)
-        if event_bus:
-            event_bus.publish(SocialInteractionEvent(initiator_id, target_id, interaction_type))
-
-        return True
+        # Forwarding to system logic via InteractionRequest
+        from .components import InteractionRequest
+        if self.world.entity_exists(initiator_id) and self.world.entity_exists(target_id):
+            self.world.add_component(initiator_id, InteractionRequest(target_id, consume=False, action=interaction_type))
+            return True
+        return False

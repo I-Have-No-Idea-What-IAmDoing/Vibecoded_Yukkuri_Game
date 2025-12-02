@@ -30,38 +30,41 @@ class TestTraitService:
         }
 
     def test_load_data(self):
-        # Mock os.path.exists and tomllib.load
-        with patch('os.path.exists', return_value=True), \
-             patch('builtins.open', mock_open(read_data=b"")), \
-             patch('yukkuri_game.game.trait_service.tomllib.load') as mock_load:
+        # Update: TraitService now uses ResourceManager
+        from yukkuri_game.engine.resource_manager import ResourceManager
+        from yukkuri_game.engine.ecs import World
 
-            # Setup mock return values for multiple calls
-            mock_load.side_effect = [
-                {"traits": {"A": 1}}, # traits.toml
-                {"interaction": {"B": 2}} # interactions.toml
-            ]
+        world = World()
+        rm = MagicMock(spec=ResourceManager)
+        rm.traits = {"A": 1}
+        rm.interactions = {"B": 2}
+        world.services.register(rm, ResourceManager)
 
-            service = TraitService()
+        service = TraitService(world)
 
-            assert "A" in service.traits
-            assert "B" in service.interactions
-            assert len(service.traits) == 1
-            assert len(service.interactions) == 1
+        assert "A" in service.traits
+        assert "B" in service.interactions
+        assert len(service.traits) == 1
+        assert len(service.interactions) == 1
 
     def test_load_data_file_not_found(self):
-        with patch('os.path.exists', return_value=False):
-            service = TraitService()
-            assert service.traits == {}
-            assert service.interactions == {}
+        # ResourceManager handles missing files, TraitService just sees empty dict
+        from yukkuri_game.engine.resource_manager import ResourceManager
+        from yukkuri_game.engine.ecs import World
+
+        world = World()
+        rm = MagicMock(spec=ResourceManager)
+        rm.traits = {}
+        rm.interactions = {}
+        world.services.register(rm, ResourceManager)
+
+        service = TraitService(world)
+        assert service.traits == {}
+        assert service.interactions == {}
 
     def test_load_data_exception(self):
-        with patch('os.path.exists', return_value=True), \
-             patch('builtins.open', mock_open()), \
-             patch('yukkuri_game.game.trait_service.tomllib.load', side_effect=Exception("Error")):
-
-            service = TraitService()
-            assert service.traits == {}
-            assert service.interactions == {}
+        # ResourceManager handles exceptions. TraitService just gets whatever RM has.
+        pass
 
     def test_get_trait(self, mock_toml_data):
         service = TraitService()
@@ -88,7 +91,17 @@ class TestTraitService:
 
     def test_calculate_overrides(self, mock_toml_data):
         service = TraitService()
-        service.traits = mock_toml_data["traits"]
+
+        # Convert mock data dicts to Objects/Structs if needed because code uses dot notation
+        class MockStruct:
+            def __init__(self, **kwargs):
+                self.__dict__.update(kwargs)
+
+        traits = {}
+        for k, v in mock_toml_data["traits"].items():
+            traits[k] = MockStruct(**v)
+
+        service.traits = traits
 
         # Single trait
         overrides = service.calculate_overrides({"Predator"})
