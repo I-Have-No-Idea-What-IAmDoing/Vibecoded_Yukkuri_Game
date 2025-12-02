@@ -5,7 +5,7 @@ from yukkuri_game.game.services import (
 )
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, InteractionRequest
-from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState, Skills
+from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState, Skills, Personality, RelationshipRegistry
 from yukkuri_game.game.skill_constants import SkillId
 
 class TestTimeService:
@@ -215,6 +215,15 @@ class TestGameService:
         item_stats = MagicMock(nutrition=10)
 
         mock_world.get_entities_with.return_value = [item_id]
+
+        # Also need Personality for compatibility check in _update_opinion
+        p_pers = MagicMock()
+        p_pers.traits = []
+        p_pers.axis = MagicMock()
+        p_pers.axis.kindness = 0 # Ensure kindness is an int for calculation
+
+        # Need TraitService imported
+        from yukkuri_game.game.trait_service import TraitService
 
         def get_component(e, c):
             if e == searcher_id and c == Skills: return skills
