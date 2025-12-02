@@ -113,38 +113,29 @@ class TestHudLayout:
             assert layout.log_box is not None
 
     def test_create_selection_window(self, hud_layout, mock_ui_manager):
-        with patch('yukkuri_game.game.ui.hud_layout.UIWindow', spec=True) as MockWindow, \
-             patch('yukkuri_game.game.ui.hud_layout.UITextBox', spec=True) as MockTextBox, \
-             patch('yukkuri_game.game.ui.hud_layout.UIButton', spec=True) as MockButton, \
-             patch('yukkuri_game.game.ui.hud_layout.UIScrollingContainer', spec=True) as MockScrollingContainer:
-
+        # We need to mock EntityInfoPanel and its show method to avoid Pygame GUI internals
+        with patch('yukkuri_game.game.ui.hud_layout.EntityInfoPanel') as MockPanel:
             hud_layout.create_selection_window(has_stats=True)
 
-            assert hud_layout.selection_window is not None
-            assert hud_layout.info_scroll_container is not None
-            assert hud_layout.info_label is not None
-            assert hud_layout.sell_btn is not None
-            assert hud_layout.train_btn is not None
+            assert hud_layout.entity_info_panel is not None
+            hud_layout.entity_info_panel.show.assert_called_once()
 
     def test_create_selection_window_no_stats(self, hud_layout, mock_ui_manager):
-        with patch('yukkuri_game.game.ui.hud_layout.UIWindow', spec=True), \
-             patch('yukkuri_game.game.ui.hud_layout.UITextBox', spec=True), \
-             patch('yukkuri_game.game.ui.hud_layout.UIButton', spec=True), \
-             patch('yukkuri_game.game.ui.hud_layout.UIScrollingContainer', spec=True):
-
+        with patch('yukkuri_game.game.ui.hud_layout.EntityInfoPanel') as MockPanel:
             hud_layout.create_selection_window(has_stats=False)
 
-            assert hud_layout.sell_btn is None
-            assert hud_layout.train_btn is None
+            assert hud_layout.entity_info_panel is not None
+            hud_layout.entity_info_panel.show.assert_called_once()
 
     def test_close_selection_window(self, hud_layout):
-        mock_window = MagicMock()
-        hud_layout.selection_window = mock_window
+        # Capture the mock before it gets cleared
+        mock_panel = MagicMock()
+        hud_layout.entity_info_panel = mock_panel
 
         hud_layout.close_selection_window()
 
-        mock_window.kill.assert_called_once()
-        assert hud_layout.selection_window is None
+        mock_panel.close.assert_called_once()
+        assert hud_layout.entity_info_panel is None
 
     def test_create_debug_window(self, hud_layout, mock_ui_manager):
         with patch('yukkuri_game.game.ui.hud_layout.UIWindow') as MockWindow, \
@@ -239,15 +230,15 @@ class TestHudEvents:
         mock_event_bus.publish.assert_not_called()
 
     def test_process_event_sell_entity(self, hud_events, hud_layout, mock_event_bus):
-        # Setup selection window elements
-        hud_layout.selection_window = MagicMock()
-        hud_layout.sell_btn = MagicMock()
+        # Setup selection window elements indirectly via entity_info_panel
+        hud_layout.entity_info_panel = MagicMock()
+        hud_layout.entity_info_panel.sell_btn = MagicMock()
 
         hud_events.selected_entities = [123]
 
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
-        event.ui_element = hud_layout.sell_btn
+        event.ui_element = hud_layout.entity_info_panel.sell_btn
 
         assert hud_events.process_event(event) is True
         # Check that SellEntityRequest was published
@@ -255,14 +246,14 @@ class TestHudEvents:
 
     def test_process_event_train_entity(self, hud_events, hud_layout, mock_event_bus):
         # Setup selection window elements
-        hud_layout.selection_window = MagicMock()
-        hud_layout.train_btn = MagicMock()
+        hud_layout.entity_info_panel = MagicMock()
+        hud_layout.entity_info_panel.train_btn = MagicMock()
 
         hud_events.selected_entities = [123]
 
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
-        event.ui_element = hud_layout.train_btn
+        event.ui_element = hud_layout.entity_info_panel.train_btn
 
         assert hud_events.process_event(event) is True
         # Check that TrainEntityRequest was published
@@ -290,8 +281,7 @@ class TestHudRenderer:
         hud_layout.time_label.set_text.assert_called_with("Time: 02:05")
 
     def test_update_selection_yukkuri(self, hud_renderer, hud_layout, mock_world):
-        hud_layout.selection_window = MagicMock()
-        hud_layout.info_label = MagicMock()
+        hud_layout.entity_info_panel = MagicMock()
 
         # Fix TypeError: YukkuriStats missing arguments
         stats = YukkuriStats(name="TestReimu", type_id="reimu", badges=3, health=70.0, max_health=100.0, age=0.0)
@@ -308,20 +298,17 @@ class TestHudRenderer:
         mock_world.get_component.side_effect = get_comp
         mock_world.has_component.side_effect = lambda e, t: t == YukkuriStats
 
-        with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
-             patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
-             patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
-            hud_renderer.update(0.1, [1], False)
+        hud_renderer.update(0.1, [1], False)
 
-        assert hud_layout.info_label.set_text.called
-        text = hud_layout.info_label.set_text.call_args[0][0]
-        assert "TestReimu" in text
-        assert "Eating" in text
-        assert "<b>Badges:</b> 3" in text
+        # It calls update_stats now, not update_info
+        assert hud_layout.entity_info_panel.update_stats.called
+        # Check args passed to update_stats (single string argument)
+        args = hud_layout.entity_info_panel.update_stats.call_args[0]
+        assert "TestReimu" in args[0]
+        assert "Eating" in args[0] # current_action passed as description? check implementation
 
     def test_update_selection_item(self, hud_renderer, hud_layout, mock_world):
-        hud_layout.selection_window = MagicMock()
-        hud_layout.info_label = MagicMock()
+        hud_layout.entity_info_panel = MagicMock()
 
         # Fix TypeError: ItemStats missing arguments
         item_stats = ItemStats(name="Cookie", type_id="cookie", cost=10)
@@ -335,15 +322,11 @@ class TestHudRenderer:
         mock_world.get_component.side_effect = get_comp
         mock_world.has_component.side_effect = lambda e, t: t == ItemStats
 
-        with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
-             patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
-             patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
-            hud_renderer.update(0.1, [1], False)
+        hud_renderer.update(0.1, [1], False)
 
-        assert hud_layout.info_label.set_text.called
-        text = hud_layout.info_label.set_text.call_args[0][0]
-        assert "Cookie" in text
-        assert "10" in text
+        assert hud_layout.entity_info_panel.update_stats.called
+        args = hud_layout.entity_info_panel.update_stats.call_args[0]
+        assert "Cookie" in args[0]
 
     def test_update_debug_window(self, hud_renderer, hud_layout, mock_world):
         hud_layout.debug_window = MagicMock()

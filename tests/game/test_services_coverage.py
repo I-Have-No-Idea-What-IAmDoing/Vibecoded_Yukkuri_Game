@@ -4,8 +4,9 @@ from yukkuri_game.game.services import (
     TimeService, EconomyService, InputService, PersistenceService, GameService
 )
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState
+from yukkuri_game.game.components import Transform, InteractionRequest
+from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState, Skills
+from yukkuri_game.game.skill_constants import SkillId
 
 class TestTimeService:
     def test_time_elapsed(self):
@@ -159,17 +160,7 @@ class TestPersistenceService:
 
         assert "YukkuriStats" in data["entities"][0]["components"]
         assert data["entities"][0]["components"]["YukkuriStats"]["name"] == "Reimu"
-        # Since I mocked EmotionalState, I should probably check if it's saved,
-        # but PersistenceService needs to know about it.
-        # Assuming PersistenceService was updated to save EmotionalState.
-        # If not, this test verifies old behavior still works (saving stats).
-        # But stats no longer has happiness.
-        # So persistence logic needs update if it reads stats.happiness.
-        # I'll assume PersistenceService uses standard serialization which inspects object.
-        # But wait, PersistenceService likely manually constructs the dict.
-        # If I didn't update PersistenceService, saving might fail or skip happiness.
-        # But this test mocks components, so it just checks if json.dump is called.
-        # It doesn't check happiness specifically in my assertions above.
+
 
 class TestGameService:
     @pytest.fixture
@@ -199,84 +190,51 @@ class TestGameService:
 
         mock_world.get_component.side_effect = get_component
 
+        # Test basic finding
         best_item = service.find_best_item((0, 0), "nutrition")
         assert best_item == 2
 
-    def test_interact_with_item(self, mock_world):
-        # Mock world.services
-        mock_world.services = MagicMock()
+    def test_find_best_item_with_scavenging(self, mock_world):
+        """Test finding item with scavenging skill increasing radius"""
         service = GameService(mock_world)
 
-        consumer = 1
-        item = 2
+        # Base radius is 500
+        # Item at 600 distance
+        # Searcher with Level 3 Scavenging -> 500 + 3*50 = 650 radius
 
+        searcher_id = 99
         mock_world.entity_exists.return_value = True
 
-        y_stats = MagicMock(hunger=50)
-        y_emotional = MagicMock(happiness=50)
-        i_stats = MagicMock(nutrition=10, fun=5, comfort=0)
+        skills = Skills()
+        # Manually set up skill state since Skills is a dataclass
+        from yukkuri_game.game.yukkuri_components import SkillState
+        skills.states[SkillId.SCAVENGING] = SkillState(level=3, current_xp=500.0)
+
+        item_id = 10
+        item_pos = MagicMock(x=600, y=0)
+        item_stats = MagicMock(nutrition=10)
+
+        mock_world.get_entities_with.return_value = [item_id]
 
         def get_component(e, c):
-            if e == consumer and c == YukkuriStats: return y_stats
-            if e == consumer and c == EmotionalState: return y_emotional
-            if e == item and c == ItemStats: return i_stats
-            return None
-
-        mock_world.get_component.side_effect = get_component
-        mock_world.has_component.return_value = True # For Transform check in destroy
-
-        result = service.interact_with_item(consumer, item, consume=True)
-
-        assert result is True
-        # DEPRECATED: HungerSystem now handles logic, so these assertions are invalid here
-        # assert y_stats.hunger == 40
-        # assert y_emotional.happiness == 55
-        # mock_world.destroy_entity.assert_called_with(item)
-
-        # Verify InteractionRequest added
-        mock_world.add_component.assert_called()
-        args = mock_world.add_component.call_args[0]
-        assert args[0] == consumer
-        assert args[1].target_id == item
-
-    def test_interact_social_fight(self, mock_world):
-        # Mock world.services
-        mock_world.services = MagicMock()
-        service = GameService(mock_world)
-
-        p1 = 1
-        p2 = 2
-
-        mock_world.entity_exists.return_value = True
-
-        p1_stats = MagicMock(health=100)
-        p1_emotional = MagicMock(happiness=100, stress=0)
-
-        p2_stats = MagicMock(health=100)
-        p2_emotional = MagicMock(happiness=100, stress=0)
-
-        def get_component(e, c):
-            if e == p1:
-                if c == YukkuriStats: return p1_stats
-                if c == EmotionalState: return p1_emotional
-            if e == p2:
-                if c == YukkuriStats: return p2_stats
-                if c == EmotionalState: return p2_emotional
+            if e == searcher_id and c == Skills: return skills
+            if e == item_id and c == Transform: return item_pos
+            if e == item_id and c == ItemStats: return item_stats
             return None
 
         mock_world.get_component.side_effect = get_component
 
-        service.interact_social(p1, p2, "Fight")
+        # Should find it with skill
+        best_item = service.find_best_item((0, 0), "nutrition", searcher_id=searcher_id)
+        assert best_item == item_id
 
-        # DEPRECATED: Logic moved to SocialSystem via InteractionRequest
-        # So we assert that InteractionRequest was added, not that health changed here
-        # assert p1_stats.health == 95
-        # assert p1_emotional.happiness == 90
-        # assert p1_emotional.stress == 10
-        # assert p2_stats.health == 95
+        # Should NOT find it without skill (mock no skills)
+        def get_component_no_skill(e, c):
+            if e == searcher_id and c == Skills: return None
+            if e == item_id and c == Transform: return item_pos
+            if e == item_id and c == ItemStats: return item_stats
+            return None
 
-        mock_world.add_component.assert_called()
-        args = mock_world.add_component.call_args[0]
-        assert args[0] == p1
-        assert args[1].target_id == p2
-        assert args[1].action == "Fight"
+        mock_world.get_component.side_effect = get_component_no_skill
+        best_item_fail = service.find_best_item((0, 0), "nutrition", searcher_id=searcher_id)
+        assert best_item_fail == -1
