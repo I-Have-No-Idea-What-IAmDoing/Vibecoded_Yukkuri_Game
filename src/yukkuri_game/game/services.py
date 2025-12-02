@@ -17,11 +17,15 @@ from ..engine.serializer import WorldSerializer
 from .components_persistence import Persistable, StableIDComponent
 from . import components
 from . import yukkuri_components
+from .skill_constants import SkillId
 
 if TYPE_CHECKING:
     from .yukkuri_components import Personality  # pylint: disable=unused-import
     from .trait_service import TraitService
     from .skill_service import SkillService
+
+BASE_SCAVENGING_RADIUS = 500.0
+SCAVENGING_RADIUS_PER_LEVEL = 50.0
 
 class PersistenceService:
     """
@@ -345,7 +349,7 @@ class GameService:
         """
         self.world = world
 
-    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: Set[int] | None = None) -> int:
+    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: Set[int] | None = None, searcher_id: int = -1) -> int:
         """
         Finds the best item near a position based on criteria.
 
@@ -353,16 +357,30 @@ class GameService:
             position (tuple[float, float]): The search origin (x, y).
             stat_criteria (str): The ItemStats attribute to maximize (e.g. "nutrition").
             exclude_ids (Set[int] | None): IDs to ignore.
+            searcher_id (int): The ID of the searching entity (optional, for skill checks).
 
         Returns:
             int: The ID of the best item, or -1 if none found.
         """
         import math
+
         best_dist = float('inf')
         best_item = -1
 
         if exclude_ids is None:
             exclude_ids = set()
+
+        # Calculate Search Radius based on Scavenging Skill
+        max_radius = float('inf')
+        if searcher_id != -1 and self.world.entity_exists(searcher_id):
+            skills = self.world.get_component(searcher_id, Skills)
+            if skills and SkillId.SCAVENGING in skills.states:
+                level = skills.states[SkillId.SCAVENGING].level
+                # Base radius 500 + 50 per level
+                max_radius = BASE_SCAVENGING_RADIUS + (level * SCAVENGING_RADIUS_PER_LEVEL)
+            else:
+                # Default radius for unskilled
+                max_radius = BASE_SCAVENGING_RADIUS
 
         items = self.world.get_entities_with(ItemStats, Transform)
 
@@ -375,6 +393,11 @@ class GameService:
 
             if istats and itrans and getattr(istats, stat_criteria, 0.0) > 0:
                 d = math.hypot(itrans.x - position[0], itrans.y - position[1])
+
+                # Filter by max_radius
+                if d > max_radius:
+                    continue
+
                 if d < best_dist:
                     best_dist = d
                     best_item = item
@@ -409,6 +432,13 @@ class GameService:
 
             if item_stats.comfort > 0:
                 yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
+
+            # Apply Scavenging XP
+            from .skill_service import SkillService
+            skill_service = self.world.services.try_get(SkillService)
+            if skill_service:
+                # Award XP for successfully finding and using an item
+                skill_service.add_xp(consumer_id, SkillId.SCAVENGING, 5.0)
 
             audio = self.world.services.try_get(AudioManager)
 
