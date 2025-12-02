@@ -1,3 +1,6 @@
+"""
+Type definitions for the engine.
+"""
 from typing import NewType
 
 # Msgspec handles NewType(int) automatically as int during serialization/deserialization.

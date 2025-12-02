@@ -61,12 +61,12 @@ python -m src.yukkuri_game.main --headless
 ## Controls
 
 -   **Camera Navigation**:
-    -   **Zoom**: Mouse Wheel Scroll.
-    -   **Pan**: Hold Middle Mouse Button (Scroll Wheel Click) and Drag.
+    -   **Zoom**: Mouse Wheel Scroll, or `Ctrl + =` / `Ctrl + -`.
+    -   **Pan**: Hold Middle Mouse Button (Scroll Wheel Click) and Drag, or `WASD` / Arrow Keys.
 
 -   **Interaction**:
     -   **Select Entity**: Left Click on a Yukkuri or Item.
-    -   **Multi-Select**: Hold `Shift` + Left Click, or Drag with Left Click on empty space.
+    -   **Multi-Select**: Hold `Shift` + Left Click to add to selection, or Drag with Left Click on empty space to box select.
     -   **Deselect**: Left Click on empty ground (without dragging).
     -   **Place Item/Yukkuri**: Select an item from the bottom bar, then Left Click in the world.
     -   **Cancel Placement**: Right Click while in placement mode.
@@ -74,6 +74,8 @@ python -m src.yukkuri_game.main --headless
 
 -   **HUD Shortcuts**:
     -   **F3**: Toggle Debug Info Overlay.
+    -   **F5**: Quick Save.
+    -   **F9**: Quick Load.
     -   **F12**: Take Screenshot (saved to `screenshots/`).
 
 ## Gameplay Guide
@@ -112,9 +114,9 @@ Edit `data/yukkuris/types.toml`:
 [yukkuris.new_type]
 name = "New Type"
 image = "new_type.png" # Place image in assets/images/
-max_health = 120
 width = 64
 height = 64
+max_health = 120
 base_happiness = 50
 cost = 150
 ```
@@ -125,6 +127,8 @@ Edit `data/items/items.toml`:
 [items.super_cookie]
 name = "Super Cookie"
 image = "super_cookie.png"
+width = 32
+height = 32
 cost = 100
 nutrition = 50
 fun = 20
@@ -156,9 +160,16 @@ This project follows a modular structure separating core engine features from ga
     -   `components.py`: **Generic Components** (e.g., `Transform`, `Sprite`).
     -   `yukkuri_components.py`: **Game-Specific Components** (e.g., `YukkuriStats`, `Personality`).
     -   `entity_factory.py`: Centralized factory for creating entities.
-    -   `game_manager.py`: Orchestrates high-level game flow.
     -   `services.py`: Game Services (Economy, Time, Persistence, Input).
     -   `yukkurrium.py`: World rendering and camera management.
+
+-   `src/yukkuri_game/scenes/`: **Scene Management**
+    -   `main_menu.py`: The main menu screen.
+    -   `gameplay.py`: The main gameplay loop and initialization.
+
+-   `src/yukkuri_game/testing/`: **Testing Infrastructure**
+    -   `driver.py`: Automated game driver for headless testing.
+    -   `environment.py`: Context manager for headless environment setup.
 
 -   `data/`: **Data-Driven Configuration**
     -   Contains TOML files defining game content and rules.
@@ -187,7 +198,7 @@ def calculate_quality_score(self, yukkuri_stats: YukkuriStats) -> int:
 ```
 
 ### Testing
-Run tests using `pytest`:
+Run tests using `pytest`. The tests use a headless driver to simulate game logic without a window.
 ```bash
 pytest
 ```
