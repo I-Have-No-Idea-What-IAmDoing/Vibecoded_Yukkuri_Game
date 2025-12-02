@@ -187,3 +187,12 @@ class LoadGameRequest:
     Request to load a game.
     """
     filename: str = "savegame"
+
+@dataclass
+class LevelUpEvent:
+    """
+    Event triggered when a Yukkuri levels up a skill.
+    """
+    entity_id: int
+    skill_id: str
+    new_level: int
