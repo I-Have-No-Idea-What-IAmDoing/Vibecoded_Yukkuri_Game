@@ -8,6 +8,7 @@ from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.engine.serializer import WorldSerializer
 from src.yukkuri_game.game.components_persistence import StableIDComponent, Persistable
 from src.yukkuri_game.game.components import Transform, Selectable
+from src.yukkuri_game.engine.types import EntityID
 
 @dataclasses.dataclass
 class SampleComponent:
@@ -76,16 +77,16 @@ def test_msgpack_persistence():
 
 @dataclass
 class SafeRefComponent:
-    entity_id: int = -1
-    target_id: int = -1
+    entity_id: EntityID = EntityID(-1)
+    target_id: EntityID = EntityID(-1)
     sprite_id: int = 0  # Should NOT be remapped implicitly
 
 @dataclass
 class DictComponent:
-    threats: Dict[int, int] = field(default_factory=dict) # Key=ID, Value=Amount. Should remap Key.
-    metadata: Dict[int, str] = field(default_factory=dict) # Key=ID, Value=String. Should remap Key.
+    threats: Dict[EntityID, int] = field(default_factory=dict) # Key=ID, Value=Amount. Should remap Key.
+    metadata: Dict[EntityID, str] = field(default_factory=dict) # Key=ID, Value=String. Should remap Key.
 
-    _references = {"threats", "metadata"}
+    # _references = {"threats", "metadata"} # Removed as we use type introspection now
 
 class TestSerializerFix:
     @pytest.fixture(autouse=True)

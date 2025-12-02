@@ -6,6 +6,7 @@ from typing import Dict, Optional, Set
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
 from ..engine.data_models import AnimationDefinition
+from ..engine.types import EntityID
 
 @dataclass
 class PhysicsBody:
@@ -128,16 +129,16 @@ class InteractionRequest:
     Component requesting an interaction with another entity.
 
     Attributes:
-        target_id (int): The ID of the target entity.
+        target_id (EntityID): The ID of the target entity.
         consume (bool): Whether to consume the target (e.g. eat it).
-        interaction_type (str): The type of interaction (optional).
+        action (str): The specific action (e.g. "Talk", "Eat").
     """
-    target_id: int
+    target_id: EntityID
     consume: bool = True
-    interaction_type: str = "DEFAULT"
+    action: str = "DEFAULT"
 
     # Metadata for serialization remapping
-    _references: Set[str] = field(default_factory=lambda: {"target_id"}, repr=False, init=False)
+    # _references: Set[str] = field(default_factory=lambda: {"target_id"}, repr=False, init=False)
 
 @dataclass
 class MovementController:

@@ -10,7 +10,7 @@ from collections import deque
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ..components import Transform
+from ..components import Transform, InteractionRequest
 from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState, Skills
 from ..trait_service import TraitService
 from ..skill_service import SkillService
@@ -66,6 +66,17 @@ class SocialSystem(System):
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
 
+        # Process Interaction Requests (Talk/Fight/Dance etc)
+        # We look for InteractionRequest with specific actions (not "Eat" which is handled by HungerSystem)
+        # Note: HungerSystem might have already processed food items, so here we mostly see Social.
+
+        entities_with_requests = list(world.get_components_tuple(InteractionRequest, Transform))
+        for entity_id, (request, _) in entities_with_requests:
+            if request.action in ["Talk", "Fight", "Dance"]:
+                self.process_interaction_request(world, entity_id, request)
+                if world.has_component(entity_id, InteractionRequest):
+                    world.remove_component(entity_id, InteractionRequest)
+
         # Update Relationships (Cleanup & Opinion Update)
         all_entities = world.get_entities_with(RelationshipRegistry)
         if not all_entities:
@@ -100,6 +111,22 @@ class SocialSystem(System):
                     del registry.relationships[rid]
 
         self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(1, count)
+
+    def process_interaction_request(self, world: World, initiator_id: int, request: InteractionRequest) -> None:
+        """
+        Process a direct social interaction request from the behavior tree.
+        """
+        target_id = request.target_id
+        action = request.action
+
+        if not world.entity_exists(target_id):
+            return
+
+        # Perform the interaction logic
+        self.register_interaction(world, initiator_id, target_id, action)
+
+        # Dispatch event for other listeners (e.g. GossipSystem)
+        self.event_bus.publish(SocialInteractionEvent(initiator_id, target_id, action))
 
     def _update_opinion(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData, force_compatibility_update: bool = False) -> None:
         """

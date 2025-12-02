@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Set, Dict, Any, Optional, List, Deque
 from collections import deque
 from ..engine.ecs import Component
+from ..engine.types import EntityID
 
 @dataclass
 class PersonalityAxis:
@@ -290,28 +291,28 @@ class RelationshipRegistry:
     Component tracking social relationships and family ties.
 
     Attributes:
-        relationships (Dict[int, RelationshipData]): Map of EntityID to RelationshipData.
-        biological_parents (List[int]): List of parent entity IDs.
-        biological_children (List[int]): List of children entity IDs.
-        family_group_id (Optional[int]): ID of the family group they belong to.
-        mate_id (Optional[int]): ID of the mate entity.
+        relationships (Dict[EntityID, RelationshipData]): Map of EntityID to RelationshipData.
+        biological_parents (List[EntityID]): List of parent entity IDs.
+        biological_children (List[EntityID]): List of children entity IDs.
+        family_group_id (Optional[EntityID]): ID of the family group they belong to.
+        mate_id (Optional[EntityID]): ID of the mate entity.
     """
-    relationships: Dict[int, RelationshipData] = field(default_factory=dict)
-    biological_parents: List[int] = field(default_factory=list)
-    biological_children: List[int] = field(default_factory=list)
-    family_group_id: Optional[int] = None
-    mate_id: Optional[int] = None
+    relationships: Dict[EntityID, RelationshipData] = field(default_factory=dict)
+    biological_parents: List[EntityID] = field(default_factory=list)
+    biological_children: List[EntityID] = field(default_factory=list)
+    family_group_id: Optional[EntityID] = None
+    mate_id: Optional[EntityID] = None
 
     # Metadata for serialization remapping
     # Fields that contain EntityIDs that need remapping
-    _references: Set[str] = field(default_factory=lambda: {"relationships", "biological_parents", "biological_children", "family_group_id", "mate_id"}, repr=False, init=False)
+    # _references: Set[str] = field(default_factory=lambda: {"relationships", "biological_parents", "biological_children", "family_group_id", "mate_id"}, repr=False, init=False)
 
 @dataclass
 class GossipPacket:
     """
     Represents a single piece of gossip or social information.
     """
-    target_id: int
+    target_id: EntityID
     event_type: str
     value: float
     timestamp: float = 0.0
@@ -374,23 +375,23 @@ class AIState:
 
     Attributes:
         current_action (str): The name of the current action.
-        current_target_id (int): The ID of the current target entity.
+        current_target_id (EntityID): The ID of the current target entity.
         path (Optional[List[Any]]): The current navigation path.
         action_progress (float): Progress of the current action (0.0 to 1.0).
         state_data (Optional[Dict[str, Any]]): Arbitrary data for the current state.
-        failed_targets (Set[int]): Set of target IDs that failed recently.
+        failed_targets (Set[EntityID]): Set of target IDs that failed recently.
         manual_override (bool): Whether AI is overridden by manual control.
     """
     current_action: str = "Idle"
-    current_target_id: int = -1
+    current_target_id: EntityID = EntityID(-1)
     path: Optional[List[Any]] = None
     action_progress: float = 0.0
     state_data: Optional[Dict[str, Any]] = None
-    failed_targets: Set[int] = field(default_factory=set)
+    failed_targets: Set[EntityID] = field(default_factory=set)
     manual_override: bool = False
 
     # Metadata for serialization remapping
-    _references: Set[str] = field(default_factory=lambda: {"current_target_id", "failed_targets"}, repr=False, init=False)
+    # _references: Set[str] = field(default_factory=lambda: {"current_target_id", "failed_targets"}, repr=False, init=False)
 
 @dataclass
 class ItemStats:

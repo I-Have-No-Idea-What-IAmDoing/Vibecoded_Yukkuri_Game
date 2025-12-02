@@ -407,56 +407,15 @@ class GameService:
     def interact_with_item(self, consumer_id: int, item_id: int, consume: bool = True) -> bool:
         """
         Logic for a Yukkuri interacting with (eating) an item.
-
-        Args:
-            consumer_id (int): The ID of the Yukkuri.
-            item_id (int): The ID of the Item.
-            consume (bool): Whether the item should be destroyed after interaction.
-
-        Returns:
-            bool: True if interaction was successful, False otherwise.
+        DEPRECATED: Use HungerSystem.
         """
-        if not self.world.entity_exists(consumer_id) or not self.world.entity_exists(item_id):
-            return False
-
-        item_stats = self.world.get_component(item_id, ItemStats)
-        yukkuri_stats = self.world.get_component(consumer_id, YukkuriStats)
-        emotional = self.world.get_component(consumer_id, EmotionalState)
-
-        if item_stats and yukkuri_stats:
-            if item_stats.nutrition > 0:
-                yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
-
-            if item_stats.fun > 0 and emotional:
-                emotional.happiness = min(100, emotional.happiness + item_stats.fun)
-
-            if item_stats.comfort > 0:
-                yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
-
-            # Apply Scavenging XP
-            from .skill_service import SkillService
-            skill_service = self.world.services.try_get(SkillService)
-            if skill_service:
-                # Award XP for successfully finding and using an item
-                skill_service.add_xp(consumer_id, SkillId.SCAVENGING, 5.0)
-
-            audio = self.world.services.try_get(AudioManager)
-
-            if consume:
-                if audio:
-                    audio.play_sound("eat")
-                self.world.destroy_entity(item_id)
-                if self.world.has_component(item_id, Transform):
-                    self.world.remove_component(item_id, Transform)
-
-                ai = self.world.get_component(consumer_id, AIState)
-                if ai and ai.current_target_id == item_id:
-                    ai.current_target_id = -1
-            else:
-                pass
-
+        # Forwarding to system logic or issuing request is possible, but for refactoring
+        # we should identify callers and update them.
+        # For now, we'll issue an InteractionRequest component so HungerSystem picks it up.
+        from .components import InteractionRequest
+        if self.world.entity_exists(consumer_id):
+            self.world.add_component(consumer_id, InteractionRequest(item_id, consume=consume))
             return True
-
         return False
 
     def interact_social(self, initiator_id: int, target_id: int, interaction_type: str) -> bool:

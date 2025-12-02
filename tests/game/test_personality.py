@@ -38,8 +38,17 @@ class MockResourceManager:
         }
 
 def test_trait_service_loading():
-    # This assumes data/traits/traits.toml exists as created
-    service = TraitService()
+    # Fix: Need world and resource manager for TraitService
+    from yukkuri_game.engine.resource_manager import ResourceManager
+    from yukkuri_game.engine.data_models import TraitDefinition
+
+    world = World()
+    rm = MagicMock(spec=ResourceManager)
+    rm.traits = {"GESU": {"name": "Gesu"}, "NICE": {}}
+    rm.interactions = {"Hit": {}}
+    world.services.register(rm, ResourceManager)
+
+    service = TraitService(world)
     assert "GESU" in service.traits
     assert "NICE" in service.traits
 
@@ -82,8 +91,23 @@ def test_utility_engine_overrides():
 
 def test_social_system():
     world = World()
-    ts = TraitService()
-    world.services.register(ts) # Fix registration
+
+    # Mock TraitService
+    ts = MagicMock(spec=TraitService)
+    from yukkuri_game.engine.data_models import InteractionDefinition
+    # We are using dicts or structs?
+    # TraitService loads structs, but mocks might be dicts unless convert
+    # SocialSystem uses _get_attr helper, so dict is fine.
+
+    # Mock Interaction: Hit
+    hit_data = {
+        "base_impact": -10.0,
+        "social_impact": {"affinity": -10.0, "fear": 5.0}
+    }
+
+    ts.get_interaction.side_effect = lambda name: hit_data if name == "Hit" else None
+
+    world.services.register(ts, TraitService)
     event_bus = EventBus()
 
     sys = SocialSystem(event_bus)

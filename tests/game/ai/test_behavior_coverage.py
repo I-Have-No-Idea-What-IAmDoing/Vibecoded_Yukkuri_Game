@@ -77,6 +77,11 @@ def test_interact_fallback():
     assert world.has_component(e1, InteractionRequest)
 
     # Process interaction to verify logic (equivalent to old fallback test)
+    # Updated: Need HungerSystem for food interactions
+    from yukkuri_game.game.systems.hunger_system import HungerSystem
+    hunger_sys = HungerSystem()
+    hunger_sys.update(world, 0.1)
+
     system = InteractionSystem()
     system.update(world, 0.1)
 

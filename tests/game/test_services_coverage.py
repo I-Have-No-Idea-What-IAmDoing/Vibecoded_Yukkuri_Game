@@ -228,9 +228,16 @@ class TestGameService:
         result = service.interact_with_item(consumer, item, consume=True)
 
         assert result is True
-        assert y_stats.hunger == 40
-        assert y_emotional.happiness == 55
-        mock_world.destroy_entity.assert_called_with(item)
+        # DEPRECATED: HungerSystem now handles logic, so these assertions are invalid here
+        # assert y_stats.hunger == 40
+        # assert y_emotional.happiness == 55
+        # mock_world.destroy_entity.assert_called_with(item)
+
+        # Verify InteractionRequest added
+        mock_world.add_component.assert_called()
+        args = mock_world.add_component.call_args[0]
+        assert args[0] == consumer
+        assert args[1].target_id == item
 
     def test_interact_social_fight(self, mock_world):
         # Mock world.services
