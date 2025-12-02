@@ -137,6 +137,13 @@ class InteractionSystem(System):
                 if self.audio:
                     self.audio.play_sound("eat")
 
+                # Award Scavenging XP
+                from ..skill_service import SkillService
+                from ..skill_constants import SkillId
+                skill_service = world.services.try_get(SkillService)
+                if skill_service:
+                    skill_service.add_xp(entity, SkillId.SCAVENGING.value, 5.0)
+
                 # Destroy the item
                 world.destroy_entity(target_id)
 

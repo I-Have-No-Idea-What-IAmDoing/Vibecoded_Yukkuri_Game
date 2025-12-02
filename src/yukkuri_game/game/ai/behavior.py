@@ -716,7 +716,10 @@ class FindItem(Action):
 
         if game_service:
             best_item = game_service.find_best_item(
-                (trans.x, trans.y), self.stat_criteria, exclude_ids=ai.failed_targets
+                (trans.x, trans.y),
+                self.stat_criteria,
+                exclude_ids=ai.failed_targets,
+                observer_id=self.entity_id
             )
 
         if best_item != -1:

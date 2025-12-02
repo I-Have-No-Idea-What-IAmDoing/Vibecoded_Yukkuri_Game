@@ -24,8 +24,6 @@ class SkillService:
 
     def __init__(self, world: World):
         self.world = world
-        # skills_data is now accessed via ResourceManager
-        # self.skills_data: Dict[str, SkillDefinition] = {}
         pass
 
     def get_skills_data(self) -> Dict[str, "SkillDefinition"]:
@@ -110,22 +108,17 @@ class SkillService:
 
         skills_comp = self.world.get_component(entity, Skills)
         if skill_id not in skills_comp.states:
-            return # Or initialize?
+            return
 
         state = skills_comp.states[skill_id]
         skills_data = self.get_skills_data()
         skill_def = skills_data.get(skill_id)
 
-        # Apply Passion Multiplier
-        # Note: Intelligence modifier mentioned in plan, but Intelligence stat isn't in YukkuriStats yet.
-        # Assuming 10.0 default for now or ignoring if not present.
+        # Intelligence modifier (placeholder)
         intelligence = 10.0
-
-        # Try to get stats from YukkuriStats
         from .yukkuri_components import YukkuriStats
         stats = self.world.get_component(entity, YukkuriStats)
         if stats:
-            # If YukkuriStats has intelligence in the future, usage:
             # intelligence = getattr(stats, "intelligence", 10.0)
             pass
 
@@ -133,23 +126,8 @@ class SkillService:
 
         # Soft Cap Logic
         soft_cap_base = skill_def.soft_cap_base_level if skill_def else 10
-        # Passion affects soft cap: BaseCap + (Passion * 2) - approximate logic from plan
-        # Plan says: Cap_level = BaseCap + (Passion * 2). Passion is a multiplier (0.5, 1.0, 2.5).
-        # So for Burning (2.5), cap increases by 5. For None (0.5), cap increases by 1?
-        # Wait, if Passion is multiplier, usually modifiers are additive to base?
-        # "High passion correlating to higher softcap".
-        # Let's use the multiplier value directly as proposed.
+        # Passion affects soft cap: BaseCap + (Passion * 2)
         soft_cap_level = soft_cap_base + int(state.passion * 2)
-
-        # Check trait offsets if any? (Store them in state? No, calculate dynamically?
-        # Modifiers were applied at initialization to passion.
-        # Trait modifiers in TOML: "soft_cap_offset".
-        # I need to store soft_cap_offset in SkillState or look it up every time.
-        # Storing is better for performance, but SkillState schema didn't have it.
-        # I'll re-lookup traits if I want perfection, or just assume the plan's initialized passion handles it?
-        # Plan 4.3 says: `soft_cap_offset = -2`.
-        # So I should probably check traits again or store offset.
-        # I'll skip offset for now to keep it simple or check traits if available.
 
         if state.level >= soft_cap_level:
             xp_gain *= 0.1
@@ -157,11 +135,12 @@ class SkillService:
         state.current_xp += xp_gain
 
         # Update timestamp
-        # Import TimeService locally to avoid circular dependency
         from .services import TimeService
         time_svc = self.world.services.try_get(TimeService)
         if time_svc:
             state.last_used_gametime = time_svc.time_elapsed
+            # Reset decay timer so we don't decay immediately after use
+            state.last_decay_gametime = time_svc.time_elapsed
 
         # Check Level Up
         required = self.get_xp_required(state.level)
@@ -232,6 +211,7 @@ class SkillService:
     def apply_decay(self, entity: int, current_gametime: float) -> None:
         """
         Applies decay to skills based on time since last use.
+        Decay only starts after a 1-day grace period of disuse.
 
         Args:
             entity (int): The entity ID.
@@ -250,50 +230,31 @@ class SkillService:
                 continue
 
             decay_rate = skill_def.decay_rate
-
             if decay_rate <= 0:
                 continue
 
-            # Initialize last_decay if it's 0 (first run)
             if state.last_decay_gametime == 0.0:
                 state.last_decay_gametime = current_gametime
                 continue
 
-            # Check if enough time has passed since last decay check
-            # We decay based on time passed since last decay check
-            time_since_last_decay = current_gametime - state.last_decay_gametime
+            # Decay logic:
+            # We want to decay only for the duration that is BEYOND (last_used + 1 day).
 
-            # Decay accumulates over time, but we only apply if unused for a threshold?
-            # Proposal: "Decay can occur if last_used is too old... Loss = DecayRate * (DaysSinceLastUse - 1.0)"
-            # This formula calculates INSTANTANEOUS loss rate or TOTAL loss?
-            # "XP lost per day if unused".
-            # If unused for 1.5 days, loss = Rate * 0.5.
-            # If unused for 2.0 days, loss = Rate * 1.0.
-            # If we apply this every frame, we need to be careful.
-            # Better approach: Calculate loss for the `dt` since `last_decay_gametime`,
-            # BUT scaled by how "deep" we are into the unused period.
+            threshold_time = state.last_used_gametime + SECONDS_PER_DAY
 
-            days_unused = (current_gametime - state.last_used_gametime) / SECONDS_PER_DAY
+            # The start of the decay calculation interval is either the last time we checked,
+            # or the threshold time, whichever is later.
+            start_calc_time = max(state.last_decay_gametime, threshold_time)
+            end_calc_time = current_gametime
 
-            if days_unused > 1.0:
-                # We are in decay zone.
-                # How much time passed since last decay update?
-                decay_dt_days = time_since_last_decay / SECONDS_PER_DAY
+            if end_calc_time > start_calc_time:
+                # Calculate duration in days
+                dt_days = (end_calc_time - start_calc_time) / SECONDS_PER_DAY
 
-                # Loss for this period
-                # Formula: Rate * (DaysUnused - 1).
-                # Actually, standard decay usually is Rate * dt,
-                # but here the RATE depends on how long it's been unused?
-                # "Loss = DecayRate * (DaysSinceLastUse - 1.0)" looks like a formula for Total Loss over a period?
-                # Or maybe "Loss per day = DecayRate * (DaysSinceLastUse - 1.0)"?
-                # i.e. The longer you wait, the faster it decays?
-                # OR implies a threshold: 1 day grace period. After that, linear decay?
-                # Let's assume linear decay after 1 day grace period.
-                # Rate = DecayRate per day.
+                loss = decay_rate * dt_days
 
-                loss = decay_rate * decay_dt_days
-
+                # Ensure we don't drop below 0 for current level progress
                 state.current_xp = max(0.0, state.current_xp - loss)
 
-            # Update last_decay_gametime
+            # Update last_decay_gametime to now
             state.last_decay_gametime = current_gametime

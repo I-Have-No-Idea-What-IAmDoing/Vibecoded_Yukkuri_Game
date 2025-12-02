@@ -356,7 +356,7 @@ class GameService:
         """
         self.world = world
 
-    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: Set[int] | None = None) -> int:
+    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: Set[int] | None = None, observer_id: int = -1) -> int:
         """
         Finds the best item near a position based on criteria.
 
@@ -364,6 +364,7 @@ class GameService:
             position (tuple[float, float]): The search origin (x, y).
             stat_criteria (str): The ItemStats attribute to maximize (e.g. "nutrition").
             exclude_ids (Set[int] | None): IDs to ignore.
+            observer_id (int): The entity ID looking for the item. Used for skill checks.
 
         Returns:
             int: The ID of the best item, or -1 if none found.
@@ -374,6 +375,16 @@ class GameService:
 
         if exclude_ids is None:
             exclude_ids = set()
+
+        # Calculate perception radius based on Scavenging skill
+        perception_radius = 300.0 # Base radius
+        if observer_id != -1 and self.world.entity_exists(observer_id):
+            skills = self.world.get_component(observer_id, yukkuri_components.Skills)
+            if skills:
+                scavenging_state = skills.states.get(SkillId.SCAVENGING.value)
+                if scavenging_state:
+                    # +20 radius per level
+                    perception_radius += scavenging_state.level * 20.0
 
         items = self.world.get_entities_with(ItemStats, Transform)
 
@@ -386,6 +397,11 @@ class GameService:
 
             if istats and itrans and getattr(istats, stat_criteria, 0.0) > 0:
                 d = math.hypot(itrans.x - position[0], itrans.y - position[1])
+
+                # Check if within perception radius
+                if d > perception_radius:
+                    continue
+
                 if d < best_dist:
                     best_dist = d
                     best_item = item
