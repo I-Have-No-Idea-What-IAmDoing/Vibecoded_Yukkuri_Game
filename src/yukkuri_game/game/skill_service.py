@@ -12,6 +12,7 @@ from .skill_constants import SkillId, PassionLevel
 from .services import TimeService
 from .trait_service import TraitService
 from ..engine.resource_manager import ResourceManager
+from ..engine.data_models import TraitDefinition
 
 class SkillService:
     """
@@ -84,17 +85,8 @@ class SkillService:
             if not trait_data:
                 continue
 
-            # Use getattr because TraitDefinition is a struct, but for compatibility
-            # with existing TraitService that might return dict (if unmodified) or struct (if modified)
-            # I should verify TraitService return type.
-            # Assuming TraitService will be updated to return struct, but let's be safe.
-            # Actually, TraitService hasn't been updated yet.
-
-            skill_modifiers = {}
-            if isinstance(trait_data, dict):
-                 skill_modifiers = trait_data.get("skill_modifiers", {})
-            else:
-                 skill_modifiers = getattr(trait_data, "skill_modifiers", {})
+            # TraitDefinition is a msgspec.Struct.
+            skill_modifiers = trait_data.skill_modifiers
 
             for skill_id_str, mods in skill_modifiers.items():
                 if skill_id_str in skills.states:

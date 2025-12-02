@@ -11,8 +11,9 @@ from collections import deque
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ..components import Transform
-from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState
+from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState, Skills
 from ..trait_service import TraitService
+from ..skill_service import SkillService
 from ..services import TimeService
 from ..events import SocialInteractionEvent
 from ..prefabs.effects import create_floating_text
@@ -24,6 +25,7 @@ class SocialSystem(System):
 
     Attributes:
         trait_service (Optional[TraitService]): The trait service.
+        skill_service (Optional[SkillService]): The skill service.
         cleanup_index (int): Index for partial update loop.
         cleanup_batch_size (int): Number of entities to process per frame.
         event_bus (EventBus): The event bus.
@@ -39,6 +41,7 @@ class SocialSystem(System):
         """
         super().__init__()
         self.trait_service: Optional[TraitService] = None
+        self.skill_service: Optional[SkillService] = None
         self.cleanup_index = 0
         self.cleanup_batch_size = 10
         self.event_bus = event_bus
@@ -57,6 +60,8 @@ class SocialSystem(System):
         """
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
+        if not self.skill_service:
+            self.skill_service = world.services.try_get(SkillService)
 
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
@@ -132,10 +137,17 @@ class SocialSystem(System):
             # Traits compatibility
             for my_trait in subject_pers.traits:
                 trait_data = self.trait_service.get_trait(my_trait)
-                if not trait_data or "social_modifiers" not in trait_data:
+                # trait_data is TraitDefinition (Struct)
+                if not trait_data:
                     continue
 
-                social_mods = trait_data["social_modifiers"]
+                # Access social_modifiers.
+                # Defensively check if dict or object.
+                if isinstance(trait_data, dict):
+                    social_mods = trait_data.get("social_modifiers", {})
+                else:
+                    social_mods = getattr(trait_data, "social_modifiers", {})
+
                 if "compatibility" not in social_mods:
                     continue
 
@@ -163,6 +175,36 @@ class SocialSystem(System):
             return
         self.register_interaction(self.ecs_world, event.initiator_id, event.target_id, event.interaction_type)
 
+    def _check_condition(self, world: World, entity_id: int, condition: Dict[str, Any]) -> bool:
+        """
+        Checks if a condition is met by the entity.
+
+        Args:
+            world (World): The ECS World.
+            entity_id (int): The entity to check.
+            condition (Dict[str, Any]): The condition definition.
+
+        Returns:
+            bool: True if condition is met.
+        """
+        cond_type = condition.get("type")
+        if cond_type == "skill_check":
+            skill_id = condition.get("skill")
+            min_level = condition.get("min_level", 0)
+            skills = world.get_component(entity_id, Skills)
+            if skills and skill_id in skills.states:
+                return skills.states[skill_id].level >= min_level
+            return False # Skill not found -> Fail
+
+        # Add other condition types here (e.g. stat check)
+        return True
+
+    def _get_attr(self, obj: Any, key: str, default: Any = None) -> Any:
+        """Helper to get attribute from dict or object."""
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
+
     def register_interaction(self, world: World, actor_id: int, target_id: int, interaction_name: str) -> None:
         """
         Registers a social interaction, applying effects to both parties.
@@ -178,10 +220,21 @@ class SocialSystem(System):
             if not self.trait_service:
                 return
 
+        if not self.skill_service:
+            self.skill_service = world.services.try_get(SkillService)
+
         interaction_data = self.trait_service.get_interaction(interaction_name)
         if not interaction_data:
             logger.warning(f"Unknown interaction: {interaction_name}")
             return
+
+        # Check conditions (e.g. Skill Requirements)
+        conditions = self._get_attr(interaction_data, "conditions", [])
+        if conditions:
+            for cond in conditions:
+                if not self._check_condition(world, actor_id, cond):
+                    logger.debug(f"Interaction {interaction_name} failed condition: {cond}")
+                    return
 
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
@@ -190,7 +243,13 @@ class SocialSystem(System):
         self._apply_impact(world, target_id, actor_id, interaction_data, role="target", now=now)
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
 
-    def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Dict[str, Any]) -> None:
+        # Award XP for Socialization
+        if self.skill_service:
+            xp_amount = 10.0
+            self.skill_service.add_xp(actor_id, "socialization", xp_amount)
+
+
+    def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Any) -> None:
         """
         Spawns visual feedback (floating text/icon) for the interaction.
 
@@ -198,14 +257,14 @@ class SocialSystem(System):
             world (World): The ECS World.
             entity_id (int): The entity to show feedback on.
             interaction_name (str): The name of the interaction.
-            data (Dict[str, Any]): The interaction data definition.
+            data (Any): The interaction data definition.
         """
         trans = world.get_component(entity_id, Transform)
         if not trans: return
 
         text = "!"
         color = (255, 255, 255)
-        base_impact = data.get("base_impact", 0.0)
+        base_impact = self._get_attr(data, "base_impact", 0.0)
 
         if interaction_name in ["Talk", "Greet"]:
             text = "♪"
@@ -228,7 +287,7 @@ class SocialSystem(System):
         fy = trans.y - 30
         create_floating_text(world, fx, fy, text, color, size=24, lifetime=1.5)
 
-    def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Dict[str, Any], role: str, now: float) -> None:
+    def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Any, role: str, now: float) -> None:
         """
         Applies the social impact of an interaction to a subject.
 
@@ -236,7 +295,7 @@ class SocialSystem(System):
             world (World): The ECS World.
             subject_id (int): The entity receiving the impact.
             other_id (int): The other entity involved.
-            data (Dict[str, Any]): Interaction data.
+            data (Any): Interaction data.
             role (str): "actor" or "target".
             now (float): Current timestamp.
         """
@@ -249,12 +308,15 @@ class SocialSystem(System):
         rel = registry.relationships[other_id]
         rel.last_update = now
 
-        social_impact = data.get("social_impact", {})
-        base_impact_score = data.get("base_impact", 0.0)
+        social_impact = self._get_attr(data, "social_impact", {})
+        base_impact_score = self._get_attr(data, "base_impact", 0.0)
+        modifiers = self._get_attr(data, "modifiers", {})
+        event_type = self._get_attr(data, "type", "GENERIC")
 
         # Calculate deltas based on traits and personality
+        # Pass other_id (the person interacting with subject) for skill checks
         d_affinity, d_trust, d_fear, d_familiarity = self._calculate_impact_deltas(
-            world, subject_id, social_impact, data.get("modifiers", {}), base_impact_score
+            world, subject_id, other_id, social_impact, modifiers, base_impact_score
         )
 
         # Update Emotional State
@@ -266,7 +328,7 @@ class SocialSystem(System):
         rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
 
         # Add Memory and Update Opinion
-        self._add_memory_headline(world, rel, base_impact_score, d_affinity, data.get("type", "GENERIC"), now)
+        self._add_memory_headline(world, rel, base_impact_score, d_affinity, event_type, now)
         self._update_opinion(world, subject_id, other_id, rel)
 
     def _get_or_create_registry(self, world: World, entity_id: int) -> RelationshipRegistry:
@@ -286,13 +348,14 @@ class SocialSystem(System):
             world.add_component(entity_id, registry)
         return registry
 
-    def _calculate_impact_deltas(self, world: World, subject_id: int, social_impact: Dict[str, float], modifiers: Dict[str, Dict[str, float]], base_impact_score: float) -> tuple[float, float, float, float]:
+    def _calculate_impact_deltas(self, world: World, subject_id: int, other_id: int, social_impact: Dict[str, float], modifiers: Dict[str, Dict[str, float]], base_impact_score: float) -> tuple[float, float, float, float]:
         """
         Calculates impact deltas considering personality and traits.
 
         Args:
             world (World): The ECS World.
             subject_id (int): The subject ID.
+            other_id (int): The other entity ID (Actor).
             social_impact (Dict): Base social impact map.
             modifiers (Dict): Trait modifiers map.
             base_impact_score (float): Base impact score.
@@ -314,6 +377,39 @@ class SocialSystem(System):
                     d_affinity += mod.get("affinity", 0.0)
                     d_trust += mod.get("trust", 0.0)
                     d_fear += mod.get("fear", 0.0)
+
+            # Handle Skill Modifiers (Check OTHER/ACTOR skills)
+            skills = world.get_component(other_id, Skills)
+            if skills:
+                for key, mod in modifiers.items():
+                    # Parse "skill:social > 10"
+                    if key.startswith("skill:"):
+                        try:
+                            # Split "skill:social > 10"
+                            # Expected format: skill:{skill_id} > {level}
+                            # Let's simple split by space
+                            parts = key.split(' ')
+                            if len(parts) >= 3:
+                                skill_ref = parts[0].split(':')[1] # "social"
+                                op = parts[1] # ">"
+                                val = int(parts[2]) # 10
+
+                                if skill_ref in skills.states:
+                                    level = skills.states[skill_ref].level
+                                    match = False
+                                    if op == ">": match = level > val
+                                    elif op == ">=": match = level >= val
+                                    elif op == "<": match = level < val
+                                    elif op == "<=": match = level <= val
+                                    elif op == "==": match = level == val
+
+                                    if match:
+                                        d_affinity += mod.get("affinity", 0.0)
+                                        d_trust += mod.get("trust", 0.0)
+                                        d_fear += mod.get("fear", 0.0)
+                        except Exception:
+                            logger.error(f"Failed to parse skill modifier key: {key}")
+
 
             kindness = 0
             if subject_personality.axis:
