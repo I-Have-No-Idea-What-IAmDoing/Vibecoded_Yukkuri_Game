@@ -95,6 +95,14 @@ class YukkuriStats(Component):
     quality_score: float = 0.0
     discipline: float = 0.0
 
+    def get_intelligence(self) -> float:
+        """
+        Derives an intelligence factor from stats (currently Discipline).
+        Returns a multiplier, typically around 0.5 to 1.5.
+        """
+        # Map discipline 0-100 to 0.5-1.5
+        return 0.5 + (self.discipline / 100.0)
+
     def calculate_value(self, emotional_state: Optional["EmotionalState"] = None) -> int:
         """
         Calculates the value of the Yukkuri based on stats and emotional state.
