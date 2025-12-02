@@ -78,6 +78,13 @@ class SocialSettings(msgspec.Struct): # type: ignore[misc]
     max_gossip_length: int = 10
     witness_threshold: float = 5.0
 
+class SkillsSettings(msgspec.Struct): # type: ignore[misc]
+    """
+    Configuration for skill system.
+    """
+    xp_base: float = 100.0
+    xp_exponent: float = 1.5
+
 class RulesFile(msgspec.Struct): # type: ignore[misc]
     """
     Represents the structure of the rules.toml file.
@@ -86,10 +93,12 @@ class RulesFile(msgspec.Struct): # type: ignore[misc]
         stat_decay (StatDecaySettings): The stat decay configuration.
         lifecycle (LifecycleSettings): The lifecycle configuration.
         social (SocialSettings): The social system configuration.
+        skills (SkillsSettings): The skill system configuration.
     """
     stat_decay: StatDecaySettings = msgspec.field(default_factory=StatDecaySettings)
     lifecycle: LifecycleSettings = msgspec.field(default_factory=LifecycleSettings)
     social: SocialSettings = msgspec.field(default_factory=SocialSettings)
+    skills: SkillsSettings = msgspec.field(default_factory=SkillsSettings)
 
 class GameConfig(msgspec.Struct): # type: ignore[misc]
     """

@@ -91,7 +91,7 @@ def test_xp_gain_and_leveling(world):
     skills = Skills()
     skills.states[SkillId.ATHLETICS] = SkillState(level=0, current_xp=0.0)
     world.add_component(e, skills)
-    world.add_component(e, YukkuriStats(name="Test", type_id="test"))
+    world.add_component(e, YukkuriStats(name="Test", type_id="test", discipline=50.0))
 
     skill_service = world.services.get(SkillService)
 
@@ -116,7 +116,7 @@ def test_trait_modifiers(world):
     personality = Personality(traits={"ATHLETIC"})
     world.add_component(e, skills)
     world.add_component(e, personality)
-    world.add_component(e, YukkuriStats(name="Test", type_id="test"))
+    world.add_component(e, YukkuriStats(name="Test", type_id="test", discipline=50.0))
 
     skill_service = world.services.get(SkillService)
     skill_service.initialize_skills(e)
@@ -184,7 +184,7 @@ def test_soft_cap(world):
     state = SkillState(level=12, current_xp=0.0, passion=1.0)
     skills.states[SkillId.ATHLETICS] = state
     world.add_component(e, skills)
-    world.add_component(e, YukkuriStats(name="Test", type_id="test"))
+    world.add_component(e, YukkuriStats(name="Test", type_id="test", discipline=50.0))
 
     skill_service = world.services.get(SkillService)
 

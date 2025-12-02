@@ -15,14 +15,16 @@ from ..engine.event_bus import EventBus
 from .events import LevelUpEvent
 from ..engine.resource_manager import ResourceManager
 from ..engine.data_models import TraitDefinition
+from ..config import SkillsSettings
 
 class SkillService:
     """
     Manages skills for entities.
     """
 
-    def __init__(self, world: World):
+    def __init__(self, world: World, settings: Optional[SkillsSettings] = None):
         self.world = world
+        self.settings = settings if settings else SkillsSettings()
         self.skill_definitions: Dict[str, Any] = {}
         self.load_skill_definitions()
 
@@ -130,14 +132,11 @@ class SkillService:
         # Intelligence factor.
         # We don't have an explicit INT stat in YukkuriStats yet.
         # We can use discipline as a proxy (0-100) -> 0.5 to 1.5?
-        # Or just use 1.0 for now.
-        # Plan says: (Intelligence / 10.0). If Intelligence is ~10.
         stats = self.world.get_component(entity_id, YukkuriStats)
         int_factor = 1.0
         if stats:
-            # Map discipline 0-100 to 0.5-1.5? Or maybe just use 1.0 for now.
-            # Let's assume standard is 1.0.
-            int_factor = 1.0
+            # Map discipline 0-100 to 0.5-1.5
+            int_factor = 0.5 + (stats.discipline / 100.0)
 
         final_xp = amount * state.passion * int_factor * gain_multiplier
 
@@ -166,8 +165,8 @@ class SkillService:
             required = self.get_required_xp(state.level)
 
     def get_required_xp(self, level: int) -> float:
-        """Formula: 100 * (1.5)^L"""
-        return 100.0 * (1.5 ** level)
+        """Formula: Base * (Exponent)^L"""
+        return self.settings.xp_base * (self.settings.xp_exponent ** level)
 
     def apply_decay(self, entity_id: int):
         """
