@@ -349,9 +349,6 @@ class GameService:
             world (World): The ECS World instance.
         """
         self.world = world
-        self._social_system = None
-        self._hunger_system = None
-
     def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: Set[int] | None = None, searcher_id: int = -1) -> int:
         """
         Finds the best item near a position based on criteria.
@@ -374,16 +371,13 @@ class GameService:
             exclude_ids = set()
 
         # Calculate Search Radius based on Scavenging Skill
-        max_radius = float('inf')
+        max_radius = BASE_SCAVENGING_RADIUS
         if searcher_id != -1 and self.world.entity_exists(searcher_id):
             skills = self.world.get_component(searcher_id, Skills)
             if skills and SkillId.SCAVENGING in skills.states:
                 level = skills.states[SkillId.SCAVENGING].level
                 # Base radius 500 + 50 per level
                 max_radius = BASE_SCAVENGING_RADIUS + (level * SCAVENGING_RADIUS_PER_LEVEL)
-            else:
-                # Default radius for unskilled
-                max_radius = BASE_SCAVENGING_RADIUS
 
         items = self.world.get_entities_with(ItemStats, Transform)
 
@@ -406,79 +400,3 @@ class GameService:
                     best_item = item
 
         return best_item
-
-    def interact_social(self, initiator_id: int, target_id: int, action: str) -> bool:
-        """
-        Performs a social interaction between two entities.
-
-        Note: This method is a wrapper around the ECS system logic to support legacy/test calls.
-        It immediately executes the interaction logic via SocialSystem.
-
-        Args:
-            initiator_id (int): The entity initiating the action.
-            target_id (int): The target entity.
-            action (str): The type of interaction (e.g., "Talk", "Fight").
-
-        Returns:
-            bool: True if interaction was processed.
-        """
-        if not self.world.entity_exists(initiator_id) or not self.world.entity_exists(target_id):
-            return False
-
-        # Create request component
-        request = InteractionRequest(target_id=target_id, action=action)
-
-        # Instantiate system temporarily if not in world (or reuse logic)
-        # We need EventBus for SocialSystem
-        if not self._social_system:
-             # Lazy import to avoid circular dependency
-             from .systems.social_system import SocialSystem
-
-             event_bus = self.world.services.try_get(EventBus)
-             if not event_bus:
-                 # Create a dummy one if missing (e.g. in simple tests)
-                 event_bus = EventBus()
-             self._social_system = SocialSystem(event_bus)
-
-        # Manually trigger processing
-        self._social_system.process_interaction_request(self.world, initiator_id, request)
-
-        return True
-
-    def interact_with_item(self, entity_id: int, item_id: int, consume: bool = True) -> bool:
-        """
-        Performs an interaction with an item (consumption).
-
-        Note: This method is a wrapper around the ECS system logic to support legacy/test calls.
-
-        Args:
-            entity_id (int): The consumer.
-            item_id (int): The item.
-            consume (bool): Whether to consume the item.
-
-        Returns:
-            bool: True if interaction was processed.
-        """
-        if not self.world.entity_exists(entity_id) or not self.world.entity_exists(item_id):
-            return False
-
-        request = InteractionRequest(target_id=item_id, consume=consume)
-
-        if not self._hunger_system:
-            # Lazy import to avoid circular dependency
-            from .systems.hunger_system import HungerSystem
-            self._hunger_system = HungerSystem()
-
-        # Manually trigger processing
-        # Need to fetch components manually to pass to _process_consumption
-        transform = self.world.get_component(entity_id, Transform)
-        stats = self.world.get_component(entity_id, YukkuriStats)
-        item_stats = self.world.get_component(item_id, ItemStats)
-
-        if transform and stats and item_stats:
-            self._hunger_system._process_consumption(
-                self.world, entity_id, request, transform, stats, item_id, item_stats
-            )
-            return True
-
-        return False

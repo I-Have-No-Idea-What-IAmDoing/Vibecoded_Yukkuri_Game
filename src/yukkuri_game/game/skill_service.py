@@ -100,7 +100,7 @@ class SkillService:
     def add_xp(self, entity_id: int, skill_id: str, amount: float):
         """
         Adds XP to a skill.
-        Formula: XP_gain = Base * Passion * (Intelligence / 10.0)
+        Formula: XP_gain = Base * Passion * IntelligenceFactor * SoftCapMultiplier
         Intelligence is roughly derived from Discipline or Learning stat if available.
         For now we use 1.0 as intellience multiplier default or based on stats.
         """

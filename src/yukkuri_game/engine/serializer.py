@@ -219,6 +219,8 @@ class WorldSerializer:
                                     new_dict[k] = v
                             setattr(component, field_name, new_dict)
 
+        logger.info(f"Loaded {len(entities_data)} entities from data")
+
     def _is_entity_ref(self, tp: Type) -> bool:
         """Check if type is EntityID or Optional[EntityID]"""
         if tp is EntityID:
@@ -247,5 +249,3 @@ class WorldSerializer:
             if args and self._is_entity_ref(args[0]):
                 return True
         return False
-
-        logger.info(f"Loaded {len(entities_data)} entities from data")
