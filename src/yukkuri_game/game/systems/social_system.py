@@ -13,7 +13,7 @@ from ...engine.event_bus import EventBus
 from ...engine.audio import AudioManager
 from ..utils.evaluator import ConditionEvaluator
 from ..components import Transform, InteractionRequest
-from ..yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState, Skills
+from ..yukkuri_components import YukkuriStats, Needs, RelationshipRegistry, RelationshipData, MemoryHeadline, Personality, EmotionalState, Skills
 from ..trait_service import TraitService
 from ..skill_service import SkillService
 from ..services import TimeService
@@ -325,17 +325,18 @@ class SocialSystem(System):
             impact (Dict[str, float]): Map of stat name to change amount (e.g. {"health": -5.0}).
         """
         stats = world.get_component(entity_id, YukkuriStats)
+        needs = world.get_component(entity_id, Needs)
         emotional = world.get_component(entity_id, EmotionalState)
 
-        if stats:
+        if needs:
             if "health" in impact:
-                stats.health = max(0.0, min(stats.max_health, stats.health + impact["health"]))
+                needs.health = max(0.0, min(needs.max_health, needs.health + impact["health"]))
             if "energy" in impact:
-                stats.energy = max(0.0, min(100.0, stats.energy + impact["energy"]))
+                needs.energy = max(0.0, min(100.0, needs.energy + impact["energy"]))
             if "hunger" in impact:
-                stats.hunger = max(0.0, min(100.0, stats.hunger + impact["hunger"]))
+                needs.hunger = max(0.0, min(100.0, needs.hunger + impact["hunger"]))
             if "cleanliness" in impact:
-                stats.cleanliness = max(0.0, min(100.0, stats.cleanliness + impact["cleanliness"]))
+                needs.cleanliness = max(0.0, min(100.0, needs.cleanliness + impact["cleanliness"]))
 
         if emotional:
             if "happiness" in impact:

@@ -4,7 +4,7 @@ Module defining the LifecycleSystem logic.
 import random
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ..yukkuri_components import YukkuriStats, AIState, Dead, EmotionalState
+from ..yukkuri_components import YukkuriStats, Needs, AIState, Dead, EmotionalState
 from ..components import Sprite, Transform, PhysicsBody
 from ..events import EntityDiedEvent, EntityGrewEvent
 from ...config import LifecycleSettings
@@ -56,13 +56,13 @@ class LifecycleSystem(System):
         """
         event_bus = world.services.try_get(EventBus)
 
-        for entity, (stats,) in world.get_components_tuple(YukkuriStats):
+        for entity, (stats, needs) in world.get_components_tuple(YukkuriStats, Needs):
             # Skip if already dead
             if world.has_component(entity, Dead):
                 continue
 
-            if stats.health <= 0:
-                stats.health = 0
+            if needs.health <= 0:
+                needs.health = 0
                 logger.info(f"{stats.name} has died.")
 
                 # Tag as Dead
@@ -97,7 +97,7 @@ class LifecycleSystem(System):
         Returns:
             None
         """
-        for entity, (stats, transform) in world.get_components_tuple(YukkuriStats, Transform):
+        for entity, (stats, needs, transform) in world.get_components_tuple(YukkuriStats, Needs, Transform):
             if world.has_component(entity, Dead):
                 continue
 
@@ -105,13 +105,13 @@ class LifecycleSystem(System):
 
             # Baby -> Child
             if stats.growth_stage == "Baby" and stats.age >= self.settings.baby_age_threshold:
-                self._grow_entity(world, entity, stats, transform, "Child", 1.5)
+                self._grow_entity(world, entity, stats, needs, transform, "Child", 1.5)
 
             # Child -> Adult
             elif stats.growth_stage == "Child" and stats.age >= self.settings.child_age_threshold:
-                self._grow_entity(world, entity, stats, transform, "Adult", 4.0 / 3.0)
+                self._grow_entity(world, entity, stats, needs, transform, "Adult", 4.0 / 3.0)
 
-    def _grow_entity(self, world: World, entity: int, stats: YukkuriStats, transform: Transform, new_stage: str, scale_multiplier: float) -> None:
+    def _grow_entity(self, world: World, entity: int, stats: YukkuriStats, needs: Needs, transform: Transform, new_stage: str, scale_multiplier: float) -> None:
         """
         Performs the growth transition.
 
@@ -119,6 +119,7 @@ class LifecycleSystem(System):
             world (World): The ECS World.
             entity (int): The entity ID.
             stats (YukkuriStats): The entity's stats.
+            needs (Needs): The entity's needs.
             transform (Transform): The entity's transform.
             new_stage (str): The new growth stage.
             scale_multiplier (float): The scale multiplier.
@@ -135,11 +136,11 @@ class LifecycleSystem(System):
 
         # Adjust Stats
         if new_stage == "Child":
-            stats.max_health += 50
+            needs.max_health += 50
 
-        stats.health += 50 # Heal on growth
-        if stats.health > stats.max_health:
-            stats.health = stats.max_health
+        needs.health += 50 # Heal on growth
+        if needs.health > needs.max_health:
+            needs.health = needs.max_health
 
         # Adjust Physics Body if it exists
         physics = world.get_component(entity, PhysicsBody)
@@ -170,7 +171,7 @@ class LifecycleSystem(System):
         Returns:
             None
         """
-        for entity, (stats, transform) in world.get_components_tuple(YukkuriStats, Transform):
+        for entity, (stats, needs, transform) in world.get_components_tuple(YukkuriStats, Needs, Transform):
             if world.has_component(entity, Dead):
                 continue
 
@@ -184,13 +185,13 @@ class LifecycleSystem(System):
                 happiness = emotional.happiness
 
             if (happiness >= self.settings.breeding_happiness_threshold and
-                stats.energy >= self.settings.breeding_energy_threshold):
+                needs.energy >= self.settings.breeding_energy_threshold):
 
                 # Chance to breed
                 if random.random() < self.settings.breeding_chance:
-                    self._breed(world, entity, stats, transform)
+                    self._breed(world, entity, stats, needs, transform)
 
-    def _breed(self, world: World, parent_entity: int, parent_stats: YukkuriStats, parent_transform: Transform) -> None:
+    def _breed(self, world: World, parent_entity: int, parent_stats: YukkuriStats, parent_needs: Needs, parent_transform: Transform) -> None:
         """
         Executes breeding action.
 
@@ -198,6 +199,7 @@ class LifecycleSystem(System):
             world (World): The ECS World.
             parent_entity (int): The parent entity ID.
             parent_stats (YukkuriStats): The parent's stats.
+            parent_needs (Needs): The parent's needs.
             parent_transform (Transform): The parent's transform.
 
         Returns:
@@ -206,7 +208,7 @@ class LifecycleSystem(System):
         logger.info(f"{parent_stats.name} is breeding!")
 
         # Reduce energy
-        parent_stats.energy -= self.settings.breeding_cost
+        parent_needs.energy -= self.settings.breeding_cost
 
         # Spawn Baby
         # Offset position slightly

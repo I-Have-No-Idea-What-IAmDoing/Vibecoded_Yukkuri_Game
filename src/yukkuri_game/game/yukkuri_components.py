@@ -66,59 +66,68 @@ class EmotionalState(Component):
                 return "Depressed/Sulking"
 
 @dataclass
-class YukkuriStats(Component):
+class Needs(Component):
     """
-    Component containing the statistics and state of a Yukkuri.
+    Component containing the physiological needs of a Yukkuri.
 
     Attributes:
-        name (str): Name of the Yukkuri.
-        type_id (str): Type identifier.
         health (float): Current health.
         max_health (float): Maximum health.
         hunger (float): Current hunger (0-100).
         social (float): Current social satisfaction (0-100).
         energy (float): Current energy (0-100).
         cleanliness (float): Current cleanliness (0-100).
-        age (float): Current age in seconds.
-        growth_stage (str): Current growth stage (e.g., "Baby", "Adult").
-        badges (int): Number of badges earned.
-        quality_score (float): Calculated quality score.
-        discipline (float): Current discipline level (0-100).
+        bladder (float): Current bladder fullness (0-100).
+        easiness (float): Overall happiness stat (0-100).
     """
-    name: str
-    type_id: str
     health: float = 100.0
     max_health: float = 100.0
     hunger: float = 0.0
     social: float = 50.0
     energy: float = 100.0
     cleanliness: float = 100.0
+    bladder: float = 0.0
+    easiness: float = 50.0
+
+@dataclass
+class YukkuriStats(Component):
+    """
+    Component containing the statistics of a Yukkuri.
+
+    Attributes:
+        name (str): Name of the Yukkuri.
+        type_id (str): Type identifier.
+        age (float): Current age in seconds.
+        growth_stage (str): Current growth stage (e.g., "Baby", "Adult").
+        badges (int): Number of badges earned.
+        quality_score (float): Calculated quality score.
+        discipline (float): Current discipline level (0-100).
+        intelligence (float): Intelligence stat.
+    """
+    name: str
+    type_id: str
     age: float = 0.0
     growth_stage: str = "Baby"
     badges: int = 0
     quality_score: float = 0.0
     discipline: float = 0.0
+    intelligence: float = 1.0
 
     def get_intelligence(self, stats_config: Optional["StatsSettings"] = None) -> float:
         """
-        Derives an intelligence factor from stats (currently Discipline).
-        Returns a multiplier, typically around 0.5 to 1.5.
+        Returns the intelligence stat.
 
         Args:
-            stats_config (Optional[StatsSettings]): Config for stats.
+            stats_config (Optional[StatsSettings]): Config for stats (unused now, kept for compatibility).
         """
-        base = 0.5
-        if stats_config:
-            base = stats_config.intelligence_base
+        return self.intelligence
 
-        # Map discipline 0-100 to base - (base + 1.0)
-        return base + (self.discipline / 100.0)
-
-    def calculate_value(self, emotional_state: Optional["EmotionalState"] = None, stats_config: Optional["StatsSettings"] = None) -> int:
+    def calculate_value(self, needs: Optional["Needs"] = None, emotional_state: Optional["EmotionalState"] = None, stats_config: Optional["StatsSettings"] = None) -> int:
         """
         Calculates the value of the Yukkuri based on stats and emotional state.
 
         Args:
+            needs (Optional[Needs]): The needs component.
             emotional_state (Optional[EmotionalState]): The emotional state component.
             stats_config (Optional[StatsSettings]): Config for stats value calculation.
 
@@ -138,8 +147,10 @@ class YukkuriStats(Component):
         if emotional_state:
             score += (emotional_state.happiness + 100)
         score += self.badges * badge_val
-        if self.health < self.max_health:
-            score -= (self.max_health - self.health) * health_penalty
+
+        if needs and needs.health < needs.max_health:
+            score -= (needs.max_health - needs.health) * health_penalty
+
         score += int(self.age / 60) * age_bonus
         return int(score)
 

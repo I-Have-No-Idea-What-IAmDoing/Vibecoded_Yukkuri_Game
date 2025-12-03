@@ -7,7 +7,7 @@ import json
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.services import EconomyService, PersistenceService, TimeService
 from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, ItemStats
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.game.components_persistence import StableIDComponent, Persistable
@@ -131,8 +131,9 @@ def test_persistence_round_trip(setup_world: tuple[World, PersistenceService]) -
 
     # Add an entity without Transform to test "get_all_entities"
     broken_id = world.create_entity()
-    # Just add YukkuriStats
-    world.add_component(broken_id, YukkuriStats(type_id="reimu", name="Broken", max_health=100, health=100))
+    # Just add YukkuriStats and Needs
+    world.add_component(broken_id, YukkuriStats(type_id="reimu", name="Broken"))
+    world.add_component(broken_id, Needs(max_health=100, health=100))
     world.add_component(broken_id, StableIDComponent(id=world.get_next_stable_id()))
     world.add_component(broken_id, Persistable())
 

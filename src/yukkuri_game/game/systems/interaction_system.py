@@ -7,7 +7,7 @@ from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
 from ..components import Transform, InteractionRequest
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState, Personality, EmotionalState
+from ..yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, Personality, EmotionalState
 from ..trait_service import TraitService
 from .hunger_system import HungerSystem
 from .social_system import SocialSystem
@@ -133,7 +133,9 @@ class InteractionSystem(System):
         if target_stats and request.consume:
             if self._check_predation_allowed(world, entity):
                 # Execute Predation
-                stats.hunger = max(0, stats.hunger - 50.0) # Big meal
+                needs = world.get_component(entity, Needs)
+                if needs:
+                    needs.hunger = max(0, needs.hunger - 50.0) # Big meal
                 if self.audio:
                     self.audio.play_sound("eat") # Crunch?
 

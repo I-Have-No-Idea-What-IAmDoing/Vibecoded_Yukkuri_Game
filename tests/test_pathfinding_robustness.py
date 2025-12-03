@@ -4,7 +4,7 @@ import pymunk
 from unittest.mock import MagicMock
 from yukkuri_game.game.ai.behavior import MoveToTarget
 from yukkuri_game.game.components import Transform, PhysicsBody, MovementController
-from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats
+from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, Needs
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.services import GameService
 from yukkuri_game.game.ai.navigation_service import NavigationService
@@ -19,6 +19,7 @@ class TestPathfindingRobustness(unittest.TestCase):
         self.world.add_component(self.entity_id, Transform(x=0, y=0))
         self.world.add_component(self.entity_id, AIState())
         self.world.add_component(self.entity_id, YukkuriStats(name="Test", type_id="test"))
+        self.world.add_component(self.entity_id, Needs(energy=100.0))
         self.world.add_component(self.entity_id, MovementController())
 
         # Mock Physics

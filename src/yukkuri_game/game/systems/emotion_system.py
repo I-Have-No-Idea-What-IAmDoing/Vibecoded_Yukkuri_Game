@@ -3,7 +3,7 @@ Module defining the EmotionSystem logic (formerly StatDecaySystem).
 """
 from typing import Optional
 from ...engine.ecs import System, World
-from ..yukkuri_components import YukkuriStats, Dead, Personality, EmotionalState, Skills
+from ..yukkuri_components import YukkuriStats, Needs, Dead, Personality, EmotionalState, Skills
 from ..trait_service import TraitService
 from ..services import TimeService
 from ..skill_service import SkillService
@@ -66,8 +66,8 @@ class EmotionSystem(System):
 
                 self.last_day_index = current_day_index
 
-        # Iterate over entities with YukkuriStats
-        for entity, (stats,) in world.get_components_tuple(YukkuriStats):
+        # Iterate over entities with YukkuriStats and Needs
+        for entity, (stats, needs) in world.get_components_tuple(YukkuriStats, Needs):
             if world.has_component(entity, Dead):
                 continue
 
@@ -101,26 +101,26 @@ class EmotionSystem(System):
                         mult_stress *= mods.get("stress_decay", 1.0)
 
             # Decay physical stats
-            stats.hunger += self.settings.hunger * mult_hunger * dt
-            stats.energy -= self.settings.energy * mult_energy * dt
+            needs.hunger += self.settings.hunger * mult_hunger * dt
+            needs.energy -= self.settings.energy * mult_energy * dt
             stats.age += self.settings.age * dt
-            stats.cleanliness -= self.settings.cleanliness * mult_cleanliness * dt
+            needs.cleanliness -= self.settings.cleanliness * mult_cleanliness * dt
 
             if hasattr(self.settings, 'social'):
-                 stats.social -= self.settings.social * mult_social * dt
+                 needs.social -= self.settings.social * mult_social * dt
             else:
-                 stats.social -= 1.0 * mult_social * dt
+                 needs.social -= 1.0 * mult_social * dt
 
             # Health decay due to starvation
-            if stats.hunger >= 100.0:
-                stats.health -= self.settings.starvation_damage * dt
+            if needs.hunger >= 100.0:
+                needs.health -= self.settings.starvation_damage * dt
 
             # Clamp physical stats
-            stats.hunger = min(100, max(0, stats.hunger))
-            stats.energy = min(100, max(0, stats.energy))
-            stats.cleanliness = min(100, max(0, stats.cleanliness))
-            stats.social = min(100, max(0, stats.social))
-            stats.health = min(stats.max_health, max(0, stats.health))
+            needs.hunger = min(100, max(0, needs.hunger))
+            needs.energy = min(100, max(0, needs.energy))
+            needs.cleanliness = min(100, max(0, needs.cleanliness))
+            needs.social = min(100, max(0, needs.social))
+            needs.health = min(needs.max_health, max(0, needs.health))
 
             # Update Emotional State
             if emotional_state:

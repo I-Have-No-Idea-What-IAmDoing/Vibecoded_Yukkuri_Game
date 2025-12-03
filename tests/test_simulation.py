@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, MovementController
-from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, AIState, ItemStats
 from yukkuri_game.game.systems.behavior import BehaviorSystem
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.game.systems.interaction_system import InteractionSystem
@@ -26,7 +26,8 @@ def simulation_world() -> tuple[World, int, int]:
     # Create Yukkuri
     yukkuri = world.create_entity()
     world.add_component(yukkuri, Transform(x=0, y=0))
-    world.add_component(yukkuri, YukkuriStats(name="Test", type_id="test", hunger=50))
+    world.add_component(yukkuri, YukkuriStats(name="Test", type_id="test"))
+    world.add_component(yukkuri, Needs(hunger=50))
     world.add_component(yukkuri, AIState())
     world.add_component(yukkuri, MovementController())
     # We don't add PhysicsBody so MoveToTarget modifies Transform directly
@@ -61,20 +62,20 @@ def test_simulation_update_decay(simulation_world: tuple[World, int, int], syste
     _, stat_decay_system, _, _ = systems
 
     # Initial stats
-    stats = world.get_component(yukkuri, YukkuriStats)
-    initial_hunger = stats.hunger
-    initial_cleanliness = stats.cleanliness
+    needs = world.get_component(yukkuri, Needs)
+    initial_hunger = needs.hunger
+    initial_cleanliness = needs.cleanliness
 
     dt = 1.0
     stat_decay_system.update(world, dt)
 
     # Hunger increases, Cleanliness decreases
-    assert stats.hunger > initial_hunger
-    assert stats.cleanliness < initial_cleanliness
+    assert needs.hunger > initial_hunger
+    assert needs.cleanliness < initial_cleanliness
 
     # Check specific values based on settings (2.0 per sec)
-    assert stats.hunger == initial_hunger + 2.0
-    assert stats.cleanliness == initial_cleanliness - 2.0
+    assert needs.hunger == initial_hunger + 2.0
+    assert needs.cleanliness == initial_cleanliness - 2.0
 
 def test_simulation_action_eat(simulation_world: tuple[World, int, int], systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]) -> None:
     """
@@ -124,7 +125,7 @@ def test_simulation_action_eat(simulation_world: tuple[World, int, int], systems
         trans.y += controller.target_velocity.y * 0.1
 
     # Next tick should Interact
-    stats = world.get_component(yukkuri, YukkuriStats)
+    needs = world.get_component(yukkuri, Needs)
 
     behavior_system.update(world, 0.1)
 
@@ -132,7 +133,13 @@ def test_simulation_action_eat(simulation_world: tuple[World, int, int], systems
     # Updated: Need HungerSystem for food
     from yukkuri_game.game.systems.hunger_system import HungerSystem
     hunger_system = HungerSystem()
-    hunger_system.update(world, 0.1)
+    # Register HungerSystem as service because InteractionSystem expects it there
+    world.services.register(hunger_system, HungerSystem)
+
+    # InteractionSystem needs to find HungerSystem via services
+    # (Previously I was calling hunger_system.update which is wrong pattern for system dependency)
+    # The previous test failed because HungerSystem wasn't available to InteractionSystem.
+    # In my fix I just instantiated it locally but InteractionSystem uses world.services.try_get(HungerSystem)
 
     # InteractionSystem runs cleanup/other interactions
     interaction_system.update(world, 0.1)
@@ -143,7 +150,7 @@ def test_simulation_action_eat(simulation_world: tuple[World, int, int], systems
     # Check stats updated
     # Initial 50. Nutrition 20. Should be 30.
     # Note: EmotionSystem is not running here so no decay added.
-    assert stats.hunger == 30.0
+    assert needs.hunger == 30.0
 
 def test_simulation_action_wander(simulation_world: tuple[World, int, int], systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]) -> None:
     """

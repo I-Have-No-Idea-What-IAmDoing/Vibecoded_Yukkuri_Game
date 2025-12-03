@@ -7,7 +7,7 @@ from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.audio import AudioManager
 from ..components import Transform
-from ..yukkuri_components import YukkuriStats, EmotionalState
+from ..yukkuri_components import YukkuriStats, Needs, EmotionalState
 from ..services import EconomyService
 from ..events import (
     TrainEntityRequest,
@@ -70,14 +70,17 @@ class GameRulesSystem(System):
             int: The value the entity was sold for.
         """
         stats = self.ecs_world.get_component(entity, YukkuriStats)
+        needs = self.ecs_world.get_component(entity, Needs)
         emotional_state = self.ecs_world.get_component(entity, EmotionalState)
+
         if stats:
             # Get Config
             from ...config import GameConfig
             config = self.ecs_world.services.try_get(GameConfig)
             stats_config = config.rules.stats if config else None
 
-            value = max(0, stats.calculate_value(emotional_state, stats_config=stats_config))
+            # Assuming calculate_value now takes needs
+            value = max(0, stats.calculate_value(needs, emotional_state, stats_config=stats_config))
             economy = self.ecs_world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}")
@@ -146,9 +149,11 @@ class GameRulesSystem(System):
             None
         """
         stats = self.ecs_world.get_component(event.entity_id, YukkuriStats)
+        needs = self.ecs_world.get_component(event.entity_id, Needs)
         emotional_state = self.ecs_world.get_component(event.entity_id, EmotionalState)
-        if stats:
-            stats.health = max(0.0, stats.health - 10.0)
+
+        if stats and needs:
+            needs.health = max(0.0, needs.health - 10.0)
             if emotional_state:
                 emotional_state.happiness = max(-100.0, emotional_state.happiness - 20.0)
                 emotional_state.stress = min(100.0, emotional_state.stress + 20.0)
@@ -163,4 +168,4 @@ class GameRulesSystem(System):
                 audio.play_sound("hit")
 
             self.event_bus.publish(EntityPunishedEvent(event.entity_id, position))
-            logger.info(f"Punished entity {event.entity_id}. Health: {stats.health}, Discipline: {stats.discipline}")
+            logger.info(f"Punished entity {event.entity_id}. Health: {needs.health}, Discipline: {stats.discipline}")

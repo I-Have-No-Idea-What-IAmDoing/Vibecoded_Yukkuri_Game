@@ -4,7 +4,7 @@ Module defining the PoopSystem logic.
 import random
 import math
 from ...engine.ecs import System, World
-from ..yukkuri_components import YukkuriStats, Poop, AIState
+from ..yukkuri_components import YukkuriStats, Needs, Poop, AIState
 from ..components import Transform
 from ..prefabs.item import create_poop
 
@@ -41,15 +41,21 @@ class PoopSystem(System):
         """
         # 1. Spawning Poop
         # Iterate over Yukkuris
-        for entity, (stats, transform, ai) in world.get_components_tuple(YukkuriStats, Transform, AIState):
+        for entity, (stats, needs, transform, ai) in world.get_components_tuple(YukkuriStats, Needs, Transform, AIState):
             should_poop = False
 
             # Periodic/Random spawning logic
             if random.random() < self.spawn_chance_per_second * dt:
                 should_poop = True
 
+            # Bladder Logic
+            # If bladder is full, they must poop (or pee? Poop component handles "waste")
+            if needs.bladder > 80.0:
+                 if random.random() < 0.1 * dt: # High chance when full
+                     should_poop = True
+
             # Or if cleanliness is very low (lose control)
-            if stats.cleanliness < 10.0:
+            if needs.cleanliness < 10.0:
                  if random.random() < (self.spawn_chance_per_second * 5) * dt:
                      should_poop = True
 
@@ -61,7 +67,9 @@ class PoopSystem(System):
 
                 # Feedback: Pooping might raise cleanliness slightly (relief) or lower it (dirty)?
                 # Let's say they get a bit dirtier by pooping.
-                stats.cleanliness = max(0, stats.cleanliness - 5)
+                needs.cleanliness = max(0, needs.cleanliness - 5)
+                # Reset bladder
+                needs.bladder = 0.0
 
         # 2. Environmental Effect
         # Find all poop entities
@@ -75,11 +83,11 @@ class PoopSystem(System):
             if p_trans is None:
                 continue
 
-            for y_ent, (y_stats, y_trans) in world.get_components_tuple(YukkuriStats, Transform):
+            for y_ent, (y_stats, y_needs, y_trans) in world.get_components_tuple(YukkuriStats, Needs, Transform):
                 # Distance check
                 dist_sq = (p_trans.x - y_trans.x)**2 + (p_trans.y - y_trans.y)**2
 
                 if dist_sq < self.poop_radius**2:
                     # Constant decay if within radius
-                    y_stats.cleanliness -= self.smell_strength * dt
-                    y_stats.cleanliness = max(0, y_stats.cleanliness)
+                    y_needs.cleanliness -= self.smell_strength * dt
+                    y_needs.cleanliness = max(0, y_needs.cleanliness)

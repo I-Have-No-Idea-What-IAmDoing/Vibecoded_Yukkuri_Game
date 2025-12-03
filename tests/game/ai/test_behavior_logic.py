@@ -10,7 +10,7 @@ from yukkuri_game.game.ai.behavior import (
 )
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, PhysicsBody, InteractionRequest, MovementController
-from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, ItemStats
+from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, Needs, ItemStats
 from yukkuri_game.game.ai.navigation_service import NavigationService
 from yukkuri_game.game.services import GameService
 
@@ -36,6 +36,7 @@ class TestMoveToTarget:
         ai = MagicMock(current_target_id=2, path=[(100, 100)], state_data={})
         trans = MagicMock(x=99, y=99) # Close to target
         stats = MagicMock() # YukkuriStats
+        needs = MagicMock(energy=100) # Needs
         controller = MagicMock() # MovementController
 
         def get_component(e, c):
@@ -43,6 +44,7 @@ class TestMoveToTarget:
                 if c == AIState: return ai
                 if c == Transform: return trans
                 if c == YukkuriStats: return stats
+                if c == Needs: return needs
                 if c == MovementController: return controller
             if e == 2:
                 if c == Transform: return MagicMock(x=100, y=100)
@@ -62,7 +64,8 @@ class TestMoveToTarget:
 
         ai = MagicMock(current_target_id=2, path=None, state_data={})
         trans = MagicMock(x=0, y=0)
-        stats = MagicMock(energy=100) # Ensure energy comparison works
+        stats = MagicMock()
+        needs = MagicMock(energy=100) # Ensure energy comparison works
         controller = MagicMock()
 
         nav_service = MagicMock(spec=NavigationService)
@@ -75,6 +78,7 @@ class TestMoveToTarget:
                 if c == AIState: return ai
                 if c == Transform: return trans
                 if c == YukkuriStats: return stats
+                if c == Needs: return needs
                 if c == MovementController: return controller
             if e == 2:
                 if c == Transform: return MagicMock(x=100, y=100)

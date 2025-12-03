@@ -22,7 +22,7 @@ from ..components import (
     Velocity,
 )
 from ..services import GameService
-from ..yukkuri_components import AIState, ItemStats, YukkuriStats, EmotionalState
+from ..yukkuri_components import AIState, ItemStats, YukkuriStats, Needs, EmotionalState
 from .base_action import Action
 from .navigation_service import NavigationService
 from .utility_selector import UtilitySelector
@@ -70,10 +70,10 @@ class MoveToTarget(Action):
 
         ai = self.world.get_component(self.entity_id, AIState)
         trans = self.world.get_component(self.entity_id, Transform)
-        stats = self.world.get_component(self.entity_id, YukkuriStats)
+        needs = self.world.get_component(self.entity_id, Needs)
         controller = self.world.get_component(self.entity_id, MovementController)
 
-        if ai is None or trans is None or stats is None or controller is None:
+        if ai is None or trans is None or needs is None or controller is None:
             return Status.FAILURE
 
         target_pos = None
@@ -154,7 +154,7 @@ class MoveToTarget(Action):
         # Calculate final velocity
         # Simple speed modifier based on energy
         speed_modifier = 1.0
-        if stats.energy < 30:
+        if needs.energy < 30:
             speed_modifier = 0.5
 
         final_speed = self.speed * speed_modifier

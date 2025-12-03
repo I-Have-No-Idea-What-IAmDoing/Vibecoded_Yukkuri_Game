@@ -8,7 +8,7 @@ from loguru import logger
 from .utility import UtilityAIEngine
 from .base_action import Action
 
-from ..yukkuri_components import AIState, YukkuriStats, Personality, EmotionalState, Skills
+from ..yukkuri_components import AIState, YukkuriStats, Needs, Personality, EmotionalState, Skills
 from ..components import Transform
 from ..trait_service import TraitService
 from ..skill_service import SkillService
@@ -90,12 +90,13 @@ class UtilitySelector(Action):
             self.trait_service = self.world.services.try_get(TraitService)
 
         stats = self.world.get_component(self.entity_id, YukkuriStats)
+        needs = self.world.get_component(self.entity_id, Needs)
         personality = self.world.get_component(self.entity_id, Personality)
         emotional = self.world.get_component(self.entity_id, EmotionalState)
         skills = self.world.get_component(self.entity_id, Skills)
 
-        if not stats:
-            logger.warning(f"UtilitySelector: Entity {self.entity_id} Missing YukkuriStats component")
+        if not stats or not needs:
+            logger.warning(f"UtilitySelector: Entity {self.entity_id} Missing YukkuriStats or Needs component")
             return Status.FAILURE
 
         # Build Context for Utility Evaluation
@@ -138,16 +139,18 @@ class UtilitySelector(Action):
             stress = emotional.stress
 
         context = {
-            "hunger": stats.hunger,
-            "hunger_inv": 100.0 - stats.hunger, # Inverse hunger (Satiety)
-            "energy": stats.energy,
-            "energy_inv": 100.0 - stats.energy, # Inverse energy (Tiredness)
+            "hunger": needs.hunger,
+            "hunger_inv": 100.0 - needs.hunger, # Inverse hunger (Satiety)
+            "energy": needs.energy,
+            "energy_inv": 100.0 - needs.energy, # Inverse energy (Tiredness)
             "happiness": happiness,
             "happiness_inv": 100.0 - happiness, # Sadness
-            "social": stats.social,
-            "social_inv": 100.0 - stats.social,
+            "social": needs.social,
+            "social_inv": 100.0 - needs.social,
             "stress": stress,
-            "cleanliness": stats.cleanliness,
+            "cleanliness": needs.cleanliness,
+            "bladder": needs.bladder, # Added Bladder
+            "easiness": needs.easiness, # Added Easiness
             "nearby_friends": float(nearby_friends),
             "nearby_enemies": float(nearby_enemies),
             "constant_100": 100.0,

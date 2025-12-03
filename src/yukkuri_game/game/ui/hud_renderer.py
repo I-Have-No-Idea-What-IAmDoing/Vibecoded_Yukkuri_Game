@@ -5,7 +5,7 @@ import pygame
 from typing import TYPE_CHECKING, List
 from ...engine.ecs import World
 from ..components import Transform
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState, Skills
+from ..yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState, Skills
 from ..services import InputService, EconomyService, TimeService
 from ..skill_service import SkillService
 from ...config import GameConfig
@@ -167,8 +167,9 @@ class HudRenderer:
         if hovered_id != -1 and self.world.entity_exists(hovered_id):
              # Get minimal stats
             ystats = self.world.get_component(hovered_id, YukkuriStats)
-            if ystats:
-                text = f"<b>{ystats.name}</b><br>HP: {int(ystats.health)}"
+            needs = self.world.get_component(hovered_id, Needs)
+            if ystats and needs:
+                text = f"<b>{ystats.name}</b><br>HP: {int(needs.health)}"
             else:
                 istats = self.world.get_component(hovered_id, ItemStats)
                 if istats:
@@ -200,15 +201,16 @@ class HudRenderer:
 
             for eid in selected_entities:
                 ystats = self.world.get_component(eid, YukkuriStats)
+                needs = self.world.get_component(eid, Needs)
                 emotional = self.world.get_component(eid, EmotionalState)
-                if ystats:
+                if ystats and needs:
                     yukkuris_count += 1
-                    total_hp += ystats.health
-                    total_hunger += ystats.hunger
+                    total_hp += needs.health
+                    total_hunger += needs.hunger
                     if emotional:
                         total_happiness += emotional.happiness
 
-                    total_value += ystats.calculate_value(emotional, stats_config=stats_config)
+                    total_value += ystats.calculate_value(needs, emotional, stats_config=stats_config)
 
                     breed = ystats.type_id.capitalize()
                     yukkuri_breeds[breed] = yukkuri_breeds.get(breed, 0) + 1
@@ -247,9 +249,10 @@ class HudRenderer:
         elif len(selected_entities) == 1:
             selected_entity = selected_entities[0]
             stats = self.world.get_component(selected_entity, YukkuriStats)
+            needs = self.world.get_component(selected_entity, Needs)
             emotional = self.world.get_component(selected_entity, EmotionalState)
 
-            if stats:
+            if stats and needs:
                 ai_state = self.world.get_component(selected_entity, AIState)
                 action = ai_state.current_action if ai_state else "None"
 
@@ -278,8 +281,8 @@ class HudRenderer:
                         f"<b>Traits:</b> {traits_str}<br>"
                         f"<b>Mood:</b> {mood_str}<br>"
                         f"<br>"
-                        f"<b>Health:</b> {int(stats.health)}<br>"
-                        f"<b>Hunger:</b> {int(stats.hunger)}<br>"
+                        f"<b>Health:</b> {int(needs.health)}<br>"
+                        f"<b>Hunger:</b> {int(needs.hunger)}<br>"
                         f"<b>Happiness:</b> {happiness}<br>"
                         f"<b>Stress:</b> {stress}<br>"
                         f"<b>Badges:</b> {stats.badges}<br>"

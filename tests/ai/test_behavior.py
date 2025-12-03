@@ -5,7 +5,7 @@ from py_trees.common import Status
 
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, MovementController
-from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats
+from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, Needs
 from yukkuri_game.game.ai.behavior import MoveToTarget
 from yukkuri_game.game.ai.navigation_service import NavigationService
 
@@ -19,6 +19,7 @@ def world_and_entity():
     world.add_component(entity_id, MovementController())
     world.add_component(entity_id, AIState())
     world.add_component(entity_id, YukkuriStats(name="test_yukkuri", type_id="reimu"))
+    world.add_component(entity_id, Needs(energy=100.0))
 
     # Mock navigation service
     class MockNavService(NavigationService):
@@ -78,8 +79,8 @@ def test_movetotarget_slows_down_when_low_energy(world_and_entity):
 
     ai_state = world.get_component(entity_id, AIState)
     ai_state.state_data = {"target_x": 100, "target_y": 0}
-    stats = world.get_component(entity_id, YukkuriStats)
-    stats.energy = 20 # Low energy
+    needs = world.get_component(entity_id, Needs)
+    needs.energy = 20 # Low energy
 
     action = MoveToTarget(entity_id=entity_id, world=world, speed=100.0)
     action.update()

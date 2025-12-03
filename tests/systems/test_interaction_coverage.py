@@ -5,7 +5,7 @@ from yukkuri_game.game.systems.interaction_system import InteractionSystem
 from yukkuri_game.game.systems.hunger_system import HungerSystem
 from yukkuri_game.game.systems.social_system import SocialSystem
 from yukkuri_game.game.components import Transform, InteractionRequest
-from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, EmotionalState, AIState, Personality
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, ItemStats, EmotionalState, AIState, Personality
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.engine.audio import AudioManager
 from yukkuri_game.game.skill_service import SkillService
@@ -46,8 +46,10 @@ def test_eat_item(interaction_env):
     # Consumer
     consumer = world.create_entity()
     world.add_component(consumer, Transform(x=0, y=0))
-    stats = YukkuriStats(name="Test", type_id="test", hunger=50)
+    stats = YukkuriStats(name="Test", type_id="test")
+    needs = Needs(hunger=50)
     world.add_component(consumer, stats)
+    world.add_component(consumer, needs)
     world.add_component(consumer, EmotionalState(happiness=50))
 
     # Item
@@ -62,7 +64,7 @@ def test_eat_item(interaction_env):
     # Process
     system.update(world, 0.1)
 
-    assert stats.hunger == 30 # 50 - 20
+    assert needs.hunger == 30 # 50 - 20
     assert world.get_component(consumer, EmotionalState).happiness == 60 # 50 + 10
 
     # Item consumed
@@ -76,6 +78,7 @@ def test_distance_check(interaction_env):
     consumer = world.create_entity()
     world.add_component(consumer, Transform(x=0, y=0))
     world.add_component(consumer, YukkuriStats(name="Test", type_id="test"))
+    world.add_component(consumer, Needs())
 
     item = world.create_entity()
     world.add_component(item, Transform(x=100, y=100)) # Far away
@@ -102,8 +105,10 @@ def test_predation_not_allowed(interaction_env):
 
     predator = world.create_entity()
     world.add_component(predator, Transform(x=0, y=0))
-    predator_stats = YukkuriStats(name="Pred", type_id="pred", hunger=50)
+    predator_stats = YukkuriStats(name="Pred", type_id="pred")
+    predator_needs = Needs(hunger=50)
     world.add_component(predator, predator_stats)
+    world.add_component(predator, predator_needs)
     world.add_component(predator, Personality(traits={"normal"}))
 
     prey = world.create_entity()
@@ -119,7 +124,7 @@ def test_predation_not_allowed(interaction_env):
 
     # Should NOT eat
     assert world.entity_exists(prey)
-    assert predator_stats.hunger == 50
+    assert predator_needs.hunger == 50
 
 def test_predation_allowed(interaction_env):
     world, system, audio, trait_service, hunger_system, social_system = interaction_env
@@ -129,8 +134,10 @@ def test_predation_allowed(interaction_env):
 
     predator = world.create_entity()
     world.add_component(predator, Transform(x=0, y=0))
-    predator_stats = YukkuriStats(name="Pred", type_id="pred", hunger=50)
+    predator_stats = YukkuriStats(name="Pred", type_id="pred")
+    predator_needs = Needs(hunger=50)
     world.add_component(predator, predator_stats)
+    world.add_component(predator, predator_needs)
     world.add_component(predator, Personality(traits={"predator"}))
 
     prey = world.create_entity()
@@ -144,7 +151,7 @@ def test_predation_allowed(interaction_env):
 
     # Should eat
     assert not world.entity_exists(prey)
-    assert predator_stats.hunger == 0 # 50 - 50 = 0
+    assert predator_needs.hunger == 0 # 50 - 50 = 0
     audio.play_sound.assert_called_with("eat")
 
 def test_ai_target_reset(interaction_env):
@@ -153,6 +160,7 @@ def test_ai_target_reset(interaction_env):
     consumer = world.create_entity()
     world.add_component(consumer, Transform(x=0, y=0))
     world.add_component(consumer, YukkuriStats(name="Test", type_id="test"))
+    world.add_component(consumer, Needs())
 
     item = world.create_entity()
     world.add_component(item, Transform(x=0, y=0))
