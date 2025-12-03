@@ -44,10 +44,8 @@ class PhysicsSystem(System):
         if not isinstance(event, EntityDestroyedEvent):
             return
 
-        # Access World via stored reference or event if available
-        # Event handlers in this codebase don't receive 'world', so we rely on self.ecs_world
-        # which is injected by World.add_system
-        if hasattr(self, 'ecs_world'):
+        # self.ecs_world is injected by World.add_system
+        if getattr(self, 'ecs_world', None):
             phys = self.ecs_world.get_component(event.entity_id, PhysicsBody)
             if phys:
                 if phys.body in self.space.bodies:

@@ -48,12 +48,6 @@ class SocialSystem(System):
         self.cleanup_index = 0
         self.cleanup_batch_size = 10
         self.event_bus = event_bus
-
-        # Note: We no longer subscribe to SocialInteractionEvent for resolution logic
-        # because we trigger logic via InteractionRequest directly.
-        # This avoids double-triggering logic when we publish the event ourselves.
-        # self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
-
         self.headline_counter = 0
 
     def update(self, world: World, dt: float) -> None:
@@ -74,7 +68,12 @@ class SocialSystem(System):
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
 
-        # Update Relationships (Cleanup & Opinion Update)
+        self._process_relationships(world, now)
+
+    def _process_relationships(self, world: World, now: float) -> None:
+        """
+        Processes relationship updates and cleanup in batches.
+        """
         all_entities = world.get_entities_with(RelationshipRegistry)
         if not all_entities:
             return
@@ -87,27 +86,32 @@ class SocialSystem(System):
             eid = all_entities[i]
             registry = world.get_component(eid, RelationshipRegistry)
             if registry:
-                to_remove = []
-                max_age = 600 # 10 minutes
-
-                for other_id, rel_data in registry.relationships.items():
-                    # Recalculate Opinion (Affinity)
-                    self._update_opinion(world, eid, other_id, rel_data)
-
-                    other_registry = world.get_component(other_id, RelationshipRegistry)
-                    is_special = (other_id == registry.mate_id) or \
-                                 (registry.family_group_id is not None and \
-                                  other_registry is not None and \
-                                  other_registry.family_group_id == registry.family_group_id)
-
-                    age = now - rel_data.last_update
-                    if not is_special and age > max_age:
-                        to_remove.append(other_id)
-
-                for rid in to_remove:
-                    del registry.relationships[rid]
+                self._cleanup_registry(world, eid, registry, now)
 
         self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(1, count)
+
+    def _cleanup_registry(self, world: World, eid: int, registry: RelationshipRegistry, now: float) -> None:
+        """
+        Cleans up old relationships and updates opinions.
+        """
+        to_remove = []
+        max_age = 600 # 10 minutes
+
+        for other_id, rel_data in registry.relationships.items():
+            self._update_opinion(world, eid, other_id, rel_data)
+
+            other_registry = world.get_component(other_id, RelationshipRegistry)
+            is_special = (other_id == registry.mate_id) or \
+                         (registry.family_group_id is not None and \
+                          other_registry is not None and \
+                          other_registry.family_group_id == registry.family_group_id)
+
+            age = now - rel_data.last_update
+            if not is_special and age > max_age:
+                to_remove.append(other_id)
+
+        for rid in to_remove:
+            del registry.relationships[rid]
 
     def process_interaction_request(self, world: World, initiator_id: int, request: InteractionRequest) -> None:
         """
@@ -119,99 +123,67 @@ class SocialSystem(System):
         if not world.entity_exists(target_id):
             return
 
-        # Perform the interaction logic
         self.register_interaction(world, initiator_id, target_id, action)
-
-        # Dispatch event for other listeners (e.g. GossipSystem)
         self.event_bus.publish(SocialInteractionEvent(initiator_id, target_id, action))
 
     def _update_opinion(self, world: World, subject_id: int, other_id: int, rel_data: RelationshipData, force_compatibility_update: bool = False) -> None:
         """
-        Recalculates the opinion (affinity) based on the formula:
-        Opinion = Base Compatibility + Sum(CoreMemories) + Sum(TrivialEvents)
-
-        Args:
-            world (World): The ECS World.
-            subject_id (int): The entity holding the opinion.
-            other_id (int): The target of the opinion.
-            rel_data (RelationshipData): The relationship data object.
-            force_compatibility_update (bool): Whether to force recompute base compatibility.
+        Recalculates the opinion (affinity).
         """
         if not self.trait_service:
             return
 
-        # 1. Update Base Compatibility (if needed, or just every time for simplicity)
         subject_pers = world.get_component(subject_id, Personality)
         other_pers = world.get_component(other_id, Personality)
 
         if subject_pers and other_pers:
-            base_compatibility = 0.0
+             rel_data.base_compatibility = self._calculate_base_compatibility(subject_pers, other_pers)
 
-            # Calculate from Axis comparison
-            if subject_pers.axis and other_pers.axis:
-                diff_kind = abs(subject_pers.axis.kindness - other_pers.axis.kindness)
-                diff_ener = abs(subject_pers.axis.energy - other_pers.axis.energy)
-                diff_brav = abs(subject_pers.axis.bravery - other_pers.axis.bravery)
-                diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
+        memory_score = rel_data.core_sentiment_sum + rel_data.trivial_sentiment_sum
+        rel_data.affinity = rel_data.base_compatibility + memory_score
 
-                total_diff = diff_kind + diff_ener + diff_brav + diff_gree
-                # 800 diff -> -100. 0 diff -> 100.
-                base_compatibility += (100.0 - (total_diff / 4.0))
+    def _calculate_base_compatibility(self, subject_pers: Personality, other_pers: Personality) -> float:
+        """
+        Calculates base compatibility between two personalities.
+        """
+        base_compatibility = 0.0
 
-            # Traits compatibility
-            for my_trait in subject_pers.traits:
+        if subject_pers.axis and other_pers.axis:
+            diff_kind = abs(subject_pers.axis.kindness - other_pers.axis.kindness)
+            diff_ener = abs(subject_pers.axis.energy - other_pers.axis.energy)
+            diff_brav = abs(subject_pers.axis.bravery - other_pers.axis.bravery)
+            diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
+
+            total_diff = diff_kind + diff_ener + diff_brav + diff_gree
+            base_compatibility += (100.0 - (total_diff / 4.0))
+
+        if self.trait_service:
+             for my_trait in subject_pers.traits:
                 trait_data = self.trait_service.get_trait(my_trait)
-                # trait_data is TraitDefinition (Struct)
-                if not trait_data:
-                    continue
+                if not trait_data: continue
 
-                # Access social_modifiers.
-                # Defensively check if dict or object.
                 if isinstance(trait_data, dict):
                     social_mods = trait_data.get("social_modifiers", {})
                 else:
                     social_mods = getattr(trait_data, "social_modifiers", {})
 
-                if "compatibility" not in social_mods:
-                    continue
+                if "compatibility" not in social_mods: continue
 
                 comp_map = social_mods["compatibility"]
                 for other_trait in other_pers.traits:
                     if other_trait in comp_map:
                         base_compatibility += comp_map[other_trait]
 
-            rel_data.base_compatibility = base_compatibility
+        return base_compatibility
 
-        # 2. Use Cached Memory Sums (O(1))
-        memory_score = rel_data.core_sentiment_sum + rel_data.trivial_sentiment_sum
-
-        # 3. Final Calculation
-        rel_data.affinity = rel_data.base_compatibility + memory_score
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
-        """
-        Handler for SocialInteractionEvent.
-
-        Args:
-            event (SocialInteractionEvent): The event data.
-        """
-        if not hasattr(self, 'ecs_world'):
-            return
+        """Handler for SocialInteractionEvent."""
+        if not hasattr(self, 'ecs_world'): return
         self.register_interaction(self.ecs_world, event.initiator_id, event.target_id, event.interaction_type)
 
     def _check_condition(self, world: World, entity_id: int, condition: Any) -> bool:
-        """
-        Checks if a condition is met by the entity.
-
-        Args:
-            world (World): The ECS World.
-            entity_id (int): The entity to check.
-            condition (Any): The condition definition (dict or expression string).
-
-        Returns:
-            bool: True if condition is met.
-        """
-        # Handle string expressions directly
+        """Checks if a condition is met by the entity."""
         if isinstance(condition, str):
             evaluator = world.services.try_get(ConditionEvaluator)
             if evaluator:
@@ -219,9 +191,7 @@ class SocialSystem(System):
                 return evaluator.evaluate(condition, ctx)
             return False
 
-        # Handle dict-based conditions
         if isinstance(condition, dict):
-            # Support explicit expression key
             if "expression" in condition:
                 evaluator = world.services.try_get(ConditionEvaluator)
                 if evaluator:
@@ -236,31 +206,19 @@ class SocialSystem(System):
                 skills = world.get_component(entity_id, Skills)
                 if skills and skill_id in skills.states:
                     return skills.states[skill_id].level >= min_level
-                return False # Skill not found -> Fail
+                return False
 
-        # Add other condition types here (e.g. stat check)
         return True
 
     def _get_attr(self, obj: Any, key: str, default: Any = None) -> Any:
-        """Helper to get attribute from dict or object."""
-        if isinstance(obj, dict):
-            return obj.get(key, default)
+        if isinstance(obj, dict): return obj.get(key, default)
         return getattr(obj, key, default)
 
     def register_interaction(self, world: World, actor_id: int, target_id: int, interaction_name: str) -> None:
-        """
-        Registers a social interaction, applying effects to both parties.
-
-        Args:
-            world (World): The ECS World.
-            actor_id (int): The initiator.
-            target_id (int): The target.
-            interaction_name (str): The interaction type name.
-        """
+        """Registers a social interaction."""
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
-            if not self.trait_service:
-                return
+            if not self.trait_service: return
 
         if not self.skill_service:
             self.skill_service = world.services.try_get(SkillService)
@@ -273,12 +231,10 @@ class SocialSystem(System):
             logger.warning(f"Unknown interaction: {interaction_name}")
             return
 
-        # Check conditions (e.g. Skill Requirements)
         conditions = self._get_attr(interaction_data, "conditions", [])
         if conditions:
             for cond in conditions:
                 if not self._check_condition(world, actor_id, cond):
-                    logger.debug(f"Interaction {interaction_name} failed condition: {cond}")
                     return
 
         time_service = world.services.try_get(TimeService)
@@ -289,41 +245,30 @@ class SocialSystem(System):
         self._spawn_visual_feedback(world, target_id, interaction_name, interaction_data)
         self._play_audio(interaction_name)
 
-        # --- Data-Driven Physical & Skill Effects ---
+        self._apply_additional_effects(world, actor_id, target_id, interaction_data)
 
-        # 1. Physical Impact (Health, Energy, Hunger, etc.)
-        # Default physical impact applies to both unless specified
+    def _apply_additional_effects(self, world: World, actor_id: int, target_id: int, interaction_data: Any) -> None:
+        """Applies physical impacts and skill rewards."""
         physical_impact = self._get_attr(interaction_data, "physical_impact", {})
         if physical_impact:
             self._apply_physical_impact(world, actor_id, physical_impact)
             self._apply_physical_impact(world, target_id, physical_impact)
 
-        # Target specific impact
         target_physical_impact = self._get_attr(interaction_data, "target_physical_impact", {})
         if target_physical_impact:
             self._apply_physical_impact(world, target_id, target_physical_impact)
 
-        # Actor specific impact
         actor_physical_impact = self._get_attr(interaction_data, "actor_physical_impact", {})
         if actor_physical_impact:
             self._apply_physical_impact(world, actor_id, actor_physical_impact)
 
-        # 2. Skill Rewards
         skill_rewards = self._get_attr(interaction_data, "skill_rewards", {})
         if skill_rewards and self.skill_service:
             for skill_id, xp_amount in skill_rewards.items():
-                # Apply to actor (doing the action)
                 self.skill_service.add_xp(actor_id, skill_id, xp_amount)
 
     def _apply_physical_impact(self, world: World, entity_id: int, impact: Dict[str, float]) -> None:
-        """
-        Helper to apply physical stat changes to an entity.
-
-        Args:
-            world (World): The ECS World.
-            entity_id (int): The entity ID.
-            impact (Dict[str, float]): Map of stat name to change amount (e.g. {"health": -5.0}).
-        """
+        """Helper to apply physical stat changes to an entity."""
         stats = world.get_component(entity_id, YukkuriStats)
         needs = world.get_component(entity_id, Needs)
         emotional = world.get_component(entity_id, EmotionalState)
@@ -346,11 +291,8 @@ class SocialSystem(System):
 
 
     def _play_audio(self, interaction_name: str) -> None:
-        """
-        Plays audio for the interaction.
-        """
-        if not self.audio:
-            return
+        """Plays audio for the interaction."""
+        if not self.audio: return
 
         sound_name = ""
         if interaction_name in ["Talk", "Greet"]:
@@ -358,21 +300,13 @@ class SocialSystem(System):
         elif interaction_name in ["Fight", "Hit"]:
             sound_name = "hit"
         elif interaction_name == "Dance":
-            sound_name = "jump" # Placeholder? Or maybe no sound for dance default? Tests might expect something if added.
+            sound_name = "jump"
 
         if sound_name:
             self.audio.play_sound(sound_name)
 
     def _spawn_visual_feedback(self, world: World, entity_id: int, interaction_name: str, data: Any) -> None:
-        """
-        Spawns visual feedback (floating text/icon) for the interaction.
-
-        Args:
-            world (World): The ECS World.
-            entity_id (int): The entity to show feedback on.
-            interaction_name (str): The name of the interaction.
-            data (Any): The interaction data definition.
-        """
+        """Spawns visual feedback (floating text/icon)."""
         trans = world.get_component(entity_id, Transform)
         if not trans: return
 
@@ -402,21 +336,7 @@ class SocialSystem(System):
         create_floating_text(world, fx, fy, text, color, size=24, lifetime=1.5)
 
     def _apply_impact(self, world: World, subject_id: int, other_id: int, data: Any, role: str, now: float) -> None:
-        """
-        Applies the social impact of an interaction to a subject.
-
-        Args:
-            world (World): The ECS World.
-            subject_id (int): The entity receiving the impact.
-            other_id (int): The other entity involved.
-            data (Any): Interaction data.
-            role (str): "actor" or "target".
-            now (float): Current timestamp.
-        """
-        # Removed early return for actor to ensure they also get relationship updates and emotional changes.
-        # if role == "actor":
-        #    return
-
+        """Applies the social impact of an interaction to a subject."""
         registry = self._get_or_create_registry(world, subject_id)
         if other_id not in registry.relationships:
             registry.relationships[other_id] = RelationshipData(last_update=now)
@@ -428,35 +348,21 @@ class SocialSystem(System):
         modifiers = self._get_attr(data, "modifiers", {})
         event_type = self._get_attr(data, "type", "GENERIC")
 
-        # Calculate deltas based on traits and personality
-        # Pass other_id (the person interacting with subject) for skill checks
         d_affinity, d_trust, d_fear, d_familiarity = self._calculate_impact_deltas(
             world, subject_id, other_id, social_impact, modifiers, base_impact_score
         )
 
-        # Update Emotional State
         self._update_emotional_state(world, subject_id, base_impact_score)
 
-        # Update non-affinity relationship stats
         rel.trust = max(0, min(100, rel.trust + d_trust))
         rel.fear = max(0, min(100, rel.fear + d_fear))
         rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
 
-        # Add Memory and Update Opinion
         self._add_memory_headline(world, rel, base_impact_score, d_affinity, event_type, now)
         self._update_opinion(world, subject_id, other_id, rel)
 
     def _get_or_create_registry(self, world: World, entity_id: int) -> RelationshipRegistry:
-        """
-        Helper to get or create RelationshipRegistry component.
-
-        Args:
-            world (World): The ECS World.
-            entity_id (int): The entity ID.
-
-        Returns:
-            RelationshipRegistry: The component.
-        """
+        """Helper to get or create RelationshipRegistry component."""
         registry = world.get_component(entity_id, RelationshipRegistry)
         if not registry:
             registry = RelationshipRegistry()
@@ -464,20 +370,7 @@ class SocialSystem(System):
         return registry
 
     def _calculate_impact_deltas(self, world: World, subject_id: int, other_id: int, social_impact: Dict[str, float], modifiers: Dict[str, Dict[str, float]], base_impact_score: float) -> tuple[float, float, float, float]:
-        """
-        Calculates impact deltas considering personality and traits.
-
-        Args:
-            world (World): The ECS World.
-            subject_id (int): The subject ID.
-            other_id (int): The other entity ID (Actor).
-            social_impact (Dict): Base social impact map.
-            modifiers (Dict): Trait modifiers map.
-            base_impact_score (float): Base impact score.
-
-        Returns:
-            tuple[float, float, float, float]: (d_affinity, d_trust, d_fear, d_familiarity).
-        """
+        """Calculates impact deltas considering personality and traits."""
         d_affinity = social_impact.get("affinity", 0.0)
         d_trust = social_impact.get("trust", 0.0)
         d_fear = social_impact.get("fear", 0.0)
@@ -493,16 +386,12 @@ class SocialSystem(System):
                     d_trust += mod.get("trust", 0.0)
                     d_fear += mod.get("fear", 0.0)
 
-            # Handle Expressions (Check OTHER/ACTOR context)
             evaluator = world.services.try_get(ConditionEvaluator)
             if evaluator:
                 actor_context = evaluator.build_context(world, other_id)
                 for key, mod in modifiers.items():
-                    # Skip trait/mood keys as they are subject-based or legacy
-                    if key.startswith("trait:") or key.startswith("mood:"):
-                        continue
+                    if key.startswith("trait:") or key.startswith("mood:"): continue
 
-                    # Evaluate expression against Actor
                     if evaluator.evaluate(key, actor_context):
                         d_affinity += mod.get("affinity", 0.0)
                         d_trust += mod.get("trust", 0.0)
@@ -514,17 +403,11 @@ class SocialSystem(System):
                 kindness = subject_personality.axis.kindness
 
             if base_impact_score > 0:
-                comp_mult = 1.0 + (kindness / 100.0)
-                comp_mult = max(0.1, comp_mult)
+                comp_mult = max(0.1, 1.0 + (kindness / 100.0))
                 d_affinity *= comp_mult
                 d_trust *= comp_mult
             elif base_impact_score < 0:
-                # For negative impacts, selfish yukkuris should be vindictive (react strongly),
-                # while kind ones might be forgiving (react weakly) or sensitive (react strongly).
-                # Current design choice: Selfish = Vindictive (High reaction), Kind = Forgiving (Low reaction).
-                comp_mult = 1.0 - (kindness / 100.0)
-                comp_mult = max(0.1, comp_mult)
-
+                comp_mult = max(0.1, 1.0 - (kindness / 100.0))
                 d_affinity *= comp_mult
                 d_trust *= comp_mult
                 d_fear *= comp_mult
@@ -532,14 +415,7 @@ class SocialSystem(System):
         return d_affinity, d_trust, d_fear, d_familiarity
 
     def _update_emotional_state(self, world: World, subject_id: int, base_impact_score: float) -> None:
-        """
-        Updates emotional state based on interaction impact.
-
-        Args:
-            world (World): The ECS World.
-            subject_id (int): The subject entity ID.
-            base_impact_score (float): The impact score.
-        """
+        """Updates emotional state based on interaction impact."""
         emotional = world.get_component(subject_id, EmotionalState)
         if emotional:
             if base_impact_score < -15:
@@ -549,17 +425,7 @@ class SocialSystem(System):
                 emotional.happiness = min(100.0, emotional.happiness + 20.0)
 
     def _add_memory_headline(self, world: World, rel: RelationshipData, base_impact_score: float, d_affinity: float, event_type: str, now: float) -> None:
-        """
-        Adds a memory headline to the relationship.
-
-        Args:
-            world (World): The ECS World.
-            rel (RelationshipData): The relationship data.
-            base_impact_score (float): The importance score.
-            d_affinity (float): The sentiment change.
-            event_type (str): The event type string.
-            now (float): Current timestamp.
-        """
+        """Adds a memory headline to the relationship."""
         if abs(base_impact_score) > 0:
             self.headline_counter += 1
             headline = MemoryHeadline(

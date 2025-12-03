@@ -2,6 +2,7 @@
 Game Rules System.
 Handles high-level game logic like selling, training, and punishing entities.
 """
+from typing import Optional
 from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
@@ -37,10 +38,6 @@ class GameRulesSystem(System):
         self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
         self.event_bus.subscribe(PunishEntityRequest, self.on_punish_entity)
         self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
-        # self.ecs_world is injected by World.add_system, so it can be None initially
-        # but typing it as World assumes it will be set.
-        # We can use Optional[World] and cast or ignore if we want to be strict.
-        self.ecs_world: World = None  # type: ignore
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -54,9 +51,7 @@ class GameRulesSystem(System):
         Returns:
             None
         """
-        # This system is event-driven, so update loop might not be needed
-        # unless we want to process a queue. For now, immediate handlers are fine
-        # as per previous implementation (GameManager was not a System but had handlers).
+        # This system is event-driven
         pass
 
     def sell_yukkuri(self, entity: int) -> int:
@@ -69,6 +64,10 @@ class GameRulesSystem(System):
         Returns:
             int: The value the entity was sold for.
         """
+        if not hasattr(self, 'ecs_world'):
+             logger.error("GameRulesSystem: ecs_world not injected.")
+             return 0
+
         stats = self.ecs_world.get_component(entity, YukkuriStats)
         needs = self.ecs_world.get_component(entity, Needs)
         emotional_state = self.ecs_world.get_component(entity, EmotionalState)
@@ -120,6 +119,8 @@ class GameRulesSystem(System):
         Returns:
             None
         """
+        if not hasattr(self, 'ecs_world'): return
+
         stats = self.ecs_world.get_component(event.entity_id, YukkuriStats)
         emotional_state = self.ecs_world.get_component(event.entity_id, EmotionalState)
         if stats:
@@ -148,6 +149,8 @@ class GameRulesSystem(System):
         Returns:
             None
         """
+        if not hasattr(self, 'ecs_world'): return
+
         stats = self.ecs_world.get_component(event.entity_id, YukkuriStats)
         needs = self.ecs_world.get_component(event.entity_id, Needs)
         emotional_state = self.ecs_world.get_component(event.entity_id, EmotionalState)
