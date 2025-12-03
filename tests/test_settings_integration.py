@@ -9,6 +9,7 @@ import pygame
 import pygame_gui
 from unittest.mock import MagicMock, patch, mock_open
 from yukkuri_game.game.settings_service import SettingsService
+from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.engine.audio import AudioManager
 from yukkuri_game.game.ui.hud_events import HudEvents
 from yukkuri_game.game.ui.hud_layout import HudLayout
@@ -27,11 +28,12 @@ class TestSettingsIntegration(unittest.TestCase):
         self.mock_pygame_mixer = patch('pygame.mixer').start()
 
         # Setup SettingsService with a test file
-        self.test_settings_file = "test_settings.json"
+        self.test_settings_file = "test_settings.toml"
         if os.path.exists(self.test_settings_file):
             os.remove(self.test_settings_file)
 
-        self.settings_service = SettingsService(self.test_settings_file)
+        self.resource_manager = ResourceManager(data_dir=".")
+        self.settings_service = SettingsService(self.resource_manager, self.test_settings_file)
 
         # Setup AudioManager
         self.audio_manager = AudioManager()
@@ -72,9 +74,6 @@ class TestSettingsIntegration(unittest.TestCase):
         patch.stopall()
         if os.path.exists(self.test_settings_file):
             os.remove(self.test_settings_file)
-        # Restore original DEFAULT_SETTINGS to avoid pollution
-        if hasattr(self, '_original_defaults'):
-            SettingsService.DEFAULT_SETTINGS = self._original_defaults
 
     def _service_locator(self, service_type):
         if service_type == SettingsService:
@@ -87,30 +86,12 @@ class TestSettingsIntegration(unittest.TestCase):
         """
         Tests loading and saving settings to a file.
         """
-        # Save original defaults to restore later
-        self._original_defaults = copy.deepcopy(SettingsService.DEFAULT_SETTINGS)
-
-        # Reset default settings to ensure clean state for this test
-        SettingsService.DEFAULT_SETTINGS = {
-            "audio": {
-                "master_volume": 0.5,
-                "bgm_volume": 0.5,
-                "sfx_volume": 0.5
-            },
-            "window": {
-                "width": 1280,
-                "height": 720,
-                "fullscreen": False
-            }
-        }
-
         # Re-init service with fresh defaults
-        self.settings_service = SettingsService(self.test_settings_file)
+        self.settings_service = SettingsService(self.resource_manager, self.test_settings_file)
 
         self.assertEqual(self.settings_service.get("audio", "master_volume"), 0.5)
 
         # Change settings
-        # This modifies the nested dictionary, which might be shared if it was a shallow copy of defaults!
         self.settings_service.set("audio", "master_volume", 0.8)
         self.settings_service.save_settings()
 
@@ -118,7 +99,7 @@ class TestSettingsIntegration(unittest.TestCase):
         self.assertTrue(os.path.exists(self.test_settings_file))
 
         # Reload
-        new_service = SettingsService(self.test_settings_file)
+        new_service = SettingsService(self.resource_manager, self.test_settings_file)
         self.assertEqual(new_service.get("audio", "master_volume"), 0.8)
 
     def test_audio_manager_volume_control(self) -> None:
