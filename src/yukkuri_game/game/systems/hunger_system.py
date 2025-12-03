@@ -24,51 +24,37 @@ class HungerSystem(System):
 
     def update(self, world: World, dt: float) -> None:
         """
-        Updates the hunger system, processing consumption requests.
-
-        Args:
-            world (World): The ECS World.
-            dt (float): Delta time.
+        Updates the hunger system.
+        Note: Consumption logic is now dispatched from InteractionSystem.
         """
         if self.audio is None:
             self.audio = world.services.try_get(AudioManager)
         if self.skill_service is None:
             self.skill_service = world.services.try_get(SkillService)
 
-        # Get all entities with InteractionRequest
-        entities = list(world.get_components_tuple(InteractionRequest, Transform, YukkuriStats))
-
-        for entity, (request, transform, stats) in entities:
-            target_id = request.target_id
-
-            if not world.entity_exists(target_id):
-                continue
-
-            # Check if target is an item (has ItemStats)
-            item_stats = world.get_component(target_id, ItemStats)
-            if item_stats:
-                # This is a consumption request
-                self._process_consumption(world, entity, request, transform, stats, target_id, item_stats)
-
-                # We processed this request, remove it so InteractionSystem doesn't try to use it
-                # (Assuming InteractionSystem handles other types like social or predation on other yukkuris)
-                if world.has_component(entity, InteractionRequest):
-                    world.remove_component(entity, InteractionRequest)
-
-    def _process_consumption(self, world: World, consumer_id: int, request: InteractionRequest,
+    def process_consumption(self, world: World, consumer_id: int, request: InteractionRequest,
                              consumer_transform: Transform, consumer_stats: YukkuriStats,
-                             item_id: int, item_stats: ItemStats) -> None:
+                             item_id: int, item_stats: ItemStats) -> bool:
         """
         Executes the logic for eating an item.
+
+        Returns:
+            bool: True if consumption was processed (valid).
         """
+        # Ensure services are loaded
+        if self.audio is None:
+            self.audio = world.services.try_get(AudioManager)
+        if self.skill_service is None:
+            self.skill_service = world.services.try_get(SkillService)
+
         target_transform = world.get_component(item_id, Transform)
         if not target_transform:
-            return
+            return False
 
         # Verify distance
         dist = math.hypot(consumer_transform.x - target_transform.x, consumer_transform.y - target_transform.y)
         if dist > 50.0:
-            return
+            return False
 
         # Apply Stats
         if item_stats.nutrition > 0:
@@ -97,3 +83,5 @@ class HungerSystem(System):
             ai = world.get_component(consumer_id, AIState)
             if ai and ai.current_target_id == item_id:
                 ai.current_target_id = -1
+
+        return True

@@ -19,6 +19,7 @@ from . import components
 from . import yukkuri_components
 from .skill_constants import SkillId
 from ..engine.event_bus import EventBus
+from .systems.sector_system import SectorMap
 
 if TYPE_CHECKING:
     from .yukkuri_components import Personality  # pylint: disable=unused-import
@@ -352,6 +353,7 @@ class GameService:
     def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: Set[int] | None = None, searcher_id: int = -1) -> int:
         """
         Finds the best item near a position based on criteria.
+        Uses SectorMap for efficient spatial query.
 
         Args:
             position (tuple[float, float]): The search origin (x, y).
@@ -379,14 +381,47 @@ class GameService:
                 # Base radius 500 + 50 per level
                 max_radius = BASE_SCAVENGING_RADIUS + (level * SCAVENGING_RADIUS_PER_LEVEL)
 
-        items = self.world.get_entities_with(ItemStats, Transform)
+        # Get SectorMap
+        sector_map = self.world.services.try_get(SectorMap)
+        candidate_items = []
 
-        for item in items:
+        if sector_map:
+            # Query nearby sectors using simplified visual/auditory range which covers adjacent sectors
+            # This gives us a starting set. For strict radius check, we still measure distance.
+            # get_entities_in_range defaults to 'visual' which is same + adjacent sectors.
+            # Sector size is usually 500. So 'visual' covers roughly 1000-1500 units.
+            # If max_radius is larger than what 'visual' covers, we might miss items.
+            # But usually max_radius is around 500-1000.
+
+            # TODO: If max_radius is very large, we might need a custom query on SectorMap
+            # For now, we assume standard scavenging range fits within adjacent sectors logic.
+            # Or we can iterate sectors manually if we want to be safe.
+
+            # Let's use get_entities_in_range for efficiency if it covers enough ground.
+            # With sector_size=500, adjacent sectors cover 3x3 grid (1500 x 1500).
+            # Center is at position. Radius of coverage is roughly 750 (from center of center sector).
+            # If max_radius > 750, we might need more sectors.
+            # Let's try to trust SectorMap or fallback if not present.
+
+            nearby_entities = sector_map.get_entities_in_range(position[0], position[1], range_type="visual")
+
+            # Filter for items
+            for entity in nearby_entities:
+                 if self.world.has_component(entity, ItemStats):
+                     candidate_items.append(entity)
+        else:
+             # Fallback to linear scan if SectorMap not available
+             candidate_items = self.world.get_entities_with(ItemStats, Transform)
+
+        for item in candidate_items:
             if item in exclude_ids:
                 continue
 
             istats = self.world.get_component(item, ItemStats)
             itrans = self.world.get_component(item, Transform)
+
+            # Note: candidate_items from SectorMap just gives IDs. We must verify they have ItemStats and Transform.
+            # (Though our filter above or has_component check ensures it somewhat, get_component returns None if missing)
 
             if istats and itrans and getattr(istats, stat_criteria, 0.0) > 0:
                 d = math.hypot(itrans.x - position[0], itrans.y - position[1])

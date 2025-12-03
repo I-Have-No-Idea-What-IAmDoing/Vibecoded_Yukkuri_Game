@@ -96,6 +96,21 @@ class SkillsSettings(msgspec.Struct): # type: ignore[misc]
     xp_base: float = 100.0
     xp_exponent: float = 1.5
 
+class StatsSettings(msgspec.Struct): # type: ignore[misc]
+    """
+    Configuration for calculating yukkuri stats and value.
+
+    Attributes:
+        badge_value (int): Value per badge.
+        health_deficit_penalty (float): Value penalty multiplier per missing health.
+        age_value_bonus (float): Value bonus per minute of age.
+        intelligence_base (float): Base intelligence multiplier.
+    """
+    badge_value: int = 500
+    health_deficit_penalty: float = 2.0
+    age_value_bonus: float = 10.0
+    intelligence_base: float = 0.5
+
 class RulesFile(msgspec.Struct): # type: ignore[misc]
     """
     Represents the structure of the rules.toml file.
@@ -105,11 +120,13 @@ class RulesFile(msgspec.Struct): # type: ignore[misc]
         lifecycle (LifecycleSettings): The lifecycle configuration.
         social (SocialSettings): The social system configuration.
         skills (SkillsSettings): The skill system configuration.
+        stats (StatsSettings): The general stats configuration.
     """
     stat_decay: StatDecaySettings = msgspec.field(default_factory=StatDecaySettings)
     lifecycle: LifecycleSettings = msgspec.field(default_factory=LifecycleSettings)
     social: SocialSettings = msgspec.field(default_factory=SocialSettings)
     skills: SkillsSettings = msgspec.field(default_factory=SkillsSettings)
+    stats: StatsSettings = msgspec.field(default_factory=StatsSettings)
 
 class GameConfig(msgspec.Struct): # type: ignore[misc]
     """

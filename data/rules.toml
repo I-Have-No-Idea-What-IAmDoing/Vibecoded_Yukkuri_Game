@@ -24,3 +24,9 @@ witness_threshold = 5.0
 [skills]
 xp_base = 100.0
 xp_exponent = 1.5
+
+[stats]
+badge_value = 500
+health_deficit_penalty = 2.0
+age_value_bonus = 10.0
+intelligence_base = 0.5

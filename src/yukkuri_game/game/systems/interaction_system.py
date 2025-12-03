@@ -9,10 +9,13 @@ from ...engine.audio import AudioManager
 from ..components import Transform, InteractionRequest
 from ..yukkuri_components import YukkuriStats, ItemStats, AIState, Personality, EmotionalState
 from ..trait_service import TraitService
+from .hunger_system import HungerSystem
+from .social_system import SocialSystem
 
 class InteractionSystem(System):
     """
-    System responsible for handling entity interactions (e.g. eating, sleeping).
+    System responsible for handling entity interactions.
+    Acts as a dispatcher to specific systems (Hunger, Social) or handles generic interactions.
 
     Attributes:
         audio (Optional[AudioManager]): The audio manager instance.
@@ -23,6 +26,8 @@ class InteractionSystem(System):
         super().__init__()
         self.audio: Optional[AudioManager] = None
         self.trait_service: Optional[TraitService] = None
+        self.hunger_system: Optional[HungerSystem] = None
+        self.social_system: Optional[SocialSystem] = None
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -39,6 +44,10 @@ class InteractionSystem(System):
             self.audio = world.services.try_get(AudioManager)
         if self.trait_service is None:
             self.trait_service = world.services.try_get(TraitService)
+        if self.hunger_system is None:
+            self.hunger_system = world.services.try_get(HungerSystem)
+        if self.social_system is None:
+            self.social_system = world.services.try_get(SocialSystem)
 
         # Get all entities with InteractionRequest
         # We need to iterate safely because we might remove components
@@ -101,6 +110,24 @@ class InteractionSystem(System):
         if dist > 50.0: # Slightly larger than action threshold to account for movement
             return False
 
+        # Handle Consumption (Item)
+        item_stats = world.get_component(target_id, ItemStats)
+        if item_stats:
+             if self.hunger_system:
+                 return self.hunger_system.process_consumption(world, entity, request, transform, stats, target_id, item_stats)
+             else:
+                 logger.warning("HungerSystem not available to handle consumption request.")
+                 return False
+
+        # Handle Social Interaction (Talk/Fight/Dance)
+        if request.action in ["Talk", "Fight", "Dance", "Greet"]:
+             if self.social_system:
+                 self.social_system.process_interaction_request(world, entity, request)
+                 return True
+             else:
+                 logger.warning("SocialSystem not available to handle social request.")
+                 return False
+
         # Handle Interaction with another Yukkuri (Predation)
         target_stats = world.get_component(target_id, YukkuriStats)
         if target_stats and request.consume:
@@ -120,15 +147,5 @@ class InteractionSystem(System):
 
             # Predation request (valid or permission-failed) is considered handled by this system
             return True
-
-        # Handle Interaction with Item
-        # Deprecated: Logic moved to HungerSystem.
-        # This block is intentionally left empty or removed as HungerSystem now handles ItemStats interactions.
-        item_stats = world.get_component(target_id, ItemStats)
-        if item_stats:
-            # If HungerSystem runs before this, the request might be gone.
-            # If it runs after, we should skip processing here so HungerSystem picks it up.
-            # Ideally, InteractionSystem should only handle Social/Physical interactions not covered by specific systems.
-            pass
 
         return False
