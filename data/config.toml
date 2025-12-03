@@ -1,0 +1,4 @@
+[world]
+width = 3000
+height = 3000
+sector_size = 500.0
