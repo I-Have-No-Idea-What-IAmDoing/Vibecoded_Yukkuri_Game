@@ -1,32 +1,42 @@
 # Critique of Proposal 1: "Shape Grafting" & Pymunk Abuse
 
-This proposal attempts to solve a simple problem—stacking entities—by over-engineering a solution that fights the physics engine at every turn. It is a textbook example of "complexity addiction" over pragmatic game design.
+The initial proposal suggests a "Shape Grafting" approach where riders become physical extensions of the parent. While the goal of a robust stacking system is valid, the proposed implementation introduces significant architectural and gameplay risks.
 
-## 1. Architectural Insanity
+## 1. Architectural Concerns
 
-### The "Grafting" Mechanic is a Liability
-The core idea of dynamically destroying bodies, creating new shapes, and welding them to a parent body at runtime is a maintenance nightmare waiting to happen.
-*   **Memory Leaks:** Constantly creating and destroying Pymunk bodies/shapes is error-prone. One missed reference or uncleaned pointer will lead to memory leaks or segfaults.
-*   **ID Drift:** Entity IDs and Physics IDs will inevitably desync. Managing the mapping between ECS entities and their "grafted" physics representation requires a complex lookup table that will be brittle.
-*   **State Loss:** When you destroy the Rider's body to graft it, you lose its accumulated state (velocity, accumulated forces, contact history). When you reconstruction it, you are effectively spawning a new entity.
+### The Risks of "Grafting"
+Destructively merging physics bodies (destroying the rider's body and adding its shape to the carrier) is highly problematic:
+*   **State Loss:** Destroying the body loses all current physics state (velocity, accumulated impulses).
+*   **Complexity:** Managing the lifecycle of shapes and mass re-calculation is error-prone and complex to debug.
+*   **Edge Cases:** Handling collisions during the transition frame (graft/ungraft) is difficult and can lead to tunneling or instability.
 
-### Visual Desync
-The proposal admits that "Syncing visual transforms manually" is a con, but understates the issue.
-*   **Jitter:** Updating visual transforms based on a physics body that has a constantly changing center-of-mass (due to riders being added/removed) will result in visual popping and jitter.
-*   **Interpolation Hell:** Good luck interpolating movement for rendering when the underlying physics object is being swapped out.
+### Visual & Logic Desync
+*   **Jitter:** Depending on the execution order of the physics step vs the render step, hard-locking the position via shape offsets can cause visual jitter.
+*   **Input Handling:** If the rider is just a shape on the parent, handling separate inputs (e.g., rider shooting or throwing) becomes more convoluted as the rider is no longer a distinct physical entity.
 
-## 2. Gameplay & Design Flaws
+## 2. Gameplay & Physics Interaction
 
-### "Input vs Knockback" is Overkill
-While separating input velocity from knockback is a sound concept, building an entire custom physics controller around it for a top-down sprite game is excessive.
-*   **Friction Fighting:** Pymunk already handles friction. Trying to override velocity every frame while also wanting "physics interactions" leads to weird behaviors where characters slide on ice but stop instantly on grass, but then get launched into orbit by a collision.
-*   **Edge Case Explosion:** What happens if a rider is mounted, the parent hits a wall, and the "grafted" shape of the rider clips into the wall? The physics solver will violently eject the entire stack, likely phasing them through geometry.
+### "Input vs Knockback"
+The proposed `MovementSystem` fights the physics engine by manually setting velocity in a "CONTROLLED" state.
+*   **Physics Fighting:** Overriding velocity (`body.velocity = target`) bypasses the solver's natural handling of collisions and friction. It makes the character feel "on rails" and can lead to weird behaviors when colliding with dynamic objects.
+*   **Recommendation:** Use forces (`body.apply_force`) or a constraint-based motor for movement. This allows Pymunk to handle interactions naturally.
 
 ### The "Orphan" Problem
-The solution for when a parent dies ("Iterate backwards... trigger Dismount") is fragile.
-*   **Race Conditions:** If the parent dies in the middle of a physics step, and you try to spawn the child's body in the same step, Pymunk might lock the space.
-*   **Overlap Instakill:** If you spawn the child exactly where the parent was, they might instantly collide with the thing that killed the parent, taking unfair damage or getting stuck.
+The proposed solution for parent death is fragile.
+*   **Race Conditions:** Reconstructing a body in the same frame a parent is destroyed is risky.
+*   **Overlaps:** Spawning the rider exactly where the parent was can cause immediate penetration issues.
 
-## 3. Conclusion
+## 3. Constructive Recommendation: Constraint-Based System
 
-This proposal is **rejected**. It tries to turn Pymunk into something it isn't (a compound sprite system) and introduces high-risk complexity (dynamic body reconstruction) for a low-value feature (stacking). The "Grafting" metaphor is clever but practically disastrous.
+Instead of "Shape Grafting", the proposal should be revised to use **Physics Constraints (Joints)**.
+*   **PivotJoint:** Use a `pymunk.PivotJoint` (or PinJoint) to attach the rider to the carrier. This keeps them as separate physical bodies.
+*   **Advantages:**
+    *   **No Destruction:** Rider keeps its body, mass, and properties. No state loss.
+    *   **Automatic Interaction:** Pymunk solves the motion. The rider naturally follows the carrier.
+    *   **Flexibility:** We can adjust the joint's stiffness or damping to allow for "wobble" or tight locking.
+    *   **Easy Dismount:** Just remove the joint. The rider preserves its momentum.
+    *   **Orphan Safety:** If the parent dies, the joint is automatically invalidated or can be easily removed, leaving the rider free.
+
+## 4. Conclusion
+
+The proposal requires significant revision. The "Shape Grafting" approach should be abandoned in favor of a **Constraint-based Mount System**. The movement logic should be simplified to work *with* Pymunk (forces/impulses) rather than overriding it.

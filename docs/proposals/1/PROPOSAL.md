@@ -1,10 +1,10 @@
-### Revised Proposal V4: Kinematic Control & Composite Constraints
+### Revised Proposal V5: Constraint-Based Stacking & Force-Driven Movement
 
-**Goal:** Create a robust "Stacking" system where riders become physical extensions of the parent without altering the parent's control feel, while retaining arcade-like movement responsiveness.
+**Goal:** Create a robust "Stacking" system where riders are physically linked to the parent using physics constraints, maintaining separate bodies for stability and ease of simulation. Ensure movement controls feel responsive but respect the physics engine.
 
-## 1\. Smart Dynamic Movement (Refined)
+## 1. Force-Driven Movement
 
-We retain the logic of separating "Input Velocity" from "Knockback Velocity" to allow crisp controls that can still be overpowered by explosions.
+Instead of manually setting velocity (which fights physics), we use forces to drive the character. This allows natural interaction with the environment (friction, collisions, external forces).
 
 ### 1.1 Component Changes
 
@@ -13,133 +13,91 @@ Update `MovementController` in `components.py`:
 ```python
 @dataclass
 class MovementController:
-    target_velocity: Vector2 = field(default_factory=lambda: Vector2(0, 0))
-    # ... visual bobs ...
-    
-    # Physics Control
-    knockback_timer: float = 0.0
-    knockback_threshold: float = 10.0 # Velocity below which control returns
-    is_airborne: bool = False # Visual state for flying
+    move_input: Vector2 = field(default_factory=lambda: Vector2(0, 0)) # Normalized input direction
+    speed: float = 500.0 # Force magnitude
+    damping: float = 15.0 # Damping factor to stop movement when no input
+    max_velocity: float = 200.0 # Cap for movement-induced velocity (not external)
 ```
 
 ### 1.2 MovementSystem Logic
 
 In `MovementSystem.update`:
 
-1.  **State Evaluation:**
+1.  **Apply Damping:**
+    *   Apply a damping force opposing velocity to simulate friction/air resistance.
+    *   `force -= body.velocity * controller.damping`
+2.  **Apply Input Force:**
+    *   If `move_input` is non-zero:
+        *   `force += move_input * controller.speed`
+    *   Limit the *contribution* of this force if velocity exceeds `max_velocity` (optional, for tighter control).
 
-      * If `knockback_timer > 0`:
-          * Reduce timer by `dt`.
-          * Check `body.velocity.length`. If `< knockback_threshold`, force `knockback_timer = 0`.
-      * State is `CONTROLLED` if `knockback_timer <= 0`.
+## 2. The Constraint Mount System
 
-2.  **Velocity Application:**
-
-      * **If CONTROLLED:**
-          * Directly set `body.velocity = controller.target_velocity`.
-          * Set `body.torque = 0` and `body.angular_velocity = 0`.
-      * **If KNOCKBACK:**
-          * Do **NOT** touch `body.velocity` (let Pymunk handle friction/damping).
-          * Allow `body.angle` to change (if we want tumbling), or keep it locked.
-
-## 2\. The Composite Mount System
-
-Instead of a generic parent/child link, we treat mounting as **Shape Grafting**. The Parent is the only active physics agent.
+We use Pymunk's `PivotJoint` (or similar constraints) to attach the Rider's body to the Carrier's body.
 
 ### 2.1 The `Mount` Component
 
-This component lives on the **Rider** (the entity being carried).
+This component lives on the **Rider**.
 
 ```python
 @dataclass
 class Mount(Component):
-    carrier_id: int               # The immediate entity carrying this one
-    root_id: int                  # The bottom-most entity (Physical Body owner)
-    
-    # Relative Positioning
-    offset_x: float               # Offset from carrier center
-    offset_y: float               # Offset from carrier center
-    
-    # Pymunk Restoration Data (Saved before grafting)
-    original_shape_radius: float
-    original_mass: float
-    original_filter: pymunk.ShapeFilter
+    carrier_id: int               # The entity carrying this one
+    joint: Optional[pymunk.Constraint] = None # The physical connection
+    offset: Vector2 = field(default_factory=lambda: Vector2(0, 0))
 ```
 
 ### 2.2 MountSystem Architecture
 
-The `MountSystem` handles the lifecycle of grafting shapes.
-
-#### **A. Operation: Mount (Grafting)**
+#### **A. Operation: Mount**
 
 When Entity A (Rider) mounts Entity B (Carrier):
 
-1.  **Resolve Root:**
-      * If B has a `Mount` component, `Root = B.Mount.root_id`.
-      * Else, `Root = B`.
-2.  **Physics Graft:**
-      * **Remove** A's `PhysicsBody` from the Pymunk Space and ECS.
-      * **Create** a new `pymunk.Circle` (or Poly).
-      * **Calculate Offset:** The shape offset must be: `(B_pos - Root_pos) + Desired_Mount_Offset`.
-          * *Critical:* Pymunk shape offsets are in local body coordinates.
-      * **Attach** this new shape to `Root`'s body.
-      * **Add Mass:** `Root.body.mass += A.mass`.
-3.  **Component Setup:**
-      * Add `Mount` component to A.
-      * Tag A with `VisualTransform` logic to sync rendering.
+1.  **Positioning:**
+    *   Move A's body to `B.position + offset`.
+2.  **Create Joint:**
+    *   Create a `pymunk.PivotJoint(B.body, A.body, anchor_point)`.
+    *   Add the joint to the Pymunk Space.
+    *   Store the joint in `A.Mount.joint`.
+3.  **Disable Collisions (Optional):**
+    *   Use `pymunk.ShapeFilter` to ignore collisions between A and B, or let them stack naturally if shapes don't overlap.
+    *   Ideally, use collision groups to prevent A and B from colliding with each other while mounted.
 
-#### **B. Operation: Update (Visual Sync)**
+#### **B. Operation: Update**
 
-Every frame, `MountSystem` updates the Rider's `Transform` to match the physics simulation, handling Sprite Flipping.
+The physics engine handles position and velocity automatically.
+*   **Visual Sync:** No manual transform syncing is needed for position. `PhysicsSystem` already syncs `Transform` from the Body.
+*   **Flipping:** `MountSystem` still checks `B.Sprite.flip_x` to update `A.Sprite.flip_x` and potentially adjust the joint anchor if the offset is asymmetric.
 
-```python
-# Pseudo-code for Update Loop
-for rider_id, mount in world.get_components(Mount):
-    root_trans = world.get_component(mount.root_id, Transform)
-    carrier_sprite = world.get_component(mount.carrier_id, Sprite)
-    
-    # Calculate Flip-Aware Offset
-    final_offset_x = mount.offset_x
-    if carrier_sprite.flip_x:
-        final_offset_x = -mount.offset_x # Flip position relative to carrier
-        
-    # Apply to Rider
-    rider_trans.x = root_trans.x + final_offset_x
-    rider_trans.y = root_trans.y + mount.offset_y
-    
-    # Sync Rider facing direction to Carrier
-    rider_sprite.flip_x = carrier_sprite.flip_x
-```
-
-#### **C. Operation: Dismount (Reconstruction)**
+#### **C. Operation: Dismount**
 
 When A dismounts:
 
-1.  **Remove Shape:** Find and remove the specific shape corresponding to A from `Root`'s body.
-2.  **Restore Mass:** `Root.body.mass -= mount.original_mass`.
-3.  **Reconstruct Body:** Call `physics_utils.add_physics_body(...)` for A at its current `Transform` position.
-4.  **Pop Impulse:** Apply a small velocity impulse to A to prevent immediate re-collision.
+1.  **Remove Joint:** Remove `A.Mount.joint` from the Space.
+2.  **Cleanup:** Remove `Mount` component from A.
+3.  **Momentum:** A naturally retains its velocity from the movement. We can apply a small impulse if we want a "jump off" effect.
 
-## 3\. Edge Case: The "Orphan" Prevention
+## 3. Edge Case: The "Orphan" Prevention
 
-If the Root entity dies, the physical body is destroyed. We must ensure Riders don't vanish.
+If the Carrier entity dies:
 
 **Event Subscription:** `EntityDestroyedEvent`
 
 **Handler Logic:**
 
-1.  Check if the destroyed entity is a `root_id` for any active `Mount` components.
-2.  **Iterate backwards** (top of stack down) or simply force dismount all.
-3.  Trigger `Dismount` logic for all children *before* the physics space removes the Root body.
-4.  Since the Root body is about to disappear, we don't need to clean up shapes/mass, just reconstruct the Riders' individual bodies.
+1.  Check if the destroyed entity is a `carrier_id` for any active `Mount` components.
+2.  For each attached Rider:
+    *   Remove the joint from the space.
+    *   Remove the `Mount` component.
+    *   (Optional) Apply a small "tumble" impulse.
+3.  The Rider is now a free-floating independent body.
 
-## 4\. Implementation Plan
+## 4. Implementation Plan
 
-1.  **Update `MovementSystem`**: Implement `knockback_timer` and velocity thresholding.
-2.  **Create `Mount` Component**: Define the data structure in `yukkuri_components.py`.
+1.  **Refactor `MovementSystem`**: Switch from velocity-setting to force-application.
+2.  **Create `Mount` Component**: Define data structure.
 3.  **Implement `MountSystem`**:
-      * `mount(rider, carrier)`: Handles shape grafting.
-      * `dismount(rider)`: Handles shape removal and body reconstruction.
-      * `update()`: Syncs transforms and handles flipping.
-      * `on_entity_destroyed()`: Safety catch for parent death.
-4.  **Update `InteractionSystem`**: Add "Ride" interaction which triggers the `MountSystem`.
+    *   Handle `MountEvent` to create joints.
+    *   Handle `DismountEvent` to remove joints.
+    *   Handle `EntityDestroyedEvent` to safely detach riders.
+4.  **Collision Filtering**: Ensure riders and carriers don't jitter-collide (use `ShapeFilter` groups).
