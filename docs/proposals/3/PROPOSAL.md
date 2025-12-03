@@ -1,4 +1,4 @@
-# Proposal 3: Deterministic Kinematic Controller (The "Controller" Pattern)
+# Revised Proposal 3: Deterministic Kinematic Controller (The "Controller" Pattern)
 
 ## 1. Goal: "Pixel-Perfect" Arcade Movement
 
@@ -67,15 +67,21 @@ Runs **after** `KinematicMovementSystem`.
     *   Recurse to grandchildren.
 
 ### 3.3 Collision Handling for Stacks
-*   **Standard:** Children have their physics shapes set to `Sensor` or a collision group that ignores the environment. Only the Root collides with walls.
-*   **Hitbox Expansion (Advanced):** If a child needs to block movement (e.g., a very wide load), the Root could add a secondary shape to itself that mimics the child's dimensions.
+*   **Composite Hitbox:** The Root entity's collision check must account for the *entire stack*.
+*   **Implementation:**
+    *   When checking collisions (Step 2.1), the controller iterates through all children in the stack.
+    *   It performs the check for the Root shape *and* all Child shapes at the proposed offset.
+    *   If *any* shape in the stack hits a wall, the movement is blocked for the *entire stack*.
+    *   This prevents children from clipping through walls ("Ghost Child" problem) and ensures the stack moves as a single solid unit.
 
 ## 4. Implementation Steps
 
 1.  **Physics Setup:** Configure Pymunk bodies as `KINEMATIC` so the solver doesn't touch them.
-2.  **`KinematicMovementSystem`:** Implement the Axis-Separated movement loop using `space.shape_query` (checking for overlaps).
+2.  **`KinematicMovementSystem`:** Implement the Axis-Separated movement loop.
+    *   *Optimization:* Instead of full `shape_query` sweeps, use `space.point_query` for simple checks or `bb_query` for broadphase first.
+    *   *Stack Check:* Modify the collision predicate to loop through `Mount.children_ids` and check their transformed shapes as well.
 3.  **`MountSystem`:** Implement the recursive transform sync.
 4.  **`InteractionSystem`:** Add logic to link/unlink entities (populating the `Mount` component).
 
 ## 5. Summary
-This proposal delivers the tightest control scheme. It trades the "emergent behavior" of a physics engine for the "reliability" of a custom controller, which is the correct trade-off for this genre.
+This proposal delivers the tightest control scheme. It trades the "emergent behavior" of a physics engine for the "reliability" of a custom controller. By treating the stack as a **Composite Kinetic Body**, we solve the clipping issues while maintaining pixel-perfect precision.
