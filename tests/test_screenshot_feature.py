@@ -45,8 +45,11 @@ class TestScreenshot(unittest.TestCase):
                  patch('yukkuri_game.scenes.gameplay.PhysicsSystem'), \
                  patch('yukkuri_game.scenes.gameplay.EventBus'), \
                  patch('yukkuri_game.scenes.gameplay.GameService'), \
-                 patch('yukkuri_game.scenes.gameplay.UtilityAIEngine'), \
-                 patch('yukkuri_game.scenes.gameplay.SystemRegistry'):
+                 patch('yukkuri_game.scenes.gameplay.GameLoader') as mock_loader:
+
+                 # We need to ensure loader instance returns mocked systems if needed
+                 # But take_screenshot only uses pygame.image.save and os, which are patched at module level
+                 # So we mainly need GameplayScene instantiation to not fail.
 
                  scene = GameplayScene(game)
                  scene.take_screenshot()
@@ -91,8 +94,7 @@ class TestScreenshot(unittest.TestCase):
                  patch('yukkuri_game.scenes.gameplay.PhysicsSystem'), \
                  patch('yukkuri_game.scenes.gameplay.EventBus'), \
                  patch('yukkuri_game.scenes.gameplay.GameService'), \
-                 patch('yukkuri_game.scenes.gameplay.UtilityAIEngine'), \
-                 patch('yukkuri_game.scenes.gameplay.SystemRegistry'):
+                 patch('yukkuri_game.scenes.gameplay.GameLoader') as mock_loader:
 
                  scene = GameplayScene(game)
                  scene.take_screenshot()

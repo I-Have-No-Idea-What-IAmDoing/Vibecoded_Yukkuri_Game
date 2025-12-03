@@ -2,7 +2,6 @@
 Gameplay Scene.
 """
 
-import inspect
 import os
 from datetime import datetime
 from typing import ClassVar, Dict, Type
@@ -21,8 +20,6 @@ from ..engine.input_manager import InputContext, InputManager
 from ..engine.scene import Scene, SceneContext
 from ..engine.serializer import WorldSerializer
 from ..game import components, components_persistence, yukkuri_components
-from ..game.ai.navigation_service import NavigationService
-from ..game.ai.utility import UtilityAIEngine
 from ..game.events import (
     CycleSpeedRequest,
     LoadGameRequest,
@@ -35,14 +32,10 @@ from ..game.services import EconomyService, GameService, InputService, TimeServi
 from ..game.settings_service import SettingsService
 from ..game.systems.physics import PhysicsSystem
 from ..game.systems.physics_reconstruction import reconstruct_physics
-from ..game.systems.sector_system import SectorMap, SectorSystem
-from ..game.trait_service import TraitService
-from ..game.skill_service import SkillService
 from ..game.ui.hud import HUD
 from ..game.yukkurrium import Yukkurrium
 from ..game.systems.render_system import RenderSystem
-from ..system_registry import SystemRegistry
-from ..game.utils.evaluator import ConditionEvaluator
+from ..game.loader import GameLoader
 
 
 class GameplayScene(Scene):
@@ -85,97 +78,41 @@ class GameplayScene(Scene):
         self.input_manager = self.world.services.get(InputManager)
         self.input_manager.switch_context(InputContext.GAMEPLAY)
 
-        # Collect component types for serializer
-        comp_types = []
-        for module in [components, yukkuri_components, components_persistence]:
-            for _, obj in inspect.getmembers(module):
-                if inspect.isclass(obj):
-                    comp_types.append(obj)
-        self.serializer = WorldSerializer(self.world, comp_types)
+        # Initialize Loader
+        self.loader = GameLoader(self.world, self.application, self.game_config)
 
-        self._register_services(context)
-        self._register_factories_and_managers()
-        self._register_systems()
+        # Register services
+        self.loader.register_services(context, self.audio, self.yukkurrium, self.physics_system, self.event_bus)
 
-        self.is_setup = True
-
-    def _register_services(self, context: SceneContext) -> None:
-        """Registers services to the world."""
-        # ResourceManager is already registered by Scene base class
-
-        self.world.services.register(self.audio, AudioManager)
-        self.world.services.register(self.yukkurrium, Yukkurrium)
-        self.world.services.register(self.physics_system, PhysicsSystem)
-        self.world.services.register(self.event_bus, EventBus)
-        # EventManager and InputManager are registered by Scene base class if present in Application
-
-        # Inject Global State
-        money = context.data.get("money", 1000)
-        time_elapsed = context.data.get("time", 0.0)
-
-        self.economy_service = EconomyService(initial_money=money)
-        self.world.services.register(self.economy_service, EconomyService)
-
-        self.time_service = TimeService(time_elapsed=time_elapsed)
-        self.world.services.register(self.time_service, TimeService)
-
-        self.input_service = InputService()
-        self.world.services.register(self.input_service, InputService)
-
-        # Use the Application's resource manager (injected via scene context or application)
-        # Assuming Application has resources, which it seems to have from `self.application.resources` usage later
-        self.settings_service = SettingsService(self.application.resources)
-        self.world.services.register(self.settings_service, SettingsService)
-
-        self.trait_service = TraitService(self.world)
-        self.world.services.register(self.trait_service, TraitService)
-
-        self.skill_service = SkillService(self.world, self.game_config.rules.skills)
-        self.world.services.register(self.skill_service, SkillService)
-
-        self.evaluator = ConditionEvaluator()
-        self.world.services.register(self.evaluator, ConditionEvaluator)
-
-        self._init_navigation_service()
-        self._init_sector_system()
+        # Cache service references for local usage
+        self.economy_service = self.world.services.get(EconomyService)
+        self.time_service = self.world.services.get(TimeService)
+        self.settings_service = self.world.services.get(SettingsService)
 
         self._apply_initial_settings()
 
-    def _init_navigation_service(self) -> None:
-        """Initializes the Navigation Service."""
-        world_width = 3000
-        world_height = 3000
+        # Factories
+        self.loader.register_factories_and_managers()
+        self.game_service = self.world.services.get(GameService)
 
-        if self.game_config:
-            world_width = self.game_config.world.width
-            world_height = self.game_config.world.height
-            self.world.services.register(
-                NavigationService(
-                    world_width=world_width,
-                    world_height=world_height,
-                    grid_step_size=self.game_config.world.grid_step_size,
-                )
-            )
-        else:
-            self.world.services.register(NavigationService(world_width, world_height))
+        # Serializer
+        self.serializer = WorldSerializer(self.world, self.loader.collect_component_types())
 
-    def _init_sector_system(self) -> None:
-        """Initializes and registers the Sector System and Map."""
-        world_width = 3000
-        world_height = 3000
-        sector_size = 500.0
-
-        if self.game_config:
-            world_width = self.game_config.world.width
-            world_height = self.game_config.world.height
-            if hasattr(self.game_config.world, "sector_size"):
-                sector_size = self.game_config.world.sector_size
-
-        sector_system = SectorSystem(
-            width=world_width, height=world_height, sector_size=sector_size
+        # Systems
+        self.input_system = self.loader.register_systems(
+            self.yukkurrium, self.event_bus, self.physics_system, self.ui_manager
         )
-        self.world.services.register(sector_system.sector_map, SectorMap)
-        self.world.add_system(sector_system)
+
+        self.is_setup = True
+        self._setup_event_handlers()
+
+        # Initial Population if empty
+        if not self.application.headless and len(self.world.get_all_entities()) == 0:
+            start_x = float(self.yukkurrium.width) / 2.0
+            start_y = float(self.yukkurrium.height) / 2.0
+            create_yukkuri(self.world, "reimu", start_x, start_y)
+            self.yukkurrium.camera_x = float(start_x)
+            self.yukkurrium.camera_y = float(start_y)
 
     def _apply_initial_settings(self) -> None:
         audio_settings = self.settings_service.settings.audio
@@ -183,29 +120,7 @@ class GameplayScene(Scene):
         self.audio.set_bgm_volume(audio_settings.bgm_volume)
         self.audio.set_sfx_volume(audio_settings.sfx_volume)
 
-    def _register_factories_and_managers(self) -> None:
-        from ..game.entity_factory import EntityFactory
-
-        self.entity_factory = EntityFactory(self.world)
-        self.world.services.register(self.entity_factory, EntityFactory)
-
-        self.game_service = GameService(self.world)
-        self.world.services.register(self.game_service, GameService)
-
-        self.ai_engine = UtilityAIEngine(self.application.resources)
-        self.ai_engine.validate_actions()
-        self.world.services.register(self.ai_engine, UtilityAIEngine)
-
-    def _register_systems(self) -> None:
-        self.input_system = SystemRegistry.register_systems(
-            self.world,
-            self.game_config,
-            self.yukkurrium,
-            self.event_bus,
-            self.physics_system,
-        )
-        self.input_system.set_ui_manager(self.ui_manager)
-
+    def _setup_event_handlers(self) -> None:
         if not self.application.headless:
             self.render_system = RenderSystem(self.application.screen, self.world)
             self.hud = HUD(self.ui_manager, self.world)
@@ -215,20 +130,6 @@ class GameplayScene(Scene):
             self.event_bus.subscribe(ResolutionChangedEvent, self.on_resolution_changed)
             self.event_bus.subscribe(SaveGameRequest, lambda e: self.save(e.filename))
             self.event_bus.subscribe(LoadGameRequest, lambda e: self.load(e.filename))
-
-        # Initial Population if empty
-        # Note: In a real scenario, we might want to check if we loaded data first.
-        # Since we use `setup` for new games too, we need a flag or logic.
-        # But `load` clears database.
-
-        # If we just started a NEW game (not loaded), we might want initial population.
-        # For now, we'll assume if no entities, create defaults.
-        if not self.application.headless and len(self.world.get_all_entities()) == 0:
-            start_x = float(self.yukkurrium.width) / 2.0
-            start_y = float(self.yukkurrium.height) / 2.0
-            create_yukkuri(self.world, "reimu", start_x, start_y)
-            self.yukkurrium.camera_x = float(start_x)
-            self.yukkurrium.camera_y = float(start_y)
 
     def on_exit(self) -> None:
         logger.info("Exited Gameplay Scene")
@@ -344,10 +245,14 @@ class GameplayScene(Scene):
         reconstruct_physics(self.world)
 
         # Migrate Skills
-        if hasattr(self, "skill_service"):
+        # Need to get SkillService properly since it was not stored in self explicitly in new setup
+        from ..game.skill_service import SkillService
+        skill_service = self.world.services.try_get(SkillService)
+
+        if skill_service:
              # Iterate all YukkuriStats entities
              for ent, (_, _) in self.world.get_components_tuple(yukkuri_components.YukkuriStats, components.Transform):
-                 self.skill_service.initialize_skills(ent)
+                 skill_service.initialize_skills(ent)
 
         logger.info("World loaded.")
 
