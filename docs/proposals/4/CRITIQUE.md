@@ -1,35 +1,33 @@
-# Critique of Proposal 4: Deterministic Kinematic Hierarchy
+# Critique of Proposal 4: Deterministic Kinematic Hierarchy (Round 2)
 
-## 1. Collision Detection: Raycast Bundle vs. Shape Sweep
-The proposal suggests using a "Raycast Bundle" (casting rays from corners and center) to detect collisions. While faster than full physics simulation, this approach has significant flaws:
-*   **Tunneling/Clipping:** Sparse rays can miss small obstacles (e.g., spikes, thin poles) that fit between the rays.
-*   **Corner Cases:** Rays from corners might catch on geometry in unexpected ways or miss corners when sliding.
-*   **Shape Mismatch:** This approximates the entity as a set of lines rather than a solid shape. A box shape moving diagonally is effectively a hexagon swept area, which 3-5 rays do not represent accurately.
+## 1. Feasibility of "Shape Cast" in Pymunk
+The proposal relies on "Shape Cast (Sweep)" to ensure zero tunneling. However, `pymunk` (and Chipmunk Physics) does not natively support continuous collision detection (swept shapes) for arbitrary polygons/boxes. It only supports:
+1.  **Static Overlap:** `shape_query` (Is shape X overlapping anything *right now*?)
+2.  **Raycast:** `segment_query` (Does this line hit anything?)
 
-**Recommendation:** Replace "Raycast Bundle" with **Shape Casting** (sweeping the actual collider shape along the movement vector). `pymunk.Space.shape_query` or iterating with a shape test at discrete steps is much more robust and ensures "100% Predictability" without visual clipping.
+**Critique:** "Performing a shape sweep" is not a primitive operation. Implementing it via iterative stepping (moving the shape slightly, checking, repeating) is expensive (O(N) queries per entity per frame) and imprecise (tunneling still possible between steps).
 
-## 2. "Riders don't have collision" Simplication
-The proposal states that "Riders don't have collision" and that the "Parent is the only physical agent".
-*   **Gameplay Limitation:** This prevents riders from taking damage from projectiles, blocking enemies, or hitting low ceilings.
-*   **Visual Weirdness:** Tall stacks will clip through environment geometry (ceilings, overhangs).
+**Recommendation:**
+*   Acknowledge the limitation.
+*   Propose a **Hybrid Approach**: Use a `segment_query` (Raycast) from the center to detect high-speed collisions preventing tunneling, combined with `shape_query` at the destination to handle volume.
+*   Or, explicitly define the "Sweep" as an iterative "Linear Cast" with a fixed step size (e.g., radius of the shape).
 
-**Recommendation:** Riders should likely retain **Sensor** shapes (to detect hits) or contribute to a **Compound Shape** for the Root (so the entire stack collides with the world). At minimum, a "Head Check" raycast for the top-most rider is needed to prevent ceiling clipping.
+## 2. The "Middle Rider" Clipping Issue
+The proposal handles the Root (collision) and the Top Rider ("Head Check"). It ignores any riders in between.
+*   **Critique:** If a middle rider is wider than the Root, they will clip through walls. If they are taller than the gap allows (but shorter than the top rider?), they might intersect geometry that the top rider misses (e.g. an overhang at mid-height).
+*   **Recommendation:**
+    *   Instead of just a "Head Check", the system should perform a **Stack Check**.
+    *   Iterate through *all* attached children. If *any* child's shape at the target position overlaps an obstacle, the movement is blocked.
+    *   This effectively treats the stack as a **Composite Collider** without the overhead of physically welding bodies.
 
-## 3. Dismounting Logic
-"Spiral Search" or "Ejecting" for dismounting is vague and can introduce non-determinism or buggy behavior (teleporting into walls).
-*   **Unpredictability:** If the spiral search finds different spots based on float precision or order of operations, it violates the core goal.
+## 3. Ghost Collisions (Tilemap Seams)
+The "Slide" logic works well on single continuous planes. However, on tilemaps, a floor is often made of many adjacent box colliders.
+*   **Critique:** A Box collider sliding along a tiled floor will often "catch" on the internal vertices between tiles due to floating-point errors, causing the entity to stop or "trip" on a flat surface.
+*   **Recommendation:**
+    *   Suggest using **Capsule** or **Chamfered Box** (octagon) shapes for the Root entity. Rounded bottoms slide over internal seams much smoother than flat-bottomed boxes.
 
-**Recommendation:** Define a strict, deterministic rule for dismounting. E.g., "Dismount always attempts strict relative offsets (Left, Right, Back). If all blocked, dismount fails."
-
-## 4. Dirty Flag Logic
-"Only process the hierarchy for a Root if it has successfully moved this frame."
-*   **Missing Cases:** This misses cases where a parent *rotates* but doesn't change position, or when the hierarchy structure changes (a child is added/removed) without movement.
-*   **Animation:** If visual attachments rely on this system, they might need updates even if the physics body is stationary (e.g., idle animation sway).
-
-**Recommendation:** The dirty flag should track "Transform Change" (Position OR Rotation) and "Hierarchy Change" (Child Added/Removed).
-
-## 5. Broadphase Optimization
-Using `pymunk.Space.bb_query` is a good start, but it returns all shapes in the box.
-*   **Filtering:** The proposal needs to explicitly mention filtering. We don't want to stop movement because of a Trigger or a Coin.
-
-**Recommendation:** Explicitly state that queries must filter for "Obstacle" collision types only.
+## 4. Interaction with Dynamic Bodies
+The proposal treats the world as a "Geometry Database" (Walls/Floors).
+*   **Critique:** It is undefined what happens when a kinematic Root hits a Dynamic Body (e.g., a crate). The current logic ("Detect Hit -> Stop") treats a 1kg crate as an immovable wall.
+*   **Recommendation:**
+    *   Clarify that for this iteration, **Dynamic Bodies are Obstacles**. Interaction/Pushing is out of scope or requires a specific "Push" state that temporarily overrides the "Stop" behavior.
