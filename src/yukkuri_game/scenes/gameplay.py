@@ -122,7 +122,9 @@ class GameplayScene(Scene):
         self.input_service = InputService()
         self.world.services.register(self.input_service, InputService)
 
-        self.settings_service = SettingsService()
+        # Use the Application's resource manager (injected via scene context or application)
+        # Assuming Application has resources, which it seems to have from `self.application.resources` usage later
+        self.settings_service = SettingsService(self.application.resources)
         self.world.services.register(self.settings_service, SettingsService)
 
         self.trait_service = TraitService(self.world)

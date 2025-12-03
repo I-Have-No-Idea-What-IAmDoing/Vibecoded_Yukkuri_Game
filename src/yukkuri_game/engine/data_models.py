@@ -240,3 +240,26 @@ class InteractionData(msgspec.Struct): # type: ignore[misc]
     Root container for Interaction definitions.
     """
     interaction: Dict[str, InteractionDefinition]
+
+class AudioSettings(msgspec.Struct):
+    """
+    Audio settings data model.
+    """
+    master_volume: float = 0.5
+    bgm_volume: float = 0.5
+    sfx_volume: float = 0.5
+
+class WindowSettings(msgspec.Struct):
+    """
+    Window settings data model.
+    """
+    width: int = 1280
+    height: int = 720
+    fullscreen: bool = False
+
+class UserSettings(msgspec.Struct):
+    """
+    Root container for user settings.
+    """
+    audio: AudioSettings = msgspec.field(default_factory=AudioSettings)
+    window: WindowSettings = msgspec.field(default_factory=WindowSettings)

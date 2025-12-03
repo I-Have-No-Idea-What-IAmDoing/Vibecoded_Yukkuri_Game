@@ -82,6 +82,28 @@ class ResourceManager:
             logger.error(f"Failed to load TOML {filepath}: {e}")
             return None
 
+    def save_toml_model(self, filepath: str, data: msgspec.Struct) -> bool:
+        """
+        Saves a msgspec Struct to a TOML file relative to the data directory.
+
+        Args:
+            filepath (str): The relative path to the TOML file within the data directory.
+            data (msgspec.Struct): The data to save.
+
+        Returns:
+            bool: True if saving succeeded, False otherwise.
+        """
+        full_path = os.path.join(self.data_dir, filepath)
+        try:
+            encoded_data = msgspec.toml.encode(data)
+            with open(full_path, "wb") as f:
+                f.write(encoded_data)
+            logger.info(f"Saved TOML: {filepath}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save TOML {filepath}: {e}")
+            return False
+
     def load_image(self, filename: str) -> pygame.Surface:
         """
         Loads an image relative to the assets/images directory.

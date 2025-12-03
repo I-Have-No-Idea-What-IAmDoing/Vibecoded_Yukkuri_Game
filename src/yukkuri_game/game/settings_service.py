@@ -1,11 +1,13 @@
 """
 Module defining the SettingsService.
 """
-import json
+import msgspec
 import os
-import copy
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from loguru import logger
+
+from ..engine.data_models import UserSettings
+from ..engine.resource_manager import ResourceManager
 
 class SettingsService:
     """
@@ -13,81 +15,50 @@ class SettingsService:
 
     Attributes:
         settings_file (str): Path to the settings file.
-        settings (Dict[str, Any]): Dictionary containing current settings.
+        settings (UserSettings): The current settings.
+        resource_manager (ResourceManager): The resource manager instance.
     """
-    DEFAULT_SETTINGS: Dict[str, Any] = {
-        "audio": {
-            "master_volume": 0.5,
-            "bgm_volume": 0.5,
-            "sfx_volume": 0.5
-        },
-        "window": {
-            "width": 1280,
-            "height": 720,
-            "fullscreen": False
-        }
-    }
 
-    def __init__(self, settings_file: str = "user_settings.json"):
+    def __init__(self, resource_manager: Optional[ResourceManager] = None, settings_file: str = "user_settings.toml"):
         """
         Initializes the SettingsService.
 
         Args:
-            settings_file (str): The path to the settings file.
+            resource_manager (ResourceManager, optional): The resource manager to use.
+            settings_file (str): The path to the settings file relative to the data directory.
         """
         self.settings_file = settings_file
-        self.settings: Dict[str, Any] = copy.deepcopy(self.DEFAULT_SETTINGS)
+        self.resource_manager = resource_manager or ResourceManager()
+        self.settings: UserSettings = UserSettings()
         self.load_settings()
 
     def load_settings(self) -> None:
         """
-        Loads settings from the JSON file.
+        Loads settings from the TOML file.
 
         Returns:
             None
         """
-        if os.path.exists(self.settings_file):
-            try:
-                with open(self.settings_file, "r") as f:
-                    loaded_settings = json.load(f)
-                    # Merge loaded settings with defaults to handle missing keys
-                    self._merge_settings(self.settings, loaded_settings)
-                logger.info(f"Settings loaded from {self.settings_file}")
-            except Exception as e:
-                logger.error(f"Failed to load settings: {e}")
+        loaded_settings = self.resource_manager.load_toml_model(self.settings_file, UserSettings)
+        if loaded_settings:
+            self.settings = loaded_settings
+            logger.info(f"Settings loaded from {self.settings_file}")
         else:
-            logger.info("Settings file not found, using defaults.")
+            logger.info("Settings file not found or failed to load, using defaults.")
+            self.settings = UserSettings()
+            self.save_settings() # Save defaults
 
     def save_settings(self) -> None:
         """
-        Saves the current settings to the JSON file.
+        Saves the current settings to the TOML file.
 
         Returns:
             None
         """
-        try:
-            with open(self.settings_file, "w") as f:
-                json.dump(self.settings, f, indent=4)
+        if self.resource_manager.save_toml_model(self.settings_file, self.settings):
             logger.info(f"Settings saved to {self.settings_file}")
-        except Exception as e:
-            logger.error(f"Failed to save settings: {e}")
-
-    def _merge_settings(self, current: Dict[str, Any], new: Dict[str, Any]) -> None:
-        """
-        Recursively merges new settings into current settings.
-
-        Args:
-            current (Dict[str, Any]): The current settings dictionary to merge into.
-            new (Dict[str, Any]): The new settings dictionary to merge from.
-
-        Returns:
-            None
-        """
-        for key, value in new.items():
-            if isinstance(value, dict) and key in current and isinstance(current[key], dict):
-                self._merge_settings(current[key], value)
-            else:
-                current[key] = value
+        else:
+            logger.error("Failed to save settings.")
 
     def get(self, category: str, key: str) -> Any:
         """
@@ -100,7 +71,11 @@ class SettingsService:
         Returns:
             Any: The setting value.
         """
-        return self.settings.get(category, {}).get(key)
+        if hasattr(self.settings, category):
+            cat_obj = getattr(self.settings, category)
+            if hasattr(cat_obj, key):
+                return getattr(cat_obj, key)
+        return None
 
     def set(self, category: str, key: str, value: Any) -> None:
         """
@@ -114,6 +89,11 @@ class SettingsService:
         Returns:
             None
         """
-        if category not in self.settings:
-            self.settings[category] = {}
-        self.settings[category][key] = value
+        if hasattr(self.settings, category):
+            cat_obj = getattr(self.settings, category)
+            if hasattr(cat_obj, key):
+                setattr(cat_obj, key, value)
+            else:
+                 logger.warning(f"Setting key '{key}' not found in category '{category}'")
+        else:
+            logger.warning(f"Setting category '{category}' not found")
