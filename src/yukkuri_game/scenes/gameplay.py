@@ -178,10 +178,10 @@ class GameplayScene(Scene):
         self.world.add_system(sector_system)
 
     def _apply_initial_settings(self) -> None:
-        audio_settings = self.settings_service.settings.get("audio", {})
-        self.audio.set_master_volume(audio_settings.get("master_volume", 0.5))
-        self.audio.set_bgm_volume(audio_settings.get("bgm_volume", 0.5))
-        self.audio.set_sfx_volume(audio_settings.get("sfx_volume", 0.5))
+        audio_settings = self.settings_service.settings.audio
+        self.audio.set_master_volume(audio_settings.master_volume)
+        self.audio.set_bgm_volume(audio_settings.bgm_volume)
+        self.audio.set_sfx_volume(audio_settings.sfx_volume)
 
     def _register_factories_and_managers(self) -> None:
         from ..game.entity_factory import EntityFactory
