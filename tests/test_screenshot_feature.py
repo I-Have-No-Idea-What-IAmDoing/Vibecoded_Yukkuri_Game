@@ -52,7 +52,6 @@ class TestScreenshot(unittest.TestCase):
                 patch("yukkuri_game.scenes.gameplay.Yukkurrium"),
                 patch("yukkuri_game.scenes.gameplay.AudioManager"),
                 patch("yukkuri_game.scenes.gameplay.PhysicsSystem"),
-                patch("yukkuri_game.scenes.gameplay.EventBus"),
                 patch("yukkuri_game.scenes.gameplay.GameService"),
                 patch("yukkuri_game.scenes.gameplay.GameLoader") as mock_loader,
             ):
@@ -114,7 +113,6 @@ class TestScreenshot(unittest.TestCase):
                 patch("yukkuri_game.scenes.gameplay.Yukkurrium"),
                 patch("yukkuri_game.scenes.gameplay.AudioManager"),
                 patch("yukkuri_game.scenes.gameplay.PhysicsSystem"),
-                patch("yukkuri_game.scenes.gameplay.EventBus"),
                 patch("yukkuri_game.scenes.gameplay.GameService"),
                 patch("yukkuri_game.scenes.gameplay.GameLoader") as mock_loader,
             ):
