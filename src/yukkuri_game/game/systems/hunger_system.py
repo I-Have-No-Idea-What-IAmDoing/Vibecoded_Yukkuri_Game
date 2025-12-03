@@ -8,7 +8,7 @@ from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
 from ..components import Transform, InteractionRequest
-from ..yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState
+from ..yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, EmotionalState
 from ..skill_service import SkillService
 from ..skill_constants import SkillId
 
@@ -47,6 +47,11 @@ class HungerSystem(System):
         if self.skill_service is None:
             self.skill_service = world.services.try_get(SkillService)
 
+        consumer_needs = world.get_component(consumer_id, Needs)
+        if not consumer_needs:
+            # Cannot eat if no needs component (weird but possible if malformed)
+            return False
+
         target_transform = world.get_component(item_id, Transform)
         if not target_transform:
             return False
@@ -58,14 +63,14 @@ class HungerSystem(System):
 
         # Apply Stats
         if item_stats.nutrition > 0:
-            consumer_stats.hunger = max(0, consumer_stats.hunger - item_stats.nutrition)
+            consumer_needs.hunger = max(0, consumer_needs.hunger - item_stats.nutrition)
 
         emotional = world.get_component(consumer_id, EmotionalState)
         if item_stats.fun > 0 and emotional:
             emotional.happiness = min(100, emotional.happiness + item_stats.fun)
 
         if item_stats.comfort > 0:
-            consumer_stats.energy = min(100, consumer_stats.energy + item_stats.comfort)
+            consumer_needs.energy = min(100, consumer_needs.energy + item_stats.comfort)
 
         # Apply Scavenging XP
         if self.skill_service:

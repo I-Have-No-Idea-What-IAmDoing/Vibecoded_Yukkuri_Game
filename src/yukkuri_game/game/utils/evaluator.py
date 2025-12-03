@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional, Type
 from simpleeval import SimpleEval
 from loguru import logger
 from ...engine.ecs import World
-from ..yukkuri_components import YukkuriStats, EmotionalState, Skills, Personality
+from ..yukkuri_components import YukkuriStats, Needs, EmotionalState, Skills, Personality
 
 class ConditionEvaluator:
     def __init__(self) -> None:
@@ -30,11 +30,20 @@ class ConditionEvaluator:
         # Stats
         stats = world.get_component(entity_id, YukkuriStats)
         if stats:
-            context['health'] = stats.health
-            context['hunger'] = stats.hunger
-            context['stress'] = 0.0 # Default if emotion missing
             context['discipline'] = stats.discipline
             context['age'] = stats.age
+            context['intelligence'] = stats.intelligence
+
+        # Needs
+        needs = world.get_component(entity_id, Needs)
+        if needs:
+            context['health'] = needs.health
+            context['hunger'] = needs.hunger
+            context['stress'] = 0.0 # Default if emotion missing
+            context['energy'] = needs.energy
+            context['cleanliness'] = needs.cleanliness
+            context['bladder'] = needs.bladder
+            context['easiness'] = needs.easiness
 
         # Personality (Fetch first to use for mood)
         pers = world.get_component(entity_id, Personality)
@@ -43,7 +52,7 @@ class ConditionEvaluator:
             if pers.axis:
                 context['kindness'] = pers.axis.kindness
                 context['greed'] = pers.axis.greed
-                context['energy'] = pers.axis.energy
+                context['energy_axis'] = pers.axis.energy
                 context['bravery'] = pers.axis.bravery
 
         # Emotion
@@ -104,4 +113,4 @@ class ConditionEvaluator:
         except Exception as e:
             # Fallback for bad data/expressions to prevent crash
             logger.warning(f"Expression evaluation error: '{expression}' - {e}")
-            return False
+            return bool(False)

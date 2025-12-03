@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.config import StatDecaySettings
 
 class TestEmotionSystemHealthClamp(unittest.TestCase):
@@ -9,10 +9,11 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         mock_world = MagicMock()
         mock_world.has_component.return_value = False # Not dead
         stats = YukkuriStats(name="Test", type_id="test")
-        stats.max_health = 100.0
-        stats.health = 150.0 # Over limit
+        needs = Needs()
+        needs.max_health = 100.0
+        needs.health = 150.0 # Over limit
 
-        mock_world.get_components_tuple.return_value = [(1, (stats,))]
+        mock_world.get_components_tuple.return_value = [(1, (stats, needs))]
 
         # Mock EmotionalState to return None or a valid object
         # If None, the system skips emotional update
@@ -23,16 +24,17 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         system.update(mock_world, dt)
 
         # Health should be clamped to max_health
-        self.assertEqual(stats.health, 100.0)
+        self.assertEqual(needs.health, 100.0)
 
     def test_health_clamping_low(self):
         mock_world = MagicMock()
         mock_world.has_component.return_value = False # Not dead
         stats = YukkuriStats(name="Test", type_id="test")
-        stats.max_health = 100.0
-        stats.health = -50.0 # Under limit
+        needs = Needs()
+        needs.max_health = 100.0
+        needs.health = -50.0 # Under limit
 
-        mock_world.get_components_tuple.return_value = [(1, (stats,))]
+        mock_world.get_components_tuple.return_value = [(1, (stats, needs))]
 
         # Mock EmotionalState to return None
         mock_world.get_component.return_value = None
@@ -42,4 +44,4 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         system.update(mock_world, dt)
 
         # Health should be clamped to 0
-        self.assertEqual(stats.health, 0.0)
+        self.assertEqual(needs.health, 0.0)

@@ -9,7 +9,7 @@ from yukkuri_game.game.ui.hud_layout import HudLayout
 from yukkuri_game.game.ui.hud_renderer import HudRenderer
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState, ItemStats
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, AIState, ItemStats
 from yukkuri_game.game.events import PlacementStartedEvent, TogglePauseRequest, CycleSpeedRequest, TrainEntityRequest, SellEntityRequest, LogMessageEvent, ResolutionChangedEvent, SaveGameRequest, LoadGameRequest
 from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
 
@@ -284,14 +284,15 @@ class TestHudRenderer:
         hud_layout.entity_info_panel = MagicMock()
 
         # Fix TypeError: YukkuriStats missing arguments
-        stats = YukkuriStats(name="TestReimu", type_id="reimu", badges=3, health=70.0, max_health=100.0, age=0.0)
-        stats.hunger = 50.0
+        stats = YukkuriStats(name="TestReimu", type_id="reimu", badges=3, age=0.0)
+        needs = Needs(health=70.0, max_health=100.0, hunger=50.0)
 
         ai = AIState()
         ai.current_action = "Eating"
 
         def get_comp(ent, comp_type):
             if comp_type == YukkuriStats: return stats
+            if comp_type == Needs: return needs
             if comp_type == AIState: return ai
             return None
 

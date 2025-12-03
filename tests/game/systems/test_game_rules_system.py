@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 from yukkuri_game.game.systems.game_rules_system import GameRulesSystem
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
-from yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.audio import AudioManager
@@ -53,12 +53,15 @@ def test_game_rules_sell_yukkuri(game_rules_world) -> None:
         name="TestYukkuri",
         type_id="test",
         badges=1,
-        health=100,
-        max_health=100,
         age=120 # 2 minutes
+    )
+    needs = Needs(
+        health=100,
+        max_health=100
     )
     emotional = EmotionalState(happiness=80.0)
     world.add_component(yukkuri, stats)
+    world.add_component(yukkuri, needs)
     world.add_component(yukkuri, emotional)
 
     initial_money = economy.get_money()
@@ -100,4 +103,3 @@ def test_game_rules_sell_invalid_entity(game_rules_world) -> None:
     # Entity remains (sell_yukkuri checks for stats before destroying)
     # If stats missing, it returns 0 and does NOT destroy.
     assert world.entity_exists(item)
-

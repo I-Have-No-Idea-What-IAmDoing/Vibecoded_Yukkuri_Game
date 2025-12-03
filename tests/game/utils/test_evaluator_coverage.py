@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.utils.evaluator import ConditionEvaluator
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState, Skills, Personality, SkillState
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState, Skills, Personality, SkillState
 
 class TestConditionEvaluator:
     @pytest.fixture
@@ -50,7 +50,8 @@ class TestConditionEvaluator:
         entity_id = 1
 
         # Mock Components
-        stats = YukkuriStats(name="Test", type_id="reimu", health=80.0, hunger=20.0, discipline=50.0, age=100.0)
+        stats = YukkuriStats(name="Test", type_id="reimu", discipline=50.0, age=100.0)
+        needs = Needs(health=80.0, hunger=20.0)
 
         pers = Personality()
         pers.traits.add("Kind")
@@ -66,6 +67,7 @@ class TestConditionEvaluator:
 
         def get_component(e, t):
             if t == YukkuriStats: return stats
+            if t == Needs: return needs
             if t == Personality: return pers
             if t == EmotionalState: return emo
             if t == Skills: return skills

@@ -9,7 +9,7 @@ from yukkuri_game.game.events import (
     EntitySoldEvent, EntityTrainedEvent, EntityPunishedEvent
 )
 from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.game.services import EconomyService
 
 @pytest.fixture
@@ -37,7 +37,9 @@ def test_sell_yukkuri(game_rules_env):
     # Since calculate_value is a method on the component, we can let it run or mock it if needed.
     # Real component logic:
     stats = YukkuriStats(name="Marisa", type_id="marisa", badges=1, age=100)
+    needs = Needs()
     world.add_component(entity, stats)
+    world.add_component(entity, needs)
     world.add_component(entity, EmotionalState(happiness=50))
 
     # Capture events
@@ -84,8 +86,10 @@ def test_punish_yukkuri(game_rules_env):
 
     entity = world.create_entity()
     world.add_component(entity, Transform(x=0, y=0))
-    stats = YukkuriStats(name="Test", type_id="test", health=100, discipline=0)
+    stats = YukkuriStats(name="Test", type_id="test", discipline=0)
+    needs = Needs(health=100)
     world.add_component(entity, stats)
+    world.add_component(entity, needs)
     emotion = EmotionalState(happiness=50, stress=0)
     world.add_component(entity, emotion)
 
@@ -94,7 +98,7 @@ def test_punish_yukkuri(game_rules_env):
 
     event_bus.publish(PunishEntityRequest(entity))
 
-    assert stats.health == 90.0
+    assert needs.health == 90.0
     assert stats.discipline == 10.0
     assert emotion.happiness == 30.0
     assert emotion.stress == 20.0

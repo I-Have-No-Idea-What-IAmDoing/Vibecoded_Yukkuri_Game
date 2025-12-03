@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 from loguru import logger
 from src.yukkuri_game.game.utils.evaluator import ConditionEvaluator
 from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats, EmotionalState, Skills, Personality, SkillState
+from src.yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState, Skills, Personality, SkillState
 
 def test_evaluator_basic():
     evaluator = ConditionEvaluator()
@@ -19,7 +19,8 @@ def test_evaluator_build_context():
     entity_id = 1
 
     # Mock components
-    stats = YukkuriStats(name="Test", type_id="test", health=80.0, hunger=20.0, discipline=50.0)
+    stats = YukkuriStats(name="Test", type_id="test", discipline=50.0)
+    needs = Needs(health=80.0, hunger=20.0)
     emotion = EmotionalState(happiness=10.0, stress=5.0)
     skills = Skills(states={"combat": SkillState(level=10), "social": SkillState(level=2)})
     pers = Personality(traits={"GESU"}, axis=None)
@@ -27,6 +28,7 @@ def test_evaluator_build_context():
     # Setup world.get_component side effects
     def get_component(eid, comp_type):
         if comp_type == YukkuriStats: return stats
+        if comp_type == Needs: return needs
         if comp_type == EmotionalState: return emotion
         if comp_type == Skills: return skills
         if comp_type == Personality: return pers
@@ -56,7 +58,7 @@ def test_evaluator_missing_components():
     ctx = evaluator.build_context(world, 1)
 
     # Check defaults or absence
-    # health might be missing if stats missing
+    # health might be missing if stats/needs missing
     assert 'health' not in ctx
     assert ctx['skills'] == {}
 

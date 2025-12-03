@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
 from yukkuri_game.game.components import Transform
 from yukkuri_game.config import LifecycleSettings
 from yukkuri_game.engine.ecs import World
@@ -59,10 +59,11 @@ def test_growth_max_health_inconsistency(lifecycle_system, entity_factory, world
     # 1. Spawn a Baby
     baby_id = entity_factory.create_yukkuri("reimu", 0, 0, age=0)
     baby_stats = world.get_component(baby_id, YukkuriStats)
+    baby_needs = world.get_component(baby_id, Needs)
 
     # Verify initial baby stats (should be half of base 100)
     assert baby_stats.growth_stage == "Baby"
-    assert baby_stats.max_health == 50.0
+    assert baby_needs.max_health == 50.0
 
     # 2. Grow Baby to Child
     baby_stats.age = 150 # Above child threshold
@@ -71,7 +72,7 @@ def test_growth_max_health_inconsistency(lifecycle_system, entity_factory, world
     # Verify child stats
     assert baby_stats.growth_stage == "Child"
     # Lifecycle system adds 50 to max_health
-    assert baby_stats.max_health == 100.0
+    assert baby_needs.max_health == 100.0
 
     # 3. Grow Child to Adult
     baby_stats.age = 350 # Above adult threshold
@@ -79,18 +80,23 @@ def test_growth_max_health_inconsistency(lifecycle_system, entity_factory, world
 
     # Verify grown adult stats
     assert baby_stats.growth_stage == "Adult"
-    # Lifecycle system adds another 50 to max_health?
-    grown_adult_max_health = baby_stats.max_health
+    # Lifecycle system adds another 50 to max_health? (Wait, Lifecycle logic adds 50 for child, maybe different for adult?)
+    # Looking at lifecycle.py:
+    # if new_stage == "Child": stats.max_health += 50
+    # It doesn't seem to add for Adult.
+
+    grown_adult_max_health = baby_needs.max_health
     print(f"Grown Adult Max Health: {grown_adult_max_health}")
 
 
     # 4. Spawn an Adult directly
     adult_id = entity_factory.create_yukkuri("reimu", 100, 100, age=350)
     adult_stats = world.get_component(adult_id, YukkuriStats)
+    adult_needs = world.get_component(adult_id, Needs)
 
     # Verify spawned adult stats
     assert adult_stats.growth_stage == "Adult"
-    spawned_adult_max_health = adult_stats.max_health
+    spawned_adult_max_health = adult_needs.max_health
     print(f"Spawned Adult Max Health: {spawned_adult_max_health}")
 
     # 5. Assert Consistency

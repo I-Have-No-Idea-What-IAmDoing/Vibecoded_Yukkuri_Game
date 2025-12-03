@@ -4,7 +4,7 @@ import math
 from py_trees.common import Status
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.ai.behavior import MoveToTarget, Wander, Interact, Idle, FindItem
-from yukkuri_game.game.yukkuri_components import AIState, ItemStats, YukkuriStats
+from yukkuri_game.game.yukkuri_components import AIState, ItemStats, YukkuriStats, Needs
 from yukkuri_game.game.components import Transform, PhysicsBody, InteractionRequest, MovementController
 from yukkuri_game.game.ai.navigation_service import NavigationService
 from yukkuri_game.game.services import GameService
@@ -21,11 +21,13 @@ def test_move_to_target_success():
     ai = AIState()
     trans = Transform(x=95, y=0) # Close to target
     stats = YukkuriStats(name="Test", type_id="test")
+    needs = Needs(energy=100.0)
     controller = MovementController()
 
     world.add_component(entity, ai)
     world.add_component(entity, trans)
     world.add_component(entity, stats)
+    world.add_component(entity, needs)
     world.add_component(entity, controller)
 
     ai.state_data = {"target_x": 100.0, "target_y": 0.0}
@@ -53,11 +55,13 @@ def test_interact_fallback():
     e1 = world.create_entity() # Yukkuri
     ai = AIState(current_target_id=-1)
     trans1 = Transform(x=0, y=0)
-    stats = YukkuriStats(name="T", type_id="t", hunger=50.0)
+    stats = YukkuriStats(name="T", type_id="t")
+    needs = Needs(hunger=50.0)
 
     world.add_component(e1, ai)
     world.add_component(e1, trans1)
     world.add_component(e1, stats)
+    world.add_component(e1, needs)
 
     e2 = world.create_entity() # Item
     trans2 = Transform(x=10, y=0) # Close
@@ -80,13 +84,14 @@ def test_interact_fallback():
     # Updated: Need HungerSystem for food interactions
     from yukkuri_game.game.systems.hunger_system import HungerSystem
     hunger_sys = HungerSystem()
-    hunger_sys.update(world, 0.1)
+    # Need to register HungerSystem so InteractionSystem can find it
+    world.services.register(hunger_sys, HungerSystem)
 
     system = InteractionSystem()
     system.update(world, 0.1)
 
     # Verify effects
-    assert stats.hunger == 30.0 # 50 - 20
+    assert needs.hunger == 30.0 # 50 - 20
     assert not world.entity_exists(e2) # Consumed
 
 def test_find_item():

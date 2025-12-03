@@ -3,11 +3,12 @@ import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.services import GameService
-from yukkuri_game.game.yukkuri_components import YukkuriStats, GossipQueue, GossipPacket, EmotionalState, RelationshipRegistry, Personality
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, GossipQueue, GossipPacket, EmotionalState, RelationshipRegistry, Personality
 from yukkuri_game.game.components import Transform
 from yukkuri_game.engine.audio import AudioManager
 from yukkuri_game.game.systems.social_system import SocialSystem
 from yukkuri_game.game.systems.gossip_system import GossipSystem
+from yukkuri_game.game.systems.interaction_system import InteractionSystem
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.components import InteractionRequest
 from yukkuri_game.game.trait_service import TraitService
@@ -30,6 +31,8 @@ def test_gossip_exchange_integrity():
     # Mock get_interaction to return something valid so SocialSystem doesn't bail
     trait_service.get_interaction.return_value = {"type": "SOCIAL", "base_impact": 10.0}
     trait_service.get_trait.return_value = {} # For personality checks
+    # calculate_overrides for InteractionSystem
+    trait_service.calculate_overrides.return_value = {}
     world.services.register(trait_service, TraitService)
 
     skill_service = MagicMock(spec=SkillService)
@@ -37,19 +40,25 @@ def test_gossip_exchange_integrity():
 
     # Register Systems
     social_system = SocialSystem(event_bus)
+    world.services.register(social_system, SocialSystem)
+
     gossip_system = GossipSystem(event_bus)
+
+    interaction_system = InteractionSystem()
+    world.add_system(interaction_system)
 
     # Manually set ecs_world for GossipSystem as it's used in event handler
     gossip_system.ecs_world = world
 
     # We need to manually register the GossipSystem as a listener to SocialInteractionEvent
-    # Wait, GossipSystem subscribes itself in __init__?
+    # Wait, GossipSystem subscribes itself in __init__.
     # No, usually systems subscribe in __init__. Let's check GossipSystem.
     # It does subscribe to SocialInteractionEvent.
 
     # Create two entities
     entity_a = world.create_entity()
     world.add_component(entity_a, YukkuriStats(name="A", type_id="reimu"))
+    world.add_component(entity_a, Needs())
     world.add_component(entity_a, EmotionalState())
     world.add_component(entity_a, GossipQueue())
     world.add_component(entity_a, RelationshipRegistry())
@@ -58,6 +67,7 @@ def test_gossip_exchange_integrity():
 
     entity_b = world.create_entity()
     world.add_component(entity_b, YukkuriStats(name="B", type_id="marisa"))
+    world.add_component(entity_b, Needs())
     world.add_component(entity_b, EmotionalState())
     world.add_component(entity_b, GossipQueue())
     world.add_component(entity_b, RelationshipRegistry())
@@ -78,7 +88,7 @@ def test_gossip_exchange_integrity():
     world.add_component(entity_a, InteractionRequest(target_id=entity_b, action="Talk"))
 
     # Process Social System first to trigger SocialInteractionEvent
-    social_system.update(world, 0.1)
+    interaction_system.update(world, 0.1)
 
     # GossipSystem reacts to the event by checking "Talk" interaction and exchanging gossip
     # But GossipSystem listens to events. We need to pump the event bus?
@@ -108,7 +118,7 @@ def test_gossip_exchange_integrity():
     # A still has the packet. A should share it again.
     # The fix ensures duplicates are handled by add_packet logic.
     world.add_component(entity_a, InteractionRequest(target_id=entity_b, action="Talk"))
-    social_system.update(world, 0.1)
+    interaction_system.update(world, 0.1)
 
     # Check B's queue length. It should remain 1 if deduplication works.
     # If the bug regresses (direct append), it would be > 1.
@@ -120,7 +130,7 @@ def test_gossip_exchange_integrity():
     queue_a.add_packet(packet2)
 
     world.add_component(entity_a, InteractionRequest(target_id=entity_b, action="Talk"))
-    social_system.update(world, 0.1)
+    interaction_system.update(world, 0.1)
 
     # Now B should have 2 packets
     assert len(queue_b.priority_queue) == 2

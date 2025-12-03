@@ -11,7 +11,7 @@ from ..components import (
     Transform, Sprite, Selectable, PhysicsBody, MovementController, VisualTransform
 )
 from ..yukkuri_components import (
-    YukkuriStats, AIState, Personality, RelationshipRegistry,
+    YukkuriStats, Needs, AIState, Personality, RelationshipRegistry,
     EmotionalState, PersonalityAxis, GossipQueue
 )
 from ..components_persistence import StableIDComponent, Persistable
@@ -112,17 +112,21 @@ def create_yukkuri(
     world.add_component(entity, movement_controller)
     world.add_component(entity, VisualTransform())
 
-    # Yukkuri Stats
+    # Yukkuri Stats and Needs
     stats = YukkuriStats(
         name=f"{type_id}_{entity}",
         type_id=type_id,
-        max_health=max_health,
-        health=max_health,
-        hunger=0.0,
         age=age,
         growth_stage=growth_stage
     )
     world.add_component(entity, stats)
+
+    needs = Needs(
+        max_health=max_health,
+        health=max_health,
+        hunger=0.0
+    )
+    world.add_component(entity, needs)
 
     # Emotional State
     emotional_state = EmotionalState()

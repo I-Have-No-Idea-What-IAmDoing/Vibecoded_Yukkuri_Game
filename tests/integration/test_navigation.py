@@ -3,7 +3,7 @@ import pytest
 import math
 from yukkuri_game.engine.application import Application
 from yukkuri_game.testing.driver import GameDriver
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
 
 # Helper function to get a yukkuri's position
 def get_yukkuri_pos(driver: GameDriver):
@@ -111,9 +111,9 @@ def test_stat_based_speed_modification(game_driver: GameDriver):
     driver.setup()
 
     tired_yukkuri = driver.create_yukkuri("reimu", 100, 100)
-    stats = driver.world.get_component(tired_yukkuri, YukkuriStats)
-    if stats:
-        stats.energy = 20 # Low energy
+    needs = driver.world.get_component(tired_yukkuri, Needs)
+    if needs:
+        needs.energy = 20 # Low energy
 
     item2 = driver.create_item("cookie", 500, 100)
     driver.set_ai_action(tired_yukkuri, "Eat", target_id=item2)
@@ -122,4 +122,4 @@ def test_stat_based_speed_modification(game_driver: GameDriver):
     tired_pos = driver.get_transform(tired_yukkuri)
     tired_dist = math.hypot(tired_pos.x - 100, tired_pos.y - 100)
 
-    assert tired_dist < healthy_dist, "Low-energy yukkuri did not move slower."
+    assert tired_dist < healthy_dist, "Low-energy yukkuri did not navigate slower."

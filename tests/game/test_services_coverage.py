@@ -5,7 +5,7 @@ from yukkuri_game.game.services import (
 )
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, InteractionRequest
-from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, AIState, EmotionalState, Skills, Personality, RelationshipRegistry
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, EmotionalState, Skills, Personality, RelationshipRegistry
 from yukkuri_game.game.skill_constants import SkillId
 
 class TestTimeService:
@@ -122,7 +122,8 @@ class TestPersistenceService:
         # Use real component classes to ensure correct serialization keys
         mock_trans = Transform(x=10, y=20)
 
-        mock_stats = YukkuriStats(type_id="reimu", name="Reimu", health=100, hunger=50, badges=0, age=1, max_health=100)
+        mock_stats = YukkuriStats(type_id="reimu", name="Reimu", badges=0, age=1)
+        mock_needs = Needs(health=100, hunger=50, max_health=100)
 
         mock_emotional = EmotionalState(happiness=80, stress=0)
 
@@ -131,6 +132,7 @@ class TestPersistenceService:
         def get_component_side_effect(e, c):
             if c == Transform: return mock_trans
             if c == YukkuriStats: return mock_stats
+            if c == Needs: return mock_needs
             if c == EmotionalState: return mock_emotional
             if c == AIState: return mock_ai
             return None
@@ -143,7 +145,7 @@ class TestPersistenceService:
         mock_world.get_components.return_value = {1: MagicMock()}
 
         # Mock get_all_components for serialization
-        mock_world.get_all_components.return_value = (mock_trans, mock_stats, mock_emotional, mock_ai)
+        mock_world.get_all_components.return_value = (mock_trans, mock_stats, mock_needs, mock_emotional, mock_ai)
 
         service.save_game("test_save.json")
 
@@ -161,11 +163,19 @@ class TestPersistenceService:
         assert "YukkuriStats" in data["entities"][0]["components"]
         assert data["entities"][0]["components"]["YukkuriStats"]["name"] == "Reimu"
 
+        assert "Needs" in data["entities"][0]["components"]
+        assert data["entities"][0]["components"]["Needs"]["hunger"] == 50
+
 
 class TestGameService:
     @pytest.fixture
     def mock_world(self):
-        return MagicMock(spec=World)
+        # We need world.services to exist
+        world = MagicMock(spec=World)
+        world.services = MagicMock()
+        # Mock try_get for SectorMap
+        world.services.try_get.return_value = None
+        return world
 
     def test_find_best_item(self, mock_world):
         service = GameService(mock_world)
@@ -229,6 +239,7 @@ class TestGameService:
             if e == searcher_id and c == Skills: return skills
             if e == item_id and c == Transform: return item_pos
             if e == item_id and c == ItemStats: return item_stats
+            if e == searcher_id and c == YukkuriStats: return MagicMock() # Needs stats
             return None
 
         mock_world.get_component.side_effect = get_component
@@ -246,4 +257,4 @@ class TestGameService:
 
         mock_world.get_component.side_effect = get_component_no_skill
         best_item_fail = service.find_best_item((0, 0), "nutrition", searcher_id=searcher_id)
-        assert best_item_fail == -1
+        assert best_item_fail == -1 # Corrected to -1 for failure
