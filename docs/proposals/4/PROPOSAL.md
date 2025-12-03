@@ -9,19 +9,22 @@ Instead of `Force -> Velocity -> Position` (Physics), we use `Input -> Desired D
 ### 2.1 The Movement Logic
 For every moving entity (Root):
 1.  **Calculate Desired Vector:** `move_delta = velocity * dt`.
-2.  **Broadphase Check (Optimization):** Calculate the AABB of the path. Use `pymunk.Space.bb_query` to check for potential blockers. If the path is clear, move immediately and skip to step 5.
-3.  **Raycast Bundle (Sweep):** Use `pymunk.Space.segment_query` to cast rays from the entity's leading corners and center along `move_delta`. This is significantly faster than full shape queries and prevents tunneling.
-4.  **Detect Hit:** If a ray hits a "Wall" at distance `d < |move_delta|`:
-    *   Move entity by `d - epsilon`.
-    *   Project remaining velocity along the wall surface (Vector Projection).
+2.  **Broadphase Check (Optimization):** Calculate the AABB of the path. Use `pymunk.Space.bb_query` to check for potential blockers.
+    *   **Filtering:** Explicitly filter query results to include only "Obstacle" types (Walls, Floors). Ignore Triggers, Sensors, or other non-blocking entities.
+    *   If the path is clear, move immediately and skip to step 5.
+3.  **Shape Cast (Sweep):** Perform a shape sweep (e.g., `pymunk.Space.shape_query` at discrete intervals or a continuous sweep if available) using the entity's actual collider shape along `move_delta`.
+    *   This replaces the "Raycast Bundle" to ensure no small obstacles are missed and prevents tunneling.
+4.  **Detect Hit:** If the shape hits a "Wall" at distance `d < |move_delta|`:
+    *   Move entity by `d - epsilon` (to avoid overlap).
+    *   Project remaining velocity along the wall surface (Vector Projection) to allow sliding.
     *   Repeat sweep with remaining distance (Max 1-2 iterations).
 5.  **Commit:** Manually set `body.position`.
 
 This ensures:
-*   **High Performance:** Broadphase culling avoids expensive checks for the majority of frames (moving through empty space).
-*   **Zero Tunneling:** We sweep the path, so we can't pass through thin walls.
+*   **High Performance:** Broadphase culling avoids expensive checks for the majority of frames.
+*   **Zero Tunneling:** We sweep the full shape, so we can't pass through thin walls or spikes.
 *   **Absolute Control:** If the player stops input, the entity stops *instantly*. No friction sliding.
-*   **Predictability:** The same input always yields the exact same position, regardless of "physics instability".
+*   **Predictability:** The same input always yields the exact same position.
 
 ## 3. The Hierarchy: Rigid Locking
 
@@ -40,40 +43,48 @@ class Mount(Component):
 ### 3.2 The `HierarchySystem`
 This system runs **after** the `KinematicMovementSystem`.
 
-1.  **Dirty Flag Optimization:** Only process the hierarchy for a Root if it has successfully moved this frame. Static stacks require no updates.
-2.  **Recursive Update:** Iterate recursively starting from the moved Root to its children.
+1.  **Dirty Flag Optimization:** Process the hierarchy for a Root if:
+    *   It has moved (Position changed).
+    *   It has rotated (Rotation changed).
+    *   Its hierarchy structure has changed (Child added/removed).
+2.  **Recursive Update:** Iterate recursively starting from the dirty Root to its children.
 3.  **Teleport:**
     *   `Child.Position = Parent.Position + Parent.Rotation * Child.Offset`
-    *   `Child.Velocity = Parent.Velocity` (For game logic queries, not movement).
-4.  **Disable Collision:** Mounted children have their physics shapes **disabled** or set to `Sensor`. They do not interact with the world. The Parent is the only physical agent for the stack.
+    *   `Child.Velocity = Parent.Velocity` (For game logic queries).
+4.  **Collision Handling:**
+    *   Mounted children convert their physical shapes to **Sensors**.
+    *   They do not physically block movement or push other objects.
+    *   They *can* still detect overlaps (e.g., taking damage from a projectile).
 
 ## 4. Handling Stacks & Interactions
 
 ### 4.1 "The Totem Pole"
 If Entity A carries B, and B carries C:
 *   A is the **Root**. A processes `Movement`.
-*   A checks collisions against Walls.
-*   B is locked to A. C is locked to B.
-*   If A hits a wall, the whole stack stops.
-*   **Bounding Box:** A's collision shape can optionally expand, but for performance, we generally accept that "Riders don't have collision".
+*   A checks collisions against Walls using its shape.
+*   **Head Check:** A optional "Head Check" raycast or shape query is performed for the top-most rider to prevent them from clipping through low ceilings.
+*   If A (or the top rider) hits a wall/ceiling, the whole stack stops.
 
 ### 4.2 Dismounting
 *   When B dismounts A:
-    *   B's collision shape is re-enabled.
-    *   B checks for overlap. If overlapping A, finding a near valid spot (Spiral Search) or just ejecting.
+    *   B attempts to move to strict, deterministic relative offsets (e.g., 1. Left, 2. Right, 3. Back).
+    *   The first valid, non-colliding position is chosen.
+    *   If all pre-defined spots are blocked, the dismount action **fails**.
+    *   On success, B's collision shape is reverted from Sensor to Solid.
 
 ## 5. Implementation Roadmap
 
 1.  **Engine Config:** Set Pymunk Space to have no gravity.
 2.  **`KinematicSystem`:**
-    *   Implement `sweep_and_slide` with **Broadphase** and **Raycast** optimizations.
+    *   Implement `sweep_and_slide` with **Broadphase** (filtered) and **Shape Sweep**.
     *   Loop through all **active** Root entities with `MovementController`.
     *   Apply logic.
 3.  **`HierarchySystem`:**
-    *   Implement recursive transform updates with dirty checking.
-    *   Manage `shape.filter` to disable collisions for mounted units.
+    *   Implement recursive transform updates with robust dirty checking (Pos/Rot/Struct).
+    *   Manage `shape.sensor` property to toggle collision modes for mounted units.
 
 ## 6. Why This Wins
 *   **Meets User Request:** 100% Predictable. No "Sandbox" chaos.
-*   **Performant:** Minimizes expensive physics queries and eliminates redundant transform updates.
+*   **Robust:** Shape sweeps prevent tunneling and corner-catching issues.
+*   **Gameplay Friendly:** Riders can still be hit (Sensors) and won't clip through ceilings (Head Check).
 *   **Clean:** Separates "Movement" (Roots) from "Attachment" (Children).
