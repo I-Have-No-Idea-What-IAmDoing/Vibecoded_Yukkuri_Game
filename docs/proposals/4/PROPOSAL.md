@@ -9,15 +9,17 @@ Instead of `Force -> Velocity -> Position` (Physics), we use `Input -> Desired D
 ### 2.1 The Movement Logic
 For every moving entity (Root):
 1.  **Calculate Desired Vector:** `move_delta = velocity * dt`.
-2.  **Shape Cast (Sweep):** Use `pymunk.Space.shape_query` (or a custom raycast bundle) to project the entity's shape forward along `move_delta`.
-3.  **Detect Hit:** If the shape hits a "Wall" at distance `d < |move_delta|`:
+2.  **Broadphase Check (Optimization):** Calculate the AABB of the path. Use `pymunk.Space.bb_query` to check for potential blockers. If the path is clear, move immediately and skip to step 5.
+3.  **Raycast Bundle (Sweep):** Use `pymunk.Space.segment_query` to cast rays from the entity's leading corners and center along `move_delta`. This is significantly faster than full shape queries and prevents tunneling.
+4.  **Detect Hit:** If a ray hits a "Wall" at distance `d < |move_delta|`:
     *   Move entity by `d - epsilon`.
     *   Project remaining velocity along the wall surface (Vector Projection).
-    *   Repeat sweep with remaining distance (Max 2-3 iterations for corners).
-4.  **Commit:** Manually set `body.position`.
+    *   Repeat sweep with remaining distance (Max 1-2 iterations).
+5.  **Commit:** Manually set `body.position`.
 
 This ensures:
-*   **Zero Tunneling:** We sweep the shape, so we can't pass through thin walls.
+*   **High Performance:** Broadphase culling avoids expensive checks for the majority of frames (moving through empty space).
+*   **Zero Tunneling:** We sweep the path, so we can't pass through thin walls.
 *   **Absolute Control:** If the player stops input, the entity stops *instantly*. No friction sliding.
 *   **Predictability:** The same input always yields the exact same position, regardless of "physics instability".
 
@@ -38,11 +40,12 @@ class Mount(Component):
 ### 3.2 The `HierarchySystem`
 This system runs **after** the `KinematicMovementSystem`.
 
-1.  **Topological Sort:** Ensure we process Parents before Children. (Or simply iterate recursively starting from Roots).
-2.  **Teleport:**
+1.  **Dirty Flag Optimization:** Only process the hierarchy for a Root if it has successfully moved this frame. Static stacks require no updates.
+2.  **Recursive Update:** Iterate recursively starting from the moved Root to its children.
+3.  **Teleport:**
     *   `Child.Position = Parent.Position + Parent.Rotation * Child.Offset`
     *   `Child.Velocity = Parent.Velocity` (For game logic queries, not movement).
-3.  **Disable Collision:** Mounted children have their physics shapes **disabled** or set to `Sensor`. They do not interact with the world. The Parent is the only physical agent for the stack.
+4.  **Disable Collision:** Mounted children have their physics shapes **disabled** or set to `Sensor`. They do not interact with the world. The Parent is the only physical agent for the stack.
 
 ## 4. Handling Stacks & Interactions
 
@@ -52,7 +55,7 @@ If Entity A carries B, and B carries C:
 *   A checks collisions against Walls.
 *   B is locked to A. C is locked to B.
 *   If A hits a wall, the whole stack stops.
-*   **Bounding Box:** Optionally, A's collision shape can dynamically expand to encompass B and C, or we simply accept that "Riders don't have collision". Given the "Predictable" requirement, ignoring Rider collision is the cleanest, most arcade-like approach.
+*   **Bounding Box:** A's collision shape can optionally expand, but for performance, we generally accept that "Riders don't have collision".
 
 ### 4.2 Dismounting
 *   When B dismounts A:
@@ -63,14 +66,14 @@ If Entity A carries B, and B carries C:
 
 1.  **Engine Config:** Set Pymunk Space to have no gravity.
 2.  **`KinematicSystem`:**
-    *   Implement the `sweep_and_slide` function using Pymunk queries.
-    *   Loop through all **Root** entities with `MovementController`.
+    *   Implement `sweep_and_slide` with **Broadphase** and **Raycast** optimizations.
+    *   Loop through all **active** Root entities with `MovementController`.
     *   Apply logic.
 3.  **`HierarchySystem`:**
-    *   Implement recursive transform updates.
+    *   Implement recursive transform updates with dirty checking.
     *   Manage `shape.filter` to disable collisions for mounted units.
 
 ## 6. Why This Wins
 *   **Meets User Request:** 100% Predictable. No "Sandbox" chaos.
-*   **Robust:** Uses Pymunk's C-based collision detection (fast, accurate) without its solver (unstable).
+*   **Performant:** Minimizes expensive physics queries and eliminates redundant transform updates.
 *   **Clean:** Separates "Movement" (Roots) from "Attachment" (Children).
