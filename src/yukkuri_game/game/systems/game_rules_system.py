@@ -72,7 +72,12 @@ class GameRulesSystem(System):
         stats = self.ecs_world.get_component(entity, YukkuriStats)
         emotional_state = self.ecs_world.get_component(entity, EmotionalState)
         if stats:
-            value = max(0, stats.calculate_value(emotional_state))
+            # Get Config
+            from ...config import GameConfig
+            config = self.ecs_world.services.try_get(GameConfig)
+            stats_config = config.rules.stats if config else None
+
+            value = max(0, stats.calculate_value(emotional_state, stats_config=stats_config))
             economy = self.ecs_world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}")

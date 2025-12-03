@@ -2,10 +2,13 @@
 Yukkuri Components Module.
 """
 from dataclasses import dataclass, field
-from typing import Set, Dict, Any, Optional, List, Deque
+from typing import Set, Dict, Any, Optional, List, Deque, TYPE_CHECKING
 from collections import deque
 from ..engine.ecs import Component
 from ..engine.types import EntityID
+
+if TYPE_CHECKING:
+    from ..config import StatsSettings
 
 @dataclass
 class PersonalityAxis:
@@ -96,31 +99,48 @@ class YukkuriStats(Component):
     quality_score: float = 0.0
     discipline: float = 0.0
 
-    def get_intelligence(self) -> float:
+    def get_intelligence(self, stats_config: Optional["StatsSettings"] = None) -> float:
         """
         Derives an intelligence factor from stats (currently Discipline).
         Returns a multiplier, typically around 0.5 to 1.5.
-        """
-        # Map discipline 0-100 to 0.5-1.5
-        return 0.5 + (self.discipline / 100.0)
 
-    def calculate_value(self, emotional_state: Optional["EmotionalState"] = None) -> int:
+        Args:
+            stats_config (Optional[StatsSettings]): Config for stats.
+        """
+        base = 0.5
+        if stats_config:
+            base = stats_config.intelligence_base
+
+        # Map discipline 0-100 to base - (base + 1.0)
+        return base + (self.discipline / 100.0)
+
+    def calculate_value(self, emotional_state: Optional["EmotionalState"] = None, stats_config: Optional["StatsSettings"] = None) -> int:
         """
         Calculates the value of the Yukkuri based on stats and emotional state.
 
         Args:
             emotional_state (Optional[EmotionalState]): The emotional state component.
+            stats_config (Optional[StatsSettings]): Config for stats value calculation.
 
         Returns:
             int: The calculated monetary value.
         """
+        badge_val = 500
+        health_penalty = 2.0
+        age_bonus = 10.0
+
+        if stats_config:
+            badge_val = stats_config.badge_value
+            health_penalty = stats_config.health_deficit_penalty
+            age_bonus = stats_config.age_value_bonus
+
         score = 100.0
         if emotional_state:
             score += (emotional_state.happiness + 100)
-        score += self.badges * 500
+        score += self.badges * badge_val
         if self.health < self.max_health:
-            score -= (self.max_health - self.health) * 2
-        score += int(self.age / 60) * 10
+            score -= (self.max_health - self.health) * health_penalty
+        score += int(self.age / 60) * age_bonus
         return int(score)
 
 @dataclass

@@ -8,6 +8,7 @@ from ..components import Transform
 from ..yukkuri_components import YukkuriStats, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState, Skills
 from ..services import InputService, EconomyService, TimeService
 from ..skill_service import SkillService
+from ...config import GameConfig
 from pygame_gui.windows import UIMessageWindow
 
 if TYPE_CHECKING:
@@ -194,6 +195,9 @@ class HudRenderer:
             yukkuri_breeds: dict[str, int] = {}
             items_val = 0
 
+            config = self.world.services.try_get(GameConfig)
+            stats_config = config.rules.stats if config else None
+
             for eid in selected_entities:
                 ystats = self.world.get_component(eid, YukkuriStats)
                 emotional = self.world.get_component(eid, EmotionalState)
@@ -204,7 +208,7 @@ class HudRenderer:
                     if emotional:
                         total_happiness += emotional.happiness
 
-                    total_value += ystats.calculate_value(emotional)
+                    total_value += ystats.calculate_value(emotional, stats_config=stats_config)
 
                     breed = ystats.type_id.capitalize()
                     yukkuri_breeds[breed] = yukkuri_breeds.get(breed, 0) + 1

@@ -74,18 +74,6 @@ class SocialSystem(System):
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
 
-        # Process Interaction Requests (Talk/Fight/Dance etc)
-        # We look for InteractionRequest with specific actions (not "Eat" which is handled by HungerSystem)
-        # Note: HungerSystem might have already processed food items, so here we mostly see Social.
-
-        entities_with_requests = list(world.get_components_tuple(InteractionRequest, Transform))
-        for entity_id, (request, _) in entities_with_requests:
-            # logger.info(f"Processing request for {entity_id}: {request.action}")
-            if request.action in ["Talk", "Fight", "Dance"]:
-                self.process_interaction_request(world, entity_id, request)
-                if world.has_component(entity_id, InteractionRequest):
-                    world.remove_component(entity_id, InteractionRequest)
-
         # Update Relationships (Cleanup & Opinion Update)
         all_entities = world.get_entities_with(RelationshipRegistry)
         if not all_entities:
