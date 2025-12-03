@@ -1,82 +1,81 @@
-# Proposal 3: Deterministic Kinematic Hierarchy (The "Controller" Pattern)
+# Proposal 3: Deterministic Kinematic Controller (The "Controller" Pattern)
 
-## 1. Synthesis & Goal
+## 1. Goal: "Pixel-Perfect" Arcade Movement
 
-*   **From Proposal 2:** We accept the goal of **Predictable, Deterministic Movement**. The user does not want a physics sandbox. No bouncing, no sliding friction, no forces.
-*   **From Critique 2:** We reject the idea of writing a custom collision solver in Python. We must leverage Pymunk's optimized spatial query engine without using its non-deterministic solver.
+We aim for movement that is **responsive, predictable, and crisp**. The player's input should translate directly to position changes, not forces. Physics should be used purely for collision detection, not simulation.
 
-**The Solution:** A **Kinematic Character Controller** using **Shape Sweeps**.
-We treat the Physics Engine effectively as a "Geometry Database". We query it to ask "Can I move here?", but we never let it move objects for us.
+## 2. Core Mechanic: Axis-Separated Kinematic Movement
 
-## 2. Core Mechanic: The Sweep-and-Slide
+We replace the physics solver with a custom **Kinematic Controller** that utilizes Pymunk for collision queries.
 
-Instead of `Force -> Velocity -> Position` (Physics), we use `Input -> Desired Displacement -> Allowed Displacement -> Position`.
+### 2.1 The Algorithm
 
-### 2.1 The Movement Logic
-For every moving entity (Root):
-1.  **Calculate Desired Vector:** `move_delta = velocity * dt`.
-2.  **Shape Cast (Sweep):** Use `pymunk.Space.shape_query` (or a custom raycast bundle) to project the entity's shape forward along `move_delta`.
-3.  **Detect Hit:** If the shape hits a "Wall" at distance `d < |move_delta|`:
-    *   Move entity by `d - epsilon`.
-    *   Project remaining velocity along the wall surface (Vector Projection).
-    *   Repeat sweep with remaining distance (Max 2-3 iterations for corners).
-4.  **Commit:** Manually set `body.position`.
+For every moving Root entity (per frame):
 
-This ensures:
-*   **Zero Tunneling:** We sweep the shape, so we can't pass through thin walls.
-*   **Absolute Control:** If the player stops input, the entity stops *instantly*. No friction sliding.
-*   **Predictability:** The same input always yields the exact same position, regardless of "physics instability".
+1.  **Calculate Velocity:**
+    *   `Input Velocity` = Input Vector * Speed.
+    *   `External Velocity` = Knockback Vector (decays over time).
+    *   `Total Velocity` = Input Velocity + External Velocity.
 
-## 3. The Hierarchy: Rigid Locking
+2.  **Move X:**
+    *   Calculate `dx = Total Velocity.x * dt`.
+    *   **Propose Position:** `new_x = current_x + dx`.
+    *   **Collision Check:** Query Pymunk: "Does my shape overlap anything at `(new_x, current_y)`?"
+    *   **Resolution:**
+        *   If **No Hit**: Commit `current_x = new_x`.
+        *   If **Hit**: Move as close as possible to the obstacle (using a binary search or Pymunk's contact info) and stop. Set `Total Velocity.x = 0`.
 
-Since we have abandoned physics simulation, we can simplify the "Stacking" system to a pure Transform Hierarchy.
+3.  **Move Y:**
+    *   Calculate `dy = Total Velocity.y * dt`.
+    *   **Propose Position:** `new_y = current_y + dy`.
+    *   **Collision Check:** Query Pymunk: "Does my shape overlap anything at `(current_x, new_y)`?"
+    *   **Resolution:**
+        *   If **No Hit**: Commit `current_y = new_y`.
+        *   If **Hit**: Move as close as possible and stop. Set `Total Velocity.y = 0`.
+
+4.  **Update Pymunk:**
+    *   Manually update the Pymunk Body position to match the new `(current_x, current_y)`.
+    *   Call `space.reindex_shapes_for_body(body)` to ensure next frame's queries are accurate.
+
+### 2.2 Why Axis-Separated?
+*   **Corner Sliding:** Automatically handles sliding against walls. If you move diagonally into a wall, the X-check might fail (stop X movement), but the Y-check succeeds, resulting in a perfect slide.
+*   **Robustness:** Prevents getting stuck in corners better than arbitrary vector sliding.
+
+## 3. The Hierarchy: Rigid Transform Parenting
+
+Since we control the position manually, we can implement a rock-solid parenting system.
 
 ### 3.1 `Mount` Component
 ```python
 @dataclass
 class Mount(Component):
-    parent_id: int = -1
-    children_ids: List[int] = field(default_factory=list)
-    mount_point_offset: Vector2 = field(default_factory=lambda: Vector2(0, 0))
-    layer_order: int = 0 # 1 = Above parent, -1 = Behind parent
+    parent_id: int = -1 # If set, I am a child.
+    children_ids: List[int] = field(default_factory=list) # If set, I am a parent.
+    offset: Vector2 = Vector2(0, 0)
+    disable_collision: bool = True # Typically true for riders
 ```
 
-### 3.2 The `HierarchySystem`
-This system runs **after** the `KinematicMovementSystem`.
+### 3.2 The `MountSystem`
+Runs **after** `KinematicMovementSystem`.
 
-1.  **Topological Sort:** Ensure we process Parents before Children. (Or simply iterate recursively starting from Roots).
-2.  **Teleport:**
-    *   `Child.Position = Parent.Position + Parent.Rotation * Child.Offset`
-    *   `Child.Velocity = Parent.Velocity` (For game logic queries, not movement).
-3.  **Disable Collision:** Mounted children have their physics shapes **disabled** or set to `Sensor`. They do not interact with the world. The Parent is the only physical agent for the stack.
+1.  **Iterate Roots:** Find all entities with `Mount` that have *no* `parent_id` (Roots).
+2.  **Recursive Update:**
+    *   For each child:
+        *   `Child.Position = Parent.Position + Child.Offset` (Account for Parent Flip/Rotation if needed).
+        *   `Child.Body.position = Child.Position` (Sync physics body).
+        *   `space.reindex_shapes_for_body(Child.Body)`.
+    *   Recurse to grandchildren.
 
-## 4. Handling Stacks & Interactions
+### 3.3 Collision Handling for Stacks
+*   **Standard:** Children have their physics shapes set to `Sensor` or a collision group that ignores the environment. Only the Root collides with walls.
+*   **Hitbox Expansion (Advanced):** If a child needs to block movement (e.g., a very wide load), the Root could add a secondary shape to itself that mimics the child's dimensions.
 
-### 4.1 "The Totem Pole"
-If Entity A carries B, and B carries C:
-*   A is the **Root**. A processes `Movement`.
-*   A checks collisions against Walls.
-*   B is locked to A. C is locked to B.
-*   If A hits a wall, the whole stack stops.
-*   **Bounding Box:** Optionally, A's collision shape can dynamically expand to encompass B and C, or we simply accept that "Riders don't have collision". Given the "Predictable" requirement, ignoring Rider collision is the cleanest, most arcade-like approach.
+## 4. Implementation Steps
 
-### 4.2 Dismounting
-*   When B dismounts A:
-    *   B's collision shape is re-enabled.
-    *   B checks for overlap. If overlapping A, finding a near valid spot (Spiral Search) or just ejecting.
+1.  **Physics Setup:** Configure Pymunk bodies as `KINEMATIC` so the solver doesn't touch them.
+2.  **`KinematicMovementSystem`:** Implement the Axis-Separated movement loop using `space.shape_query` (checking for overlaps).
+3.  **`MountSystem`:** Implement the recursive transform sync.
+4.  **`InteractionSystem`:** Add logic to link/unlink entities (populating the `Mount` component).
 
-## 5. Implementation Roadmap
-
-1.  **Engine Config:** Set Pymunk Space to have no gravity.
-2.  **`KinematicSystem`:**
-    *   Implement the `sweep_and_slide` function using Pymunk queries.
-    *   Loop through all **Root** entities with `MovementController`.
-    *   Apply logic.
-3.  **`HierarchySystem`:**
-    *   Implement recursive transform updates.
-    *   Manage `shape.filter` to disable collisions for mounted units.
-
-## 6. Why This Wins
-*   **Meets User Request:** 100% Predictable. No "Sandbox" chaos.
-*   **Robust:** Uses Pymunk's C-based collision detection (fast, accurate) without its solver (unstable).
-*   **Clean:** Separates "Movement" (Roots) from "Attachment" (Children).
+## 5. Summary
+This proposal delivers the tightest control scheme. It trades the "emergent behavior" of a physics engine for the "reliability" of a custom controller, which is the correct trade-off for this genre.
