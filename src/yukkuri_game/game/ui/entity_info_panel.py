@@ -5,6 +5,20 @@ from typing import Optional, List, Dict
 from pygame_gui.elements import UIWindow, UITextBox, UIButton, UIScrollingContainer, UIPanel
 from .tabbed_panel import TabbedPanel
 
+class SafeUIScrollingContainer(UIScrollingContainer):
+    """
+    A subclass of UIScrollingContainer that initializes scroll bars to None
+    before calling super().__init__(). This prevents an AttributeError when
+    the container is initialized inside a hidden container (e.g., a non-active tab),
+    which causes hide() to be called during initialization before attributes are set.
+    """
+    def __init__(self, *args, **kwargs):
+        self.vert_scroll_bar = None
+        self.horiz_scroll_bar = None
+        self._root_container = None
+        self._view_container = None
+        super().__init__(*args, **kwargs)
+
 class EntityInfoPanel:
     """
     Manages the Entity Info Window, including Tabs for Stats and Skills.
@@ -89,7 +103,7 @@ class EntityInfoPanel:
         tab_id = self.tabbed_panel.add_tab("Stats")
         container = self.tabbed_panel.tabs[tab_id]["container"]
 
-        self.stats_scroll = UIScrollingContainer(
+        self.stats_scroll = SafeUIScrollingContainer(
             relative_rect=pygame.Rect(0, 0, container.rect.width, container.rect.height),
             manager=self.manager,
             container=container,
@@ -111,7 +125,7 @@ class EntityInfoPanel:
         tab_id = self.tabbed_panel.add_tab("Skills")
         container = self.tabbed_panel.tabs[tab_id]["container"]
 
-        self.skills_scroll = UIScrollingContainer(
+        self.skills_scroll = SafeUIScrollingContainer(
             relative_rect=pygame.Rect(0, 0, container.rect.width, container.rect.height),
             manager=self.manager,
             container=container,
