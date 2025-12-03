@@ -1,7 +1,7 @@
 import pytest
 import msgspec
-from pathlib import Path
-from yukkuri_game.config import load_config, WorldSettings, GameConfig, ConfigFile
+from yukkuri_game.config import load_config, GameConfig
+
 
 def test_load_config_defaults(tmp_path):
     """Test loading configuration with missing files returns defaults."""
@@ -12,6 +12,7 @@ def test_load_config_defaults(tmp_path):
     assert config.world.height == 3000
     assert config.rules.stat_decay.hunger == 2.0
     assert config.rules.stat_decay.happiness == 0.5
+
 
 def test_load_config_values(tmp_path):
     """Test loading configuration from files."""
@@ -35,14 +36,16 @@ def test_load_config_values(tmp_path):
     # Our structs have defaults, so omitted fields use defaults.
     assert config.rules.stat_decay.happiness == 0.5
 
+
 def test_load_config_invalid_types(tmp_path):
     """Test that invalid types raise errors."""
     config_file = tmp_path / "config.toml"
     with open(config_file, "w") as f:
-        f.write("[world]\nwidth = \"invalid\"\n")
+        f.write('[world]\nwidth = "invalid"\n')
 
     with pytest.raises(msgspec.ValidationError):
         load_config(tmp_path)
+
 
 def test_load_config_partial_update(tmp_path):
     """Test that we can partially update settings."""

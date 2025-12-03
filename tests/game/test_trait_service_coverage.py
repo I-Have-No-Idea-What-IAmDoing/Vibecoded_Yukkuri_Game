@@ -1,32 +1,17 @@
 import pytest
-from unittest.mock import MagicMock, patch, mock_open
-import os
+from unittest.mock import MagicMock
 from yukkuri_game.game.trait_service import TraitService
+
 
 class TestTraitService:
     @pytest.fixture
     def mock_toml_data(self):
         return {
             "traits": {
-                "Predator": {
-                    "ai_modifiers": {
-                        "hunt_desire": 1.5,
-                        "fear": 0.5
-                    }
-                },
-                "Lazy": {
-                    "ai_modifiers": {
-                        "sleep_desire": 2.0,
-                        "hunt_desire": 0.5
-                    }
-                }
+                "Predator": {"ai_modifiers": {"hunt_desire": 1.5, "fear": 0.5}},
+                "Lazy": {"ai_modifiers": {"sleep_desire": 2.0, "hunt_desire": 0.5}},
             },
-            "interaction": {
-                "Greet": {
-                    "base_impact": 5.0,
-                    "type": "social"
-                }
-            }
+            "interaction": {"Greet": {"base_impact": 5.0, "type": "social"}},
         }
 
     def test_load_data(self):

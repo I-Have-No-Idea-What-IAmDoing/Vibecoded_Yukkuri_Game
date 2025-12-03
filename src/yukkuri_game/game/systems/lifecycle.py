@@ -1,6 +1,7 @@
 """
 Module defining the LifecycleSystem logic.
 """
+
 import random
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
@@ -9,8 +10,8 @@ from ..components import Sprite, Transform, PhysicsBody
 from ..events import EntityDiedEvent, EntityGrewEvent
 from ...config import LifecycleSettings
 from ..prefabs.yukkuri import create_yukkuri
-from typing import TYPE_CHECKING
 from loguru import logger
+
 
 class LifecycleSystem(System):
     """
@@ -97,21 +98,40 @@ class LifecycleSystem(System):
         Returns:
             None
         """
-        for entity, (stats, needs, transform) in world.get_components_tuple(YukkuriStats, Needs, Transform):
+        for entity, (stats, needs, transform) in world.get_components_tuple(
+            YukkuriStats, Needs, Transform
+        ):
             if world.has_component(entity, Dead):
                 continue
 
             # Growth Stages: Baby -> Child -> Adult
 
             # Baby -> Child
-            if stats.growth_stage == "Baby" and stats.age >= self.settings.baby_age_threshold:
+            if (
+                stats.growth_stage == "Baby"
+                and stats.age >= self.settings.baby_age_threshold
+            ):
                 self._grow_entity(world, entity, stats, needs, transform, "Child", 1.5)
 
             # Child -> Adult
-            elif stats.growth_stage == "Child" and stats.age >= self.settings.child_age_threshold:
-                self._grow_entity(world, entity, stats, needs, transform, "Adult", 4.0 / 3.0)
+            elif (
+                stats.growth_stage == "Child"
+                and stats.age >= self.settings.child_age_threshold
+            ):
+                self._grow_entity(
+                    world, entity, stats, needs, transform, "Adult", 4.0 / 3.0
+                )
 
-    def _grow_entity(self, world: World, entity: int, stats: YukkuriStats, needs: Needs, transform: Transform, new_stage: str, scale_multiplier: float) -> None:
+    def _grow_entity(
+        self,
+        world: World,
+        entity: int,
+        stats: YukkuriStats,
+        needs: Needs,
+        transform: Transform,
+        new_stage: str,
+        scale_multiplier: float,
+    ) -> None:
         """
         Performs the growth transition.
 
@@ -127,7 +147,9 @@ class LifecycleSystem(System):
         Returns:
             None
         """
-        logger.info(f"{stats.name} is growing from {stats.growth_stage} to {new_stage}!")
+        logger.info(
+            f"{stats.name} is growing from {stats.growth_stage} to {new_stage}!"
+        )
 
         stats.growth_stage = new_stage
 
@@ -138,7 +160,7 @@ class LifecycleSystem(System):
         if new_stage == "Child":
             needs.max_health += 50
 
-        needs.health += 50 # Heal on growth
+        needs.health += 50  # Heal on growth
         if needs.health > needs.max_health:
             needs.health = needs.max_health
 
@@ -149,17 +171,19 @@ class LifecycleSystem(System):
             # But we can't scale a circle shape directly easily?
             # Actually, `shape.unsafe_set_radius` exists for circles.
             if hasattr(physics.shape, "unsafe_set_radius"):
-                 # Scale the radius proportionally
-                 # This supports non-standard sized entities (e.g. giants, minis) correctly
-                 new_radius = physics.shape.radius * scale_multiplier
-                 physics.shape.unsafe_set_radius(new_radius)
-            elif hasattr(physics.shape, "unsafe_set_vertices"): # Box
-                pass # Complex
+                # Scale the radius proportionally
+                # This supports non-standard sized entities (e.g. giants, minis) correctly
+                new_radius = physics.shape.radius * scale_multiplier
+                physics.shape.unsafe_set_radius(new_radius)
+            elif hasattr(physics.shape, "unsafe_set_vertices"):  # Box
+                pass  # Complex
 
         # Emit Event
         event_bus = world.services.try_get(EventBus)
         if event_bus:
-            event_bus.publish(EntityGrewEvent(entity, new_stage, (transform.x, transform.y)))
+            event_bus.publish(
+                EntityGrewEvent(entity, new_stage, (transform.x, transform.y))
+            )
 
     def _handle_breeding(self, world: World) -> None:
         """
@@ -171,7 +195,9 @@ class LifecycleSystem(System):
         Returns:
             None
         """
-        for entity, (stats, needs, transform) in world.get_components_tuple(YukkuriStats, Needs, Transform):
+        for entity, (stats, needs, transform) in world.get_components_tuple(
+            YukkuriStats, Needs, Transform
+        ):
             if world.has_component(entity, Dead):
                 continue
 
@@ -184,14 +210,22 @@ class LifecycleSystem(System):
             if emotional:
                 happiness = emotional.happiness
 
-            if (happiness >= self.settings.breeding_happiness_threshold and
-                needs.energy >= self.settings.breeding_energy_threshold):
-
+            if (
+                happiness >= self.settings.breeding_happiness_threshold
+                and needs.energy >= self.settings.breeding_energy_threshold
+            ):
                 # Chance to breed
                 if random.random() < self.settings.breeding_chance:
                     self._breed(world, entity, stats, needs, transform)
 
-    def _breed(self, world: World, parent_entity: int, parent_stats: YukkuriStats, parent_needs: Needs, parent_transform: Transform) -> None:
+    def _breed(
+        self,
+        world: World,
+        parent_entity: int,
+        parent_stats: YukkuriStats,
+        parent_needs: Needs,
+        parent_transform: Transform,
+    ) -> None:
         """
         Executes breeding action.
 
@@ -221,5 +255,5 @@ class LifecycleSystem(System):
             x=parent_transform.x + offset_x,
             y=parent_transform.y + offset_y,
             age=0.0,
-            parents=[parent_entity]
+            parents=[parent_entity],
         )

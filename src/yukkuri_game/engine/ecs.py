@@ -12,7 +12,8 @@ from .service_locator import ServiceLocator
 from .events import EntityDestroyedEvent
 from .event_bus import EventBus
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class Component:
     """
@@ -21,7 +22,9 @@ class Component:
     In Esper, components can be any object, but we keep this class for
     explicit typing and potential future extension.
     """
+
     pass
+
 
 class World:
     """
@@ -185,7 +188,10 @@ class World:
             Dict[int, T]: A dictionary mapping entity IDs to component instances.
         """
         self._switch()
-        return {entity: component for entity, component in esper.get_component(component_type)}
+        return {
+            entity: component
+            for entity, component in esper.get_component(component_type)
+        }
 
     def get_all_entities(self) -> List[int]:
         """
@@ -216,7 +222,9 @@ class World:
             return []
         return [entity for entity, _ in esper.get_components(*component_types)]
 
-    def get_components_tuple(self, *component_types: Type[Any]) -> List[Tuple[int, Tuple[Any, ...]]]:
+    def get_components_tuple(
+        self, *component_types: Type[Any]
+    ) -> List[Tuple[int, Tuple[Any, ...]]]:
         """
         Retrieves entities and their components for the specified types.
 
@@ -247,7 +255,7 @@ class World:
         except KeyError:
             return ()
 
-    def add_system(self, system: 'System') -> None:
+    def add_system(self, system: "System") -> None:
         """
         Adds a system to the world.
 
@@ -278,12 +286,15 @@ class World:
         self._switch()
         esper.clear_database()
 
+
 if TYPE_CHECKING:
+
     class ProcessorBase:
         """
         Base class for Processors (Systems).
         Used for type checking against esper.Processor.
         """
+
         def process(self, dt: float) -> None:
             """
             Processes the system logic.
@@ -295,6 +306,7 @@ if TYPE_CHECKING:
 else:
     ProcessorBase = esper.Processor
 
+
 class System(ProcessorBase):
     """
     Base class for systems in the ECS.
@@ -304,6 +316,7 @@ class System(ProcessorBase):
     Attributes:
         ecs_world (World): The ECS World instance the system belongs to.
     """
+
     ecs_world: World
 
     def process(self, dt: float) -> None:
@@ -314,7 +327,7 @@ class System(ProcessorBase):
             dt (float): The time elapsed since the last update in seconds.
         """
         # We need to ensure we are operating on the correct world context
-        if hasattr(self, 'ecs_world'):
+        if hasattr(self, "ecs_world"):
             self.update(self.ecs_world, dt)
 
     def update(self, world: World, dt: float) -> None:

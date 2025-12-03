@@ -1,17 +1,21 @@
 """
 Input Manager Module.
 """
-from typing import Dict, List, Optional, Set, Tuple, Union
-from enum import Enum, auto, IntEnum
+
+from typing import Dict, Set, Tuple
+from enum import IntEnum
 import pygame
+
 
 class InputContext(IntEnum):
     """
     Enum representing input contexts with priority levels.
     """
+
     # Higher value = Higher Priority
     GAMEPLAY = 1
     MENU = 10
+
 
 class InputManager:
     """
@@ -30,6 +34,7 @@ class InputManager:
         _key_mappings (Dict[InputContext, Dict[str, int]]): Mapping of contexts to key actions.
         _mouse_mappings (Dict[InputContext, Dict[str, int]]): Mapping of contexts to mouse actions.
     """
+
     def __init__(self) -> None:
         """Initializes the InputManager."""
         self._active_contexts: Set[InputContext] = {InputContext.MENU}
@@ -55,14 +60,14 @@ class InputManager:
                 "debug_toggle": pygame.K_F3,
                 "screenshot": pygame.K_F12,
                 "quicksave": pygame.K_F5,
-                "quickload": pygame.K_F9
+                "quickload": pygame.K_F9,
             },
             InputContext.MENU: {
                 "confirm": pygame.K_RETURN,
                 "cancel": pygame.K_ESCAPE,
                 "up": pygame.K_UP,
-                "down": pygame.K_DOWN
-            }
+                "down": pygame.K_DOWN,
+            },
         }
 
         # Mappings: Context -> Action -> Mouse Button ID
@@ -73,7 +78,7 @@ class InputManager:
                 "place": 1,
                 "clean": 1,
                 "cancel_action": 3,
-                "pan": 2
+                "pan": 2,
             }
         }
 
@@ -117,15 +122,17 @@ class InputManager:
             self._mouse_buttons.add(event.button)
             self._mouse_buttons_down.add(event.button)
             # Handle wheel buttons if they come as buttons
-            if event.button == 4: self._mouse_wheel = 1.0
-            elif event.button == 5: self._mouse_wheel = -1.0
+            if event.button == 4:
+                self._mouse_wheel = 1.0
+            elif event.button == 5:
+                self._mouse_wheel = -1.0
         elif event.type == pygame.MOUSEBUTTONUP:
             self._mouse_buttons.discard(event.button)
             self._mouse_buttons_up.add(event.button)
         elif event.type == pygame.MOUSEMOTION:
             self._mouse_pos = event.pos
         elif event.type == pygame.MOUSEWHEEL:
-             self._mouse_wheel = event.y
+            self._mouse_wheel = event.y
 
     def update(self) -> None:
         """
@@ -138,7 +145,9 @@ class InputManager:
         self._mouse_buttons_up.clear()
         self._mouse_wheel = 0.0
 
-    def _is_consumed(self, key_or_btn: int, current_context: InputContext, is_mouse: bool = False) -> bool:
+    def _is_consumed(
+        self, key_or_btn: int, current_context: InputContext, is_mouse: bool = False
+    ) -> bool:
         """
         Check if a key/button is consumed by a higher priority context.
 
@@ -153,14 +162,22 @@ class InputManager:
         for context in self._active_contexts:
             if context.value > current_context.value:
                 if is_mouse:
-                    if context in self._mouse_mappings and key_or_btn in self._mouse_mappings[context].values():
+                    if (
+                        context in self._mouse_mappings
+                        and key_or_btn in self._mouse_mappings[context].values()
+                    ):
                         return True
                 else:
-                    if context in self._key_mappings and key_or_btn in self._key_mappings[context].values():
+                    if (
+                        context in self._key_mappings
+                        and key_or_btn in self._key_mappings[context].values()
+                    ):
                         return True
         return False
 
-    def _check_action_in_collection(self, action: str, key_collection: Set[int], mouse_collection: Set[int]) -> bool:
+    def _check_action_in_collection(
+        self, action: str, key_collection: Set[int], mouse_collection: Set[int]
+    ) -> bool:
         """
         Helper to check if an action is triggered within the active contexts, respecting priority.
 
@@ -174,7 +191,9 @@ class InputManager:
         """
         # Sort contexts high to low.
         # If a higher context consumes the input, lower contexts are blocked.
-        sorted_contexts = sorted(self._active_contexts, key=lambda c: c.value, reverse=True)
+        sorted_contexts = sorted(
+            self._active_contexts, key=lambda c: c.value, reverse=True
+        )
 
         for context in sorted_contexts:
             # Check Keys
@@ -204,9 +223,7 @@ class InputManager:
             bool: True if the action is currently active.
         """
         return self._check_action_in_collection(
-            action,
-            self._keys_pressed,
-            self._mouse_buttons
+            action, self._keys_pressed, self._mouse_buttons
         )
 
     def is_action_just_pressed(self, action: str) -> bool:
@@ -220,9 +237,7 @@ class InputManager:
             bool: True if the action was just pressed.
         """
         return self._check_action_in_collection(
-            action,
-            self._keys_down,
-            self._mouse_buttons_down
+            action, self._keys_down, self._mouse_buttons_down
         )
 
     def is_action_just_released(self, action: str) -> bool:
@@ -236,9 +251,7 @@ class InputManager:
             bool: True if the action was just released.
         """
         return self._check_action_in_collection(
-            action,
-            self._keys_up,
-            self._mouse_buttons_up
+            action, self._keys_up, self._mouse_buttons_up
         )
 
     def get_mouse_position(self) -> Tuple[int, int]:

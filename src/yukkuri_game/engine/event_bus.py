@@ -8,6 +8,7 @@ parts of the application using a publish-subscribe pattern.
 from typing import Dict, List, Type, Callable, Any, TypeVar
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True)
 class Event:
     """
@@ -16,10 +17,13 @@ class Event:
     Events are simple data containers used to communicate between systems.
     Subclasses should be frozen dataclasses to ensure immutability.
     """
+
     pass
 
-E = TypeVar('E', bound=Event)
+
+E = TypeVar("E", bound=Event)
 EventHandler = Callable[[E], None]
+
 
 class EventBus:
     """

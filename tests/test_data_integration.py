@@ -1,17 +1,22 @@
 """
 Tests for Data Integration (msgspec models).
 """
+
 import os
 import sys
 import unittest
 import msgspec
-from unittest.mock import patch, mock_open
 
 # Add src to path
 sys.path.insert(0, os.path.abspath("src"))
 
-from yukkuri_game.engine.data_models import YukkuriType, ItemType, AIAction, YukkuriData, ItemData, AIData
+from yukkuri_game.engine.data_models import (
+    YukkuriData,
+    ItemData,
+    AIData,
+)
 from yukkuri_game.engine.resource_manager import ResourceManager
+
 
 class TestDataIntegration(unittest.TestCase):
     """
@@ -38,7 +43,7 @@ class TestDataIntegration(unittest.TestCase):
         base_happiness = 50
         """
 
-        decoded = msgspec.toml.decode(toml_data.encode('utf-8'), type=YukkuriData)
+        decoded = msgspec.toml.decode(toml_data.encode("utf-8"), type=YukkuriData)
         self.assertIn("test", decoded.yukkuris)
         self.assertEqual(decoded.yukkuris["test"].name, "Test")
         self.assertEqual(decoded.yukkuris["test"].width, 10)
@@ -58,7 +63,7 @@ class TestDataIntegration(unittest.TestCase):
         nutrition = 10
         """
 
-        decoded = msgspec.toml.decode(toml_data.encode('utf-8'), type=ItemData)
+        decoded = msgspec.toml.decode(toml_data.encode("utf-8"), type=ItemData)
         self.assertIn("testitem", decoded.items)
         self.assertEqual(decoded.items["testitem"].cost, 50)
         self.assertEqual(decoded.items["testitem"].nutrition, 10)
@@ -80,12 +85,14 @@ class TestDataIntegration(unittest.TestCase):
         curve = "linear"
         """
 
-        decoded = msgspec.toml.decode(toml_data.encode('utf-8'), type=AIData)
+        decoded = msgspec.toml.decode(toml_data.encode("utf-8"), type=AIData)
         self.assertIn("testaction", decoded.actions)
         self.assertEqual(decoded.actions["testaction"].weight, 1.5)
         self.assertEqual(decoded.actions["testaction"].effects.type, "test_effect")
         self.assertEqual(len(decoded.actions["testaction"].considerations), 1)
-        self.assertEqual(decoded.actions["testaction"].considerations[0].name, "Test Consider")
+        self.assertEqual(
+            decoded.actions["testaction"].considerations[0].name, "Test Consider"
+        )
 
     def test_malformed_data(self) -> None:
         """
@@ -97,7 +104,7 @@ class TestDataIntegration(unittest.TestCase):
         # Missing required fields
         """
         with self.assertRaises(msgspec.ValidationError):
-            msgspec.toml.decode(toml_data.encode('utf-8'), type=YukkuriData)
+            msgspec.toml.decode(toml_data.encode("utf-8"), type=YukkuriData)
 
     def test_wrong_type(self) -> None:
         """
@@ -113,7 +120,8 @@ class TestDataIntegration(unittest.TestCase):
         base_happiness = 50
         """
         with self.assertRaises(msgspec.ValidationError):
-            msgspec.toml.decode(toml_data.encode('utf-8'), type=YukkuriData)
+            msgspec.toml.decode(toml_data.encode("utf-8"), type=YukkuriData)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

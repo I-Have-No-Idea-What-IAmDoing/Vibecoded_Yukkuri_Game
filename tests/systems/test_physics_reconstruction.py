@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, PhysicsBody
 from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, Poop
@@ -8,12 +8,14 @@ from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.game.collision_constants import CollisionCategories
 from yukkuri_game.game.systems.physics import PhysicsSystem
 
+
 @pytest.fixture
 def mock_physics_system(monkeypatch):
     ps = Mock(spec=PhysicsSystem)
-    ps.space = Mock() # Mock pymunk space
+    ps.space = Mock()  # Mock pymunk space
     # The real physics system constructor might do complex things, so we mock it.
     return ps
+
 
 def test_reconstruct_physics_yukkuri(mock_physics_system):
     world = World()
@@ -22,7 +24,9 @@ def test_reconstruct_physics_yukkuri(mock_physics_system):
     # Create entity with stats but no physics body
     entity = world.create_entity()
     world.add_component(entity, Transform(x=100, y=100))
-    world.add_component(entity, YukkuriStats(name="Test", type_id="test", growth_stage=1)) # Adult size
+    world.add_component(
+        entity, YukkuriStats(name="Test", type_id="test", growth_stage=1)
+    )  # Adult size
 
     # Run reconstruction
     reconstruct_physics(world)
@@ -42,6 +46,7 @@ def test_reconstruct_physics_yukkuri(mock_physics_system):
     reconstruct_physics(world)
     assert world.get_component(entity, PhysicsBody) is old_body
 
+
 def test_reconstruct_physics_poop(mock_physics_system):
     world = World()
     world.services.register(mock_physics_system, PhysicsSystem)
@@ -56,15 +61,14 @@ def test_reconstruct_physics_poop(mock_physics_system):
     assert body_comp.body.position == (50, 50)
     assert body_comp.shape.filter.categories == CollisionCategories.POOP
 
+
 def test_reconstruct_physics_item(mock_physics_system):
     world = World()
     world.services.register(mock_physics_system, PhysicsSystem)
 
     # Mock ResourceManager for item dimensions
     rm = Mock(spec=ResourceManager)
-    rm.item_types = {
-        "cookie": {"width": 64, "height": 64}
-    }
+    rm.item_types = {"cookie": {"width": 64, "height": 64}}
     world.services.register(rm, ResourceManager)
 
     entity = world.create_entity()
@@ -81,7 +85,9 @@ def test_reconstruct_physics_item(mock_physics_system):
     # Check if dimensions were used (Box shape)
     # Pymunk Poly shape for box
     import pymunk
+
     assert isinstance(body_comp.shape, pymunk.Poly)
+
 
 def test_reconstruct_physics_item_default_size(mock_physics_system):
     world = World()

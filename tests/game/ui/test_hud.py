@@ -3,19 +3,29 @@ from unittest.mock import MagicMock, patch
 import pygame
 import pygame_gui
 from pygame_gui.core.interfaces import IContainerLikeInterface
-from yukkuri_game.game.ui.hud import HUD
 from yukkuri_game.game.ui.hud_events import HudEvents
 from yukkuri_game.game.ui.hud_layout import HudLayout
 from yukkuri_game.game.ui.hud_renderer import HudRenderer
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, AIState, ItemStats
-from yukkuri_game.game.events import PlacementStartedEvent, TogglePauseRequest, CycleSpeedRequest, TrainEntityRequest, SellEntityRequest, LogMessageEvent, ResolutionChangedEvent, SaveGameRequest, LoadGameRequest
+from yukkuri_game.game.events import (
+    PlacementStartedEvent,
+    TogglePauseRequest,
+    CycleSpeedRequest,
+    TrainEntityRequest,
+    SellEntityRequest,
+    ResolutionChangedEvent,
+    SaveGameRequest,
+    LoadGameRequest,
+)
 from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
+
 
 @pytest.fixture
 def mock_ui_manager():
     return MagicMock(spec=pygame_gui.UIManager)
+
 
 @pytest.fixture
 def mock_world():
@@ -36,7 +46,7 @@ def mock_world():
     economy_service.get_money.return_value = 1000
 
     time_service = MagicMock(spec=TimeService)
-    time_service.time_elapsed = 125 # 2 min 5 sec
+    time_service.time_elapsed = 125  # 2 min 5 sec
 
     persistence_service = MagicMock(spec=PersistenceService)
 
@@ -62,44 +72,54 @@ def mock_world():
 
     services.try_get.side_effect = try_get
     services.get.side_effect = get
-    services.input_service = input_service # Accessed as property sometimes? No, usually services.get(InputService)
+    services.input_service = input_service  # Accessed as property sometimes? No, usually services.get(InputService)
 
     return world
+
 
 @pytest.fixture
 def mock_event_bus():
     return MagicMock(spec=EventBus)
 
+
 @pytest.fixture
 def hud_layout(mock_ui_manager):
     # Mock UIPanel to adhere to IContainerLikeInterface
     MockPanel = MagicMock(spec=IContainerLikeInterface)
-    with patch('yukkuri_game.game.ui.hud_layout.UIPanel', return_value=MockPanel), \
-         patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
-         patch('yukkuri_game.game.ui.hud_layout.UIButton'), \
-         patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
+    with (
+        patch("yukkuri_game.game.ui.hud_layout.UIPanel", return_value=MockPanel),
+        patch("yukkuri_game.game.ui.hud_layout.UILabel"),
+        patch("yukkuri_game.game.ui.hud_layout.UIButton"),
+        patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
+    ):
         layout = HudLayout(mock_ui_manager, 800, 600)
     return layout
+
 
 @pytest.fixture
 def hud_events(hud_layout, mock_world, mock_event_bus):
     # HUD uses world instead of game_manager now
     return HudEvents(hud_layout, mock_world, mock_event_bus)
 
+
 @pytest.fixture
 def hud_renderer(hud_layout, mock_world):
     # HUD uses world instead of game_manager now
     return HudRenderer(hud_layout, mock_world)
 
+
 class TestHudLayout:
     def test_init(self, mock_ui_manager):
         MockPanel = MagicMock(spec=IContainerLikeInterface)
 
-        with patch('yukkuri_game.game.ui.hud_layout.UIPanel', return_value=MockPanel) as MockPanelCls, \
-             patch('yukkuri_game.game.ui.hud_layout.UILabel') as MockLabel, \
-             patch('yukkuri_game.game.ui.hud_layout.UIButton') as MockButton, \
-             patch('yukkuri_game.game.ui.hud_layout.UITextBox') as MockTextBox:
-
+        with (
+            patch(
+                "yukkuri_game.game.ui.hud_layout.UIPanel", return_value=MockPanel
+            ) as MockPanelCls,
+            patch("yukkuri_game.game.ui.hud_layout.UILabel") as MockLabel,
+            patch("yukkuri_game.game.ui.hud_layout.UIButton") as MockButton,
+            patch("yukkuri_game.game.ui.hud_layout.UITextBox") as MockTextBox,
+        ):
             layout = HudLayout(mock_ui_manager, 800, 600)
 
             assert layout.width == 800
@@ -114,14 +134,14 @@ class TestHudLayout:
 
     def test_create_selection_window(self, hud_layout, mock_ui_manager):
         # We need to mock EntityInfoPanel and its show method to avoid Pygame GUI internals
-        with patch('yukkuri_game.game.ui.hud_layout.EntityInfoPanel') as MockPanel:
+        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel") as MockPanel:
             hud_layout.create_selection_window(has_stats=True)
 
             assert hud_layout.entity_info_panel is not None
             hud_layout.entity_info_panel.show.assert_called_once()
 
     def test_create_selection_window_no_stats(self, hud_layout, mock_ui_manager):
-        with patch('yukkuri_game.game.ui.hud_layout.EntityInfoPanel') as MockPanel:
+        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel") as MockPanel:
             hud_layout.create_selection_window(has_stats=False)
 
             assert hud_layout.entity_info_panel is not None
@@ -138,20 +158,22 @@ class TestHudLayout:
         assert hud_layout.entity_info_panel is None
 
     def test_create_debug_window(self, hud_layout, mock_ui_manager):
-        with patch('yukkuri_game.game.ui.hud_layout.UIWindow') as MockWindow, \
-             patch('yukkuri_game.game.ui.hud_layout.UITextBox') as MockTextBox:
-
+        with (
+            patch("yukkuri_game.game.ui.hud_layout.UIWindow") as MockWindow,
+            patch("yukkuri_game.game.ui.hud_layout.UITextBox") as MockTextBox,
+        ):
             hud_layout.create_debug_window()
 
             assert hud_layout.debug_window is not None
             assert hud_layout.debug_text_box is not None
 
     def test_resize(self, hud_layout):
-        with patch.object(hud_layout, 'rebuild_ui') as mock_rebuild:
+        with patch.object(hud_layout, "rebuild_ui") as mock_rebuild:
             hud_layout.resize(1920, 1080)
             assert hud_layout.width == 1920
             assert hud_layout.height == 1080
             mock_rebuild.assert_called_once()
+
 
 class TestHudEvents:
     def test_process_event_save(self, hud_events, hud_layout, mock_event_bus):
@@ -193,12 +215,21 @@ class TestHudEvents:
         # Check that CycleSpeedRequest was published
         mock_event_bus.publish.assert_called_with(CycleSpeedRequest())
 
-    def test_process_event_buy_reimu(self, hud_events, hud_layout, mock_world, mock_event_bus):
+    def test_process_event_buy_reimu(
+        self, hud_events, hud_layout, mock_world, mock_event_bus
+    ):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
 
         reimu_btn = MagicMock()
-        hud_layout.buy_buttons = {reimu_btn: {"type_id": "reimu", "cost": 100, "category": "yukkuri", "name": "Reimu"}}
+        hud_layout.buy_buttons = {
+            reimu_btn: {
+                "type_id": "reimu",
+                "cost": 100,
+                "category": "yukkuri",
+                "name": "Reimu",
+            }
+        }
 
         event.ui_element = reimu_btn
         # mock_world already set up with 1000 money
@@ -213,12 +244,21 @@ class TestHudEvents:
         assert args[0].type_id == "reimu"
         assert args[0].entity_type == "yukkuri"
 
-    def test_process_event_buy_reimu_insufficient_funds(self, hud_events, hud_layout, mock_world, mock_event_bus):
+    def test_process_event_buy_reimu_insufficient_funds(
+        self, hud_events, hud_layout, mock_world, mock_event_bus
+    ):
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
 
         reimu_btn = MagicMock()
-        hud_layout.buy_buttons = {reimu_btn: {"type_id": "reimu", "cost": 100, "category": "yukkuri", "name": "Reimu"}}
+        hud_layout.buy_buttons = {
+            reimu_btn: {
+                "type_id": "reimu",
+                "cost": 100,
+                "category": "yukkuri",
+                "name": "Reimu",
+            }
+        }
 
         event.ui_element = reimu_btn
 
@@ -226,7 +266,7 @@ class TestHudEvents:
         economy = mock_world.services.get(EconomyService)
         economy.get_money.return_value = 50
 
-        assert hud_events.process_event(event) is True # Handled, but no action
+        assert hud_events.process_event(event) is True  # Handled, but no action
         mock_event_bus.publish.assert_not_called()
 
     def test_process_event_sell_entity(self, hud_events, hud_layout, mock_event_bus):
@@ -260,10 +300,15 @@ class TestHudEvents:
         mock_event_bus.publish.assert_called_with(TrainEntityRequest(123))
 
     def test_apply_window_settings_publishes_event(self, hud_events, mock_event_bus):
-        with patch('pygame.display.set_mode') as mock_set_mode:
+        with patch("pygame.display.set_mode") as mock_set_mode:
             hud_events._apply_window_settings(1024, 768, True)
-            mock_set_mode.assert_called_with((1024, 768), pygame.RESIZABLE | pygame.FULLSCREEN)
-            mock_event_bus.publish.assert_called_with(ResolutionChangedEvent(1024, 768, True))
+            mock_set_mode.assert_called_with(
+                (1024, 768), pygame.RESIZABLE | pygame.FULLSCREEN
+            )
+            mock_event_bus.publish.assert_called_with(
+                ResolutionChangedEvent(1024, 768, True)
+            )
+
 
 class TestHudRenderer:
     def test_update_top_bar(self, hud_renderer, hud_layout):
@@ -271,9 +316,11 @@ class TestHudRenderer:
         hud_layout.time_label = MagicMock()
 
         # Patch UITextBox as well since it's used for hover tooltip now
-        with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
-             patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
-             patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
+        with (
+            patch("yukkuri_game.game.ui.hud_layout.UIPanel"),
+            patch("yukkuri_game.game.ui.hud_layout.UILabel"),
+            patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
+        ):
             hud_renderer.update(0.1, [], False)
 
         hud_layout.money_label.set_text.assert_called_with("Money: $1000")
@@ -291,9 +338,12 @@ class TestHudRenderer:
         ai.current_action = "Eating"
 
         def get_comp(ent, comp_type):
-            if comp_type == YukkuriStats: return stats
-            if comp_type == Needs: return needs
-            if comp_type == AIState: return ai
+            if comp_type == YukkuriStats:
+                return stats
+            if comp_type == Needs:
+                return needs
+            if comp_type == AIState:
+                return ai
             return None
 
         mock_world.get_component.side_effect = get_comp
@@ -306,7 +356,9 @@ class TestHudRenderer:
         # Check args passed to update_stats (single string argument)
         args = hud_layout.entity_info_panel.update_stats.call_args[0]
         assert "TestReimu" in args[0]
-        assert "Eating" in args[0] # current_action passed as description? check implementation
+        assert (
+            "Eating" in args[0]
+        )  # current_action passed as description? check implementation
 
     def test_update_selection_item(self, hud_renderer, hud_layout, mock_world):
         hud_layout.entity_info_panel = MagicMock()
@@ -316,8 +368,10 @@ class TestHudRenderer:
 
         # Mock get_component to return None for YukkuriStats and item_stats for ItemStats
         def get_comp(ent, comp_type):
-            if comp_type == YukkuriStats: return None
-            if comp_type == ItemStats: return item_stats
+            if comp_type == YukkuriStats:
+                return None
+            if comp_type == ItemStats:
+                return item_stats
             return None
 
         mock_world.get_component.side_effect = get_comp
@@ -336,9 +390,11 @@ class TestHudRenderer:
         mock_world.get_all_entities.return_value = [1, 2, 3]
         hud_renderer.fps = 60.0
 
-        with patch('yukkuri_game.game.ui.hud_layout.UIPanel'), \
-             patch('yukkuri_game.game.ui.hud_layout.UILabel'), \
-             patch('yukkuri_game.game.ui.hud_layout.UITextBox'):
+        with (
+            patch("yukkuri_game.game.ui.hud_layout.UIPanel"),
+            patch("yukkuri_game.game.ui.hud_layout.UILabel"),
+            patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
+        ):
             hud_renderer.update(0.1, [], True)
 
         assert hud_layout.debug_text_box.set_text.called
@@ -347,6 +403,8 @@ class TestHudRenderer:
         assert "<b>Entities:</b> 3" in text
 
     def test_show_error(self, hud_renderer, hud_layout):
-        with patch('yukkuri_game.game.ui.hud_renderer.UIMessageWindow') as MockMsgWindow:
+        with patch(
+            "yukkuri_game.game.ui.hud_renderer.UIMessageWindow"
+        ) as MockMsgWindow:
             hud_renderer.show_error("Something went wrong")
             MockMsgWindow.assert_called_once()

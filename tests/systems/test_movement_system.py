@@ -1,4 +1,3 @@
-
 import math
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
@@ -11,6 +10,7 @@ from yukkuri_game.game.components import (
     VisualTransform,
 )
 from yukkuri_game.game.systems.movement_system import MovementSystem
+
 
 @pytest.fixture
 def world_with_entity():
@@ -27,6 +27,7 @@ def world_with_entity():
     world.add_component(entity, VisualTransform())
 
     return world, entity
+
 
 def test_velocity_is_applied(world_with_entity):
     """Tests that the target_velocity from MovementController is applied to the PhysicsBody."""
@@ -46,6 +47,7 @@ def test_velocity_is_applied(world_with_entity):
     # Assert
     assert phys_body.body.velocity == target_vel
 
+
 def test_visual_bob_timer_advances_on_move(world_with_entity):
     """Tests that the visual_bob_timer increases when the entity is moving."""
     world, entity = world_with_entity
@@ -61,6 +63,7 @@ def test_visual_bob_timer_advances_on_move(world_with_entity):
     # Assert
     assert controller.visual_bob_timer > initial_timer
 
+
 def test_visual_bob_timer_is_stationary(world_with_entity):
     """Tests that the visual_bob_timer does not increase when the entity is not moving."""
     world, entity = world_with_entity
@@ -75,6 +78,7 @@ def test_visual_bob_timer_is_stationary(world_with_entity):
 
     # Assert
     assert controller.visual_bob_timer == initial_timer
+
 
 def test_vertical_offset_is_calculated(world_with_entity):
     """Tests that the vertical_offset is calculated based on the bobbing timer."""
@@ -97,6 +101,7 @@ def test_vertical_offset_is_calculated(world_with_entity):
 
     # Assert
     assert visual_transform.vertical_offset == pytest.approx(expected_offset)
+
 
 def test_shadow_position_is_synced(world_with_entity):
     """Tests that the shadow_position is updated to match the PhysicsBody's position."""

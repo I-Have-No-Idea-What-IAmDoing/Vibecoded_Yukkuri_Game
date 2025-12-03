@@ -1,12 +1,14 @@
 """
 Module defining the BehaviorSystem logic.
 """
+
 from typing import Dict
 import py_trees
 from py_trees.common import Status
 from ...engine.ecs import System, World
 from ..yukkuri_components import AIState
 from ..ai.behavior import create_yukkuri_behavior_tree
+
 
 class BehaviorSystem(System):
     """
@@ -42,7 +44,9 @@ class BehaviorSystem(System):
 
         for entity, (ai,) in world.get_components_tuple(AIState):
             if entity not in self.trees:
-                root = create_yukkuri_behavior_tree(entity, world, int(self.world_w), int(self.world_h))
+                root = create_yukkuri_behavior_tree(
+                    entity, world, int(self.world_w), int(self.world_h)
+                )
                 self.trees[entity] = py_trees.trees.BehaviourTree(root)
                 self.trees[entity].setup(timeout=15)
 
@@ -60,5 +64,7 @@ class BehaviorSystem(System):
                     # ai.current_action = "Idle"
 
         for entity_id in list(self.trees.keys()):
-            if not world.entity_exists(entity_id) or not world.has_component(entity_id, AIState):
+            if not world.entity_exists(entity_id) or not world.has_component(
+                entity_id, AIState
+            ):
                 del self.trees[entity_id]

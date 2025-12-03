@@ -1,11 +1,13 @@
 """
 Module for managing personality traits and social interaction definitions.
 """
+
 from typing import Dict, Any, List, Optional
 from loguru import logger
 from ..engine.ecs import World
 from ..engine.resource_manager import ResourceManager
 from ..engine.data_models import TraitDefinition, InteractionDefinition
+
 
 class TraitService:
     """
@@ -48,7 +50,9 @@ class TraitService:
         else:
             logger.warning("ResourceManager not found in World.")
 
-        logger.info(f"Loaded {len(self.traits)} traits and {len(self.interactions)} interactions.")
+        logger.info(
+            f"Loaded {len(self.traits)} traits and {len(self.interactions)} interactions."
+        )
 
     def get_trait(self, trait_id: str) -> Optional[TraitDefinition]:
         """

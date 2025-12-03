@@ -2,11 +2,10 @@ import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
-from yukkuri_game.game.components import Transform
 from yukkuri_game.config import LifecycleSettings
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.entity_factory import EntityFactory
-from yukkuri_game.engine.resource_manager import ResourceManager
+
 
 # Mock ResourceManager data structure
 class MockResourceManager:
@@ -17,7 +16,7 @@ class MockResourceManager:
                 "image": "reimu.png",
                 "max_health": 100,
                 "width": 64,
-                "height": 64
+                "height": 64,
             }
         }
         self.item_types = {}
@@ -27,9 +26,11 @@ class MockResourceManager:
         self.tuning.visuals.movement.bob_height = 10.0
         self.tuning.visuals.movement.bob_speed = 5.0
 
+
 @pytest.fixture
 def resource_manager():
     return MockResourceManager()
+
 
 @pytest.fixture
 def world(resource_manager):
@@ -39,17 +40,17 @@ def world(resource_manager):
     w.services.try_get = MagicMock(return_value=None)
     return w
 
+
 @pytest.fixture
 def entity_factory(world):
     return EntityFactory(world)
 
+
 @pytest.fixture
 def lifecycle_system(entity_factory):
-    settings = LifecycleSettings(
-        baby_age_threshold=100.0,
-        child_age_threshold=300.0
-    )
+    settings = LifecycleSettings(baby_age_threshold=100.0, child_age_threshold=300.0)
     return LifecycleSystem(settings)
+
 
 def test_growth_max_health_inconsistency(lifecycle_system, entity_factory, world):
     """
@@ -66,8 +67,8 @@ def test_growth_max_health_inconsistency(lifecycle_system, entity_factory, world
     assert baby_needs.max_health == 50.0
 
     # 2. Grow Baby to Child
-    baby_stats.age = 150 # Above child threshold
-    lifecycle_system.update(world, 1.0) # Trigger growth
+    baby_stats.age = 150  # Above child threshold
+    lifecycle_system.update(world, 1.0)  # Trigger growth
 
     # Verify child stats
     assert baby_stats.growth_stage == "Child"
@@ -75,8 +76,8 @@ def test_growth_max_health_inconsistency(lifecycle_system, entity_factory, world
     assert baby_needs.max_health == 100.0
 
     # 3. Grow Child to Adult
-    baby_stats.age = 350 # Above adult threshold
-    lifecycle_system.update(world, 1.0) # Trigger growth
+    baby_stats.age = 350  # Above adult threshold
+    lifecycle_system.update(world, 1.0)  # Trigger growth
 
     # Verify grown adult stats
     assert baby_stats.growth_stage == "Adult"
@@ -87,7 +88,6 @@ def test_growth_max_health_inconsistency(lifecycle_system, entity_factory, world
 
     grown_adult_max_health = baby_needs.max_health
     print(f"Grown Adult Max Health: {grown_adult_max_health}")
-
 
     # 4. Spawn an Adult directly
     adult_id = entity_factory.create_yukkuri("reimu", 100, 100, age=350)
@@ -100,5 +100,6 @@ def test_growth_max_health_inconsistency(lifecycle_system, entity_factory, world
     print(f"Spawned Adult Max Health: {spawned_adult_max_health}")
 
     # 5. Assert Consistency
-    assert grown_adult_max_health == spawned_adult_max_health, \
+    assert grown_adult_max_health == spawned_adult_max_health, (
         f"Inconsistency detected! Grown: {grown_adult_max_health}, Spawned: {spawned_adult_max_health}"
+    )

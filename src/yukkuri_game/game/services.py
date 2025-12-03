@@ -8,26 +8,24 @@ from typing import Set, TYPE_CHECKING
 from loguru import logger
 
 from ..engine.ecs import World
-from ..engine.audio import AudioManager
-from .components import Transform, InteractionRequest
+from .components import Transform
 from .yukkuri_components import (
-    YukkuriStats, ItemStats, AIState, EmotionalState, GossipQueue, Skills
+    ItemStats,
+    Skills,
 )
 from ..engine.serializer import WorldSerializer
 from .components_persistence import Persistable, StableIDComponent
 from . import components
 from . import yukkuri_components
 from .skill_constants import SkillId
-from ..engine.event_bus import EventBus
 from .systems.sector_system import SectorMap
 
 if TYPE_CHECKING:
-    from .yukkuri_components import Personality  # pylint: disable=unused-import
-    from .trait_service import TraitService
-    from .skill_service import SkillService
+    pass
 
 BASE_SCAVENGING_RADIUS = 500.0
 SCAVENGING_RADIUS_PER_LEVEL = 50.0
+
 
 class PersistenceService:
     """
@@ -149,6 +147,7 @@ class PersistenceService:
             logger.error(f"Failed to load game: {e}")
             return False
 
+
 class TimeService:
     """
     Service responsible for tracking game time.
@@ -178,6 +177,7 @@ class TimeService:
             dt (float): The time delta to add.
         """
         self._time_elapsed += dt
+
 
 class EconomyService:
     """
@@ -245,6 +245,7 @@ class EconomyService:
             self._money = 0
         else:
             self._money = amount
+
 
 class InputService:
     """
@@ -334,6 +335,7 @@ class InputService:
         """Stops cleaning mode."""
         self._cleaning_mode = False
 
+
 class GameService:
     """
     Service providing game-specific logic and utilities.
@@ -350,7 +352,14 @@ class GameService:
             world (World): The ECS World instance.
         """
         self.world = world
-    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: Set[int] | None = None, searcher_id: int = -1) -> int:
+
+    def find_best_item(
+        self,
+        position: tuple[float, float],
+        stat_criteria: str = "nutrition",
+        exclude_ids: Set[int] | None = None,
+        searcher_id: int = -1,
+    ) -> int:
         """
         Finds the best item near a position based on criteria.
         Uses SectorMap for efficient spatial query.
@@ -366,7 +375,7 @@ class GameService:
         """
         import math
 
-        best_dist = float('inf')
+        best_dist = float("inf")
         best_item = -1
 
         if exclude_ids is None:
@@ -379,7 +388,9 @@ class GameService:
             if skills and SkillId.SCAVENGING in skills.states:
                 level = skills.states[SkillId.SCAVENGING].level
                 # Base radius 500 + 50 per level
-                max_radius = BASE_SCAVENGING_RADIUS + (level * SCAVENGING_RADIUS_PER_LEVEL)
+                max_radius = BASE_SCAVENGING_RADIUS + (
+                    level * SCAVENGING_RADIUS_PER_LEVEL
+                )
 
         # Get SectorMap
         sector_map = self.world.services.try_get(SectorMap)
@@ -403,15 +414,17 @@ class GameService:
             # If max_radius > 750, we might need more sectors.
             # Let's try to trust SectorMap or fallback if not present.
 
-            nearby_entities = sector_map.get_entities_in_range(position[0], position[1], range_type="visual")
+            nearby_entities = sector_map.get_entities_in_range(
+                position[0], position[1], range_type="visual"
+            )
 
             # Filter for items
             for entity in nearby_entities:
-                 if self.world.has_component(entity, ItemStats):
-                     candidate_items.append(entity)
+                if self.world.has_component(entity, ItemStats):
+                    candidate_items.append(entity)
         else:
-             # Fallback to linear scan if SectorMap not available
-             candidate_items = self.world.get_entities_with(ItemStats, Transform)
+            # Fallback to linear scan if SectorMap not available
+            candidate_items = self.world.get_entities_with(ItemStats, Transform)
 
         for item in candidate_items:
             if item in exclude_ids:

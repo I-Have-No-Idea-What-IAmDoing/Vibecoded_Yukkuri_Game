@@ -1,18 +1,28 @@
 """
 Prefab functions for Yukkuri entities.
 """
+
 from typing import Optional, List, Any
 import random
-import pymunk
 
 from ...engine.ecs import World
 from ...engine.resource_manager import ResourceManager
 from ..components import (
-    Transform, Sprite, Selectable, PhysicsBody, MovementController, VisualTransform
+    Transform,
+    Sprite,
+    Selectable,
+    MovementController,
+    VisualTransform,
 )
 from ..yukkuri_components import (
-    YukkuriStats, Needs, AIState, Personality, RelationshipRegistry,
-    EmotionalState, PersonalityAxis, GossipQueue
+    YukkuriStats,
+    Needs,
+    AIState,
+    Personality,
+    RelationshipRegistry,
+    EmotionalState,
+    PersonalityAxis,
+    GossipQueue,
 )
 from ..components_persistence import StableIDComponent, Persistable
 from ..collision_constants import CollisionCategories
@@ -21,13 +31,14 @@ from ..skill_service import SkillService
 from ..systems.physics import PhysicsSystem
 from ..physics_utils import add_physics_body, get_yukkuri_radius
 
+
 def create_yukkuri(
     world: World,
     type_id: str,
     x: float,
     y: float,
     age: float = 0.0,
-    parents: Optional[List[int]] = None
+    parents: Optional[List[int]] = None,
 ) -> int:
     """
     Creates a Yukkuri entity.
@@ -62,10 +73,10 @@ def create_yukkuri(
             return d.get(k, default)
         return getattr(d, k, default)
 
-    image = _get_attr(data, 'image', "yukkuri_default.png")
-    width = _get_attr(data, 'width', 64)
-    height = _get_attr(data, 'height', 64)
-    max_health = _get_attr(data, 'max_health', 100)
+    image = _get_attr(data, "image", "yukkuri_default.png")
+    width = _get_attr(data, "width", 64)
+    height = _get_attr(data, "height", 64)
+    max_health = _get_attr(data, "max_health", 100)
 
     # Determine growth stage and scale based on age
     scale = 1.0
@@ -84,21 +95,24 @@ def create_yukkuri(
 
     radius = get_yukkuri_radius(growth_stage)
 
-    frame_count = _get_attr(data, 'frame_count', 1)
-    frame_duration = _get_attr(data, 'frame_duration', 0.1)
-    loop = _get_attr(data, 'loop', True)
+    frame_count = _get_attr(data, "frame_count", 1)
+    frame_duration = _get_attr(data, "frame_duration", 0.1)
+    loop = _get_attr(data, "loop", True)
 
     # Core Components
     world.add_component(entity, Transform(x=x, y=y, scale=scale))
-    world.add_component(entity, Sprite(
-        image_name=image,
-        width=width,
-        height=height,
-        frame_count=frame_count,
-        frame_duration=frame_duration,
-        loop=loop,
-        is_animating=(frame_count > 1)
-    ))
+    world.add_component(
+        entity,
+        Sprite(
+            image_name=image,
+            width=width,
+            height=height,
+            frame_count=frame_count,
+            frame_duration=frame_duration,
+            loop=loop,
+            is_animating=(frame_count > 1),
+        ),
+    )
     world.add_component(entity, Selectable())
     world.add_component(entity, StableIDComponent(id=world.get_next_stable_id()))
     world.add_component(entity, Persistable())
@@ -114,18 +128,11 @@ def create_yukkuri(
 
     # Yukkuri Stats and Needs
     stats = YukkuriStats(
-        name=f"{type_id}_{entity}",
-        type_id=type_id,
-        age=age,
-        growth_stage=growth_stage
+        name=f"{type_id}_{entity}", type_id=type_id, age=age, growth_stage=growth_stage
     )
     world.add_component(entity, stats)
 
-    needs = Needs(
-        max_health=max_health,
-        health=max_health,
-        hunger=0.0
-    )
+    needs = Needs(max_health=max_health, health=max_health, hunger=0.0)
     world.add_component(entity, needs)
 
     # Emotional State
@@ -144,7 +151,9 @@ def create_yukkuri(
 
     # Inheritance logic
     if parents and trait_service:
-        parent_personalities = [p for p in (world.get_component(pid, Personality) for pid in parents) if p]
+        parent_personalities = [
+            p for p in (world.get_component(pid, Personality) for pid in parents) if p
+        ]
         if parent_personalities:
             # 50% chance to inherit each trait from parents
             for pp in parent_personalities:
@@ -205,7 +214,7 @@ def create_yukkuri(
         kindness=axis.kindness,
         energy=axis.energy,
         bravery=axis.bravery,
-        greed=axis.greed
+        greed=axis.greed,
     )
 
     personality = Personality(traits=traits, axis=axis, base_axis=base_axis)
@@ -224,10 +233,12 @@ def create_yukkuri(
         position=(x, y),
         radius_or_size=radius,
         collision_category=CollisionCategories.YUKKURI,
-        collision_mask=CollisionCategories.WALL | CollisionCategories.YUKKURI | CollisionCategories.POOP,
+        collision_mask=CollisionCategories.WALL
+        | CollisionCategories.YUKKURI
+        | CollisionCategories.POOP,
         elasticity=0.5,
         friction=0.5,
-        set_userdata=True
+        set_userdata=True,
     )
 
     return entity

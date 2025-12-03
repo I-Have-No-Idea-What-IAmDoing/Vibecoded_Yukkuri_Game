@@ -1,6 +1,7 @@
 """
 Module defining the FeedbackSystem logic.
 """
+
 import random
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
@@ -13,10 +14,11 @@ from ..events import (
     EntityTrainedEvent,
     EntityPunishedEvent,
     EntityDiedEvent,
-    LogMessageEvent
+    LogMessageEvent,
 )
 from ..prefabs.effects import create_floating_text
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
+
 
 class FeedbackSystem(System):
     """
@@ -68,11 +70,11 @@ class FeedbackSystem(System):
                 emotional = world.get_component(entity, EmotionalState)
 
                 # Default probability logic
-                prob = 0.01 * dt # 1% chance per second
+                prob = 0.01 * dt  # 1% chance per second
 
                 if emotional:
                     if emotional.happiness < -30.0:
-                        prob = 0.1 * dt # 10% chance per second
+                        prob = 0.1 * dt  # 10% chance per second
                     else:
                         prob = 0.01 * dt
                 else:
@@ -82,7 +84,9 @@ class FeedbackSystem(System):
                     audio.play_sound("cry")
 
         to_destroy = []
-        for entity, (transform, text_comp) in world.get_components_tuple(Transform, FloatingText):
+        for entity, (transform, text_comp) in world.get_components_tuple(
+            Transform, FloatingText
+        ):
             # Move up
             transform.y += text_comp.velocity_y * dt
 
@@ -101,15 +105,16 @@ class FeedbackSystem(System):
             event.position[0],
             event.position[1] - 30,
             f"+${event.value}",
-            (255, 215, 0), # Gold
-            size=24
+            (255, 215, 0),  # Gold
+            size=24,
         )
 
         if self.event_bus:
-            self.event_bus.publish(LogMessageEvent(
-                message=f"Sold entity for ${event.value}.",
-                color=(255, 215, 0)
-            ))
+            self.event_bus.publish(
+                LogMessageEvent(
+                    message=f"Sold entity for ${event.value}.", color=(255, 215, 0)
+                )
+            )
 
     def on_growth(self, event: EntityGrewEvent) -> None:
         """Handles EntityGrewEvent."""
@@ -123,15 +128,16 @@ class FeedbackSystem(System):
             event.position[0],
             event.position[1] - 40,
             "Level Up!",
-            (255, 255, 0), # Yellow
-            size=24
+            (255, 255, 0),  # Yellow
+            size=24,
         )
 
         if self.event_bus:
-            self.event_bus.publish(LogMessageEvent(
-                message=f"{name} grew into a {event.new_stage}!",
-                color=(0, 255, 0)
-            ))
+            self.event_bus.publish(
+                LogMessageEvent(
+                    message=f"{name} grew into a {event.new_stage}!", color=(0, 255, 0)
+                )
+            )
 
     def on_death(self, event: EntityDiedEvent) -> None:
         """Handles EntityDiedEvent."""
@@ -145,15 +151,14 @@ class FeedbackSystem(System):
             event.position[0],
             event.position[1] - 30,
             "Dead...",
-            (128, 128, 128), # Gray
-            size=20
+            (128, 128, 128),  # Gray
+            size=20,
         )
 
         if self.event_bus:
-            self.event_bus.publish(LogMessageEvent(
-                message=f"{name} has died.",
-                color=(255, 0, 0)
-            ))
+            self.event_bus.publish(
+                LogMessageEvent(message=f"{name} has died.", color=(255, 0, 0))
+            )
 
     def on_trained(self, event: EntityTrainedEvent) -> None:
         """Handles EntityTrainedEvent."""
@@ -167,15 +172,16 @@ class FeedbackSystem(System):
             event.position[0],
             event.position[1] - 30,
             "Trained!",
-            (0, 255, 255), # Cyan
-            size=20
+            (0, 255, 255),  # Cyan
+            size=20,
         )
 
         if self.event_bus:
-            self.event_bus.publish(LogMessageEvent(
-                message=f"{name} trained successfully.",
-                color=(0, 255, 255)
-            ))
+            self.event_bus.publish(
+                LogMessageEvent(
+                    message=f"{name} trained successfully.", color=(0, 255, 255)
+                )
+            )
 
     def on_punished(self, event: EntityPunishedEvent) -> None:
         """Handles EntityPunishedEvent."""
@@ -189,12 +195,11 @@ class FeedbackSystem(System):
             event.position[0],
             event.position[1] - 30,
             "Punished!",
-            (255, 0, 0), # Red
-            size=20
+            (255, 0, 0),  # Red
+            size=20,
         )
 
         if self.event_bus:
-            self.event_bus.publish(LogMessageEvent(
-                message=f"{name} was punished.",
-                color=(255, 0, 0)
-            ))
+            self.event_bus.publish(
+                LogMessageEvent(message=f"{name} was punished.", color=(255, 0, 0))
+            )

@@ -1,13 +1,15 @@
 """
 Tests for Personality Drift mechanics.
 """
+
 import pytest
 from yukkuri_game.game.yukkuri_components import Personality, PersonalityAxis
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.engine.ecs import World
 
-@pytest.fixture # type: ignore[misc]
+
+@pytest.fixture  # type: ignore[misc]
 def world() -> World:
     """
     Creates a new ECS World for testing.
@@ -17,7 +19,8 @@ def world() -> World:
     """
     return World()
 
-@pytest.fixture # type: ignore[misc]
+
+@pytest.fixture  # type: ignore[misc]
 def emotion_system() -> EmotionSystem:
     """
     Creates an EmotionSystem for testing.
@@ -27,6 +30,7 @@ def emotion_system() -> EmotionSystem:
     """
     settings = StatDecaySettings()
     return EmotionSystem(settings)
+
 
 def test_personality_drift(world: World, emotion_system: EmotionSystem) -> None:
     """
@@ -49,6 +53,7 @@ def test_personality_drift(world: World, emotion_system: EmotionSystem) -> None:
 
     # Also need YukkuriStats for the system to process it
     from yukkuri_game.game.yukkuri_components import YukkuriStats
+
     world.add_component(entity, YukkuriStats(name="Test", type_id="test"))
 
     # Update for enough time to trigger drift
@@ -72,4 +77,4 @@ def test_personality_drift(world: World, emotion_system: EmotionSystem) -> None:
 
     # Should have drifted towards 0
     assert p.axis.kindness < initial_kindness
-    assert p.axis.kindness >= 0 # Should not overshoot base
+    assert p.axis.kindness >= 0  # Should not overshoot base

@@ -1,10 +1,12 @@
 """
 Module for loading and managing game configuration.
 """
+
 import msgspec
 from pathlib import Path
 
-class WorldSettings(msgspec.Struct): # type: ignore[misc]
+
+class WorldSettings(msgspec.Struct):  # type: ignore[misc]
     """
     Configuration settings for the game world.
 
@@ -14,21 +16,25 @@ class WorldSettings(msgspec.Struct): # type: ignore[misc]
         grid_step_size (int): The size of the grid step for navigation.
         sector_size (float): The size of sectors for spatial partitioning.
     """
+
     width: int = 3000
     height: int = 3000
     grid_step_size: int = 50
     sector_size: float = 500.0
 
-class ConfigFile(msgspec.Struct): # type: ignore[misc]
+
+class ConfigFile(msgspec.Struct):  # type: ignore[misc]
     """
     Represents the structure of the main config.toml file.
 
     Attributes:
         world (WorldSettings): The world configuration settings.
     """
+
     world: WorldSettings = msgspec.field(default_factory=WorldSettings)
 
-class StatDecaySettings(msgspec.Struct): # type: ignore[misc]
+
+class StatDecaySettings(msgspec.Struct):  # type: ignore[misc]
     """
     Configuration settings for stat decay rates.
 
@@ -43,6 +49,7 @@ class StatDecaySettings(msgspec.Struct): # type: ignore[misc]
         starvation_damage (float): Damage per tick when starving.
         personality_drift_rate (float): Rate at which personality traits can drift.
     """
+
     hunger: float = 2.0
     happiness: float = 0.5
     stress: float = 5.0
@@ -53,7 +60,8 @@ class StatDecaySettings(msgspec.Struct): # type: ignore[misc]
     starvation_damage: float = 5.0
     personality_drift_rate: float = 0.1
 
-class LifecycleSettings(msgspec.Struct): # type: ignore[misc]
+
+class LifecycleSettings(msgspec.Struct):  # type: ignore[misc]
     """
     Configuration settings for lifecycle events (birth, growth, death).
 
@@ -65,6 +73,7 @@ class LifecycleSettings(msgspec.Struct): # type: ignore[misc]
         breeding_cost (float): Energy cost of breeding.
         breeding_chance (float): Probability of breeding per tick if conditions met.
     """
+
     baby_age_threshold: float = 100.0
     child_age_threshold: float = 300.0
     breeding_happiness_threshold: float = 80.0
@@ -72,7 +81,8 @@ class LifecycleSettings(msgspec.Struct): # type: ignore[misc]
     breeding_cost: float = 50.0
     breeding_chance: float = 0.001
 
-class SocialSettings(msgspec.Struct): # type: ignore[misc]
+
+class SocialSettings(msgspec.Struct):  # type: ignore[misc]
     """
     Configuration for the social system.
 
@@ -81,11 +91,13 @@ class SocialSettings(msgspec.Struct): # type: ignore[misc]
         max_gossip_length (int): Maximum length of gossip chains.
         witness_threshold (float): Threshold for witnessing events.
     """
+
     memory_importance_threshold: float = 50.0
     max_gossip_length: int = 10
     witness_threshold: float = 5.0
 
-class SkillsSettings(msgspec.Struct): # type: ignore[misc]
+
+class SkillsSettings(msgspec.Struct):  # type: ignore[misc]
     """
     Configuration for the skill system.
 
@@ -93,10 +105,12 @@ class SkillsSettings(msgspec.Struct): # type: ignore[misc]
         xp_base (float): Base XP required for level up.
         xp_exponent (float): Exponent for XP scaling.
     """
+
     xp_base: float = 100.0
     xp_exponent: float = 1.5
 
-class StatsSettings(msgspec.Struct): # type: ignore[misc]
+
+class StatsSettings(msgspec.Struct):  # type: ignore[misc]
     """
     Configuration for calculating yukkuri stats and value.
 
@@ -106,12 +120,14 @@ class StatsSettings(msgspec.Struct): # type: ignore[misc]
         age_value_bonus (float): Value bonus per minute of age.
         intelligence_base (float): Base intelligence multiplier.
     """
+
     badge_value: int = 500
     health_deficit_penalty: float = 2.0
     age_value_bonus: float = 10.0
     intelligence_base: float = 0.5
 
-class RulesFile(msgspec.Struct): # type: ignore[misc]
+
+class RulesFile(msgspec.Struct):  # type: ignore[misc]
     """
     Represents the structure of the rules.toml file.
 
@@ -122,13 +138,15 @@ class RulesFile(msgspec.Struct): # type: ignore[misc]
         skills (SkillsSettings): The skill system configuration.
         stats (StatsSettings): The general stats configuration.
     """
+
     stat_decay: StatDecaySettings = msgspec.field(default_factory=StatDecaySettings)
     lifecycle: LifecycleSettings = msgspec.field(default_factory=LifecycleSettings)
     social: SocialSettings = msgspec.field(default_factory=SocialSettings)
     skills: SkillsSettings = msgspec.field(default_factory=SkillsSettings)
     stats: StatsSettings = msgspec.field(default_factory=StatsSettings)
 
-class GameConfig(msgspec.Struct): # type: ignore[misc]
+
+class GameConfig(msgspec.Struct):  # type: ignore[misc]
     """
     Combined configuration for the game.
 
@@ -136,8 +154,10 @@ class GameConfig(msgspec.Struct): # type: ignore[misc]
         world (WorldSettings): World settings from config.toml.
         rules (RulesFile): Game rules from rules.toml.
     """
+
     world: WorldSettings
     rules: RulesFile
+
 
 def load_config(data_dir: Path = Path("data")) -> GameConfig:
     """

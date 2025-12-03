@@ -1,6 +1,7 @@
 """
 Scene Manager Module.
 """
+
 from typing import Optional, List, TYPE_CHECKING, Dict, Any
 import pygame
 import msgspec
@@ -11,19 +12,21 @@ from .migration import MigrationRegistry
 if TYPE_CHECKING:
     pass
 
+
 class SceneManager:
     """
     Manages a stack of Scene objects and handles global persistence state.
     """
+
     def __init__(self) -> None:
-        self._scenes: List['Scene'] = []
+        self._scenes: List["Scene"] = []
         self.persistent_data: Dict[str, Any] = {}
 
     @property
-    def current_scene(self) -> Optional['Scene']:
+    def current_scene(self) -> Optional["Scene"]:
         return self._scenes[-1] if self._scenes else None
 
-    def push(self, scene: 'Scene') -> None:
+    def push(self, scene: "Scene") -> None:
         """
         Push a new scene onto the stack.
 
@@ -44,7 +47,7 @@ class SceneManager:
             scene = self._scenes.pop()
             scene.on_exit()
 
-    def replace(self, scene: 'Scene') -> None:
+    def replace(self, scene: "Scene") -> None:
         """
         Replace the current scene with a new one.
 
@@ -74,9 +77,14 @@ class SceneManager:
                         saved_version = data.get("_version_", 0)
 
                         if saved_version < target_version:
-                            logger.info(f"Migrating {key} from v{saved_version} to v{target_version}")
+                            logger.info(
+                                f"Migrating {key} from v{saved_version} to v{target_version}"
+                            )
                             data = MigrationRegistry.migrate(
-                                expected_type.__name__, data, saved_version, target_version
+                                expected_type.__name__,
+                                data,
+                                saved_version,
+                                target_version,
                             )
 
                         # 2. Clean metadata before strict conversion
@@ -93,15 +101,21 @@ class SceneManager:
                         self.persistent_data[key] = obj
 
                     except Exception as e:
-                        logger.critical(f"Failed to inject/deserialize '{key}' for {type(scene).__name__}. Error: {e}")
+                        logger.critical(
+                            f"Failed to inject/deserialize '{key}' for {type(scene).__name__}. Error: {e}"
+                        )
                         # Determine fallback strategy: Crash or Skip?
                         # Crashing is safer than running with corrupt/wrong-type data.
-                        raise RuntimeError(f"Data corruption detected for key '{key}'") from e
+                        raise RuntimeError(
+                            f"Data corruption detected for key '{key}'"
+                        ) from e
                 else:
                     # It is already a live object (runtime transition)
                     context_data[key] = data
             else:
-                logger.warning(f"Scene {type(scene).__name__} requested injection '{key}' but it was not found.")
+                logger.warning(
+                    f"Scene {type(scene).__name__} requested injection '{key}' but it was not found."
+                )
 
         return SceneContext(data=context_data)
 

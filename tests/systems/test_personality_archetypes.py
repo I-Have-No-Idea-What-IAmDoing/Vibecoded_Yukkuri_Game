@@ -1,8 +1,9 @@
 """
 Tests for Personality Archetypes.
 """
-import pytest
+
 from yukkuri_game.game.yukkuri_components import Personality, PersonalityAxis
+
 
 # This test ensures we can instantiate and use the 4-axis model
 def test_personality_structure() -> None:
@@ -16,13 +17,14 @@ def test_personality_structure() -> None:
     assert p.axis.bravery == 0
     assert p.axis.greed == 0
 
+
 def test_trait_shifts_concept() -> None:
     """
     Tests manual manipulation of the personality axis to simulate trait shifts.
     """
     # Verify we can manually apply shifts (logic is in trait_service usually, but here we test data structure support)
     p = Personality()
-    p.axis.kindness = -50 # "Scum" trait shift
+    p.axis.kindness = -50  # "Scum" trait shift
 
     assert p.axis.kindness == -50
 

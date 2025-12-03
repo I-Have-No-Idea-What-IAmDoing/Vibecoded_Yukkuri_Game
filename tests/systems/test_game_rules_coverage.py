@@ -1,16 +1,21 @@
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.audio import AudioManager
 from yukkuri_game.game.systems.game_rules_system import GameRulesSystem
 from yukkuri_game.game.events import (
-    TrainEntityRequest, PunishEntityRequest, SellEntityRequest,
-    EntitySoldEvent, EntityTrainedEvent, EntityPunishedEvent
+    TrainEntityRequest,
+    PunishEntityRequest,
+    SellEntityRequest,
+    EntitySoldEvent,
+    EntityTrainedEvent,
+    EntityPunishedEvent,
 )
 from yukkuri_game.game.components import Transform
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.game.services import EconomyService
+
 
 @pytest.fixture
 def game_rules_env():
@@ -27,6 +32,7 @@ def game_rules_env():
     world.services.register(audio, AudioManager)
 
     return world, system, event_bus, economy, audio
+
 
 def test_sell_yukkuri(game_rules_env):
     world, system, event_bus, economy, audio = game_rules_env
@@ -59,7 +65,8 @@ def test_sell_yukkuri(game_rules_env):
 
     # Entity should be destroyed
     if world.entity_exists(entity):
-         pytest.fail("Entity should be destroyed")
+        pytest.fail("Entity should be destroyed")
+
 
 def test_train_yukkuri(game_rules_env):
     world, system, event_bus, economy, audio = game_rules_env
@@ -80,6 +87,7 @@ def test_train_yukkuri(game_rules_env):
     assert emotion.happiness == 60.0
     assert len(events) == 1
     audio.play_sound.assert_called_with("train")
+
 
 def test_punish_yukkuri(game_rules_env):
     world, system, event_bus, economy, audio = game_rules_env
@@ -105,11 +113,12 @@ def test_punish_yukkuri(game_rules_env):
     assert len(events) == 1
     audio.play_sound.assert_called_with("hit")
 
+
 def test_action_on_missing_components(game_rules_env):
     """Ensure system handles entities missing components gracefully."""
     world, system, event_bus, _, _ = game_rules_env
 
-    entity = world.create_entity() # Empty entity
+    entity = world.create_entity()  # Empty entity
 
     # Should not crash
     event_bus.publish(SellEntityRequest(entity))

@@ -7,6 +7,7 @@ from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 
+
 class TestConstructionSystem(unittest.TestCase):
     def setUp(self):
         self.construction_system = ConstructionSystem()
@@ -64,5 +65,6 @@ class TestConstructionSystem(unittest.TestCase):
 
         self.factory_mock.create_item.assert_called_with("cookie", 100.0, 100.0)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,15 @@
 import pytest
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import YukkuriStats, RelationshipRegistry, RelationshipData, AIState, EmotionalState
+from yukkuri_game.game.yukkuri_components import (
+    YukkuriStats,
+    RelationshipRegistry,
+    RelationshipData,
+    AIState,
+    EmotionalState,
+)
 from yukkuri_game.game.systems.family_system import FamilySystem
 from yukkuri_game.game.components import Transform
+
 
 class TestFamilySystem:
     @pytest.fixture(autouse=True)
@@ -17,7 +24,9 @@ class TestFamilySystem:
         self.world.add_component(e1, YukkuriStats(name="Y1", type_id="reimu"))
         reg1 = RelationshipRegistry()
         self.world.add_component(e1, reg1)
-        self.world.add_component(e1, EmotionalState()) # Needed for potential emotional checks
+        self.world.add_component(
+            e1, EmotionalState()
+        )  # Needed for potential emotional checks
 
         e2 = self.world.create_entity()
         self.world.add_component(e2, YukkuriStats(name="Y2", type_id="marisa"))
@@ -31,7 +40,7 @@ class TestFamilySystem:
 
         # Update system (check interval is 10s, so we force check logic or simulate time)
         # We can manually call _process_family_formation for testing or advance time
-        self.system.check_interval = 0.0 # Force check
+        self.system.check_interval = 0.0  # Force check
         self.system.update(self.world, 1.0)
 
         assert reg1.family_group_id is not None
@@ -50,7 +59,7 @@ class TestFamilySystem:
         e2 = self.world.create_entity()
         self.world.add_component(e2, YukkuriStats(name="Y2", type_id="marisa"))
         self.world.add_component(e2, EmotionalState(happiness=50.0, stress=10.0))
-        self.world.add_component(e2, Transform(x=10, y=0)) # Nearby
+        self.world.add_component(e2, Transform(x=10, y=0))  # Nearby
         reg2 = RelationshipRegistry(family_group_id=123)
         self.world.add_component(e2, reg2)
         self.world.add_component(e2, AIState())

@@ -2,22 +2,18 @@ import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.prefabs.yukkuri import create_yukkuri
-from yukkuri_game.game.components import Transform, Sprite
+from yukkuri_game.game.components import Transform
 from yukkuri_game.game.yukkuri_components import YukkuriStats
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.game.trait_service import TraitService
+
 
 class TestYukkuriPrefab(unittest.TestCase):
     def test_create_yukkuri(self):
         world = World()
         # Mock ResourceManager
         rm = MagicMock(spec=ResourceManager)
-        rm.yukkuri_types = {
-            "reimu": {
-                "image": "reimu.png",
-                "max_health": 100
-            }
-        }
+        rm.yukkuri_types = {"reimu": {"image": "reimu.png", "max_health": 100}}
         # Mock tuning settings (visuals) which are accessed in prefab
         rm.tuning = MagicMock()
         rm.tuning.visuals.movement.bob_height = 5.0
@@ -42,5 +38,6 @@ class TestYukkuriPrefab(unittest.TestCase):
         self.assertEqual(trans.x, 10)
         self.assertEqual(trans.y, 20)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

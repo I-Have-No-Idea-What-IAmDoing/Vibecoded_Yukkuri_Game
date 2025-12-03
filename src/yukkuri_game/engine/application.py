@@ -1,6 +1,7 @@
 """
 Application Module.
 """
+
 import sys
 import pygame
 import pygame_gui
@@ -11,11 +12,19 @@ from .scene_manager import SceneManager
 from .input_manager import InputManager
 from .event_manager import EventManager, GamePhase
 
+
 class Application:
     """
     Main Application class responsible for the main loop, window management, and scene management.
     """
-    def __init__(self, width: int = 1280, height: int = 720, title: str = "Yukkuri Raising Game", headless: bool = False):
+
+    def __init__(
+        self,
+        width: int = 1280,
+        height: int = 720,
+        title: str = "Yukkuri Raising Game",
+        headless: bool = False,
+    ):
         self.width = width
         self.height = height
         self.headless = headless
@@ -27,7 +36,7 @@ class Application:
         pygame.init()
 
         if self.headless:
-             self.screen = pygame.display.set_mode((width, height))
+            self.screen = pygame.display.set_mode((width, height))
         else:
             self.screen = pygame.display.set_mode((width, height), pygame.RESIZABLE)
             pygame.display.set_caption(title)
@@ -61,7 +70,8 @@ class Application:
             frame_time = new_time - current_time
             current_time = new_time
 
-            if frame_time > 0.25: frame_time = 0.25
+            if frame_time > 0.25:
+                frame_time = 0.25
             self.accumulator += frame_time
 
             # Input processing should happen every frame
@@ -123,7 +133,7 @@ class Application:
         """Stops the application."""
         logger.info("Application Ended")
         if self.running:
-             self.running = False
+            self.running = False
         pygame.quit()
         if not self.headless:
-             sys.exit()
+            sys.exit()

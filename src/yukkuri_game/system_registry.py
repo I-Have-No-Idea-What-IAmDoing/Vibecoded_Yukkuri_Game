@@ -1,6 +1,7 @@
 """
 Module for registering ECS systems.
 """
+
 from typing import TYPE_CHECKING
 from .engine.ecs import World
 from .engine.event_bus import EventBus
@@ -26,14 +27,20 @@ if TYPE_CHECKING:
     from .config import GameConfig
     from .game.yukkurrium import Yukkurrium
 
+
 class SystemRegistry:
     """
     Helper class to register systems to the ECS World.
     """
 
     @staticmethod
-    def register_systems(world: World, game_config: 'GameConfig', yukkurrium: 'Yukkurrium',
-                        event_bus: EventBus, physics_system: PhysicsSystem) -> InputSystem:
+    def register_systems(
+        world: World,
+        game_config: "GameConfig",
+        yukkurrium: "Yukkurrium",
+        event_bus: EventBus,
+        physics_system: PhysicsSystem,
+    ) -> InputSystem:
         """
         Registers all game systems.
 
@@ -56,7 +63,9 @@ class SystemRegistry:
 
         world.add_system(EmotionSystem(settings=game_config.rules.stat_decay))
         world.add_system(LifecycleSystem(settings=game_config.rules.lifecycle))
-        world.add_system(BehaviorSystem(float(yukkurrium.width), float(yukkurrium.height)))
+        world.add_system(
+            BehaviorSystem(float(yukkurrium.width), float(yukkurrium.height))
+        )
         world.add_system(MovementSystem())
         world.add_system(ConstructionSystem())
         world.add_system(AnimationSystem())

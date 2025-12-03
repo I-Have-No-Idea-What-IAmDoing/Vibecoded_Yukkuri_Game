@@ -1,16 +1,17 @@
 """
 System test for spawning logic.
 """
-import pytest
-from yukkuri_game.engine.application import Application
-from yukkuri_game.testing.driver import WaitUntil, WaitFrames, Click, Screenshot
+
+from yukkuri_game.testing.driver import WaitFrames, Click, Screenshot
 
 # Note: game_driver fixture is now in conftest.py
+
 
 def test_initial_setup(game_driver):
     """
     Verifies that the game initializes correctly.
     """
+
     def scenario():
         # Wait for game to initialize (e.g. 2 frames)
         yield WaitFrames(2)
@@ -20,8 +21,10 @@ def test_initial_setup(game_driver):
     assert game_driver.game.headless is True
     from yukkuri_game.game.services import GameService
     from yukkuri_game.game.yukkurrium import Yukkurrium
+
     assert game_driver.world.services.try_get(GameService) is not None
     assert game_driver.world.services.try_get(Yukkurrium) is not None
+
 
 def test_spawn_reimu(game_driver):
     """
@@ -32,6 +35,7 @@ def test_spawn_reimu(game_driver):
         yield WaitFrames(5)
         # Direct state modification for setup
         from yukkuri_game.game.entity_factory import EntityFactory
+
         factory = game_driver.world.services.try_get(EntityFactory)
         factory.create_yukkuri("reimu", 100, 100)
         yield WaitFrames(5)

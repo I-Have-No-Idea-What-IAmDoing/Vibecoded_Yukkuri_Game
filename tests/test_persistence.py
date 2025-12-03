@@ -3,17 +3,19 @@ import os
 import msgspec
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Set, Dict, List, Any
+from typing import Dict
 from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.engine.serializer import WorldSerializer
 from src.yukkuri_game.game.components_persistence import StableIDComponent, Persistable
 from src.yukkuri_game.game.components import Transform, Selectable
 from src.yukkuri_game.engine.types import EntityID
 
+
 @dataclasses.dataclass
 class SampleComponent:
     value: int
     name: str
+
 
 def test_msgpack_persistence():
     world = World()
@@ -26,7 +28,13 @@ def test_msgpack_persistence():
     world.add_component(entity, Selectable(selected=True))
 
     # Setup serializer
-    comp_types = [StableIDComponent, Persistable, Transform, Selectable, SampleComponent]
+    comp_types = [
+        StableIDComponent,
+        Persistable,
+        Transform,
+        Selectable,
+        SampleComponent,
+    ]
     serializer = WorldSerializer(world, comp_types)
 
     filepath = "test_save.msgpack"
@@ -49,7 +57,9 @@ def test_msgpack_persistence():
     assert entity_data["stable_id"] == 1
     assert "Transform" in entity_data["components"]
     assert "Selectable" in entity_data["components"]
-    assert "StableIDComponent" not in entity_data["components"] # Verification of optimization
+    assert (
+        "StableIDComponent" not in entity_data["components"]
+    )  # Verification of optimization
 
     assert entity_data["components"]["Transform"]["x"] == 10.0
 
@@ -75,24 +85,34 @@ def test_msgpack_persistence():
     if os.path.exists(filepath):
         os.remove(filepath)
 
+
 @dataclass
 class SafeRefComponent:
     entity_id: EntityID = EntityID(-1)
     target_id: EntityID = EntityID(-1)
     sprite_id: int = 0  # Should NOT be remapped implicitly
 
+
 @dataclass
 class DictComponent:
-    threats: Dict[EntityID, int] = field(default_factory=dict) # Key=ID, Value=Amount. Should remap Key.
-    metadata: Dict[EntityID, str] = field(default_factory=dict) # Key=ID, Value=String. Should remap Key.
+    threats: Dict[EntityID, int] = field(
+        default_factory=dict
+    )  # Key=ID, Value=Amount. Should remap Key.
+    metadata: Dict[EntityID, str] = field(
+        default_factory=dict
+    )  # Key=ID, Value=String. Should remap Key.
 
     # _references = {"threats", "metadata"} # Removed as we use type introspection now
+
 
 class TestSerializerFix:
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self):
         self.world = World()
-        self.serializer = WorldSerializer(self.world, [SafeRefComponent, DictComponent, StableIDComponent, Persistable])
+        self.serializer = WorldSerializer(
+            self.world,
+            [SafeRefComponent, DictComponent, StableIDComponent, Persistable],
+        )
         self.filepath = "test_serializer_fix.msgpack"
         yield
         if os.path.exists(self.filepath):

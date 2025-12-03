@@ -1,15 +1,21 @@
 """
 Tests for Utility AI Engine.
 """
-import pytest
-from unittest.mock import MagicMock
-from yukkuri_game.game.ai.utility import UtilityAIEngine, Action, Consideration
-from yukkuri_game.engine.data_models import AIData, AIAction, ActionEffect, ActionConsideration
+
+from yukkuri_game.game.ai.utility import UtilityAIEngine
+from yukkuri_game.engine.data_models import (
+    AIAction,
+    ActionEffect,
+    ActionConsideration,
+)
+
 
 class MockResourceManager:
     """Mock resource manager for testing."""
+
     def __init__(self, actions_data):
         self.ai_actions = actions_data
+
 
 def test_utility_ai_parsing() -> None:
     """
@@ -21,16 +27,26 @@ def test_utility_ai_parsing() -> None:
             weight=2.0,
             effects=ActionEffect(type="interact_item", stat_changes={}),
             considerations=[
-                ActionConsideration(name="Hunger", input="hunger", curve="linear", params={"m": 1.0, "b": 0.0})
-            ]
+                ActionConsideration(
+                    name="Hunger",
+                    input="hunger",
+                    curve="linear",
+                    params={"m": 1.0, "b": 0.0},
+                )
+            ],
         ),
         "Sleep": AIAction(
             weight=1.5,
             effects=ActionEffect(type="interact_item", stat_changes={}),
             considerations=[
-                ActionConsideration(name="Tiredness", input="energy_inv", curve="logit", params={"k": 10.0, "x0": 0.7})
-            ]
-        )
+                ActionConsideration(
+                    name="Tiredness",
+                    input="energy_inv",
+                    curve="logit",
+                    params={"k": 10.0, "x0": 0.7},
+                )
+            ],
+        ),
     }
 
     rm = MockResourceManager(mock_actions)
@@ -45,6 +61,7 @@ def test_utility_ai_parsing() -> None:
     assert eat_action.considerations[0].name == "Hunger"
     assert eat_action.considerations[0].curve_type == "linear"
 
+
 def test_utility_calculation() -> None:
     """
     Tests calculation of utility scores and action selection.
@@ -55,16 +72,20 @@ def test_utility_calculation() -> None:
             weight=1.0,
             effects=ActionEffect(type="test", stat_changes={}),
             considerations=[
-                ActionConsideration(name="C1", input="val", curve="linear", params={"m": 1.0, "b": 0.0})
-            ]
+                ActionConsideration(
+                    name="C1", input="val", curve="linear", params={"m": 1.0, "b": 0.0}
+                )
+            ],
         ),
         "TestLow": AIAction(
             weight=1.0,
             effects=ActionEffect(type="test", stat_changes={}),
             considerations=[
-                ActionConsideration(name="C2", input="val_inv", curve="inverse_linear", params={})
-            ]
-        )
+                ActionConsideration(
+                    name="C2", input="val_inv", curve="inverse_linear", params={}
+                )
+            ],
+        ),
     }
     rm = MockResourceManager(mock_actions)
     engine = UtilityAIEngine(rm)

@@ -1,17 +1,18 @@
 import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
+from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
 from yukkuri_game.config import StatDecaySettings
+
 
 class TestEmotionSystemHealthClamp(unittest.TestCase):
     def test_health_clamping(self):
         mock_world = MagicMock()
-        mock_world.has_component.return_value = False # Not dead
+        mock_world.has_component.return_value = False  # Not dead
         stats = YukkuriStats(name="Test", type_id="test")
         needs = Needs()
         needs.max_health = 100.0
-        needs.health = 150.0 # Over limit
+        needs.health = 150.0  # Over limit
 
         mock_world.get_components_tuple.return_value = [(1, (stats, needs))]
 
@@ -20,7 +21,7 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         mock_world.get_component.return_value = None
 
         system = EmotionSystem(settings=StatDecaySettings())
-        dt = 0.0 # No decay
+        dt = 0.0  # No decay
         system.update(mock_world, dt)
 
         # Health should be clamped to max_health
@@ -28,11 +29,11 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
 
     def test_health_clamping_low(self):
         mock_world = MagicMock()
-        mock_world.has_component.return_value = False # Not dead
+        mock_world.has_component.return_value = False  # Not dead
         stats = YukkuriStats(name="Test", type_id="test")
         needs = Needs()
         needs.max_health = 100.0
-        needs.health = -50.0 # Under limit
+        needs.health = -50.0  # Under limit
 
         mock_world.get_components_tuple.return_value = [(1, (stats, needs))]
 
@@ -40,7 +41,7 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         mock_world.get_component.return_value = None
 
         system = EmotionSystem(settings=StatDecaySettings())
-        dt = 0.0 # No decay
+        dt = 0.0  # No decay
         system.update(mock_world, dt)
 
         # Health should be clamped to 0

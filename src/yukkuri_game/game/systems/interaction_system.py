@@ -1,16 +1,24 @@
 """
 Module defining the InteractionSystem logic.
 """
+
 import math
 from typing import Optional
 from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
 from ..components import Transform, InteractionRequest
-from ..yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, Personality, EmotionalState
+from ..yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    ItemStats,
+    AIState,
+    Personality,
+)
 from ..trait_service import TraitService
 from .hunger_system import HungerSystem
 from .social_system import SocialSystem
+
 
 class InteractionSystem(System):
     """
@@ -21,6 +29,7 @@ class InteractionSystem(System):
         audio (Optional[AudioManager]): The audio manager instance.
         trait_service (Optional[TraitService]): The trait service.
     """
+
     def __init__(self) -> None:
         """Initializes the InteractionSystem."""
         super().__init__()
@@ -51,7 +60,9 @@ class InteractionSystem(System):
 
         # Get all entities with InteractionRequest
         # We need to iterate safely because we might remove components
-        entities = list(world.get_components_tuple(InteractionRequest, Transform, YukkuriStats))
+        entities = list(
+            world.get_components_tuple(InteractionRequest, Transform, YukkuriStats)
+        )
 
         for entity, (request, transform, stats) in entities:
             handled = self._handle_interaction(world, entity, request, transform, stats)
@@ -74,15 +85,25 @@ class InteractionSystem(System):
         personality = world.get_component(entity, Personality)
         if personality and self.trait_service:
             if personality.cached_overrides is None:
-                personality.cached_overrides = self.trait_service.calculate_overrides(personality.traits)
+                personality.cached_overrides = self.trait_service.calculate_overrides(
+                    personality.traits
+                )
 
             # Check for "can_eat_yukkuri" override
-            if personality.cached_overrides and personality.cached_overrides.get("can_eat_yukkuri", False):
+            if personality.cached_overrides and personality.cached_overrides.get(
+                "can_eat_yukkuri", False
+            ):
                 return True
         return False
 
-    def _handle_interaction(self, world: World, entity: int, request: InteractionRequest,
-                            transform: Transform, stats: YukkuriStats) -> bool:
+    def _handle_interaction(
+        self,
+        world: World,
+        entity: int,
+        request: InteractionRequest,
+        transform: Transform,
+        stats: YukkuriStats,
+    ) -> bool:
         """
         Handles a single interaction request.
 
@@ -106,27 +127,33 @@ class InteractionSystem(System):
             return False
 
         # Verify distance (sanity check)
-        dist = math.hypot(transform.x - target_transform.x, transform.y - target_transform.y)
-        if dist > 50.0: # Slightly larger than action threshold to account for movement
+        dist = math.hypot(
+            transform.x - target_transform.x, transform.y - target_transform.y
+        )
+        if dist > 50.0:  # Slightly larger than action threshold to account for movement
             return False
 
         # Handle Consumption (Item)
         item_stats = world.get_component(target_id, ItemStats)
         if item_stats:
-             if self.hunger_system:
-                 return self.hunger_system.process_consumption(world, entity, request, transform, stats, target_id, item_stats)
-             else:
-                 logger.warning("HungerSystem not available to handle consumption request.")
-                 return False
+            if self.hunger_system:
+                return self.hunger_system.process_consumption(
+                    world, entity, request, transform, stats, target_id, item_stats
+                )
+            else:
+                logger.warning(
+                    "HungerSystem not available to handle consumption request."
+                )
+                return False
 
         # Handle Social Interaction (Talk/Fight/Dance)
         if request.action in ["Talk", "Fight", "Dance", "Greet"]:
-             if self.social_system:
-                 self.social_system.process_interaction_request(world, entity, request)
-                 return True
-             else:
-                 logger.warning("SocialSystem not available to handle social request.")
-                 return False
+            if self.social_system:
+                self.social_system.process_interaction_request(world, entity, request)
+                return True
+            else:
+                logger.warning("SocialSystem not available to handle social request.")
+                return False
 
         # Handle Interaction with another Yukkuri (Predation)
         target_stats = world.get_component(target_id, YukkuriStats)
@@ -135,9 +162,9 @@ class InteractionSystem(System):
                 # Execute Predation
                 needs = world.get_component(entity, Needs)
                 if needs:
-                    needs.hunger = max(0, needs.hunger - 50.0) # Big meal
+                    needs.hunger = max(0, needs.hunger - 50.0)  # Big meal
                 if self.audio:
-                    self.audio.play_sound("eat") # Crunch?
+                    self.audio.play_sound("eat")  # Crunch?
 
                 world.destroy_entity(target_id)
                 ai = world.get_component(entity, AIState)
@@ -145,7 +172,9 @@ class InteractionSystem(System):
                     ai.current_target_id = -1
                 logger.info(f"Entity {entity} ate Yukkuri {target_id} (Predation).")
             else:
-                logger.debug(f"Entity {entity} attempted to eat Yukkuri {target_id} but lacks permission/trait.")
+                logger.debug(
+                    f"Entity {entity} attempted to eat Yukkuri {target_id} but lacks permission/trait."
+                )
 
             # Predation request (valid or permission-failed) is considered handled by this system
             return True

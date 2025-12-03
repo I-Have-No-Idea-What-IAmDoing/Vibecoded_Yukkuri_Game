@@ -1,14 +1,22 @@
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.interaction_system import InteractionSystem
 from yukkuri_game.game.systems.hunger_system import HungerSystem
 from yukkuri_game.game.systems.social_system import SocialSystem
 from yukkuri_game.game.components import Transform, InteractionRequest
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, ItemStats, EmotionalState, AIState, Personality
+from yukkuri_game.game.yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    ItemStats,
+    EmotionalState,
+    AIState,
+    Personality,
+)
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.engine.audio import AudioManager
 from yukkuri_game.game.skill_service import SkillService
+
 
 @pytest.fixture
 def interaction_env():
@@ -40,6 +48,7 @@ def interaction_env():
 
     return world, interaction_system, audio, trait_service, hunger_system, social_system
 
+
 def test_eat_item(interaction_env):
     world, system, audio, trait_service, hunger_system, social_system = interaction_env
 
@@ -55,7 +64,9 @@ def test_eat_item(interaction_env):
     # Item
     item = world.create_entity()
     world.add_component(item, Transform(x=10, y=10))
-    world.add_component(item, ItemStats(name="Item", type_id="item", cost=1, nutrition=20, fun=10))
+    world.add_component(
+        item, ItemStats(name="Item", type_id="item", cost=1, nutrition=20, fun=10)
+    )
 
     # Request
     req = InteractionRequest(target_id=item, consume=True)
@@ -64,13 +75,14 @@ def test_eat_item(interaction_env):
     # Process
     system.update(world, 0.1)
 
-    assert needs.hunger == 30 # 50 - 20
-    assert world.get_component(consumer, EmotionalState).happiness == 60 # 50 + 10
+    assert needs.hunger == 30  # 50 - 20
+    assert world.get_component(consumer, EmotionalState).happiness == 60  # 50 + 10
 
     # Item consumed
     assert not world.entity_exists(item)
     assert not world.has_component(consumer, InteractionRequest)
     audio.play_sound.assert_called_with("eat")
+
 
 def test_distance_check(interaction_env):
     world, system, audio, trait_service, hunger_system, social_system = interaction_env
@@ -81,8 +93,10 @@ def test_distance_check(interaction_env):
     world.add_component(consumer, Needs())
 
     item = world.create_entity()
-    world.add_component(item, Transform(x=100, y=100)) # Far away
-    world.add_component(item, ItemStats(name="Item", type_id="item", cost=1, nutrition=20))
+    world.add_component(item, Transform(x=100, y=100))  # Far away
+    world.add_component(
+        item, ItemStats(name="Item", type_id="item", cost=1, nutrition=20)
+    )
 
     req = InteractionRequest(target_id=item, consume=True)
     world.add_component(consumer, req)
@@ -99,6 +113,7 @@ def test_distance_check(interaction_env):
     # Request should still exist because it wasn't handled (distance check failed in InteractionSystem or HungerSystem)
     # Actually if InteractionSystem checks distance first and returns False, request is NOT removed.
     assert world.has_component(consumer, InteractionRequest)
+
 
 def test_predation_not_allowed(interaction_env):
     world, system, audio, trait_service, hunger_system, social_system = interaction_env
@@ -126,6 +141,7 @@ def test_predation_not_allowed(interaction_env):
     assert world.entity_exists(prey)
     assert predator_needs.hunger == 50
 
+
 def test_predation_allowed(interaction_env):
     world, system, audio, trait_service, hunger_system, social_system = interaction_env
 
@@ -151,8 +167,9 @@ def test_predation_allowed(interaction_env):
 
     # Should eat
     assert not world.entity_exists(prey)
-    assert predator_needs.hunger == 0 # 50 - 50 = 0
+    assert predator_needs.hunger == 0  # 50 - 50 = 0
     audio.play_sound.assert_called_with("eat")
+
 
 def test_ai_target_reset(interaction_env):
     world, system, audio, trait_service, hunger_system, social_system = interaction_env
@@ -164,7 +181,9 @@ def test_ai_target_reset(interaction_env):
 
     item = world.create_entity()
     world.add_component(item, Transform(x=0, y=0))
-    world.add_component(item, ItemStats(name="Item", type_id="item", cost=1, nutrition=1))
+    world.add_component(
+        item, ItemStats(name="Item", type_id="item", cost=1, nutrition=1)
+    )
 
     ai = AIState()
     ai.current_target_id = item
@@ -177,6 +196,7 @@ def test_ai_target_reset(interaction_env):
     system.update(world, 0.1)
 
     assert ai.current_target_id == -1
+
 
 def test_social_interaction_dispatch(interaction_env):
     world, system, audio, trait_service, hunger_system, social_system = interaction_env

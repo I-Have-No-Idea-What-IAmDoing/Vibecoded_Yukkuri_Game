@@ -1,12 +1,14 @@
 """
 Module for handling navigation and pathfinding.
 """
+
 import math
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 from pathfinding.core.grid import Grid
 from pathfinding.finder.a_star import AStarFinder
 from pathfinding.core.diagonal_movement import DiagonalMovement
 from loguru import logger
+
 
 class NavigationService:
     """
@@ -21,6 +23,7 @@ class NavigationService:
         grid (Grid): The pathfinding grid object.
         finder (AStarFinder): The A* pathfinder instance.
     """
+
     def __init__(self, world_width: int, world_height: int, grid_step_size: int = 25):
         """
         Initializes the NavigationService with a persistent grid.
@@ -41,7 +44,9 @@ class NavigationService:
         self.grid = Grid(width=self.matrix_w, height=self.matrix_h)
         self.finder = AStarFinder(diagonal_movement=DiagonalMovement.always)
 
-        logger.info(f"NavigationService initialized with grid size {self.matrix_w}x{self.matrix_h}")
+        logger.info(
+            f"NavigationService initialized with grid size {self.matrix_w}x{self.matrix_h}"
+        )
 
     def update_obstacle(self, x: float, y: float, walkable: bool) -> None:
         """
@@ -59,9 +64,11 @@ class NavigationService:
         gy = int(round(y / self.grid_step_size))
 
         if 0 <= gx < self.matrix_w and 0 <= gy < self.matrix_h:
-             self.grid.node(gx, gy).walkable = walkable
+            self.grid.node(gx, gy).walkable = walkable
 
-    def find_path(self, start: Tuple[float, float], goal: Tuple[float, float]) -> List[Tuple[float, float]]:
+    def find_path(
+        self, start: Tuple[float, float], goal: Tuple[float, float]
+    ) -> List[Tuple[float, float]]:
         """
         Finds a path from start to goal using the persistent grid.
 

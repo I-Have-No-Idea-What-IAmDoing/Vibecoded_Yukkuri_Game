@@ -1,11 +1,21 @@
 """
 Module for rendering the HUD overlay.
 """
+
 import pygame
 from typing import TYPE_CHECKING, List
 from ...engine.ecs import World
 from ..components import Transform
-from ..yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, RelationshipRegistry, Personality, EmotionalState, Skills
+from ..yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    ItemStats,
+    AIState,
+    RelationshipRegistry,
+    Personality,
+    EmotionalState,
+    Skills,
+)
 from ..services import InputService, EconomyService, TimeService
 from ..skill_service import SkillService
 from ...config import GameConfig
@@ -13,6 +23,7 @@ from pygame_gui.windows import UIMessageWindow
 
 if TYPE_CHECKING:
     from .hud_layout import HudLayout
+
 
 class HudRenderer:
     """
@@ -23,7 +34,8 @@ class HudRenderer:
         world (World): The ECS World instance.
         fps (float): The current FPS value to display.
     """
-    def __init__(self, layout: 'HudLayout', world: World):
+
+    def __init__(self, layout: "HudLayout", world: World):
         """
         Initializes the HudRenderer.
 
@@ -148,7 +160,13 @@ class HudRenderer:
                 color = (intensity, 50, 50)
                 width = max(2, int(abs(affinity) / 20))
 
-            pygame.draw.line(screen, color, (my_trans.x, my_trans.y), (other_trans.x, other_trans.y), width)
+            pygame.draw.line(
+                screen,
+                color,
+                (my_trans.x, my_trans.y),
+                (other_trans.x, other_trans.y),
+                width,
+            )
 
     def _update_hover_tooltip(self) -> None:
         """
@@ -165,7 +183,7 @@ class HudRenderer:
 
         text = ""
         if hovered_id != -1 and self.world.entity_exists(hovered_id):
-             # Get minimal stats
+            # Get minimal stats
             ystats = self.world.get_component(hovered_id, YukkuriStats)
             needs = self.world.get_component(hovered_id, Needs)
             if ystats and needs:
@@ -210,7 +228,9 @@ class HudRenderer:
                     if emotional:
                         total_happiness += emotional.happiness
 
-                    total_value += ystats.calculate_value(needs, emotional, stats_config=stats_config)
+                    total_value += ystats.calculate_value(
+                        needs, emotional, stats_config=stats_config
+                    )
 
                     breed = ystats.type_id.capitalize()
                     yukkuri_breeds[breed] = yukkuri_breeds.get(breed, 0) + 1
@@ -232,8 +252,12 @@ class HudRenderer:
 
                 # Breed breakdown if only yukkuris are selected
                 if items_count == 0 and len(yukkuri_breeds) > 0:
-                    breed_str = ", ".join([f"{k}: {v}" for k, v in yukkuri_breeds.items()])
-                    summary_lines.append(f"Yukkuris: {yukkuris_count} ({breed_str}) {stats_str}")
+                    breed_str = ", ".join(
+                        [f"{k}: {v}" for k, v in yukkuri_breeds.items()]
+                    )
+                    summary_lines.append(
+                        f"Yukkuris: {yukkuris_count} ({breed_str}) {stats_str}"
+                    )
                 else:
                     summary_lines.append(f"Yukkuris: {yukkuris_count} {stats_str}")
 
@@ -258,7 +282,9 @@ class HudRenderer:
 
                 # Personality & Relationships
                 pers = self.world.get_component(selected_entity, Personality)
-                rel_reg = self.world.get_component(selected_entity, RelationshipRegistry)
+                rel_reg = self.world.get_component(
+                    selected_entity, RelationshipRegistry
+                )
 
                 traits_str = "None"
                 mood_str = "Neutral"
@@ -276,17 +302,19 @@ class HudRenderer:
                         traits_str = ", ".join(list(pers.traits))
 
                 # Format
-                text = (f"<b>Name:</b> {stats.name}<br>"
-                        f"<b>Type:</b> {stats.type_id}<br>"
-                        f"<b>Traits:</b> {traits_str}<br>"
-                        f"<b>Mood:</b> {mood_str}<br>"
-                        f"<br>"
-                        f"<b>Health:</b> {int(needs.health)}<br>"
-                        f"<b>Hunger:</b> {int(needs.hunger)}<br>"
-                        f"<b>Happiness:</b> {happiness}<br>"
-                        f"<b>Stress:</b> {stress}<br>"
-                        f"<b>Badges:</b> {stats.badges}<br>"
-                        f"<b>Action:</b> {action}")
+                text = (
+                    f"<b>Name:</b> {stats.name}<br>"
+                    f"<b>Type:</b> {stats.type_id}<br>"
+                    f"<b>Traits:</b> {traits_str}<br>"
+                    f"<b>Mood:</b> {mood_str}<br>"
+                    f"<br>"
+                    f"<b>Health:</b> {int(needs.health)}<br>"
+                    f"<b>Hunger:</b> {int(needs.hunger)}<br>"
+                    f"<b>Happiness:</b> {happiness}<br>"
+                    f"<b>Stress:</b> {stress}<br>"
+                    f"<b>Badges:</b> {stats.badges}<br>"
+                    f"<b>Action:</b> {action}"
+                )
 
                 if pers and pers.axis:
                     text += "<br><br><b>Personality Axis:</b>"
@@ -301,30 +329,43 @@ class HudRenderer:
 
                     # Memory Inspector (Debug)
                     if self.layout.debug_window and self.layout.debug_window.visible:
-                         text += "<br><br><b>Memory Inspector:</b>"
-                         if not rel_reg.relationships:
-                             text += "<br> No relationships."
-                         else:
-                             # Just show memory for the first few relationships or most recent
-                             # Sort by affinity or recent?
-                             sorted_rels = sorted(rel_reg.relationships.items(), key=lambda x: x[1].last_update, reverse=True)
-                             count = 0
-                             for other_id, rel_data in sorted_rels:
-                                 if count >= 3: break
-                                 count += 1
-                                 other_stats = self.world.get_component(other_id, YukkuriStats)
-                                 name = other_stats.name if other_stats else f"ID {other_id}"
+                        text += "<br><br><b>Memory Inspector:</b>"
+                        if not rel_reg.relationships:
+                            text += "<br> No relationships."
+                        else:
+                            # Just show memory for the first few relationships or most recent
+                            # Sort by affinity or recent?
+                            sorted_rels = sorted(
+                                rel_reg.relationships.items(),
+                                key=lambda x: x[1].last_update,
+                                reverse=True,
+                            )
+                            count = 0
+                            for other_id, rel_data in sorted_rels:
+                                if count >= 3:
+                                    break
+                                count += 1
+                                other_stats = self.world.get_component(
+                                    other_id, YukkuriStats
+                                )
+                                name = (
+                                    other_stats.name
+                                    if other_stats
+                                    else f"ID {other_id}"
+                                )
 
-                                 text += f"<br> <b>{name}</b> (Aff: {rel_data.affinity:.1f})"
-                                 # Show top headlines
-                                 if rel_data.core_buffer:
-                                     text += "<br>  Core:"
-                                     for h in rel_data.core_buffer[-2:]: # Last 2
-                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f} {'(L)' if h.is_locked else ''}"
-                                 if rel_data.trivial_buffer:
-                                     text += "<br>  Trivial:"
-                                     for h in rel_data.trivial_buffer[-2:]: # Last 2
-                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f}"
+                                text += (
+                                    f"<br> <b>{name}</b> (Aff: {rel_data.affinity:.1f})"
+                                )
+                                # Show top headlines
+                                if rel_data.core_buffer:
+                                    text += "<br>  Core:"
+                                    for h in rel_data.core_buffer[-2:]:  # Last 2
+                                        text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f} {'(L)' if h.is_locked else ''}"
+                                if rel_data.trivial_buffer:
+                                    text += "<br>  Trivial:"
+                                    for h in rel_data.trivial_buffer[-2:]:  # Last 2
+                                        text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f}"
 
             else:
                 istats = self.world.get_component(selected_entity, ItemStats)
@@ -361,20 +402,25 @@ class HudRenderer:
                     level = state.level
                     xp = state.current_xp
 
-                    req_xp = 100.0 * (1.5 ** level)
+                    req_xp = 100.0 * (1.5**level)
                     if skill_service:
                         req_xp = skill_service.get_required_xp(level)
 
                     percentage = int((xp / req_xp) * 100) if req_xp > 0 else 0
 
                     passion_icon = ""
-                    if state.passion > 1.5: passion_icon = "🔥"
-                    elif state.passion > 1.0: passion_icon = "✨"
-                    elif state.passion < 1.0: passion_icon = "❄️"
+                    if state.passion > 1.5:
+                        passion_icon = "🔥"
+                    elif state.passion > 1.0:
+                        passion_icon = "✨"
+                    elif state.passion < 1.0:
+                        passion_icon = "❄️"
 
                     text_lines.append(f"<b>{name}</b> {passion_icon}")
-                    text_lines.append(f" Lv. {level} | XP: {int(xp)}/{int(req_xp)} ({percentage}%)")
-                    text_lines.append(f"") # Spacer
+                    text_lines.append(
+                        f" Lv. {level} | XP: {int(xp)}/{int(req_xp)} ({percentage}%)"
+                    )
+                    text_lines.append("")  # Spacer
 
                 if not text_lines:
                     text = "No skills learned."
@@ -428,8 +474,13 @@ class HudRenderer:
             None
         """
         UIMessageWindow(
-            rect=pygame.Rect((self.layout.width - 400) // 2, (self.layout.height - 250) // 2, 400, 250),
+            rect=pygame.Rect(
+                (self.layout.width - 400) // 2,
+                (self.layout.height - 250) // 2,
+                400,
+                250,
+            ),
             html_message=message,
             manager=self.layout.manager,
-            window_title="Error"
+            window_title="Error",
         )

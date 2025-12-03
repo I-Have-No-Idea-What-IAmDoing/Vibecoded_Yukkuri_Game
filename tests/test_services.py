@@ -1,15 +1,17 @@
 """
 Tests for Game Services (Economy, Time, Persistence).
 """
+
 import pytest
 from unittest.mock import MagicMock, patch, mock_open
 from yukkuri_game.game.services import PersistenceService, EconomyService, TimeService
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats
+from yukkuri_game.game.yukkuri_components import YukkuriStats
 from yukkuri_game.game.entity_factory import EntityFactory
 
 # --- Economy Service Tests ---
+
 
 def test_economy_service_basics() -> None:
     """
@@ -41,7 +43,9 @@ def test_economy_service_basics() -> None:
     with pytest.raises(ValueError):
         service.remove_money(-10)
 
+
 # --- Time Service Tests ---
+
 
 def test_time_service() -> None:
     """
@@ -56,7 +60,9 @@ def test_time_service() -> None:
     service.time_elapsed = 10.0
     assert service.time_elapsed == 10.0
 
+
 # --- Persistence Service Tests ---
+
 
 @pytest.fixture
 def persistence_world() -> MagicMock:
@@ -73,6 +79,7 @@ def persistence_world() -> MagicMock:
     mock_world.get_entities_with.return_value = []
     return mock_world
 
+
 def test_save_game(persistence_world: MagicMock) -> None:
     """
     Tests saving game data to a file.
@@ -85,8 +92,10 @@ def test_save_game(persistence_world: MagicMock) -> None:
     time_svc.time_elapsed = 123.45
 
     def get_service(svc_type):
-        if svc_type == EconomyService: return economy
-        if svc_type == TimeService: return time_svc
+        if svc_type == EconomyService:
+            return economy
+        if svc_type == TimeService:
+            return time_svc
         return None
 
     world.services.try_get.side_effect = get_service
@@ -100,8 +109,10 @@ def test_save_game(persistence_world: MagicMock) -> None:
 
     def get_component(ent, comp_type):
         if ent == ent1:
-            if comp_type == Transform: return trans
-            if comp_type == YukkuriStats: return ystats
+            if comp_type == Transform:
+                return trans
+            if comp_type == YukkuriStats:
+                return ystats
         return None
 
     world.get_component.side_effect = get_component
@@ -118,6 +129,7 @@ def test_save_game(persistence_world: MagicMock) -> None:
     # Just verify open was called correctly
     mock_file.assert_called_with("test_saves/test.json", "w")
 
+
 def test_load_game(persistence_world: MagicMock) -> None:
     """
     Tests loading game data from a file.
@@ -129,15 +141,20 @@ def test_load_game(persistence_world: MagicMock) -> None:
     factory = MagicMock()
 
     def get_service(svc_type):
-        if svc_type == EconomyService: return economy
-        if svc_type == TimeService: return time_svc
-        from yukkuri_game.game.entity_factory import EntityFactory
-        if svc_type == EntityFactory: return factory
+        if svc_type == EconomyService:
+            return economy
+        if svc_type == TimeService:
+            return time_svc
+
+        if svc_type == EntityFactory:
+            return factory
         return None
 
     def try_get_service(svc_type):
-        if svc_type == EconomyService: return economy
-        if svc_type == TimeService: return time_svc
+        if svc_type == EconomyService:
+            return economy
+        if svc_type == TimeService:
+            return time_svc
         return None
 
     world.services.get.side_effect = get_service
@@ -147,6 +164,7 @@ def test_load_game(persistence_world: MagicMock) -> None:
 
     # Mock file content
     import json
+
     save_data = {
         "money": 999,
         "time": 60.0,
@@ -161,11 +179,11 @@ def test_load_game(persistence_world: MagicMock) -> None:
                         "type_id": "reimu",
                         "health": 100,
                         "hunger": 50,
-                        "age": 10
-                    }
-                }
+                        "age": 10,
+                    },
+                },
             }
-        ]
+        ],
     }
     json_str = json.dumps(save_data)
 

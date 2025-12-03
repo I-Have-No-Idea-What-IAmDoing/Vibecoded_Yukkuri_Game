@@ -1,16 +1,19 @@
 """
 Module defining the Utility AI engine and logic.
 """
+
 from dataclasses import dataclass
-from typing import List, Dict, Any, Callable, Optional, Union
+from typing import List, Dict, Any, Optional
 import math
 from loguru import logger
 
 # Import TYPE_CHECKING to avoid circular import at runtime
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from ..yukkuri_components import Personality
     from ..trait_service import TraitService
+
 
 @dataclass
 class Consideration:
@@ -23,12 +26,15 @@ class Consideration:
         curve_type (str): The type of response curve ("linear", "inverse_linear", "logit", "threshold").
         params (Dict[str, float]): Parameters for the curve function.
     """
+
     name: str
     input_key: str  # e.g., "hunger", "tiredness"
-    curve_type: str # "linear", "logit", "threshold"
+    curve_type: str  # "linear", "logit", "threshold"
     params: Dict[str, float]
 
-    def score(self, context: Dict[str, Any], override_curve: Optional[Dict[str, Any]] = None) -> float:
+    def score(
+        self, context: Dict[str, Any], override_curve: Optional[Dict[str, Any]] = None
+    ) -> float:
         """
         Calculates the score for this consideration based on the context.
 
@@ -43,11 +49,20 @@ class Consideration:
 
         # Check for overrides
         if override_curve:
-            return self.evaluate_curve(val, override_curve.get("curve", self.curve_type), override_curve.get("params", self.params))
+            return self.evaluate_curve(
+                val,
+                override_curve.get("curve", self.curve_type),
+                override_curve.get("params", self.params),
+            )
 
         return self.evaluate_curve(val, self.curve_type, self.params)
 
-    def evaluate_curve(self, x: float, curve_type: Optional[str] = None, params: Optional[Dict[str, float]] = None) -> float:
+    def evaluate_curve(
+        self,
+        x: float,
+        curve_type: Optional[str] = None,
+        params: Optional[Dict[str, float]] = None,
+    ) -> float:
         """
         Evaluates the configured curve function for a given input value.
         Maps the input value 'x' to a normalized utility score between 0.0 and 1.0.
@@ -81,8 +96,8 @@ class Consideration:
 
         elif curve_type == "logit":
             # S-curve (Logistic function). Good for organic behaviors where response ramps up around a midpoint.
-            k = params.get("k", 10.0) # Steepness of the curve
-            x0 = params.get("x0", 0.5) # Midpoint (x-value where y=0.5)
+            k = params.get("k", 10.0)  # Steepness of the curve
+            x0 = params.get("x0", 0.5)  # Midpoint (x-value where y=0.5)
             return 1.0 / (1.0 + math.exp(-k * (v - x0)))
 
         elif curve_type == "threshold":
@@ -91,6 +106,7 @@ class Consideration:
             return 1.0 if v >= t else 0.0
 
         return 0.0
+
 
 @dataclass
 class Action:
@@ -103,12 +119,15 @@ class Action:
         weight (float): A base weight multiplier for the action's utility. Defaults to 1.0.
         effects (Optional[Dict[str, Any]]): A dictionary defining the effects of the action.
     """
+
     name: str
     considerations: List[Consideration]
     weight: float = 1.0
     effects: Optional[Dict[str, Any]] = None
 
-    def calculate_utility(self, context: Dict[str, Any], trait_overrides: Optional[Dict[str, Any]] = None) -> float:
+    def calculate_utility(
+        self, context: Dict[str, Any], trait_overrides: Optional[Dict[str, Any]] = None
+    ) -> float:
         """
         Calculates the total utility score for this action.
 
@@ -142,6 +161,7 @@ class Action:
                 return 0.0
 
         return final_score
+
 
 class UtilityAIEngine:
     """
@@ -191,24 +211,28 @@ class UtilityAIEngine:
             # Handle dict input
             cons_list = data.get("considerations", [])
             for cons_data in cons_list:
-                considerations.append(Consideration(
-                    name=cons_data.get("name", "unknown"),
-                    input_key=cons_data.get("input"),
-                    curve_type=cons_data.get("curve"),
-                    params=cons_data.get("params", {})
-                ))
+                considerations.append(
+                    Consideration(
+                        name=cons_data.get("name", "unknown"),
+                        input_key=cons_data.get("input"),
+                        curve_type=cons_data.get("curve"),
+                        params=cons_data.get("params", {}),
+                    )
+                )
 
             weight = data.get("weight", 1.0)
             effects = data.get("effects", {})
         else:
             # Handle msgspec struct
             for cons_obj in data.considerations:
-                considerations.append(Consideration(
-                    name=cons_obj.name,
-                    input_key=cons_obj.input,
-                    curve_type=cons_obj.curve,
-                    params=cons_obj.params
-                ))
+                considerations.append(
+                    Consideration(
+                        name=cons_obj.name,
+                        input_key=cons_obj.input,
+                        curve_type=cons_obj.curve,
+                        params=cons_obj.params,
+                    )
+                )
 
             weight = data.weight
             effects = None
@@ -217,17 +241,19 @@ class UtilityAIEngine:
                     "type": data.effects.type,
                     "target_stat": data.effects.target_stat,
                     "consume": data.effects.consume,
-                    "stat_changes": data.effects.stat_changes
+                    "stat_changes": data.effects.stat_changes,
                 }
 
         return Action(
-            name=name,
-            considerations=considerations,
-            weight=weight,
-            effects=effects
+            name=name, considerations=considerations, weight=weight, effects=effects
         )
 
-    def select_action(self, context: Dict[str, Any], personality: Optional['Personality'] = None, trait_service: Optional['TraitService'] = None) -> str:
+    def select_action(
+        self,
+        context: Dict[str, Any],
+        personality: Optional["Personality"] = None,
+        trait_service: Optional["TraitService"] = None,
+    ) -> str:
         """
         Selects the action with the highest utility score.
 
@@ -246,7 +272,7 @@ class UtilityAIEngine:
         overrides = {}
         # Optimization: Use cached_overrides if available
         if personality and personality.cached_overrides is not None:
-             overrides = personality.cached_overrides
+            overrides = personality.cached_overrides
         elif personality and trait_service:
             # Fallback if no cache (should generally be cached by selector)
             for trait_id in personality.traits:

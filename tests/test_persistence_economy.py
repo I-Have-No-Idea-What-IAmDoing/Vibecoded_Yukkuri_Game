@@ -1,9 +1,9 @@
 """
 Tests for Economy and Persistence services.
 """
+
 import pytest
 import os
-import json
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.services import EconomyService, PersistenceService, TimeService
 from yukkuri_game.game.components import Transform
@@ -13,12 +13,14 @@ from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.game.components_persistence import StableIDComponent, Persistable
 from unittest.mock import MagicMock
 
+
 @pytest.fixture
 def world() -> World:
     """
     Creates a new ECS World.
     """
     return World()
+
 
 @pytest.fixture
 def economy_service() -> EconomyService:
@@ -27,11 +29,13 @@ def economy_service() -> EconomyService:
     """
     return EconomyService()
 
+
 def test_economy_initial_state(economy_service: EconomyService) -> None:
     """
     Tests initial money value.
     """
     assert economy_service.get_money() == 1000
+
 
 def test_economy_add_money(economy_service: EconomyService) -> None:
     """
@@ -39,6 +43,7 @@ def test_economy_add_money(economy_service: EconomyService) -> None:
     """
     economy_service.add_money(500)
     assert economy_service.get_money() == 1500
+
 
 def test_economy_remove_money(economy_service: EconomyService) -> None:
     """
@@ -50,6 +55,7 @@ def test_economy_remove_money(economy_service: EconomyService) -> None:
     assert economy_service.remove_money(1000) is False
     assert economy_service.get_money() == 500
 
+
 def test_economy_set_money(economy_service: EconomyService) -> None:
     """
     Tests setting money directly.
@@ -59,6 +65,7 @@ def test_economy_set_money(economy_service: EconomyService) -> None:
 
     economy_service.set_money(-100)
     assert economy_service.get_money() == 0
+
 
 @pytest.fixture
 def setup_world(world: World) -> tuple[World, PersistenceService]:
@@ -72,7 +79,13 @@ def setup_world(world: World) -> tuple[World, PersistenceService]:
         "reimu": {"image": "reimu.png", "width": 64, "height": 64, "max_health": 100}
     }
     resources.item_types = {
-        "food": {"image": "food.png", "width": 32, "height": 32, "name": "Food", "cost": 10}
+        "food": {
+            "image": "food.png",
+            "width": 32,
+            "height": 32,
+            "name": "Food",
+            "cost": 10,
+        }
     }
 
     # Mock tuning
@@ -97,6 +110,7 @@ def setup_world(world: World) -> tuple[World, PersistenceService]:
     world.services.register(persistence)
 
     return world, persistence
+
 
 def test_persistence_round_trip(setup_world: tuple[World, PersistenceService]) -> None:
     """
@@ -123,6 +137,7 @@ def test_persistence_round_trip(setup_world: tuple[World, PersistenceService]) -
     # but the persistence service saves "happiness" from EmotionalState.
     # The factory creates EmotionalState.
     from yukkuri_game.game.yukkuri_components import EmotionalState
+
     emo = world.get_component(y_id, EmotionalState)
     if emo:
         emo.happiness = 99.0
@@ -170,7 +185,9 @@ def test_persistence_round_trip(setup_world: tuple[World, PersistenceService]) -
     assert "Broken" in names
 
     # Find the one with transform
-    reimu_entity = next(e for e in entities if world.get_component(e, YukkuriStats).name == "TestReimu")
+    reimu_entity = next(
+        e for e in entities if world.get_component(e, YukkuriStats).name == "TestReimu"
+    )
 
     trans = world.get_component(reimu_entity, Transform)
     assert trans.x == 100

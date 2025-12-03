@@ -13,13 +13,11 @@ from loguru import logger
 from ..config import load_config
 from ..engine.application import Application
 from ..engine.audio import AudioManager
-from ..engine.ecs import World
-from ..engine.event_bus import EventBus
 from ..engine.event_manager import EventManager, GamePhase
 from ..engine.input_manager import InputContext, InputManager
 from ..engine.scene import Scene, SceneContext
 from ..engine.serializer import WorldSerializer
-from ..game import components, components_persistence, yukkuri_components
+from ..game import components, yukkuri_components
 from ..game.events import (
     CycleSpeedRequest,
     LoadGameRequest,
@@ -27,15 +25,15 @@ from ..game.events import (
     SaveGameRequest,
     TogglePauseRequest,
 )
+from ..game.loader import GameLoader
 from ..game.prefabs.yukkuri import create_yukkuri
-from ..game.services import EconomyService, GameService, InputService, TimeService
+from ..game.services import EconomyService, GameService, TimeService
 from ..game.settings_service import SettingsService
 from ..game.systems.physics import PhysicsSystem
 from ..game.systems.physics_reconstruction import reconstruct_physics
+from ..game.systems.render_system import RenderSystem
 from ..game.ui.hud import HUD
 from ..game.yukkurrium import Yukkurrium
-from ..game.systems.render_system import RenderSystem
-from ..game.loader import GameLoader
 
 
 class GameplayScene(Scene):
@@ -82,7 +80,9 @@ class GameplayScene(Scene):
         self.loader = GameLoader(self.world, self.application, self.game_config)
 
         # Register services
-        self.loader.register_services(context, self.audio, self.yukkurrium, self.physics_system, self.event_bus)
+        self.loader.register_services(
+            context, self.audio, self.yukkurrium, self.physics_system, self.event_bus
+        )
 
         # Cache service references for local usage
         self.economy_service = self.world.services.get(EconomyService)
@@ -96,7 +96,9 @@ class GameplayScene(Scene):
         self.game_service = self.world.services.get(GameService)
 
         # Serializer
-        self.serializer = WorldSerializer(self.world, self.loader.collect_component_types())
+        self.serializer = WorldSerializer(
+            self.world, self.loader.collect_component_types()
+        )
 
         # Systems
         self.input_system = self.loader.register_systems(
@@ -247,12 +249,15 @@ class GameplayScene(Scene):
         # Migrate Skills
         # Need to get SkillService properly since it was not stored in self explicitly in new setup
         from ..game.skill_service import SkillService
+
         skill_service = self.world.services.try_get(SkillService)
 
         if skill_service:
-             # Iterate all YukkuriStats entities
-             for ent, (_, _) in self.world.get_components_tuple(yukkuri_components.YukkuriStats, components.Transform):
-                 skill_service.initialize_skills(ent)
+            # Iterate all YukkuriStats entities
+            for ent, (_, _) in self.world.get_components_tuple(
+                yukkuri_components.YukkuriStats, components.Transform
+            ):
+                skill_service.initialize_skills(ent)
 
         logger.info("World loaded.")
 

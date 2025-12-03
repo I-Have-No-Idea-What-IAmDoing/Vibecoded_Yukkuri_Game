@@ -1,12 +1,18 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.social_system import SocialSystem
-from yukkuri_game.game.yukkuri_components import Personality, RelationshipRegistry, RelationshipData, YukkuriStats, EmotionalState
+from yukkuri_game.game.yukkuri_components import (
+    Personality,
+    RelationshipRegistry,
+    RelationshipData,
+    EmotionalState,
+)
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.game.services import TimeService
 from yukkuri_game.game.events import SocialInteractionEvent
+
 
 class TestSocialSystem:
     @pytest.fixture
@@ -31,7 +37,6 @@ class TestSocialSystem:
         return sys
 
     def test_cleanup_relationships(self, system, world):
-        import time
 
         e1 = 1
         reg = RelationshipRegistry()
@@ -45,20 +50,20 @@ class TestSocialSystem:
 
         # Mock behavior to return correct components
         def get_entities_with_side_effect(t):
-             if t == RelationshipRegistry:
-                 return [e1]
-             if t == Personality:
-                 return []
-             return []
+            if t == RelationshipRegistry:
+                return [e1]
+            if t == Personality:
+                return []
+            return []
 
         world.get_entities_with.side_effect = get_entities_with_side_effect
 
         def get_component_side_effect(e, t):
-             if t == RelationshipRegistry:
-                 return reg
-             if t == Personality:
-                 return Personality() # Return empty personality for drift calculation
-             return None
+            if t == RelationshipRegistry:
+                return reg
+            if t == Personality:
+                return Personality()  # Return empty personality for drift calculation
+            return None
 
         world.get_component.side_effect = get_component_side_effect
         # Mock has_component to return false for "is_special" check (not mate/family)
@@ -101,7 +106,9 @@ class TestSocialSystem:
                 return trait_service
             if service_type == TimeService:
                 return time_service
-            if "GameConfig" in str(service_type): # Checking class name approximately or import
+            if "GameConfig" in str(
+                service_type
+            ):  # Checking class name approximately or import
                 return config
             return None
 
@@ -109,7 +116,7 @@ class TestSocialSystem:
 
         interaction_data = {
             "base_impact": 10.0,
-            "social_impact": {"affinity": 5.0, "trust": 2.0}
+            "social_impact": {"affinity": 5.0, "trust": 2.0},
         }
         trait_service.get_interaction.return_value = interaction_data
 
@@ -124,9 +131,12 @@ class TestSocialSystem:
 
         def get_component(e, c):
             if e == target_id:
-                if c == RelationshipRegistry: return reg_target
-                if c == Personality: return pers_target
-                if c == EmotionalState: return emotional
+                if c == RelationshipRegistry:
+                    return reg_target
+                if c == Personality:
+                    return pers_target
+                if c == EmotionalState:
+                    return emotional
             return None
 
         world.get_component.side_effect = get_component
@@ -154,9 +164,15 @@ class TestSocialSystem:
     def test_apply_impact_emotional_change(self, system, world):
         trait_service = MagicMock(spec=TraitService)
         config = MagicMock()
-        config.rules.social.memory_importance_threshold = 50.0 # Fix: Set value for threshold comparison
+        config.rules.social.memory_importance_threshold = (
+            50.0  # Fix: Set value for threshold comparison
+        )
 
-        world.services.try_get.side_effect = lambda s: trait_service if s == TraitService else (config if "GameConfig" in str(s) else None)
+        world.services.try_get.side_effect = (
+            lambda s: trait_service
+            if s == TraitService
+            else (config if "GameConfig" in str(s) else None)
+        )
 
         # Strong positive impact
         interaction_data = {"base_impact": 20.0}
@@ -168,10 +184,14 @@ class TestSocialSystem:
         emotional = EmotionalState()
 
         def get_component(e, c):
-            if c == Personality: return pers
-            if c == RelationshipRegistry: return reg
-            if c == EmotionalState: return emotional
+            if c == Personality:
+                return pers
+            if c == RelationshipRegistry:
+                return reg
+            if c == EmotionalState:
+                return emotional
             return None
+
         world.get_component.side_effect = get_component
 
         system._apply_impact(world, e1, 2, interaction_data, "target", now=1000.0)

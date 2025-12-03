@@ -1,6 +1,7 @@
 """
 Module for handling UI events from the HUD.
 """
+
 import pygame
 import pygame_gui
 from typing import Optional, Callable, Dict, Any, TYPE_CHECKING
@@ -21,7 +22,7 @@ from ..events import (
     ResolutionChangedEvent,
     SaveGameRequest,
     LoadGameRequest,
-    LevelUpEvent
+    LevelUpEvent,
 )
 
 from ..components import Transform
@@ -30,11 +31,19 @@ from ..prefabs.effects import create_floating_text
 if TYPE_CHECKING:
     from .hud_layout import HudLayout
 
+
 class HudEvents:
     """
     Handles UI events for the HUD, such as button clicks.
     """
-    def __init__(self, layout: 'HudLayout', world: World, event_bus: EventBus, on_error: Optional[Callable[[str], None]] = None):
+
+    def __init__(
+        self,
+        layout: "HudLayout",
+        world: World,
+        event_bus: EventBus,
+        on_error: Optional[Callable[[str], None]] = None,
+    ):
         self.layout = layout
         self.world = world
         self.event_bus = event_bus
@@ -42,11 +51,11 @@ class HudEvents:
         self.selected_entities: list[int] = []
 
         self.settings_service: Optional[SettingsService] = None
-        if hasattr(self.world.services, 'try_get'):
-             self.settings_service = self.world.services.try_get(SettingsService)
+        if hasattr(self.world.services, "try_get"):
+            self.settings_service = self.world.services.try_get(SettingsService)
 
         self.audio_manager: Optional[AudioManager] = None
-        if hasattr(self.world.services, 'try_get'):
+        if hasattr(self.world.services, "try_get"):
             self.audio_manager = self.world.services.try_get(AudioManager)
 
         # Listen for Level Up events
@@ -54,12 +63,12 @@ class HudEvents:
 
         # Map layout attribute names to handlers
         self._static_handlers: Dict[str, Callable[[], None]] = {
-            'save_btn': self._save_game,
-            'load_btn': self._load_game,
-            'pause_btn': lambda: self.event_bus.publish(TogglePauseRequest()),
-            'speed_btn': lambda: self.event_bus.publish(CycleSpeedRequest()),
-            'settings_btn': self._open_settings,
-            'clean_btn': lambda: self.event_bus.publish(CleanToolRequestedEvent()),
+            "save_btn": self._save_game,
+            "load_btn": self._load_game,
+            "pause_btn": lambda: self.event_bus.publish(TogglePauseRequest()),
+            "speed_btn": lambda: self.event_bus.publish(CycleSpeedRequest()),
+            "settings_btn": self._open_settings,
+            "clean_btn": lambda: self.event_bus.publish(CleanToolRequestedEvent()),
         }
 
     def _save_game(self) -> None:
@@ -79,9 +88,9 @@ class HudEvents:
                 trans.x,
                 trans.y - 40,
                 text,
-                (255, 215, 0), # Gold color
+                (255, 215, 0),  # Gold color
                 size=24,
-                velocity_y=-30.0
+                velocity_y=-30.0,
             )
 
     def set_selected_entities(self, entity_ids: list[int]) -> None:
@@ -100,7 +109,10 @@ class HudEvents:
         ui_element = event.ui_element
 
         for attr_name, handler in self._static_handlers.items():
-            if hasattr(self.layout, attr_name) and getattr(self.layout, attr_name) == ui_element:
+            if (
+                hasattr(self.layout, attr_name)
+                and getattr(self.layout, attr_name) == ui_element
+            ):
                 handler()
                 return True
 
@@ -152,14 +164,17 @@ class HudEvents:
         return False
 
     def _handle_selection_buttons(self, ui_element: Any) -> bool:
-        if not self.layout.entity_info_panel or not self.layout.entity_info_panel.window:
+        if (
+            not self.layout.entity_info_panel
+            or not self.layout.entity_info_panel.window
+        ):
             return False
 
         panel = self.layout.entity_info_panel
 
         if panel.sell_btn and ui_element == panel.sell_btn:
             for entity_id in self.selected_entities:
-                    self.event_bus.publish(SellEntityRequest(entity_id))
+                self.event_bus.publish(SellEntityRequest(entity_id))
             return True
 
         if panel.train_btn and ui_element == panel.train_btn:
@@ -176,7 +191,7 @@ class HudEvents:
 
     def _open_settings(self) -> None:
         if not self.settings_service:
-             self.settings_service = self.world.services.try_get(SettingsService)
+            self.settings_service = self.world.services.try_get(SettingsService)
 
         if self.settings_service:
             self.layout.create_settings_window(self.settings_service.settings)
@@ -239,9 +254,9 @@ class HudEvents:
             resolution_str = resolution_str[0]
 
         try:
-            width, height = map(int, resolution_str.split('x'))
+            width, height = map(int, resolution_str.split("x"))
         except ValueError:
-             width, height = 1280, 720
+            width, height = 1280, 720
 
         fullscreen = controls["fullscreen_value"]
 

@@ -1,14 +1,16 @@
 """
 Tests for the ServiceLocator pattern.
 """
+
 import unittest
-from unittest.mock import MagicMock
 from yukkuri_game.engine.service_locator import ServiceLocator, ServiceNotFoundError
+
 
 class TestServiceLocator(unittest.TestCase):
     """
     Tests the ServiceLocator functionality.
     """
+
     def setUp(self) -> None:
         """
         Sets up a fresh ServiceLocator for each test.
@@ -19,8 +21,10 @@ class TestServiceLocator(unittest.TestCase):
         """
         Tests registering and retrieving a service.
         """
+
         class MyService:
             pass
+
         service = MyService()
         self.services.register(service)
         self.assertIs(self.services.get(MyService), service)
@@ -29,10 +33,13 @@ class TestServiceLocator(unittest.TestCase):
         """
         Tests registering a service under a specific base type.
         """
+
         class BaseService:
             pass
+
         class MyService(BaseService):
             pass
+
         service = MyService()
         self.services.register(service, service_type=BaseService)
         self.assertIs(self.services.get(BaseService), service)
@@ -43,8 +50,10 @@ class TestServiceLocator(unittest.TestCase):
         """
         Tests safely trying to retrieve a service.
         """
+
         class MyService:
             pass
+
         self.assertIsNone(self.services.try_get(MyService))
         service = MyService()
         self.services.register(service)
@@ -54,8 +63,10 @@ class TestServiceLocator(unittest.TestCase):
         """
         Tests behavior when registering duplicate services (error vs replace).
         """
+
         class MyService:
             pass
+
         service1 = MyService()
         service2 = MyService()
         self.services.register(service1)
@@ -69,10 +80,13 @@ class TestServiceLocator(unittest.TestCase):
         """
         Tests that requesting a missing service raises an error.
         """
+
         class MyService:
             pass
+
         with self.assertRaises(ServiceNotFoundError):
             self.services.get(MyService)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

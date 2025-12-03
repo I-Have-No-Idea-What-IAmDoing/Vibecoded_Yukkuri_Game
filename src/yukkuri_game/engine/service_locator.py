@@ -1,13 +1,17 @@
 """
 Module defining the ServiceLocator pattern.
 """
+
 from typing import Type, TypeVar, Dict, Any, Optional
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class ServiceNotFoundError(Exception):
     """Raised when a requested service is not found."""
+
     pass
+
 
 class ServiceLocator:
     """
@@ -22,7 +26,12 @@ class ServiceLocator:
         """Initializes the ServiceLocator."""
         self._services: Dict[Type[Any], Any] = {}
 
-    def register(self, instance: Any, service_type: Optional[Type[Any]] = None, replace: bool = False) -> None:
+    def register(
+        self,
+        instance: Any,
+        service_type: Optional[Type[Any]] = None,
+        replace: bool = False,
+    ) -> None:
         """
         Registers a service instance.
 
@@ -59,7 +68,9 @@ class ServiceLocator:
         """
         service = self._services.get(service_type)
         if service is None:
-            raise ServiceNotFoundError(f"Service of type {service_type.__name__} not found.")
+            raise ServiceNotFoundError(
+                f"Service of type {service_type.__name__} not found."
+            )
         return service  # type: ignore[no-any-return]
 
     def try_get(self, service_type: Type[T]) -> Optional[T]:

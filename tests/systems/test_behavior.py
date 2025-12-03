@@ -4,13 +4,14 @@ import py_trees
 from yukkuri_game.game.systems.behavior import BehaviorSystem
 from yukkuri_game.game.yukkuri_components import AIState
 
+
 class TestBehaviorSystem(unittest.TestCase):
-    @patch('yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree')
+    @patch("yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree")
     def test_tree_creation_and_tick(self, mock_create_tree):
         mock_world = MagicMock()
         ai = AIState()
         mock_world.get_components_tuple.return_value = [(1, (ai,))]
-        mock_world.get_entities_with.return_value = [1] # For cleanup check
+        mock_world.get_entities_with.return_value = [1]  # For cleanup check
 
         # Mock Tree
         mock_root = MagicMock(spec=py_trees.behaviour.Behaviour)
@@ -19,7 +20,7 @@ class TestBehaviorSystem(unittest.TestCase):
         system = BehaviorSystem(100, 100)
 
         # Mock the BehaviourTree class to verify ticking
-        with patch('py_trees.trees.BehaviourTree') as mock_bt_cls:
+        with patch("py_trees.trees.BehaviourTree") as mock_bt_cls:
             mock_bt = MagicMock()
             mock_bt_cls.return_value = mock_bt
 
@@ -35,7 +36,7 @@ class TestBehaviorSystem(unittest.TestCase):
 
             # Second update: Should NOT create tree, just tick
             system.update(mock_world, 0.1)
-            mock_create_tree.assert_called_once() # Count remains 1
+            mock_create_tree.assert_called_once()  # Count remains 1
             self.assertEqual(mock_bt.tick.call_count, 2)
 
     def test_blackboard_dt(self):

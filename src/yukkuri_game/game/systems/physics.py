@@ -1,12 +1,14 @@
 """
 Module defining the PhysicsSystem logic.
 """
+
 import pymunk
 from typing import Optional
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus, Event
 from ...engine.events import EntityDestroyedEvent
 from ..components import Transform, PhysicsBody
+
 
 class PhysicsSystem(System):
     """
@@ -28,7 +30,7 @@ class PhysicsSystem(System):
         """
         self.space = pymunk.Space()
         self.space.gravity = gravity
-        self.space.damping = 0.9 # Add damping to simulate friction/air resistance
+        self.space.damping = 0.9  # Add damping to simulate friction/air resistance
         self.accumulator = 0.0
         self.time_step = 1.0 / 60.0
         self.max_frame_time = 0.25
@@ -45,7 +47,7 @@ class PhysicsSystem(System):
             return
 
         # self.ecs_world is injected by World.add_system
-        if getattr(self, 'ecs_world', None):
+        if getattr(self, "ecs_world", None):
             phys = self.ecs_world.get_component(event.entity_id, PhysicsBody)
             if phys:
                 if phys.body in self.space.bodies:

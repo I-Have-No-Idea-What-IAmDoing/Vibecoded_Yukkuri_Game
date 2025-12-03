@@ -1,18 +1,21 @@
 """
 Tests for HUD Events handling.
 """
+
 import unittest
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 import pygame
 import pygame_gui
 from yukkuri_game.game.ui.hud_events import HudEvents
 from yukkuri_game.game.events import PlacementStartedEvent
 from yukkuri_game.game.services import EconomyService
 
+
 class TestHudEvents(unittest.TestCase):
     """
     Tests the logic for processing HUD UI events (button clicks).
     """
+
     def setUp(self) -> None:
         """
         Sets up mocks for layout, game manager, and event bus.
@@ -31,12 +34,24 @@ class TestHudEvents(unittest.TestCase):
         self.layout.buy_buttons = {}
 
         self.reimu_btn = Mock()
-        self.layout.buy_buttons[self.reimu_btn] = {"type_id": "reimu", "cost": 100, "category": "yukkuri", "name": "Reimu"}
+        self.layout.buy_buttons[self.reimu_btn] = {
+            "type_id": "reimu",
+            "cost": 100,
+            "category": "yukkuri",
+            "name": "Reimu",
+        }
 
         self.cookie_btn = Mock()
-        self.layout.buy_buttons[self.cookie_btn] = {"type_id": "cookie", "cost": 10, "category": "item", "name": "Cookie"}
+        self.layout.buy_buttons[self.cookie_btn] = {
+            "type_id": "cookie",
+            "cost": 10,
+            "category": "item",
+            "name": "Cookie",
+        }
 
-        self.hud_events = HudEvents(self.layout, self.world, self.event_bus, self.on_error)
+        self.hud_events = HudEvents(
+            self.layout, self.world, self.event_bus, self.on_error
+        )
 
     def test_buy_reimu_success(self) -> None:
         """
@@ -73,9 +88,11 @@ class TestHudEvents(unittest.TestCase):
         result = self.hud_events.process_event(event)
 
         # Verify
-        self.assertTrue(result) # Still returns True as event was handled
+        self.assertTrue(result)  # Still returns True as event was handled
         self.event_bus.publish.assert_not_called()
-        self.on_error.assert_called_once_with("Not enough money to buy Reimu! Needed: $100")
+        self.on_error.assert_called_once_with(
+            "Not enough money to buy Reimu! Needed: $100"
+        )
 
     def test_buy_cookie_success(self) -> None:
         """
@@ -114,7 +131,10 @@ class TestHudEvents(unittest.TestCase):
         # Verify
         self.assertTrue(result)
         self.event_bus.publish.assert_not_called()
-        self.on_error.assert_called_once_with("Not enough money to buy Cookie! Needed: $10")
+        self.on_error.assert_called_once_with(
+            "Not enough money to buy Cookie! Needed: $10"
+        )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

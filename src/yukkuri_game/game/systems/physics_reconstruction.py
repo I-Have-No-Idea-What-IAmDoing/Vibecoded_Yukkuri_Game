@@ -1,14 +1,13 @@
 """
 Physics Reconstruction System.
 """
-import pymunk
-from typing import Any
-from ...engine.ecs import World, System
+
+from ...engine.ecs import World
 from ..components import Transform, PhysicsBody
 from ..yukkuri_components import YukkuriStats, ItemStats, Poop
 from ..collision_constants import CollisionCategories
-from ..systems.physics import PhysicsSystem
 from ..physics_utils import add_physics_body, get_yukkuri_radius
+
 
 def reconstruct_physics(world: World) -> None:
     """
@@ -22,7 +21,9 @@ def reconstruct_physics(world: World) -> None:
         None
     """
     # Reconstruct Yukkuris
-    for entity, (transform, stats) in world.get_components_tuple(Transform, YukkuriStats):
+    for entity, (transform, stats) in world.get_components_tuple(
+        Transform, YukkuriStats
+    ):
         if world.has_component(entity, PhysicsBody):
             continue
 
@@ -34,10 +35,12 @@ def reconstruct_physics(world: World) -> None:
             position=(transform.x, transform.y),
             radius_or_size=get_yukkuri_radius(stats.growth_stage),
             collision_category=CollisionCategories.YUKKURI,
-            collision_mask=CollisionCategories.WALL | CollisionCategories.YUKKURI | CollisionCategories.POOP,
+            collision_mask=CollisionCategories.WALL
+            | CollisionCategories.YUKKURI
+            | CollisionCategories.POOP,
             elasticity=0.5,
             friction=0.5,
-            set_userdata=True
+            set_userdata=True,
         )
 
     # Reconstruct Poops
@@ -55,11 +58,12 @@ def reconstruct_physics(world: World) -> None:
             collision_category=CollisionCategories.POOP,
             collision_mask=CollisionCategories.ALL,
             elasticity=0.2,
-            friction=0.8
+            friction=0.8,
         )
 
     # Reconstruct Items
     from ...engine.resource_manager import ResourceManager
+
     rm = world.services.try_get(ResourceManager)
 
     for entity, (transform, stats) in world.get_components_tuple(Transform, ItemStats):
@@ -68,10 +72,10 @@ def reconstruct_physics(world: World) -> None:
 
         width, height = 32, 32
         if rm:
-             data = rm.item_types.get(stats.type_id)
-             if data:
-                 width = data.get('width', 32)
-                 height = data.get('height', 32)
+            data = rm.item_types.get(stats.type_id)
+            if data:
+                width = data.get("width", 32)
+                height = data.get("height", 32)
 
         add_physics_body(
             world=world,
@@ -81,7 +85,9 @@ def reconstruct_physics(world: World) -> None:
             position=(transform.x, transform.y),
             radius_or_size=(width, height),
             collision_category=CollisionCategories.ITEM,
-            collision_mask=CollisionCategories.WALL | CollisionCategories.POOP | CollisionCategories.ITEM,
+            collision_mask=CollisionCategories.WALL
+            | CollisionCategories.POOP
+            | CollisionCategories.ITEM,
             elasticity=0.5,
-            friction=0.5
+            friction=0.5,
         )

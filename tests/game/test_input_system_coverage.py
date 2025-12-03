@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import MagicMock, patch
-import pygame
 from yukkuri_game.game.input_system import InputSystem
 from yukkuri_game.game.components import Transform, Selectable
 from yukkuri_game.game.yukkuri_components import Poop
@@ -10,15 +9,17 @@ from yukkuri_game.game.events import EntitySelectedEvent, CleanToolRequestedEven
 from yukkuri_game.game.services import InputService
 from yukkuri_game.engine.input_manager import InputManager
 
+
 # Mock pygame.key.get_pressed
 @pytest.fixture
 def mock_keys():
-    with patch('pygame.key.get_pressed') as mock:
+    with patch("pygame.key.get_pressed") as mock:
         # Return a mock object that returns False (0) for any key access by default
         mock_return = MagicMock()
         mock_return.__getitem__.return_value = 0
         mock.return_value = mock_return
         yield mock
+
 
 def test_handle_selection_drag(mock_keys):
     # Test drag selection logic directly
@@ -56,6 +57,7 @@ def test_handle_selection_drag(mock_keys):
     assert isinstance(event, EntitySelectedEvent)
     assert e1 in event.entity_ids
 
+
 def test_handle_selection_click(mock_keys):
     world = World()
     yukkurrium = MagicMock()
@@ -75,6 +77,7 @@ def test_handle_selection_click(mock_keys):
     sel1 = world.get_component(e1, Selectable)
     assert sel1.selected
 
+
 def test_cleaning_logic():
     world = World()
     yukkurrium = MagicMock()
@@ -93,6 +96,7 @@ def test_cleaning_logic():
     assert not world.entity_exists(poop)
     assert system.audio.play_sound.called
 
+
 def test_clean_tool_requested_event():
     system = InputSystem(MagicMock())
     system.input_service = MagicMock(spec=InputService)
@@ -101,6 +105,7 @@ def test_clean_tool_requested_event():
     system.on_clean_tool_requested(event)
 
     assert system.input_service.start_cleaning.called
+
 
 def test_handle_event_mouse_motion_drag():
     # Test drag position update
@@ -130,7 +135,7 @@ def test_handle_event_mouse_motion_drag():
     system.drag_start_pos = (0, 0)
 
     # Mock pygame.display
-    with patch('pygame.display.get_surface') as mock_get_surface:
+    with patch("pygame.display.get_surface") as mock_get_surface:
         mock_surface = MagicMock()
         mock_surface.get_size.return_value = (800, 600)
         mock_get_surface.return_value = mock_surface

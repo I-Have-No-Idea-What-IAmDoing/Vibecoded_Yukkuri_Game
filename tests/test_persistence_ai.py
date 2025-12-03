@@ -1,13 +1,12 @@
 import pytest
 import os
-import json
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.services import EconomyService, PersistenceService, TimeService
-from yukkuri_game.game.components import Transform
 from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, AIState
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.resource_manager import ResourceManager
 from unittest.mock import MagicMock
+
 
 @pytest.fixture
 def setup_world():
@@ -19,7 +18,13 @@ def setup_world():
         "reimu": {"image": "reimu.png", "width": 64, "height": 64, "max_health": 100}
     }
     resources.item_types = {
-        "food": {"image": "food.png", "width": 32, "height": 32, "name": "Food", "cost": 10}
+        "food": {
+            "image": "food.png",
+            "width": 32,
+            "height": 32,
+            "name": "Food",
+            "cost": 10,
+        }
     }
 
     # Mock tuning
@@ -44,6 +49,7 @@ def setup_world():
     world.services.register(persistence)
 
     return world, persistence
+
 
 def test_persistence_ai_state(setup_world):
     world, persistence = setup_world
@@ -91,7 +97,9 @@ def test_persistence_ai_state(setup_world):
 
     # The new target ID should match the new ID of the item
     assert new_ai.current_target_id == new_i_id
-    assert new_ai.current_target_id != i_id # Should not be the old ID (unless by chance they are same, but in this test setup with clears, likely different or same if deterministic, but main point is it points to valid entity)
+    assert (
+        new_ai.current_target_id != i_id
+    )  # Should not be the old ID (unless by chance they are same, but in this test setup with clears, likely different or same if deterministic, but main point is it points to valid entity)
 
     # Double check existence of target
     assert world.entity_exists(new_ai.current_target_id)

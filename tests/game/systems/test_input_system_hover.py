@@ -1,17 +1,21 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from yukkuri_game.game.input_system import InputSystem
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.components import Transform, Selectable
 from yukkuri_game.game.services import InputService
 
+
 class TestInputSystem:
     @pytest.fixture
     def input_system(self):
         yukkurrium = MagicMock()
         # Mock screen_to_world to return simple mapping
-        yukkurrium.screen_to_world.side_effect = lambda mx, my, sw, sh: (float(mx), float(my))
+        yukkurrium.screen_to_world.side_effect = lambda mx, my, sw, sh: (
+            float(mx),
+            float(my),
+        )
         return InputSystem(yukkurrium)
 
     @pytest.fixture
@@ -22,6 +26,7 @@ class TestInputSystem:
 
         # Mock services
         services = MagicMock()
+
         # Configure side_effect for get to return appropriate mock
         def get_service(service_type):
             if service_type == InputService:
@@ -52,8 +57,10 @@ class TestInputSystem:
 
         def get_component_side_effect(ent, comp_type):
             if comp_type == Transform:
-                if ent == ent1: return t1
-                if ent == ent2: return t2
+                if ent == ent1:
+                    return t1
+                if ent == ent2:
+                    return t2
             return None
 
         world.get_component.side_effect = get_component_side_effect
@@ -83,8 +90,10 @@ class TestInputSystem:
 
         def get_component_side_effect(ent, comp_type):
             if comp_type == Transform:
-                if ent == ent1: return t1
+                if ent == ent1:
+                    return t1
             return None
+
         world.get_component.side_effect = get_component_side_effect
 
         input_system.update(world, 0.1)

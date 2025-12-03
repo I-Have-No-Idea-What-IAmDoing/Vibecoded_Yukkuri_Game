@@ -1,6 +1,7 @@
 """
 Tests for the Gossip System.
 """
+
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.gossip_system import GossipSystem
@@ -9,9 +10,9 @@ from yukkuri_game.game.components import Transform
 from yukkuri_game.game.yukkuri_components import YukkuriStats, GossipQueue
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
-import pymunk
 
-@pytest.fixture # type: ignore[misc]
+
+@pytest.fixture  # type: ignore[misc]
 def world() -> World:
     """
     Creates a new ECS World for testing.
@@ -21,7 +22,8 @@ def world() -> World:
     """
     return World()
 
-@pytest.fixture # type: ignore[misc]
+
+@pytest.fixture  # type: ignore[misc]
 def event_bus() -> EventBus:
     """
     Creates a new EventBus for testing.
@@ -31,7 +33,8 @@ def event_bus() -> EventBus:
     """
     return EventBus()
 
-@pytest.fixture # type: ignore[misc]
+
+@pytest.fixture  # type: ignore[misc]
 def gossip_system(event_bus: EventBus) -> GossipSystem:
     """
     Creates a GossipSystem for testing.
@@ -44,7 +47,10 @@ def gossip_system(event_bus: EventBus) -> GossipSystem:
     """
     return GossipSystem(event_bus)
 
-def test_witness_gossip_spatial(world: World, event_bus: EventBus, gossip_system: GossipSystem) -> None:
+
+def test_witness_gossip_spatial(
+    world: World, event_bus: EventBus, gossip_system: GossipSystem
+) -> None:
     """
     Tests that a witness entity correctly receives gossip when an interaction occurs nearby.
 
@@ -56,6 +62,7 @@ def test_witness_gossip_spatial(world: World, event_bus: EventBus, gossip_system
     # Mock PhysicsSystem
     physics_system = MagicMock()
     from yukkuri_game.game.systems.physics import PhysicsSystem
+
     world.services.register(physics_system, PhysicsSystem)
 
     # Setup Actors
@@ -68,13 +75,13 @@ def test_witness_gossip_spatial(world: World, event_bus: EventBus, gossip_system
     world.add_component(target, YukkuriStats(name="Target", type_id="test"))
 
     witness = world.create_entity()
-    world.add_component(witness, Transform(x=150, y=100)) # Within 300 range
+    world.add_component(witness, Transform(x=150, y=100))  # Within 300 range
     world.add_component(witness, YukkuriStats(name="Witness", type_id="test"))
     world.add_component(witness, GossipQueue())
 
     # Mock Physics Query Result
     mock_shape = MagicMock()
-    mock_shape.body.userdata = witness # Entity ID stored in userdata
+    mock_shape.body.userdata = witness  # Entity ID stored in userdata
 
     mock_info = MagicMock()
     mock_info.shape = mock_shape
@@ -85,6 +92,7 @@ def test_witness_gossip_spatial(world: World, event_bus: EventBus, gossip_system
 
     # Register SectorMap
     from yukkuri_game.game.systems.sector_system import SectorMap
+
     sector_map = SectorMap(1000, 1000, 500)
     world.services.register(sector_map, SectorMap)
 
@@ -95,15 +103,13 @@ def test_witness_gossip_spatial(world: World, event_bus: EventBus, gossip_system
 
     # Trigger Event
     event = SocialInteractionEvent(
-        initiator_id=actor,
-        target_id=target,
-        interaction_type="Fight"
+        initiator_id=actor, target_id=target, interaction_type="Fight"
     )
 
     # Inject world into system manually (usually done by game manager)
     gossip_system.ecs_world = world
     gossip_system.physics_system = physics_system
-    gossip_system.sector_map = sector_map # Manually set for test
+    gossip_system.sector_map = sector_map  # Manually set for test
 
     # Call handler
     gossip_system.on_social_interaction(event)

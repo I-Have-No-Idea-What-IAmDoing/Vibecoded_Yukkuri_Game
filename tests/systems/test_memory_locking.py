@@ -1,8 +1,11 @@
 """
 Tests for Memory Locking mechanics.
 """
-import pytest
-from yukkuri_game.game.yukkuri_components import RelationshipData, MemoryHeadline as Headline
+
+from yukkuri_game.game.yukkuri_components import (
+    RelationshipData,
+    MemoryHeadline as Headline,
+)
 
 # Since MemoryBuffer logic was moved into RelationshipData, we should test RelationshipData's add_headline
 # But wait, MemoryBuffer is just a wrapper around list/deque in new impl?
@@ -10,6 +13,7 @@ from yukkuri_game.game.yukkuri_components import RelationshipData, MemoryHeadlin
 # Looking at yukkuri_components.py, MemoryBuffer is just a wrapper.
 # The logic is in RelationshipData.add_headline and _add_core_memory.
 # So I should update this test to test RelationshipData.
+
 
 def test_memory_locking() -> None:
     """
@@ -28,9 +32,15 @@ def test_memory_locking() -> None:
     rel.core_buffer = []
 
     # Fill with core memories (importance > 50 or locked)
-    h1 = Headline(id=1, timestamp=0, importance=60, sentiment=0, event_type="1", is_locked=False)
-    h2 = Headline(id=2, timestamp=0, importance=60, sentiment=0, event_type="2", is_locked=False)
-    h3 = Headline(id=3, timestamp=0, importance=60, sentiment=0, event_type="3", is_locked=False)
+    h1 = Headline(
+        id=1, timestamp=0, importance=60, sentiment=0, event_type="1", is_locked=False
+    )
+    h2 = Headline(
+        id=2, timestamp=0, importance=60, sentiment=0, event_type="2", is_locked=False
+    )
+    h3 = Headline(
+        id=3, timestamp=0, importance=60, sentiment=0, event_type="3", is_locked=False
+    )
 
     rel.add_headline(h1)
     rel.add_headline(h2)
@@ -40,7 +50,9 @@ def test_memory_locking() -> None:
     assert list(rel.core_buffer) == [h1, h2, h3]
 
     # Add 4th, should push out oldest (h1)
-    h4 = Headline(id=4, timestamp=0, importance=60, sentiment=0, event_type="4", is_locked=False)
+    h4 = Headline(
+        id=4, timestamp=0, importance=60, sentiment=0, event_type="4", is_locked=False
+    )
     rel.add_headline(h4)
     assert len(rel.core_buffer) == 3
     assert list(rel.core_buffer) == [h2, h3, h4]
@@ -52,7 +64,9 @@ def test_memory_locking() -> None:
 
     # Add 5th. Should push out h2 (oldest non-locked)
     # Current buffer: [h2, h3(L), h4]
-    h5 = Headline(id=5, timestamp=0, importance=60, sentiment=0, event_type="5", is_locked=False)
+    h5 = Headline(
+        id=5, timestamp=0, importance=60, sentiment=0, event_type="5", is_locked=False
+    )
     rel.add_headline(h5)
 
     assert len(rel.core_buffer) == 3
@@ -71,7 +85,9 @@ def test_memory_locking() -> None:
     # Now [h3(L), h4(L), h5(L)]
 
     # Try add new one
-    h6 = Headline(id=6, timestamp=0, importance=60, sentiment=0, event_type="6", is_locked=False)
+    h6 = Headline(
+        id=6, timestamp=0, importance=60, sentiment=0, event_type="6", is_locked=False
+    )
     rel.add_headline(h6)
 
     # If all locked, currently implementation just passes (does nothing) because magnitude is same
@@ -80,7 +96,9 @@ def test_memory_locking() -> None:
 
     # Try add one with significantly higher importance (> +20)
     # Locked memories are importance 60
-    h7 = Headline(id=7, timestamp=0, importance=90, sentiment=0, event_type="7", is_locked=False)
+    h7 = Headline(
+        id=7, timestamp=0, importance=90, sentiment=0, event_type="7", is_locked=False
+    )
     rel.add_headline(h7)
 
     # Should overwrite the one with lowest importance. All are 60.

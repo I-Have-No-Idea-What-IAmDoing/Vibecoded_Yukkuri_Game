@@ -1,11 +1,17 @@
 """
 Module defining the GossipSystem.
 """
-from typing import List, Tuple, Optional, Any, Dict
+
+from typing import Optional
 import pymunk
 from ...engine.ecs import System, World
-from ..yukkuri_components import GossipQueue, GossipPacket, YukkuriStats, RelationshipRegistry
-from ..components import Transform, PhysicsBody
+from ..yukkuri_components import (
+    GossipQueue,
+    GossipPacket,
+    YukkuriStats,
+    RelationshipRegistry,
+)
+from ..components import Transform
 from ..events import SocialInteractionEvent
 from ...engine.event_bus import EventBus
 import time
@@ -14,6 +20,7 @@ from .physics import PhysicsSystem
 from .sector_system import SectorMap
 from ..trait_service import TraitService
 import math
+
 
 class GossipSystem(System):
     """
@@ -64,11 +71,13 @@ class GossipSystem(System):
         Args:
             event (SocialInteractionEvent): The interaction event.
         """
-        if not hasattr(self, 'ecs_world'): return
+        if not hasattr(self, "ecs_world"):
+            return
         world = self.ecs_world
 
         actor_trans = world.get_component(event.initiator_id, Transform)
-        if not actor_trans: return
+        if not actor_trans:
+            return
 
         time_service = world.services.try_get(TimeService)
         now = time_service.time_elapsed if time_service else time.time()
@@ -83,9 +92,15 @@ class GossipSystem(System):
             self.sector_map = world.services.try_get(SectorMap)
 
         if self.sector_map:
-             self._process_witnesses_sector(world, event, actor_trans, now)
+            self._process_witnesses_sector(world, event, actor_trans, now)
 
-    def _process_witnesses_sector(self, world: World, event: SocialInteractionEvent, actor_trans: Transform, now: float) -> None:
+    def _process_witnesses_sector(
+        self,
+        world: World,
+        event: SocialInteractionEvent,
+        actor_trans: Transform,
+        now: float,
+    ) -> None:
         """
         Processes potential witnesses in relevant sectors.
 
@@ -105,25 +120,36 @@ class GossipSystem(System):
             self.trait_service = world.services.try_get(TraitService)
 
         if self.trait_service:
-            interaction_data = self.trait_service.get_interaction(event.interaction_type)
+            interaction_data = self.trait_service.get_interaction(
+                event.interaction_type
+            )
             if interaction_data and "range_type" in interaction_data:
                 range_type = interaction_data["range_type"]
             elif event.interaction_type in ["Scream", "Shout"]:
                 # Fallback if not defined in TOML yet (though we updated it)
-                range_type = "auditory_loud" if event.interaction_type == "Scream" else "auditory"
+                range_type = (
+                    "auditory_loud"
+                    if event.interaction_type == "Scream"
+                    else "auditory"
+                )
 
-        candidates = self.sector_map.get_entities_in_range(actor_trans.x, actor_trans.y, range_type)
+        candidates = self.sector_map.get_entities_in_range(
+            actor_trans.x, actor_trans.y, range_type
+        )
 
         for witness_id in candidates:
             if witness_id == event.initiator_id or witness_id == event.target_id:
                 continue
 
             # Must have GossipQueue and YukkuriStats
-            if not world.has_component(witness_id, GossipQueue) or not world.has_component(witness_id, YukkuriStats):
+            if not world.has_component(
+                witness_id, GossipQueue
+            ) or not world.has_component(witness_id, YukkuriStats):
                 continue
 
             witness_trans = world.get_component(witness_id, Transform)
-            if not witness_trans: continue
+            if not witness_trans:
+                continue
 
             # Visual Check: Line of Sight
             if range_type == "visual":
@@ -133,12 +159,14 @@ class GossipSystem(System):
             # Interest Group Bonus
             value = 10.0
             if self._is_in_same_interest_group(world, witness_id, event.initiator_id):
-                 value += 5.0 # Boost value (Hearing Bonus)
+                value += 5.0  # Boost value (Hearing Bonus)
 
             # Add Witness Gossip
             self._add_witness_gossip(world, witness_id, event, now, value=value)
 
-    def _check_line_of_sight(self, world: World, start_trans: Transform, end_trans: Transform) -> bool:
+    def _check_line_of_sight(
+        self, world: World, start_trans: Transform, end_trans: Transform
+    ) -> bool:
         """
         Checks if there is a clear line of sight between two transforms.
         Uses PhysicsSystem raycast.
@@ -155,27 +183,35 @@ class GossipSystem(System):
             self.physics_system = world.services.try_get(PhysicsSystem)
 
         if not self.physics_system:
-            return True # Fallback if no physics
+            return True  # Fallback if no physics
 
         start_pos = (start_trans.x, start_trans.y)
         end_pos = (end_trans.x, end_trans.y)
 
-        query = self.physics_system.space.segment_query_first(start_pos, end_pos, 1.0, pymunk.ShapeFilter())
+        query = self.physics_system.space.segment_query_first(
+            start_pos, end_pos, 1.0, pymunk.ShapeFilter()
+        )
 
         if query:
-             # Check what we hit
-             hit_body = query.shape.body
-             if hit_body and hit_body.userdata:
-                 # Optimization: checking if hit point is close to end_pos
-                 hit_dist = math.hypot(query.point.x - start_pos[0], query.point.y - start_pos[1])
-                 total_dist = math.hypot(end_pos[0] - start_pos[0], end_pos[1] - start_pos[1])
+            # Check what we hit
+            hit_body = query.shape.body
+            if hit_body and hit_body.userdata:
+                # Optimization: checking if hit point is close to end_pos
+                hit_dist = math.hypot(
+                    query.point.x - start_pos[0], query.point.y - start_pos[1]
+                )
+                total_dist = math.hypot(
+                    end_pos[0] - start_pos[0], end_pos[1] - start_pos[1]
+                )
 
-                 if hit_dist < total_dist - 5.0: # Hit something else
-                     return False
+                if hit_dist < total_dist - 5.0:  # Hit something else
+                    return False
 
         return True
 
-    def _is_in_same_interest_group(self, world: World, entity_a: int, entity_b: int) -> bool:
+    def _is_in_same_interest_group(
+        self, world: World, entity_a: int, entity_b: int
+    ) -> bool:
         """
         Checks if two entities are in the same interest group (Family, Pack).
 
@@ -194,7 +230,10 @@ class GossipSystem(System):
             return False
 
         # Check Family
-        if reg_a.family_group_id is not None and reg_a.family_group_id == reg_b.family_group_id:
+        if (
+            reg_a.family_group_id is not None
+            and reg_a.family_group_id == reg_b.family_group_id
+        ):
             return True
 
         return False
@@ -216,9 +255,10 @@ class GossipSystem(System):
 
         # Get Max Gossip Length from Config
         from ...config import GameConfig
+
         config = world.services.try_get(GameConfig)
         max_length = 10
-        if config and hasattr(config.rules, 'social'):
+        if config and hasattr(config.rules, "social"):
             max_length = config.rules.social.max_gossip_length
 
         is_group_member = self._is_in_same_interest_group(world, sender_id, receiver_id)
@@ -241,11 +281,18 @@ class GossipSystem(System):
                 target_id=packet.target_id,
                 event_type=packet.event_type,
                 value=new_value,
-                timestamp=packet.timestamp
+                timestamp=packet.timestamp,
             )
             receiver_queue.add_packet(new_packet, max_length=max_length)
 
-    def _add_witness_gossip(self, world: World, witness_id: int, event: SocialInteractionEvent, now: float, value: float) -> None:
+    def _add_witness_gossip(
+        self,
+        world: World,
+        witness_id: int,
+        event: SocialInteractionEvent,
+        now: float,
+        value: float,
+    ) -> None:
         """
         Adds a gossip packet to a witness's queue.
 
@@ -258,28 +305,31 @@ class GossipSystem(System):
         """
         # Threshold Check
         from ...config import GameConfig
+
         config = world.services.try_get(GameConfig)
         witness_threshold = 5.0
-        if config and hasattr(config.rules, 'social'):
+        if config and hasattr(config.rules, "social"):
             witness_threshold = config.rules.social.witness_threshold
 
         if value < witness_threshold:
             return
 
         gossip = world.get_component(witness_id, GossipQueue)
-        if not gossip: return
+        if not gossip:
+            return
 
         # Get Max Gossip Length from Config
         from ...config import GameConfig
+
         config = world.services.try_get(GameConfig)
         max_length = 10
-        if config and hasattr(config.rules, 'social'):
+        if config and hasattr(config.rules, "social"):
             max_length = config.rules.social.max_gossip_length
 
         packet = GossipPacket(
             target_id=event.initiator_id,
             event_type=event.interaction_type,
             value=value,
-            timestamp=now
+            timestamp=now,
         )
         gossip.add_packet(packet, max_length=max_length)

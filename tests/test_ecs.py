@@ -1,30 +1,38 @@
 """
 Tests for the ECS (Entity Component System) module.
 """
-import pytest
+
 from yukkuri_game.engine.ecs import World, System, Component
+
 
 # Define some simple components for testing
 class Position(Component):
     """Component for testing position."""
+
     def __init__(self, x: float, y: float) -> None:
         self.x = x
         self.y = y
 
+
 class Velocity(Component):
     """Component for testing velocity."""
+
     def __init__(self, vx: float, vy: float) -> None:
         self.vx = vx
         self.vy = vy
 
+
 class Health(Component):
     """Component for testing health."""
+
     def __init__(self, hp: float) -> None:
         self.hp = hp
+
 
 # Define a simple system for testing
 class MovementSystem(System):
     """System for testing movement updates."""
+
     def update(self, world: World, dt: float) -> None:
         entities = world.get_entities_with(Position, Velocity)
         for entity in entities:
@@ -33,6 +41,7 @@ class MovementSystem(System):
             if pos and vel:
                 pos.x += vel.vx * dt
                 pos.y += vel.vy * dt
+
 
 def test_create_destroy_entity() -> None:
     """
@@ -50,6 +59,7 @@ def test_create_destroy_entity() -> None:
     assert not world.entity_exists(entity1)
     assert world.entity_exists(entity2)
 
+
 def test_add_get_remove_component() -> None:
     """
     Tests adding, retrieving, and removing components.
@@ -66,6 +76,7 @@ def test_add_get_remove_component() -> None:
     world.remove_component(entity, Position)
     assert not world.has_component(entity, Position)
     assert world.get_component(entity, Position) is None
+
 
 def test_get_entities_with() -> None:
     """
@@ -94,6 +105,7 @@ def test_get_entities_with() -> None:
     assert e2 in entities_pos
     assert e3 not in entities_pos
 
+
 def test_system_update() -> None:
     """
     Tests that systems update components correctly.
@@ -114,12 +126,13 @@ def test_system_update() -> None:
     world.update(dt)
 
     pos1 = world.get_component(e1, Position)
-    assert pos1.x == 5.0 # 0 + 10 * 0.5
-    assert pos1.y == 2.5 # 0 + 5 * 0.5
+    assert pos1.x == 5.0  # 0 + 10 * 0.5
+    assert pos1.y == 2.5  # 0 + 5 * 0.5
 
     pos2 = world.get_component(e2, Position)
     assert pos2.x == 10
     assert pos2.y == 10
+
 
 def test_get_components() -> None:
     """
@@ -140,6 +153,7 @@ def test_get_components() -> None:
     assert comps[e1] == p1
     assert comps[e2] == p2
 
+
 def test_get_all_entities() -> None:
     """
     Tests retrieving all entities in the world.
@@ -152,6 +166,7 @@ def test_get_all_entities() -> None:
     assert len(all_e) == 2
     assert e1 in all_e
     assert e2 in all_e
+
 
 def test_multiple_worlds() -> None:
     """
@@ -176,6 +191,6 @@ def test_multiple_worlds() -> None:
 
     # Let's verify if IDs are same
     if e1 == e2:
-            assert w2.entity_exists(e1)
+        assert w2.entity_exists(e1)
     else:
-            assert not w2.entity_exists(e1)
+        assert not w2.entity_exists(e1)

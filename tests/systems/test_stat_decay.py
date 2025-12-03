@@ -1,14 +1,20 @@
 import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState, Personality
+from yukkuri_game.game.yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    EmotionalState,
+    Personality,
+)
 from yukkuri_game.config import StatDecaySettings
+
 
 class TestEmotionSystem(unittest.TestCase):
     def test_stat_decay(self):
         # Mock World and Component
         mock_world = MagicMock()
-        mock_world.has_component.return_value = False # Not dead
+        mock_world.has_component.return_value = False  # Not dead
 
         stats = YukkuriStats(name="Test", type_id="test")
         stats.age = 100.0
@@ -32,6 +38,7 @@ class TestEmotionSystem(unittest.TestCase):
             if comp_type == Personality:
                 return None
             return None
+
         mock_world.get_component.side_effect = get_component
 
         system = EmotionSystem(settings=StatDecaySettings())
@@ -54,14 +61,14 @@ class TestEmotionSystem(unittest.TestCase):
 
     def test_clamping(self):
         mock_world = MagicMock()
-        mock_world.has_component.return_value = False # Not dead
+        mock_world.has_component.return_value = False  # Not dead
         stats = YukkuriStats(name="Test", type_id="test")
         needs = Needs()
         needs.hunger = 99.0
         needs.energy = 1.0
 
         emotional = EmotionalState()
-        emotional.happiness = 50.0 # Baseline
+        emotional.happiness = 50.0  # Baseline
         emotional.stress = 0.0
 
         mock_world.get_components_tuple.return_value = [(1, (stats, needs))]
@@ -70,6 +77,7 @@ class TestEmotionSystem(unittest.TestCase):
             if comp_type == EmotionalState:
                 return emotional
             return None
+
         mock_world.get_component.side_effect = get_component
 
         system = EmotionSystem(settings=StatDecaySettings())
@@ -84,7 +92,7 @@ class TestEmotionSystem(unittest.TestCase):
 
     def test_cleanliness_clamping(self):
         mock_world = MagicMock()
-        mock_world.has_component.return_value = False # Not dead
+        mock_world.has_component.return_value = False  # Not dead
         stats = YukkuriStats(name="Test", type_id="test")
         needs = Needs()
         needs.cleanliness = 1.0

@@ -1,6 +1,7 @@
 """
 Pytest configuration and shared fixtures for the test suite.
 """
+
 import pytest
 import sys
 import os
@@ -10,7 +11,10 @@ from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.testing.environment import TestEnvironment
 
 # Add the project root to sys.path so src can be imported
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+)
+
 
 @pytest.fixture
 def game_driver() -> GameDriver:
@@ -33,7 +37,7 @@ def game_driver() -> GameDriver:
         # by the driver.
 
         driver = GameDriver(game)
-        driver.seed_rng(42) # Default deterministic seed
+        driver.seed_rng(42)  # Default deterministic seed
         yield driver
 
         # Cleanup

@@ -1,12 +1,24 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from yukkuri_game.game.services import (
-    TimeService, EconomyService, InputService, PersistenceService, GameService
+    TimeService,
+    EconomyService,
+    InputService,
+    PersistenceService,
+    GameService,
 )
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform, InteractionRequest
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, EmotionalState, Skills, Personality, RelationshipRegistry
+from yukkuri_game.game.components import Transform
+from yukkuri_game.game.yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    ItemStats,
+    AIState,
+    EmotionalState,
+    Skills,
+)
 from yukkuri_game.game.skill_constants import SkillId
+
 
 class TestTimeService:
     def test_time_elapsed(self):
@@ -18,6 +30,7 @@ class TestTimeService:
 
         service.time_elapsed = 10.0
         assert service.time_elapsed == 10.0
+
 
 class TestEconomyService:
     def test_initial_money(self):
@@ -51,6 +64,7 @@ class TestEconomyService:
         service.set_money(-50)
         assert service.get_money() == 0
 
+
 class TestInputService:
     def test_placement_mode(self):
         service = InputService()
@@ -83,6 +97,7 @@ class TestInputService:
         assert service.is_cleaning is True
         assert service.is_placing is False
 
+
 class TestPersistenceService:
     @pytest.fixture
     def mock_world(self):
@@ -90,20 +105,20 @@ class TestPersistenceService:
 
     @pytest.fixture
     def mock_os(self):
-        with patch('yukkuri_game.game.services.os') as mock:
+        with patch("yukkuri_game.game.services.os") as mock:
             mock.path.join.side_effect = lambda a, b: f"{a}/{b}"
             mock.path.exists.return_value = True
             yield mock
 
     @pytest.fixture
     def mock_json(self):
-        with patch('yukkuri_game.game.services.json') as mock:
+        with patch("yukkuri_game.game.services.json") as mock:
             yield mock
 
     @pytest.fixture
     def mock_open(self):
-        with patch('builtins.open', new_callable=MagicMock) as mock:
-             yield mock
+        with patch("builtins.open", new_callable=MagicMock) as mock:
+            yield mock
 
     def test_save_game(self, mock_world, mock_os, mock_json, mock_open):
         service = PersistenceService(mock_world)
@@ -113,7 +128,9 @@ class TestPersistenceService:
         mock_economy.get_money.return_value = 500
         # Mock world.services
         mock_world.services = MagicMock()
-        mock_world.services.try_get.side_effect = lambda t: mock_economy if t == EconomyService else None
+        mock_world.services.try_get.side_effect = (
+            lambda t: mock_economy if t == EconomyService else None
+        )
 
         # Mock Entities
         mock_world.get_all_entities.return_value = [1]
@@ -127,25 +144,42 @@ class TestPersistenceService:
 
         mock_emotional = EmotionalState(happiness=80, stress=0)
 
-        mock_ai = AIState(current_action="Idle", current_target_id=-1, action_progress=0, state_data={}, path=[])
+        mock_ai = AIState(
+            current_action="Idle",
+            current_target_id=-1,
+            action_progress=0,
+            state_data={},
+            path=[],
+        )
 
         def get_component_side_effect(e, c):
-            if c == Transform: return mock_trans
-            if c == YukkuriStats: return mock_stats
-            if c == Needs: return mock_needs
-            if c == EmotionalState: return mock_emotional
-            if c == AIState: return mock_ai
+            if c == Transform:
+                return mock_trans
+            if c == YukkuriStats:
+                return mock_stats
+            if c == Needs:
+                return mock_needs
+            if c == EmotionalState:
+                return mock_emotional
+            if c == AIState:
+                return mock_ai
             return None
 
         mock_world.get_component.side_effect = get_component_side_effect
 
         # Mock get_components for iterating persistable entities
         # Returns {entity_id: component}
-        from yukkuri_game.game.components_persistence import Persistable
+
         mock_world.get_components.return_value = {1: MagicMock()}
 
         # Mock get_all_components for serialization
-        mock_world.get_all_components.return_value = (mock_trans, mock_stats, mock_needs, mock_emotional, mock_ai)
+        mock_world.get_all_components.return_value = (
+            mock_trans,
+            mock_stats,
+            mock_needs,
+            mock_emotional,
+            mock_ai,
+        )
 
         service.save_game("test_save.json")
 
@@ -189,13 +223,19 @@ class TestGameService:
 
         def get_component(e, c):
             if c == Transform:
-                if e == 1: return MagicMock(x=100, y=100)
-                if e == 2: return MagicMock(x=10, y=10)
-                if e == 3: return MagicMock(x=5, y=5)
+                if e == 1:
+                    return MagicMock(x=100, y=100)
+                if e == 2:
+                    return MagicMock(x=10, y=10)
+                if e == 3:
+                    return MagicMock(x=5, y=5)
             if c == ItemStats:
-                if e == 1: return MagicMock(nutrition=10)
-                if e == 2: return MagicMock(nutrition=10)
-                if e == 3: return MagicMock(nutrition=0) # No nutrition
+                if e == 1:
+                    return MagicMock(nutrition=10)
+                if e == 2:
+                    return MagicMock(nutrition=10)
+                if e == 3:
+                    return MagicMock(nutrition=0)  # No nutrition
             return None
 
         mock_world.get_component.side_effect = get_component
@@ -218,6 +258,7 @@ class TestGameService:
         skills = Skills()
         # Manually set up skill state since Skills is a dataclass
         from yukkuri_game.game.yukkuri_components import SkillState
+
         skills.states[SkillId.SCAVENGING] = SkillState(level=3, current_xp=500.0)
 
         item_id = 10
@@ -230,16 +271,19 @@ class TestGameService:
         p_pers = MagicMock()
         p_pers.traits = []
         p_pers.axis = MagicMock()
-        p_pers.axis.kindness = 0 # Ensure kindness is an int for calculation
+        p_pers.axis.kindness = 0  # Ensure kindness is an int for calculation
 
         # Need TraitService imported
-        from yukkuri_game.game.trait_service import TraitService
 
         def get_component(e, c):
-            if e == searcher_id and c == Skills: return skills
-            if e == item_id and c == Transform: return item_pos
-            if e == item_id and c == ItemStats: return item_stats
-            if e == searcher_id and c == YukkuriStats: return MagicMock() # Needs stats
+            if e == searcher_id and c == Skills:
+                return skills
+            if e == item_id and c == Transform:
+                return item_pos
+            if e == item_id and c == ItemStats:
+                return item_stats
+            if e == searcher_id and c == YukkuriStats:
+                return MagicMock()  # Needs stats
             return None
 
         mock_world.get_component.side_effect = get_component
@@ -250,11 +294,16 @@ class TestGameService:
 
         # Should NOT find it without skill (mock no skills)
         def get_component_no_skill(e, c):
-            if e == searcher_id and c == Skills: return None
-            if e == item_id and c == Transform: return item_pos
-            if e == item_id and c == ItemStats: return item_stats
+            if e == searcher_id and c == Skills:
+                return None
+            if e == item_id and c == Transform:
+                return item_pos
+            if e == item_id and c == ItemStats:
+                return item_stats
             return None
 
         mock_world.get_component.side_effect = get_component_no_skill
-        best_item_fail = service.find_best_item((0, 0), "nutrition", searcher_id=searcher_id)
-        assert best_item_fail == -1 # Corrected to -1 for failure
+        best_item_fail = service.find_best_item(
+            (0, 0), "nutrition", searcher_id=searcher_id
+        )
+        assert best_item_fail == -1  # Corrected to -1 for failure

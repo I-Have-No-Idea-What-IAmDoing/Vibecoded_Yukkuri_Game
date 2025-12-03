@@ -1,4 +1,3 @@
-
 import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
@@ -7,6 +6,7 @@ from yukkuri_game.engine.data_models import AnimationDefinition
 from yukkuri_game.game.components import Sprite, Animator
 from yukkuri_game.game.systems.animation import AnimationSystem
 from yukkuri_game.game.events import AnimationEvent
+
 
 class TestAnimationFeatures(unittest.TestCase):
     def setUp(self):
@@ -21,16 +21,13 @@ class TestAnimationFeatures(unittest.TestCase):
     def test_speed_multiplier(self):
         """Test that speed multiplier affects animation timing."""
         anim_def = AnimationDefinition(
-            name="walk",
-            frames=[0, 1, 2],
-            frame_duration=1.0,
-            loop=True
+            name="walk", frames=[0, 1, 2], frame_duration=1.0, loop=True
         )
 
         animator = Animator(
             animations={"walk": anim_def},
             current_animation="walk",
-            speed=2.0 # Double speed
+            speed=2.0,  # Double speed
         )
         sprite = Sprite(image_name="test.png", width=32, height=32)
 
@@ -48,17 +45,10 @@ class TestAnimationFeatures(unittest.TestCase):
     def test_ping_pong_loop(self):
         """Test ping-pong looping behavior."""
         anim_def = AnimationDefinition(
-            name="sway",
-            frames=[0, 1, 2],
-            frame_duration=0.1,
-            loop=True,
-            ping_pong=True
+            name="sway", frames=[0, 1, 2], frame_duration=0.1, loop=True, ping_pong=True
         )
 
-        animator = Animator(
-            animations={"sway": anim_def},
-            current_animation="sway"
-        )
+        animator = Animator(animations={"sway": anim_def}, current_animation="sway")
         sprite = Sprite(image_name="test.png", width=32, height=32)
 
         entity = self.world.create_entity()
@@ -73,7 +63,9 @@ class TestAnimationFeatures(unittest.TestCase):
         # Frame 1 -> 2
         self.system.update(self.world, 0.1)
         self.assertEqual(animator.current_frame_index, 2)
-        self.assertTrue(animator.forward) # Still technically forward until it tries to go past
+        self.assertTrue(
+            animator.forward
+        )  # Still technically forward until it tries to go past
 
         # Frame 2 -> 1 (Bounce back)
         self.system.update(self.world, 0.1)
@@ -85,7 +77,7 @@ class TestAnimationFeatures(unittest.TestCase):
         self.assertEqual(animator.current_frame_index, 0)
         self.assertFalse(animator.forward)
 
-         # Frame 0 -> 1 (Bounce forward)
+        # Frame 0 -> 1 (Bounce forward)
         self.system.update(self.world, 0.1)
         self.assertEqual(animator.current_frame_index, 1)
         self.assertTrue(animator.forward)
@@ -97,13 +89,10 @@ class TestAnimationFeatures(unittest.TestCase):
             frames=[0, 1, 2],
             frame_duration=0.1,
             loop=False,
-            events={1: "hit"} # Event at frame index 1
+            events={1: "hit"},  # Event at frame index 1
         )
 
-        animator = Animator(
-            animations={"attack": anim_def},
-            current_animation="attack"
-        )
+        animator = Animator(animations={"attack": anim_def}, current_animation="attack")
         sprite = Sprite(image_name="test.png", width=32, height=32)
 
         entity = self.world.create_entity()
@@ -111,7 +100,7 @@ class TestAnimationFeatures(unittest.TestCase):
         self.world.add_component(entity, sprite)
 
         # 0 -> 1 triggers event
-        self.system.update(self.world, 0.1) # Frame 0 to 1 (requires >= 0.1s)
+        self.system.update(self.world, 0.1)  # Frame 0 to 1 (requires >= 0.1s)
 
         self.assertEqual(animator.current_frame_index, 1)
         self.event_handler.assert_called_once()
@@ -124,22 +113,16 @@ class TestAnimationFeatures(unittest.TestCase):
     def test_auto_transition(self):
         """Test automatic transition to next animation."""
         idle_def = AnimationDefinition(
-            name="idle",
-            frames=[0],
-            frame_duration=1.0,
-            loop=True
+            name="idle", frames=[0], frame_duration=1.0, loop=True
         )
         attack_def = AnimationDefinition(
-            name="attack",
-            frames=[0, 1],
-            frame_duration=0.1,
-            loop=False
+            name="attack", frames=[0, 1], frame_duration=0.1, loop=False
         )
 
         animator = Animator(
             animations={"idle": idle_def, "attack": attack_def},
             current_animation="attack",
-            next_animation="idle"
+            next_animation="idle",
         )
         sprite = Sprite(image_name="test.png", width=32, height=32)
 
@@ -161,5 +144,6 @@ class TestAnimationFeatures(unittest.TestCase):
         self.assertEqual(animator.current_frame_index, 0)
         self.assertFalse(animator.finished)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

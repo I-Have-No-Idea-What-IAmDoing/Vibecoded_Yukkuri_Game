@@ -1,6 +1,7 @@
 """
 Tests for the GameRulesSystem.
 """
+
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.game_rules_system import GameRulesSystem
@@ -10,6 +11,7 @@ from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalS
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.audio import AudioManager
+
 
 @pytest.fixture
 def game_rules_world():
@@ -23,8 +25,8 @@ def game_rules_world():
     time_svc = TimeService()
     persistence = MagicMock(spec=PersistenceService)
     factory = MagicMock(spec=EntityFactory)
-    event_bus = EventBus() # Use real EventBus to check subscriptions if needed, or mock if we check published events.
-                           # The system subscribes in __init__.
+    event_bus = EventBus()  # Use real EventBus to check subscriptions if needed, or mock if we check published events.
+    # The system subscribes in __init__.
 
     audio = MagicMock(spec=AudioManager)
 
@@ -37,6 +39,7 @@ def game_rules_world():
     world.services.register(audio, AudioManager)
 
     return world, economy, time_svc, persistence, factory, event_bus
+
 
 def test_game_rules_sell_yukkuri(game_rules_world) -> None:
     """
@@ -53,12 +56,9 @@ def test_game_rules_sell_yukkuri(game_rules_world) -> None:
         name="TestYukkuri",
         type_id="test",
         badges=1,
-        age=120 # 2 minutes
+        age=120,  # 2 minutes
     )
-    needs = Needs(
-        health=100,
-        max_health=100
-    )
+    needs = Needs(health=100, max_health=100)
     emotional = EmotionalState(happiness=80.0)
     world.add_component(yukkuri, stats)
     world.add_component(yukkuri, needs)
@@ -82,6 +82,7 @@ def test_game_rules_sell_yukkuri(game_rules_world) -> None:
 
     # Entity should be destroyed
     assert not world.entity_exists(yukkuri)
+
 
 def test_game_rules_sell_invalid_entity(game_rules_world) -> None:
     """

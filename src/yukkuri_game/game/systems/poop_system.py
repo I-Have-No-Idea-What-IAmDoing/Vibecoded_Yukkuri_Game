@@ -1,12 +1,13 @@
 """
 Module defining the PoopSystem logic.
 """
+
 import random
-import math
 from ...engine.ecs import System, World
 from ..yukkuri_components import YukkuriStats, Needs, Poop, AIState
 from ..components import Transform
 from ..prefabs.item import create_poop
+
 
 class PoopSystem(System):
     """
@@ -24,9 +25,9 @@ class PoopSystem(System):
         """Initializes the PoopSystem with default configuration."""
         # Configuration
         super().__init__()
-        self.spawn_chance_per_second = 0.01 # % chance per second to poop randomly
+        self.spawn_chance_per_second = 0.01  # % chance per second to poop randomly
         self.poop_radius = 200.0
-        self.smell_strength = 5.0 # Cleanliness lost per second when near poop
+        self.smell_strength = 5.0  # Cleanliness lost per second when near poop
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -41,7 +42,9 @@ class PoopSystem(System):
         """
         # 1. Spawning Poop
         # Iterate over Yukkuris
-        for entity, (stats, needs, transform, ai) in world.get_components_tuple(YukkuriStats, Needs, Transform, AIState):
+        for entity, (stats, needs, transform, ai) in world.get_components_tuple(
+            YukkuriStats, Needs, Transform, AIState
+        ):
             should_poop = False
 
             # Periodic/Random spawning logic
@@ -51,13 +54,13 @@ class PoopSystem(System):
             # Bladder Logic
             # If bladder is full, they must poop (or pee? Poop component handles "waste")
             if needs.bladder > 80.0:
-                 if random.random() < 0.1 * dt: # High chance when full
-                     should_poop = True
+                if random.random() < 0.1 * dt:  # High chance when full
+                    should_poop = True
 
             # Or if cleanliness is very low (lose control)
             if needs.cleanliness < 10.0:
-                 if random.random() < (self.spawn_chance_per_second * 5) * dt:
-                     should_poop = True
+                if random.random() < (self.spawn_chance_per_second * 5) * dt:
+                    should_poop = True
 
             if should_poop:
                 # Spawn behind them? or just at position.
@@ -83,9 +86,11 @@ class PoopSystem(System):
             if p_trans is None:
                 continue
 
-            for y_ent, (y_stats, y_needs, y_trans) in world.get_components_tuple(YukkuriStats, Needs, Transform):
+            for y_ent, (y_stats, y_needs, y_trans) in world.get_components_tuple(
+                YukkuriStats, Needs, Transform
+            ):
                 # Distance check
-                dist_sq = (p_trans.x - y_trans.x)**2 + (p_trans.y - y_trans.y)**2
+                dist_sq = (p_trans.x - y_trans.x) ** 2 + (p_trans.y - y_trans.y) ** 2
 
                 if dist_sq < self.poop_radius**2:
                     # Constant decay if within radius

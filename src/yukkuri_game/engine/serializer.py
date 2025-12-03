@@ -1,13 +1,23 @@
 """
 Serialization Module.
 """
-from typing import Any, Dict, Type, Optional, Iterable, Set, get_type_hints, get_origin, get_args
+
+from typing import (
+    Any,
+    Dict,
+    Type,
+    Optional,
+    Iterable,
+    get_origin,
+    get_args,
+)
 import typing
 import msgspec
 from loguru import logger
 from .ecs import World
 from .migration import MigrationRegistry
 from .types import EntityID
+
 
 class WorldSerializer:
     """
@@ -25,13 +35,15 @@ class WorldSerializer:
         Serializes a single entity.
         Returns a dict containing 'entity_id', 'stable_id', 'components'.
         """
-        if not self._persistable_type or not self.world.has_component(entity, self._persistable_type):
+        if not self._persistable_type or not self.world.has_component(
+            entity, self._persistable_type
+        ):
             return None
 
         stable_id = None
         if self._stable_id_type:
-             stable_id_comp = self.world.try_get_component(entity, self._stable_id_type)
-             stable_id = stable_id_comp.id if stable_id_comp else None
+            stable_id_comp = self.world.try_get_component(entity, self._stable_id_type)
+            stable_id = stable_id_comp.id if stable_id_comp else None
 
         components_data = {}
         # Use get_all_components to retrieve all components for the entity
@@ -49,22 +61,26 @@ class WorldSerializer:
 
             try:
                 # Using msgspec for efficient serialization if it's a struct/dataclass
-                if hasattr(component, "__dataclass_fields__") or isinstance(component, msgspec.Struct):
+                if hasattr(component, "__dataclass_fields__") or isinstance(
+                    component, msgspec.Struct
+                ):
                     decoded = msgspec.to_builtins(component)
                     # Add version info if available
                     if hasattr(component_type, "_version_"):
-                         decoded["_version_"] = getattr(component_type, "_version_")
+                        decoded["_version_"] = getattr(component_type, "_version_")
                     components_data[component_type.__name__] = decoded
                 else:
                     # Fallback or skip
                     pass
             except Exception as e:
-                logger.warning(f"Failed to serialize component {component_type.__name__} for entity {entity}: {e}")
+                logger.warning(
+                    f"Failed to serialize component {component_type.__name__} for entity {entity}: {e}"
+                )
 
         return {
             "entity_id": entity,
             "stable_id": stable_id,
-            "components": components_data
+            "components": components_data,
         }
 
     def get_persistable_entities_data(self) -> list[Dict[str, Any]]:
@@ -111,7 +127,7 @@ class WorldSerializer:
             return
 
         # Pass 1: Create Entities and Mapping
-        id_map: Dict[int, int] = {} # old_id -> new_id
+        id_map: Dict[int, int] = {}  # old_id -> new_id
         max_stable_id = 0
 
         for entity_data in entities_data:
@@ -139,12 +155,16 @@ class WorldSerializer:
                         target_version = getattr(comp_class, "_version_", 0)
 
                         if saved_version < target_version:
-                            comp_data = MigrationRegistry.migrate(comp_name, comp_data, saved_version, target_version)
+                            comp_data = MigrationRegistry.migrate(
+                                comp_name, comp_data, saved_version, target_version
+                            )
 
                         component = msgspec.convert(comp_data, comp_class)
                         self.world.add_component(new_entity, component)
                     except Exception as e:
-                        logger.warning(f"Failed to deserialize component {comp_name}: {e}")
+                        logger.warning(
+                            f"Failed to deserialize component {comp_name}: {e}"
+                        )
                 else:
                     logger.warning(f"Unknown component type: {comp_name}")
 
@@ -188,7 +208,9 @@ class WorldSerializer:
                             new_list = []
                             for x in val:
                                 if isinstance(x, int) and not isinstance(x, bool):
-                                    remapped = id_map.get(x, EntityID(-1) if x > 0 else x)
+                                    remapped = id_map.get(
+                                        x, EntityID(-1) if x > 0 else x
+                                    )
                                     new_list.append(EntityID(remapped))
                                 else:
                                     new_list.append(x)
@@ -198,7 +220,9 @@ class WorldSerializer:
                             new_set = set()
                             for x in val:
                                 if isinstance(x, int) and not isinstance(x, bool):
-                                    remapped = id_map.get(x, EntityID(-1) if x > 0 else x)
+                                    remapped = id_map.get(
+                                        x, EntityID(-1) if x > 0 else x
+                                    )
                                     new_set.add(EntityID(remapped))
                                 else:
                                     new_set.add(x)
@@ -206,7 +230,7 @@ class WorldSerializer:
 
                     # Check for Dict[EntityID, Any] (Keys)
                     elif self._is_dict_key_entity_ref(field_type):
-                         if isinstance(val, dict):
+                        if isinstance(val, dict):
                             new_dict = {}
                             for k, v in val.items():
                                 if isinstance(k, int) and not isinstance(k, bool):
@@ -226,7 +250,7 @@ class WorldSerializer:
         if tp is EntityID:
             return True
         origin = get_origin(tp)
-        if origin is typing.Union: # Check for Optional[EntityID]
+        if origin is typing.Union:  # Check for Optional[EntityID]
             args = get_args(tp)
             # Optional[T] is Union[T, NoneType]
             return EntityID in args

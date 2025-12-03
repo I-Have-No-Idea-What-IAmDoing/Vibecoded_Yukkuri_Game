@@ -4,15 +4,12 @@ from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.config import StatDecaySettings
 
+
 def test_stat_decay_integration():
     """Test that EmotionSystem uses the configured rates."""
     # Create a custom config
     custom_settings = StatDecaySettings(
-        hunger=10.0,
-        happiness=1.0,
-        energy=2.0,
-        cleanliness=5.0,
-        age=0.5
+        hunger=10.0, happiness=1.0, energy=2.0, cleanliness=5.0, age=0.5
     )
 
     system = EmotionSystem(settings=custom_settings)
@@ -46,9 +43,10 @@ def test_stat_decay_integration():
     # happiness -= 1.0 * dt
     assert emotional.happiness == pytest.approx(99.0)
 
+
 def test_stat_decay_integration_default():
     """Test that EmotionSystem uses default rates if no settings provided."""
-    system = EmotionSystem(settings=StatDecaySettings()) # Default settings
+    system = EmotionSystem(settings=StatDecaySettings())  # Default settings
     world = World()
 
     entity = world.create_entity()

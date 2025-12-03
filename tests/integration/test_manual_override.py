@@ -1,10 +1,7 @@
-
-import pytest
 import math
-from yukkuri_game.engine.application import Application
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState
-from yukkuri_game.game.components import Transform, MovementController
+
 
 def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
     """
@@ -33,7 +30,7 @@ def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
     # force full hunger to discourage Eat normally?
     # Actually, UtilitySelector checks needs. If we are full, utility for Eat is low.
     stats = driver.world.get_component(yukkuri_id, YukkuriStats)
-    stats.hunger = 0 # Full, so Eat utility should be low
+    stats.hunger = 0  # Full, so Eat utility should be low
     stats.energy = 100
 
     driver.run_for(seconds=1.0)
@@ -52,8 +49,10 @@ def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
     driver.run_for(seconds=10.0)
 
     # After finishing, manual_override should be cleared
-    assert ai.manual_override is False, "Manual override should be cleared after action completion"
+    assert ai.manual_override is False, (
+        "Manual override should be cleared after action completion"
+    )
 
     # And AI should have picked a new action (likely Idle or Wander)
     # Since hunger is 0 and energy 100, probably Wander.
-    assert ai.current_action != "Eat" # Item is consumed/gone or we are done
+    assert ai.current_action != "Eat"  # Item is consumed/gone or we are done

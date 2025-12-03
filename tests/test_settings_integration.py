@@ -1,13 +1,12 @@
 """
 Tests for Settings integration (Service, UI, Audio, Display).
 """
+
 import unittest
 import os
-import json
-import copy
 import pygame
 import pygame_gui
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 from yukkuri_game.game.settings_service import SettingsService
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.engine.audio import AudioManager
@@ -15,17 +14,19 @@ from yukkuri_game.game.ui.hud_events import HudEvents
 from yukkuri_game.game.ui.hud_layout import HudLayout
 from yukkuri_game.game.events import ResolutionChangedEvent
 
+
 class TestSettingsIntegration(unittest.TestCase):
     """
     Tests the interaction between SettingsService, AudioManager, and HUD UI.
     """
+
     def setUp(self) -> None:
         """
         Sets up mocks and services for testing.
         """
         # Mock pygame and pygame_gui
-        self.mock_pygame_display = patch('pygame.display').start()
-        self.mock_pygame_mixer = patch('pygame.mixer').start()
+        self.mock_pygame_display = patch("pygame.display").start()
+        self.mock_pygame_mixer = patch("pygame.mixer").start()
 
         # Setup SettingsService with a test file
         self.test_settings_file = "test_settings.toml"
@@ -33,7 +34,9 @@ class TestSettingsIntegration(unittest.TestCase):
             os.remove(self.test_settings_file)
 
         self.resource_manager = ResourceManager(data_dir=".")
-        self.settings_service = SettingsService(self.resource_manager, self.test_settings_file)
+        self.settings_service = SettingsService(
+            self.resource_manager, self.test_settings_file
+        )
 
         # Setup AudioManager
         self.audio_manager = AudioManager()
@@ -87,7 +90,9 @@ class TestSettingsIntegration(unittest.TestCase):
         Tests loading and saving settings to a file.
         """
         # Re-init service with fresh defaults
-        self.settings_service = SettingsService(self.resource_manager, self.test_settings_file)
+        self.settings_service = SettingsService(
+            self.resource_manager, self.test_settings_file
+        )
 
         self.assertEqual(self.settings_service.get("audio", "master_volume"), 0.5)
 
@@ -141,7 +146,7 @@ class TestSettingsIntegration(unittest.TestCase):
         event = MagicMock(spec=pygame.event.Event)
         event.type = pygame_gui.UI_HORIZONTAL_SLIDER_MOVED
         event.ui_element = slider
-        event.value = 75 # 0-100 range
+        event.value = 75  # 0-100 range
 
         # Process event
         handled = self.hud_events.process_event(event)
@@ -175,7 +180,7 @@ class TestSettingsIntegration(unittest.TestCase):
             "resolution_dropdown": resolution_dropdown,
             "save_btn": save_btn,
             "fullscreen_value": True,
-            "fullscreen_btn": MagicMock()
+            "fullscreen_btn": MagicMock(),
         }
 
         event = MagicMock(spec=pygame.event.Event)
@@ -236,5 +241,6 @@ class TestSettingsIntegration(unittest.TestCase):
         self.assertEqual(self.audio_manager.master_volume, 0.5)
         self.layout.close_settings_window.assert_called_once()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

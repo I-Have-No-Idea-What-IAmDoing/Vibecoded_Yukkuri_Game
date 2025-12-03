@@ -1,18 +1,36 @@
 """
 Module defining the HUD layout and UI element creation.
 """
+
 import pygame
 import pygame_gui
 from typing import Optional, Dict, Any
-from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox, UIHorizontalSlider, UIDropDownMenu, UIScrollingContainer
+from pygame_gui.elements import (
+    UIPanel,
+    UILabel,
+    UIButton,
+    UIWindow,
+    UITextBox,
+    UIHorizontalSlider,
+    UIDropDownMenu,
+)
 from .custom_elements import NonBlockingTextBox
 from .entity_info_panel import EntityInfoPanel
+
 
 class HudLayout:
     """
     Manages the layout and creation of HUD elements.
     """
-    def __init__(self, ui_manager: pygame_gui.UIManager, width: int, height: int, yukkuri_types: Optional[Dict[str, Any]] = None, item_types: Optional[Dict[str, Any]] = None):
+
+    def __init__(
+        self,
+        ui_manager: pygame_gui.UIManager,
+        width: int,
+        height: int,
+        yukkuri_types: Optional[Dict[str, Any]] = None,
+        item_types: Optional[Dict[str, Any]] = None,
+    ):
         """
         Initializes the HudLayout.
 
@@ -128,22 +146,21 @@ class HudLayout:
             None
         """
         self.top_panel = UIPanel(
-            relative_rect=pygame.Rect(0, 0, self.width, 50),
-            manager=self.manager
+            relative_rect=pygame.Rect(0, 0, self.width, 50), manager=self.manager
         )
 
         self.money_label = UILabel(
             relative_rect=pygame.Rect(10, 10, 200, 30),
             text="Money: $0",
             manager=self.manager,
-            container=self.top_panel
+            container=self.top_panel,
         )
 
         self.time_label = UILabel(
             relative_rect=pygame.Rect(220, 10, 150, 30),
             text="Time: 00:00",
             manager=self.manager,
-            container=self.top_panel
+            container=self.top_panel,
         )
 
         self.pause_btn = UIButton(
@@ -151,7 +168,7 @@ class HudLayout:
             text="Pause",
             manager=self.manager,
             container=self.top_panel,
-            tool_tip_text="Pause/Resume the game"
+            tool_tip_text="Pause/Resume the game",
         )
 
         self.speed_btn = UIButton(
@@ -159,7 +176,7 @@ class HudLayout:
             text="1x",
             manager=self.manager,
             container=self.top_panel,
-            tool_tip_text="Change game speed"
+            tool_tip_text="Change game speed",
         )
 
         self.save_btn = UIButton(
@@ -167,7 +184,7 @@ class HudLayout:
             text="Save",
             manager=self.manager,
             container=self.top_panel,
-            tool_tip_text="Save current game state"
+            tool_tip_text="Save current game state",
         )
 
         self.load_btn = UIButton(
@@ -175,7 +192,7 @@ class HudLayout:
             text="Load",
             manager=self.manager,
             container=self.top_panel,
-            tool_tip_text="Load saved game"
+            tool_tip_text="Load saved game",
         )
 
         self.settings_btn = UIButton(
@@ -183,7 +200,7 @@ class HudLayout:
             text="Settings",
             manager=self.manager,
             container=self.top_panel,
-            tool_tip_text="Open Settings Menu"
+            tool_tip_text="Open Settings Menu",
         )
 
     def _create_bottom_bar(self) -> None:
@@ -195,7 +212,7 @@ class HudLayout:
         """
         self.bottom_panel = UIPanel(
             relative_rect=pygame.Rect(0, self.height - 100, self.width, 100),
-            manager=self.manager
+            manager=self.manager,
         )
 
         # Log Box Area (Left side)
@@ -203,7 +220,7 @@ class HudLayout:
             html_text="Welcome to Yukkuri Game!<br>",
             relative_rect=pygame.Rect(10, 10, 300, 80),
             manager=self.manager,
-            container=self.bottom_panel
+            container=self.bottom_panel,
         )
 
         x_offset = 320
@@ -214,45 +231,59 @@ class HudLayout:
 
         # Create buttons for Yukkuris
         for type_id, data in self.yukkuri_types.items():
-            cost = getattr(data, 'cost', 100)
-            name = getattr(data, 'name', type_id.capitalize())
+            cost = getattr(data, "cost", 100)
+            name = getattr(data, "name", type_id.capitalize())
 
             btn = UIButton(
                 relative_rect=pygame.Rect(x_offset, y_offset, btn_width, btn_height),
                 text=f"Buy {name} (${cost})",
                 manager=self.manager,
                 container=self.bottom_panel,
-                tool_tip_text=f"Buy {name} for ${cost}. Click to place."
+                tool_tip_text=f"Buy {name} for ${cost}. Click to place.",
             )
-            self.buy_buttons[btn] = {"type_id": type_id, "category": "yukkuri", "cost": cost, "name": name}
+            self.buy_buttons[btn] = {
+                "type_id": type_id,
+                "category": "yukkuri",
+                "cost": cost,
+                "name": name,
+            }
             x_offset += btn_width + spacing
 
         # Create buttons for Items
         for type_id, data in self.item_types.items():
-            cost = getattr(data, 'cost', 10)
-            name = getattr(data, 'name', type_id.capitalize())
-            description = getattr(data, 'description', f"A nice {name}")
+            cost = getattr(data, "cost", 10)
+            name = getattr(data, "name", type_id.capitalize())
+            description = getattr(data, "description", f"A nice {name}")
 
             btn = UIButton(
                 relative_rect=pygame.Rect(x_offset, y_offset, btn_width, btn_height),
                 text=f"Buy {name} (${cost})",
                 manager=self.manager,
                 container=self.bottom_panel,
-                tool_tip_text=f"Buy {name} for ${cost}. {description}"
+                tool_tip_text=f"Buy {name} for ${cost}. {description}",
             )
-            self.buy_buttons[btn] = {"type_id": type_id, "category": "item", "cost": cost, "name": name}
+            self.buy_buttons[btn] = {
+                "type_id": type_id,
+                "category": "item",
+                "cost": cost,
+                "name": name,
+            }
             x_offset += btn_width + spacing
 
         # Create Clean Button
         self.clean_btn = UIButton(
-            relative_rect=pygame.Rect(self.width - 150, y_offset, btn_width, btn_height),
+            relative_rect=pygame.Rect(
+                self.width - 150, y_offset, btn_width, btn_height
+            ),
             text="Clean Tool",
             manager=self.manager,
             container=self.bottom_panel,
-            tool_tip_text="Click to clean poop"
+            tool_tip_text="Click to clean poop",
         )
 
-    def create_selection_window(self, has_stats: bool, selection_count: int = 1) -> None:
+    def create_selection_window(
+        self, has_stats: bool, selection_count: int = 1
+    ) -> None:
         """
         Creates or recreates the selection window using EntityInfoPanel.
 
@@ -266,7 +297,7 @@ class HudLayout:
         self.entity_info_panel.show(
             position=(self.width - 350, 60),
             has_stats=has_stats,
-            selection_count=selection_count
+            selection_count=selection_count,
         )
 
     def close_selection_window(self) -> None:
@@ -297,7 +328,7 @@ class HudLayout:
             rect=pygame.Rect(10, 60, 300, 200),
             manager=self.manager,
             window_display_title="Debug Info",
-            resizable=True
+            resizable=True,
         )
 
         self.debug_text_box = UITextBox(
@@ -305,7 +336,12 @@ class HudLayout:
             relative_rect=pygame.Rect(10, 10, 260, 140),
             manager=self.manager,
             container=self.debug_window,
-            anchors={'top': 'top', 'bottom': 'bottom', 'left': 'left', 'right': 'right'}
+            anchors={
+                "top": "top",
+                "bottom": "bottom",
+                "left": "left",
+                "right": "right",
+            },
         )
 
     def close_debug_window(self) -> None:
@@ -340,7 +376,7 @@ class HudLayout:
             rect=pygame.Rect(x, y, window_width, window_height),
             manager=self.manager,
             window_display_title="Settings",
-            resizable=False
+            resizable=False,
         )
 
         audio_settings = current_settings.get("audio", {})
@@ -349,27 +385,48 @@ class HudLayout:
         sfx_vol = audio_settings.get("sfx_volume", 1.0) * 100
 
         # Master Volume
-        UILabel(relative_rect=pygame.Rect(20, 20, 100, 30), text="Master Vol:", manager=self.manager, container=self.settings_window)
+        UILabel(
+            relative_rect=pygame.Rect(20, 20, 100, 30),
+            text="Master Vol:",
+            manager=self.manager,
+            container=self.settings_window,
+        )
         self.settings_controls["master_slider"] = UIHorizontalSlider(
             relative_rect=pygame.Rect(130, 20, 200, 30),
-            start_value=master_vol, value_range=(0, 100),
-            manager=self.manager, container=self.settings_window
+            start_value=master_vol,
+            value_range=(0, 100),
+            manager=self.manager,
+            container=self.settings_window,
         )
 
         # BGM Volume
-        UILabel(relative_rect=pygame.Rect(20, 60, 100, 30), text="BGM Vol:", manager=self.manager, container=self.settings_window)
+        UILabel(
+            relative_rect=pygame.Rect(20, 60, 100, 30),
+            text="BGM Vol:",
+            manager=self.manager,
+            container=self.settings_window,
+        )
         self.settings_controls["bgm_slider"] = UIHorizontalSlider(
             relative_rect=pygame.Rect(130, 60, 200, 30),
-            start_value=bgm_vol, value_range=(0, 100),
-            manager=self.manager, container=self.settings_window
+            start_value=bgm_vol,
+            value_range=(0, 100),
+            manager=self.manager,
+            container=self.settings_window,
         )
 
         # SFX Volume
-        UILabel(relative_rect=pygame.Rect(20, 100, 100, 30), text="SFX Vol:", manager=self.manager, container=self.settings_window)
+        UILabel(
+            relative_rect=pygame.Rect(20, 100, 100, 30),
+            text="SFX Vol:",
+            manager=self.manager,
+            container=self.settings_window,
+        )
         self.settings_controls["sfx_slider"] = UIHorizontalSlider(
             relative_rect=pygame.Rect(130, 100, 200, 30),
-            start_value=sfx_vol, value_range=(0, 100),
-            manager=self.manager, container=self.settings_window
+            start_value=sfx_vol,
+            value_range=(0, 100),
+            manager=self.manager,
+            container=self.settings_window,
         )
 
         # Window Settings
@@ -383,20 +440,25 @@ class HudLayout:
         if current_res not in resolution_options:
             resolution_options.append(current_res)
 
-        UILabel(relative_rect=pygame.Rect(20, 140, 100, 30), text="Resolution:", manager=self.manager, container=self.settings_window)
+        UILabel(
+            relative_rect=pygame.Rect(20, 140, 100, 30),
+            text="Resolution:",
+            manager=self.manager,
+            container=self.settings_window,
+        )
         self.settings_controls["resolution_dropdown"] = UIDropDownMenu(
             options_list=resolution_options,
             starting_option=current_res,
             relative_rect=pygame.Rect(130, 140, 200, 30),
             manager=self.manager,
-            container=self.settings_window
+            container=self.settings_window,
         )
 
         self.settings_controls["fullscreen_btn"] = UIButton(
             relative_rect=pygame.Rect(130, 180, 200, 30),
             text="Fullscreen: ON" if fullscreen else "Fullscreen: OFF",
             manager=self.manager,
-            container=self.settings_window
+            container=self.settings_window,
         )
         self.settings_controls["fullscreen_value"] = fullscreen
 
@@ -404,13 +466,15 @@ class HudLayout:
         self.settings_controls["save_btn"] = UIButton(
             relative_rect=pygame.Rect(60, 250, 100, 40),
             text="Save",
-            manager=self.manager, container=self.settings_window
+            manager=self.manager,
+            container=self.settings_window,
         )
 
         self.settings_controls["cancel_btn"] = UIButton(
             relative_rect=pygame.Rect(240, 250, 100, 40),
             text="Cancel",
-            manager=self.manager, container=self.settings_window
+            manager=self.manager,
+            container=self.settings_window,
         )
 
     def close_settings_window(self) -> None:
@@ -433,7 +497,7 @@ class HudLayout:
             self.hover_tooltip_label = NonBlockingTextBox(
                 html_text="",
                 relative_rect=pygame.Rect(0, 0, 200, 60),
-                manager=self.manager
+                manager=self.manager,
             )
             # Start hidden
             self.hover_tooltip_label.hide()
@@ -477,7 +541,9 @@ class HudLayout:
                 self.hover_tooltip_label.set_position((x, y))
 
                 # Bring to front
-                self.manager.ui_window_stack.move_window_to_front(self.hover_tooltip_label)
+                self.manager.ui_window_stack.move_window_to_front(
+                    self.hover_tooltip_label
+                )
 
         else:
             if self.hover_tooltip_label and self.hover_tooltip_label.visible:

@@ -1,8 +1,9 @@
 """
 Scene Management Module.
 """
+
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional, Dict, Any, Type, ClassVar, Set
+from typing import TYPE_CHECKING, Dict, Any, Type, ClassVar, Set
 from dataclasses import dataclass, field
 import pygame
 from .ecs import World
@@ -15,12 +16,15 @@ from ..game.components_persistence import Persistable, StableIDComponent
 if TYPE_CHECKING:
     from .application import Application
 
+
 @dataclass
 class SceneContext:
     """
     Holds data injected into a scene from the global state.
     """
+
     data: Dict[str, Any] = field(default_factory=dict)
+
 
 class Scene(ABC):
     """
@@ -32,18 +36,18 @@ class Scene(ABC):
     # e.g. { "player_inventory": InventoryComponent }
     INJECTIONS: ClassVar[Dict[str, Type]] = {}
 
-    def __init__(self, application: 'Application'):
+    def __init__(self, application: "Application"):
         self.application = application
         self.world = World()
         self.registered_components: Set[Type] = {Persistable, StableIDComponent}
 
         # Register global services
         # Note: application.resources is instance of ResourceManager
-        if hasattr(application, 'resources'):
+        if hasattr(application, "resources"):
             self.world.services.register(application.resources, ResourceManager)
-        if hasattr(application, 'input_manager'):
+        if hasattr(application, "input_manager"):
             self.world.services.register(application.input_manager, InputManager)
-        if hasattr(application, 'event_manager'):
+        if hasattr(application, "event_manager"):
             self.world.services.register(application.event_manager, EventManager)
 
     def register_component(self, component_type: Type) -> None:
@@ -116,7 +120,9 @@ class Scene(ABC):
         """
         if not self.registered_components:
             # Warn developer if they forgot to register components
-            print(f"Warning: Loading scene {self.__class__.__name__} with no registered components. deserialization may fail.")
+            print(
+                f"Warning: Loading scene {self.__class__.__name__} with no registered components. deserialization may fail."
+            )
 
         serializer = WorldSerializer(self.world, self.registered_components)
         try:

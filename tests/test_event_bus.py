@@ -1,20 +1,25 @@
 """
 Tests for the EventBus system.
 """
+
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from yukkuri_game.engine.event_bus import EventBus, Event
 from dataclasses import dataclass
+
 
 @dataclass(frozen=True)
 class MockEvent(Event):
     """Event for testing purposes."""
+
     payload: str
+
 
 class TestEventBus(unittest.TestCase):
     """
     Tests the EventBus functionality.
     """
+
     def setUp(self) -> None:
         """
         Sets up a fresh EventBus for each test.
@@ -61,5 +66,6 @@ class TestEventBus(unittest.TestCase):
         handler1.assert_called_once_with(event)
         handler2.assert_called_once_with(event)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

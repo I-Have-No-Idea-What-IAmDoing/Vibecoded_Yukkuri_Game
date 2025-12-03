@@ -1,4 +1,3 @@
-
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
@@ -6,6 +5,7 @@ from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, Personalit
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.game.trait_service import TraitService
+
 
 @pytest.fixture
 def decay_settings():
@@ -17,12 +17,14 @@ def decay_settings():
     settings.cleanliness = 1.0
     return settings
 
+
 @pytest.fixture
 def mock_trait_service():
     service = MagicMock(spec=TraitService)
     # Default behavior: unknown trait returns None
     service.get_trait.return_value = None
     return service
+
 
 def test_stat_decay_with_trait_modifier(decay_settings, mock_trait_service):
     world = World()
@@ -33,12 +35,10 @@ def test_stat_decay_with_trait_modifier(decay_settings, mock_trait_service):
 
     # Setup trait data
     # GLUTTON: hunger_decay = 1.5
-    glutton_data = {
-        "stat_modifiers": {
-            "hunger_decay": 1.5
-        }
-    }
-    mock_trait_service.get_trait.side_effect = lambda t: glutton_data if t == "GLUTTON" else None
+    glutton_data = {"stat_modifiers": {"hunger_decay": 1.5}}
+    mock_trait_service.get_trait.side_effect = (
+        lambda t: glutton_data if t == "GLUTTON" else None
+    )
 
     # Create entity
     entity = world.create_entity()
@@ -54,6 +54,7 @@ def test_stat_decay_with_trait_modifier(decay_settings, mock_trait_service):
 
     # Expected: Base (1.0) * Modifier (1.5) * dt (1.0) = 1.5
     assert needs.hunger == 1.5
+
 
 def test_stat_decay_without_trait_modifier(decay_settings, mock_trait_service):
     world = World()
@@ -75,6 +76,7 @@ def test_stat_decay_without_trait_modifier(decay_settings, mock_trait_service):
 
     # Expected: Base (1.0) * Modifier (1.0) * dt (1.0) = 1.0
     assert needs.hunger == 1.0
+
 
 def test_stat_decay_multiple_modifiers(decay_settings, mock_trait_service):
     world = World()

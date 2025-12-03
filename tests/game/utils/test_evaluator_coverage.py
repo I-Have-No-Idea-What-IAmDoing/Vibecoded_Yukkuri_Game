@@ -1,9 +1,16 @@
-
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.utils.evaluator import ConditionEvaluator
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState, Skills, Personality, SkillState
+from yukkuri_game.game.yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    EmotionalState,
+    Skills,
+    Personality,
+    SkillState,
+)
+
 
 class TestConditionEvaluator:
     @pytest.fixture
@@ -66,32 +73,37 @@ class TestConditionEvaluator:
         skills.states["scavenging"] = SkillState(level=2)
 
         def get_component(e, t):
-            if t == YukkuriStats: return stats
-            if t == Needs: return needs
-            if t == Personality: return pers
-            if t == EmotionalState: return emo
-            if t == Skills: return skills
+            if t == YukkuriStats:
+                return stats
+            if t == Needs:
+                return needs
+            if t == Personality:
+                return pers
+            if t == EmotionalState:
+                return emo
+            if t == Skills:
+                return skills
             return None
 
         world.get_component.side_effect = get_component
 
         context = evaluator.build_context(world, entity_id)
 
-        assert context['health'] == 80.0
-        assert context['hunger'] == 20.0
-        assert context['stress'] == 10.0
-        assert context['discipline'] == 50.0
-        assert context['age'] == 100.0
+        assert context["health"] == 80.0
+        assert context["hunger"] == 20.0
+        assert context["stress"] == 10.0
+        assert context["discipline"] == 50.0
+        assert context["age"] == 100.0
 
-        assert context['traits'] == ['Kind']
-        assert context['kindness'] == 10
-        assert context['bravery'] == -10
+        assert context["traits"] == ["Kind"]
+        assert context["kindness"] == 10
+        assert context["bravery"] == -10
 
-        assert context['happiness'] == 70.0
+        assert context["happiness"] == 70.0
         # Mood check
-        assert context['mood'] == "Content/Relaxed"
+        assert context["mood"] == "Content/Relaxed"
 
-        assert context['skills']['scavenging'] == 2
+        assert context["skills"]["scavenging"] == 2
 
     def test_build_context_missing_components(self, evaluator, world):
         entity_id = 2
@@ -100,16 +112,18 @@ class TestConditionEvaluator:
         context = evaluator.build_context(world, entity_id)
 
         # Context should be empty or minimal
-        assert 'health' not in context
-        assert 'happiness' not in context
-        assert 'skills' in context # Skills defaults to empty map if missing but method initializes dict
+        assert "health" not in context
+        assert "happiness" not in context
+        assert (
+            "skills" in context
+        )  # Skills defaults to empty map if missing but method initializes dict
         # Wait, implementation says:
         # skills = world.get_component(entity_id, Skills)
         # skill_map: Dict[str, int] = {}
         # if skills: ...
         # context['skills'] = skill_map
         # So 'skills' key exists and is empty dict.
-        assert context['skills'] == {}
+        assert context["skills"] == {}
 
     def test_caching(self, evaluator):
         context = {"x": 10}
@@ -119,7 +133,9 @@ class TestConditionEvaluator:
 
         # Second pass uses cache (how to verify? Mock _eval? or assume it works if result is correct)
         # We can modify cache manually to verify it uses it
-        evaluator._cache["x > 5"] = evaluator.evaluator.parse("x < 5").value # Flip logic hack
+        evaluator._cache["x > 5"] = evaluator.evaluator.parse(
+            "x < 5"
+        ).value  # Flip logic hack
 
         # Should now return False if it uses cached AST
         assert evaluator.evaluate("x > 5", context) is False

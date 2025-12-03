@@ -1,13 +1,20 @@
 """
 Module defining the InputSystem logic.
 """
+
 import pygame
-from typing import Optional, TYPE_CHECKING, List, Tuple
+from typing import Optional, TYPE_CHECKING, Tuple
 from ..engine.ecs import System, World
 from ..engine.event_bus import EventBus, Event
 from ..engine.audio import AudioManager
 from ..engine.input_manager import InputManager
-from .events import PlacementStartedEvent, EntitySelectedEvent, PlacementRequestedEvent, PlacementCancelledEvent, CleanToolRequestedEvent
+from .events import (
+    PlacementStartedEvent,
+    EntitySelectedEvent,
+    PlacementRequestedEvent,
+    PlacementCancelledEvent,
+    CleanToolRequestedEvent,
+)
 from .components import Transform, Selectable
 from .yukkuri_components import Poop
 from .services import InputService
@@ -15,6 +22,7 @@ from .services import InputService
 if TYPE_CHECKING:
     from .yukkurrium import Yukkurrium
     import pygame_gui
+
 
 class InputSystem(System):
     """
@@ -34,7 +42,7 @@ class InputSystem(System):
         drag_start_screen_pos (Optional[Tuple[int, int]]): Screen coordinates where drag started.
     """
 
-    def __init__(self, yukkurrium: 'Yukkurrium'):
+    def __init__(self, yukkurrium: "Yukkurrium"):
         """
         Initializes the InputSystem.
 
@@ -46,13 +54,13 @@ class InputSystem(System):
         self.input_service: Optional[InputService] = None
         self.input_manager: Optional[InputManager] = None
         self.audio: Optional[AudioManager] = None
-        self.ui_manager: Optional['pygame_gui.UIManager'] = None
+        self.ui_manager: Optional["pygame_gui.UIManager"] = None
 
         self.drag_start_pos: Optional[Tuple[float, float]] = None
         self.drag_end_pos: Optional[Tuple[float, float]] = None
         self.drag_start_screen_pos: Optional[Tuple[int, int]] = None
 
-    def set_ui_manager(self, ui_manager: 'pygame_gui.UIManager') -> None:
+    def set_ui_manager(self, ui_manager: "pygame_gui.UIManager") -> None:
         """
         Sets the UI Manager to check for UI interaction.
 
@@ -72,7 +80,9 @@ class InputSystem(System):
             return
 
         if self.input_service:
-            self.input_service.start_placement(event.type_id, event.cost, event.entity_type)
+            self.input_service.start_placement(
+                event.type_id, event.cost, event.entity_type
+            )
 
     def on_clean_tool_requested(self, event: Event) -> None:
         """
@@ -103,7 +113,9 @@ class InputSystem(System):
         if self.event_bus is None:
             self.event_bus = world.services.get(EventBus)
             self.event_bus.subscribe(PlacementStartedEvent, self.on_placement_started)
-            self.event_bus.subscribe(CleanToolRequestedEvent, self.on_clean_tool_requested)
+            self.event_bus.subscribe(
+                CleanToolRequestedEvent, self.on_clean_tool_requested
+            )
         if self.audio is None:
             self.audio = world.services.try_get(AudioManager)
 
@@ -135,12 +147,15 @@ class InputSystem(System):
         if is_select_pressed:
             if self.input_service and self.input_service.is_placing:
                 if self.event_bus:
-                    self.event_bus.publish(PlacementRequestedEvent(
-                        wx, wy,
-                        self.input_service.place_type,
-                        self.input_service.place_cost,
-                        self.input_service.place_entity_type
-                    ))
+                    self.event_bus.publish(
+                        PlacementRequestedEvent(
+                            wx,
+                            wy,
+                            self.input_service.place_type,
+                            self.input_service.place_cost,
+                            self.input_service.place_entity_type,
+                        )
+                    )
                 if self.audio:
                     self.audio.play_sound("place")
                 self.input_service.cancel_placement()
@@ -163,8 +178,8 @@ class InputSystem(System):
 
         # Handle Dragging Update
         if self.input_service and self.input_service.is_dragging:
-             self.drag_end_pos = (wx, wy)
-             self.input_service.drag_current_pos = (mx, my)
+            self.drag_end_pos = (wx, wy)
+            self.input_service.drag_current_pos = (mx, my)
 
         # Handle Left Release (End Drag / Selection)
         if is_select_released and self.drag_start_pos:
@@ -174,9 +189,11 @@ class InputSystem(System):
             if self.drag_start_screen_pos:
                 dx = mx - self.drag_start_screen_pos[0]
                 dy = my - self.drag_start_screen_pos[1]
-                drag_dist = (dx*dx + dy*dy)**0.5
+                drag_dist = (dx * dx + dy * dy) ** 0.5
 
-            self._handle_selection(world, self.drag_start_pos, self.drag_end_pos, drag_dist)
+            self._handle_selection(
+                world, self.drag_start_pos, self.drag_end_pos, drag_dist
+            )
 
             self.drag_start_pos = None
             self.drag_end_pos = None
@@ -186,19 +203,25 @@ class InputSystem(System):
 
         # Handle Right Click (Cancel)
         if is_cancel_pressed:
-             if self.input_service and self.input_service.is_placing:
-                 if self.audio:
-                     self.audio.play_sound("cancel")
-                 self.input_service.cancel_placement()
-                 if self.event_bus:
-                     self.event_bus.publish(PlacementCancelledEvent())
+            if self.input_service and self.input_service.is_placing:
+                if self.audio:
+                    self.audio.play_sound("cancel")
+                self.input_service.cancel_placement()
+                if self.event_bus:
+                    self.event_bus.publish(PlacementCancelledEvent())
 
-             if self.input_service and self.input_service.is_cleaning:
-                 if self.audio:
-                     self.audio.play_sound("cancel")
-                 self.input_service.stop_cleaning()
+            if self.input_service and self.input_service.is_cleaning:
+                if self.audio:
+                    self.audio.play_sound("cancel")
+                self.input_service.stop_cleaning()
 
-    def _handle_selection(self, world: World, start_pos: tuple[float, float], end_pos: tuple[float, float], drag_dist: float) -> None:
+    def _handle_selection(
+        self,
+        world: World,
+        start_pos: tuple[float, float],
+        end_pos: tuple[float, float],
+        drag_dist: float,
+    ) -> None:
         """
         Handles selecting entities within the given world coordinate box.
 
@@ -240,10 +263,10 @@ class InputSystem(System):
 
             in_selection = False
             if is_click:
-                 dist = ((trans.x - x1)**2 + (trans.y - y1)**2)**0.5
-                 if dist < click_radius:
-                     in_selection = True
-                     clicked_something = True
+                dist = ((trans.x - x1) ** 2 + (trans.y - y1) ** 2) ** 0.5
+                if dist < click_radius:
+                    in_selection = True
+                    clicked_something = True
             else:
                 if min_x <= trans.x <= max_x and min_y <= trans.y <= max_y:
                     in_selection = True
@@ -268,7 +291,7 @@ class InputSystem(System):
         for ent in entities:
             selectable = world.get_component(ent, Selectable)
             if selectable:
-                selectable.selected = (ent in final_selection)
+                selectable.selected = ent in final_selection
 
         if self.event_bus:
             self.event_bus.publish(EntitySelectedEvent(final_selection))
@@ -290,7 +313,7 @@ class InputSystem(System):
             transform = world.get_component(entity, Transform)
             if transform is None:
                 continue
-            dist = ((transform.x - wx)**2 + (transform.y - wy)**2)**0.5
+            dist = ((transform.x - wx) ** 2 + (transform.y - wy) ** 2) ** 0.5
             if dist < click_radius:
                 world.destroy_entity(entity)
                 found = True
@@ -299,7 +322,9 @@ class InputSystem(System):
             if self.audio:
                 self.audio.play_sound("click")
 
-    def _check_hover(self, world: World, wx: float, wy: float, mx: int, my: int) -> None:
+    def _check_hover(
+        self, world: World, wx: float, wy: float, mx: int, my: int
+    ) -> None:
         """
         Checks for entities under the mouse cursor and updates the input service.
 
@@ -325,7 +350,7 @@ class InputSystem(System):
             if trans is None:
                 continue
 
-            dist = ((trans.x - wx)**2 + (trans.y - wy)**2)**0.5
+            dist = ((trans.x - wx) ** 2 + (trans.y - wy) ** 2) ** 0.5
             if dist < hover_radius:
                 hovered_id = entity_id
                 break

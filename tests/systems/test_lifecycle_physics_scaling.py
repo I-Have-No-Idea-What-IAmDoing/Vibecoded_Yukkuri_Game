@@ -1,11 +1,10 @@
-
-import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
 from yukkuri_game.game.components import Transform, PhysicsBody
 from yukkuri_game.engine.ecs import World
 import pymunk
+
 
 def test_lifecycle_physics_scaling_proportional():
     """

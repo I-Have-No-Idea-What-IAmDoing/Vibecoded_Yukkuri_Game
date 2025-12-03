@@ -1,6 +1,5 @@
-
-import pytest
 from yukkuri_game.game.ai.navigation_service import NavigationService
+
 
 def test_find_path_simple():
     """Test basic pathfinding on an empty grid."""
@@ -20,9 +19,10 @@ def test_find_path_simple():
     # Check continuity (steps should be reasonably small)
     for i in range(len(path) - 1):
         p1 = path[i]
-        p2 = path[i+1]
-        dist = ((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)**0.5
-        assert dist <= 75 # Diagonal step is ~70.7 (50 * sqrt(2))
+        p2 = path[i + 1]
+        dist = ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5
+        assert dist <= 75  # Diagonal step is ~70.7 (50 * sqrt(2))
+
 
 def test_find_path_out_of_bounds():
     """Test pathfinding when destination is out of bounds (should return path to edge)"""
@@ -50,6 +50,7 @@ def test_find_path_out_of_bounds():
     assert final_pos[0] <= world_w
     assert final_pos[1] <= world_h
 
+
 def test_find_path_same_start_goal():
     start = (50, 50)
     goal = (50, 50)
@@ -64,6 +65,7 @@ def test_find_path_same_start_goal():
     assert len(path) >= 1
     assert path[0] == start
     assert path[-1] == goal
+
 
 def test_obstacle_avoidance():
     """Test that pathfinding avoids obstacles."""
@@ -84,5 +86,5 @@ def test_obstacle_avoidance():
 
     for p in path:
         # Check if any point is close to the obstacle
-        dist = ((p[0]-100)**2 + (p[1]-0)**2)**0.5
-        assert dist > 1.0 # Should not be exactly at obstacle node
+        dist = ((p[0] - 100) ** 2 + (p[1] - 0) ** 2) ** 0.5
+        assert dist > 1.0  # Should not be exactly at obstacle node

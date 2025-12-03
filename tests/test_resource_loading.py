@@ -1,8 +1,6 @@
-
-import os
-import pytest
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.engine.data_models import YukkuriData
+
 
 def test_load_animations_from_toml():
     # Setup ResourceManager with test data directory

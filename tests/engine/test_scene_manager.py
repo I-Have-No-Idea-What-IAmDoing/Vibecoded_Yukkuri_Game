@@ -1,9 +1,9 @@
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock
 from yukkuri_game.engine.scene_manager import SceneManager, Scene, SceneContext
 from yukkuri_game.engine.migration import MigrationRegistry
 import msgspec
-import os
+
 
 class MockScene(Scene):
     def __init__(self, application=None):
@@ -36,19 +36,25 @@ class MockScene(Scene):
     def handle_event(self, event) -> None:
         self.handle_event_called = True
 
+
 class SceneWithInjection(MockScene):
     INJECTIONS = {"test_data": int}
+
 
 class SceneWithStructInjection(MockScene):
     pass
 
+
 from typing import ClassVar
+
 
 class MyStruct(msgspec.Struct):
     value: int
     _version_: ClassVar[int] = 1
 
+
 SceneWithStructInjection.INJECTIONS = {"my_struct": MyStruct}
+
 
 @pytest.fixture(autouse=True)
 def clear_registry():
@@ -56,6 +62,7 @@ def clear_registry():
     MigrationRegistry._migrations = {}
     yield
     MigrationRegistry._migrations = old_migrations
+
 
 def test_scene_stack_operations():
     sm = SceneManager()
@@ -86,6 +93,7 @@ def test_scene_stack_operations():
     assert scene1.exit_called
     assert scene3.enter_called
 
+
 def test_delegation():
     sm = SceneManager()
     scene = MockScene()
@@ -101,6 +109,7 @@ def test_delegation():
     sm.handle_event(event)
     assert scene.handle_event_called
 
+
 def test_global_data_persistence(tmp_path):
     sm = SceneManager()
     sm.set_global_data("score", 100)
@@ -113,6 +122,7 @@ def test_global_data_persistence(tmp_path):
     sm2.load_global_data(str(file_path))
     assert sm2.get_global_data("score") == 100
 
+
 def test_injection_simple():
     sm = SceneManager()
     sm.set_global_data("test_data", 42)
@@ -121,6 +131,7 @@ def test_injection_simple():
     sm.push(scene)
 
     assert scene.context.data["test_data"] == 42
+
 
 def test_injection_hydration_and_migration():
     """Test hydrating a dict into a Struct and applying migration."""

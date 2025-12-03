@@ -1,9 +1,9 @@
 """
 Module defining the HungerSystem for handling food consumption and metabolism.
 """
+
 import math
 from typing import Optional
-from loguru import logger
 
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
@@ -11,6 +11,7 @@ from ..components import Transform, InteractionRequest
 from ..yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, EmotionalState
 from ..skill_service import SkillService
 from ..skill_constants import SkillId
+
 
 class HungerSystem(System):
     """
@@ -32,9 +33,16 @@ class HungerSystem(System):
         if self.skill_service is None:
             self.skill_service = world.services.try_get(SkillService)
 
-    def process_consumption(self, world: World, consumer_id: int, request: InteractionRequest,
-                             consumer_transform: Transform, consumer_stats: YukkuriStats,
-                             item_id: int, item_stats: ItemStats) -> bool:
+    def process_consumption(
+        self,
+        world: World,
+        consumer_id: int,
+        request: InteractionRequest,
+        consumer_transform: Transform,
+        consumer_stats: YukkuriStats,
+        item_id: int,
+        item_stats: ItemStats,
+    ) -> bool:
         """
         Executes the logic for eating an item.
 
@@ -57,7 +65,10 @@ class HungerSystem(System):
             return False
 
         # Verify distance
-        dist = math.hypot(consumer_transform.x - target_transform.x, consumer_transform.y - target_transform.y)
+        dist = math.hypot(
+            consumer_transform.x - target_transform.x,
+            consumer_transform.y - target_transform.y,
+        )
         if dist > 50.0:
             return False
 

@@ -2,13 +2,13 @@
 Game Loader Module.
 Responsible for initializing and registering game services and systems.
 """
+
 import inspect
-from typing import TYPE_CHECKING, Dict, Type
+from typing import TYPE_CHECKING, Type
 
 from ..engine.ecs import World
 from ..engine.event_bus import EventBus
 from ..engine.audio import AudioManager
-from ..engine.input_manager import InputManager
 from ..game import components, components_persistence, yukkuri_components
 from ..game.services import EconomyService, GameService, InputService, TimeService
 from ..game.settings_service import SettingsService
@@ -28,19 +28,27 @@ if TYPE_CHECKING:
     from ..engine.application import Application
     from ..engine.scene import SceneContext
 
+
 class GameLoader:
     """
     Helper class to load and register game components, services and systems.
     """
 
-    def __init__(self, world: World, application: 'Application', game_config: 'GameConfig'):
+    def __init__(
+        self, world: World, application: "Application", game_config: "GameConfig"
+    ):
         self.world = world
         self.application = application
         self.game_config = game_config
 
-    def register_services(self, context: 'SceneContext', audio: AudioManager,
-                         yukkurrium: Yukkurrium, physics_system: PhysicsSystem,
-                         event_bus: EventBus) -> None:
+    def register_services(
+        self,
+        context: "SceneContext",
+        audio: AudioManager,
+        yukkurrium: Yukkurrium,
+        physics_system: PhysicsSystem,
+        event_bus: EventBus,
+    ) -> None:
         """Registers services to the world."""
         self.world.services.register(audio, AudioManager)
         self.world.services.register(yukkurrium, Yukkurrium)
@@ -123,7 +131,13 @@ class GameLoader:
         ai_engine.validate_actions()
         self.world.services.register(ai_engine, UtilityAIEngine)
 
-    def register_systems(self, yukkurrium: Yukkurrium, event_bus: EventBus, physics_system: PhysicsSystem, ui_manager: 'pygame_gui.UIManager') -> 'InputSystem':
+    def register_systems(
+        self,
+        yukkurrium: Yukkurrium,
+        event_bus: EventBus,
+        physics_system: PhysicsSystem,
+        ui_manager: "pygame_gui.UIManager",
+    ) -> "InputSystem":
         """Registers all game systems."""
         input_system = SystemRegistry.register_systems(
             self.world,

@@ -1,11 +1,12 @@
 """
 Module defining data models for game configuration (TOML schema).
 """
+
 from typing import Dict, List, Optional, Any
 import msgspec
 
 
-class AnimationDefinition(msgspec.Struct): # type: ignore[misc]
+class AnimationDefinition(msgspec.Struct):  # type: ignore[misc]
     """
     Data model representing an animation sequence.
 
@@ -20,6 +21,7 @@ class AnimationDefinition(msgspec.Struct): # type: ignore[misc]
         width (Optional[int]): Width of a frame, if different from the base.
         height (Optional[int]): Height of a frame, if different from the base.
     """
+
     name: str
     frames: List[int]
     frame_duration: float
@@ -31,7 +33,7 @@ class AnimationDefinition(msgspec.Struct): # type: ignore[misc]
     height: Optional[int] = None
 
 
-class YukkuriType(msgspec.Struct): # type: ignore[misc]
+class YukkuriType(msgspec.Struct):  # type: ignore[misc]
     """
     Data model representing a type of Yukkuri.
 
@@ -45,6 +47,7 @@ class YukkuriType(msgspec.Struct): # type: ignore[misc]
         cost (int): The purchase cost of the Yukkuri. Defaults to 100.
         animations (Dict[str, AnimationDefinition]): A dictionary of animation definitions.
     """
+
     name: str
     image: str
     width: int
@@ -54,7 +57,8 @@ class YukkuriType(msgspec.Struct): # type: ignore[misc]
     cost: int = 100
     animations: Dict[str, AnimationDefinition] = {}
 
-class ItemType(msgspec.Struct): # type: ignore[misc]
+
+class ItemType(msgspec.Struct):  # type: ignore[misc]
     """
     Data model representing a type of Item.
 
@@ -69,6 +73,7 @@ class ItemType(msgspec.Struct): # type: ignore[misc]
         comfort (Optional[int]): Comfort value if the item provides comfort (e.g. bed).
         fun (Optional[int]): Fun value if the item is a toy.
     """
+
     name: str
     image: str
     width: int
@@ -79,7 +84,8 @@ class ItemType(msgspec.Struct): # type: ignore[misc]
     comfort: Optional[int] = None
     fun: Optional[int] = None
 
-class ActionEffect(msgspec.Struct): # type: ignore[misc]
+
+class ActionEffect(msgspec.Struct):  # type: ignore[misc]
     """
     Data model representing the effects of an AI action.
 
@@ -89,12 +95,14 @@ class ActionEffect(msgspec.Struct): # type: ignore[misc]
         consume (bool): Whether the target object is consumed (removed) after the action. Defaults to False.
         stat_changes (Dict[str, float]): A dictionary of stat changes to apply.
     """
+
     type: str
     target_stat: Optional[str] = None
     consume: bool = False
     stat_changes: Dict[str, float] = {}
 
-class ActionConsideration(msgspec.Struct): # type: ignore[misc]
+
+class ActionConsideration(msgspec.Struct):  # type: ignore[misc]
     """
     Data model representing a consideration (input factor) for an AI action.
 
@@ -104,12 +112,14 @@ class ActionConsideration(msgspec.Struct): # type: ignore[misc]
         curve (str): The response curve type (e.g., 'linear', 'logistic').
         params (Dict[str, float]): Parameters for the response curve.
     """
+
     name: str
     input: str
     curve: str
     params: Dict[str, float] = {}
 
-class AIAction(msgspec.Struct): # type: ignore[misc]
+
+class AIAction(msgspec.Struct):  # type: ignore[misc]
     """
     Data model representing an AI action definition.
 
@@ -118,11 +128,13 @@ class AIAction(msgspec.Struct): # type: ignore[misc]
         effects (ActionEffect): The effects resulting from the action.
         considerations (List[ActionConsideration]): A list of considerations that influence the action's score.
     """
+
     weight: float
     effects: Optional[ActionEffect] = None
     considerations: List[ActionConsideration] = []
 
-class SkillDefinition(msgspec.Struct): # type: ignore[misc]
+
+class SkillDefinition(msgspec.Struct):  # type: ignore[misc]
     """
     Data model representing a Skill definition.
 
@@ -133,40 +145,47 @@ class SkillDefinition(msgspec.Struct): # type: ignore[misc]
         decay_rate (float): XP loss per day.
         soft_cap_base_level (int): Level where soft cap starts.
     """
+
     name: str
     description: str
     max_level: int = 20
     decay_rate: float = 0.0
     soft_cap_base_level: int = 10
 
-class TraitDefinition(msgspec.Struct): # type: ignore[misc]
+
+class TraitDefinition(msgspec.Struct):  # type: ignore[misc]
     """
     Data model for a Personality Trait.
     """
+
     name: str
     description: str
     conflicts: List[str] = []
     axis_shift: Dict[str, int] = {}
     stat_modifiers: Dict[str, float] = {}
-    ai_modifiers: Dict[str, Dict[str, Any]] = {} # Complex structure, kept generic
+    ai_modifiers: Dict[str, Dict[str, Any]] = {}  # Complex structure, kept generic
     skill_modifiers: Dict[str, Dict[str, float]] = {}
     social_modifiers: Dict[str, Dict[str, float]] = {}
 
+
 # Interaction definitions are complex because they have conditions and modifiers.
 # For now we use Dict[str, Any] for flexibility or define a loose struct.
-class InteractionDefinition(msgspec.Struct): # type: ignore[misc]
+class InteractionDefinition(msgspec.Struct):  # type: ignore[misc]
     """
     Data model for a Social Interaction.
     """
+
     base_impact: float = 0.0
     social_impact: Dict[str, float] = {}
     range_type: str = "touch"
-    conditions: List[Dict[str, Any]] = [] # e.g. [{type="skill_check", ...}]
+    conditions: List[Dict[str, Any]] = []  # e.g. [{type="skill_check", ...}]
     modifiers: Dict[str, Dict[str, float]] = {}
+
 
 # --- Game Tuning Data Models (from yukkuri_tuning.json) ---
 
-class MovementVisuals(msgspec.Struct): # type: ignore[misc]
+
+class MovementVisuals(msgspec.Struct):  # type: ignore[misc]
     """
     Tuning for movement visual effects.
 
@@ -174,92 +193,115 @@ class MovementVisuals(msgspec.Struct): # type: ignore[misc]
         bob_height (float): The height of the bobbing animation.
         bob_speed (float): The speed of the bobbing animation.
     """
+
     bob_height: float = 10.0
     bob_speed: float = 5.0
 
-class VisualTuning(msgspec.Struct): # type: ignore[misc]
+
+class VisualTuning(msgspec.Struct):  # type: ignore[misc]
     """
     Container for all visual-related tuning.
 
     Attributes:
         movement (MovementVisuals): Tuning for movement visuals.
     """
+
     movement: MovementVisuals
 
-class GameTuning(msgspec.Struct): # type: ignore[misc]
+
+class GameTuning(msgspec.Struct):  # type: ignore[misc]
     """
     Root container for the main JSON tuning file.
 
     Attributes:
         visuals (VisualTuning): Visual tuning parameters.
     """
+
     visuals: VisualTuning
 
+
 # --- Root containers for the TOML structure ---
-class YukkuriData(msgspec.Struct): # type: ignore[misc]
+class YukkuriData(msgspec.Struct):  # type: ignore[misc]
     """
     Root container for Yukkuri type definitions loaded from TOML.
 
     Attributes:
         yukkuris (Dict[str, YukkuriType]): A dictionary mapping Yukkuri type names to their definitions.
     """
+
     yukkuris: Dict[str, YukkuriType]
 
-class ItemData(msgspec.Struct): # type: ignore[misc]
+
+class ItemData(msgspec.Struct):  # type: ignore[misc]
     """
     Root container for Item type definitions loaded from TOML.
 
     Attributes:
         items (Dict[str, ItemType]): A dictionary mapping item type names to their definitions.
     """
+
     items: Dict[str, ItemType]
 
-class AIData(msgspec.Struct): # type: ignore[misc]
+
+class AIData(msgspec.Struct):  # type: ignore[misc]
     """
     Root container for AI action definitions loaded from TOML.
 
     Attributes:
         actions (Dict[str, AIAction]): A dictionary mapping action names to their definitions.
     """
+
     actions: Dict[str, AIAction]
 
-class SkillData(msgspec.Struct): # type: ignore[misc]
+
+class SkillData(msgspec.Struct):  # type: ignore[misc]
     """
     Root container for Skill definitions.
     """
+
     skills: Dict[str, SkillDefinition]
 
-class TraitData(msgspec.Struct): # type: ignore[misc]
+
+class TraitData(msgspec.Struct):  # type: ignore[misc]
     """
     Root container for Trait definitions.
     """
+
     traits: Dict[str, TraitDefinition]
 
-class InteractionData(msgspec.Struct): # type: ignore[misc]
+
+class InteractionData(msgspec.Struct):  # type: ignore[misc]
     """
     Root container for Interaction definitions.
     """
+
     interaction: Dict[str, InteractionDefinition]
+
 
 class AudioSettings(msgspec.Struct):
     """
     Audio settings data model.
     """
+
     master_volume: float = 0.5
     bgm_volume: float = 0.5
     sfx_volume: float = 0.5
+
 
 class WindowSettings(msgspec.Struct):
     """
     Window settings data model.
     """
+
     width: int = 1280
     height: int = 720
     fullscreen: bool = False
+
 
 class UserSettings(msgspec.Struct):
     """
     Root container for user settings.
     """
+
     audio: AudioSettings = msgspec.field(default_factory=AudioSettings)
     window: WindowSettings = msgspec.field(default_factory=WindowSettings)

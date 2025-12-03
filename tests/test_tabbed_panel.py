@@ -3,6 +3,7 @@ import pygame
 import pygame_gui
 from yukkuri_game.game.ui.tabbed_panel import TabbedPanel
 
+
 @pytest.fixture
 def ui_manager():
     pygame.init()
@@ -11,6 +12,7 @@ def ui_manager():
     yield manager
     pygame.quit()
 
+
 def test_tabbed_panel_offset_positioning(ui_manager):
     """
     Verify that when TabbedPanel is placed at an offset, its children
@@ -18,7 +20,9 @@ def test_tabbed_panel_offset_positioning(ui_manager):
     """
     # Place panel at (100, 100)
     rect = pygame.Rect(100, 100, 400, 300)
-    panel = TabbedPanel(relative_rect=rect, manager=ui_manager, orientation='horizontal')
+    panel = TabbedPanel(
+        relative_rect=rect, manager=ui_manager, orientation="horizontal"
+    )
 
     tab1_id = panel.add_tab("Tab 1")
     panel.rebuild()
@@ -52,13 +56,17 @@ def test_tabbed_panel_offset_positioning(ui_manager):
     assert container1.rect.x == 100
     assert container1.rect.y == 100 + panel.button_height
 
+
 def test_tabbed_panel_initialization(ui_manager):
     rect = pygame.Rect(10, 10, 400, 300)
-    panel = TabbedPanel(relative_rect=rect, manager=ui_manager, orientation='horizontal')
+    panel = TabbedPanel(
+        relative_rect=rect, manager=ui_manager, orientation="horizontal"
+    )
 
     assert panel.rect == rect
-    assert panel.orientation == 'horizontal'
+    assert panel.orientation == "horizontal"
     assert panel.tab_count == 0
+
 
 def test_horizontal_layout(ui_manager):
     rect = pygame.Rect(0, 0, 400, 300)
@@ -66,8 +74,8 @@ def test_horizontal_layout(ui_manager):
     panel = TabbedPanel(
         relative_rect=rect,
         manager=ui_manager,
-        orientation='horizontal',
-        tab_button_size=button_size
+        orientation="horizontal",
+        tab_button_size=button_size,
     )
 
     tab1_id = panel.add_tab("Tab 1")
@@ -91,14 +99,15 @@ def test_horizontal_layout(ui_manager):
     assert container1.relative_rect.width == rect.width
     assert container1.relative_rect.height == rect.height - button_size[1]
 
+
 def test_vertical_layout(ui_manager):
     rect = pygame.Rect(0, 0, 400, 300)
     button_size = (100, 30)
     panel = TabbedPanel(
         relative_rect=rect,
         manager=ui_manager,
-        orientation='vertical',
-        tab_button_size=button_size
+        orientation="vertical",
+        tab_button_size=button_size,
     )
 
     tab1_id = panel.add_tab("Tab 1")
@@ -122,6 +131,7 @@ def test_vertical_layout(ui_manager):
     assert container1.relative_rect.top == 0
     assert container1.relative_rect.width == rect.width - button_size[0]
     assert container1.relative_rect.height == rect.height
+
 
 def test_tab_switching(ui_manager):
     rect = pygame.Rect(0, 0, 400, 300)

@@ -1,11 +1,13 @@
 """
 Module defining the kinematic movement system.
 """
+
 import math
 from ...engine.ecs import System, World
 from ..components import PhysicsBody, MovementController, VisualTransform
 from ..skill_service import SkillService
 from ..skill_constants import SkillId
+
 
 class MovementSystem(System):
     """
@@ -60,7 +62,9 @@ class MovementSystem(System):
 
             # 4. Calculate the vertical offset for the bobbing effect
             # Simple absolute sine wave creates a hopping/bobbing motion typical of Yukkuri.
-            bob_offset = abs(math.sin(controller.visual_bob_timer)) * controller.bob_height
+            bob_offset = (
+                abs(math.sin(controller.visual_bob_timer)) * controller.bob_height
+            )
             visual.vertical_offset = bob_offset
 
             # 5. Ensure the shadow's position is locked to the entity's ground position

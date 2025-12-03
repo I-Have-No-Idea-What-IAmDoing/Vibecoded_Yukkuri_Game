@@ -1,18 +1,20 @@
 """
 Tests for the Resource Manager.
 """
-import pytest
+
 from unittest.mock import MagicMock, patch, mock_open
-import os
 from yukkuri_game.engine.resource_manager import ResourceManager
 
 from typing import Dict
 import msgspec
 
+
 class MockModel(msgspec.Struct):
     """Mock model for testing TOML loading."""
+
     key: str
     section: Dict[str, int]
+
 
 def test_load_toml_success() -> None:
     """
@@ -27,6 +29,7 @@ def test_load_toml_success() -> None:
     assert data.key == "value"
     assert data.section["sub"] == 123
 
+
 def test_load_toml_failure() -> None:
     """
     Tests graceful failure when loading a missing TOML file.
@@ -38,6 +41,7 @@ def test_load_toml_failure() -> None:
         data = rm.load_toml_model("nonexistent.toml", MockModel)
 
     assert data is None
+
 
 @patch("yukkuri_game.engine.resource_manager.pygame.image.load")
 @patch("yukkuri_game.engine.resource_manager.os.path.exists")
@@ -58,7 +62,8 @@ def test_load_image_success(mock_exists: MagicMock, mock_load: MagicMock) -> Non
     # Test caching
     img2 = rm.load_image("test.png")
     assert img2 == mock_surface
-    mock_load.assert_called_once() # Only called once due to cache
+    mock_load.assert_called_once()  # Only called once due to cache
+
 
 @patch("yukkuri_game.engine.resource_manager.os.path.exists")
 def test_load_image_not_found(mock_exists: MagicMock) -> None:
@@ -89,6 +94,7 @@ def test_load_image_not_found(mock_exists: MagicMock) -> None:
     # This should work headless if SDL_VIDEODRIVER is dummy, but let's see.
     pass
 
+
 def test_load_all_data() -> None:
     """
     Tests loading all game data (types, items, actions).
@@ -107,7 +113,19 @@ def test_load_all_data() -> None:
 
     mock_tuning_data = MagicMock()
 
-    with patch.object(rm, 'load_toml_model', side_effect=[mock_yukkuri_data, mock_item_data, mock_ai_data, mock_tuning_data, MagicMock(), MagicMock(), MagicMock()]) as mock_load:
+    with patch.object(
+        rm,
+        "load_toml_model",
+        side_effect=[
+            mock_yukkuri_data,
+            mock_item_data,
+            mock_ai_data,
+            mock_tuning_data,
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+        ],
+    ) as mock_load:
         rm.load_all_data()
 
         assert rm.yukkuri_types == {"Reimu": {}}

@@ -1,18 +1,22 @@
 """
 Event Manager Module for Phase-Based Event System.
 """
+
 from typing import Dict, List, Callable, Any, Type
 from enum import Enum, auto
 from .event_bus import EventBus, Event
+
 
 class GamePhase(Enum):
     """
     Enum representing the different phases of the game loop.
     """
+
     PRE_UPDATE = auto()
     UPDATE = auto()
     POST_UPDATE = auto()
     RENDER = auto()
+
 
 class EventManager:
     """
@@ -23,12 +27,15 @@ class EventManager:
         bus (EventBus): The main event bus.
         _queues (Dict[GamePhase, List[Event]]): Queues for events to be processed in specific phases.
     """
+
     def __init__(self) -> None:
         """Initializes the EventManager."""
         self.bus = EventBus()
         self._queues: Dict[GamePhase, List[Event]] = {phase: [] for phase in GamePhase}
 
-    def subscribe(self, event_type: Type[Event], handler: Callable[[Any], None]) -> None:
+    def subscribe(
+        self, event_type: Type[Event], handler: Callable[[Any], None]
+    ) -> None:
         """
         Subscribe to an event type (immediate dispatch).
 
@@ -65,7 +72,9 @@ class EventManager:
             phase (GamePhase): The phase to process.
         """
         events = self._queues[phase]
-        self._queues[phase] = [] # Clear queue *before* processing to handle recursive events properly if needed
+        self._queues[
+            phase
+        ] = []  # Clear queue *before* processing to handle recursive events properly if needed
 
         for event in events:
             self.bus.publish(event)

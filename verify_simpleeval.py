@@ -1,5 +1,6 @@
 from simpleeval import SimpleEval
 
+
 def test_dot_notation():
     s = SimpleEval()
 
@@ -21,6 +22,7 @@ def test_dot_notation():
         print(f"SimpleEval: Dict dot notation: {result}")
     except Exception as e:
         print(f"SimpleEval: Dict dot notation failed: {e}")
+
 
 if __name__ == "__main__":
     test_dot_notation()

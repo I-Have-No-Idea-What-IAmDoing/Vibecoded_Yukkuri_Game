@@ -1,9 +1,10 @@
 """
 Module defining the HUD logic.
 """
+
 import pygame
 import pygame_gui
-from typing import TYPE_CHECKING, List, Optional, Callable
+from typing import List
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
 from ..events import EntitySelectedEvent, GamePausedEvent, LogMessageEvent
@@ -14,6 +15,7 @@ from ...engine.resource_manager import ResourceManager
 from .hud_layout import HudLayout
 from .hud_events import HudEvents
 from .hud_renderer import HudRenderer
+
 
 class HUD:
     """
@@ -41,9 +43,13 @@ class HUD:
         self.height = 720
 
         # Initialize Components
-        self.layout = HudLayout(self.manager, self.width, self.height, rm.yukkuri_types, rm.item_types)
+        self.layout = HudLayout(
+            self.manager, self.width, self.height, rm.yukkuri_types, rm.item_types
+        )
 
-        self.events = HudEvents(self.layout, self.world, self.event_bus, self.show_error)
+        self.events = HudEvents(
+            self.layout, self.world, self.event_bus, self.show_error
+        )
 
         self.renderer = HudRenderer(self.layout, self.world)
 
@@ -87,8 +93,13 @@ class HUD:
             self.layout.log_box.append_html_text(message)
 
             # Scroll to bottom
-            if hasattr(self.layout.log_box, "scroll_bar") and self.layout.log_box.scroll_bar:
-                self.layout.log_box.scroll_bar.scroll_position = self.layout.log_box.scroll_bar.scrollable_height
+            if (
+                hasattr(self.layout.log_box, "scroll_bar")
+                and self.layout.log_box.scroll_bar
+            ):
+                self.layout.log_box.scroll_bar.scroll_position = (
+                    self.layout.log_box.scroll_bar.scrollable_height
+                )
                 self.layout.log_box.scroll_bar.update(0)
 
     def on_entity_selected(self, event: EntitySelectedEvent) -> None:
@@ -116,7 +127,7 @@ class HUD:
             None
         """
         if self.layout.pause_btn:
-             self.layout.pause_btn.set_text("Resume" if event.paused else "Pause")
+            self.layout.pause_btn.set_text("Resume" if event.paused else "Pause")
 
     def update(self, dt: float) -> None:
         """
@@ -130,7 +141,7 @@ class HUD:
         Returns:
             None
         """
-        self.renderer.fps = self.fps # Sync FPS
+        self.renderer.fps = self.fps  # Sync FPS
 
         # Selection is now handled via events, so we don't need to poll
 
@@ -160,8 +171,13 @@ class HUD:
             has_stats = self.world.has_component(entity_id, YukkuriStats)
             self.layout.create_selection_window(has_stats, 1)
         else:
-            all_yukkuris = all(self.world.has_component(eid, YukkuriStats) for eid in self.selected_entities)
-            self.layout.create_selection_window(all_yukkuris, len(self.selected_entities))
+            all_yukkuris = all(
+                self.world.has_component(eid, YukkuriStats)
+                for eid in self.selected_entities
+            )
+            self.layout.create_selection_window(
+                all_yukkuris, len(self.selected_entities)
+            )
 
     def toggle_debug(self) -> None:
         """
@@ -205,7 +221,10 @@ class HUD:
         # Check if event processing resulted in state changes we need to react to immediately
         # For example, if sold, we need to clear selection
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
-            if hasattr(self.layout, 'sell_btn') and event.ui_element == self.layout.sell_btn:
+            if (
+                hasattr(self.layout, "sell_btn")
+                and event.ui_element == self.layout.sell_btn
+            ):
                 # The event handler called sell, we need to clear selection locally
                 self.selected_entities = []
                 self.layout.close_selection_window()

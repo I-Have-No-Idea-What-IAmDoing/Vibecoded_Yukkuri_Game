@@ -1,15 +1,21 @@
 """
 Module defining the FamilySystem logic.
 """
-from typing import List, Optional
-import time
+
+from typing import Optional
 import random
 from loguru import logger
 
 from ...engine.ecs import System, World
-from ..services import TimeService
-from ..yukkuri_components import YukkuriStats, Needs, RelationshipRegistry, RelationshipData, AIState, EmotionalState
+from ..yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    RelationshipRegistry,
+    AIState,
+    EmotionalState,
+)
 from ..systems.sector_system import SectorMap
+
 
 class FamilySystem(System):
     """
@@ -26,7 +32,7 @@ class FamilySystem(System):
     def __init__(self) -> None:
         """Initializes the FamilySystem."""
         super().__init__()
-        self.check_interval = 2.0 # Check more frequently for resource sharing
+        self.check_interval = 2.0  # Check more frequently for resource sharing
         self.last_check = 0.0
 
     def update(self, world: World, dt: float) -> None:
@@ -71,22 +77,33 @@ class FamilySystem(System):
                     # Potential mate or family member
                     other_registry = world.get_component(other_id, RelationshipRegistry)
                     if not other_registry:
-                         continue
+                        continue
 
                     # If neither has a family, create one
-                    if registry.family_group_id is None and other_registry.family_group_id is None:
+                    if (
+                        registry.family_group_id is None
+                        and other_registry.family_group_id is None
+                    ):
                         # Use deterministic random bits
                         new_family_id = random.getrandbits(32)
                         registry.family_group_id = new_family_id
                         other_registry.family_group_id = new_family_id
-                        logger.info(f"New Family Formed: {stats.name} and Entity {other_id}")
+                        logger.info(
+                            f"New Family Formed: {stats.name} and Entity {other_id}"
+                        )
 
                     # If one has a family and other doesn't, join
-                    elif registry.family_group_id is not None and other_registry.family_group_id is None:
+                    elif (
+                        registry.family_group_id is not None
+                        and other_registry.family_group_id is None
+                    ):
                         other_registry.family_group_id = registry.family_group_id
                         logger.info(f"Entity {other_id} joined family of {stats.name}")
 
-                    elif registry.family_group_id is None and other_registry.family_group_id is not None:
+                    elif (
+                        registry.family_group_id is None
+                        and other_registry.family_group_id is not None
+                    ):
                         registry.family_group_id = other_registry.family_group_id
                         logger.info(f"{stats.name} joined family of Entity {other_id}")
 
@@ -101,7 +118,6 @@ class FamilySystem(System):
         Returns:
             None
         """
-        from ..components import Transform
 
         sector_map = world.services.try_get(SectorMap)
 
@@ -112,10 +128,14 @@ class FamilySystem(System):
             # Fallback to O(N^2)
             self._process_benefits_fallback(world)
 
-    def _process_benefits_with_sectors(self, world: World, sector_map: SectorMap) -> None:
+    def _process_benefits_with_sectors(
+        self, world: World, sector_map: SectorMap
+    ) -> None:
         from ..components import Transform
 
-        entities = world.get_entities_with(RelationshipRegistry, YukkuriStats, Needs, Transform, AIState)
+        entities = world.get_entities_with(
+            RelationshipRegistry, YukkuriStats, Needs, Transform, AIState
+        )
 
         # To avoid processing pairs twice, we only process if eid < other_eid.
         # But sector queries return neighbors, so we just filter.
@@ -139,13 +159,16 @@ class FamilySystem(System):
             neighbors = sector_map.get_entities_in_range(trans.x, trans.y, "visual")
 
             for other_eid in neighbors:
-                if other_eid <= eid: # Ensure unique pair (A, B) and avoid (A, A)
+                if other_eid <= eid:  # Ensure unique pair (A, B) and avoid (A, A)
                     continue
 
                 # Check components existence for neighbor
                 # Optimization: We could use `world.has_components` but retrieving them checks anyway.
                 other_reg = world.get_component(other_eid, RelationshipRegistry)
-                if other_reg is None or other_reg.family_group_id != reg.family_group_id:
+                if (
+                    other_reg is None
+                    or other_reg.family_group_id != reg.family_group_id
+                ):
                     continue
 
                 other_trans = world.get_component(other_eid, Transform)
@@ -154,22 +177,35 @@ class FamilySystem(System):
                 other_needs = world.get_component(other_eid, Needs)
                 other_emotional = world.get_component(other_eid, EmotionalState)
 
-                if other_trans is None or other_ai is None or other_stats is None or other_needs is None:
+                if (
+                    other_trans is None
+                    or other_ai is None
+                    or other_stats is None
+                    or other_needs is None
+                ):
                     continue
 
                 self._apply_benefit_pair(
-                    eid, other_eid,
-                    stats, other_stats,
-                    needs, other_needs,
-                    trans, other_trans,
-                    ai, other_ai,
-                    emotional, other_emotional
+                    eid,
+                    other_eid,
+                    stats,
+                    other_stats,
+                    needs,
+                    other_needs,
+                    trans,
+                    other_trans,
+                    ai,
+                    other_ai,
+                    emotional,
+                    other_emotional,
                 )
 
     def _process_benefits_fallback(self, world: World) -> None:
         from ..components import Transform
 
-        entities = world.get_entities_with(RelationshipRegistry, YukkuriStats, Needs, Transform, AIState)
+        entities = world.get_entities_with(
+            RelationshipRegistry, YukkuriStats, Needs, Transform, AIState
+        )
 
         for i, eid in enumerate(entities):
             reg = world.get_component(eid, RelationshipRegistry)
@@ -189,7 +225,10 @@ class FamilySystem(System):
                 other_eid = entities[j]
                 other_reg = world.get_component(other_eid, RelationshipRegistry)
 
-                if other_reg is None or other_reg.family_group_id != reg.family_group_id:
+                if (
+                    other_reg is None
+                    or other_reg.family_group_id != reg.family_group_id
+                ):
                     continue
 
                 # Same family
@@ -199,31 +238,48 @@ class FamilySystem(System):
                 other_needs = world.get_component(other_eid, Needs)
                 other_emotional = world.get_component(other_eid, EmotionalState)
 
-                if other_trans is None or other_ai is None or other_stats is None or other_needs is None:
+                if (
+                    other_trans is None
+                    or other_ai is None
+                    or other_stats is None
+                    or other_needs is None
+                ):
                     continue
 
                 self._apply_benefit_pair(
-                    eid, other_eid,
-                    stats, other_stats,
-                    needs, other_needs,
-                    trans, other_trans,
-                    ai, other_ai,
-                    emotional, other_emotional
+                    eid,
+                    other_eid,
+                    stats,
+                    other_stats,
+                    needs,
+                    other_needs,
+                    trans,
+                    other_trans,
+                    ai,
+                    other_ai,
+                    emotional,
+                    other_emotional,
                 )
 
     def _apply_benefit_pair(
-        self, eid: int, other_eid: int,
-        stats: YukkuriStats, other_stats: YukkuriStats,
-        needs: Needs, other_needs: Needs,
-        trans: "Transform", other_trans: "Transform",
-        ai: AIState, other_ai: AIState,
-        emotional: Optional[EmotionalState], other_emotional: Optional[EmotionalState]
+        self,
+        eid: int,
+        other_eid: int,
+        stats: YukkuriStats,
+        other_stats: YukkuriStats,
+        needs: Needs,
+        other_needs: Needs,
+        trans: "Transform",
+        other_trans: "Transform",
+        ai: AIState,
+        other_ai: AIState,
+        emotional: Optional[EmotionalState],
+        other_emotional: Optional[EmotionalState],
     ) -> None:
         """Helper to apply benefits between two entities."""
 
-        dist_sq = (trans.x - other_trans.x)**2 + (trans.y - other_trans.y)**2
-        if dist_sq < 150 * 150: # Range for family benefits
-
+        dist_sq = (trans.x - other_trans.x) ** 2 + (trans.y - other_trans.y) ** 2
+        if dist_sq < 150 * 150:  # Range for family benefits
             # 1. Base "Together" Happiness
             if emotional:
                 emotional.happiness = min(100.0, emotional.happiness + 0.5)
@@ -236,21 +292,33 @@ class FamilySystem(System):
             # If one is eating, share nutrition/happiness with hungry partner
             # (Simulates "Here, have some" or calling to food)
             if ai.current_action == "Eat" and other_needs.hunger > 50.0:
-                    other_needs.hunger = max(0.0, other_needs.hunger - 1.0) # Share small benefit
-                    if other_emotional: other_emotional.happiness = min(100.0, other_emotional.happiness + 0.5)
-                    logger.debug(f"Family Share: {stats.name} sharing food with {other_stats.name}")
+                other_needs.hunger = max(
+                    0.0, other_needs.hunger - 1.0
+                )  # Share small benefit
+                if other_emotional:
+                    other_emotional.happiness = min(
+                        100.0, other_emotional.happiness + 0.5
+                    )
+                logger.debug(
+                    f"Family Share: {stats.name} sharing food with {other_stats.name}"
+                )
 
             elif other_ai.current_action == "Eat" and needs.hunger > 50.0:
-                    needs.hunger = max(0.0, needs.hunger - 1.0)
-                    if emotional: emotional.happiness = min(100.0, emotional.happiness + 0.5)
-                    logger.debug(f"Family Share: {other_stats.name} sharing food with {stats.name}")
+                needs.hunger = max(0.0, needs.hunger - 1.0)
+                if emotional:
+                    emotional.happiness = min(100.0, emotional.happiness + 0.5)
+                logger.debug(
+                    f"Family Share: {other_stats.name} sharing food with {stats.name}"
+                )
 
             # 3. Resource Sharing: Nest/Sleep
             # If one is sleeping, boost comfort/recovery for nearby partner (simulating shared nest)
             if ai.current_action == "Sleep":
                 other_needs.energy = min(100.0, other_needs.energy + 0.5)
-                if other_emotional: other_emotional.stress = max(0.0, other_emotional.stress - 1.0)
+                if other_emotional:
+                    other_emotional.stress = max(0.0, other_emotional.stress - 1.0)
 
             if other_ai.current_action == "Sleep":
                 needs.energy = min(100.0, needs.energy + 0.5)
-                if emotional: emotional.stress = max(0.0, emotional.stress - 1.0)
+                if emotional:
+                    emotional.stress = max(0.0, emotional.stress - 1.0)

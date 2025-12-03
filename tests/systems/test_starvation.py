@@ -1,12 +1,9 @@
 
-import sys
-import os
-import pytest
-
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.config import StatDecaySettings
+
 
 def test_starvation_decay():
     world = World()
@@ -18,16 +15,12 @@ def test_starvation_decay():
     entity = world.create_entity()
 
     # Initialize stats with max hunger (starving)
-    stats = YukkuriStats(
-        name="TestYukkuri",
-        type_id="test",
-        age=0.0
-    )
+    stats = YukkuriStats(name="TestYukkuri", type_id="test", age=0.0)
 
     needs = Needs(
         max_health=100.0,
         health=100.0,
-        hunger=100.0, # Starving
+        hunger=100.0,  # Starving
         energy=50.0,
         cleanliness=50.0,
     )
@@ -47,6 +40,7 @@ def test_starvation_decay():
     assert needs.health < 100.0
     assert needs.health == 90.0
 
+
 def test_no_decay_when_not_starving():
     world = World()
     settings = StatDecaySettings(starvation_damage=10.0)
@@ -56,16 +50,12 @@ def test_no_decay_when_not_starving():
     entity = world.create_entity()
 
     # Initialize stats with high hunger but not starving
-    stats = YukkuriStats(
-        name="TestYukkuri",
-        type_id="test",
-        age=0.0
-    )
+    stats = YukkuriStats(name="TestYukkuri", type_id="test", age=0.0)
 
     needs = Needs(
         max_health=100.0,
         health=100.0,
-        hunger=90.0, # Decreased from 99.0 so that adding 2.0 decay doesn't exceed 100.0
+        hunger=90.0,  # Decreased from 99.0 so that adding 2.0 decay doesn't exceed 100.0
         energy=50.0,
         cleanliness=50.0,
     )

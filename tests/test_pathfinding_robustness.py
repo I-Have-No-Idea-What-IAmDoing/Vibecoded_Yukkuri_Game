@@ -1,4 +1,3 @@
-
 import unittest
 import pymunk
 from unittest.mock import MagicMock
@@ -6,9 +5,9 @@ from yukkuri_game.game.ai.behavior import MoveToTarget
 from yukkuri_game.game.components import Transform, PhysicsBody, MovementController
 from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, Needs
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.services import GameService
 from yukkuri_game.game.ai.navigation_service import NavigationService
 import py_trees
+
 
 class TestPathfindingRobustness(unittest.TestCase):
     def setUp(self):
@@ -18,7 +17,9 @@ class TestPathfindingRobustness(unittest.TestCase):
         # Mock components
         self.world.add_component(self.entity_id, Transform(x=0, y=0))
         self.world.add_component(self.entity_id, AIState())
-        self.world.add_component(self.entity_id, YukkuriStats(name="Test", type_id="test"))
+        self.world.add_component(
+            self.entity_id, YukkuriStats(name="Test", type_id="test")
+        )
         self.world.add_component(self.entity_id, Needs(energy=100.0))
         self.world.add_component(self.entity_id, MovementController())
 
@@ -29,7 +30,7 @@ class TestPathfindingRobustness(unittest.TestCase):
         # Use a filter that doesn't match the raycast filter (0b1)
         # We'll set the category of the entity to something else or 0, so it doesn't block the ray
         shape = pymunk.Circle(body, 10)
-        shape.filter = pymunk.ShapeFilter(categories=0b10) # Category 2
+        shape.filter = pymunk.ShapeFilter(categories=0b10)  # Category 2
         self.space.add(body, shape)
         self.world.add_component(self.entity_id, PhysicsBody(body=body, shape=shape))
 
@@ -58,5 +59,6 @@ class TestPathfindingRobustness(unittest.TestCase):
         controller = self.world.get_component(self.entity_id, MovementController)
         self.assertNotEqual(controller.target_velocity, (0, 0))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

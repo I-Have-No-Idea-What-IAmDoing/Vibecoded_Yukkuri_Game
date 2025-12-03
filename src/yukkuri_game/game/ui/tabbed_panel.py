@@ -5,10 +5,12 @@ from pygame_gui.core import ObjectID, UIElement
 from pygame_gui.core.interfaces import IContainerLikeInterface, IUIManagerInterface
 from pygame_gui.elements import UITabContainer, UIButton, UIPanel
 
+
 class TabbedPanel(UITabContainer):
     """
     A tabbed panel that supports both horizontal and vertical orientation.
     """
+
     def __init__(
         self,
         relative_rect: pygame.Rect,
@@ -19,8 +21,8 @@ class TabbedPanel(UITabContainer):
         object_id: Optional[Union[ObjectID, str]] = None,
         anchors: Optional[Dict[str, str]] = None,
         visible: int = 1,
-        orientation: str = 'horizontal',
-        tab_button_size: Tuple[int, int] = (150, 30)
+        orientation: str = "horizontal",
+        tab_button_size: Tuple[int, int] = (150, 30),
     ):
         self.orientation = orientation
         self.tab_button_size = tab_button_size
@@ -33,7 +35,7 @@ class TabbedPanel(UITabContainer):
             parent_element=parent_element,
             object_id=object_id,
             anchors=anchors,
-            visible=visible
+            visible=visible,
         )
 
         # Override button_height if provided via tab_button_size
@@ -50,13 +52,10 @@ class TabbedPanel(UITabContainer):
         width = self.rect.width
         height = self.rect.height
 
-        if self.orientation == 'vertical':
+        if self.orientation == "vertical":
             # Tabs on the left, content on the right
             return pygame.Rect(
-                self.button_width,
-                0,
-                max(0, width - self.button_width),
-                height
+                self.button_width, 0, max(0, width - self.button_width), height
             )
         else:
             # Tabs on top, content below (default behavior)
@@ -77,14 +76,16 @@ class TabbedPanel(UITabContainer):
         # We must use self._root_container as container for children, verified by test.
 
         # Calculate button rect
-        if self.orientation == 'vertical':
+        if self.orientation == "vertical":
             furthest_bottom = 0
             if len(self.tabs) > 0:
-                 # Sum of heights of previous buttons
-                 for tab in self.tabs:
-                     furthest_bottom += tab["button"].rect.height
+                # Sum of heights of previous buttons
+                for tab in self.tabs:
+                    furthest_bottom += tab["button"].rect.height
 
-            button_rect = pygame.Rect(0, furthest_bottom, self.button_width, self.button_height)
+            button_rect = pygame.Rect(
+                0, furthest_bottom, self.button_width, self.button_height
+            )
             max_button_width = self.button_width
 
         else:
@@ -102,11 +103,11 @@ class TabbedPanel(UITabContainer):
             manager=self.ui_manager,
             container=self._root_container,
             parent_element=self,
-            object_id=ObjectID(title_object_id, "@tab_title_button")
+            object_id=ObjectID(title_object_id, "@tab_title_button"),
         )
 
-        if self.orientation == 'horizontal':
-             button.max_dynamic_width = max_button_width
+        if self.orientation == "horizontal":
+            button.max_dynamic_width = max_button_width
 
         container_rect = self._calculate_container_rect_by_layout()
         container = UIPanel(
@@ -140,7 +141,7 @@ class TabbedPanel(UITabContainer):
         if count is None:
             count = len(self.tabs)
 
-        if self.orientation == 'vertical':
+        if self.orientation == "vertical":
             current_bottom = 0
             for i, tab in enumerate(self.tabs, 0):
                 button: UIButton = tab["button"]

@@ -1,8 +1,10 @@
 """
 Prefab for Enemy entities.
 """
+
 from ...engine.ecs import World
 from .yukkuri import create_yukkuri
+
 
 def create_enemy(world: World, type_id: str, x: float, y: float, **kwargs) -> int:
     """

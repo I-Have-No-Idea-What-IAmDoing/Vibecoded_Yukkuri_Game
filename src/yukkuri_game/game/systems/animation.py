@@ -1,6 +1,7 @@
 """
 Module defining the AnimationSystem logic.
 """
+
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
@@ -8,6 +9,7 @@ from ..components import Sprite, Animator
 from ..yukkuri_components import AIState, YukkuriStats
 from ..events import AnimationEvent
 from typing import Optional
+
 
 class AnimationSystem(System):
     """
@@ -75,7 +77,9 @@ class AnimationSystem(System):
                         sprite.is_animating = False
                         break
 
-    def _update_animator(self, entity_id: int, animator: Animator, sprite: Sprite, dt: float) -> None:
+    def _update_animator(
+        self, entity_id: int, animator: Animator, sprite: Sprite, dt: float
+    ) -> None:
         """
         Updates the Animator component and syncs it to the Sprite.
 
@@ -102,7 +106,10 @@ class AnimationSystem(System):
 
         if animator.finished:
             # Check for auto-transition
-            if animator.next_animation and animator.next_animation in animator.animations:
+            if (
+                animator.next_animation
+                and animator.next_animation in animator.animations
+            ):
                 self._switch_animation(animator, animator.next_animation)
             return
 
@@ -119,18 +126,22 @@ class AnimationSystem(System):
                 if animator.forward:
                     animator.current_frame_index += 1
                     if animator.current_frame_index >= len(current_anim_def.frames):
-                        animator.current_frame_index -= 2 # Go back
+                        animator.current_frame_index -= 2  # Go back
                         animator.forward = False
-                        if animator.current_frame_index < 0: # Single frame ping-pong edge case
+                        if (
+                            animator.current_frame_index < 0
+                        ):  # Single frame ping-pong edge case
                             animator.current_frame_index = 0
                             animator.forward = True
                 else:
                     animator.current_frame_index -= 1
                     if animator.current_frame_index < 0:
-                        animator.current_frame_index = 1 # Go forward
+                        animator.current_frame_index = 1  # Go forward
                         animator.forward = True
                         if animator.current_frame_index >= len(current_anim_def.frames):
-                             animator.current_frame_index = 0 # Should not happen unless len=1
+                            animator.current_frame_index = (
+                                0  # Should not happen unless len=1
+                            )
             else:
                 # Standard loop or single play
                 animator.current_frame_index += 1
@@ -147,15 +158,17 @@ class AnimationSystem(System):
             if frame_changed and self.event_bus:
                 event_name = current_anim_def.events.get(animator.current_frame_index)
                 if event_name:
-                    self.event_bus.publish(AnimationEvent(
-                        entity_id=entity_id,
-                        event_type=event_name,
-                        animation_name=animator.current_animation,
-                        frame_index=animator.current_frame_index
-                    ))
+                    self.event_bus.publish(
+                        AnimationEvent(
+                            entity_id=entity_id,
+                            event_type=event_name,
+                            animation_name=animator.current_animation,
+                            frame_index=animator.current_frame_index,
+                        )
+                    )
 
             if animator.finished:
-                 break
+                break
 
         # Sync to Sprite
         if 0 <= animator.current_frame_index < len(current_anim_def.frames):
@@ -163,12 +176,17 @@ class AnimationSystem(System):
 
         # Check for auto-transition immediately if finished
         if animator.finished:
-            if animator.next_animation and animator.next_animation in animator.animations:
+            if (
+                animator.next_animation
+                and animator.next_animation in animator.animations
+            ):
                 self._switch_animation(animator, animator.next_animation)
                 # Update the sprite immediately for the new animation
                 new_anim_def = animator.animations[animator.current_animation]
                 if 0 <= animator.current_frame_index < len(new_anim_def.frames):
-                     sprite.current_frame = new_anim_def.frames[animator.current_frame_index]
+                    sprite.current_frame = new_anim_def.frames[
+                        animator.current_frame_index
+                    ]
 
     def _switch_animation(self, animator: Animator, new_anim: str) -> None:
         """
@@ -200,10 +218,15 @@ class AnimationSystem(System):
         """
         target_anim = ai_state.current_action.lower()
 
-        if target_anim in animator.animations and target_anim != animator.current_animation:
+        if (
+            target_anim in animator.animations
+            and target_anim != animator.current_animation
+        ):
             self._switch_animation(animator, target_anim)
 
-    def _update_dynamic_sprite(self, world: World, entity: int, sprite: Sprite, rm: Optional[ResourceManager]) -> None:
+    def _update_dynamic_sprite(
+        self, world: World, entity: int, sprite: Sprite, rm: Optional[ResourceManager]
+    ) -> None:
         """
         Updates the sprite image based on AIState if no Animator is present.
 

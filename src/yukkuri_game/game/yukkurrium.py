@@ -1,13 +1,20 @@
 """
 Module handling the game world view and rendering logic.
 """
+
 import pygame
-from loguru import logger
 from ..engine.ecs import World
-from .components import Transform, Sprite, Selectable, FloatingText, PhysicsBody, VisualTransform
+from .components import (
+    Transform,
+    Sprite,
+    Selectable,
+    FloatingText,
+    PhysicsBody,
+    VisualTransform,
+)
 from ..engine.resource_manager import ResourceManager
 from ..config import WorldSettings
-from typing import Tuple
+
 
 class Yukkurrium:
     """
@@ -44,7 +51,9 @@ class Yukkurrium:
         self.min_zoom = 0.5
         self.max_zoom = 2.0
 
-    def world_to_screen(self, wx: float, wy: float, screen_w: int, screen_h: int) -> tuple[float, float]:
+    def world_to_screen(
+        self, wx: float, wy: float, screen_w: int, screen_h: int
+    ) -> tuple[float, float]:
         """
         Converts world coordinates to screen coordinates.
 
@@ -63,7 +72,9 @@ class Yukkurrium:
         sy = (wy - self.camera_y) * self.zoom + screen_h / 2
         return sx, sy
 
-    def screen_to_world(self, sx: float, sy: float, screen_w: int, screen_h: int) -> tuple[float, float]:
+    def screen_to_world(
+        self, sx: float, sy: float, screen_w: int, screen_h: int
+    ) -> tuple[float, float]:
         """
         Converts screen coordinates to world coordinates.
         Inverse of world_to_screen.
@@ -83,7 +94,9 @@ class Yukkurrium:
         wy = (sy - screen_h / 2) / self.zoom + self.camera_y
         return wx, wy
 
-    def handle_input(self, event: pygame.event.Event, screen_w: int, screen_h: int) -> None:
+    def handle_input(
+        self, event: pygame.event.Event, screen_w: int, screen_h: int
+    ) -> None:
         """
         Handles input for camera control (zoom and pan).
 
@@ -100,7 +113,7 @@ class Yukkurrium:
             self.target_zoom += event.y * 0.1
             self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
         elif event.type == pygame.MOUSEMOTION:
-            if pygame.mouse.get_pressed()[1]: # Middle mouse button
+            if pygame.mouse.get_pressed()[1]:  # Middle mouse button
                 # Pan the camera
                 dx, dy = event.rel
                 # Adjust panning speed by zoom so it feels natural at all levels
@@ -112,11 +125,15 @@ class Yukkurrium:
                 if event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
                     # Zoom In with Keyboard
                     self.target_zoom += 0.1
-                    self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
+                    self.target_zoom = max(
+                        self.min_zoom, min(self.max_zoom, self.target_zoom)
+                    )
                 elif event.key == pygame.K_MINUS:
                     # Zoom Out with Keyboard
                     self.target_zoom -= 0.1
-                    self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
+                    self.target_zoom = max(
+                        self.min_zoom, min(self.max_zoom, self.target_zoom)
+                    )
 
     def clear(self) -> None:
         """Reset camera to default."""
@@ -137,7 +154,9 @@ class Yukkurrium:
         """
         # Handle continuous camera movement via keyboard
         keys = pygame.key.get_pressed()
-        speed = 500.0 * dt / self.zoom  # Adjust speed based on zoom so movement is consistent relative to screen
+        speed = (
+            500.0 * dt / self.zoom
+        )  # Adjust speed based on zoom so movement is consistent relative to screen
 
         if keys[pygame.K_w] or keys[pygame.K_UP]:
             self.camera_y -= speed
@@ -152,6 +171,7 @@ class Yukkurrium:
         # Using linear interpolation (Lerp) with a factor of 5.0 for smooth transition
         self.zoom += (self.target_zoom - self.zoom) * 5.0 * dt
 
+
 class WorldRenderer:
     """
     Handles the pure drawing logic for the game world.
@@ -163,7 +183,12 @@ class WorldRenderer:
         font_cache (dict): Cache of pygame fonts.
     """
 
-    def __init__(self, screen: pygame.Surface, yukkurrium: Yukkurrium, resource_manager: ResourceManager):
+    def __init__(
+        self,
+        screen: pygame.Surface,
+        yukkurrium: Yukkurrium,
+        resource_manager: ResourceManager,
+    ):
         """
         Initializes the WorldRenderer.
 
@@ -206,9 +231,11 @@ class WorldRenderer:
         self.draw_grid()
 
         # Render entities
-        entities = world.get_entities_with(Transform, Sprite, PhysicsBody, VisualTransform)
+        entities = world.get_entities_with(
+            Transform, Sprite, PhysicsBody, VisualTransform
+        )
         # Sort by Y for depth (ground position)
-        entities.sort(key=lambda e: getattr(world.get_component(e, Transform), 'y', 0))
+        entities.sort(key=lambda e: getattr(world.get_component(e, Transform), "y", 0))
 
         sw, sh = self.screen.get_size()
 
@@ -218,26 +245,38 @@ class WorldRenderer:
             phys_body = world.get_component(ent, PhysicsBody)
             visual_transform = world.get_component(ent, VisualTransform)
 
-            if transform is None or sprite is None or phys_body is None or visual_transform is None:
+            if (
+                transform is None
+                or sprite is None
+                or phys_body is None
+                or visual_transform is None
+            ):
                 continue
 
             # --- Draw Shadow ---
             shadow_x, shadow_y = self.yukkurrium.world_to_screen(
                 visual_transform.shadow_position.x,
                 visual_transform.shadow_position.y,
-                sw, sh
+                sw,
+                sh,
             )
-            shadow_radius_x = int(sprite.width * transform.scale * self.yukkurrium.zoom * 0.4)
+            shadow_radius_x = int(
+                sprite.width * transform.scale * self.yukkurrium.zoom * 0.4
+            )
             shadow_radius_y = int(shadow_radius_x * 0.5)
 
             # --- Draw Sprite ---
             img = self.rm.load_image(sprite.image_name)
 
             # Calculate screen position
-            base_screen_x, base_screen_y = self.yukkurrium.world_to_screen(transform.x, transform.y, sw, sh)
+            base_screen_x, base_screen_y = self.yukkurrium.world_to_screen(
+                transform.x, transform.y, sw, sh
+            )
 
             # Apply vertical offset for hopping effect, scaled by zoom
-            screen_y = base_screen_y - (visual_transform.vertical_offset * self.yukkurrium.zoom)
+            screen_y = base_screen_y - (
+                visual_transform.vertical_offset * self.yukkurrium.zoom
+            )
 
             # Scale
             scale = transform.scale * self.yukkurrium.zoom
@@ -254,20 +293,26 @@ class WorldRenderer:
                 # Ensure source_rect is within image bounds
                 if source_rect.right > img_width or source_rect.bottom > img_height:
                     if img_width < sprite.width or img_height < sprite.height:
-                        frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
+                        frame_img = pygame.transform.scale(
+                            img, (sprite.width, sprite.height)
+                        )
                     else:
                         frame_img = img.subsurface(source_rect.clip(img.get_rect()))
                 else:
                     frame_img = img.subsurface(source_rect)
             else:
                 if img_width != sprite.width or img_height != sprite.height:
-                    frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
+                    frame_img = pygame.transform.scale(
+                        img, (sprite.width, sprite.height)
+                    )
                 else:
                     frame_img = img
 
             # Apply flips
             if sprite.flip_x or sprite.flip_y:
-                frame_img = pygame.transform.flip(frame_img, sprite.flip_x, sprite.flip_y)
+                frame_img = pygame.transform.flip(
+                    frame_img, sprite.flip_x, sprite.flip_y
+                )
 
             if scale != 1.0:
                 w = int(sprite.width * scale)
@@ -284,10 +329,17 @@ class WorldRenderer:
             # Culling
             if rect.colliderect(self.screen.get_rect()):
                 if shadow_radius_x > 0 and shadow_radius_y > 0:
-                    shadow_color = (0, 0, 0, 100) # RGBA with transparency
-                    shadow_surface = pygame.Surface((shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA)
-                    pygame.draw.ellipse(shadow_surface, shadow_color, shadow_surface.get_rect())
-                    self.screen.blit(shadow_surface, (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y))
+                    shadow_color = (0, 0, 0, 100)  # RGBA with transparency
+                    shadow_surface = pygame.Surface(
+                        (shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA
+                    )
+                    pygame.draw.ellipse(
+                        shadow_surface, shadow_color, shadow_surface.get_rect()
+                    )
+                    self.screen.blit(
+                        shadow_surface,
+                        (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y),
+                    )
                 self.screen.blit(scaled_img, rect)
 
                 # Selection highlight
@@ -310,7 +362,9 @@ class WorldRenderer:
         Returns:
             None
         """
-        for entity, (transform, text_comp) in world.get_components_tuple(Transform, FloatingText):
+        for entity, (transform, text_comp) in world.get_components_tuple(
+            Transform, FloatingText
+        ):
             font = self._get_font(text_comp.size)
 
             # Render text surface
@@ -323,7 +377,9 @@ class WorldRenderer:
                 text_surface.set_alpha(alpha)
 
             # Calculate screen position
-            screen_x, screen_y = self.yukkurrium.world_to_screen(transform.x, transform.y, screen_w, screen_h)
+            screen_x, screen_y = self.yukkurrium.world_to_screen(
+                transform.x, transform.y, screen_w, screen_h
+            )
 
             # Center text
             rect = text_surface.get_rect(center=(int(screen_x), int(screen_y)))

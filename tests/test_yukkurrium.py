@@ -5,14 +5,23 @@ from yukkuri_game.game.yukkurrium import Yukkurrium, WorldRenderer
 from yukkuri_game.game.systems.render_system import RenderSystem
 from yukkuri_game.game.systems.time_system import TimeSystem
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform, Sprite, Selectable, PhysicsBody, VisualTransform
+from yukkuri_game.game.components import (
+    Transform,
+    Sprite,
+    Selectable,
+    PhysicsBody,
+    VisualTransform,
+)
+
 
 @pytest.fixture
 def yukkurrium():
     pygame.init()
     from yukkuri_game.config import WorldSettings
+
     settings = WorldSettings(width=1000, height=1000)
     return Yukkurrium(settings)
+
 
 def test_coordinate_conversion(yukkurrium):
     screen_w, screen_h = 800, 600
@@ -46,11 +55,12 @@ def test_coordinate_conversion(yukkurrium):
     assert sx == 500
     assert sy == 400
 
+
 def test_handle_input_zoom(yukkurrium):
     # Mock mouse wheel event
     event = MagicMock()
     event.type = pygame.MOUSEWHEEL
-    event.y = 1 # Scroll up (zoom in)
+    event.y = 1  # Scroll up (zoom in)
 
     initial_zoom = yukkurrium.target_zoom
     yukkurrium.handle_input(event, 800, 600)
@@ -63,13 +73,14 @@ def test_handle_input_zoom(yukkurrium):
     yukkurrium.handle_input(event, 800, 600)
     assert yukkurrium.target_zoom == yukkurrium.max_zoom
 
+
 def test_handle_input_pan(yukkurrium):
     # Mock mouse motion event with middle click
     event = MagicMock()
     event.type = pygame.MOUSEMOTION
     event.rel = (10, 20)
 
-    with patch('pygame.mouse.get_pressed', return_value=(0, 1, 0)): # Middle click
+    with patch("pygame.mouse.get_pressed", return_value=(0, 1, 0)):  # Middle click
         initial_cam_x = yukkurrium.camera_x
         initial_cam_y = yukkurrium.camera_y
 
@@ -78,6 +89,7 @@ def test_handle_input_pan(yukkurrium):
         # Camera moves opposite to drag
         assert yukkurrium.camera_x == initial_cam_x - 10
         assert yukkurrium.camera_y == initial_cam_y - 20
+
 
 def test_handle_input_other(yukkurrium):
     # Test other events are ignored
@@ -92,6 +104,7 @@ def test_handle_input_other(yukkurrium):
     assert yukkurrium.target_zoom == initial_zoom
     assert yukkurrium.camera_x == initial_cam_x
 
+
 def test_update_zoom_smoothing(yukkurrium):
     yukkurrium.zoom = 1.0
     yukkurrium.target_zoom = 2.0
@@ -102,6 +115,7 @@ def test_update_zoom_smoothing(yukkurrium):
     # Zoom should approach target
     assert yukkurrium.zoom > 1.0
     assert yukkurrium.zoom < 2.0
+
 
 def test_render_system_update():
     screen = MagicMock()
@@ -163,7 +177,7 @@ def test_render_system_update():
 
     world.get_component.side_effect = get_component_side_effect
 
-    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
+    with patch("pygame.draw.line"), patch("pygame.draw.rect"):
         rs.update(world, 0.016)
 
         # Verify grid drawing (lines)
@@ -172,6 +186,7 @@ def test_render_system_update():
     # Verify image loading and blitting
     rm.load_image.assert_called_with("test.png")
     screen.blit.assert_called()
+
 
 def test_render_system_update_scaling_and_culling():
     screen = MagicMock()
@@ -203,7 +218,7 @@ def test_render_system_update_scaling_and_culling():
     scaled_img.get_size.return_value = (64, 64)
 
     # Mock pygame.transform.scale
-    with patch('pygame.transform.scale', return_value=scaled_img) as mock_scale:
+    with patch("pygame.transform.scale", return_value=scaled_img) as mock_scale:
         rm.load_image.return_value = img
 
         world = MagicMock()
@@ -223,7 +238,9 @@ def test_render_system_update_scaling_and_culling():
         ent = 1
         world.get_entities_with.return_value = [ent]
 
-        transform = Transform(x=0, y=0, scale=1.0) # Scale 1.0 * Zoom 2.0 = 2.0 effective scale
+        transform = Transform(
+            x=0, y=0, scale=1.0
+        )  # Scale 1.0 * Zoom 2.0 = 2.0 effective scale
         sprite = Sprite(image_name="test.png", width=32, height=32)
         selectable = Selectable(selected=True)
         phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
@@ -244,7 +261,7 @@ def test_render_system_update_scaling_and_culling():
 
         world.get_component.side_effect = get_component_side_effect
 
-        with patch('pygame.draw.line'), patch('pygame.draw.rect') as mock_rect:
+        with patch("pygame.draw.line"), patch("pygame.draw.rect") as mock_rect:
             rs.update(world, 0.016)
 
             # Verify scaling
@@ -252,6 +269,7 @@ def test_render_system_update_scaling_and_culling():
 
             # Verify selection highlight
             mock_rect.assert_called()
+
 
 def test_render_system_update_culling():
     screen = MagicMock()
@@ -299,19 +317,32 @@ def test_render_system_update_culling():
     phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
     visual_transform = VisualTransform()
 
-    world.get_component.side_effect = lambda e, c: transform if c == Transform else (sprite if c == Sprite else (phys_body if c == PhysicsBody else (visual_transform if c == VisualTransform else None)))
+    world.get_component.side_effect = (
+        lambda e, c: transform
+        if c == Transform
+        else (
+            sprite
+            if c == Sprite
+            else (
+                phys_body
+                if c == PhysicsBody
+                else (visual_transform if c == VisualTransform else None)
+            )
+        )
+    )
 
-    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
+    with patch("pygame.draw.line"), patch("pygame.draw.rect"):
         rs.update(world, 0.016)
 
         # Should not blit if culled
         screen.blit.assert_not_called()
 
+
 def test_render_system_update_invalid_size():
     screen = MagicMock()
     screen.get_size.return_value = (800, 600)
     yukkurrium = Yukkurrium()
-    yukkurrium.zoom = 0.001 # Very small zoom
+    yukkurrium.zoom = 0.001  # Very small zoom
 
     rm = MagicMock()
     img = MagicMock()
@@ -335,18 +366,31 @@ def test_render_system_update_invalid_size():
     ent = 1
     world.get_entities_with.return_value = [ent]
 
-    transform = Transform(x=0, y=0, scale=0.1) # Resulting size will be ~0
+    transform = Transform(x=0, y=0, scale=0.1)  # Resulting size will be ~0
     sprite = Sprite(image_name="test.png", width=32, height=32)
     phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
     visual_transform = VisualTransform()
 
-    world.get_component.side_effect = lambda e, c: transform if c == Transform else (sprite if c == Sprite else (phys_body if c == PhysicsBody else (visual_transform if c == VisualTransform else None)))
+    world.get_component.side_effect = (
+        lambda e, c: transform
+        if c == Transform
+        else (
+            sprite
+            if c == Sprite
+            else (
+                phys_body
+                if c == PhysicsBody
+                else (visual_transform if c == VisualTransform else None)
+            )
+        )
+    )
 
-    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
+    with patch("pygame.draw.line"), patch("pygame.draw.rect"):
         rs.update(world, 0.016)
 
         # Should not blit if size <= 0
         screen.blit.assert_not_called()
+
 
 def test_render_system_missing_components():
     screen = MagicMock()
@@ -391,11 +435,12 @@ def test_render_system_missing_components():
 
     world.get_component.side_effect = get_component_side_effect
 
-    with patch('pygame.draw.line'), patch('pygame.draw.rect'):
+    with patch("pygame.draw.line"), patch("pygame.draw.rect"):
         rs.update(world, 0.016)
 
         # Should continue and not crash or do anything
         rm.load_image.assert_not_called()
+
 
 def test_time_system():
     ts = TimeSystem()
@@ -418,6 +463,7 @@ def mock_screen():
     m.get_rect.return_value = pygame.Rect(0, 0, 800, 600)
     return m
 
+
 @pytest.fixture
 def mock_yukkurrium():
     m = Mock()
@@ -425,6 +471,7 @@ def mock_yukkurrium():
     m.screen_to_world.side_effect = lambda sx, sy, sw, sh: (sx, sy)
     m.zoom = 1.0
     return m
+
 
 @pytest.fixture
 def mock_rm():
@@ -434,6 +481,7 @@ def mock_rm():
     s.fill((255, 255, 255))
     m.load_image.return_value = s
     return m
+
 
 def test_single_frame_large_image_scaling(mock_screen, mock_yukkurrium, mock_rm):
     """
@@ -446,16 +494,19 @@ def test_single_frame_large_image_scaling(mock_screen, mock_yukkurrium, mock_rm)
     ent = world.create_entity()
     world.add_component(ent, Transform(x=100, y=100))
     # Sprite definition says 32x32, but loaded image is 128x128
-    world.add_component(ent, Sprite(image_name="test.png", width=32, height=32, frame_count=1))
+    world.add_component(
+        ent, Sprite(image_name="test.png", width=32, height=32, frame_count=1)
+    )
     world.add_component(ent, VisualTransform())
     world.add_component(ent, PhysicsBody(body=Mock(), shape=Mock()))
 
     # Mock pygame.draw functions to avoid type checks
-    with patch('pygame.draw.line'), \
-         patch('pygame.draw.ellipse'), \
-         patch('pygame.draw.rect'), \
-         patch('pygame.transform.scale') as mock_scale:
-
+    with (
+        patch("pygame.draw.line"),
+        patch("pygame.draw.ellipse"),
+        patch("pygame.draw.rect"),
+        patch("pygame.transform.scale") as mock_scale,
+    ):
         # mock_scale needs to return a surface or something with get_rect
         mock_scaled_surf = MagicMock(spec=pygame.Surface)
         mock_scaled_surf.get_rect.return_value = pygame.Rect(0, 0, 32, 32)
@@ -483,6 +534,7 @@ def test_single_frame_large_image_scaling(mock_screen, mock_yukkurrium, mock_rm)
 
         assert found_sprite, "The scaled surface was not blitted to the screen"
 
+
 def test_single_frame_matching_image_no_scaling(mock_screen, mock_yukkurrium, mock_rm):
     """
     Test that a single frame sprite with matching source image size is NOT scaled.
@@ -494,16 +546,21 @@ def test_single_frame_matching_image_no_scaling(mock_screen, mock_yukkurrium, mo
     world.add_component(ent, Transform(x=100, y=100))
 
     # Matching size: 128x128 sprite, 128x128 image
-    world.add_component(ent, Sprite(image_name="test.png", width=128, height=128, frame_count=1))
+    world.add_component(
+        ent, Sprite(image_name="test.png", width=128, height=128, frame_count=1)
+    )
     world.add_component(ent, VisualTransform())
     world.add_component(ent, PhysicsBody(body=Mock(), shape=Mock()))
 
-    with patch('pygame.draw.line'), \
-         patch('pygame.draw.ellipse'), \
-         patch('pygame.draw.rect'), \
-         patch('pygame.transform.scale') as mock_scale:
-
+    with (
+        patch("pygame.draw.line"),
+        patch("pygame.draw.ellipse"),
+        patch("pygame.draw.rect"),
+        patch("pygame.transform.scale") as mock_scale,
+    ):
         renderer.render(world)
 
         # Verify that pygame.transform.scale was NOT called
-        assert not mock_scale.called, "pygame.transform.scale should not be called for matching dimensions"
+        assert not mock_scale.called, (
+            "pygame.transform.scale should not be called for matching dimensions"
+        )

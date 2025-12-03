@@ -3,15 +3,15 @@ from unittest.mock import MagicMock, patch
 import pygame
 import pygame_gui
 from yukkuri_game.game.ui.hud_layout import HudLayout
-from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+
 
 class TestHudLayout:
     @pytest.fixture
     def mock_ui_manager(self, monkeypatch):
         # We need to mock pygame.display.get_surface because pygame_gui calls it
-        monkeypatch.setattr(pygame.display, "get_surface", lambda: MagicMock(spec=pygame.Surface))
+        monkeypatch.setattr(
+            pygame.display, "get_surface", lambda: MagicMock(spec=pygame.Surface)
+        )
         manager = MagicMock(spec=pygame_gui.UIManager)
         manager.ui_window_stack = MagicMock()
         return manager
@@ -20,23 +20,32 @@ class TestHudLayout:
     def layout(self, mock_ui_manager, monkeypatch):
         yukkuri_types = {
             "reimu": MagicMock(cost=100, name="Reimu"),
-            "marisa": MagicMock(cost=100, name="Marisa")
+            "marisa": MagicMock(cost=100, name="Marisa"),
         }
-        item_types = {
-            "cookie": MagicMock(cost=10, name="Cookie", description="Tasty")
-        }
+        item_types = {"cookie": MagicMock(cost=10, name="Cookie", description="Tasty")}
 
         # Mock UI Elements
         monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIPanel", MagicMock())
         monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UILabel", MagicMock())
         # Ensure UIButton returns unique mocks so dictionary keys are unique
-        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIButton", MagicMock(side_effect=lambda *args, **kwargs: MagicMock()))
+        monkeypatch.setattr(
+            "yukkuri_game.game.ui.hud_layout.UIButton",
+            MagicMock(side_effect=lambda *args, **kwargs: MagicMock()),
+        )
         monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIWindow", MagicMock())
         monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UITextBox", MagicMock())
-        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIHorizontalSlider", MagicMock())
-        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIDropDownMenu", MagicMock())
-        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIScrollingContainer", MagicMock())
-        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.NonBlockingTextBox", MagicMock())
+        monkeypatch.setattr(
+            "yukkuri_game.game.ui.hud_layout.UIHorizontalSlider", MagicMock()
+        )
+        monkeypatch.setattr(
+            "yukkuri_game.game.ui.hud_layout.UIDropDownMenu", MagicMock()
+        )
+        monkeypatch.setattr(
+            "yukkuri_game.game.ui.hud_layout.UIScrollingContainer", MagicMock()
+        )
+        monkeypatch.setattr(
+            "yukkuri_game.game.ui.hud_layout.NonBlockingTextBox", MagicMock()
+        )
 
         layout = HudLayout(mock_ui_manager, 800, 600, yukkuri_types, item_types)
         return layout
@@ -47,7 +56,7 @@ class TestHudLayout:
         assert layout.bottom_panel is not None
         assert layout.money_label is not None
         assert layout.time_label is not None
-        assert len(layout.buy_buttons) == 3 # 2 yukkuri + 1 item
+        assert len(layout.buy_buttons) == 3  # 2 yukkuri + 1 item
 
     def test_resize(self, layout):
         """Test resizing the layout."""
@@ -89,7 +98,7 @@ class TestHudLayout:
 
     def test_create_selection_window(self, layout):
         """Test creating selection window."""
-        with patch('yukkuri_game.game.ui.hud_layout.EntityInfoPanel') as MockPanel:
+        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel") as MockPanel:
             layout.create_selection_window(has_stats=True)
 
             assert layout.entity_info_panel is not None
@@ -98,7 +107,7 @@ class TestHudLayout:
         # Test item selection (no stats actions)
         # Reset panel to force creation or just clear state
         layout.entity_info_panel = None
-        with patch('yukkuri_game.game.ui.hud_layout.EntityInfoPanel') as MockPanel:
+        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel") as MockPanel:
             layout.create_selection_window(has_stats=False)
             assert layout.entity_info_panel is not None
             layout.entity_info_panel.show.assert_called_once()
@@ -117,7 +126,7 @@ class TestHudLayout:
         """Test creating settings window."""
         settings = {
             "audio": {"master_volume": 0.5},
-            "window": {"width": 800, "height": 600}
+            "window": {"width": 800, "height": 600},
         }
         layout.create_settings_window(settings)
 
@@ -152,4 +161,3 @@ class TestHudLayout:
         layout.hover_tooltip_label.visible = True
         layout.update_hover_tooltip("", (0, 0))
         assert layout.hover_tooltip_label.hide.called
-

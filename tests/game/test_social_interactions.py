@@ -1,7 +1,13 @@
 import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.game.services import GameService
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState, RelationshipRegistry, Personality
+from yukkuri_game.game.yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    EmotionalState,
+    RelationshipRegistry,
+    Personality,
+)
 from yukkuri_game.game.components import Transform, InteractionRequest
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.audio import AudioManager
@@ -10,6 +16,7 @@ from yukkuri_game.game.systems.interaction_system import InteractionSystem
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.game.skill_service import SkillService
+
 
 class TestSocialInteractions(unittest.TestCase):
     def setUp(self):
@@ -21,14 +28,34 @@ class TestSocialInteractions(unittest.TestCase):
         self.world.services.register(self.audio_manager, AudioManager)
 
         self.trait_service = MagicMock(spec=TraitService)
+
         # Setup specific interaction returns
         def get_interaction(name):
             if name == "Talk":
-                return {"type": "SOCIAL", "base_impact": 5.0, "social_impact": {"affinity": 5.0}, "target_physical_impact": {"happiness": 5.0}, "actor_physical_impact": {"happiness": 5.0}}
+                return {
+                    "type": "SOCIAL",
+                    "base_impact": 5.0,
+                    "social_impact": {"affinity": 5.0},
+                    "target_physical_impact": {"happiness": 5.0},
+                    "actor_physical_impact": {"happiness": 5.0},
+                }
             if name == "Fight":
-                return {"type": "AGGRESSIVE", "base_impact": -10.0, "social_impact": {"affinity": -10.0}, "target_physical_impact": {"health": -5.0}, "actor_physical_impact": {"health": -5.0}, "physical_impact": {"health": -5.0}}
+                return {
+                    "type": "AGGRESSIVE",
+                    "base_impact": -10.0,
+                    "social_impact": {"affinity": -10.0},
+                    "target_physical_impact": {"health": -5.0},
+                    "actor_physical_impact": {"health": -5.0},
+                    "physical_impact": {"health": -5.0},
+                }
             if name == "Dance":
-                return {"type": "FUN", "base_impact": 10.0, "social_impact": {"affinity": 10.0}, "target_physical_impact": {"happiness": 10.0}, "actor_physical_impact": {"happiness": 10.0}}
+                return {
+                    "type": "FUN",
+                    "base_impact": 10.0,
+                    "social_impact": {"affinity": 10.0},
+                    "target_physical_impact": {"happiness": 10.0},
+                    "actor_physical_impact": {"happiness": 10.0},
+                }
             return {}
 
         self.trait_service.get_interaction.side_effect = get_interaction
@@ -65,14 +92,14 @@ class TestSocialInteractions(unittest.TestCase):
         self.world.add_component(self.yukkuri1, self.stats1)
         self.world.add_component(self.yukkuri1, self.needs1)
         self.world.add_component(self.yukkuri1, self.emo1)
-        self.world.add_component(self.yukkuri1, Transform(0,0))
+        self.world.add_component(self.yukkuri1, Transform(0, 0))
         self.world.add_component(self.yukkuri1, RelationshipRegistry())
         self.world.add_component(self.yukkuri1, Personality())
 
         self.world.add_component(self.yukkuri2, self.stats2)
         self.world.add_component(self.yukkuri2, self.needs2)
         self.world.add_component(self.yukkuri2, self.emo2)
-        self.world.add_component(self.yukkuri2, Transform(10,0))
+        self.world.add_component(self.yukkuri2, Transform(10, 0))
         self.world.add_component(self.yukkuri2, RelationshipRegistry())
         self.world.add_component(self.yukkuri2, Personality())
 
@@ -82,7 +109,9 @@ class TestSocialInteractions(unittest.TestCase):
         self.emo2.happiness = 50.0
 
         # Act: Add InteractionRequest
-        self.world.add_component(self.yukkuri1, InteractionRequest(target_id=self.yukkuri2, action="Talk"))
+        self.world.add_component(
+            self.yukkuri1, InteractionRequest(target_id=self.yukkuri2, action="Talk")
+        )
 
         # Use interaction system to process request
         self.interaction_system.update(self.world, 0.1)
@@ -93,16 +122,20 @@ class TestSocialInteractions(unittest.TestCase):
 
     def test_fight_interaction(self):
         # Setup incompatible yukkuri for fight logic
-        self.world.add_component(self.yukkuri2, self.stats3) # Change stats2 to be marisa
+        self.world.add_component(
+            self.yukkuri2, self.stats3
+        )  # Change stats2 to be marisa
         self.world.add_component(self.yukkuri2, self.needs3)
-        self.world.add_component(self.yukkuri2, self.emo3) # Add emo3
+        self.world.add_component(self.yukkuri2, self.emo3)  # Add emo3
 
         self.needs1.health = 100.0
         self.needs3.health = 100.0
         self.emo1.stress = 0.0
         self.emo3.stress = 0.0
 
-        self.world.add_component(self.yukkuri1, InteractionRequest(target_id=self.yukkuri2, action="Fight"))
+        self.world.add_component(
+            self.yukkuri1, InteractionRequest(target_id=self.yukkuri2, action="Fight")
+        )
         self.interaction_system.update(self.world, 0.1)
 
         # Verify stats changes
@@ -110,11 +143,14 @@ class TestSocialInteractions(unittest.TestCase):
         self.assertLess(self.needs3.health, 100.0)
 
     def test_dance_interaction(self):
-        self.world.add_component(self.yukkuri1, InteractionRequest(target_id=self.yukkuri2, action="Dance"))
+        self.world.add_component(
+            self.yukkuri1, InteractionRequest(target_id=self.yukkuri2, action="Dance")
+        )
         self.interaction_system.update(self.world, 0.1)
 
         self.assertGreater(self.emo1.happiness, 50.0)
         self.assertGreater(self.emo2.happiness, 50.0)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
 """
 Tests for Game Simulation (Systems integration).
 """
+
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
@@ -13,6 +14,7 @@ from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.game.services import GameService
 from yukkuri_game.game.ai.utility import UtilityAIEngine
 from yukkuri_game.game.ai.navigation_service import NavigationService
+
 
 @pytest.fixture
 def simulation_world() -> tuple[World, int, int]:
@@ -34,10 +36,13 @@ def simulation_world() -> tuple[World, int, int]:
 
     # Create Item
     item = world.create_entity()
-    world.add_component(item, Transform(x=100, y=0)) # Move item further away
-    world.add_component(item, ItemStats(name="Cookie", type_id="cookie", cost=10, nutrition=20))
+    world.add_component(item, Transform(x=100, y=0))  # Move item further away
+    world.add_component(
+        item, ItemStats(name="Cookie", type_id="cookie", cost=10, nutrition=20)
+    )
 
     return world, yukkuri, item
+
 
 @pytest.fixture
 def systems() -> tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]:
@@ -49,12 +54,18 @@ def systems() -> tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSyst
     mock_ai_engine.select_action.return_value = "Idle"
 
     behavior_system = BehaviorSystem(world_width=1000, world_height=1000)
-    stat_decay_system = EmotionSystem(StatDecaySettings(hunger=2.0, cleanliness=2.0)) # Set specific decay rates
+    stat_decay_system = EmotionSystem(
+        StatDecaySettings(hunger=2.0, cleanliness=2.0)
+    )  # Set specific decay rates
     interaction_system = InteractionSystem()
 
     return behavior_system, stat_decay_system, mock_ai_engine, interaction_system
 
-def test_simulation_update_decay(simulation_world: tuple[World, int, int], systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]) -> None:
+
+def test_simulation_update_decay(
+    simulation_world: tuple[World, int, int],
+    systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem],
+) -> None:
     """
     Tests that stats decay over time via the EmotionSystem.
     """
@@ -77,7 +88,11 @@ def test_simulation_update_decay(simulation_world: tuple[World, int, int], syste
     assert needs.hunger == initial_hunger + 2.0
     assert needs.cleanliness == initial_cleanliness - 2.0
 
-def test_simulation_action_eat(simulation_world: tuple[World, int, int], systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]) -> None:
+
+def test_simulation_action_eat(
+    simulation_world: tuple[World, int, int],
+    systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem],
+) -> None:
     """
     Tests the full 'Eat' action cycle: Utility Selection -> Moving -> Interaction.
     """
@@ -115,7 +130,7 @@ def test_simulation_action_eat(simulation_world: tuple[World, int, int], systems
     trans.y += controller.target_velocity.y * 0.1
 
     # Check if we moved.
-    assert trans.x > initial_x # Should have moved towards 100
+    assert trans.x > initial_x  # Should have moved towards 100
 
     # Move until close enough (Dist <= 30 for Interact, < 15 for MoveToTarget success)
     for _ in range(20):
@@ -132,6 +147,7 @@ def test_simulation_action_eat(simulation_world: tuple[World, int, int], systems
     # Behavior adds InteractionRequest. Now run InteractionSystem.
     # Updated: Need HungerSystem for food
     from yukkuri_game.game.systems.hunger_system import HungerSystem
+
     hunger_system = HungerSystem()
     # Register HungerSystem as service because InteractionSystem expects it there
     world.services.register(hunger_system, HungerSystem)
@@ -152,7 +168,11 @@ def test_simulation_action_eat(simulation_world: tuple[World, int, int], systems
     # Note: EmotionSystem is not running here so no decay added.
     assert needs.hunger == 30.0
 
-def test_simulation_action_wander(simulation_world: tuple[World, int, int], systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]) -> None:
+
+def test_simulation_action_wander(
+    simulation_world: tuple[World, int, int],
+    systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem],
+) -> None:
     """
     Tests the 'Wander' action.
     """

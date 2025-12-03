@@ -1,13 +1,15 @@
 """
 Module defining the Sector System for efficient spatial partitioning and social propagation.
 """
-from typing import List, Set, Dict, Tuple, Optional, Any
+
+from typing import List, Set, Dict, Tuple, Optional
 from collections import defaultdict
 import math
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import EntityDestroyedEvent
 from ..components import Transform
+
 
 class SectorMap:
     """
@@ -100,7 +102,9 @@ class SectorMap:
                     adjacent.append((ncol, nrow))
         return adjacent
 
-    def get_entities_in_range(self, x: float, y: float, range_type: str = "visual") -> Set[int]:
+    def get_entities_in_range(
+        self, x: float, y: float, range_type: str = "visual"
+    ) -> Set[int]:
         """
         Returns entities based on propagation rules.
 
@@ -121,17 +125,25 @@ class SectorMap:
 
         return result
 
+
 class SectorSystem(System):
     """
     System responsible for keeping the SectorMap updated with entity positions.
     """
-    def __init__(self, event_bus: Optional[EventBus] = None, width: float = 4000, height: float = 4000, sector_size: float = 500):
+
+    def __init__(
+        self,
+        event_bus: Optional[EventBus] = None,
+        width: float = 4000,
+        height: float = 4000,
+        sector_size: float = 500,
+    ):
         self.sector_map = SectorMap(width, height, sector_size)
         self.event_bus = event_bus
         self._subscribed = False
 
         self.cleanup_timer = 0.0
-        self.cleanup_interval = 5.0 # Seconds
+        self.cleanup_interval = 5.0  # Seconds
 
         if self.event_bus:
             self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
@@ -176,7 +188,7 @@ class SectorSystem(System):
         to_remove = []
         for entity_id in self.sector_map.entity_sectors.keys():
             if not world.has_component(entity_id, Transform):
-                 to_remove.append(entity_id)
+                to_remove.append(entity_id)
 
         for entity_id in to_remove:
             self.sector_map.remove_entity(entity_id)

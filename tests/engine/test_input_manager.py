@@ -3,9 +3,11 @@ import pygame
 from unittest.mock import MagicMock
 from yukkuri_game.engine.input_manager import InputManager, InputContext
 
+
 @pytest.fixture
 def input_manager():
     return InputManager()
+
 
 def test_input_context_management(input_manager):
     assert InputContext.MENU in input_manager._active_contexts
@@ -19,6 +21,7 @@ def test_input_context_management(input_manager):
     input_manager.switch_context(InputContext.MENU)
     assert len(input_manager._active_contexts) == 1
     assert InputContext.MENU in input_manager._active_contexts
+
 
 def test_key_processing(input_manager):
     # Simulate Key Press
@@ -46,6 +49,7 @@ def test_key_processing(input_manager):
     assert pygame.K_z not in input_manager._keys_down
     assert pygame.K_z not in input_manager._keys_up
 
+
 def test_action_checking(input_manager):
     input_manager.switch_context(InputContext.GAMEPLAY)
 
@@ -61,6 +65,7 @@ def test_action_checking(input_manager):
     input_manager.update()
     assert input_manager.is_action_pressed("interact")
     assert not input_manager.is_action_just_pressed("interact")
+
 
 def test_context_priority_blocking(input_manager):
     """Test that higher priority context blocks lower priority input if consumed."""
@@ -105,11 +110,12 @@ def test_context_priority_blocking(input_manager):
     input_manager.set_context(InputContext.MENU, False)
     assert input_manager.is_action_pressed("up")
 
+
 def test_priority_consumption_explicit(input_manager):
     # Let's mock the mappings to be sure
     input_manager._key_mappings = {
-        InputContext.MENU: {"unique_menu": pygame.K_a}, # Priority 10
-        InputContext.GAMEPLAY: {"unique_game": pygame.K_a} # Priority 1
+        InputContext.MENU: {"unique_menu": pygame.K_a},  # Priority 10
+        InputContext.GAMEPLAY: {"unique_game": pygame.K_a},  # Priority 1
     }
 
     input_manager.set_context(InputContext.MENU, True)
@@ -130,6 +136,7 @@ def test_priority_consumption_explicit(input_manager):
     # If we disable MENU
     input_manager.set_context(InputContext.MENU, False)
     assert input_manager.is_action_pressed("unique_game")
+
 
 def test_mouse_input(input_manager):
     input_manager.switch_context(InputContext.GAMEPLAY)

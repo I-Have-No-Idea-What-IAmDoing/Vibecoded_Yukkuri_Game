@@ -1,13 +1,13 @@
 """
 Module defining the SettingsService.
 """
-import msgspec
-import os
-from typing import Dict, Any, Optional
+
+from typing import Any, Optional
 from loguru import logger
 
 from ..engine.data_models import UserSettings
 from ..engine.resource_manager import ResourceManager
+
 
 class SettingsService:
     """
@@ -19,7 +19,11 @@ class SettingsService:
         resource_manager (ResourceManager): The resource manager instance.
     """
 
-    def __init__(self, resource_manager: Optional[ResourceManager] = None, settings_file: str = "user_settings.toml"):
+    def __init__(
+        self,
+        resource_manager: Optional[ResourceManager] = None,
+        settings_file: str = "user_settings.toml",
+    ):
         """
         Initializes the SettingsService.
 
@@ -39,14 +43,16 @@ class SettingsService:
         Returns:
             None
         """
-        loaded_settings = self.resource_manager.load_toml_model(self.settings_file, UserSettings)
+        loaded_settings = self.resource_manager.load_toml_model(
+            self.settings_file, UserSettings
+        )
         if loaded_settings:
             self.settings = loaded_settings
             logger.info(f"Settings loaded from {self.settings_file}")
         else:
             logger.info("Settings file not found or failed to load, using defaults.")
             self.settings = UserSettings()
-            self.save_settings() # Save defaults
+            self.save_settings()  # Save defaults
 
     def save_settings(self) -> None:
         """
@@ -94,6 +100,8 @@ class SettingsService:
             if hasattr(cat_obj, key):
                 setattr(cat_obj, key, value)
             else:
-                 logger.warning(f"Setting key '{key}' not found in category '{category}'")
+                logger.warning(
+                    f"Setting key '{key}' not found in category '{category}'"
+                )
         else:
             logger.warning(f"Setting category '{category}' not found")

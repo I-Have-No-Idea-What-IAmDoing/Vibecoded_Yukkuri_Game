@@ -1,14 +1,19 @@
-
 import pytest
 import math
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import Skills, SkillState, Personality, YukkuriStats
+from yukkuri_game.game.yukkuri_components import (
+    Skills,
+    SkillState,
+    Personality,
+    YukkuriStats,
+)
 from yukkuri_game.game.services import TimeService
 from yukkuri_game.game.skill_service import SkillService
 from yukkuri_game.game.trait_service import TraitService
-from yukkuri_game.game.skill_constants import SkillId, PassionLevel
+from yukkuri_game.game.skill_constants import SkillId
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.engine.data_models import SkillDefinition, TraitDefinition
+
 
 # Mock TraitService for test
 class MockTraitService(TraitService):
@@ -19,23 +24,27 @@ class MockTraitService(TraitService):
                 description="test",
                 skill_modifiers={
                     "athletics": {"passion_multiplier": 1.5, "soft_cap_offset": 5.0}
-                }
+                },
             ),
             "LONER": TraitDefinition(
                 name="Loner",
                 description="test",
                 skill_modifiers={
-                    "socialization": {"passion_multiplier": 0.5, "soft_cap_offset": -2.0}
-                }
-            )
+                    "socialization": {
+                        "passion_multiplier": 0.5,
+                        "soft_cap_offset": -2.0,
+                    }
+                },
+            ),
         }
         self.interactions = {}
 
     def load_data(self):
-        pass # Skip loading from files
+        pass  # Skip loading from files
 
     def get_trait(self, trait_id):
         return self.traits.get(trait_id)
+
 
 class MockResourceManager(ResourceManager):
     def __init__(self):
@@ -45,18 +54,19 @@ class MockResourceManager(ResourceManager):
                 description="test",
                 max_level=20,
                 decay_rate=10.0,
-                soft_cap_base_level=10
+                soft_cap_base_level=10,
             ),
             "socialization": SkillDefinition(
                 name="Socialization",
                 description="test",
                 max_level=20,
                 decay_rate=5.0,
-                soft_cap_base_level=10
-            )
+                soft_cap_base_level=10,
+            ),
         }
         self.traits = {}
         self.interactions = {}
+
 
 @pytest.fixture
 def world():
@@ -70,6 +80,7 @@ def world():
     w.services.register(MockTraitService(w), TraitService)
     w.services.register(SkillService(w), SkillService)
     return w
+
 
 def test_skill_initialization(world):
     e = world.create_entity()
@@ -85,6 +96,7 @@ def test_skill_initialization(world):
     assert SkillId.ATHLETICS in skills.states
     assert SkillId.SOCIALIZATION in skills.states
     assert skills.states[SkillId.ATHLETICS].level == 0
+
 
 def test_xp_gain_and_leveling(world):
     e = world.create_entity()
@@ -109,6 +121,7 @@ def test_xp_gain_and_leveling(world):
     assert skills.states[SkillId.ATHLETICS].level == 1
     assert math.isclose(skills.states[SkillId.ATHLETICS].current_xp, 10.0)
 
+
 def test_trait_modifiers(world):
     e = world.create_entity()
     skills = Skills()
@@ -130,6 +143,7 @@ def test_trait_modifiers(world):
     # It levels up (req 100), so 150 - 100 = 50 remaining
     assert skills.states[SkillId.ATHLETICS].current_xp == 50.0
     assert skills.states[SkillId.ATHLETICS].level == 1
+
 
 def test_decay(world):
     e = world.create_entity()
@@ -155,6 +169,7 @@ def test_decay(world):
 
     assert math.isclose(state.current_xp, 35.0, abs_tol=0.1)
 
+
 def test_decay_floor(world):
     e = world.create_entity()
     skills = Skills()
@@ -172,7 +187,8 @@ def test_decay_floor(world):
 
     # Should floor at 0.0, not go negative
     assert state.current_xp == 0.0
-    assert state.level == 1 # No de-leveling
+    assert state.level == 1  # No de-leveling
+
 
 def test_soft_cap(world):
     e = world.create_entity()
@@ -193,9 +209,10 @@ def test_soft_cap(world):
 
     assert math.isclose(state.current_xp, 10.0)
 
+
 def test_init_no_instant_decay(world):
     time_service = world.services.get(TimeService)
-    time_service.time_elapsed = 100000.0 # High time
+    time_service.time_elapsed = 100000.0  # High time
 
     e = world.create_entity()
     # No Skills component initially

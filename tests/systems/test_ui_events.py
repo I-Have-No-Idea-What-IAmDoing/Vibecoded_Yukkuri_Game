@@ -1,13 +1,16 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import pygame
 from yukkuri_game.game.input_system import InputSystem
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
-from yukkuri_game.game.events import EntitySelectedEvent, PlacementRequestedEvent, PlacementStartedEvent
+from yukkuri_game.game.events import (
+    EntitySelectedEvent,
+    PlacementRequestedEvent,
+)
 from yukkuri_game.game.components import Transform, Selectable
 from yukkuri_game.game.services import InputService
 from yukkuri_game.engine.input_manager import InputManager
+
 
 class TestUIEvents(unittest.TestCase):
     def setUp(self):
@@ -37,7 +40,7 @@ class TestUIEvents(unittest.TestCase):
         self.input_manager.is_action_pressed.return_value = False
 
         # Mock pygame.display for update loop
-        self.patcher = patch('pygame.display.get_surface')
+        self.patcher = patch("pygame.display.get_surface")
         self.mock_get_surface = self.patcher.start()
         self.mock_surface = MagicMock()
         self.mock_surface.get_size.return_value = (800, 600)
@@ -49,7 +52,7 @@ class TestUIEvents(unittest.TestCase):
     def tearDown(self):
         self.patcher.stop()
 
-    @patch('pygame.key.get_pressed')
+    @patch("pygame.key.get_pressed")
     def test_entity_selection_event(self, mock_get_pressed):
         # Mock shift key not pressed
         mock_keys = MagicMock()
@@ -67,9 +70,11 @@ class TestUIEvents(unittest.TestCase):
 
         # Setup Selection Capture
         captured_event = None
+
         def on_selected(e):
             nonlocal captured_event
             captured_event = e
+
         self.event_bus.subscribe(EntitySelectedEvent, on_selected)
 
         # Simulate Press "select"
@@ -82,7 +87,7 @@ class TestUIEvents(unittest.TestCase):
         self.assertIsNotNone(self.system.drag_start_pos)
 
         # Simulate Release "select"
-        self.input_manager.is_action_just_pressed.return_value = False # Reset press
+        self.input_manager.is_action_just_pressed.return_value = False  # Reset press
         self.input_manager.is_action_just_pressed.side_effect = None
 
         self.input_manager.is_action_just_released.side_effect = lambda a: a == "select"
@@ -94,7 +99,7 @@ class TestUIEvents(unittest.TestCase):
         self.assertIsInstance(captured_event, EntitySelectedEvent)
         self.assertIn(entity_id, captured_event.entity_ids)
 
-    @patch('pygame.key.get_pressed')
+    @patch("pygame.key.get_pressed")
     def test_entity_deselection_event(self, mock_get_pressed):
         # Mock shift key not pressed
         mock_keys = MagicMock()
@@ -108,12 +113,16 @@ class TestUIEvents(unittest.TestCase):
         # Create entity at (100, 100)
         entity_id = self.world.create_entity()
         self.world.add_component(entity_id, Transform(x=100, y=100))
-        self.world.add_component(entity_id, Selectable(selected=True)) # Already selected
+        self.world.add_component(
+            entity_id, Selectable(selected=True)
+        )  # Already selected
 
         captured_event = None
+
         def on_selected(e):
             nonlocal captured_event
             captured_event = e
+
         self.event_bus.subscribe(EntitySelectedEvent, on_selected)
 
         # Simulate Press "select"
@@ -139,9 +148,11 @@ class TestUIEvents(unittest.TestCase):
         self.yukkurrium.screen_to_world.return_value = (200, 200)
 
         captured_event = None
+
         def on_requested(e):
             nonlocal captured_event
             captured_event = e
+
         self.event_bus.subscribe(PlacementRequestedEvent, on_requested)
 
         # Simulate Press "select"
@@ -157,15 +168,18 @@ class TestUIEvents(unittest.TestCase):
         self.assertFalse(self.input_service.is_placing)
 
     def test_placement_cancellation_on_right_click(self):
-         # Start placement mode
+        # Start placement mode
         self.input_service.start_placement("reimu", 100, "yukkuri")
 
         # Simulate "cancel_action"
-        self.input_manager.is_action_just_pressed.side_effect = lambda a: a == "cancel_action"
+        self.input_manager.is_action_just_pressed.side_effect = (
+            lambda a: a == "cancel_action"
+        )
 
         self.system.update(self.world, 0.1)
 
         self.assertFalse(self.input_service.is_placing)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

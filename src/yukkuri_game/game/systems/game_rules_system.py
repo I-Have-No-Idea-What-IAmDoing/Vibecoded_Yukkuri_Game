@@ -2,7 +2,7 @@
 Game Rules System.
 Handles high-level game logic like selling, training, and punishing entities.
 """
-from typing import Optional
+
 from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
@@ -16,8 +16,9 @@ from ..events import (
     SellEntityRequest,
     EntitySoldEvent,
     EntityTrainedEvent,
-    EntityPunishedEvent
+    EntityPunishedEvent,
 )
+
 
 class GameRulesSystem(System):
     """
@@ -27,6 +28,7 @@ class GameRulesSystem(System):
         event_bus (EventBus): The event bus for subscription and publishing.
         ecs_world (World): The ECS World instance (injected).
     """
+
     def __init__(self, event_bus: EventBus):
         """
         Initializes the GameRulesSystem.
@@ -64,9 +66,9 @@ class GameRulesSystem(System):
         Returns:
             int: The value the entity was sold for.
         """
-        if not hasattr(self, 'ecs_world'):
-             logger.error("GameRulesSystem: ecs_world not injected.")
-             return 0
+        if not hasattr(self, "ecs_world"):
+            logger.error("GameRulesSystem: ecs_world not injected.")
+            return 0
 
         stats = self.ecs_world.get_component(entity, YukkuriStats)
         needs = self.ecs_world.get_component(entity, Needs)
@@ -75,14 +77,22 @@ class GameRulesSystem(System):
         if stats:
             # Get Config
             from ...config import GameConfig
+
             config = self.ecs_world.services.try_get(GameConfig)
             stats_config = config.rules.stats if config else None
 
             # Assuming calculate_value now takes needs
-            value = max(0, stats.calculate_value(needs, emotional_state, stats_config=stats_config))
+            value = max(
+                0,
+                stats.calculate_value(
+                    needs, emotional_state, stats_config=stats_config
+                ),
+            )
             economy = self.ecs_world.services.get(EconomyService)
             economy.add_money(value)
-            logger.info(f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}")
+            logger.info(
+                f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}"
+            )
 
             transform = self.ecs_world.get_component(entity, Transform)
             position = (transform.x, transform.y) if transform else (0, 0)
@@ -119,7 +129,8 @@ class GameRulesSystem(System):
         Returns:
             None
         """
-        if not hasattr(self, 'ecs_world'): return
+        if not hasattr(self, "ecs_world"):
+            return
 
         stats = self.ecs_world.get_component(event.entity_id, YukkuriStats)
         emotional_state = self.ecs_world.get_component(event.entity_id, EmotionalState)
@@ -149,7 +160,8 @@ class GameRulesSystem(System):
         Returns:
             None
         """
-        if not hasattr(self, 'ecs_world'): return
+        if not hasattr(self, "ecs_world"):
+            return
 
         stats = self.ecs_world.get_component(event.entity_id, YukkuriStats)
         needs = self.ecs_world.get_component(event.entity_id, Needs)
@@ -158,7 +170,9 @@ class GameRulesSystem(System):
         if stats and needs:
             needs.health = max(0.0, needs.health - 10.0)
             if emotional_state:
-                emotional_state.happiness = max(-100.0, emotional_state.happiness - 20.0)
+                emotional_state.happiness = max(
+                    -100.0, emotional_state.happiness - 20.0
+                )
                 emotional_state.stress = min(100.0, emotional_state.stress + 20.0)
 
             stats.discipline = min(100.0, stats.discipline + 10.0)
@@ -171,4 +185,6 @@ class GameRulesSystem(System):
                 audio.play_sound("hit")
 
             self.event_bus.publish(EntityPunishedEvent(event.entity_id, position))
-            logger.info(f"Punished entity {event.entity_id}. Health: {needs.health}, Discipline: {stats.discipline}")
+            logger.info(
+                f"Punished entity {event.entity_id}. Health: {needs.health}, Discipline: {stats.discipline}"
+            )

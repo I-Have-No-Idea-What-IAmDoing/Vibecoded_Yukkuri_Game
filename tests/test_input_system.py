@@ -1,21 +1,28 @@
 """
 Tests for InputSystem logic.
 """
+
 import unittest
 from unittest.mock import MagicMock, patch
 import pygame
 from yukkuri_game.game.input_system import InputSystem
-from yukkuri_game.game.events import PlacementStartedEvent, PlacementRequestedEvent, PlacementCancelledEvent
+from yukkuri_game.game.events import (
+    PlacementStartedEvent,
+    PlacementRequestedEvent,
+    PlacementCancelledEvent,
+)
 from yukkuri_game.game.services import InputService
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.audio import AudioManager
 from yukkuri_game.engine.input_manager import InputManager
 
+
 class TestInputSystem(unittest.TestCase):
     """
     Tests input handling logic, including placement mode and event publishing.
     """
+
     def setUp(self) -> None:
         """
         Sets up pygame, mocks, and the InputSystem.
@@ -25,7 +32,10 @@ class TestInputSystem(unittest.TestCase):
 
         self.yukkurrium_mock = MagicMock()
         # Mock screen_to_world to return the same coordinates passed to it
-        self.yukkurrium_mock.screen_to_world.side_effect = lambda x, y, sw, sh: (float(x), float(y))
+        self.yukkurrium_mock.screen_to_world.side_effect = lambda x, y, sw, sh: (
+            float(x),
+            float(y),
+        )
 
         self.input_system = InputSystem(self.yukkurrium_mock)
 
@@ -38,13 +48,17 @@ class TestInputSystem(unittest.TestCase):
 
         # Configure world.services
         def get_service(service_type):
-            if service_type == EventBus: return self.event_bus_mock
-            if service_type == InputService: return self.input_service
+            if service_type == EventBus:
+                return self.event_bus_mock
+            if service_type == InputService:
+                return self.input_service
             return None
 
         def try_get_service(service_type):
-            if service_type == AudioManager: return self.audio_mock
-            if service_type == InputManager: return self.input_manager_mock
+            if service_type == AudioManager:
+                return self.audio_mock
+            if service_type == InputManager:
+                return self.input_manager_mock
             return None
 
         self.world_mock.services.get.side_effect = get_service
@@ -58,9 +72,9 @@ class TestInputSystem(unittest.TestCase):
 
         # Initialize dependencies
         # Need to mock display.get_surface for update()
-        with patch('pygame.display.get_surface') as mock_surface:
-             mock_surface.return_value.get_size.return_value = (800, 600)
-             self.input_system.update(self.world_mock, 0.0)
+        with patch("pygame.display.get_surface") as mock_surface:
+            mock_surface.return_value.get_size.return_value = (800, 600)
+            self.input_system.update(self.world_mock, 0.0)
 
     def tearDown(self) -> None:
         """
@@ -90,14 +104,16 @@ class TestInputSystem(unittest.TestCase):
         # Mock Input
         self.input_manager_mock.get_mouse_position.return_value = (100, 100)
         # Simulate Select Pressed
-        self.input_manager_mock.is_action_just_pressed.side_effect = lambda action: action == "select"
+        self.input_manager_mock.is_action_just_pressed.side_effect = (
+            lambda action: action == "select"
+        )
 
-        with patch('pygame.display.get_surface') as mock_get_surface:
-             mock_surface = MagicMock()
-             mock_surface.get_size.return_value = (800, 600)
-             mock_get_surface.return_value = mock_surface
+        with patch("pygame.display.get_surface") as mock_get_surface:
+            mock_surface = MagicMock()
+            mock_surface.get_size.return_value = (800, 600)
+            mock_get_surface.return_value = mock_surface
 
-             self.input_system.update(self.world_mock, 0.0)
+            self.input_system.update(self.world_mock, 0.0)
 
         # Check event published
         self.event_bus_mock.publish.assert_called_with(
@@ -117,22 +133,23 @@ class TestInputSystem(unittest.TestCase):
         # Mock Input
         self.input_manager_mock.get_mouse_position.return_value = (100, 100)
         # Simulate Cancel Pressed
-        self.input_manager_mock.is_action_just_pressed.side_effect = lambda action: action == "cancel_action"
+        self.input_manager_mock.is_action_just_pressed.side_effect = (
+            lambda action: action == "cancel_action"
+        )
 
-        with patch('pygame.display.get_surface') as mock_get_surface:
-             mock_surface = MagicMock()
-             mock_surface.get_size.return_value = (800, 600)
-             mock_get_surface.return_value = mock_surface
+        with patch("pygame.display.get_surface") as mock_get_surface:
+            mock_surface = MagicMock()
+            mock_surface.get_size.return_value = (800, 600)
+            mock_get_surface.return_value = mock_surface
 
-             self.input_system.update(self.world_mock, 0.0)
+            self.input_system.update(self.world_mock, 0.0)
 
         # Check event published
-        self.event_bus_mock.publish.assert_called_with(
-            PlacementCancelledEvent()
-        )
+        self.event_bus_mock.publish.assert_called_with(PlacementCancelledEvent())
 
         # Check placement reset
         self.assertFalse(self.input_service.is_placing)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

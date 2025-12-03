@@ -1,7 +1,9 @@
 """
 Time System Module.
 """
+
 from ...engine.ecs import System, World
+
 
 class TimeSystem(System):
     """

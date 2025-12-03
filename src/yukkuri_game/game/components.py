@@ -1,12 +1,14 @@
 """
 Module defining core game components.
 """
+
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set
+from typing import Dict, Optional
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
 from ..engine.data_models import AnimationDefinition
 from ..engine.types import EntityID
+
 
 @dataclass
 class PhysicsBody:
@@ -17,8 +19,10 @@ class PhysicsBody:
         body (pymunk.Body): The physics body.
         shape (pymunk.Shape): The physics shape.
     """
+
     body: pymunk.Body
     shape: pymunk.Shape
+
 
 @dataclass
 class Transform:
@@ -30,9 +34,11 @@ class Transform:
         y (float): The y-coordinate of the entity.
         scale (float): The scale factor of the entity. Defaults to 1.0.
     """
+
     x: float
     y: float
     scale: float = 1.0
+
 
 @dataclass
 class Velocity:
@@ -43,8 +49,10 @@ class Velocity:
         dx (float): The velocity along the x-axis.
         dy (float): The velocity along the y-axis.
     """
+
     dx: float
     dy: float
+
 
 @dataclass
 class Sprite:
@@ -57,6 +65,7 @@ class Sprite:
         height (int): The height of the sprite in pixels.
         layer (int): The rendering layer order. Defaults to 0.
     """
+
     image_name: str
     width: int
     height: int
@@ -72,6 +81,7 @@ class Sprite:
     loop: bool = True
     is_animating: bool = True
 
+
 @dataclass
 class Animator:
     """
@@ -84,6 +94,7 @@ class Animator:
         timer (float): Timer for the current frame.
         finished (bool): Whether the animation has finished (for non-looping).
     """
+
     animations: Dict[str, AnimationDefinition]
     current_animation: str = "default"
     current_frame_index: int = 0
@@ -93,6 +104,7 @@ class Animator:
     next_animation: Optional[str] = None
     forward: bool = True  # Direction for ping-pong loops
 
+
 @dataclass
 class Selectable:
     """
@@ -101,6 +113,7 @@ class Selectable:
     Attributes:
         selected (bool): Whether the entity is currently selected. Defaults to False.
     """
+
     selected: bool = False
 
 
@@ -116,12 +129,14 @@ class FloatingText:
         velocity_y (float): The speed at which the text floats up (pixels/second).
         size (int): The font size.
     """
+
     text: str
     color: tuple[int, int, int]
     lifetime: float
     max_lifetime: float
     velocity_y: float
     size: int = 20
+
 
 @dataclass
 class InteractionRequest:
@@ -133,6 +148,7 @@ class InteractionRequest:
         consume (bool): Whether to consume the target (e.g. eat it).
         action (str): The specific action (e.g. "Talk", "Eat").
     """
+
     target_id: EntityID
     consume: bool = True
     action: str = "DEFAULT"
@@ -140,9 +156,11 @@ class InteractionRequest:
     # Metadata for serialization remapping
     # _references: Set[str] = field(default_factory=lambda: {"target_id"}, repr=False, init=False)
 
+
 @dataclass
 class MovementController:
     """A simple component that holds movement commands and visual state."""
+
     # Safety Fix: Use default_factory for mutable Vector2
     target_velocity: Vector2 = field(default_factory=lambda: Vector2(0, 0))
 
@@ -151,9 +169,11 @@ class MovementController:
     bob_height: float = 10.0
     bob_speed: float = 5.0
 
+
 @dataclass
 class VisualTransform:
     """Holds visual-only transform data, decoupling rendering from physics."""
+
     vertical_offset: float = 0.0
     # Safety Fix: Use default_factory for mutable Vector2
     shadow_position: Vector2 = field(default_factory=lambda: Vector2(0, 0))

@@ -1,6 +1,7 @@
 """
 Module defining the ConstructionSystem logic.
 """
+
 from typing import Optional, TYPE_CHECKING
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus, Event
@@ -9,6 +10,7 @@ from ..services import EconomyService
 
 if TYPE_CHECKING:
     from ..entity_factory import EntityFactory
+
 
 class ConstructionSystem(System):
     """
@@ -21,12 +23,13 @@ class ConstructionSystem(System):
         economy_service (Optional[EconomyService]): The economy service.
         factory (Optional[EntityFactory]): The entity factory.
     """
+
     def __init__(self) -> None:
         """Initializes the ConstructionSystem."""
         self.world: Optional[World] = None
         self.event_bus: Optional[EventBus] = None
         self.economy_service: Optional[EconomyService] = None
-        self.factory: Optional['EntityFactory'] = None
+        self.factory: Optional["EntityFactory"] = None
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -47,9 +50,12 @@ class ConstructionSystem(System):
             self.economy_service = world.services.get(EconomyService)
 
             from ..entity_factory import EntityFactory
+
             self.factory = world.services.get(EntityFactory)
 
-            self.event_bus.subscribe(PlacementRequestedEvent, self.on_placement_requested)
+            self.event_bus.subscribe(
+                PlacementRequestedEvent, self.on_placement_requested
+            )
 
     def on_placement_requested(self, event: Event) -> None:
         """

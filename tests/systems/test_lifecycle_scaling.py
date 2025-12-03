@@ -1,10 +1,9 @@
-
-import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
 from yukkuri_game.game.components import Transform
 from yukkuri_game.engine.ecs import World
+
 
 def test_lifecycle_scaling_correctness():
     """
@@ -36,10 +35,11 @@ def test_lifecycle_scaling_correctness():
     # 2. Child -> Adult
     # Multiplier: 4.0/3.0
     # Expected: 0.75 * (4/3) = 1.0
-    system._grow_entity(world, entity, stats, needs, transform, "Adult", 4.0/3.0)
+    system._grow_entity(world, entity, stats, needs, transform, "Adult", 4.0 / 3.0)
 
     assert stats.growth_stage == "Adult"
     assert transform.scale == 1.0
+
 
 def test_lifecycle_scaling_incorrect_initialization():
     """
@@ -63,8 +63,10 @@ def test_lifecycle_scaling_incorrect_initialization():
 
     # Baby -> Child (x1.5)
     system._grow_entity(world, entity, stats, needs, transform, "Child", 1.5)
-    assert transform.scale == 1.5 # Propagated error, which is expected behavior for relative scaling.
+    assert (
+        transform.scale == 1.5
+    )  # Propagated error, which is expected behavior for relative scaling.
 
     # Child -> Adult (x1.33)
-    system._grow_entity(world, entity, stats, needs, transform, "Adult", 4.0/3.0)
-    assert transform.scale == 2.0 # Propagated error.
+    system._grow_entity(world, entity, stats, needs, transform, "Adult", 4.0 / 3.0)
+    assert transform.scale == 2.0  # Propagated error.

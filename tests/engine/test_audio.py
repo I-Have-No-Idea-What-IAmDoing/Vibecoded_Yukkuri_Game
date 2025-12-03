@@ -3,10 +3,11 @@ from unittest.mock import MagicMock, patch
 import pygame
 from yukkuri_game.engine.audio import AudioManager
 
+
 class TestAudio(unittest.TestCase):
     def setUp(self):
         # Patch pygame.mixer.init to control successful initialization
-        self.mixer_init_patcher = patch('pygame.mixer.init')
+        self.mixer_init_patcher = patch("pygame.mixer.init")
         self.mock_mixer_init = self.mixer_init_patcher.start()
 
     def tearDown(self):
@@ -22,8 +23,8 @@ class TestAudio(unittest.TestCase):
         audio = AudioManager()
         self.assertFalse(audio.enabled)
 
-    @patch('pygame.mixer.Sound')
-    @patch('os.path.exists')
+    @patch("pygame.mixer.Sound")
+    @patch("os.path.exists")
     def test_load_sound_success(self, mock_exists, mock_sound_class):
         mock_exists.return_value = True
         mock_sound_instance = MagicMock()
@@ -35,10 +36,12 @@ class TestAudio(unittest.TestCase):
         self.assertIn("test", audio.sounds)
         self.assertEqual(audio.sounds["test"], mock_sound_instance)
         # Volume is calculated from master * sfx
-        mock_sound_instance.set_volume.assert_called_with(audio.master_volume * audio.sfx_volume)
+        mock_sound_instance.set_volume.assert_called_with(
+            audio.master_volume * audio.sfx_volume
+        )
 
-    @patch('pygame.mixer.Sound')
-    @patch('os.path.exists')
+    @patch("pygame.mixer.Sound")
+    @patch("os.path.exists")
     def test_load_sound_file_not_found(self, mock_exists, mock_sound_class):
         mock_exists.return_value = False
 
@@ -48,8 +51,8 @@ class TestAudio(unittest.TestCase):
         self.assertNotIn("test", audio.sounds)
         mock_sound_class.assert_not_called()
 
-    @patch('pygame.mixer.Sound')
-    @patch('os.path.exists')
+    @patch("pygame.mixer.Sound")
+    @patch("os.path.exists")
     def test_load_sound_exception(self, mock_exists, mock_sound_class):
         mock_exists.return_value = True
         mock_sound_class.side_effect = Exception("Load error")
@@ -63,12 +66,12 @@ class TestAudio(unittest.TestCase):
         self.mock_mixer_init.side_effect = pygame.error("No device")
         audio = AudioManager()
 
-        with patch('os.path.exists') as mock_exists:
-             audio.load_sound("test", "test.wav")
-             mock_exists.assert_not_called()
+        with patch("os.path.exists") as mock_exists:
+            audio.load_sound("test", "test.wav")
+            mock_exists.assert_not_called()
 
-    @patch('pygame.mixer.Sound')
-    @patch('os.path.exists')
+    @patch("pygame.mixer.Sound")
+    @patch("os.path.exists")
     def test_play_sound(self, mock_exists, mock_sound_class):
         mock_exists.return_value = True
         mock_sound_instance = MagicMock()
@@ -93,8 +96,8 @@ class TestAudio(unittest.TestCase):
         audio.play_sound("test")
         mock_sound.play.assert_not_called()
 
-    @patch('pygame.mixer.Sound')
-    @patch('os.path.exists')
+    @patch("pygame.mixer.Sound")
+    @patch("os.path.exists")
     def test_set_volume(self, mock_exists, mock_sound_class):
         mock_exists.return_value = True
         mock_sound_instance = MagicMock()
@@ -114,5 +117,6 @@ class TestAudio(unittest.TestCase):
         audio.set_volume(-0.5)
         self.assertEqual(audio.master_volume, 0.0)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

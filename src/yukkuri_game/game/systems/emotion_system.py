@@ -1,9 +1,17 @@
 """
 Module defining the EmotionSystem logic (formerly StatDecaySystem).
 """
+
 from typing import Optional
 from ...engine.ecs import System, World
-from ..yukkuri_components import YukkuriStats, Needs, Dead, Personality, EmotionalState, Skills
+from ..yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    Dead,
+    Personality,
+    EmotionalState,
+    Skills,
+)
 from ..trait_service import TraitService
 from ..services import TimeService
 from ..skill_service import SkillService
@@ -11,6 +19,7 @@ from ...config import StatDecaySettings
 import random
 
 SECONDS_PER_DAY = 3600.0
+
 
 class EmotionSystem(System):
     """
@@ -106,10 +115,10 @@ class EmotionSystem(System):
             stats.age += self.settings.age * dt
             needs.cleanliness -= self.settings.cleanliness * mult_cleanliness * dt
 
-            if hasattr(self.settings, 'social'):
-                 needs.social -= self.settings.social * mult_social * dt
+            if hasattr(self.settings, "social"):
+                needs.social -= self.settings.social * mult_social * dt
             else:
-                 needs.social -= 1.0 * mult_social * dt
+                needs.social -= 1.0 * mult_social * dt
 
             # Health decay due to starvation
             if needs.hunger >= 100.0:
@@ -125,7 +134,7 @@ class EmotionSystem(System):
             # Update Emotional State
             if emotional_state:
                 # Stress decays fast to 0
-                stress_decay_rate = getattr(self.settings, 'stress', 5.0)
+                stress_decay_rate = getattr(self.settings, "stress", 5.0)
                 if emotional_state.stress > 0:
                     emotional_state.stress -= stress_decay_rate * mult_stress * dt
                     emotional_state.stress = max(0.0, emotional_state.stress)
@@ -135,14 +144,20 @@ class EmotionSystem(System):
                 baseline = 0.0
 
                 if emotional_state.happiness > baseline:
-                    emotional_state.happiness -= happiness_decay_rate * mult_happiness * dt
+                    emotional_state.happiness -= (
+                        happiness_decay_rate * mult_happiness * dt
+                    )
                     emotional_state.happiness = max(baseline, emotional_state.happiness)
                 elif emotional_state.happiness < baseline:
-                    emotional_state.happiness += happiness_decay_rate * mult_happiness * dt
+                    emotional_state.happiness += (
+                        happiness_decay_rate * mult_happiness * dt
+                    )
                     emotional_state.happiness = min(baseline, emotional_state.happiness)
 
                 # Clamp
-                emotional_state.happiness = max(-100.0, min(100.0, emotional_state.happiness))
+                emotional_state.happiness = max(
+                    -100.0, min(100.0, emotional_state.happiness)
+                )
                 emotional_state.stress = max(0.0, min(100.0, emotional_state.stress))
 
             # Personality Drift
@@ -167,7 +182,9 @@ class EmotionSystem(System):
         Wait, I can add a `_drift_accumulator` field to the Personality component in yukkuri_components.py first.
         But for this step, I will stick to fixing the "drift_chance > 1.0" issue first.
         """
-        drift_rate = getattr(self.settings, 'personality_drift_rate', 0.1) # Units per second
+        drift_rate = getattr(
+            self.settings, "personality_drift_rate", 0.1
+        )  # Units per second
 
         # We can simulate fractional drift by using a probability that is clamped.
         # But if drift_rate * dt > 1, we should drift multiple points.
@@ -176,7 +193,7 @@ class EmotionSystem(System):
         guaranteed_drift = int(drift_amount_float)
         probability_drift = drift_amount_float - guaranteed_drift
 
-        for attr in ['kindness', 'energy', 'bravery', 'greed']:
+        for attr in ["kindness", "energy", "bravery", "greed"]:
             current = getattr(personality.axis, attr)
             base = getattr(personality.base_axis, attr)
 

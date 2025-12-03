@@ -1,9 +1,8 @@
-
-import pytest
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Sprite, Animator
 from yukkuri_game.engine.data_models import AnimationDefinition
 from yukkuri_game.game.systems.animation import AnimationSystem
+
 
 def test_animator_update_size_override():
     world = World()
@@ -11,12 +10,7 @@ def test_animator_update_size_override():
 
     # Define animations with size override
     small_anim = AnimationDefinition(
-        name="small",
-        frames=[0],
-        frame_duration=1.0,
-        loop=True,
-        width=32,
-        height=32
+        name="small", frames=[0], frame_duration=1.0, loop=True, width=32, height=32
     )
 
     big_anim = AnimationDefinition(
@@ -26,21 +20,14 @@ def test_animator_update_size_override():
         loop=True,
         width=64,
         height=64,
-        image="big_sprite.png"
+        image="big_sprite.png",
     )
 
     animations = {"small": small_anim, "big": big_anim}
 
     # Create entity with initial small animation
-    animator = Animator(
-        animations=animations,
-        current_animation="small"
-    )
-    sprite = Sprite(
-        image_name="test.png",
-        width=10,
-        height=10
-    )
+    animator = Animator(animations=animations, current_animation="small")
+    sprite = Sprite(image_name="test.png", width=10, height=10)
 
     entity = world.create_entity()
     world.add_component(entity, animator)
@@ -50,7 +37,7 @@ def test_animator_update_size_override():
     system.update(world, 0.1)
     assert sprite.width == 32
     assert sprite.height == 32
-    assert sprite.image_name == "test.png" # No override in small
+    assert sprite.image_name == "test.png"  # No override in small
 
     # Switch to "big"
     animator.current_animation = "big"
@@ -70,15 +57,13 @@ def test_animator_update_size_override():
     # Given the current implementation, this is correct.
     assert sprite.image_name == "big_sprite.png"
 
+
 def test_animator_looping():
     world = World()
     system = AnimationSystem()
 
     loop_anim = AnimationDefinition(
-        name="loop",
-        frames=[0, 1],
-        frame_duration=0.1,
-        loop=True
+        name="loop", frames=[0, 1], frame_duration=0.1, loop=True
     )
 
     animator = Animator(animations={"loop": loop_anim}, current_animation="loop")

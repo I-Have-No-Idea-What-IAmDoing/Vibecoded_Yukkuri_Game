@@ -1,9 +1,14 @@
-
-import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.services import GameService
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, GossipQueue, GossipPacket, EmotionalState, RelationshipRegistry, Personality
+from yukkuri_game.game.yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    GossipQueue,
+    GossipPacket,
+    EmotionalState,
+    RelationshipRegistry,
+    Personality,
+)
 from yukkuri_game.game.components import Transform
 from yukkuri_game.engine.audio import AudioManager
 from yukkuri_game.game.systems.social_system import SocialSystem
@@ -13,6 +18,7 @@ from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.components import InteractionRequest
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.game.skill_service import SkillService
+
 
 def test_gossip_exchange_integrity():
     """
@@ -30,7 +36,7 @@ def test_gossip_exchange_integrity():
     trait_service = MagicMock(spec=TraitService)
     # Mock get_interaction to return something valid so SocialSystem doesn't bail
     trait_service.get_interaction.return_value = {"type": "SOCIAL", "base_impact": 10.0}
-    trait_service.get_trait.return_value = {} # For personality checks
+    trait_service.get_trait.return_value = {}  # For personality checks
     # calculate_overrides for InteractionSystem
     trait_service.calculate_overrides.return_value = {}
     world.services.register(trait_service, TraitService)
@@ -122,7 +128,9 @@ def test_gossip_exchange_integrity():
 
     # Check B's queue length. It should remain 1 if deduplication works.
     # If the bug regresses (direct append), it would be > 1.
-    assert len(queue_b.priority_queue) == 1, f"Queue grew unexpectedly: {len(queue_b.priority_queue)}"
+    assert len(queue_b.priority_queue) == 1, (
+        f"Queue grew unexpectedly: {len(queue_b.priority_queue)}"
+    )
 
     # Ensure queue is sorted (though with 1 element it's trivial)
     # Let's add another different packet to verify adding works

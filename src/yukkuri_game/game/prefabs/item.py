@@ -1,6 +1,7 @@
 """
 Prefab for Item entities.
 """
+
 from typing import Any
 import pymunk
 from ...engine.ecs import World
@@ -10,6 +11,7 @@ from ..yukkuri_components import ItemStats, Poop
 from ..components_persistence import StableIDComponent, Persistable
 from ..collision_constants import CollisionCategories
 from ..systems.physics import PhysicsSystem
+
 
 def create_item(world: World, type_id: str, x: float, y: float) -> int:
     """
@@ -42,50 +44,61 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
             return d.get(k, default)
         return getattr(d, k, default)
 
-    image = _get_attr(data, 'image', "item_default.png")
-    width = _get_attr(data, 'width', 32)
-    height = _get_attr(data, 'height', 32)
-    frame_count = _get_attr(data, 'frame_count', 1)
-    frame_duration = _get_attr(data, 'frame_duration', 0.1)
-    loop = _get_attr(data, 'loop', True)
+    image = _get_attr(data, "image", "item_default.png")
+    width = _get_attr(data, "width", 32)
+    height = _get_attr(data, "height", 32)
+    frame_count = _get_attr(data, "frame_count", 1)
+    frame_duration = _get_attr(data, "frame_duration", 0.1)
+    loop = _get_attr(data, "loop", True)
 
-    world.add_component(entity, Sprite(
-        image_name=image, width=width, height=height, frame_count=frame_count,
-        frame_duration=frame_duration, loop=loop, is_animating=(frame_count > 1)
-    ))
+    world.add_component(
+        entity,
+        Sprite(
+            image_name=image,
+            width=width,
+            height=height,
+            frame_count=frame_count,
+            frame_duration=frame_duration,
+            loop=loop,
+            is_animating=(frame_count > 1),
+        ),
+    )
     world.add_component(entity, Selectable())
     world.add_component(entity, VisualTransform())
     world.add_component(entity, StableIDComponent(id=world.get_next_stable_id()))
     world.add_component(entity, Persistable())
 
     stats = ItemStats(
-        name=_get_attr(data, 'name', "Item"),
+        name=_get_attr(data, "name", "Item"),
         type_id=type_id,
-        cost=_get_attr(data, 'cost', 10),
-        nutrition=_get_attr(data, 'nutrition', 0) or 0,
-        fun=_get_attr(data, 'fun', 0) or 0,
-        comfort=_get_attr(data, 'comfort', 0) or 0,
-        is_portable=_get_attr(data, 'is_portable', False)
+        cost=_get_attr(data, "cost", 10),
+        nutrition=_get_attr(data, "nutrition", 0) or 0,
+        fun=_get_attr(data, "fun", 0) or 0,
+        comfort=_get_attr(data, "comfort", 0) or 0,
+        is_portable=_get_attr(data, "is_portable", False),
     )
     world.add_component(entity, stats)
 
     if physics_system:
-         mass = 1
-         # Box shape for items
-         inertia = pymunk.moment_for_box(mass, (width, height))
-         body = pymunk.Body(mass, inertia)
-         shape = pymunk.Poly.create_box(body, (width, height))
-         body.position = (x, y)
-         shape.elasticity = 0.5
-         shape.friction = 0.5
-         shape.filter = pymunk.ShapeFilter(
+        mass = 1
+        # Box shape for items
+        inertia = pymunk.moment_for_box(mass, (width, height))
+        body = pymunk.Body(mass, inertia)
+        shape = pymunk.Poly.create_box(body, (width, height))
+        body.position = (x, y)
+        shape.elasticity = 0.5
+        shape.friction = 0.5
+        shape.filter = pymunk.ShapeFilter(
             categories=CollisionCategories.ITEM,
-            mask=CollisionCategories.WALL | CollisionCategories.POOP | CollisionCategories.ITEM
-         )
-         physics_system.space.add(body, shape)
-         world.add_component(entity, PhysicsBody(body=body, shape=shape))
+            mask=CollisionCategories.WALL
+            | CollisionCategories.POOP
+            | CollisionCategories.ITEM,
+        )
+        physics_system.space.add(body, shape)
+        world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
     return entity
+
 
 def create_poop(world: World, x: float, y: float) -> int:
     """
@@ -118,8 +131,7 @@ def create_poop(world: World, x: float, y: float) -> int:
         shape.elasticity = 0.2
         shape.friction = 0.8
         shape.filter = pymunk.ShapeFilter(
-            categories=CollisionCategories.POOP,
-            mask=CollisionCategories.ALL
+            categories=CollisionCategories.POOP, mask=CollisionCategories.ALL
         )
         # EntityFactory did not set userdata, so we don't either.
         physics_system.space.add(body, shape)

@@ -8,6 +8,7 @@ import pygame
 from loguru import logger
 from typing import Dict, Optional
 
+
 class AudioManager:
     """
     Manages audio playback for the game, including sound effects and music.
@@ -81,7 +82,7 @@ class AudioManager:
             "sell": "data/audio/sell.wav",
             "train": "data/audio/train.wav",
             "eat": "data/audio/eat.wav",
-            "cry": "data/audio/cry.wav"
+            "cry": "data/audio/cry.wav",
         }
         for name, path in defaults.items():
             self.load_sound(name, path)
@@ -137,7 +138,7 @@ class AudioManager:
         """
         self.bgm_volume = max(0.0, min(1.0, volume))
         if self.enabled and pygame.mixer.get_init():
-             pygame.mixer.music.set_volume(self.master_volume * self.bgm_volume)
+            pygame.mixer.music.set_volume(self.master_volume * self.bgm_volume)
 
     def set_sfx_volume(self, volume: float) -> None:
         """
@@ -169,7 +170,7 @@ class AudioManager:
             self._update_sound_volume(s)
 
         if pygame.mixer.get_init():
-             pygame.mixer.music.set_volume(self.master_volume * self.bgm_volume)
+            pygame.mixer.music.set_volume(self.master_volume * self.bgm_volume)
 
     def set_volume(self, volume: float) -> None:
         """

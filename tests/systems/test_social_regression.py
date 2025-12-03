@@ -1,17 +1,24 @@
 """
 Tests for Social System Logic Regression.
 """
+
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.social_system import SocialSystem
 from yukkuri_game.game.systems.interaction_system import InteractionSystem
 from yukkuri_game.game.components import Transform, InteractionRequest
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, RelationshipRegistry, EmotionalState, Skills, SkillState
+from yukkuri_game.game.yukkuri_components import (
+    YukkuriStats,
+    Needs,
+    RelationshipRegistry,
+    Skills,
+)
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.game.skill_service import SkillService
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.types import EntityID
+
 
 @pytest.fixture
 def social_env():
@@ -38,6 +45,7 @@ def social_env():
 
     return world, interaction_system, skill_service, trait_service
 
+
 def test_fight_damage_and_xp(social_env):
     world, interaction_system, skill_service, trait_service = social_env
 
@@ -47,7 +55,9 @@ def test_fight_damage_and_xp(social_env):
     world.add_component(attacker, Needs(health=100.0, max_health=100.0))
     world.add_component(attacker, Transform(x=0, y=0))
     world.add_component(attacker, RelationshipRegistry())
-    world.add_component(attacker, Skills()) # Needed for XP check? System uses service directly.
+    world.add_component(
+        attacker, Skills()
+    )  # Needed for XP check? System uses service directly.
 
     defender = world.create_entity()
     world.add_component(defender, YukkuriStats(name="Defender", type_id="t"))
@@ -56,11 +66,15 @@ def test_fight_damage_and_xp(social_env):
     world.add_component(defender, RelationshipRegistry())
 
     # Mock interaction definition for Fight
-    trait_service.get_interaction.side_effect = lambda t: {
-        "base_impact": -10.0,
-        "physical_impact": {"health": -5.0},
-        "skill_rewards": {"combat": 10.0}
-    } if t == "Fight" else None
+    trait_service.get_interaction.side_effect = (
+        lambda t: {
+            "base_impact": -10.0,
+            "physical_impact": {"health": -5.0},
+            "skill_rewards": {"combat": 10.0},
+        }
+        if t == "Fight"
+        else None
+    )
 
     # 2. Trigger Fight via Request
     req = InteractionRequest(target_id=EntityID(defender), action="Fight")
@@ -73,11 +87,12 @@ def test_fight_damage_and_xp(social_env):
     attacker_needs = world.get_component(attacker, Needs)
     defender_needs = world.get_component(defender, Needs)
 
-    assert attacker_needs.health == 95.0 # 100 - 5
-    assert defender_needs.health == 95.0 # 100 - 5
+    assert attacker_needs.health == 95.0  # 100 - 5
+    assert defender_needs.health == 95.0  # 100 - 5
 
     # 5. Verify XP (Combat for Fight)
     skill_service.add_xp.assert_called_with(attacker, "combat", 10.0)
+
 
 def test_dance_xp(social_env):
     world, interaction_system, skill_service, trait_service = social_env
@@ -94,10 +109,14 @@ def test_dance_xp(social_env):
     world.add_component(partner, Transform(x=10, y=0))
     world.add_component(partner, RelationshipRegistry())
 
-    trait_service.get_interaction.side_effect = lambda t: {
-        "base_impact": 10.0,
-        "skill_rewards": {"athletics": 5.0, "socialization": 2.0}
-    } if t == "Dance" else None
+    trait_service.get_interaction.side_effect = (
+        lambda t: {
+            "base_impact": 10.0,
+            "skill_rewards": {"athletics": 5.0, "socialization": 2.0},
+        }
+        if t == "Dance"
+        else None
+    )
 
     req = InteractionRequest(target_id=EntityID(partner), action="Dance")
     world.add_component(dancer, req)
@@ -110,6 +129,7 @@ def test_dance_xp(social_env):
     # Should be called for athletics 5.0 and social 2.0
     assert any(c[0] == (dancer, "athletics", 5.0) for c in calls)
     assert any(c[0] == (dancer, "socialization", 2.0) for c in calls)
+
 
 def test_talk_xp(social_env):
     world, interaction_system, skill_service, trait_service = social_env
@@ -126,10 +146,11 @@ def test_talk_xp(social_env):
     world.add_component(listener, Transform(x=10, y=0))
     world.add_component(listener, RelationshipRegistry())
 
-    trait_service.get_interaction.side_effect = lambda t: {
-        "base_impact": 5.0,
-        "skill_rewards": {"socialization": 5.0}
-    } if t == "Talk" else None
+    trait_service.get_interaction.side_effect = (
+        lambda t: {"base_impact": 5.0, "skill_rewards": {"socialization": 5.0}}
+        if t == "Talk"
+        else None
+    )
 
     req = InteractionRequest(target_id=EntityID(listener), action="Talk")
     world.add_component(talker, req)

@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock
 from types import SimpleNamespace
 from yukkuri_game.engine.ecs import World
@@ -7,16 +6,16 @@ from yukkuri_game.game.components import Sprite, Animator
 from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats
 from yukkuri_game.engine.resource_manager import ResourceManager
 
+
 class MockResourceManager:
     def __init__(self):
         # Use SimpleNamespace to simulate the msgspec struct access
-        self.yukkuri_types = {
-            "test_type": SimpleNamespace(image="base_image.png")
-        }
+        self.yukkuri_types = {"test_type": SimpleNamespace(image="base_image.png")}
         self.images = {}
 
     def load_image(self, name):
         return MagicMock()
+
 
 def test_dynamic_sprite_switching():
     """
@@ -34,7 +33,7 @@ def test_dynamic_sprite_switching():
     entity = world.create_entity(
         Sprite(image_name="base_image.png", width=32, height=32),
         AIState(current_action="Idle"),
-        YukkuriStats(name="Test", type_id="test_type")
+        YukkuriStats(name="Test", type_id="test_type"),
     )
 
     system = AnimationSystem()
@@ -62,6 +61,7 @@ def test_dynamic_sprite_switching():
     system.update(world, 0.1)
     assert sprite.image_name == "base_image_unknownaction.png"
 
+
 def test_animator_precedence():
     """
     Test that if an Animator is present, it takes precedence (existing logic).
@@ -75,7 +75,7 @@ def test_animator_precedence():
         Sprite(image_name="base_image.png", width=32, height=32),
         AIState(current_action="Sleeping"),
         YukkuriStats(name="Test", type_id="test_type"),
-        Animator(animations={})
+        Animator(animations={}),
     )
 
     system = AnimationSystem()

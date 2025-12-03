@@ -10,11 +10,23 @@ import pygame
 from loguru import logger
 
 from .data_models import (
-    YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction, GameTuning,
-    SkillData, SkillDefinition, TraitData, TraitDefinition, InteractionData, InteractionDefinition
+    YukkuriData,
+    ItemData,
+    AIData,
+    YukkuriType,
+    ItemType,
+    AIAction,
+    GameTuning,
+    SkillData,
+    SkillDefinition,
+    TraitData,
+    TraitDefinition,
+    InteractionData,
+    InteractionDefinition,
 )
 
 T = TypeVar("T")
+
 
 class ResourceManager:
     """

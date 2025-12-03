@@ -1,21 +1,27 @@
 """
 Service for managing Skill mechanics: XP gain, Leveling, and Decay.
 """
-import math
+
 from typing import Dict, Any, Optional
 
 from loguru import logger
 
 from ..engine.ecs import World
-from .yukkuri_components import Skills, SkillState, Personality, YukkuriStats, EmotionalState
-from .skill_constants import SkillId, PassionLevel
+from .yukkuri_components import (
+    Skills,
+    SkillState,
+    Personality,
+    YukkuriStats,
+    EmotionalState,
+)
+from .skill_constants import PassionLevel
 from .services import TimeService
 from .trait_service import TraitService
 from ..engine.event_bus import EventBus
 from .events import LevelUpEvent
 from ..engine.resource_manager import ResourceManager
-from ..engine.data_models import TraitDefinition
 from ..config import SkillsSettings, GameConfig
+
 
 class SkillService:
     """
@@ -36,7 +42,7 @@ class SkillService:
             # rm.skills is Dict[str, SkillDefinition]
             self.skill_definitions = rm.skills
         else:
-             logger.warning("ResourceManager not found in World.")
+            logger.warning("ResourceManager not found in World.")
 
     def initialize_skills(self, entity_id: int):
         """
@@ -111,7 +117,7 @@ class SkillService:
         state = skills.states[skill_id]
         definition = self.skill_definitions.get(skill_id)
         if not definition:
-             return
+            return
 
         # definition is msgspec Struct
         max_level = definition.max_level
@@ -176,7 +182,7 @@ class SkillService:
 
     def get_required_xp(self, level: int) -> float:
         """Formula: Base * (Exponent)^L"""
-        return self.settings.xp_base * (self.settings.xp_exponent ** level)
+        return self.settings.xp_base * (self.settings.xp_exponent**level)
 
     def apply_decay(self, entity_id: int):
         """
@@ -194,7 +200,7 @@ class SkillService:
             return
 
         current_time = time_service.time_elapsed
-        SECONDS_PER_DAY = 3600.0 # 1 hour = 1 day
+        SECONDS_PER_DAY = 3600.0  # 1 hour = 1 day
 
         for skill_id, state in skills.states.items():
             definition = self.skill_definitions.get(skill_id)

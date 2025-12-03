@@ -5,12 +5,18 @@ from yukkuri_game.game.systems.gossip_system import GossipSystem
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.events import SocialInteractionEvent
-from yukkuri_game.game.yukkuri_components import GossipQueue, GossipPacket, YukkuriStats, RelationshipRegistry, RelationshipData
+from yukkuri_game.game.yukkuri_components import (
+    GossipQueue,
+    GossipPacket,
+    YukkuriStats,
+    RelationshipRegistry,
+)
 from yukkuri_game.game.components import Transform
 from yukkuri_game.game.systems.sector_system import SectorMap
 from yukkuri_game.game.systems.physics import PhysicsSystem
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.config import GameConfig
+
 
 class TestGossipSystem:
     @pytest.fixture
@@ -48,7 +54,7 @@ class TestGossipSystem:
             PhysicsSystem: physics,
             SectorMap: sector_map,
             TraitService: trait_service,
-            GameConfig: game_config
+            GameConfig: game_config,
         }
 
         world.services.try_get.side_effect = lambda t: service_map.get(t)
@@ -57,7 +63,9 @@ class TestGossipSystem:
 
     def test_initialization(self, system, event_bus):
         """Test system initialization and subscription."""
-        event_bus.subscribe.assert_called_with(SocialInteractionEvent, system.on_social_interaction)
+        event_bus.subscribe.assert_called_with(
+            SocialInteractionEvent, system.on_social_interaction
+        )
 
     def test_gossip_exchange_talk(self, system, mock_world):
         """Test gossip exchange when talking."""
@@ -72,17 +80,21 @@ class TestGossipSystem:
 
         # Components
         sender_queue = GossipQueue()
-        packet = GossipPacket(target_id=3, event_type="TestEvent", value=10.0, timestamp=100.0)
+        packet = GossipPacket(
+            target_id=3, event_type="TestEvent", value=10.0, timestamp=100.0
+        )
         sender_queue.add_packet(packet, max_length=10)
 
         receiver_queue = GossipQueue()
 
         def get_component(eid, comp_type):
             if comp_type == GossipQueue:
-                if eid == sender: return sender_queue
-                if eid == receiver: return receiver_queue
+                if eid == sender:
+                    return sender_queue
+                if eid == receiver:
+                    return receiver_queue
             if comp_type == RelationshipRegistry:
-                return RelationshipRegistry() # Different families
+                return RelationshipRegistry()  # Different families
             if comp_type == Transform:
                 return Transform(x=0, y=0)
             return None
@@ -91,7 +103,9 @@ class TestGossipSystem:
         mock_world.entity_exists.return_value = True
 
         # Trigger event
-        event = SocialInteractionEvent(initiator_id=sender, target_id=receiver, interaction_type="Talk")
+        event = SocialInteractionEvent(
+            initiator_id=sender, target_id=receiver, interaction_type="Talk"
+        )
 
         # Mock sector map to return empty witnesses to focus on exchange
         sector_map = mock_world.services.try_get(SectorMap)
@@ -103,7 +117,7 @@ class TestGossipSystem:
         assert len(receiver_queue.priority_queue) == 1
         received = receiver_queue.priority_queue[0]
         assert received.target_id == 3
-        assert received.value < 10.0 # Decay applied
+        assert received.value < 10.0  # Decay applied
         assert received.event_type == "TestEvent"
 
     def test_gossip_exchange_same_group_bonus(self, system, mock_world):
@@ -130,12 +144,15 @@ class TestGossipSystem:
                 return sender_queue if eid == sender else receiver_queue
             if comp_type == RelationshipRegistry:
                 return reg_a if eid == sender else reg_b
-            if comp_type == Transform: return Transform(x=0, y=0)
+            if comp_type == Transform:
+                return Transform(x=0, y=0)
             return None
 
         mock_world.get_component.side_effect = get_component
 
-        event = SocialInteractionEvent(initiator_id=sender, target_id=receiver, interaction_type="Chat")
+        event = SocialInteractionEvent(
+            initiator_id=sender, target_id=receiver, interaction_type="Chat"
+        )
         system.sector_map = MagicMock()
         system.sector_map.get_entities_in_range.return_value = []
 
@@ -158,24 +175,30 @@ class TestGossipSystem:
 
         # Transforms
         actor_trans = Transform(x=100, y=100)
-        witness_trans = Transform(x=150, y=100) # Nearby
+        witness_trans = Transform(x=150, y=100)  # Nearby
 
         # Witness components
         witness_queue = GossipQueue()
         witness_stats = YukkuriStats(name="Reimu", type_id="reimu")
 
         def get_component(eid, comp_type):
-            if eid == actor and comp_type == Transform: return actor_trans
+            if eid == actor and comp_type == Transform:
+                return actor_trans
             if eid == witness:
-                if comp_type == Transform: return witness_trans
-                if comp_type == GossipQueue: return witness_queue
-                if comp_type == YukkuriStats: return witness_stats
-                if comp_type == RelationshipRegistry: return RelationshipRegistry()
-            if eid == actor and comp_type == RelationshipRegistry: return RelationshipRegistry()
+                if comp_type == Transform:
+                    return witness_trans
+                if comp_type == GossipQueue:
+                    return witness_queue
+                if comp_type == YukkuriStats:
+                    return witness_stats
+                if comp_type == RelationshipRegistry:
+                    return RelationshipRegistry()
+            if eid == actor and comp_type == RelationshipRegistry:
+                return RelationshipRegistry()
             return None
 
         mock_world.get_component.side_effect = get_component
-        mock_world.has_component.side_effect = lambda eid, c: True # Simplify
+        mock_world.has_component.side_effect = lambda eid, c: True  # Simplify
 
         # Sector map returns witness
         sector_map = mock_world.services.try_get(SectorMap)
@@ -183,9 +206,11 @@ class TestGossipSystem:
 
         # Physics raycast clear
         physics = mock_world.services.try_get(PhysicsSystem)
-        physics.space.segment_query_first.return_value = None # No obstacle
+        physics.space.segment_query_first.return_value = None  # No obstacle
 
-        event = SocialInteractionEvent(initiator_id=actor, target_id=target, interaction_type="Punch")
+        event = SocialInteractionEvent(
+            initiator_id=actor, target_id=target, interaction_type="Punch"
+        )
 
         system.on_social_interaction(event)
 
@@ -209,11 +234,15 @@ class TestGossipSystem:
         witness_trans = Transform(x=100, y=0)
 
         def get_component(eid, comp_type):
-            if eid == actor and comp_type == Transform: return actor_trans
+            if eid == actor and comp_type == Transform:
+                return actor_trans
             if eid == witness:
-                if comp_type == Transform: return witness_trans
-                if comp_type == GossipQueue: return GossipQueue()
-                if comp_type == YukkuriStats: return YukkuriStats(name="Reimu", type_id="reimu")
+                if comp_type == Transform:
+                    return witness_trans
+                if comp_type == GossipQueue:
+                    return GossipQueue()
+                if comp_type == YukkuriStats:
+                    return YukkuriStats(name="Reimu", type_id="reimu")
             return None
 
         mock_world.get_component.side_effect = get_component
@@ -225,11 +254,13 @@ class TestGossipSystem:
         # Physics raycast hits something
         physics = mock_world.services.try_get(PhysicsSystem)
         query_res = MagicMock()
-        query_res.point = pymunk.Vec2d(50, 0) # Hit halfway
+        query_res.point = pymunk.Vec2d(50, 0)  # Hit halfway
         query_res.shape.body.userdata = "Wall"
         physics.space.segment_query_first.return_value = query_res
 
-        event = SocialInteractionEvent(initiator_id=actor, target_id=2, interaction_type="Wave")
+        event = SocialInteractionEvent(
+            initiator_id=actor, target_id=2, interaction_type="Wave"
+        )
 
         system.on_social_interaction(event)
 
@@ -239,7 +270,11 @@ class TestGossipSystem:
         # Let's mock get_component better.
 
         witness_queue = GossipQueue()
-        mock_world.get_component.side_effect = lambda eid, c: witness_queue if c == GossipQueue and eid == witness else get_component(eid, c)
+        mock_world.get_component.side_effect = (
+            lambda eid, c: witness_queue
+            if c == GossipQueue and eid == witness
+            else get_component(eid, c)
+        )
 
         system.on_social_interaction(event)
 

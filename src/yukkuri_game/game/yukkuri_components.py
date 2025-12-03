@@ -1,14 +1,15 @@
 """
 Yukkuri Components Module.
 """
+
 from dataclasses import dataclass, field
-from typing import Set, Dict, Any, Optional, List, Deque, TYPE_CHECKING
-from collections import deque
+from typing import Set, Dict, Any, Optional, List, TYPE_CHECKING
 from ..engine.ecs import Component
 from ..engine.types import EntityID
 
 if TYPE_CHECKING:
     from ..config import StatsSettings
+
 
 @dataclass
 class PersonalityAxis:
@@ -21,10 +22,12 @@ class PersonalityAxis:
         bravery (int): Bravery vs Cowardice.
         greed (int): Greed vs Generosity.
     """
+
     kindness: int = 0
     energy: int = 0
     bravery: int = 0
     greed: int = 0
+
 
 @dataclass
 class EmotionalState(Component):
@@ -35,8 +38,9 @@ class EmotionalState(Component):
         happiness (float): -100 to 100.
         stress (float): 0 to 100.
     """
-    happiness: float = 0.0 # -100 to 100
-    stress: float = 0.0    # 0 to 100
+
+    happiness: float = 0.0  # -100 to 100
+    stress: float = 0.0  # 0 to 100
 
     def get_dominant_emotion(self, bravery: int = 0) -> str:
         """
@@ -65,6 +69,7 @@ class EmotionalState(Component):
             else:
                 return "Depressed/Sulking"
 
+
 @dataclass
 class Needs(Component):
     """
@@ -80,6 +85,7 @@ class Needs(Component):
         bladder (float): Current bladder fullness (0-100).
         easiness (float): Overall happiness stat (0-100).
     """
+
     health: float = 100.0
     max_health: float = 100.0
     hunger: float = 0.0
@@ -88,6 +94,7 @@ class Needs(Component):
     cleanliness: float = 100.0
     bladder: float = 0.0
     easiness: float = 50.0
+
 
 @dataclass
 class YukkuriStats(Component):
@@ -104,6 +111,7 @@ class YukkuriStats(Component):
         discipline (float): Current discipline level (0-100).
         intelligence (float): Intelligence stat.
     """
+
     name: str
     type_id: str
     age: float = 0.0
@@ -122,7 +130,12 @@ class YukkuriStats(Component):
         """
         return self.intelligence
 
-    def calculate_value(self, needs: Optional["Needs"] = None, emotional_state: Optional["EmotionalState"] = None, stats_config: Optional["StatsSettings"] = None) -> int:
+    def calculate_value(
+        self,
+        needs: Optional["Needs"] = None,
+        emotional_state: Optional["EmotionalState"] = None,
+        stats_config: Optional["StatsSettings"] = None,
+    ) -> int:
         """
         Calculates the value of the Yukkuri based on stats and emotional state.
 
@@ -145,7 +158,7 @@ class YukkuriStats(Component):
 
         score = 100.0
         if emotional_state:
-            score += (emotional_state.happiness + 100)
+            score += emotional_state.happiness + 100
         score += self.badges * badge_val
 
         if needs and needs.health < needs.max_health:
@@ -153,6 +166,7 @@ class YukkuriStats(Component):
 
         score += int(self.age / 60) * age_bonus
         return int(score)
+
 
 @dataclass
 class MemoryHeadline:
@@ -168,13 +182,15 @@ class MemoryHeadline:
         text (str): Description of the event.
         is_locked (bool): Whether the memory is locked (cannot be forgotten).
     """
+
     id: int
     timestamp: float
-    importance: float # Absolute magnitude of the event
+    importance: float  # Absolute magnitude of the event
     sentiment: float  # Signed value (-100 to 100) representing opinion change
     event_type: str
     text: str = ""
     is_locked: bool = False
+
 
 @dataclass
 class Personality:
@@ -187,10 +203,12 @@ class Personality:
         base_axis (PersonalityAxis): The natural resting point of the personality (Genetic + Traits).
         cached_overrides (Optional[Dict]): Cached AI overrides from traits.
     """
+
     traits: Set[str] = field(default_factory=set)
     axis: PersonalityAxis = field(default_factory=PersonalityAxis)
     base_axis: PersonalityAxis = field(default_factory=PersonalityAxis)
     cached_overrides: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class RelationshipData:
@@ -211,6 +229,7 @@ class RelationshipData:
         TRIVIAL_MAX_LEN (int): Max size of trivial buffer.
         CORE_MAX_LEN (int): Max size of core buffer.
     """
+
     affinity: float = 0.0
     trust: float = 0.0
     fear: float = 0.0
@@ -258,8 +277,8 @@ class RelationshipData:
 
     def _add_trivial_memory(self, headline: MemoryHeadline) -> None:
         if len(self.trivial_buffer) >= self.TRIVIAL_MAX_LEN:
-             removed = self.trivial_buffer.pop(0) # Remove oldest
-             self.trivial_sentiment_sum -= removed.sentiment
+            removed = self.trivial_buffer.pop(0)  # Remove oldest
+            self.trivial_sentiment_sum -= removed.sentiment
 
         self.trivial_buffer.append(headline)
         self.trivial_sentiment_sum += headline.sentiment
@@ -282,13 +301,13 @@ class RelationshipData:
         victim_index = -1
 
         # We also track the lowest importance LOCKED memory in case we need it later.
-        min_locked_importance = float('inf')
+        min_locked_importance = float("inf")
         min_locked_index = -1
 
         for i, mem in enumerate(self.core_buffer):
             if not mem.is_locked:
                 victim_index = i
-                break # Found the oldest unlocked, stop searching
+                break  # Found the oldest unlocked, stop searching
             else:
                 if mem.importance < min_locked_importance:
                     min_locked_importance = mem.importance
@@ -308,13 +327,14 @@ class RelationshipData:
         # 2. All memories are locked. Check if new memory is significantly more important.
         # "Significantly higher magnitude" -> let's say +20 difference.
         if min_locked_index != -1:
-             if headline.importance > (min_locked_importance + 20.0):
+            if headline.importance > (min_locked_importance + 20.0):
                 removed = self.core_buffer[min_locked_index]
                 self.core_sentiment_sum -= removed.sentiment
                 del self.core_buffer[min_locked_index]
 
                 self.core_buffer.append(headline)
                 self.core_sentiment_sum += headline.sentiment
+
 
 @dataclass
 class RelationshipRegistry:
@@ -328,6 +348,7 @@ class RelationshipRegistry:
         family_group_id (Optional[EntityID]): ID of the family group they belong to.
         mate_id (Optional[EntityID]): ID of the mate entity.
     """
+
     relationships: Dict[EntityID, RelationshipData] = field(default_factory=dict)
     biological_parents: List[EntityID] = field(default_factory=list)
     biological_children: List[EntityID] = field(default_factory=list)
@@ -338,11 +359,13 @@ class RelationshipRegistry:
     # Fields that contain EntityIDs that need remapping
     # _references: Set[str] = field(default_factory=lambda: {"relationships", "biological_parents", "biological_children", "family_group_id", "mate_id"}, repr=False, init=False)
 
+
 @dataclass
 class GossipPacket:
     """
     Represents a single piece of gossip or social information.
     """
+
     target_id: EntityID
     event_type: str
     value: float
@@ -351,11 +374,13 @@ class GossipPacket:
     def __lt__(self, other: "GossipPacket") -> bool:
         return self.value < other.value
 
+
 @dataclass
 class GossipQueue(Component):
     """
     Component managing a queue of gossip packets.
     """
+
     priority_queue: List[GossipPacket] = field(default_factory=list)
 
     # Metadata for serialization remapping
@@ -376,7 +401,10 @@ class GossipQueue(Component):
         # 1. Check for duplicates
         duplicate_index = -1
         for i, existing in enumerate(self.priority_queue):
-            if existing.target_id == packet.target_id and existing.event_type == packet.event_type:
+            if (
+                existing.target_id == packet.target_id
+                and existing.event_type == packet.event_type
+            ):
                 duplicate_index = i
                 break
 
@@ -399,6 +427,7 @@ class GossipQueue(Component):
                 self.priority_queue[-1] = packet
                 self.priority_queue.sort(key=lambda x: x.value, reverse=True)
 
+
 @dataclass
 class AIState:
     """
@@ -413,6 +442,7 @@ class AIState:
         failed_targets (Set[EntityID]): Set of target IDs that failed recently.
         manual_override (bool): Whether AI is overridden by manual control.
     """
+
     current_action: str = "Idle"
     current_target_id: EntityID = EntityID(-1)
     path: Optional[List[Any]] = None
@@ -423,6 +453,7 @@ class AIState:
 
     # Metadata for serialization remapping
     # _references: Set[str] = field(default_factory=lambda: {"current_target_id", "failed_targets"}, repr=False, init=False)
+
 
 @dataclass
 class ItemStats:
@@ -438,6 +469,7 @@ class ItemStats:
         comfort (float): Comfort value.
         is_portable (bool): Whether it can be carried.
     """
+
     name: str
     type_id: str
     cost: int
@@ -445,6 +477,7 @@ class ItemStats:
     fun: float = 0.0
     comfort: float = 0.0
     is_portable: bool = False
+
 
 @dataclass
 class SkillState:
@@ -457,10 +490,12 @@ class SkillState:
         passion (float): Multiplier for XP gain.
         last_used_gametime (float): Timestamp of last skill usage.
     """
+
     level: int = 0
     current_xp: float = 0.0
     passion: float = 1.0
     last_used_gametime: float = 0.0
+
 
 @dataclass
 class Skills(Component):
@@ -470,18 +505,23 @@ class Skills(Component):
     Attributes:
         states (Dict[str, SkillState]): Map of SkillId to SkillState.
     """
+
     states: Dict[str, SkillState] = field(default_factory=dict)
+
 
 @dataclass
 class Poop:
     """
     Tag component identifying an entity as Poop.
     """
+
     pass
+
 
 @dataclass
 class Dead:
     """
     Tag component for dead entities.
     """
+
     pass

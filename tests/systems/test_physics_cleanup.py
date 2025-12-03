@@ -1,10 +1,9 @@
-
-import pytest
 import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.physics import PhysicsSystem
 from yukkuri_game.game.components import Transform, PhysicsBody
+
 
 def test_physics_body_cleanup():
     world = World()
@@ -35,6 +34,7 @@ def test_physics_body_cleanup():
 
     # Check if body was removed from space
     assert len(physics_system.space.bodies) == 0
+
 
 if __name__ == "__main__":
     test_physics_body_cleanup()

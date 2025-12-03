@@ -4,22 +4,18 @@ Module defining the behavior tree logic for AI agents.
 
 import math
 import random
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type
 
 import py_trees
 import pymunk
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
-from loguru import logger
 
-from ...config import GameConfig
-from ...engine.resource_manager import ResourceManager
 from ..components import (
     InteractionRequest,
     MovementController,
     PhysicsBody,
     Transform,
-    Velocity,
 )
 from ..services import GameService
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats, Needs, EmotionalState
@@ -384,7 +380,7 @@ class SocialInteract(Action):
                     InteractionRequest(
                         target_id=ai.current_target_id,
                         consume=False,
-                        action=self.interaction_type
+                        action=self.interaction_type,
                     ),
                 )
                 return Status.SUCCESS
@@ -553,7 +549,14 @@ class CheckEmotion(Action):
     Attributes:
         check_fn (Callable[[EmotionalState], bool]): The function to evaluate the emotion.
     """
-    def __init__(self, name: str, entity_id: int, world: "World", check_fn: Callable[[EmotionalState], bool]):
+
+    def __init__(
+        self,
+        name: str,
+        entity_id: int,
+        world: "World",
+        check_fn: Callable[[EmotionalState], bool],
+    ):
         """
         Initializes the CheckEmotion action.
 
@@ -573,7 +576,8 @@ class CheckEmotion(Action):
         Returns:
             Status: SUCCESS if check_fn returns True, else FAILURE.
         """
-        if not self.world or not self.entity_id: return Status.FAILURE
+        if not self.world or not self.entity_id:
+            return Status.FAILURE
         emotion = self.world.get_component(self.entity_id, EmotionalState)
         if emotion and self.check_fn(emotion):
             return Status.SUCCESS
@@ -687,7 +691,10 @@ def build_eat_behavior(
     # FindFood will find the best food. If it changes target, it updates AIState and clears path.
     # If no food is found, it fails, aborting the sequence.
     find_food = FindItem(
-        name="Find Best Food", entity_id=entity_id, world=world, stat_criteria="nutrition"
+        name="Find Best Food",
+        entity_id=entity_id,
+        world=world,
+        stat_criteria="nutrition",
     )
 
     move_to_food = MoveToTarget(
@@ -743,14 +750,17 @@ class FindItem(Action):
 
         if game_service:
             best_item = game_service.find_best_item(
-                (trans.x, trans.y), self.stat_criteria, exclude_ids=ai.failed_targets, searcher_id=self.entity_id
+                (trans.x, trans.y),
+                self.stat_criteria,
+                exclude_ids=ai.failed_targets,
+                searcher_id=self.entity_id,
             )
 
         if best_item != -1:
             # Only update and clear path if the target actually changed
             if ai.current_target_id != best_item:
                 ai.current_target_id = best_item
-                ai.path = None # Force re-pathing
+                ai.path = None  # Force re-pathing
 
             return Status.SUCCESS
 
@@ -1023,12 +1033,22 @@ def build_dance_behavior(
 
 # Register default behaviors
 BehaviorRegistry.register_goal("Eat", build_eat_behavior, required_component=ItemStats)
-BehaviorRegistry.register_goal("Sleep", build_sleep_behavior, required_component=ItemStats)
-BehaviorRegistry.register_goal("Play", build_play_behavior, required_component=ItemStats)
+BehaviorRegistry.register_goal(
+    "Sleep", build_sleep_behavior, required_component=ItemStats
+)
+BehaviorRegistry.register_goal(
+    "Play", build_play_behavior, required_component=ItemStats
+)
 BehaviorRegistry.register_goal("Wander", build_wander_behavior)
-BehaviorRegistry.register_goal("Talk", build_talk_behavior, required_component=YukkuriStats)
-BehaviorRegistry.register_goal("Fight", build_fight_behavior, required_component=YukkuriStats)
-BehaviorRegistry.register_goal("Dance", build_dance_behavior, required_component=YukkuriStats)
+BehaviorRegistry.register_goal(
+    "Talk", build_talk_behavior, required_component=YukkuriStats
+)
+BehaviorRegistry.register_goal(
+    "Fight", build_fight_behavior, required_component=YukkuriStats
+)
+BehaviorRegistry.register_goal(
+    "Dance", build_dance_behavior, required_component=YukkuriStats
+)
 
 
 def create_yukkuri_behavior_tree(
@@ -1112,7 +1132,7 @@ def create_yukkuri_behavior_tree(
         name="High Stress?",
         entity_id=entity_id,
         world=world,
-        check_fn=lambda e: e.stress > 90
+        check_fn=lambda e: e.stress > 90,
     )
     # For now, panic is just Idle (freeze in terror) or maybe random movement later.
     # We can reuse Idle for "Freeze".
