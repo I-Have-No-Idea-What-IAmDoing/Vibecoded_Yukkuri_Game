@@ -1,35 +1,29 @@
-# Critique of Proposal 4: Deterministic Kinematic Hierarchy
+# Critique of Proposal 4 (Revised)
 
-## 1. Collision Detection: Raycast Bundle vs. Shape Sweep
-The proposal suggests using a "Raycast Bundle" (casting rays from corners and center) to detect collisions. While faster than full physics simulation, this approach has significant flaws:
-*   **Tunneling/Clipping:** Sparse rays can miss small obstacles (e.g., spikes, thin poles) that fit between the rays.
-*   **Corner Cases:** Rays from corners might catch on geometry in unexpected ways or miss corners when sliding.
-*   **Shape Mismatch:** This approximates the entity as a set of lines rather than a solid shape. A box shape moving diagonally is effectively a hexagon swept area, which 3-5 rays do not represent accurately.
+## 1. Feasibility of "Shape Sweep" in Pymunk
+The proposal relies heavily on a "Shape Cast (Sweep)" to prevent tunneling. However, Pymunk (and the underlying Chipmunk physics engine) does **not** natively support "sweeping" a shape along a vector to find the time-of-impact (TOI).
+*   **Discrete Stepping:** Implementing this via `shape_query` at discrete intervals is computationally expensive and does not strictly guarantee "Zero Tunneling" (small obstacles could still be skipped between steps).
+*   **Complexity:** Building a custom Continuous Collision Detection (CCD) system on top of Pymunk is non-trivial and prone to bugs.
+*   **Recommendation:** Acknowledge the limitation. Use a high-resolution discrete step approach (e.g., "sub-stepping" movement) rather than a theoretical "continuous sweep", or clarify if a simple "BoxCast" (using a stretched AABB) is sufficient for the "Sweep" phase, followed by precise overlap checks.
 
-**Recommendation:** Replace "Raycast Bundle" with **Shape Casting** (sweeping the actual collider shape along the movement vector). `pymunk.Space.shape_query` or iterating with a shape test at discrete steps is much more robust and ensures "100% Predictability" without visual clipping.
+## 2. Rider Side-Collisions & Stack Geometry
+The proposal mentions a "Head Check" for the top-most rider but ignores side collisions.
+*   **The "Wide Rider" Problem:** If a Rider is wider than the Mount, the Mount might fit through a narrow passage, causing the Rider to clip visually and logically through the walls.
+*   **Inconsistency:** This contradicts the goal of being "Robust" and avoiding "corner-catching".
+*   **Recommendation:** The collision check for the Root should ideally consider the **Union AABB** of the entire stack (Root + all Children). Alternatively, perform "Side Checks" for riders similar to the "Head Check", stopping the stack if *any* part of the hierarchy hits a wall.
 
-## 2. "Riders don't have collision" Simplication
-The proposal states that "Riders don't have collision" and that the "Parent is the only physical agent".
-*   **Gameplay Limitation:** This prevents riders from taking damage from projectiles, blocking enemies, or hitting low ceilings.
-*   **Visual Weirdness:** Tall stacks will clip through environment geometry (ceilings, overhangs).
+## 3. Forced Dismount Scenarios
+The dismount logic covers voluntary dismounts (failing if blocked). It fails to address **forced dismounts**.
+*   **Mount Destruction:** If the Mount is destroyed (killed), the Rider *must* detach.
+*   **Blocked Ejection:** If the Mount dies while the Rider is in a position where they cannot validly dismount (surrounded by walls), the proposal has no fallback.
+*   **Recommendation:** Define a "Crush" or "Emergency Eject" rule. If a forced dismount is impossible due to collision, the Rider should likely take damage or be killed ("Crushed").
 
-**Recommendation:** Riders should likely retain **Sensor** shapes (to detect hits) or contribute to a **Compound Shape** for the Root (so the entire stack collides with the world). At minimum, a "Head Check" raycast for the top-most rider is needed to prevent ceiling clipping.
+## 4. Determinism & Timestep
+The proposal claims "100% Predictability" and uses `move_delta = velocity * dt`.
+*   **Variable Timestep:** If `dt` varies (variable framerate), the simulation is non-deterministic. Floating point errors will accumulate differently.
+*   **Recommendation:** Explicitly mandate a **Fixed Timestep** (e.g., 60hz fixed update loop) for the physics/movement logic to ensure true determinism.
 
-## 3. Dismounting Logic
-"Spiral Search" or "Ejecting" for dismounting is vague and can introduce non-determinism or buggy behavior (teleporting into walls).
-*   **Unpredictability:** If the spiral search finds different spots based on float precision or order of operations, it violates the core goal.
-
-**Recommendation:** Define a strict, deterministic rule for dismounting. E.g., "Dismount always attempts strict relative offsets (Left, Right, Back). If all blocked, dismount fails."
-
-## 4. Dirty Flag Logic
-"Only process the hierarchy for a Root if it has successfully moved this frame."
-*   **Missing Cases:** This misses cases where a parent *rotates* but doesn't change position, or when the hierarchy structure changes (a child is added/removed) without movement.
-*   **Animation:** If visual attachments rely on this system, they might need updates even if the physics body is stationary (e.g., idle animation sway).
-
-**Recommendation:** The dirty flag should track "Transform Change" (Position OR Rotation) and "Hierarchy Change" (Child Added/Removed).
-
-## 5. Broadphase Optimization
-Using `pymunk.Space.bb_query` is a good start, but it returns all shapes in the box.
-*   **Filtering:** The proposal needs to explicitly mention filtering. We don't want to stop movement because of a Trigger or a Coin.
-
-**Recommendation:** Explicitly state that queries must filter for "Obstacle" collision types only.
+## 5. Sliding Corner Cases
+"Project remaining velocity along the wall surface" is the standard approach, but it has edge cases.
+*   **Acute Corners:** Sliding into a V-shape corner can cause the entity to oscillate or get stuck if not handled (bouncing back and forth between walls in a single frame).
+*   **Recommendation:** detailed logic for "Max Slide Iterations" (e.g., 3). If velocity remains after max iterations, simply zero it out to prevent jitter.
