@@ -29,6 +29,7 @@ from ..game.events import (
 )
 from ..game.prefabs.yukkuri import create_yukkuri
 from ..game.services import EconomyService, GameService, InputService, TimeService
+from ..game.settings_service import SettingsService
 from ..game.systems.physics import PhysicsSystem
 from ..game.systems.physics_reconstruction import reconstruct_physics
 from ..game.ui.hud import HUD
@@ -86,10 +87,7 @@ class GameplayScene(Scene):
         # Cache service references for local usage
         self.economy_service = self.world.services.get(EconomyService)
         self.time_service = self.world.services.get(TimeService)
-        self.settings_service = self.loader.application.resources # Wait, accessing via app resources?
-        # Actually register_services registers SettingsService using self.application.resources
-        self.settings_service = self.world.services.get("SettingsService") if False else None # Just typing hint?
-        # The original code accessed it later.
+        self.settings_service = self.world.services.get(SettingsService)
 
         self._apply_initial_settings()
 
@@ -117,10 +115,7 @@ class GameplayScene(Scene):
             self.yukkurrium.camera_y = float(start_y)
 
     def _apply_initial_settings(self) -> None:
-        # We need to get the service first
-        from ..game.settings_service import SettingsService
-        settings_service = self.world.services.get(SettingsService)
-        audio_settings = settings_service.settings.audio
+        audio_settings = self.settings_service.settings.audio
         self.audio.set_master_volume(audio_settings.master_volume)
         self.audio.set_bgm_volume(audio_settings.bgm_volume)
         self.audio.set_sfx_volume(audio_settings.sfx_volume)
