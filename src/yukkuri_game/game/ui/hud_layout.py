@@ -6,39 +6,11 @@ import pygame_gui
 from typing import Optional, Dict, Any
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIWindow, UITextBox, UIHorizontalSlider, UIDropDownMenu, UIScrollingContainer
 from .custom_elements import NonBlockingTextBox
+from .entity_info_panel import EntityInfoPanel
 
 class HudLayout:
     """
     Manages the layout and creation of HUD elements.
-
-    Attributes:
-        manager (pygame_gui.UIManager): The UI manager instance.
-        width (int): The width of the screen.
-        height (int): The height of the screen.
-        top_panel (Optional[UIPanel]): The top panel container.
-        money_label (Optional[UILabel]): Label displaying player money.
-        time_label (Optional[UILabel]): Label displaying game time.
-        save_btn (Optional[UIButton]): Button to save the game.
-        load_btn (Optional[UIButton]): Button to load the game.
-        pause_btn (Optional[UIButton]): Button to pause/resume the game.
-        speed_btn (Optional[UIButton]): Button to cycle game speed.
-        settings_btn (Optional[UIButton]): Button to open settings.
-        bottom_panel (Optional[UIPanel]): The bottom panel container.
-        add_reimu_btn (Optional[UIButton]): Button to buy a Reimu.
-        add_cookie_btn (Optional[UIButton]): Button to buy a Cookie.
-        selection_window (Optional[UIWindow]): The window displaying selected entity info.
-        info_label (Optional[UITextBox]): Text box within the selection window showing stats.
-        sell_btn (Optional[UIButton]): Button to sell the selected entity.
-        train_btn (Optional[UIButton]): Button to train the selected entity.
-        punish_btn (Optional[UIButton]): Button to punish the selected entity.
-        debug_window (Optional[UIWindow]): The debug info window.
-        debug_text_box (Optional[UITextBox]): Text box within the debug window.
-        settings_window (Optional[UIWindow]): The settings window.
-        settings_controls (Dict[str, Any]): Dictionary of controls in the settings window.
-        hover_tooltip_label (Optional[NonBlockingTextBox]): The tooltip text box.
-        buy_buttons (Dict[UIButton, Dict[str, Any]]): Mapping of buy buttons to entity data.
-        yukkuri_types (Dict[str, Any]): Loaded Yukkuri type data.
-        item_types (Dict[str, Any]): Loaded Item type data.
     """
     def __init__(self, ui_manager: pygame_gui.UIManager, width: int, height: int, yukkuri_types: Optional[Dict[str, Any]] = None, item_types: Optional[Dict[str, Any]] = None):
         """
@@ -71,13 +43,8 @@ class HudLayout:
         # Buy Buttons Map: {button: {"type_id": str, "category": str, "cost": int}}
         self.buy_buttons: Dict[UIButton, Dict[str, Any]] = {}
 
-        # Selection Window Elements
-        self.selection_window: Optional[UIWindow] = None
-        self.info_label: Optional[UITextBox] = None
-        self.info_scroll_container: Optional[UIScrollingContainer] = None
-        self.sell_btn: Optional[UIButton] = None
-        self.train_btn: Optional[UIButton] = None
-        self.punish_btn: Optional[UIButton] = None
+        # Entity Info Panel
+        self.entity_info_panel: Optional[EntityInfoPanel] = None
 
         self.clean_btn: Optional[UIButton] = None
 
@@ -147,6 +114,11 @@ class HudLayout:
         self.settings_btn = None
         self.log_box = None
         self.clean_btn = None
+
+        # Ensure info panel is closed on clear
+        if self.entity_info_panel:
+            self.entity_info_panel.close()
+            self.entity_info_panel = None
 
     def _create_top_bar(self) -> None:
         """
@@ -282,66 +254,20 @@ class HudLayout:
 
     def create_selection_window(self, has_stats: bool, selection_count: int = 1) -> None:
         """
-        Creates or recreates the selection window.
+        Creates or recreates the selection window using EntityInfoPanel.
 
         Args:
             has_stats (bool): True if the selected entity has stats (is a Yukkuri), False otherwise.
             selection_count (int): The number of selected entities. Defaults to 1.
-
-        Returns:
-            None
         """
-        self.close_selection_window()
+        if self.entity_info_panel is None:
+            self.entity_info_panel = EntityInfoPanel(self.manager)
 
-        self.selection_window = UIWindow(
-            rect=pygame.Rect(self.width - 350, 60, 330, 400),
-            manager=self.manager,
-            window_display_title="Entity Info",
-            resizable=True
+        self.entity_info_panel.show(
+            position=(self.width - 350, 60),
+            has_stats=has_stats,
+            selection_count=selection_count
         )
-
-        self.info_scroll_container = UIScrollingContainer(
-            relative_rect=pygame.Rect(10, 10, 290, 200),
-            manager=self.manager,
-            container=self.selection_window,
-            anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'left'}
-        )
-
-        self.info_label = UITextBox(
-            html_text="",
-            relative_rect=pygame.Rect(0, 0, 270, -1),
-            manager=self.manager,
-            container=self.info_scroll_container,
-            wrap_to_height=True,
-            anchors={'top': 'top', 'bottom': 'top', 'left': 'left', 'right': 'left'}
-        )
-
-        if has_stats:
-            sell_text = f"Sell All ({selection_count})" if selection_count > 1 else "Sell"
-            train_text = f"Train All ({selection_count}) (+Badge)" if selection_count > 1 else "Train (+Badge)"
-            punish_text = f"Punish All ({selection_count})" if selection_count > 1 else "Punish"
-
-            self.sell_btn = UIButton(
-                relative_rect=pygame.Rect(10, 220, 290, 40),
-                text=sell_text,
-                manager=self.manager,
-                container=self.selection_window,
-                tool_tip_text="Sell selected entities"
-            )
-            self.train_btn = UIButton(
-                relative_rect=pygame.Rect(10, 270, 290, 40),
-                text=train_text,
-                manager=self.manager,
-                container=self.selection_window,
-                tool_tip_text="Train selected entities to increase badges"
-            )
-            self.punish_btn = UIButton(
-                relative_rect=pygame.Rect(10, 320, 290, 40),
-                text=punish_text,
-                manager=self.manager,
-                container=self.selection_window,
-                tool_tip_text="Punish selected entities to increase discipline but lower health/happiness"
-            )
 
     def close_selection_window(self) -> None:
         """
@@ -350,14 +276,12 @@ class HudLayout:
         Returns:
             None
         """
-        if self.selection_window:
-            self.selection_window.kill()
-            self.selection_window = None
-            self.info_label = None
-            self.info_scroll_container = None
-            self.sell_btn = None
-            self.train_btn = None
-            self.punish_btn = None
+        if self.entity_info_panel:
+            self.entity_info_panel.close()
+            # We don't nullify entity_info_panel itself to keep the instance,
+            # but close() kills the UI elements.
+            # Actually, let's keep it null safe.
+            self.entity_info_panel = None
 
     def create_debug_window(self) -> None:
         """

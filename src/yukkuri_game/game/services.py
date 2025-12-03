@@ -9,17 +9,24 @@ from loguru import logger
 
 from ..engine.ecs import World
 from ..engine.audio import AudioManager
-from .components import Transform
+from .components import Transform, InteractionRequest
 from .yukkuri_components import (
-    YukkuriStats, ItemStats, AIState, EmotionalState, GossipQueue
+    YukkuriStats, ItemStats, AIState, EmotionalState, GossipQueue, Skills
 )
 from ..engine.serializer import WorldSerializer
 from .components_persistence import Persistable, StableIDComponent
 from . import components
 from . import yukkuri_components
+from .skill_constants import SkillId
+from ..engine.event_bus import EventBus
 
 if TYPE_CHECKING:
     from .yukkuri_components import Personality  # pylint: disable=unused-import
+    from .trait_service import TraitService
+    from .skill_service import SkillService
+
+BASE_SCAVENGING_RADIUS = 500.0
+SCAVENGING_RADIUS_PER_LEVEL = 50.0
 
 class PersistenceService:
     """
@@ -342,8 +349,7 @@ class GameService:
             world (World): The ECS World instance.
         """
         self.world = world
-
-    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: Set[int] | None = None) -> int:
+    def find_best_item(self, position: tuple[float, float], stat_criteria: str = "nutrition", exclude_ids: Set[int] | None = None, searcher_id: int = -1) -> int:
         """
         Finds the best item near a position based on criteria.
 
@@ -351,16 +357,27 @@ class GameService:
             position (tuple[float, float]): The search origin (x, y).
             stat_criteria (str): The ItemStats attribute to maximize (e.g. "nutrition").
             exclude_ids (Set[int] | None): IDs to ignore.
+            searcher_id (int): The ID of the searching entity (optional, for skill checks).
 
         Returns:
             int: The ID of the best item, or -1 if none found.
         """
         import math
+
         best_dist = float('inf')
         best_item = -1
 
         if exclude_ids is None:
             exclude_ids = set()
+
+        # Calculate Search Radius based on Scavenging Skill
+        max_radius = BASE_SCAVENGING_RADIUS
+        if searcher_id != -1 and self.world.entity_exists(searcher_id):
+            skills = self.world.get_component(searcher_id, Skills)
+            if skills and SkillId.SCAVENGING in skills.states:
+                level = skills.states[SkillId.SCAVENGING].level
+                # Base radius 500 + 50 per level
+                max_radius = BASE_SCAVENGING_RADIUS + (level * SCAVENGING_RADIUS_PER_LEVEL)
 
         items = self.world.get_entities_with(ItemStats, Transform)
 
@@ -373,135 +390,13 @@ class GameService:
 
             if istats and itrans and getattr(istats, stat_criteria, 0.0) > 0:
                 d = math.hypot(itrans.x - position[0], itrans.y - position[1])
+
+                # Filter by max_radius
+                if d > max_radius:
+                    continue
+
                 if d < best_dist:
                     best_dist = d
                     best_item = item
 
         return best_item
-
-    def interact_with_item(self, consumer_id: int, item_id: int, consume: bool = True) -> bool:
-        """
-        Logic for a Yukkuri interacting with (eating) an item.
-
-        Args:
-            consumer_id (int): The ID of the Yukkuri.
-            item_id (int): The ID of the Item.
-            consume (bool): Whether the item should be destroyed after interaction.
-
-        Returns:
-            bool: True if interaction was successful, False otherwise.
-        """
-        if not self.world.entity_exists(consumer_id) or not self.world.entity_exists(item_id):
-            return False
-
-        item_stats = self.world.get_component(item_id, ItemStats)
-        yukkuri_stats = self.world.get_component(consumer_id, YukkuriStats)
-        emotional = self.world.get_component(consumer_id, EmotionalState)
-
-        if item_stats and yukkuri_stats:
-            if item_stats.nutrition > 0:
-                yukkuri_stats.hunger = max(0, yukkuri_stats.hunger - item_stats.nutrition)
-
-            if item_stats.fun > 0 and emotional:
-                emotional.happiness = min(100, emotional.happiness + item_stats.fun)
-
-            if item_stats.comfort > 0:
-                yukkuri_stats.energy = min(100, yukkuri_stats.energy + item_stats.comfort)
-
-            audio = self.world.services.try_get(AudioManager)
-
-            if consume:
-                if audio:
-                    audio.play_sound("eat")
-                self.world.destroy_entity(item_id)
-                if self.world.has_component(item_id, Transform):
-                    self.world.remove_component(item_id, Transform)
-
-                ai = self.world.get_component(consumer_id, AIState)
-                if ai and ai.current_target_id == item_id:
-                    ai.current_target_id = -1
-            else:
-                pass
-
-            return True
-
-        return False
-
-    def interact_social(self, initiator_id: int, target_id: int, interaction_type: str) -> bool:
-        """
-        Logic for social interactions between Yukkuris.
-
-        Args:
-            initiator_id (int): ID of the entity starting the interaction.
-            target_id (int): ID of the target entity.
-            interaction_type (str): Type of interaction ("Talk", "Fight", "Dance").
-
-        Returns:
-            bool: True if interaction occurred, False otherwise.
-        """
-        if not self.world.entity_exists(initiator_id) or not self.world.entity_exists(target_id):
-            return False
-
-        init_stats = self.world.get_component(initiator_id, YukkuriStats)
-        target_stats = self.world.get_component(target_id, YukkuriStats)
-        init_emo = self.world.get_component(initiator_id, EmotionalState)
-        target_emo = self.world.get_component(target_id, EmotionalState)
-
-        if not init_stats or not target_stats:
-            return False
-
-        audio = self.world.services.try_get(AudioManager)
-
-        if interaction_type == "Talk":
-            if init_emo:
-                init_emo.happiness = min(100.0, init_emo.happiness + 5.0)
-            init_stats.social = min(100.0, init_stats.social + 15.0)
-            if target_emo:
-                target_emo.happiness = min(100.0, target_emo.happiness + 5.0)
-            target_stats.social = min(100.0, target_stats.social + 15.0)
-
-            init_gossip = self.world.get_component(initiator_id, GossipQueue)
-            target_gossip = self.world.get_component(target_id, GossipQueue)
-
-            if init_gossip and target_gossip:
-                for packet in init_gossip.priority_queue[:3]:
-                    target_gossip.add_packet(packet)
-                for packet in target_gossip.priority_queue[:3]:
-                    init_gossip.add_packet(packet)
-
-            if audio:
-                if hasattr(audio, 'play_sound'):
-                    audio.play_sound("talk")
-
-        elif interaction_type == "Fight":
-            damage = 5.0
-            init_stats.health = max(0.0, init_stats.health - damage)
-            if init_emo:
-                init_emo.happiness = max(-100.0, init_emo.happiness - 10.0)
-                init_emo.stress = min(100.0, init_emo.stress + 10.0)
-
-            target_stats.health = max(0.0, target_stats.health - damage)
-            if target_emo:
-                target_emo.happiness = max(-100.0, target_emo.happiness - 10.0)
-                target_emo.stress = min(100.0, target_emo.stress + 10.0)
-
-            if audio:
-                if hasattr(audio, 'play_sound'):
-                    audio.play_sound("hit")
-
-        elif interaction_type == "Dance":
-            if init_emo:
-                init_emo.happiness = min(100.0, init_emo.happiness + 10.0)
-            if target_emo:
-                target_emo.happiness = min(100.0, target_emo.happiness + 10.0)
-            init_stats.social = min(100.0, init_stats.social + 10.0)
-            target_stats.social = min(100.0, target_stats.social + 10.0)
-
-        from ..engine.event_bus import EventBus
-        from .events import SocialInteractionEvent
-
-        event_bus = self.world.services.try_get(EventBus)
-        if event_bus:
-            event_bus.publish(SocialInteractionEvent(initiator_id, target_id, interaction_type))
-
-        return True

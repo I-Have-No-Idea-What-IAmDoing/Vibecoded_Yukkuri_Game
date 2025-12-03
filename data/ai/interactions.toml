@@ -1,6 +1,8 @@
 [interaction.Hit]
 base_impact = -20.0
 social_impact = { affinity = -10.0, fear = 5.0, trust = -10.0 }
+physical_impact = { health = -2.0, energy = -5.0 }
+skill_rewards = { combat = 5.0 }
 
 [interaction.Hit.modifiers]
 "trait:WEAK" = { fear = 15.0 }
@@ -13,30 +15,45 @@ social_impact = { affinity = 2.0, familiarity = 1.0 }
 [interaction.Greet.modifiers]
 "trait:GESU" = { affinity = -5.0 }
 "mood:FURIOUS" = { affinity = -10.0 }
+"skills.socialization > 10" = { affinity = 5.0 }
+"skills.socialization < 5" = { affinity = -2.0 }
 
 [interaction.Feed]
 base_impact = 10.0
 social_impact = { affinity = 5.0, trust = 5.0 }
+target_physical_impact = { hunger = -10.0 }
+skill_rewards = { socialization = 2.0 }
 
 [interaction.Talk]
 base_impact = 5.0
 social_impact = { affinity = 3.0, familiarity = 2.0, trust = 1.0 }
+skill_rewards = { socialization = 5.0 }
+conditions = [
+    { expression = "skills.socialization >= 5" }
+]
 
 [interaction.Talk.modifiers]
 "trait:GESU" = { affinity = -2.0 } # Gesu finds talking boring unless it's abuse?
 "trait:LONER" = { affinity = 0.0, familiarity = 0.5 } # Loners get less out of talk
+"skills.socialization > 15" = { affinity = 5.0, trust = 2.0 }
 
 [interaction.Fight]
 base_impact = -25.0
 social_impact = { affinity = -20.0, fear = 10.0, trust = -20.0 }
+physical_impact = { health = -5.0, energy = -10.0, hunger = 2.0 }
+skill_rewards = { combat = 10.0 }
 
 [interaction.Fight.modifiers]
 "trait:WEAK" = { fear = 20.0 }
 "trait:GESU" = { fear = -5.0 } # Gesu might enjoy the fight or be arrogant
+"skills.combat > 10" = { fear = 10.0 } # Skilled fighters are scarier
+"skills.combat < 5" = { fear = -5.0 } # Weak fighters are less scary
 
 [interaction.Dance]
 base_impact = 10.0
 social_impact = { affinity = 8.0, familiarity = 5.0 }
+physical_impact = { energy = -5.0, hunger = 2.0, happiness = 5.0 }
+skill_rewards = { athletics = 5.0, socialization = 2.0 }
 
 [interaction.Dance.modifiers]
 "mood:HAPPY" = { affinity = 12.0 }

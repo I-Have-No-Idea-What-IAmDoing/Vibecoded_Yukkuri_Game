@@ -37,9 +37,12 @@ from ..game.systems.physics import PhysicsSystem
 from ..game.systems.physics_reconstruction import reconstruct_physics
 from ..game.systems.sector_system import SectorMap, SectorSystem
 from ..game.trait_service import TraitService
+from ..game.skill_service import SkillService
 from ..game.ui.hud import HUD
-from ..game.yukkurrium import RenderSystem, Yukkurrium
+from ..game.yukkurrium import Yukkurrium
+from ..game.systems.render_system import RenderSystem
 from ..system_registry import SystemRegistry
+from ..game.utils.evaluator import ConditionEvaluator
 
 
 class GameplayScene(Scene):
@@ -124,6 +127,12 @@ class GameplayScene(Scene):
 
         self.trait_service = TraitService(self.world)
         self.world.services.register(self.trait_service, TraitService)
+
+        self.skill_service = SkillService(self.world, self.game_config.rules.skills)
+        self.world.services.register(self.skill_service, SkillService)
+
+        self.evaluator = ConditionEvaluator()
+        self.world.services.register(self.evaluator, ConditionEvaluator)
 
         self._init_navigation_service()
         self._init_sector_system()
@@ -331,6 +340,13 @@ class GameplayScene(Scene):
 
         # Reconstruct physics bodies
         reconstruct_physics(self.world)
+
+        # Migrate Skills
+        if hasattr(self, "skill_service"):
+             # Iterate all YukkuriStats entities
+             for ent, (_, _) in self.world.get_components_tuple(yukkuri_components.YukkuriStats, components.Transform):
+                 self.skill_service.initialize_skills(ent)
+
         logger.info("World loaded.")
 
     def update(self, dt: float) -> None:

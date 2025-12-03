@@ -2,10 +2,10 @@
 Tests for the Emotion Decay system.
 """
 import pytest
-from ..game.yukkuri_components import EmotionalState, Personality, PersonalityAxis
-from ..game.systems.emotion_system import EmotionSystem
-from ..config import StatDecaySettings
-from ..engine.ecs import World
+from yukkuri_game.game.yukkuri_components import EmotionalState, Personality, PersonalityAxis
+from yukkuri_game.game.systems.emotion_system import EmotionSystem
+from yukkuri_game.config import StatDecaySettings
+from yukkuri_game.engine.ecs import World
 
 @pytest.fixture # type: ignore[misc]
 def world() -> World:
@@ -44,7 +44,7 @@ def test_stress_decay(world: World, emotion_system: EmotionSystem) -> None:
     world.add_component(entity, EmotionalState(happiness=0, stress=100))
     world.add_component(entity, Personality()) # Needed for trait modifiers check
     # Also need YukkuriStats for the system to process it
-    from ..game.yukkuri_components import YukkuriStats
+    from yukkuri_game.game.yukkuri_components import YukkuriStats
     world.add_component(entity, YukkuriStats(name="Test", type_id="test"))
 
     # Decay
@@ -67,7 +67,7 @@ def test_happiness_decay_to_baseline(world: World, emotion_system: EmotionSystem
     # Initial High Happiness
     world.add_component(entity, EmotionalState(happiness=100, stress=0))
     world.add_component(entity, Personality())
-    from ..game.yukkuri_components import YukkuriStats
+    from yukkuri_game.game.yukkuri_components import YukkuriStats
     world.add_component(entity, YukkuriStats(name="Test", type_id="test"))
 
     # Decay (towards 0 - Neutral)

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import pygame
 import pygame_gui
 from yukkuri_game.game.ui.hud_layout import HudLayout
@@ -89,25 +89,19 @@ class TestHudLayout:
 
     def test_create_selection_window(self, layout):
         """Test creating selection window."""
-        layout.create_selection_window(has_stats=True)
+        with patch('yukkuri_game.game.ui.hud_layout.EntityInfoPanel') as MockPanel:
+            layout.create_selection_window(has_stats=True)
 
-        assert layout.selection_window is not None
-        assert layout.info_label is not None
-        assert layout.sell_btn is not None
-        assert layout.train_btn is not None
-        assert layout.punish_btn is not None
+            assert layout.entity_info_panel is not None
+            layout.entity_info_panel.show.assert_called_once()
 
         # Test item selection (no stats actions)
-        layout.create_selection_window(has_stats=False)
-        assert layout.selection_window is not None
-        # Buttons should be overwritten/None if we didn't recreate them inside the function logic cleanly
-        # Actually create_selection_window re-initializes them.
-        # If has_stats is False, buttons are not created?
-        # Let's check implementation.
-        # Ah, implementation doesn't explicitly set them to None if False, but they are instance vars.
-        # But wait, create_selection_window calls close_selection_window first which sets them to None.
-        # So if has_stats=False, they remain None.
-        assert layout.sell_btn is None
+        # Reset panel to force creation or just clear state
+        layout.entity_info_panel = None
+        with patch('yukkuri_game.game.ui.hud_layout.EntityInfoPanel') as MockPanel:
+            layout.create_selection_window(has_stats=False)
+            assert layout.entity_info_panel is not None
+            layout.entity_info_panel.show.assert_called_once()
 
     def test_create_debug_window(self, layout):
         """Test creating debug window."""

@@ -3,12 +3,12 @@ Tests for the Gossip System.
 """
 import pytest
 from unittest.mock import MagicMock
-from ..game.systems.gossip_system import GossipSystem
-from ..game.events import SocialInteractionEvent
-from ..game.components import Transform
-from ..game.yukkuri_components import YukkuriStats, GossipQueue
-from ..engine.ecs import World
-from ..engine.event_bus import EventBus
+from yukkuri_game.game.systems.gossip_system import GossipSystem
+from yukkuri_game.game.events import SocialInteractionEvent
+from yukkuri_game.game.components import Transform
+from yukkuri_game.game.yukkuri_components import YukkuriStats, GossipQueue
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
 import pymunk
 
 @pytest.fixture # type: ignore[misc]
@@ -55,7 +55,7 @@ def test_witness_gossip_spatial(world: World, event_bus: EventBus, gossip_system
     """
     # Mock PhysicsSystem
     physics_system = MagicMock()
-    from ..game.systems.physics import PhysicsSystem
+    from yukkuri_game.game.systems.physics import PhysicsSystem
     world.services.register(physics_system, PhysicsSystem)
 
     # Setup Actors
@@ -84,7 +84,7 @@ def test_witness_gossip_spatial(world: World, event_bus: EventBus, gossip_system
     physics_system.space.segment_query_first.return_value = None
 
     # Register SectorMap
-    from ..game.systems.sector_system import SectorMap
+    from yukkuri_game.game.systems.sector_system import SectorMap
     sector_map = SectorMap(1000, 1000, 500)
     world.services.register(sector_map, SectorMap)
 

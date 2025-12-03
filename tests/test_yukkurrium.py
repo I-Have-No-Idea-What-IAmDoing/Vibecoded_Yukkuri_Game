@@ -1,7 +1,9 @@
 import pytest
 import pygame
 from unittest.mock import MagicMock, patch, Mock
-from yukkuri_game.game.yukkurrium import Yukkurrium, RenderSystem, TimeSystem, WorldRenderer
+from yukkuri_game.game.yukkurrium import Yukkurrium, WorldRenderer
+from yukkuri_game.game.systems.render_system import RenderSystem
+from yukkuri_game.game.systems.time_system import TimeSystem
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, Sprite, Selectable, PhysicsBody, VisualTransform
 

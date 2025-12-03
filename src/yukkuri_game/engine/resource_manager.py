@@ -10,7 +10,8 @@ import pygame
 from loguru import logger
 
 from .data_models import (
-    YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction, GameTuning
+    YukkuriData, ItemData, AIData, YukkuriType, ItemType, AIAction, GameTuning,
+    SkillData, SkillDefinition, TraitData, TraitDefinition, InteractionData, InteractionDefinition
 )
 
 T = TypeVar("T")
@@ -29,6 +30,9 @@ class ResourceManager:
         item_types (Dict[str, ItemType]): Loaded Item type definitions.
         ai_actions (Dict[str, AIAction]): Loaded AI action definitions.
         tuning (Optional[GameTuning]): Loaded game tuning parameters.
+        skills (Dict[str, SkillDefinition]): Loaded skill definitions.
+        traits (Dict[str, TraitDefinition]): Loaded trait definitions.
+        interactions (Dict[str, InteractionDefinition]): Loaded interaction definitions.
     """
 
     def __init__(self, data_dir: str = "data", assets_dir: str = "assets"):
@@ -50,6 +54,9 @@ class ResourceManager:
         self.item_types: Dict[str, ItemType] = {}
         self.ai_actions: Dict[str, AIAction] = {}
         self.tuning: Optional[GameTuning] = None
+        self.skills: Dict[str, SkillDefinition] = {}
+        self.traits: Dict[str, TraitDefinition] = {}
+        self.interactions: Dict[str, InteractionDefinition] = {}
 
     def load_toml_model(self, filepath: str, model: Type[T]) -> Optional[T]:
         """
@@ -141,5 +148,26 @@ class ResourceManager:
 
         # Load Game Tuning
         self.tuning = self.load_toml_model("yukkuri_tuning.toml", GameTuning)
+
+        # Load Skills
+        skill_data = self.load_toml_model("skills/skills.toml", SkillData)
+        if skill_data:
+            self.skills = skill_data.skills
+        else:
+            self.skills = {}
+
+        # Load Traits
+        trait_data = self.load_toml_model("traits/traits.toml", TraitData)
+        if trait_data:
+            self.traits = trait_data.traits
+        else:
+            self.traits = {}
+
+        # Load Interactions
+        interaction_data = self.load_toml_model("ai/interactions.toml", InteractionData)
+        if interaction_data:
+            self.interactions = interaction_data.interaction
+        else:
+            self.interactions = {}
 
         logger.info("All data loaded.")

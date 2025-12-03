@@ -355,12 +355,39 @@ class SocialInteract(Action):
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
         if dist <= 40.0:  # Interaction range slightly larger for social
-            game_service = self.world.services.try_get(GameService)
-            if game_service:
-                success = game_service.interact_social(
-                    self.entity_id, ai.current_target_id, self.interaction_type
+            # Trigger social interaction via InteractionRequest
+            # SocialSystem will pick this up if we attach an InteractionRequest.
+            # However, SocialSystem usually listens to SocialInteractionEvent for gossip,
+            # but for direct interaction (Talk/Fight), we want immediate feedback or managed state.
+
+            # The previous implementation called game_service.interact_social directly which applied stats.
+            # We will now use InteractionRequest, but we need to specify type.
+            # Currently InteractionRequest only supports target_id and consume bool.
+            # We might need to extend InteractionRequest or use a specific event.
+
+            # Plan: Use InteractionRequest but SocialSystem needs to distinguish.
+            # OR better: Dispatch an Event that SocialSystem listens to?
+            # BUT this is an Action that needs Status return.
+            # If we dispatch event, we don't know if it succeeded immediately (though it usually does).
+
+            # Let's check the plan: "Move Logic Flow: AI/Input Sets InteractionRequest(target_id, type="Talk")"
+            # So we need to update InteractionRequest component to support 'type'.
+
+            if not self.world.has_component(self.entity_id, InteractionRequest):
+                # We need to import InteractionRequest and ensure it has 'action_type' or similar.
+                # Assuming we will update InteractionRequest component definition soon.
+                # For now, let's assume we update the component to accept a type.
+
+                # Check if we can add 'action' field to InteractionRequest
+                self.world.add_component(
+                    self.entity_id,
+                    InteractionRequest(
+                        target_id=ai.current_target_id,
+                        consume=False,
+                        action=self.interaction_type
+                    ),
                 )
-                return Status.SUCCESS if success else Status.FAILURE
+                return Status.SUCCESS
 
         return Status.RUNNING
 
@@ -716,7 +743,7 @@ class FindItem(Action):
 
         if game_service:
             best_item = game_service.find_best_item(
-                (trans.x, trans.y), self.stat_criteria, exclude_ids=ai.failed_targets
+                (trans.x, trans.y), self.stat_criteria, exclude_ids=ai.failed_targets, searcher_id=self.entity_id
             )
 
         if best_item != -1:

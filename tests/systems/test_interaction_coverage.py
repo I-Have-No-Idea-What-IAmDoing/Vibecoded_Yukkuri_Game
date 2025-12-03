@@ -41,6 +41,13 @@ def test_eat_item(interaction_env):
     req = InteractionRequest(target_id=item, consume=True)
     world.add_component(consumer, req)
 
+    # Need HungerSystem to process food now
+    from yukkuri_game.game.systems.hunger_system import HungerSystem
+    hunger_system = HungerSystem()
+    hunger_system.audio = audio # Manually inject mock
+    hunger_system.update(world, 0.1)
+
+    # InteractionSystem runs cleanup if needed (though HungerSystem removes req)
     system.update(world, 0.1)
 
     assert stats.hunger == 30 # 50 - 20
@@ -65,17 +72,25 @@ def test_distance_check(interaction_env):
     req = InteractionRequest(target_id=item, consume=True)
     world.add_component(consumer, req)
 
+    # Note: InteractionSystem no longer handles items, but even if it did,
+    # the request should persist if processing failed (distance) or wasn't handled.
+    # To test distance check on InteractionSystem properly, we should use Predation
+    # which IS handled by InteractionSystem.
+
+    # Let's switch to Predation setup
+    trait_service.calculate_overrides.return_value = {"can_eat_yukkuri": True}
+    world.add_component(consumer, Personality(traits={"predator"}))
+    world.add_component(item, YukkuriStats(name="Prey", type_id="prey")) # Make target a Yukkuri
+    world.remove_component(item, ItemStats) # Remove ItemStats
+
     system.update(world, 0.1)
 
-    # Should not consume
+    # Should not consume (too far)
     assert world.entity_exists(item)
-    # Request is removed because it was processed (checked and failed)
-    # Wait, looking at code:
-    # if dist > 50.0: return
-    # Then `if world.has_component(entity, InteractionRequest): world.remove_component`
-    # So request is removed regardless of success?
-    # Yes, the loop iterates, calls _handle_interaction, then removes component.
-    assert not world.has_component(consumer, InteractionRequest)
+
+    # Request should still exist because it wasn't handled (distance check failed)
+    # The new logic is: if handled -> remove. if not handled (e.g. dist fail) -> keep.
+    assert world.has_component(consumer, InteractionRequest)
 
 def test_predation_not_allowed(interaction_env):
     world, system, audio, trait_service = interaction_env
@@ -145,6 +160,12 @@ def test_ai_target_reset(interaction_env):
     req = InteractionRequest(target_id=item, consume=True)
     world.add_component(consumer, req)
 
+    # Need HungerSystem
+    from yukkuri_game.game.systems.hunger_system import HungerSystem
+    hunger_system = HungerSystem()
+    hunger_system.update(world, 0.1)
+
+    # InteractionSystem (legacy check)
     system.update(world, 0.1)
 
     assert ai.current_target_id == -1

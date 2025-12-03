@@ -1,32 +1,18 @@
 """
 Serialization Module.
 """
-from typing import Any, Dict, Type, Optional, Iterable, Set
+from typing import Any, Dict, Type, Optional, Iterable, Set, get_type_hints, get_origin, get_args
+import typing
 import msgspec
 from loguru import logger
 from .ecs import World
 from .migration import MigrationRegistry
+from .types import EntityID
 
 class WorldSerializer:
     """
     Handles serialization and deserialization of the game world.
     """
-
-    # Exact matches for these fields are considered references.
-    # We prefer explicit registration via _references in components,
-    # but these common names are supported for convenience.
-    REF_EXACT_NAMES = {
-        "parent", "owner", "target",
-        "parent_id", "owner_id", "target_id"
-    }
-
-    # Blocklist is less relevant if we don't use suffixes, but kept for safety if we re-enable them.
-    REF_BLOCKLIST = {
-        "type_id", "sprite_id", "sound_id", "texture_id", "animation_id",
-        "action_id", "behavior_id", "shader_id", "layer_id", "region_id",
-        "quest_id", "dialogue_id", "scene_id", "music_id", "effect_id",
-        "frame_id", "tile_id", "map_id"
-    }
 
     def __init__(self, world: World, component_types: Iterable[Type[Any]]):
         self.world = world
@@ -170,74 +156,96 @@ class WorldSerializer:
         for new_entity in id_map.values():
             all_components = self.world.get_all_components(new_entity)
             for component in all_components:
-                if hasattr(component, "__dataclass_fields__"):
+                # Introspect type hints
+                try:
+                    type_hints = typing.get_type_hints(component)
+                except Exception:
+                    # In some cases (e.g. dynamic types or partial mocks), get_type_hints might fail
+                    continue
 
-                    # Determine which fields to remap
-                    ref_fields: Set[str] = set()
-                    is_explicit_ref = False
-
-                    if hasattr(component, "_references"):
-                         # Explicit definition takes precedence
-                         ref_fields = getattr(component, "_references")
-                         is_explicit_ref = True
-                    else:
-                        # Strict Heuristic: Only allow known exact names
-                        # We removed the broad 'endswith' check to prevent corruption of data like 'item_ids'
-                        for field_name in component.__dataclass_fields__:
-                            if field_name in self.REF_BLOCKLIST:
-                                continue
-
-                            if field_name in self.REF_EXACT_NAMES:
-                                ref_fields.add(field_name)
-
-                    if not ref_fields:
+                for field_name, field_type in type_hints.items():
+                    if not hasattr(component, field_name):
                         continue
 
-                    for field_name in ref_fields:
-                        if not hasattr(component, field_name):
-                             continue
+                    val = getattr(component, field_name)
+                    if val is None:
+                        continue
 
-                        val = getattr(component, field_name)
+                    # Check for EntityID
+                    if self._is_entity_ref(field_type):
+                        # Scalar EntityID
+                        if isinstance(val, int) and not isinstance(val, bool):
+                            if val in id_map:
+                                setattr(component, field_name, EntityID(id_map[val]))
+                            elif val > 0:
+                                # Dangling reference
+                                setattr(component, field_name, EntityID(-1))
 
-                        if val is not None:
-                            # Handle Scalars, Lists, Sets, Dicts
-                            if isinstance(val, int) and not isinstance(val, bool):
-                                if val in id_map:
-                                    setattr(component, field_name, id_map[val])
-                                elif val > 0:
-                                    # If it's explicitly marked as a reference (or in REF_EXACT_NAMES),
-                                    # and it's missing in id_map, it's a dangling reference.
-                                    # Safe to clear.
-                                    setattr(component, field_name, 0)
+                    # Check for List[EntityID] or Set[EntityID]
+                    elif self._is_container_of_entity_ref(field_type):
+                        origin = get_origin(field_type)
+                        if origin is list and isinstance(val, list):
+                            new_list = []
+                            for x in val:
+                                if isinstance(x, int) and not isinstance(x, bool):
+                                    remapped = id_map.get(x, EntityID(-1) if x > 0 else x)
+                                    new_list.append(EntityID(remapped))
+                                else:
+                                    new_list.append(x)
+                            setattr(component, field_name, new_list)
 
-                            elif isinstance(val, list):
-                                # Remap list items, ignoring booleans
-                                new_list = []
-                                for x in val:
-                                    if isinstance(x, int) and not isinstance(x, bool):
-                                        # Remap or clear dangling (>0 becomes 0)
-                                        remapped = id_map.get(x, 0 if x > 0 else x)
-                                        new_list.append(remapped)
-                                    else:
-                                        new_list.append(x)
-                                setattr(component, field_name, new_list)
+                        elif origin is set and isinstance(val, set):
+                            new_set = set()
+                            for x in val:
+                                if isinstance(x, int) and not isinstance(x, bool):
+                                    remapped = id_map.get(x, EntityID(-1) if x > 0 else x)
+                                    new_set.add(EntityID(remapped))
+                                else:
+                                    new_set.add(x)
+                            setattr(component, field_name, new_set)
 
-                            elif isinstance(val, set):
-                                new_set = {id_map.get(x, 0 if isinstance(x, int) and not isinstance(x, bool) and x > 0 else x) if isinstance(x, int) and not isinstance(x, bool) else x for x in val}
-                                setattr(component, field_name, new_set)
-
-                            elif isinstance(val, dict):
-                                # Remap KEYS if they are IDs.
-                                new_dict = {}
-                                for k, v in val.items():
-                                    if isinstance(k, int) and not isinstance(k, bool):
-                                        new_k = id_map.get(k, 0 if k > 0 else k)
-                                        # Fix: Prune dangling keys to avoid collision at key '0'
-                                        if new_k == 0 and k > 0:
-                                            continue
-                                    else:
-                                        new_k = k
-                                    new_dict[new_k] = v
-                                setattr(component, field_name, new_dict)
+                    # Check for Dict[EntityID, Any] (Keys)
+                    elif self._is_dict_key_entity_ref(field_type):
+                         if isinstance(val, dict):
+                            new_dict = {}
+                            for k, v in val.items():
+                                if isinstance(k, int) and not isinstance(k, bool):
+                                    new_k = id_map.get(k, EntityID(-1) if k > 0 else k)
+                                    # Prune dangling
+                                    if new_k == -1 and k > 0:
+                                        continue
+                                    new_dict[EntityID(new_k)] = v
+                                else:
+                                    new_dict[k] = v
+                            setattr(component, field_name, new_dict)
 
         logger.info(f"Loaded {len(entities_data)} entities from data")
+
+    def _is_entity_ref(self, tp: Type) -> bool:
+        """Check if type is EntityID or Optional[EntityID]"""
+        if tp is EntityID:
+            return True
+        origin = get_origin(tp)
+        if origin is typing.Union: # Check for Optional[EntityID]
+            args = get_args(tp)
+            # Optional[T] is Union[T, NoneType]
+            return EntityID in args
+        return False
+
+    def _is_container_of_entity_ref(self, tp: Type) -> bool:
+        """Check if type is List[EntityID] or Set[EntityID]"""
+        origin = get_origin(tp)
+        if origin in (list, set, typing.List, typing.Set):
+            args = get_args(tp)
+            if args and self._is_entity_ref(args[0]):
+                return True
+        return False
+
+    def _is_dict_key_entity_ref(self, tp: Type) -> bool:
+        """Check if type is Dict[EntityID, Any]"""
+        origin = get_origin(tp)
+        if origin in (dict, typing.Dict):
+            args = get_args(tp)
+            if args and self._is_entity_ref(args[0]):
+                return True
+        return False

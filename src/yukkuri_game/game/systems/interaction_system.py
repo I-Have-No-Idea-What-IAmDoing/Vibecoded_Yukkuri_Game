@@ -45,10 +45,10 @@ class InteractionSystem(System):
         entities = list(world.get_components_tuple(InteractionRequest, Transform, YukkuriStats))
 
         for entity, (request, transform, stats) in entities:
-            self._handle_interaction(world, entity, request, transform, stats)
+            handled = self._handle_interaction(world, entity, request, transform, stats)
 
-            # Remove request after processing
-            if world.has_component(entity, InteractionRequest):
+            # Remove request only if handled
+            if handled and world.has_component(entity, InteractionRequest):
                 world.remove_component(entity, InteractionRequest)
 
     def _check_predation_allowed(self, world: World, entity: int) -> bool:
@@ -73,7 +73,7 @@ class InteractionSystem(System):
         return False
 
     def _handle_interaction(self, world: World, entity: int, request: InteractionRequest,
-                            transform: Transform, stats: YukkuriStats) -> None:
+                            transform: Transform, stats: YukkuriStats) -> bool:
         """
         Handles a single interaction request.
 
@@ -85,21 +85,21 @@ class InteractionSystem(System):
             stats (YukkuriStats): The requesting entity's stats.
 
         Returns:
-            None
+            bool: True if the request was handled and should be removed.
         """
         target_id = request.target_id
 
         if not world.entity_exists(target_id):
-            return
+            return False
 
         target_transform = world.get_component(target_id, Transform)
         if not target_transform:
-            return
+            return False
 
         # Verify distance (sanity check)
         dist = math.hypot(transform.x - target_transform.x, transform.y - target_transform.y)
         if dist > 50.0: # Slightly larger than action threshold to account for movement
-            return
+            return False
 
         # Handle Interaction with another Yukkuri (Predation)
         target_stats = world.get_component(target_id, YukkuriStats)
@@ -117,30 +117,18 @@ class InteractionSystem(System):
                 logger.info(f"Entity {entity} ate Yukkuri {target_id} (Predation).")
             else:
                 logger.debug(f"Entity {entity} attempted to eat Yukkuri {target_id} but lacks permission/trait.")
-            return
+
+            # Predation request (valid or permission-failed) is considered handled by this system
+            return True
 
         # Handle Interaction with Item
+        # Deprecated: Logic moved to HungerSystem.
+        # This block is intentionally left empty or removed as HungerSystem now handles ItemStats interactions.
         item_stats = world.get_component(target_id, ItemStats)
         if item_stats:
-            if item_stats.nutrition > 0:
-                stats.hunger = max(0, stats.hunger - item_stats.nutrition)
+            # If HungerSystem runs before this, the request might be gone.
+            # If it runs after, we should skip processing here so HungerSystem picks it up.
+            # Ideally, InteractionSystem should only handle Social/Physical interactions not covered by specific systems.
+            pass
 
-            if item_stats.fun > 0:
-                emotional = world.get_component(entity, EmotionalState)
-                if emotional:
-                    emotional.happiness = min(100, emotional.happiness + item_stats.fun)
-
-            if item_stats.comfort > 0:
-                stats.energy = min(100, stats.energy + item_stats.comfort)
-
-            if request.consume:
-                if self.audio:
-                    self.audio.play_sound("eat")
-
-                # Destroy the item
-                world.destroy_entity(target_id)
-
-                # Update consumer AI state if needed (e.g. reset target)
-                ai = world.get_component(entity, AIState)
-                if ai and ai.current_target_id == target_id:
-                    ai.current_target_id = -1
+        return False

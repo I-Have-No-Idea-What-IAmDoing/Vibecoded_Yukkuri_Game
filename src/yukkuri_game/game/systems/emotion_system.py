@@ -3,10 +3,14 @@ Module defining the EmotionSystem logic (formerly StatDecaySystem).
 """
 from typing import Optional
 from ...engine.ecs import System, World
-from ..yukkuri_components import YukkuriStats, Dead, Personality, EmotionalState
+from ..yukkuri_components import YukkuriStats, Dead, Personality, EmotionalState, Skills
 from ..trait_service import TraitService
+from ..services import TimeService
+from ..skill_service import SkillService
 from ...config import StatDecaySettings
 import random
+
+SECONDS_PER_DAY = 3600.0
 
 class EmotionSystem(System):
     """
@@ -26,6 +30,7 @@ class EmotionSystem(System):
         """
         self.settings = settings
         self.trait_service: Optional[TraitService] = None
+        self.last_day_index = -1
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -37,6 +42,29 @@ class EmotionSystem(System):
         """
         if self.trait_service is None:
             self.trait_service = world.services.try_get(TraitService)
+
+        # --- Skill Decay Automation ---
+        time_service = world.services.try_get(TimeService)
+        skill_service = world.services.try_get(SkillService)
+
+        if time_service and skill_service:
+            current_day_index = int(time_service.time_elapsed / SECONDS_PER_DAY)
+
+            if self.last_day_index == -1:
+                # Initialize
+                self.last_day_index = current_day_index
+
+            elif current_day_index > self.last_day_index:
+                # One or more days passed
+                days_passed = current_day_index - self.last_day_index
+
+                # Iterate all entities with Skills
+                for entity, (skills,) in world.get_components_tuple(Skills):
+                    # Apply decay for each day passed
+                    for _ in range(days_passed):
+                        skill_service.apply_decay(entity)
+
+                self.last_day_index = current_day_index
 
         # Iterate over entities with YukkuriStats
         for entity, (stats,) in world.get_components_tuple(YukkuriStats):
