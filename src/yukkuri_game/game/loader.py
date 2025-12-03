@@ -79,19 +79,19 @@ class GameLoader:
         """Initializes the Navigation Service."""
         world_width = 3000
         world_height = 3000
-
+        grid_step_size = 25  # Default from NavigationService constructor
         if self.game_config:
             world_width = self.game_config.world.width
             world_height = self.game_config.world.height
-            self.world.services.register(
-                NavigationService(
-                    world_width=world_width,
-                    world_height=world_height,
-                    grid_step_size=self.game_config.world.grid_step_size,
-                )
+            grid_step_size = self.game_config.world.grid_step_size
+
+        self.world.services.register(
+            NavigationService(
+                world_width=world_width,
+                world_height=world_height,
+                grid_step_size=grid_step_size,
             )
-        else:
-            self.world.services.register(NavigationService(world_width, world_height))
+        )
 
     def _init_sector_system(self) -> None:
         """Initializes and registers the Sector System and Map."""
