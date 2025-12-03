@@ -6,29 +6,31 @@ We treat the Physics Engine effectively as a "Geometry Database". We query it to
 
 Instead of `Force -> Velocity -> Position` (Physics), we use `Input -> Desired Displacement -> Allowed Displacement -> Position`.
 
+**Crucial:** This logic must run on a **Fixed Timestep** (e.g., 60Hz) to ensure `dt` is constant, guaranteeing 100% determinism.
+
 ### 2.1 The Movement Logic
 For every moving entity (Root):
-1.  **Calculate Desired Vector:** `move_delta = velocity * dt`.
-2.  **Broadphase Check (Optimization):** Calculate the AABB of the path. Use `pymunk.Space.bb_query` to check for potential blockers.
-    *   **Filtering:** Explicitly filter query results to include only "Obstacle" types (Walls, Floors). Ignore Triggers, Sensors, or other non-blocking entities.
-    *   If the path is clear, move immediately and skip to step 5.
-3.  **Shape Cast (Sweep):** Perform a shape sweep (e.g., `pymunk.Space.shape_query` at discrete intervals or a continuous sweep if available) using the entity's actual collider shape along `move_delta`.
-    *   This replaces the "Raycast Bundle" to ensure no small obstacles are missed and prevents tunneling.
-4.  **Detect Hit:** If the shape hits a "Wall" at distance `d < |move_delta|`:
-    *   Move entity by `d - epsilon` (to avoid overlap).
-    *   Project remaining velocity along the wall surface (Vector Projection) to allow sliding.
-    *   Repeat sweep with remaining distance (Max 1-2 iterations).
+1.  **Calculate Desired Vector:** `move_delta = velocity * fixed_dt`.
+2.  **Broadphase Check:** Calculate the **Union AABB** of the Root and all attached Children. Use `pymunk.Space.bb_query` to find potential blockers.
+    *   **Filtering:** Explicitly filter query results to include only "Obstacle" types (Walls, Floors).
+3.  **Iterative Shape Cast (The "Sweep"):**
+    *   Since Pymunk lacks a native "Sweep Shape" function, we approximate it:
+    *   Check collision at the **Target Position** using the Root's shape AND all Children's shapes (effectively a compound check).
+    *   If a collision is detected, perform a **Binary Search** along the `move_delta` vector to find the precise "Time of Impact" (TOI) where the shapes *just* touch the obstacle without overlapping.
+    *   *Optimization:* For high speeds, perform intermediate checks (sub-stepping) to prevent tunneling through thin walls.
+4.  **Resolve Collision:** If a hit occurs at fraction `t` (0 to 1):
+    *   Move entity by `move_delta * (t - epsilon)`.
+    *   **Slide:** Project the remaining velocity vector onto the wall's surface tangent.
+    *   **Repeat:** Repeat the sweep with the new velocity vector (Max 3 iterations).
+    *   If the entity is still stuck after max iterations, zero out the remaining velocity.
 5.  **Commit:** Manually set `body.position`.
 
 This ensures:
-*   **High Performance:** Broadphase culling avoids expensive checks for the majority of frames.
-*   **Zero Tunneling:** We sweep the full shape, so we can't pass through thin walls or spikes.
-*   **Absolute Control:** If the player stops input, the entity stops *instantly*. No friction sliding.
-*   **Predictability:** The same input always yields the exact same position.
+*   **Zero Tunneling:** Binary search/sub-stepping prevents passing through obstacles.
+*   **Stack Awareness:** By checking child shapes, we prevent "Wide Riders" from clipping through walls.
+*   **Absolute Control:** Immediate stops, no floaty physics.
 
 ## 3. The Hierarchy: Rigid Locking
-
-Since we have abandoned physics simulation, we can simplify the "Stacking" system to a pure Transform Hierarchy.
 
 ### 3.1 `Mount` Component
 ```python
@@ -44,47 +46,47 @@ class Mount(Component):
 This system runs **after** the `KinematicMovementSystem`.
 
 1.  **Dirty Flag Optimization:** Process the hierarchy for a Root if:
-    *   It has moved (Position changed).
-    *   It has rotated (Rotation changed).
-    *   Its hierarchy structure has changed (Child added/removed).
-2.  **Recursive Update:** Iterate recursively starting from the dirty Root to its children.
-3.  **Teleport:**
+    *   **Transform Change:** Position OR Rotation changed.
+    *   **Structure Change:** Child added/removed.
+2.  **Recursive Update:** Iterate recursively.
     *   `Child.Position = Parent.Position + Parent.Rotation * Child.Offset`
-    *   `Child.Velocity = Parent.Velocity` (For game logic queries).
-4.  **Collision Handling:**
+3.  **Collision Handling:**
     *   Mounted children convert their physical shapes to **Sensors**.
-    *   They do not physically block movement or push other objects.
-    *   They *can* still detect overlaps (e.g., taking damage from a projectile).
+    *   They do not physically block movement (handled by the Root's compound check) but can detect overlaps (e.g., projectiles).
 
 ## 4. Handling Stacks & Interactions
 
-### 4.1 "The Totem Pole"
-If Entity A carries B, and B carries C:
-*   A is the **Root**. A processes `Movement`.
-*   A checks collisions against Walls using its shape.
-*   **Head Check:** A optional "Head Check" raycast or shape query is performed for the top-most rider to prevent them from clipping through low ceilings.
-*   If A (or the top rider) hits a wall/ceiling, the whole stack stops.
+### 4.1 "The Totem Pole" (Compound Collider)
+If Entity A carries B:
+*   A is the **Root**.
+*   A's movement logic considers **A's Shape + B's Shape**.
+*   If *any* shape in the stack hits a wall, the movement is blocked/slid.
+*   **Head Check:** The compound check naturally covers "Head Checks" (B hitting ceiling) and "Side Checks" (B hitting wall).
 
 ### 4.2 Dismounting
-*   When B dismounts A:
-    *   B attempts to move to strict, deterministic relative offsets (e.g., 1. Left, 2. Right, 3. Back).
+*   **Voluntary Dismount:**
+    *   B attempts to move to strict, deterministic relative offsets (1. Left, 2. Right, 3. Back).
     *   The first valid, non-colliding position is chosen.
-    *   If all pre-defined spots are blocked, the dismount action **fails**.
-    *   On success, B's collision shape is reverted from Sensor to Solid.
+    *   If all are blocked, the dismount **fails** (B stays mounted).
+*   **Forced Dismount (e.g., A dies):**
+    *   Attempt the standard deterministic dismount offsets.
+    *   If all are blocked (B is trapped in walls/enemies):
+        *   **CRUSH:** B takes massive damage or is instantly killed.
+        *   Alternative: Emergency Eject to the Root's last valid position (if tracked).
 
 ## 5. Implementation Roadmap
 
-1.  **Engine Config:** Set Pymunk Space to have no gravity.
+1.  **Engine Config:** Set Pymunk Space to no gravity. Ensure **Fixed Timestep** loop.
 2.  **`KinematicSystem`:**
-    *   Implement `sweep_and_slide` with **Broadphase** (filtered) and **Shape Sweep**.
-    *   Loop through all **active** Root entities with `MovementController`.
-    *   Apply logic.
+    *   Implement `sweep_and_slide` using **Binary Search** for TOI.
+    *   Implement **Compound Shape Checking** (Root + Children) during the sweep.
 3.  **`HierarchySystem`:**
-    *   Implement recursive transform updates with robust dirty checking (Pos/Rot/Struct).
-    *   Manage `shape.sensor` property to toggle collision modes for mounted units.
+    *   Implement recursive transform updates.
+    *   Manage `shape.sensor` toggling.
+4.  **Dismount Logic:**
+    *   Implement the "Try Offsets -> Fail/Crush" state machine.
 
 ## 6. Why This Wins
-*   **Meets User Request:** 100% Predictable. No "Sandbox" chaos.
-*   **Robust:** Shape sweeps prevent tunneling and corner-catching issues.
-*   **Gameplay Friendly:** Riders can still be hit (Sensors) and won't clip through ceilings (Head Check).
-*   **Clean:** Separates "Movement" (Roots) from "Attachment" (Children).
+*   **True Determinism:** Fixed timestep + explicit resolution rules.
+*   **Robust:** Compound collision checks prevent all clipping (Head/Side).
+*   **Safe:** Handles forced dismounts gracefully (Crush mechanic) rather than undefined behavior.
