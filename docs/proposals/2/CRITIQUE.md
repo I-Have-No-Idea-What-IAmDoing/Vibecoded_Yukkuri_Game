@@ -1,37 +1,27 @@
-# Critique of Proposal 2: Kinematic Control & "Reinventing the Wheel"
+# Critique of Proposal 2: The "Fighting the Engine" Anti-Pattern
 
-The proposal correctly identifies that standard dynamic physics can feel "floaty" for precise character movement, but the proposed solution of rewriting collision resolution in Python is ill-advised.
+This proposal tries to have its cake and eat it too, resulting in a fractured system that works against the physics engine rather than with it.
 
-## 1. The "Custom Solver" Risk
+## 1. Velocity Override on Dynamic Bodies
 
-The proposal suggests: *"If movement vector intersects a wall, we slide against it."*
-*   **Complexity:** Implementing robust collision response (handling internal corners, acute angles, tunneling) is difficult and error-prone.
-*   **Performance:** Moving the heavy lifting of collision detection and resolution from Pymunk's C-based engine to Python loops will likely degrade performance significantly, especially with many entities.
+The proposal suggests: *"We maintain the entity as a Dynamic Body... but effectively override its behavior... set body.velocity directly."*
 
-## 2. Pymunk is already Capable
+*   **Destabilizing the Solver:** Pymunk's solver expects velocity to change due to forces and impulses. Manually overwriting velocity every frame (`body.velocity = target`) effectively gives the object infinite mass for that frame. When it hits a wall, the solver tries to resolve the collision, but the next frame you overwrite it again. This causes jitter, tunneling, and "vibrating against walls."
+*   **Physics Fighting:** If an explosion pushes the character (External Force), and your input logic sets velocity (Input Override), who wins? The proposal suggests a "Knockback Threshold" state machine. This is brittle. You end up writing a complex priority system just to decide if the physics engine is allowed to work.
 
-Pymunk supports **Kinematic Bodies**. These are bodies that are moved manually (infinite mass) but still interact with the spatial index and can push other dynamic bodies.
-*   The proposal says "Make PhysicsBody kinematic (sensor only)". This is a misunderstanding. Kinematic bodies *can* have shapes and collisions.
-*   We can use Pymunk to handle the "slide" logic or simply use a dynamic body with very high friction/damping and manual velocity control (as suggested in the revised Proposal 1).
+## 2. "High Friction" Hack
 
-## 3. Hierarchy & Mounting
+The suggestion to use "High Friction/Damping" to stop movement is a magic number hack.
+*   **Inconsistent Stopping:** Friction depends on the surface. If the character walks on "ice" vs "grass", the stopping time changes, messing up the "snappy" feel.
+*   **Tunneling:** High velocity changes combined with forced stops are a prime cause of physics tunneling (passing through walls).
 
-The `Mount` system description has valid points but misses key implementation details.
-*   **Graph Traversal:** The proposal mentions "Iterate over all entities". To prevent frame-behind lag, the transform update must strictly follow the hierarchy (Roots first, then children). A flat iteration might update a child before its parent has moved.
-*   **Cycles:** There is no check for circular dependencies (A rides B, B rides A).
+## 3. The "Hybrid" Fallacy
 
-## 4. Constructive Recommendation
+The proposal claims to solve the "floaty" problem of Prop 1 and the "complexity" of Prop 3. In reality, it combines the **instability** of Prop 1 (using dynamic bodies for control) with the **hackiness** of Prop 3 (manual overrides).
 
-We should **not** rewrite the physics solver. Instead, we should leverage Proposal 1's "Constraint-Based" approach for mounting. It naturally handles the hierarchy without manual position syncing and prevents lag.
+*   **Joints are still Jelly:** It retains the Constraint System from Proposal 1, so the stack is still a wobbling mess.
+*   **Input Lag:** Interpolating velocity (`interpolate_to`) adds input lag. Players want instant response.
 
-However, if "Kinematic" movement is truly desired (for pixel-perfect controls like an RPG), we should still use Pymunk's facilities:
-*   Use a **Dynamic Body** with high damping (as per Proposal 1) for the best balance of responsiveness and physical interaction.
-*   Use **Constraints** for mounting.
+## 4. Conclusion
 
-The "Kinematic Movement System" as described (manual slide collision in Python) should be abandoned. The "Mounting System" should be merged into the Constraint-based approach of Proposal 1.
-
-## 5. Conclusion
-
-This proposal is **rejected** in favor of Proposal 1 (Revised). Proposal 1 solves the "Stacking/Mounting" problem more robustly using Constraints. The "Floaty Movement" problem is better solved by tuning the physics parameters (damping/force) rather than abandoning the physics engine.
-
-However, for the sake of this exercise, I will revise this proposal to focus *specifically* on a **Kinematic Character Controller** that uses Pymunk's `Body.KINEMATIC` correctly, rather than a custom Python solver, and how it interacts with the Constraint system.
+This proposal is a collection of hacks. Overriding velocity on dynamic bodies is a known "code smell" in physics integration. It leads to a character that jitters against walls and ignores game physics when you don't want it to. **Rejected.**
