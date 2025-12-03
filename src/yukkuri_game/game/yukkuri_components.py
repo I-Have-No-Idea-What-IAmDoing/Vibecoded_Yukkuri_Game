@@ -433,7 +433,7 @@ class ItemStats:
         name (str): Name of the item.
         type_id (str): Type identifier.
         cost (int): Cost in money.
-        nutrition (float): Fun value.
+        nutrition (float): Nutrition value.
         fun (float): Fun value.
         comfort (float): Comfort value.
         is_portable (bool): Whether it can be carried.
