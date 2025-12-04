@@ -41,9 +41,6 @@ class TestHudLayout:
             "yukkuri_game.game.ui.hud_layout.UIDropDownMenu", MagicMock()
         )
         monkeypatch.setattr(
-            "yukkuri_game.game.ui.hud_layout.UIScrollingContainer", MagicMock()
-        )
-        monkeypatch.setattr(
             "yukkuri_game.game.ui.hud_layout.NonBlockingTextBox", MagicMock()
         )
 
