@@ -45,11 +45,11 @@ class HierarchySystem(System):
         roots = [e for e, m in mounts.items() if m.parent_id == -1 or m.parent_id not in mounts]
 
         # Traverse
-        queue = list(roots)
+        queue = deque(roots)
         processed = set()
 
         while queue:
-            parent_entity = queue.pop(0)
+            parent_entity = queue.popleft()
             if parent_entity in processed:
                 continue
             processed.add(parent_entity)
@@ -105,9 +105,13 @@ class HierarchySystem(System):
                         space = self.physics_system.space
                         # Use child's mask
                         mask = child_phys.shape.filter.mask
-                        radius = 10.0
+                        radius = 10.0 # Fallback
                         if isinstance(child_phys.shape, pymunk.Circle):
                              radius = child_phys.shape.radius
+                        elif isinstance(child_phys.shape, pymunk.Poly):
+                             # For polygons, use a radius that approximates the shape's size.
+                             bb = child_phys.shape.bb
+                             radius = max(bb.right - bb.left, bb.top - bb.bottom) / 2.0
 
                         # Use point query for simplicity and speed, or check if center is blocked.
                         # Ideally shape query is better.

@@ -41,8 +41,8 @@ class MovementSystem(System):
         if not space:
             return
 
-        for entity, (phys, controller, visual) in world.get_components_tuple(
-            PhysicsBody, MovementController, VisualTransform
+        for entity, (phys, controller, visual, transform) in world.get_components_tuple(
+            PhysicsBody, MovementController, VisualTransform, Transform
         ):
             # Only process Kinematic bodies (characters)
             if phys.body.body_type != pymunk.Body.KINEMATIC:
@@ -84,6 +84,8 @@ class MovementSystem(System):
                 # Update State
                 phys.body.position = final_pos
                 phys.body.velocity = effective_velocity
+                transform.x = final_pos.x
+                transform.y = final_pos.y
 
             else:
                 phys.body.velocity = Vector2(0, 0)
