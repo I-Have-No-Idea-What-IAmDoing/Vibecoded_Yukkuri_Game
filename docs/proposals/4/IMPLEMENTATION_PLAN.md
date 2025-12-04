@@ -20,14 +20,16 @@ Implement a function `move_and_slide(body, velocity, dt)`:
     *   **No Hit:** If no collision, move the full remaining distance and break.
     *   **Hit:**
         *   Move the entity to `hit_point + normal * epsilon` (safe distance).
-        *   **Internal Edge Handling:** If `dot(normal, move_direction) > -0.01` (approx 90 degrees), ignore this "wall" as it might be a seam. Continue the sweep or nudge slightly and retry.
+        *   **Internal Edge Handling:** Use `ShapeFilter` or a small "skin width" reduction in the query radius to avoid catching on seams.
         *   **Slide:** Calculate the remainder vector. Project it onto the wall tangent: `remainder = remainder - normal * dot(remainder, normal)`.
-        *   **Acute Corner Check:** If the new slide direction immediately hits another wall (creating a pinch point), stop movement to prevent jitter.
+        *   **Corner Handling:** If the new slide direction hits another wall:
+            *   Attempt to slide along the *second* wall's tangent.
+            *   If the projected movement along the second wall opposes the original intent (dot product < 0) or is blocked, stop movement.
     *   **Update Position:** Manually set `body.position`.
 
 ### 1.3 Validation
 *   **Test Case:** "The Hallway" - Move parallel to a wall composed of multiple segments. Ensure no snagging on vertices.
-*   **Test Case:** "The Corner" - Move into an acute corner. Ensure the character stops cleanly without jittering or passing through.
+*   **Test Case:** "The Corner" - Move into an acute corner. Ensure the character stops cleanly or slides into the apex without jittering.
 
 ## Phase 2: Hierarchy & Mounting (`HierarchySystem`)
 
@@ -49,12 +51,12 @@ Implement a system that runs **after** `KinematicMovementSystem`:
 
 ### 2.3 Compound Collider & Rotation
 To handle "Totem Pole" stacks correctly:
-1.  **Dynamic Root Collider:** The Root entity's physical collider must potentially expand to encompass the bounding box of its children.
-    *   *Approach:* Calculate the AABB of the entire stack. Update the Root's shape (or add auxiliary shapes) to match this AABB.
-2.  **Ceiling Check:** Before moving, the Root must perform a `segment_query` upwards from its top to the maximum height of the stack to prevent head-clipping.
-3.  **Rotation Constraints:** If the stack is wide:
-    *   Perform a `shape_query` at the target rotation.
-    *   If blocked, **prevent rotation** or clamp it to the available angle. Do not allow the stack to rotate inside a wall.
+1.  **Structure Change Event:** When a child is added/removed, recalculate the stack's total bounding box/radius.
+    *   **Update Root Shape:** If the new bounds differ significantly, update the Root's Pymunk shape to match (e.g., increase radius). **Do not do this every frame.**
+2.  **Ceiling Check:** Before moving, the Root must perform a `segment_query` upwards from its top to the maximum height of the stack.
+3.  **Rotation Constraints:**
+    *   **Predict:** Before applying rotation, check `shape_query` at the target rotation.
+    *   **Prevent:** If blocked, do not rotate. Trigger a "Blocked" feedback event (sound/spark).
 
 ## Phase 3: Dismount Logic
 
@@ -62,19 +64,18 @@ Robust logic for handling entities leaving the hierarchy, either voluntarily or 
 
 ### 3.1 "Pending Dismount" State (Ghost Mode)
 To address the critique about unfair destruction:
-*   Create a `PendingDismount` component or state.
-*   If an entity cannot find a valid spot to dismount, it enters this state.
+*   Create a `PendingDismount` component.
 *   **Behavior:**
-    *   The entity remains attached visually (or follows as a ghost).
-    *   It is non-interactive.
-    *   Every frame (or every N frames), it retries the dismount search.
-    *   If a spot opens up, it materializes there and leaves the state.
-    *   Only destroy after a significant timeout (e.g., 5-10 seconds) or if the parent is destroyed and no spot is found.
+    *   The entity is detached from the parent logically but follows it visually (or stays at last valid point).
+    *   It is non-interactive and invisible (or transparent).
+    *   **Throttle:** Every 10-20 frames, it retries the dismount search.
+    *   **Success:** If a spot opens up, it materializes there and removes the component.
+    *   **Persist:** It remains in this state indefinitely (or until map exit/end of match) rather than being destroyed.
 
 ### 3.2 Deterministic Concentric Search
 Implement the search algorithm for finding a safe spot:
 1.  **Standard Offsets:** Check Left, Right, Back, Front relative to parent.
-2.  **Spiral Search:** If standard fails, iterate through a pre-calculated list of grid offsets: `[(1,0), (0,1), (-1,0), (0,-1), (1,1), ...]`.
+2.  **Spiral Search:** If standard fails, iterate through a pre-calculated list of grid offsets.
 3.  **Validation:** For each candidate point, perform a `point_query` and/or `shape_query` (checking the entity's footprint).
 4.  **Result:** Move to the first valid point found.
 
@@ -87,24 +88,32 @@ Implement `is_visible(observer, target)` with strict ordering:
 1.  **Distance Check:** `distance_sq(obs, target) <= range_sq`. (Fastest).
 2.  **Angle Check:** If `FOV < 360`, check if `dot(obs_fwd, target_dir) > cos(FOV/2)`.
 3.  **Raycast:** Only if above pass, perform `space.segment_query(obs_pos, target_pos)`.
-    *   **Filter:** Stop on `COLLISION_TYPE_OBSTACLE`. Ignore sensors and other characters (unless characters block sight).
+    *   **Filter:** Include `COLLISION_TYPE_OBSTACLE` AND `COLLISION_TYPE_CHARACTER`.
+    *   **Logic:** The ray will hit the closest object.
+        *   If Hit Object == Target: **Visible**.
+        *   If Hit Object == Obstacle: **Blocked**.
+        *   If Hit Object == Other Character: **Blocked** (unless Other Character IS Target).
 
 ### 4.2 Throttling
-*   **Time-Slicing:** Do not update all entities every frame. Update 10-20% of the entities per frame in a round-robin fashion.
-*   **Event-Based:** Trigger immediate updates only when an entity moves significantly or a door opens/closes.
+*   **Time-Slicing:** Update 10-20% of the entities per frame in a round-robin fashion.
+*   **Event-Based:** Trigger updates on movement or door state changes.
 
-## Phase 5: Testing & Verification Strategy
+## Phase 5: Input & Rendering
 
-Since this system replaces standard physics, verification is crucial.
+### 5.1 Interpolation
+*   **Fixed Timestep:** Physics runs at fixed `dt` (e.g., 60Hz).
+*   **Variable Render:** Rendering runs at monitor refresh rate.
+*   **Interpolation:** `render_pos = prev_physics_pos * (1 - alpha) + curr_physics_pos * alpha`.
+    *   `alpha` is the accumulator fraction from the game loop.
 
-1.  **Unit Tests:**
-    *   Test `move_and_slide` with mock geometry (walls, corners).
-    *   Test hierarchy transform math.
-    *   Test visibility calculations (sector checks).
+## Phase 6: Testing & Verification Strategy
+
+1.  **Headless Pymunk Tests:**
+    *   Create a `pymunk.Space` without graphics.
+    *   Add walls and a kinematic body.
+    *   Step the simulation and assert positions to verify `move_and_slide`, corner handling, and internal edge skipping.
 2.  **Visual Debugging:**
-    *   Draw the "Sweep" capsules and collision normals.
-    *   Draw the "Dismount Search" points (green for valid, red for blocked).
-    *   Draw FOV cones and raycasts.
+    *   Draw "Sweep" capsules, collision normals, and dismount search points.
 3.  **Stress Tests:**
-    *   Spawn 100+ units and check framerate (verify spatial hash and visibility culling).
-    *   Stack 10+ entities and move/rotate near walls.
+    *   Spawn 100+ units.
+    *   Verify framerate stability with `move_and_slide` and Visibility systems active.
