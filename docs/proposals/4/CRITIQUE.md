@@ -1,29 +1,37 @@
-# Critique of Proposal 4 (Revised)
+# Critique of Proposal 4: Deterministic Kinematic Hierarchy
 
-## 1. Feasibility of "Shape Sweep" in Pymunk
-The proposal relies heavily on a "Shape Cast (Sweep)" to prevent tunneling. However, Pymunk (and the underlying Chipmunk physics engine) does **not** natively support "sweeping" a shape along a vector to find the time-of-impact (TOI).
-*   **Discrete Stepping:** Implementing this via `shape_query` at discrete intervals is computationally expensive and does not strictly guarantee "Zero Tunneling" (small obstacles could still be skipped between steps).
-*   **Complexity:** Building a custom Continuous Collision Detection (CCD) system on top of Pymunk is non-trivial and prone to bugs.
-*   **Recommendation:** Acknowledge the limitation. Use a high-resolution discrete step approach (e.g., "sub-stepping" movement) rather than a theoretical "continuous sweep", or clarify if a simple "BoxCast" (using a stretched AABB) is sufficient for the "Sweep" phase, followed by precise overlap checks.
+## 1. Critical Flaw: Tunneling
+The proposed collision detection method ("Check at Target Position" followed by Binary Search) is fundamentally flawed because it fails to detect obstacles between the start and end positions.
+*   **The Problem:** If an entity moves 10 units in a frame but encounters a thin wall at unit 5. The "Check at Target" (unit 10) will report no collision (assuming the wall is thin). The entity will teleport through the wall.
+*   **Binary Search Ineffectiveness:** The Binary Search is only triggered *if* the target check fails. If the target check passes (false negative), the binary search never runs.
+*   **Requirement:** A proper "Sweep" (detecting the first collision along a path) is required, not just a static check at the destination.
 
-## 2. Rider Side-Collisions & Stack Geometry
-The proposal mentions a "Head Check" for the top-most rider but ignores side collisions.
-*   **The "Wide Rider" Problem:** If a Rider is wider than the Mount, the Mount might fit through a narrow passage, causing the Rider to clip visually and logically through the walls.
-*   **Inconsistency:** This contradicts the goal of being "Robust" and avoiding "corner-catching".
-*   **Recommendation:** The collision check for the Root should ideally consider the **Union AABB** of the entire stack (Root + all Children). Alternatively, perform "Side Checks" for riders similar to the "Head Check", stopping the stack if *any* part of the hierarchy hits a wall.
+## 2. Performance & Complexity
+*   **Python Overhead:** Implementing a custom Binary Search loop in Python for *every* moving entity *every* frame is a performance bottleneck. Pymunk/Chipmunk are written in C for speed; moving the collision resolution loop into Python negates this benefit.
+*   **Redundant Logic:** Pymunk already provides `Space.segment_query` (Raycast), and crucially, `segment_query` accepts a `radius` parameter.
+    *   `segment_query` with `radius=r` is mathematically equivalent to sweeping a Circle of radius `r` along a line.
+    *   This is a native C operation, instant, and handles tunneling perfectly.
 
-## 3. Forced Dismount Scenarios
-The dismount logic covers voluntary dismounts (failing if blocked). It fails to address **forced dismounts**.
-*   **Mount Destruction:** If the Mount is destroyed (killed), the Rider *must* detach.
-*   **Blocked Ejection:** If the Mount dies while the Rider is in a position where they cannot validly dismount (surrounded by walls), the proposal has no fallback.
-*   **Recommendation:** Define a "Crush" or "Emergency Eject" rule. If a forced dismount is impossible due to collision, the Rider should likely take damage or be killed ("Crushed").
+## 3. Shape Limitations
+*   The proposal suggests using "Root's shape AND all Children's shapes". If these shapes are arbitrary Polygons (Boxes), `segment_query` (Capsule Cast) is less effective.
+*   **Recommendation:** Character Controllers should standardly use Capsules (or Circles) for their movement collision. Attached "Children" (stacks) can add to the vertical height (lengthening the capsule) or radius. Using arbitrary polygons for a Kinematic Character Controller complicates "sliding" math significantly (catching corners).
 
-## 4. Determinism & Timestep
-The proposal claims "100% Predictability" and uses `move_delta = velocity * dt`.
-*   **Variable Timestep:** If `dt` varies (variable framerate), the simulation is non-deterministic. Floating point errors will accumulate differently.
-*   **Recommendation:** Explicitly mandate a **Fixed Timestep** (e.g., 60hz fixed update loop) for the physics/movement logic to ensure true determinism.
+## 4. Dismount Logic & Determinism
+*   **"Fail if blocked":** This can lead to player frustration. If I'm next to a wall, I can't get off?
+*   **"CRUSH":** Instant death for a "forced dismount" (e.g., bottom player dies) is harsh.
+*   **Improvement:** An "Emergency Eject" mechanism is needed.
+*   **Determinism Risk:** A naive "Spiral Search" (calculating positions via `sin`/`cos` and floats) introduces non-determinism across different platforms/architectures.
+    *   **Recommendation:** The search algorithm must use a **Discrete Concentric Pattern** (e.g., a pre-defined grid of offsets) to guarantee 100% determinism.
+*   **Performance Risk:** An unbounded search (e.g., until a free spot is found) could freeze the game loop if the map is dense or the entity is deeply buried.
+    *   **Recommendation:** Implement a strict **Tunable Search Limit** (e.g., max 50 checks). If the limit is reached, revert to the fallback behavior (Crush/Damage).
 
-## 5. Sliding Corner Cases
-"Project remaining velocity along the wall surface" is the standard approach, but it has edge cases.
-*   **Acute Corners:** Sliding into a V-shape corner can cause the entity to oscillate or get stuck if not handled (bouncing back and forth between walls in a single frame).
-*   **Recommendation:** detailed logic for "Max Slide Iterations" (e.g., 3). If velocity remains after max iterations, simply zero it out to prevent jitter.
+## 5. Hierarchy Update Order
+*   The proposal says `HierarchySystem` runs *after* `KinematicMovementSystem`.
+*   If the Root moves, the Children update their position. This is correct for rendering.
+*   However, if the "Sweep" depends on Children's shapes, the Children's shapes must be at the *correct relative offset* before the sweep starts. The order seems fine, assuming `Mount` offsets are static or updated before physics.
+
+# Recommendations for Revision
+
+1.  **Adopt `segment_query` (Capsule Sweep):** Replace the "Check + Binary Search" logic with Pymunk's native `segment_query(start, end, radius)`. This solves Tunneling and Performance instantly.
+2.  **Standardize on Capsule/Circle Colliders:** For the "Movement" logic, approximate the stack as a Capsule (or collection of Circles). This simplifies the sweep and slide math.
+3.  **Refine Dismount:** Implement a **Deterministic Concentric Search** with a **Configurable Limit**. Use rigid grid offsets to prevent crushing where possible, but stop searching after N attempts to preserve performance.

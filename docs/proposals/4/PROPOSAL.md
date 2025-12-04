@@ -11,24 +11,22 @@ Instead of `Force -> Velocity -> Position` (Physics), we use `Input -> Desired D
 ### 2.1 The Movement Logic
 For every moving entity (Root):
 1.  **Calculate Desired Vector:** `move_delta = velocity * fixed_dt`.
-2.  **Broadphase Check:** Calculate the **Union AABB** of the Root and all attached Children. Use `pymunk.Space.bb_query` to find potential blockers.
-    *   **Filtering:** Explicitly filter query results to include only "Obstacle" types (Walls, Floors).
-3.  **Iterative Shape Cast (The "Sweep"):**
-    *   Since Pymunk lacks a native "Sweep Shape" function, we approximate it:
-    *   Check collision at the **Target Position** using the Root's shape AND all Children's shapes (effectively a compound check).
-    *   If a collision is detected, perform a **Binary Search** along the `move_delta` vector to find the precise "Time of Impact" (TOI) where the shapes *just* touch the obstacle without overlapping.
-    *   *Optimization:* For high speeds, perform intermediate checks (sub-stepping) to prevent tunneling through thin walls.
-4.  **Resolve Collision:** If a hit occurs at fraction `t` (0 to 1):
-    *   Move entity by `move_delta * (t - epsilon)`.
-    *   **Slide:** Project the remaining velocity vector onto the wall's surface tangent.
-    *   **Repeat:** Repeat the sweep with the new velocity vector (Max 3 iterations).
-    *   If the entity is still stuck after max iterations, zero out the remaining velocity.
-5.  **Commit:** Manually set `body.position`.
+2.  **The Sweep (Capsule Cast):**
+    *   Use `pymunk.Space.segment_query(start, end, radius, filter)` to detect the **First Impact**.
+    *   **Radius:** Use the Root entity's collision radius. This effectively performs a "Circle Sweep" or "Capsule Cast", ensuring **Zero Tunneling**.
+    *   **Filter:** Exclude Sensors and the entity's own shapes.
+3.  **Resolve Collision:**
+    *   If the query returns a hit at fraction `alpha` (0 to 1):
+        *   The safe movement is `move_delta * (alpha - epsilon)`.
+        *   **Slide:** Calculate the remainder vector (`move_delta * (1-alpha)`). Project this vector onto the wall's surface tangent (using the `normal` returned by the query).
+        *   **Repeat:** Perform a second sweep with the projected "slide" vector. (Max 3 iterations).
+    *   If no hit: Move the full `move_delta`.
+4.  **Commit:** Manually set `body.position`.
 
-This ensures:
-*   **Zero Tunneling:** Binary search/sub-stepping prevents passing through obstacles.
-*   **Stack Awareness:** By checking child shapes, we prevent "Wide Riders" from clipping through walls.
-*   **Absolute Control:** Immediate stops, no floaty physics.
+### 2.2 Why `segment_query`?
+*   **Performance:** It is a native C function in Chipmunk/Pymunk.
+*   **Correctness:** It checks the continuous volume between start and end, preventing "bullet through paper" tunneling.
+*   **Simplicity:** It returns the exact surface normal and impact point, making "Sliding" math trivial.
 
 ## 3. The Hierarchy: Rigid Locking
 
@@ -52,41 +50,43 @@ This system runs **after** the `KinematicMovementSystem`.
     *   `Child.Position = Parent.Position + Parent.Rotation * Child.Offset`
 3.  **Collision Handling:**
     *   Mounted children convert their physical shapes to **Sensors**.
-    *   They do not physically block movement (handled by the Root's compound check) but can detect overlaps (e.g., projectiles).
+    *   They do not physically block movement (handled by the Root's Sweep) but can detect overlaps (e.g., projectiles).
 
 ## 4. Handling Stacks & Interactions
 
 ### 4.1 "The Totem Pole" (Compound Collider)
-If Entity A carries B:
-*   A is the **Root**.
-*   A's movement logic considers **A's Shape + B's Shape**.
-*   If *any* shape in the stack hits a wall, the movement is blocked/slid.
-*   **Head Check:** The compound check naturally covers "Head Checks" (B hitting ceiling) and "Side Checks" (B hitting wall).
+When entities are stacked, the Root entity assumes responsibility for the movement of the whole stack.
+*   **Movement Collider:** The Root uses a **Bounding Capsule** or **Circle** that encompasses the stack for the purpose of environmental collision (Walls/Floor).
+    *   *Simplification:* We assume the stack moves as one unit. The Root's radius is usually sufficient for width.
+*   **Head/Ceiling Checks:** If the stack grows tall, the Root must perform an additional `segment_query` upwards (or check the top child's volume) to prevent clipping into ceilings.
 
 ### 4.2 Dismounting
 *   **Voluntary Dismount:**
-    *   B attempts to move to strict, deterministic relative offsets (1. Left, 2. Right, 3. Back).
-    *   The first valid, non-colliding position is chosen.
-    *   If all are blocked, the dismount **fails** (B stays mounted).
+    *   Check standard offsets (Left, Right, Back).
+    *   Use `point_query` or `shape_query` to verify the target spot is free.
+    *   Move to the first free spot.
 *   **Forced Dismount (e.g., A dies):**
-    *   Attempt the standard deterministic dismount offsets.
-    *   If all are blocked (B is trapped in walls/enemies):
-        *   **CRUSH:** B takes massive damage or is instantly killed.
-        *   Alternative: Emergency Eject to the Root's last valid position (if tracked).
+    *   **Deterministic Concentric Search:** If standard offsets are blocked, iterate outward using a strictly defined, discrete pattern (e.g., a "Square Spiral" or "Concentric Diamond" of grid points).
+        *   *Implementation:* Use a pre-calculated list of integer offsets `[(1,0), (0,1), (-1,0), (0,-1), (1,1)...]` scaled by the grid size.
+        *   **Search Limit:** A tunable `MAX_SEARCH_STEPS` (e.g., 50 iterations) must be enforced. If this limit is exceeded without finding a valid spot, the logic falls back to the failure state.
+        *   **Verify:** Check each point using `point_query` or `shape_query`.
+    *   **Eject:** Teleport the child to the first valid safe spot found.
+    *   *Fallback:* If the search limit is reached (e.g. map is completely full/buried), the entity gets crushed.
 
 ## 5. Implementation Roadmap
 
-1.  **Engine Config:** Set Pymunk Space to no gravity. Ensure **Fixed Timestep** loop.
+1.  **Engine Config:** Set Pymunk Space to no gravity (or handle gravity manually in KinematicSystem).
 2.  **`KinematicSystem`:**
-    *   Implement `sweep_and_slide` using **Binary Search** for TOI.
-    *   Implement **Compound Shape Checking** (Root + Children) during the sweep.
+    *   Implement `move_and_slide` using `space.segment_query`.
+    *   Ensure `radius` matches the character's physical collider.
 3.  **`HierarchySystem`:**
     *   Implement recursive transform updates.
-    *   Manage `shape.sensor` toggling.
 4.  **Dismount Logic:**
-    *   Implement the "Try Offsets -> Fail/Crush" state machine.
+    *   Implement "Find Nearest Safe Spot" algorithm using a deterministic offset table.
+    *   Expose `MAX_SEARCH_STEPS` as a configuration constant.
 
 ## 6. Why This Wins
-*   **True Determinism:** Fixed timestep + explicit resolution rules.
-*   **Robust:** Compound collision checks prevent all clipping (Head/Side).
-*   **Safe:** Handles forced dismounts gracefully (Crush mechanic) rather than undefined behavior.
+*   **True Determinism:** Fixed timestep + explicit resolution rules + discrete search patterns.
+*   **Tunneling Solved:** Capsule Cast catches all intermediate obstacles.
+*   **High Performance:** Relies on native Pymunk queries rather than Python loops.
+*   **Player Friendly:** Robust dismount logic prevents unfair deaths.
