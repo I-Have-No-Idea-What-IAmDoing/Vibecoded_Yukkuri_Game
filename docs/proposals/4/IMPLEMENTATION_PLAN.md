@@ -8,15 +8,21 @@ The foundation of the system is the "Sweep-and-Slide" movement logic. This must 
 
 ### 1.1 Configuration
 *   **Pymunk Space:** Configure the Pymunk Space to have **zero gravity**.
-*   **Body Type:** All controlled characters must use `pymunk.Body.KINEMATIC`. This ensures they are not affected by the physics solver's forces but still participate in queries.
+*   **Body Types:**
+    *   **Characters:** `pymunk.Body.KINEMATIC`.
+    *   **Walls:** `pymunk.Body.STATIC` (for immutable geometry).
+    *   **Doors/Moving Platforms:** `pymunk.Body.KINEMATIC` (allows movement without re-indexing).
 
 ### 1.2 The `move_and_slide` Algorithm
-Implement a function `move_and_slide(body, velocity, dt)`:
-1.  **Calculate Movement:** `move_delta = velocity * dt`.
+Implement a function `move_and_slide(body, input_vector, dt, current_velocity, properties)`:
+1.  **Virtual Physics:**
+    *   Apply `acceleration` to `current_velocity` towards `input_vector`.
+    *   Apply `friction` to `current_velocity` (damping).
+    *   `move_delta = current_velocity * dt`.
 2.  **Iterative Sweep:** Perform up to 3 iterations of the following:
     *   **Cast:** Use `space.segment_query(start, end, radius, filter)` to detect collisions.
         *   `radius`: Matches the character's collider radius (Capsule Cast).
-        *   `filter`: Exclude sensors and the entity's own shapes.
+        *   `filter`: Bitmask to exclude sensors and self.
     *   **No Hit:** If no collision, move the full remaining distance and break.
     *   **Hit:**
         *   Move the entity to `hit_point + normal * epsilon` (safe distance).
@@ -49,11 +55,13 @@ Implement a system that runs **after** `KinematicMovementSystem`:
 3.  Update Child Transform: `Child.Pos = Parent.Pos + rotate_vector(Child.Offset, Parent.Rotation)`.
 4.  **Dirty Flags:** Optimize by only updating sub-trees where the root or a node has moved/rotated.
 
-### 2.3 Compound Collider & Rotation
+### 2.3 Compound Shapes (Movement vs Hitbox)
 To handle "Totem Pole" stacks correctly:
-1.  **Structure Change Event:** When a child is added/removed, recalculate the stack's total bounding box/radius.
-    *   **Update Root Shape:** If the new bounds differ significantly, update the Root's Pymunk shape to match (e.g., increase radius). **Do not do this every frame.**
-2.  **Ceiling Check:** Before moving, the Root must perform a `segment_query` upwards from its top to the maximum height of the stack.
+1.  **Movement Collider (Root):** The Root entity maintains a `MovementCollider` (Circle/Capsule) large enough to encompass the stack. This is the *only* shape used for the `move_and_slide` sweep.
+2.  **Hitboxes (Children):**
+    *   Children attached to the root have `Hitbox` shapes.
+    *   These are set as **Sensors** in Pymunk.
+    *   They move with the child (logically) or are attached to the Root body (physically) with offsets.
 3.  **Rotation Constraints:**
     *   **Predict:** Before applying rotation, check `shape_query` at the target rotation.
     *   **Prevent:** If blocked, do not rotate. Trigger a "Blocked" feedback event (sound/spark).
@@ -67,10 +75,10 @@ To address the critique about unfair destruction:
 *   Create a `PendingDismount` component.
 *   **Behavior:**
     *   The entity is detached from the parent logically but follows it visually (or stays at last valid point).
-    *   It is non-interactive and invisible (or transparent).
+    *   It is non-interactive and invisible (or semitransparent with an icon).
     *   **Throttle:** Every 10-20 frames, it retries the dismount search.
     *   **Success:** If a spot opens up, it materializes there and removes the component.
-    *   **Persist:** It remains in this state indefinitely (or until map exit/end of match) rather than being destroyed.
+    *   **Emergency Teleport:** If `time_in_pending > TIMEOUT`, teleport to the nearest designated "Safe Zone" (e.g., spawn point) to prevent indefinite limbo.
 
 ### 3.2 Deterministic Concentric Search
 Implement the search algorithm for finding a safe spot:
@@ -83,18 +91,24 @@ Implement the search algorithm for finding a safe spot:
 
 A performant "True Visibility" system using the geometry database.
 
-### 4.1 Optimization Pipeline (Broadphase First)
+### 4.1 Filter Strategy
+Define a robust Bitmask strategy:
+*   `CATEGORY_WALL`
+*   `CATEGORY_UNIT`
+*   `CATEGORY_SENSOR`
+*   `MASK_VISION_BLOCKER` = `CATEGORY_WALL` (and optionally `CATEGORY_UNIT`)
+
+### 4.2 Optimization Pipeline (Broadphase First)
 Implement `is_visible(observer, target)` with strict ordering:
 1.  **Distance Check:** `distance_sq(obs, target) <= range_sq`. (Fastest).
 2.  **Angle Check:** If `FOV < 360`, check if `dot(obs_fwd, target_dir) > cos(FOV/2)`.
 3.  **Raycast:** Only if above pass, perform `space.segment_query(obs_pos, target_pos)`.
-    *   **Filter:** Include `COLLISION_TYPE_OBSTACLE` AND `COLLISION_TYPE_CHARACTER`.
+    *   **Filter:** `MASK_VISION_BLOCKER`.
     *   **Logic:** The ray will hit the closest object.
         *   If Hit Object == Target: **Visible**.
-        *   If Hit Object == Obstacle: **Blocked**.
-        *   If Hit Object == Other Character: **Blocked** (unless Other Character IS Target).
+        *   If Hit Object == Wall: **Blocked**.
 
-### 4.2 Throttling
+### 4.3 Throttling
 *   **Time-Slicing:** Update 10-20% of the entities per frame in a round-robin fashion.
 *   **Event-Based:** Trigger updates on movement or door state changes.
 
@@ -103,8 +117,11 @@ Implement `is_visible(observer, target)` with strict ordering:
 ### 5.1 Interpolation
 *   **Fixed Timestep:** Physics runs at fixed `dt` (e.g., 60Hz).
 *   **Variable Render:** Rendering runs at monitor refresh rate.
-*   **Interpolation:** `render_pos = prev_physics_pos * (1 - alpha) + curr_physics_pos * alpha`.
-    *   `alpha` is the accumulator fraction from the game loop.
+*   **Interpolation Logic:**
+    1.  Compute `alpha` (accumulator / fixed_dt).
+    2.  Interpolate **Root** Position/Rotation: `root_render_pos = lerp(root_prev, root_curr, alpha)`.
+    3.  **Derived Children:** Calculate Child render transforms based on the *interpolated* Root transform: `child_render_pos = root_render_pos + rotate(child.offset, root_render_rot)`.
+    *   *Do not interpolate children individually, as this causes detachment artifacts.*
 
 ## Phase 6: Testing & Verification Strategy
 
