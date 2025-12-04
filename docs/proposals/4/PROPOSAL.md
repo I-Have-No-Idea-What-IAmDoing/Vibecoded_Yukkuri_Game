@@ -13,15 +13,17 @@ For every moving entity (Root):
 1.  **Calculate Desired Vector:** `move_delta = velocity * fixed_dt`.
 2.  **The Sweep (Capsule Cast):**
     *   Use `pymunk.Space.segment_query(start, end, radius, filter)` to detect the **First Impact**.
-    *   **Radius:** Use the Root entity's collision radius. This effectively performs a "Circle Sweep" or "Capsule Cast", ensuring **Zero Tunneling**.
+    *   **Radius:** Use the Root entity's collision radius. This effectively performs a "Circle Sweep" or "Capsule Cast", ensuring **Zero Tunneling** for linear movement.
     *   **Filter:** Exclude Sensors and the entity's own shapes.
 3.  **Resolve Collision:**
     *   If the query returns a hit at fraction `alpha` (0 to 1):
         *   The safe movement is `move_delta * (alpha - epsilon)`.
         *   **Slide:** Calculate the remainder vector (`move_delta * (1-alpha)`). Project this vector onto the wall's surface tangent (using the `normal` returned by the query).
+        *   **Corner Handling:** If the slide vector immediately hits another wall (acute corner), stop movement to prevent jitter.
+        *   **Internal Edges:** Ignore collisions with normals opposing the movement direction significantly less than 90 degrees to prevent catching on flat wall seams.
         *   **Repeat:** Perform a second sweep with the projected "slide" vector. (Max 3 iterations).
     *   If no hit: Move the full `move_delta`.
-4.  **Commit:** Manually set `body.position`.
+4.  **Commit:** Manually set `body.position`. The body **must** be a `pymunk.Body.KINEMATIC` to ensure it doesn't fight the physics solver.
 
 ### 2.2 Why `segment_query`?
 *   **Performance:** It is a native C function in Chipmunk/Pymunk.
@@ -66,9 +68,10 @@ This system runs **after** the `KinematicMovementSystem`.
 
 ### 4.1 "The Totem Pole" (Compound Collider)
 When entities are stacked, the Root entity assumes responsibility for the movement of the whole stack.
-*   **Movement Collider:** The Root uses a **Bounding Capsule** or **Circle** that encompasses the stack for the purpose of environmental collision (Walls/Floor).
-    *   *Simplification:* We assume the stack moves as one unit. The Root's radius is usually sufficient for width.
-*   **Head/Ceiling Checks:** If the stack grows tall, the Root must perform an additional `segment_query` upwards (or check the top child's volume) to prevent clipping into ceilings.
+*   **Movement Collider:** The Root's effective collider **must expand** to encompass the bounding box of the entire stack.
+    *   *Implementation:* If a child is wider than the root, the Root's sweep radius increases.
+    *   *Rotational Sweeping:* If the stack rotates, we must perform a `shape_query` sweep or simply restrict rotation if it would cause a collision. Pure linear `segment_query` is insufficient for rotating wide stacks.
+*   **Ceiling Checks:** The Root **must** perform an upward check (relative to its own top) equal to the total height of the stack. This prevents the "head" of the stack from clipping through doorframes or low ceilings.
 
 ### 4.2 Dismounting
 *   **Voluntary Dismount:**
@@ -76,12 +79,15 @@ When entities are stacked, the Root entity assumes responsibility for the moveme
     *   Use `point_query` or `shape_query` to verify the target spot is free.
     *   Move to the first free spot.
 *   **Forced Dismount (e.g., A dies):**
-    *   **Deterministic Concentric Search:** If standard offsets are blocked, iterate outward using a strictly defined, discrete pattern (e.g., a "Square Spiral" or "Concentric Diamond" of grid points).
+    *   **Deterministic Concentric Search:** If standard offsets are blocked, iterate outward using a strictly defined, discrete pattern.
         *   *Implementation:* Use a pre-calculated list of integer offsets `[(1,0), (0,1), (-1,0), (0,-1), (1,1)...]` scaled by the grid size.
-        *   **Search Limit:** A tunable `MAX_SEARCH_STEPS` (e.g., 50 iterations) must be enforced. If this limit is exceeded without finding a valid spot, the logic falls back to the failure state.
+        *   **Search Limit:** A tunable `MAX_SEARCH_STEPS` (e.g., 50 iterations).
         *   **Verify:** Check each point using `point_query` or `shape_query`.
     *   **Eject:** Teleport the child to the first valid safe spot found.
-    *   *Fallback:* If the search limit is reached (e.g. map is completely full/buried), the entity gets crushed.
+    *   **Graceful Failure:** If the search limit is reached:
+        *   **Do NOT destroy the entity.**
+        *   Enter a **"Pending Dismount"** state. The entity remains attached (or becomes a "ghost" at the last known valid location) and retries the search on the next frame (possibly with a wider radius or waiting for other units to move).
+        *   Only destroy if the situation is unresolvable for T seconds.
 
 ## 5. Visibility & Line of Sight
 
@@ -90,49 +96,37 @@ To support tactical gameplay, we implement a "True Visibility" system that integ
 ### 5.1 The `Vision` Component
 Entities capable of seeing (Characters, Cameras, Turrets) possess a `Vision` component:
 *   **Range:** The maximum distance the entity can see.
-*   **Field of View (FOV):** (Optional) An angle limit for directional sight.
+*   **Field of View (FOV):** An angle limit for directional sight (e.g., 90 degrees).
 
 ### 5.2 Raycasting Strategy
-Visibility is determined by casting rays against the physical environment (Walls/Obstacles).
-*   **Query:** Use `pymunk.Space.segment_query(eye_pos, target_pos, ...)` to check the line of sight between an observer and a target.
-*   **Filtering (The "Blocked By" Rule):**
-    *   The query is configured to **stop** on shapes with `COLLISION_TYPE_OBSTACLE` (Walls).
-    *   The query **ignores** shapes with `COLLISION_TYPE_SENSOR` or character shapes (unless characters are intended to block sight).
-    *   This ensures that walls, pillars, and other static geometry properly occlude vision.
-*   **Algorithm:**
-    1.  For a given observer and a potential target:
-    2.  Check distance: `dist(observer, target) <= vision_range`.
-    3.  Cast a segment from observer to target.
-    4.  If the segment hits an `OBSTACLE` before reaching the target (hit fraction < 1.0), the target is **Not Visible**.
-    5.  Otherwise, the target is **Visible**.
+Visibility is determined by casting rays against the physical environment.
+*   **Query:** `pymunk.Space.segment_query`.
+*   **Filtering:** Stop on `COLLISION_TYPE_OBSTACLE`. Ignore Sensors/Characters.
 
-### 5.3 Determinism & Performance
-*   **Determinism:** Since `segment_query` relies on the same fixed geometry and Pymunk implementation as movement, visibility checks are 100% deterministic across clients.
-*   **Algorithmic Complexity:** The naive approach is $O(N \times M)$ where $N$ is observers and $M$ is targets. However, Pymunk's **Spatial Hash** means the cost per raycast is roughly $O(1)$ (constant relative to total walls, only checking local geometry).
-*   **Optimization Strategies:**
-    *   **Broadphase First:** Only perform raycasts for targets within the bounding box of the vision range.
-    *   **Layering:** Walls are on a dedicated collision layer/bitmask, allowing the raycast to skip irrelevant checks.
-    *   **Throttling:** Visibility does not need to run at the full 60Hz physics tick. Running it at 10Hz-15Hz is often sufficient for AI and UI updates.
-    *   **Target Filtering:** Only cast rays towards "Relevant" targets (e.g., Opponents), not static props or allies (unless necessary).
+### 5.3 Optimization: "Broadphase First"
+*   **Distance Check:** `dist(observer, target) <= vision_range`. **Strictly check this first.**
+*   **Angle Check (Sector):** If `FOV < 360`, check if the target vector lies within the observer's forward cone. Dot product check is cheap. **Check this second.**
+*   **Raycast Last:** Only perform the expensive `segment_query` if Distance and Angle checks pass.
+*   **Throttling:** Run visibility updates at a lower frequency (e.g., 10Hz) or time-slice them (update 10% of units per frame).
 
 ## 6. Implementation Roadmap
 
-1.  **Engine Config:** Set Pymunk Space to no gravity (or handle gravity manually in KinematicSystem).
+1.  **Engine Config:** Set Pymunk Space to no gravity. Use `KinematicBody` for all movers.
 2.  **`KinematicSystem`:**
-    *   Implement `move_and_slide` using `space.segment_query`.
-    *   Ensure `radius` matches the character's physical collider.
+    *   Implement `move_and_slide` using `space.segment_query` with multi-iteration slide.
+    *   Implement "Internal Edge" filtering.
 3.  **`HierarchySystem`:**
     *   Implement recursive transform updates.
+    *   Add "Compound Bounds" calculation for the Root based on children.
 4.  **Dismount Logic:**
-    *   Implement "Find Nearest Safe Spot" algorithm using a deterministic offset table.
-    *   Expose `MAX_SEARCH_STEPS` as a configuration constant.
+    *   Implement "Concentric Search".
+    *   Implement "Pending Dismount" queue.
 5.  **`VisibilitySystem`:**
-    *   Implement `is_visible(observer, target)` helper using `segment_query`.
-    *   Define `COLLISION_TYPE_OBSTACLE` for walls.
+    *   Implement `is_visible` with Distance -> Angle -> Raycast pipeline.
 
 ## 7. Why This Wins
 *   **True Determinism:** Fixed timestep + explicit resolution rules + discrete search patterns.
 *   **Tunneling Solved:** Capsule Cast catches all intermediate obstacles.
-*   **High Performance:** Relies on native Pymunk queries rather than Python loops.
-*   **Tactical Depth:** True wall-blocked visibility allows for ambushes, stealth, and complex LoS mechanics.
-*   **Player Friendly:** Robust dismount logic prevents unfair deaths.
+*   **Robust:** Handles corner cases and stuck scenarios gracefully.
+*   **Tactical Depth:** True wall-blocked visibility.
+*   **Player Friendly:** "Pending Dismount" prevents unfair deaths.
