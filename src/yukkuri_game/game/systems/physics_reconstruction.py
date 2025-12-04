@@ -27,6 +27,7 @@ def reconstruct_physics(world: World) -> None:
         if world.has_component(entity, PhysicsBody):
             continue
 
+        import pymunk
         add_physics_body(
             world=world,
             entity=entity,
@@ -41,6 +42,7 @@ def reconstruct_physics(world: World) -> None:
             elasticity=0.5,
             friction=0.5,
             set_userdata=True,
+            body_type=pymunk.Body.KINEMATIC,
         )
 
     # Reconstruct Poops

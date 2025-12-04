@@ -239,6 +239,7 @@ def create_yukkuri(
         elasticity=0.5,
         friction=0.5,
         set_userdata=True,
+        body_type=pymunk.Body.KINEMATIC,
     )
 
     return entity

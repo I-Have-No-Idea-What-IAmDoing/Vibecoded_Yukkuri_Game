@@ -3,7 +3,7 @@ Module defining core game components.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
 from ..engine.data_models import AnimationDefinition
@@ -177,3 +177,51 @@ class VisualTransform:
     vertical_offset: float = 0.0
     # Safety Fix: Use default_factory for mutable Vector2
     shadow_position: Vector2 = field(default_factory=lambda: Vector2(0, 0))
+
+
+@dataclass
+class Mount:
+    """
+    Component for handling entity hierarchy and mounting.
+
+    Attributes:
+        parent_id (int): The ID of the parent entity. -1 if no parent.
+        children_ids (List[int]): List of child entity IDs.
+        mount_point_offset (Vector2): The offset from the parent's position.
+        layer_order (int): Rendering layer relative to parent (1=above, -1=below).
+    """
+
+    parent_id: int = -1
+    children_ids: List[int] = field(default_factory=list)
+    mount_point_offset: Vector2 = field(default_factory=lambda: Vector2(0, 0))
+    layer_order: int = 0
+
+
+@dataclass
+class Vision:
+    """
+    Component defining the entity's field of view.
+
+    Attributes:
+        range (float): Max distance of vision.
+        fov (float): Field of view angle in degrees.
+        ray_count (int): Number of rays to cast for vision check.
+    """
+
+    range: float = 100.0
+    fov: float = 90.0
+    ray_count: int = 10
+
+
+@dataclass
+class PendingDismount:
+    """
+    Component indicating an entity is in a 'Ghost Mode' trying to find a safe spot to dismount.
+
+    Attributes:
+        retry_timer (float): Time until next retry.
+        elapsed_time (float): Total time spent in ghost mode.
+    """
+
+    retry_timer: float = 0.0
+    elapsed_time: float = 0.0
