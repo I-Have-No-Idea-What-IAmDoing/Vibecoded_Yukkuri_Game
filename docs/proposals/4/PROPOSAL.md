@@ -28,6 +28,16 @@ For every moving entity (Root):
 *   **Correctness:** It checks the continuous volume between start and end, preventing "bullet through paper" tunneling.
 *   **Simplicity:** It returns the exact surface normal and impact point, making "Sliding" math trivial.
 
+### 2.3 Static Geometry (Walls & Obstacles)
+Walls and other static obstacles are the backbone of the "Geometry Database".
+*   **Definition:** They are `StaticBody` instances in Pymunk with attached shapes (Segments or Polygons).
+*   **Collision Type:** They are assigned a specific collision type (e.g., `COLLISION_TYPE_OBSTACLE`) to distinguish them from characters, sensors, or projectiles.
+*   **Function:** They serve as immutable barriers for the Sweep-and-Slide mechanic.
+*   **Creation:** Defined at map load time (tilemap) OR **instantiated at runtime** (player-placed fortifications).
+*   **Runtime Updates:** When a player places a wall, a new `StaticBody` and `Shape` are added to the Pymunk Space. The Spatial Hash automatically updates, ensuring that subsequent Raycasts and Sweeps immediately respect the new barrier.
+*   **Placement Validation:** To place a wall, the system first performs a `shape_query` (checking the wall's intended footprint). Placement is allowed only if the query returns no collisions with characters or existing critical infrastructure.
+*   **Optimization:** Pymunk automatically indexes static bodies in a spatial hash, ensuring that queries against thousands of wall segments remain efficient.
+
 ## 3. The Hierarchy: Rigid Locking
 
 ### 3.1 `Mount` Component
@@ -73,7 +83,39 @@ When entities are stacked, the Root entity assumes responsibility for the moveme
     *   **Eject:** Teleport the child to the first valid safe spot found.
     *   *Fallback:* If the search limit is reached (e.g. map is completely full/buried), the entity gets crushed.
 
-## 5. Implementation Roadmap
+## 5. Visibility & Line of Sight
+
+To support tactical gameplay, we implement a "True Visibility" system that integrates seamlessly with our Geometry Database.
+
+### 5.1 The `Vision` Component
+Entities capable of seeing (Characters, Cameras, Turrets) possess a `Vision` component:
+*   **Range:** The maximum distance the entity can see.
+*   **Field of View (FOV):** (Optional) An angle limit for directional sight.
+
+### 5.2 Raycasting Strategy
+Visibility is determined by casting rays against the physical environment (Walls/Obstacles).
+*   **Query:** Use `pymunk.Space.segment_query(eye_pos, target_pos, ...)` to check the line of sight between an observer and a target.
+*   **Filtering (The "Blocked By" Rule):**
+    *   The query is configured to **stop** on shapes with `COLLISION_TYPE_OBSTACLE` (Walls).
+    *   The query **ignores** shapes with `COLLISION_TYPE_SENSOR` or character shapes (unless characters are intended to block sight).
+    *   This ensures that walls, pillars, and other static geometry properly occlude vision.
+*   **Algorithm:**
+    1.  For a given observer and a potential target:
+    2.  Check distance: `dist(observer, target) <= vision_range`.
+    3.  Cast a segment from observer to target.
+    4.  If the segment hits an `OBSTACLE` before reaching the target (hit fraction < 1.0), the target is **Not Visible**.
+    5.  Otherwise, the target is **Visible**.
+
+### 5.3 Determinism & Performance
+*   **Determinism:** Since `segment_query` relies on the same fixed geometry and Pymunk implementation as movement, visibility checks are 100% deterministic across clients.
+*   **Algorithmic Complexity:** The naive approach is $O(N \times M)$ where $N$ is observers and $M$ is targets. However, Pymunk's **Spatial Hash** means the cost per raycast is roughly $O(1)$ (constant relative to total walls, only checking local geometry).
+*   **Optimization Strategies:**
+    *   **Broadphase First:** Only perform raycasts for targets within the bounding box of the vision range.
+    *   **Layering:** Walls are on a dedicated collision layer/bitmask, allowing the raycast to skip irrelevant checks.
+    *   **Throttling:** Visibility does not need to run at the full 60Hz physics tick. Running it at 10Hz-15Hz is often sufficient for AI and UI updates.
+    *   **Target Filtering:** Only cast rays towards "Relevant" targets (e.g., Opponents), not static props or allies (unless necessary).
+
+## 6. Implementation Roadmap
 
 1.  **Engine Config:** Set Pymunk Space to no gravity (or handle gravity manually in KinematicSystem).
 2.  **`KinematicSystem`:**
@@ -84,9 +126,13 @@ When entities are stacked, the Root entity assumes responsibility for the moveme
 4.  **Dismount Logic:**
     *   Implement "Find Nearest Safe Spot" algorithm using a deterministic offset table.
     *   Expose `MAX_SEARCH_STEPS` as a configuration constant.
+5.  **`VisibilitySystem`:**
+    *   Implement `is_visible(observer, target)` helper using `segment_query`.
+    *   Define `COLLISION_TYPE_OBSTACLE` for walls.
 
-## 6. Why This Wins
+## 7. Why This Wins
 *   **True Determinism:** Fixed timestep + explicit resolution rules + discrete search patterns.
 *   **Tunneling Solved:** Capsule Cast catches all intermediate obstacles.
 *   **High Performance:** Relies on native Pymunk queries rather than Python loops.
+*   **Tactical Depth:** True wall-blocked visibility allows for ambushes, stealth, and complex LoS mechanics.
 *   **Player Friendly:** Robust dismount logic prevents unfair deaths.
