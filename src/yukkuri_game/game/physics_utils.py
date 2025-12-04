@@ -2,7 +2,7 @@
 Physics Utilities.
 """
 
-from typing import Any, Tuple
+from typing import Any, Tuple, Optional
 import pymunk
 from ..engine.ecs import World
 from .components import PhysicsBody
@@ -21,6 +21,7 @@ def add_physics_body(
     elasticity: float = 0.5,
     friction: float = 0.5,
     set_userdata: bool = False,
+    body_type: int = pymunk.Body.DYNAMIC,
 ) -> None:
     """
     Adds a physics body to an entity.
@@ -36,12 +37,12 @@ def add_physics_body(
     if shape_type == "circle":
         radius = float(radius_or_size)
         inertia = pymunk.moment_for_circle(mass, 0, radius)
-        body = pymunk.Body(mass, inertia)
+        body = pymunk.Body(mass, inertia, body_type=body_type)
         shape = pymunk.Circle(body, radius)
     elif shape_type == "box":
         width, height = radius_or_size
         inertia = pymunk.moment_for_box(mass, (width, height))
-        body = pymunk.Body(mass, inertia)
+        body = pymunk.Body(mass, inertia, body_type=body_type)
         shape = pymunk.Poly.create_box(body, (width, height))
     else:
         raise ValueError(f"Unknown shape type: {shape_type}")

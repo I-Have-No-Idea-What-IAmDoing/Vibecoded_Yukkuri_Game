@@ -30,6 +30,7 @@ from ..trait_service import TraitService
 from ..skill_service import SkillService
 from ..systems.physics import PhysicsSystem
 from ..physics_utils import add_physics_body, get_yukkuri_radius
+import pymunk
 
 
 def create_yukkuri(
@@ -239,6 +240,7 @@ def create_yukkuri(
         elasticity=0.5,
         friction=0.5,
         set_userdata=True,
+        body_type=pymunk.Body.KINEMATIC,
     )
 
     return entity

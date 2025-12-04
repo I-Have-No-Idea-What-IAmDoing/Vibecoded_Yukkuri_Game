@@ -3,7 +3,7 @@ Module defining core game components.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
 from ..engine.data_models import AnimationDefinition
@@ -177,3 +177,26 @@ class VisualTransform:
     vertical_offset: float = 0.0
     # Safety Fix: Use default_factory for mutable Vector2
     shadow_position: Vector2 = field(default_factory=lambda: Vector2(0, 0))
+
+
+@dataclass
+class Mount:
+    """
+    Component for hierarchical entity attachment.
+    """
+    parent_id: EntityID = -1  # -1 means no parent (Root) if children_ids is not empty
+    children_ids: List[EntityID] = field(default_factory=list)
+    mount_point_offset: Vector2 = field(default_factory=lambda: Vector2(0, 0))
+    layer_order: int = 0
+
+
+@dataclass
+class PendingDismount:
+    """
+    Component marking an entity as pending dismount.
+    It is looking for a safe spot to land.
+    """
+    time_in_pending: float = 0.0
+    timeout: float = 5.0  # Max seconds before emergency teleport
+    retry_timer: float = 0.0
+    retry_interval: float = 0.2

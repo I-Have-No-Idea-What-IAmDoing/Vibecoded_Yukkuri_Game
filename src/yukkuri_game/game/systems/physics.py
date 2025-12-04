@@ -29,7 +29,7 @@ class PhysicsSystem(System):
             gravity (tuple[float, float]): The gravity vector (x, y). Defaults to (0, 0) for top-down.
         """
         self.space = pymunk.Space()
-        self.space.gravity = gravity
+        self.space.gravity = (0, 0) # Ensure zero gravity
         self.space.damping = 0.9  # Add damping to simulate friction/air resistance
         self.accumulator = 0.0
         self.time_step = 1.0 / 60.0

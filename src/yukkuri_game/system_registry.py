@@ -20,6 +20,8 @@ from .game.systems.social_system import SocialSystem
 from .game.systems.gossip_system import GossipSystem
 from .game.systems.family_system import FamilySystem
 from .game.systems.game_rules_system import GameRulesSystem
+from .game.systems.hierarchy_system import HierarchySystem
+from .game.systems.visibility_system import VisibilitySystem
 from .game.input_system import InputSystem
 from .game.systems.time_system import TimeSystem
 
@@ -77,5 +79,7 @@ class SystemRegistry:
         world.add_system(GossipSystem(event_bus))
         world.add_system(FamilySystem())
         world.add_system(GameRulesSystem(event_bus))
+        world.add_system(HierarchySystem())
+        world.add_system(VisibilitySystem())
 
         return input_system
