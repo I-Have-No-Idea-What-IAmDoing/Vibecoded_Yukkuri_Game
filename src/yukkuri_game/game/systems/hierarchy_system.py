@@ -120,36 +120,28 @@ class HierarchySystem(System):
                                 blocked = True
                                 break
 
-                    if blocked:
-                        # Proposal says: "Trigger a 'Blocked' feedback event (sound/spark)."
-                        # And "If blocked, do not rotate."
-                        # Preventing parent rotation here is late because parent already rotated in Physics step.
-                        # We can revert parent rotation? Or just stop the child from moving into the wall?
-                        # If we stop child, it detaches visually from parent offset.
-                        # Let's emit feedback and maybe clamp position?
-                        # For now, we update transform but maybe log or emit event.
-                        # Since we can't easily revert parent physics here without side effects.
+                    if not blocked:
+                        child_transform.x = target_x
+                        child_transform.y = target_y
 
-                        # Just update transform for now as "soft constraint" (clipping happens but we know it).
-                        pass
+                        if child_phys:
+                            child_phys.body.position = (target_x, target_y)
+                            child_phys.body.angle = parent_angle # Lock rotation to parent
 
-                    child_transform.x = target_x
-                    child_transform.y = target_y
+                            # Calculate Child Velocity
+                            # V_child = V_parent + Omega x R
+                            # R is the rotated offset vector
+                            # Omega is angular velocity (scalar for 2D)
 
-                    if child_phys:
-                        child_phys.body.position = (target_x, target_y)
-                        child_phys.body.angle = parent_angle # Lock rotation to parent for now
+                            # Omega x R in 2D: (-omega * ry, omega * rx)
+                            tangential_vel = Vector2(-parent_angular_velocity * rotated_offset.y, parent_angular_velocity * rotated_offset.x)
 
-                        # Calculate Child Velocity
-                        # V_child = V_parent + Omega x R
-                        # R is the rotated offset vector
-                        # Omega is angular velocity (scalar for 2D)
-
-                        # Omega x R in 2D: (-omega * ry, omega * rx)
-                        tangential_vel = Vector2(-parent_angular_velocity * rotated_offset.y, parent_angular_velocity * rotated_offset.x)
-
-                        child_velocity = parent_velocity + tangential_vel
-                        child_phys.body.velocity = child_velocity
+                            child_velocity = parent_velocity + tangential_vel
+                            child_phys.body.velocity = child_velocity
+                    else:
+                         # Blocked: Do not update transform or physics position.
+                         # This creates a "stuck" effect.
+                         pass
 
                 queue.append(child_id)
 
@@ -161,6 +153,8 @@ class HierarchySystem(System):
             return
 
         space = self.physics_system.space
+
+        entities_to_remove = []
 
         for entity, (dismount, transform, phys) in world.get_components_tuple(PendingDismount, Transform, PhysicsBody):
             dismount.time_in_pending += dt
@@ -177,22 +171,15 @@ class HierarchySystem(System):
 
             if self._find_and_move_to_safe_spot(space, entity, transform, phys):
                 # Success! Remove PendingDismount and Mount (if any left over)
-                world.remove_component(entity, PendingDismount)
-                if world.has_component(entity, Mount):
-                    mount = world.get_component(entity, Mount)
-                    mount.parent_id = -1
-                    # Note: We should assume it's already detached from parent's children list logic-side
-                    # before adding PendingDismount.
+                entities_to_remove.append(entity)
+                continue
 
             # Timeout check
             if dismount.time_in_pending > dismount.timeout:
                 # Emergency teleport to safe zone
                 # If no safe spot found, we force it to a fallback position (e.g. (0,0) or current position)
                 # Removing PendingDismount effectively "drops" it wherever it is, even if invalid.
-                world.remove_component(entity, PendingDismount)
-                if world.has_component(entity, Mount):
-                     mount = world.get_component(entity, Mount)
-                     mount.parent_id = -1
+                entities_to_remove.append(entity)
 
                 # Force position to (0, 0) as a fallback safe zone as per spec suggestion
                 transform.x = 0.0
@@ -200,6 +187,13 @@ class HierarchySystem(System):
                 if phys:
                     phys.body.position = (0.0, 0.0)
                     phys.body.velocity = (0, 0)
+
+        # Apply removals
+        for entity in entities_to_remove:
+            world.remove_component(entity, PendingDismount)
+            if world.has_component(entity, Mount):
+                mount = world.get_component(entity, Mount)
+                mount.parent_id = -1
 
     def _find_and_move_to_safe_spot(self, space: pymunk.Space, entity: int, transform: Transform, phys: PhysicsBody) -> bool:
         """

@@ -127,6 +127,10 @@ class MovementSystem(System):
             radius = 0.0
             if isinstance(shape, pymunk.Circle):
                 radius = shape.radius
+            elif isinstance(shape, pymunk.Poly):
+                # For polygons, use a radius that approximates the shape's size.
+                bb = shape.bb
+                radius = max(bb.right - bb.left, bb.top - bb.bottom) / 2.0
 
             # Segment query
             # filter excludes self and sensors
