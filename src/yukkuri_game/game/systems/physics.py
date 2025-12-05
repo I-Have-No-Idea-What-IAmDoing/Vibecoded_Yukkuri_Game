@@ -90,6 +90,8 @@ class PhysicsSystem(System):
         # Pymunk is the source of truth for position, so we update the ECS Transform component
         # to reflect the latest physics state for other systems (rendering, logic) to use.
         for entity, (phys, trans) in world.get_components_tuple(PhysicsBody, Transform):
+            trans.prev_x = trans.x
+            trans.prev_y = trans.y
             trans.x = phys.body.position.x
             trans.y = phys.body.position.y
             # Rotation could also be synced if Transform supported it

@@ -291,7 +291,17 @@ class GameplayScene(Scene):
 
     def render_world(self) -> None:
         if hasattr(self, "render_system") and self.render_system:
-            self.render_system.update(self.world, self.dt)
+            alpha = 1.0
+            if hasattr(self.application, "accumulator") and hasattr(
+                self.application, "fixed_dt"
+            ):
+                alpha = self.application.accumulator / self.application.fixed_dt
+                # Clamp alpha just in case
+                alpha = max(0.0, min(1.0, alpha))
+
+            # Pass alpha instead of dt to render_system.update
+            # RenderSystem.update expects (world, dt), but we re-purpose second arg for alpha
+            self.render_system.update(self.world, alpha)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.ui_manager.process_events(event)

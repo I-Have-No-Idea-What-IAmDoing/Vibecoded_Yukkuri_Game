@@ -449,6 +449,7 @@ class AIState:
     action_progress: float = 0.0
     state_data: Optional[Dict[str, Any]] = None
     failed_targets: Set[EntityID] = field(default_factory=set)
+    visible_entities: Set[EntityID] = field(default_factory=set)
     manual_override: bool = False
 
     # Metadata for serialization remapping

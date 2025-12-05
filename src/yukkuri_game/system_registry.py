@@ -10,6 +10,9 @@ from .game.systems.lifecycle import LifecycleSystem
 from .game.systems.behavior import BehaviorSystem
 from .game.systems.physics import PhysicsSystem
 from .game.systems.movement_system import MovementSystem
+from .game.systems.kinematic_movement_system import KinematicMovementSystem
+from .game.systems.hierarchy_system import HierarchySystem
+from .game.systems.visibility_system import VisibilitySystem
 from .game.systems.construction_system import ConstructionSystem
 from .game.systems.animation import AnimationSystem
 from .game.systems.poop_system import PoopSystem
@@ -66,9 +69,12 @@ class SystemRegistry:
         world.add_system(
             BehaviorSystem(float(yukkurrium.width), float(yukkurrium.height))
         )
+        world.add_system(KinematicMovementSystem())
+        world.add_system(HierarchySystem())
         world.add_system(MovementSystem())
         world.add_system(ConstructionSystem())
         world.add_system(AnimationSystem())
+        world.add_system(VisibilitySystem())
         world.add_system(PoopSystem())
         world.add_system(FeedbackSystem(world))
         world.add_system(HungerSystem())

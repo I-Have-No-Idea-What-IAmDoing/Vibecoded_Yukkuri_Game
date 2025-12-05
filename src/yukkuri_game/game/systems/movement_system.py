@@ -3,6 +3,7 @@ Module defining the kinematic movement system.
 """
 
 import math
+import pymunk
 from ...engine.ecs import System, World
 from ..components import PhysicsBody, MovementController, VisualTransform
 from ..skill_service import SkillService
@@ -35,11 +36,15 @@ class MovementSystem(System):
             # 1. Apply AI-commanded velocity to the physics body
             # The 'controller.target_velocity' is usually set by the behavior system or input system.
             # We directly set the pymunk body velocity, allowing the physics engine to handle integration.
-            phys.body.velocity = controller.target_velocity
+            if phys.body.body_type == pymunk.Body.DYNAMIC:
+                phys.body.velocity = controller.target_velocity
 
             # 2. Update the visual bobbing timer based on speed
             # Only animate bobbing if the entity is moving appreciably.
-            speed = phys.body.velocity.length
+            if phys.body.body_type == pymunk.Body.KINEMATIC:
+                speed = controller.current_velocity.length
+            else:
+                speed = phys.body.velocity.length
             if speed > 0.1:
                 controller.visual_bob_timer += dt * controller.bob_speed
 

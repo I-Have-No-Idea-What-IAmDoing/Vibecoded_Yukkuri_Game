@@ -42,9 +42,9 @@ class RenderSystem(System):
 
         Args:
             world (World): The ECS World.
-            dt (float): Delta time.
+            dt (float): Interpolation alpha (0.0 to 1.0).
 
         Returns:
             None
         """
-        self.renderer.render(world)
+        self.renderer.render(world, alpha=dt)

@@ -217,12 +217,13 @@ class WorldRenderer:
             self.font_cache[size] = pygame.font.SysFont(None, size)
         return self.font_cache[size]
 
-    def render(self, world: World) -> None:
+    def render(self, world: World, alpha: float = 1.0) -> None:
         """
         Renders the world grid and all visible entities.
 
         Args:
             world (World): The ECS World.
+            alpha (float): Interpolation factor (0.0 to 1.0).
 
         Returns:
             None
@@ -253,7 +254,26 @@ class WorldRenderer:
             ):
                 continue
 
+            # --- Interpolation ---
+            # Linear interpolate between previous and current position
+            curr_x = transform.x
+            curr_y = transform.y
+            prev_x = getattr(transform, "prev_x", curr_x)
+            prev_y = getattr(transform, "prev_y", curr_y)
+
+            interp_x = prev_x + (curr_x - prev_x) * alpha
+            interp_y = prev_y + (curr_y - prev_y) * alpha
+
             # --- Draw Shadow ---
+            # Shadow should also be interpolated if shadow_position tracks entity
+            # But VisualTransform.shadow_position is updated in MovementSystem using body.position
+            # So it's effectively "current". We could interpolate it too if we tracked prev,
+            # but simpler to re-calculate shadow pos from interpolated entity pos if we wanted perfectly sync.
+            # For now, let's use the interpolated entity position for the shadow too?
+            # Or just use the shadow_position as is (might jitter).
+            # Let's use interp_x/y for shadow base if shadow is just below entity.
+            # But shadow logic is separate. Let's leave shadow as is for now.
+
             shadow_x, shadow_y = self.yukkurrium.world_to_screen(
                 visual_transform.shadow_position.x,
                 visual_transform.shadow_position.y,
@@ -270,7 +290,7 @@ class WorldRenderer:
 
             # Calculate screen position
             base_screen_x, base_screen_y = self.yukkurrium.world_to_screen(
-                transform.x, transform.y, sw, sh
+                interp_x, interp_y, sw, sh
             )
 
             # Apply vertical offset for hopping effect, scaled by zoom
