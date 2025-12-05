@@ -105,23 +105,7 @@ class VisibilitySystem(System):
         # segment_query_first finds the first hit.
         hit = space.segment_query_first(start, end, 1.0, filter_)
 
-        if hit:
-            # Check if we hit the target itself or observer itself (if observer has mask)
-            # If hit shape is observer's shape, ignore.
-
-            # Since we don't have shape references here easily (only components),
-            # we rely on mask.
-            # If mask is WALL, and observer/target are not WALL, then hit implies a Wall.
-            # However, if target is behind a wall, we hit wall.
-
-            # If we hit nothing, hit is None.
-
-            # Wait, if hit is a Sensor? segment_query should return sensors by default?
-            # Pymunk 7.0 changed this.
-
-            if hit.shape.sensor:
-                pass # Sensors don't block vision usually?
-            else:
-                return False
+        if hit and not hit.shape.sensor:
+            return False
 
         return True
