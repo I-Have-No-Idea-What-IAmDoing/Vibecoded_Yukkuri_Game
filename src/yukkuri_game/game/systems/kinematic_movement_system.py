@@ -6,17 +6,23 @@ Implements the Sweep-and-Slide algorithm for deterministic character movement.
 import pymunk
 from typing import Optional
 from ...engine.ecs import System, World
-from ..components import PhysicsBody, MovementController
+from ..components import PhysicsBody, MovementController, Transform
 from .physics import PhysicsSystem
 
 class KinematicMovementSystem(System):
     """
     System responsible for moving Kinematic bodies using a sweep-and-slide algorithm
     against the static/dynamic geometry database.
+
+    This system implements a FIXED TIMESTEP update loop internally to ensure
+    determinism regardless of the frame rate.
     """
 
     def __init__(self):
         self.space: Optional[pymunk.Space] = None
+        self.accumulator = 0.0
+        self.time_step = 1.0 / 60.0
+        self.max_frame_time = 0.25
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -29,12 +35,37 @@ class KinematicMovementSystem(System):
             else:
                 return
 
-        for entity, (phys, controller) in world.get_components_tuple(PhysicsBody, MovementController):
+        # Clamp dt
+        if dt > self.max_frame_time:
+            dt = self.max_frame_time
+
+        self.accumulator += dt
+
+        while self.accumulator >= self.time_step:
+            self.fixed_update(world, self.time_step)
+            self.accumulator -= self.time_step
+
+    def fixed_update(self, world: World, dt: float):
+        """
+        Runs the deterministic movement logic.
+        """
+        # Note: get_components_tuple returns (ent, [comp1, comp2, ...])
+        components = world.get_components_tuple(PhysicsBody, MovementController, Transform)
+
+        for entity, (phys, controller, trans) in components:
             # Only handle Kinematic bodies
             if phys.body.body_type != pymunk.Body.KINEMATIC:
                 continue
 
+            # Update prev position for interpolation BEFORE moving
+            trans.prev_x = phys.body.position.x
+            trans.prev_y = phys.body.position.y
+
             self.move_and_slide(phys, controller, dt)
+
+            # Sync back to Transform (current)
+            trans.x = phys.body.position.x
+            trans.y = phys.body.position.y
 
     def move_and_slide(self, phys: PhysicsBody, controller: MovementController, dt: float):
         """
@@ -48,17 +79,8 @@ class KinematicMovementSystem(System):
         current_velocity = controller.current_velocity
 
         # Calculate velocity change
-        # If we have input (target_velocity != 0), we accelerate towards it.
-        # If target is 0, we decelerate (friction).
-
-        # Assuming target_velocity is the desired velocity vector (direction * max_speed)
         target = input_vector
         diff = target - current_velocity
-
-        # If diff is small, just snap?
-        # Or use simple proportional approach?
-        # Using constant acceleration step:
-
         change_mag = controller.acceleration * dt
 
         if diff.length_squared > 0.000001:
@@ -67,12 +89,13 @@ class KinematicMovementSystem(System):
             else:
                 current_velocity += diff.normalized() * change_mag
 
+        controller.current_velocity = current_velocity
+
         # 2. Desired Displacement
         move_delta = current_velocity * dt
 
         # Early exit if negligible movement
         if move_delta.length_squared < 0.000001:
-            controller.current_velocity = current_velocity
             return
 
         # 3. Sweep and Slide
@@ -82,16 +105,21 @@ class KinematicMovementSystem(System):
 
         # Radius for capsule cast
         radius = 1.0
-        if isinstance(shape, pymunk.Circle):
+        if hasattr(shape, 'radius'):
             radius = shape.radius
 
         query_filter = shape.filter
 
+        # Skin width to avoid getting stuck in walls
+        skin_width = 0.01
+
         iterations = 3
-        for _ in range(iterations):
+        for i in range(iterations):
             if remaining_move.length_squared < 0.000001:
                 break
 
+            # Extend cast by skin width to detect collision slightly early?
+            # Or just cast exactly. Pymunk segment_query checks against shapes.
             end_pos = start_pos + remaining_move
 
             # Cast
@@ -108,7 +136,7 @@ class KinematicMovementSystem(System):
                 # Ignore sensors
                 if info.shape.sensor:
                     continue
-                # Ignore internal edges/back-faces
+                # Ignore internal edges/back-faces (moving away from wall)
                 if info.normal.dot(remaining_move) >= 0:
                     continue
 
@@ -117,26 +145,23 @@ class KinematicMovementSystem(System):
 
             if hit:
                 # Resolve Collision
-                # Move to hit point minus epsilon buffer
-                # safe_alpha = max(0, hit.alpha - epsilon)
-                epsilon = 0.01
-                dist = remaining_move.length
-                safe_dist = max(0, dist * hit.alpha - epsilon)
 
-                actual_move = remaining_move.normalized() * safe_dist
+                safe_fraction = max(0.0, hit.alpha - (skin_width / remaining_move.length) if remaining_move.length > 0 else 0)
+
+                # Move to the safe spot
+                actual_move = remaining_move * safe_fraction
                 start_pos += actual_move
 
                 # Slide
-                remainder = remaining_move * (1 - hit.alpha)
+                # Remainder is the part of the vector we couldn't travel
+                remainder = remaining_move * (1.0 - safe_fraction)
+
                 # Project remainder onto wall tangent
                 normal = hit.normal
                 dot = remainder.dot(normal)
                 slide_vec = remainder - normal * dot
 
                 remaining_move = slide_vec
-
-                # Stop if sliding into a wall that opposes movement significantly?
-                # The loop handles subsequent hits.
             else:
                 # No hit
                 start_pos = end_pos
@@ -147,8 +172,6 @@ class KinematicMovementSystem(System):
         body.position = start_pos
 
         # 5. Update Velocity based on actual movement
-        # This ensures that if we hit a wall, our velocity is zeroed out in that direction
-        # preventing "sticky" walls or velocity buildup.
         if dt > 0.000001:
             effective_velocity = (start_pos - original_pos) / dt
             controller.current_velocity = effective_velocity

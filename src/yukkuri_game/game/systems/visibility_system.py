@@ -7,6 +7,7 @@ from ...engine.ecs import System, World
 from ..components import Vision, Transform, PhysicsBody
 from ..yukkuri_components import AIState
 from .physics import PhysicsSystem
+from ..collision_constants import CollisionCategories
 
 class VisibilitySystem(System):
     """
@@ -62,8 +63,17 @@ class VisibilitySystem(System):
         phys_comp = world.get_component(entity, PhysicsBody)
         obs_angle = phys_comp.body.angle if phys_comp else 0.0
 
-        # Vector for angle check (if FOV < 360)
-        # obs_dir = pymunk.Vec2d(1, 0).rotated(obs_angle)
+        # FOV vectors
+        obs_dir = pymunk.Vec2d(1, 0).rotated(obs_angle)
+        fov_cos = math.cos(math.radians(vision.fov / 2.0))
+
+        # Vision Blocker Mask: Walls and Yukkuris (Units)
+        # We want to know if the ray hits a WALL or another UNIT before hitting the TARGET.
+        # But wait, if the ray hits the TARGET first, it's visible.
+        # So we query against EVERYTHING that blocks vision (Walls + Units).
+
+        vision_mask = CollisionCategories.WALL | CollisionCategories.YUKKURI
+        vision_filter = pymunk.ShapeFilter(mask=vision_mask)
 
         for target_ent, (target_phys, target_trans) in targets:
             if entity == target_ent:
@@ -77,44 +87,47 @@ class VisibilitySystem(System):
             if dist_sq > range_sq:
                 continue
 
-            # 2. Angle Check
+            # 2. Angle Check (FOV)
             if vision.fov < 360:
-                # TODO: Implement FOV check
-                pass
+                target_dir = diff.normalized()
+                if obs_dir.dot(target_dir) < fov_cos:
+                    continue
 
             # 3. Narrowphase: Raycast
-            # We want to check if there is an obstruction.
-            # Filter: We want to hit Walls and other Units.
-            # We use a default filter that hits everything for now.
-            # To optimize, we should use collision masks.
+            # Check for obstruction
 
-            # segment_query_first returns the first shape hit.
-            # If hit.shape is target.shape, then we see it.
-            # If hit.shape is wall, we don't.
+            # segment_query_first returns the FIRST shape hit.
+            # We want to see if that shape belongs to the target or is a transparent sensor,
+            # or is an obstacle.
 
-            hit = self.space.segment_query_first(obs_pos, target_pos, 1.0, pymunk.ShapeFilter())
+            hit = self.space.segment_query_first(obs_pos, target_pos, 1.0, vision_filter)
 
             if hit:
                 if hit.shape == target_phys.shape:
+                    # We hit the target directly
                     visible.add(target_ent)
                 elif hit.shape.sensor:
-                    # If we hit a sensor, it shouldn't block vision usually.
-                    # But query_first stops at sensor if filter allows it.
-                    # We might need full query if sensors clutter the space.
-                    # For now assume sensors don't block if configured correctly in filter.
-                    # But here we used default filter.
-                    # If we hit a sensor that is NOT the target, we might falsely say blocked.
-                    # Ideally we filter out sensors in query.
+                    # Hit a sensor (should be filtered out by mask usually, but if not...)
+                    # If we hit a sensor that is NOT the target (targets might have sensor shapes if they are children)
+                    # For now, assume sensors don't block vision.
+                    # But segment_query_first stops at the first hit.
+                    # If the first hit is a sensor, we don't know if there is a wall behind it.
+                    # Ideally, sensors should not be in the vision_mask.
                     pass
                 else:
-                    # Hit wall or other unit
+                    # Hit something else (Wall or another Unit)
+                    # Blocked.
                     pass
             else:
-                # No hit found. This usually means the ray didn't hit anything?
-                # But target has a shape.
-                # If target is inside the range, we should hit it.
-                # If we didn't, maybe filtering issue or gap.
-                # Assume visible if clear line of sight (though technically we should hit the target).
+                # No hit?
+                # This is weird if the target has a shape and is in the mask.
+                # If target is NOT in the mask (e.g. Item or Poop?), then we won't hit it.
+                # If we assume Items don't block vision but can be seen...
+                # The logic above assumes we MUST hit the target shape to see it.
+                # If target is not in mask, we won't hit it.
+                # So if hit is None, it means line of sight is clear of OBSTACLES.
+                # So it is visible!
+
                 visible.add(target_ent)
 
         ai.visible_entities = visible
