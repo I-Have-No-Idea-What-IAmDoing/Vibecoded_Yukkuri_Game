@@ -38,14 +38,14 @@ class Transform:
     x: float
     y: float
     scale: float = 1.0
-    prev_x: float = 0.0
-    prev_y: float = 0.0
+    prev_x: Optional[float] = None
+    prev_y: Optional[float] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize prev positions to current positions to avoid jumps."""
-        if self.prev_x == 0.0:
+        if self.prev_x is None:
             self.prev_x = self.x
-        if self.prev_y == 0.0:
+        if self.prev_y is None:
             self.prev_y = self.y
 
 
@@ -190,7 +190,7 @@ class Mount:
     Component for handling parent-child relationships in the hierarchy.
     """
 
-    parent_id: EntityID = -1
+    parent_id: EntityID = EntityID(-1)
     children_ids: list[EntityID] = field(default_factory=list)
     mount_point_offset: Vector2 = field(default_factory=lambda: Vector2(0, 0))
     layer_order: int = 0
