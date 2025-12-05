@@ -3,6 +3,7 @@ Visibility System.
 """
 import pymunk
 import math
+from loguru import logger
 from ...engine.ecs import System, World
 from ..components import Vision, Transform, PhysicsBody
 from ..yukkuri_components import AIState
@@ -55,6 +56,7 @@ class VisibilitySystem(System):
 
     def update_visibility(self, entity, vision, trans, ai, targets, world):
         visible = set()
+        logger.trace(f"Updating visibility for entity {entity}")
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
         range_sq = vision.range * vision.range

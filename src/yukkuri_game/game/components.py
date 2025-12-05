@@ -188,6 +188,7 @@ class MovementController:
 class Mount:
     """
     Component for handling parent-child relationships in the hierarchy.
+    Tracks parent and children entities, mount offsets, and render layering.
     """
 
     parent_id: EntityID = EntityID(-1)
@@ -200,6 +201,7 @@ class Mount:
 class PendingDismount:
     """
     Component for entities that are in the process of dismounting (Ghost Mode).
+    Entities in this state are searching for a valid physical location to materialize.
     """
 
     time_in_pending: float = 0.0

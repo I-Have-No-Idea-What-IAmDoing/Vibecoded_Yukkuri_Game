@@ -3,6 +3,7 @@ Render System Module.
 """
 
 import pygame
+from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.resource_manager import ResourceManager
 from ..yukkurrium import Yukkurrium, WorldRenderer
@@ -47,4 +48,5 @@ class RenderSystem(System):
         Returns:
             None
         """
+        logger.trace(f"Rendering frame with alpha {alpha}")
         self.renderer.render(world, alpha=alpha)
