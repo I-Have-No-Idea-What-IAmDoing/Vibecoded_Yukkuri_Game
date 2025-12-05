@@ -36,15 +36,15 @@ class RenderSystem(System):
     def screen(self, value: pygame.Surface) -> None:
         self.renderer.screen = value
 
-    def update(self, world: World, dt: float) -> None:
+    def update(self, world: World, alpha: float) -> None:
         """
         Renders the world grid and all visible entities.
 
         Args:
             world (World): The ECS World.
-            dt (float): Interpolation alpha (0.0 to 1.0).
+            alpha (float): Interpolation alpha (0.0 to 1.0).
 
         Returns:
             None
         """
-        self.renderer.render(world, alpha=dt)
+        self.renderer.render(world, alpha=alpha)

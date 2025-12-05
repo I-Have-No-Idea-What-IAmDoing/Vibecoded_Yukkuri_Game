@@ -79,16 +79,28 @@ class KinematicMovementSystem(System):
         input_vector = controller.target_velocity
         current_velocity = controller.current_velocity
 
-        # Calculate velocity change
-        target = input_vector
-        diff = target - current_velocity
-        change_mag = controller.acceleration * dt
+        if input_vector.length_squared < 0.000001:
+            # Apply Friction (Damping)
+            friction = controller.friction
+            # Simple damping: vel = vel * (1 - friction * dt)
+            # Ensure we don't flip direction if friction is huge
+            damping = max(0.0, 1.0 - friction * dt)
+            current_velocity = current_velocity * damping
 
-        if diff.length_squared > 0.000001:
-            if change_mag >= diff.length:
-                current_velocity = target
-            else:
-                current_velocity += diff.normalized() * change_mag
+            # Snap to 0 if very small
+            if current_velocity.length_squared < 0.0001:
+                current_velocity = pymunk.Vec2d(0, 0)
+        else:
+            # Apply Acceleration
+            target = input_vector
+            diff = target - current_velocity
+            change_mag = controller.acceleration * dt
+
+            if diff.length_squared > 0.000001:
+                if change_mag >= diff.length:
+                    current_velocity = target
+                else:
+                    current_velocity += diff.normalized() * change_mag
 
         controller.current_velocity = current_velocity
 
@@ -109,14 +121,7 @@ class KinematicMovementSystem(System):
         if isinstance(shape, pymunk.Circle):
              radius = shape.radius
         elif isinstance(shape, pymunk.Poly):
-             # For Poly, use the bounding box or an average dimension?
-             # Or use a small radius and rely on the shape itself being moved?
-             # No, segment_query with radius effectively sweeps a circle (Capsule).
-             # If we sweep a capsule of radius R, we are simulating a Circle of radius R moving.
-             # If the character IS a box, this approximation might be wrong.
-             # But the proposal says "Approximation: We approximate characters as Circles or Capsules".
-             # So if the character HAS a Box shape, we should probably approximate it as a Circle for movement.
-             # Calculate radius from bounding box.
+             # For Poly, calculate radius from bounding box.
              bb = shape.bb
              width = bb.right - bb.left
              height = bb.top - bb.bottom
