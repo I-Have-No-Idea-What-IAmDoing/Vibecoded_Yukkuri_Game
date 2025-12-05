@@ -110,11 +110,7 @@ class VisibilitySystem(System):
                     # Hit wall or other unit
                     pass
             else:
-                # No hit found. This usually means the ray didn't hit anything?
-                # But target has a shape.
-                # If target is inside the range, we should hit it.
-                # If we didn't, maybe filtering issue or gap.
-                # Assume visible if clear line of sight (though technically we should hit the target).
-                visible.add(target_ent)
+                # If no shape is hit, the target is not visible.
+                pass
 
         ai.visible_entities = visible
