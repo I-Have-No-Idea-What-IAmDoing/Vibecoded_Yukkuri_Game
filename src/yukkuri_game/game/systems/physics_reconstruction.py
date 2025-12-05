@@ -5,6 +5,7 @@ Physics Reconstruction System.
 from ...engine.ecs import World
 from ..components import Transform, PhysicsBody
 from ..yukkuri_components import YukkuriStats, ItemStats, Poop
+import pymunk
 from ..collision_constants import CollisionCategories
 from ..physics_utils import add_physics_body, get_yukkuri_radius
 
@@ -38,9 +39,10 @@ def reconstruct_physics(world: World) -> None:
             collision_mask=CollisionCategories.WALL
             | CollisionCategories.YUKKURI
             | CollisionCategories.POOP,
-            elasticity=0.5,
-            friction=0.5,
+            elasticity=0.0, # Kinematic bodies don't bounce usually
+            friction=0.0,   # Friction handled manually
             set_userdata=True,
+            body_type=pymunk.Body.KINEMATIC
         )
 
     # Reconstruct Poops

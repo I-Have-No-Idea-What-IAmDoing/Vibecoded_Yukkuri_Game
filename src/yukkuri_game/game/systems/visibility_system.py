@@ -95,22 +95,33 @@ class VisibilitySystem(System):
         mask = CollisionCategories.WALL
 
         # Raycast
+        # If mask is 0, we assume it's unset in tests, so use ALL?
+        # But in game constant is WALL = 0b0100.
+
+        # If the raycast hits ANYTHING that matches the mask, it blocks.
+
         filter_ = pymunk.ShapeFilter(mask=mask)
 
         # segment_query_first finds the first hit.
         hit = space.segment_query_first(start, end, 1.0, filter_)
 
         if hit:
-            # We hit a wall before reaching the target distance?
-            # Wait, the ray goes from start to end (exact target position).
-            # If we hit *anything* in the mask, it's a blocker.
-            # But what if the target itself is in the mask?
-            # If target is a UNIT and we mask UNITS, we might hit the target.
-            # If hit.shape is the target's shape, then we see it.
-            # If hit.shape is a Wall, we don't.
+            # Check if we hit the target itself or observer itself (if observer has mask)
+            # If hit shape is observer's shape, ignore.
 
-            # Since mask currently only includes WALL, if we hit something, it MUST be a wall.
-            # So visibility is blocked.
-            return False
+            # Since we don't have shape references here easily (only components),
+            # we rely on mask.
+            # If mask is WALL, and observer/target are not WALL, then hit implies a Wall.
+            # However, if target is behind a wall, we hit wall.
+
+            # If we hit nothing, hit is None.
+
+            # Wait, if hit is a Sensor? segment_query should return sensors by default?
+            # Pymunk 7.0 changed this.
+
+            if hit.shape.sensor:
+                pass # Sensors don't block vision usually?
+            else:
+                return False
 
         return True

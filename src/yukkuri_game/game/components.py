@@ -164,6 +164,11 @@ class MovementController:
     # Safety Fix: Use default_factory for mutable Vector2
     target_velocity: Vector2 = field(default_factory=lambda: Vector2(0, 0))
 
+    # Physics Parameters
+    acceleration: float = 800.0
+    friction: float = 800.0
+    max_speed: float = 200.0
+
     # --- Visual Tuning ---
     visual_bob_timer: float = 0.0
     bob_height: float = 10.0
