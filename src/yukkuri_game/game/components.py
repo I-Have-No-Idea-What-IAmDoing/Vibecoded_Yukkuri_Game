@@ -41,6 +41,13 @@ class Transform:
     prev_x: float = 0.0
     prev_y: float = 0.0
 
+    def __post_init__(self):
+        """Initialize prev positions to current positions to avoid jumps."""
+        if self.prev_x == 0.0:
+            self.prev_x = self.x
+        if self.prev_y == 0.0:
+            self.prev_y = self.y
+
 
 @dataclass
 class Velocity:

@@ -61,13 +61,14 @@ class KinematicMovementSystem(System):
             trans.prev_x = phys.body.position.x
             trans.prev_y = phys.body.position.y
 
-            self.move_and_slide(phys, controller, dt)
+            self.move_and_slide(phys, controller, trans, dt)
 
-            # Sync back to Transform (current)
-            trans.x = phys.body.position.x
-            trans.y = phys.body.position.y
+            # Note: trans is updated inside move_and_slide now, but we can verify
+            if trans.x != phys.body.position.x:
+                 trans.x = phys.body.position.x
+                 trans.y = phys.body.position.y
 
-    def move_and_slide(self, phys: PhysicsBody, controller: MovementController, dt: float):
+    def move_and_slide(self, phys: PhysicsBody, controller: MovementController, trans: Transform, dt: float):
         """
         Performs the sweep-and-slide movement logic.
         """
@@ -103,10 +104,25 @@ class KinematicMovementSystem(System):
         original_pos = body.position
         start_pos = body.position
 
-        # Radius for capsule cast
+        # Determine appropriate radius for sweep
         radius = 1.0
-        if hasattr(shape, 'radius'):
-            radius = shape.radius
+        if isinstance(shape, pymunk.Circle):
+             radius = shape.radius
+        elif isinstance(shape, pymunk.Poly):
+             # For Poly, use the bounding box or an average dimension?
+             # Or use a small radius and rely on the shape itself being moved?
+             # No, segment_query with radius effectively sweeps a circle (Capsule).
+             # If we sweep a capsule of radius R, we are simulating a Circle of radius R moving.
+             # If the character IS a box, this approximation might be wrong.
+             # But the proposal says "Approximation: We approximate characters as Circles or Capsules".
+             # So if the character HAS a Box shape, we should probably approximate it as a Circle for movement.
+             # Calculate radius from bounding box.
+             bb = shape.bb
+             width = bb.right - bb.left
+             height = bb.top - bb.bottom
+             radius = min(width, height) / 2.0
+        elif hasattr(shape, 'radius'):
+             radius = shape.radius
 
         query_filter = shape.filter
 
@@ -170,6 +186,10 @@ class KinematicMovementSystem(System):
 
         # 4. Commit Position
         body.position = start_pos
+
+        # Update Transform immediately (requested by review)
+        trans.x = start_pos.x
+        trans.y = start_pos.y
 
         # 5. Update Velocity based on actual movement
         if dt > 0.000001:

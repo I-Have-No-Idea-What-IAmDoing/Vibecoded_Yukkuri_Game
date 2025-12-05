@@ -39,61 +39,70 @@ class HierarchySystem(System):
         # 4. Process Pending Dismounts
         self.process_pending_dismounts(world, dt)
 
-    def process_entity(self, world: World, entity: int, mounts: dict):
+    def process_entity(self, world: World, root_entity: int, mounts: dict):
         """
-        Recursively update children of this entity.
+        Iteratively update children of this entity using a stack.
         """
-        mount = mounts.get(entity)
-        if not mount:
-            return
+        # Stack contains (entity_id, parent_pos, parent_rot)
+        # For the root, we need to fetch its current pos/rot first.
 
-        # Get current transform/physics data of this entity (The Parent)
-        parent_pos = None
-        parent_rot = 0.0
+        # Initial fetch for root
+        root_pos = None
+        root_rot = 0.0
 
-        phys = world.get_component(entity, PhysicsBody)
+        phys = world.get_component(root_entity, PhysicsBody)
         if phys:
-            parent_pos = phys.body.position
-            parent_rot = phys.body.angle
+            root_pos = phys.body.position
+            root_rot = phys.body.angle
         else:
-            trans = world.get_component(entity, Transform)
+            trans = world.get_component(root_entity, Transform)
             if trans:
-                parent_pos = pymunk.Vec2d(trans.x, trans.y)
-                parent_rot = 0.0 # Transform doesn't store rotation
+                root_pos = pymunk.Vec2d(trans.x, trans.y)
+                root_rot = 0.0
 
-        if parent_pos is None:
+        if root_pos is None:
             return
 
-        # Update Children
-        for child_id in mount.children_ids:
-            child_mount = mounts.get(child_id)
-            if not child_mount:
+        stack = [(root_entity, root_pos, root_rot)]
+
+        while stack:
+            current_entity, parent_pos, parent_rot = stack.pop()
+
+            mount = mounts.get(current_entity)
+            if not mount:
                 continue
 
-            # Calculate Child Position
-            offset = child_mount.mount_point_offset
-            # Rotate offset by parent rotation
-            rotated_offset = offset.rotated(parent_rot)
-            child_pos = parent_pos + rotated_offset
+            # Iterate over children
+            # Note: We reverse the list to process them in order if stack behavior matters (LIFO)
+            # But order probably doesn't matter for independent children.
+            for child_id in mount.children_ids:
+                child_mount = mounts.get(child_id)
+                if not child_mount:
+                    continue
 
-            # Apply to Child
-            child_phys = world.get_component(child_id, PhysicsBody)
-            if child_phys:
-                # Teleport child to new position (it's kinematic or just attached)
-                child_phys.body.position = child_pos
-                child_phys.body.angle = parent_rot
+                # Calculate Child Position
+                offset = child_mount.mount_point_offset
+                rotated_offset = offset.rotated(parent_rot)
+                child_pos = parent_pos + rotated_offset
 
-                # Ensure child shapes are sensors as per proposal (Hitboxes only)
-                if not child_phys.shape.sensor:
-                    child_phys.shape.sensor = True
+                # Apply to Child
+                child_phys = world.get_component(child_id, PhysicsBody)
+                child_rot = parent_rot # Children inherit rotation
 
-            child_trans = world.get_component(child_id, Transform)
-            if child_trans:
-                child_trans.x = child_pos.x
-                child_trans.y = child_pos.y
+                if child_phys:
+                    child_phys.body.position = child_pos
+                    child_phys.body.angle = child_rot
 
-            # Recurse
-            self.process_entity(world, child_id, mounts)
+                    if not child_phys.shape.sensor:
+                        child_phys.shape.sensor = True
+
+                child_trans = world.get_component(child_id, Transform)
+                if child_trans:
+                    child_trans.x = child_pos.x
+                    child_trans.y = child_pos.y
+
+                # Push child to stack to process ITS children
+                stack.append((child_id, child_pos, child_rot))
 
     def process_pending_dismounts(self, world: World, dt: float):
         """
