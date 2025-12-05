@@ -5,6 +5,7 @@ Manages parent-child relationships and transforms.
 
 import pymunk
 import math
+from loguru import logger
 from ...engine.ecs import System, World
 from ..components import Mount, Transform, PhysicsBody, PendingDismount, MovementController
 from ..collision_constants import CollisionCategories
@@ -92,6 +93,7 @@ class HierarchySystem(System):
         # Shrinking is dangerous if we get stuck.
         # Let's only grow for now to cover passengers.
         if target_r > current_r + 1.0:
+            logger.trace(f"Resizing root collider from {current_r} to {target_r}")
             phys.shape.unsafe_set_radius(target_r)
             # Reindex shape to notify space of change
             physics_system = world.services.try_get(PhysicsSystem)
@@ -185,6 +187,7 @@ class HierarchySystem(System):
         Handle entities that are trying to find a spot to dismount.
         """
         for entity, (pending, trans, phys) in world.get_components_tuple(PendingDismount, Transform, PhysicsBody):
+            logger.trace(f"Processing pending dismount for entity {entity}")
             pending.time_in_pending += dt
 
             # Throttle search: every 0.2s?

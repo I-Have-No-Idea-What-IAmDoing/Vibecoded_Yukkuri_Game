@@ -5,6 +5,7 @@ Implements the Sweep-and-Slide algorithm for deterministic character movement.
 
 import pymunk
 from typing import Optional
+from loguru import logger
 from ...engine.ecs import System, World
 from ..components import PhysicsBody, MovementController, Transform
 from .physics import PhysicsSystem
@@ -176,6 +177,7 @@ class KinematicMovementSystem(System):
 
             if hit:
                 # Resolve Collision
+                logger.trace(f"Collision detected with normal {hit.normal} at alpha {hit.alpha}")
 
                 safe_fraction = max(0.0, hit.alpha - (skin_width / remaining_move.length) if remaining_move.length > 0 else 0)
 
