@@ -77,7 +77,7 @@ class HierarchySystem(System):
 
                 # Ensure Root is NOT a sensor (unless intended, but assuming characters here)
                 if parent_phys.shape.sensor:
-                     parent_phys.shape.sensor = False
+                    parent_phys.shape.sensor = False
 
             # Process Children
             for child_id in parent_mount.children_ids:
