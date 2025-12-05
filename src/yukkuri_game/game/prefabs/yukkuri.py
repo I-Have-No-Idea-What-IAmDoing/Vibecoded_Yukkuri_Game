@@ -4,6 +4,7 @@ Prefab functions for Yukkuri entities.
 
 from typing import Optional, List, Any
 import random
+import pymunk
 
 from ...engine.ecs import World
 from ...engine.resource_manager import ResourceManager
