@@ -95,22 +95,17 @@ class VisibilitySystem(System):
         mask = CollisionCategories.WALL
 
         # Raycast
+        # If mask is 0, we assume it's unset in tests, so use ALL?
+        # But in game constant is WALL = 0b0100.
+
+        # If the raycast hits ANYTHING that matches the mask, it blocks.
+
         filter_ = pymunk.ShapeFilter(mask=mask)
 
         # segment_query_first finds the first hit.
         hit = space.segment_query_first(start, end, 1.0, filter_)
 
-        if hit:
-            # We hit a wall before reaching the target distance?
-            # Wait, the ray goes from start to end (exact target position).
-            # If we hit *anything* in the mask, it's a blocker.
-            # But what if the target itself is in the mask?
-            # If target is a UNIT and we mask UNITS, we might hit the target.
-            # If hit.shape is the target's shape, then we see it.
-            # If hit.shape is a Wall, we don't.
-
-            # Since mask currently only includes WALL, if we hit something, it MUST be a wall.
-            # So visibility is blocked.
+        if hit and not hit.shape.sensor:
             return False
 
         return True

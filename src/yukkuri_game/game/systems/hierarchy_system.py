@@ -4,6 +4,7 @@ Module defining the hierarchy system for handling entity attachments.
 
 import math
 import random
+from collections import deque
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
 from ...engine.ecs import System, World
@@ -74,6 +75,10 @@ class HierarchySystem(System):
                 parent_velocity = parent_phys.body.velocity
                 parent_angular_velocity = parent_phys.body.angular_velocity
 
+                # Ensure Root is NOT a sensor (unless intended, but assuming characters here)
+                if parent_phys.shape.sensor:
+                    parent_phys.shape.sensor = False
+
             # Process Children
             for child_id in parent_mount.children_ids:
                 if child_id not in mounts:
@@ -98,11 +103,17 @@ class HierarchySystem(System):
                     # Check if the new position for the child is blocked by geometry.
                     blocked = False
                     if child_phys and self.physics_system:
+                        space = self.physics_system.space
+
+                        # Ensure Child IS a sensor
+                        if not child_phys.shape.sensor:
+                            child_phys.shape.sensor = True
+                            # Force reindex to update physics state immediately?
+                            space.reindex_shape(child_phys.shape)
+
                         # We use a point query or shape query at the target position.
                         # Since we haven't moved yet, we can check `(target_x, target_y)`.
                         # We should verify if this position overlaps with WALLs.
-
-                        space = self.physics_system.space
                         # Use child's mask
                         mask = child_phys.shape.filter.mask
                         radius = 10.0 # Fallback
@@ -211,6 +222,7 @@ class HierarchySystem(System):
 
         # Current position (which might be the parent's position or last known)
         start_x, start_y = transform.x, transform.y
+        original_pos = phys.body.position
 
         # Search pattern: standard offsets then spiral
         offsets = [
@@ -226,44 +238,46 @@ class HierarchySystem(System):
             cx = start_x + dx
             cy = start_y + dy
 
-            # Check if spot is free
-            # Use point_query or shape_query
+            # Check if spot is free using shape_query for maximum accuracy
 
-            # Create a test shape at candidate position
-            # Since we can't easily move the real body without side effects during query,
-            # we create a dummy shape or use point query (too simple) or use shape query with transform.
+            # Move the body to the candidate position
+            phys.body.position = (cx, cy)
+            space.reindex_shape(phys.shape)
 
-            # Pymunk's shape_query checks if a shape overlaps anything.
-            # We can use the entity's own shape, but we need to move it temporarily?
-            # Or better, create a temporary shape.
+            # Query for overlaps
+            # shape_query returns all shapes that overlap with the given shape
+            collisions = space.shape_query(phys.shape)
 
-            # Simplest: Point query with radius filter? No, shape_query is best.
-            # But shape_query requires a Shape object.
-
-            # Let's use `space.point_query` with a max_distance?
-            # space.point_query finds shapes within distance of point.
-            # If we find any shape that matches our collision mask, it's blocked.
-
-            # Filter: match what the entity collides with (WALLs, etc.)
-            mask = phys.shape.filter.mask
-
-            # Query
-            collisions = space.point_query((cx, cy), radius, pymunk.ShapeFilter(mask=mask))
-
-            # Filter out self (if self is in space)
             valid_spot = True
             for info in collisions:
+                # Ignore self and sensors
                 if info.shape != phys.shape and not info.shape.sensor:
-                    valid_spot = False
-                    break
+                    # Ignore if the other shape matches our mask?
+                    # info.shape is what we hit. We should respect collision masks.
+                    # Physics logic: (A.cat & B.mask) != 0 and (B.cat & A.mask) != 0
+
+                    cat_a = phys.shape.filter.categories
+                    mask_a = phys.shape.filter.mask
+                    cat_b = info.shape.filter.categories
+                    mask_b = info.shape.filter.mask
+
+                    if (cat_a & mask_b) != 0 and (cat_b & mask_a) != 0:
+                        valid_spot = False
+                        break
 
             if valid_spot:
-                # Move there
+                # Move there permanently
                 transform.x = cx
                 transform.y = cy
-                phys.body.position = (cx, cy)
+                # phys.body.position is already set
 
-                # Make sure we are visible/enabled if we were hidden
+                # Make sure we are solid again
+                phys.shape.sensor = False
+
                 return True
+
+        # If failed, revert position
+        phys.body.position = original_pos
+        space.reindex_shape(phys.shape)
 
         return False
