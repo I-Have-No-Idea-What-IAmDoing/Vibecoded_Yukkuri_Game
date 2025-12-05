@@ -2,6 +2,7 @@
 Physics Reconstruction System.
 """
 
+import pymunk
 from ...engine.ecs import World
 from ..components import Transform, PhysicsBody
 from ..yukkuri_components import YukkuriStats, ItemStats, Poop
@@ -41,6 +42,7 @@ def reconstruct_physics(world: World) -> None:
             elasticity=0.5,
             friction=0.5,
             set_userdata=True,
+            body_type=pymunk.Body.KINEMATIC,
         )
 
     # Reconstruct Poops
@@ -59,6 +61,7 @@ def reconstruct_physics(world: World) -> None:
             collision_mask=CollisionCategories.ALL,
             elasticity=0.2,
             friction=0.8,
+            body_type=pymunk.Body.KINEMATIC,
         )
 
     # Reconstruct Items
@@ -90,4 +93,5 @@ def reconstruct_physics(world: World) -> None:
             | CollisionCategories.ITEM,
             elasticity=0.5,
             friction=0.5,
+            body_type=pymunk.Body.KINEMATIC,
         )

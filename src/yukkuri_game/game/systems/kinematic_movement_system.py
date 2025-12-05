@@ -157,9 +157,19 @@ class KinematicMovementSystem(System):
                 # Ignore sensors
                 if info.shape.sensor:
                     continue
-                # Ignore internal edges/back-faces (moving away from wall)
-                if info.normal.dot(remaining_move) >= 0:
-                    continue
+
+                # 4. Filter internal edges or back-faces
+                # Determine if the normal opposes our movement.
+                # If dot(normal, direction) > 0, we are moving away from the wall (back-face)
+                # We use a small epsilon because sometimes due to precision we might be slightly off.
+                if info.normal.dot(remaining_move) > 0.0001:
+                     continue
+
+                # Internal Edge Check:
+                # This is tricky without graph info, but usually checking distance > small_val helps.
+                # Here we rely on the segment_query returning the first true hit.
+                # If we are starting 'inside' a wall because of skin width penetration, we might hit it with t=0 or negative.
+                # But start_pos is adjusted to be safe.
 
                 hit = info
                 break
@@ -179,8 +189,18 @@ class KinematicMovementSystem(System):
 
                 # Project remainder onto wall tangent
                 normal = hit.normal
+
+                # Safety: Ensure normal is normalized (it should be from pymunk)
+
                 dot = remainder.dot(normal)
+
+                # Subtract component parallel to normal to slide
                 slide_vec = remainder - normal * dot
+
+                # Corner Handling:
+                # If the slide vector would make us go back into the wall we just hit (due to precision),
+                # or if we are pinched, we might need to stop or adjust.
+                # However, basic projection usually handles this unless the angle is acute.
 
                 remaining_move = slide_vec
             else:
@@ -192,7 +212,7 @@ class KinematicMovementSystem(System):
         # 4. Commit Position
         body.position = start_pos
 
-        # Update Transform immediately (requested by review)
+        # Update Transform immediately to ensure rendering sync
         trans.x = start_pos.x
         trans.y = start_pos.y
 
