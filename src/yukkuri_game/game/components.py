@@ -18,10 +18,16 @@ class PhysicsBody:
     Attributes:
         body (pymunk.Body): The physics body.
         shape (pymunk.Shape): The physics shape.
+        base_radius (Optional[float]): The original radius of the shape (for Totem Pole resizing).
     """
 
     body: pymunk.Body
     shape: pymunk.Shape
+    base_radius: Optional[float] = None
+
+    def __post_init__(self):
+        if self.base_radius is None and isinstance(self.shape, pymunk.Circle):
+            self.base_radius = self.shape.radius
 
 
 @dataclass
@@ -199,6 +205,7 @@ class Mount:
     children_ids: list[EntityID] = field(default_factory=list)
     mount_point_offset: Vector2 = field(default_factory=lambda: Vector2(0, 0))
     layer_order: int = 0
+    structure_dirty: bool = True
 
 
 @dataclass

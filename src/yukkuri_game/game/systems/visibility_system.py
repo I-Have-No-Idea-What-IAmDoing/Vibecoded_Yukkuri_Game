@@ -96,40 +96,44 @@ class VisibilitySystem(System):
                     continue
 
             # 3. Narrowphase: Raycast
-            # Check for obstruction
+            # Check for obstruction using full segment query to filter out self
 
-            # segment_query_first returns the FIRST shape hit.
-            # We want to see if that shape belongs to the target or is a transparent sensor,
-            # or is an obstacle.
+            hits = self.space.segment_query(obs_pos, target_pos, 1.0, vision_filter)
 
-            hit = self.space.segment_query_first(obs_pos, target_pos, 1.0, vision_filter)
+            # Sort by distance (alpha)
+            hits.sort(key=lambda x: x.alpha)
 
-            if hit:
+            blocked = False
+            found_target = False
+
+            # Observers shape (to ignore self)
+            obs_shape = phys_comp.shape if phys_comp else None
+
+            for hit in hits:
+                if hit.shape == obs_shape:
+                    continue
+
+                if hit.shape.sensor:
+                    continue
+
                 if hit.shape == target_phys.shape:
-                    # We hit the target directly
-                    visible.add(target_ent)
-                elif hit.shape.sensor:
-                    # Hit a sensor (should be filtered out by mask usually, but if not...)
-                    # If we hit a sensor that is NOT the target (targets might have sensor shapes if they are children)
-                    # For now, assume sensors don't block vision.
-                    # But segment_query_first stops at the first hit.
-                    # If the first hit is a sensor, we don't know if there is a wall behind it.
-                    # Ideally, sensors should not be in the vision_mask.
-                    pass
+                    found_target = True
+                    # We hit the target. If we haven't been blocked yet, it's visible.
+                    # And since we sort by alpha, and haven't broken yet, we are good.
+                    break
                 else:
                     # Hit something else (Wall or another Unit)
-                    # Blocked.
-                    pass
-            else:
-                # No hit?
-                # This is weird if the target has a shape and is in the mask.
-                # If target is NOT in the mask (e.g. Item or Poop?), then we won't hit it.
-                # If we assume Items don't block vision but can be seen...
-                # The logic above assumes we MUST hit the target shape to see it.
-                # If target is not in mask, we won't hit it.
-                # So if hit is None, it means line of sight is clear of OBSTACLES.
-                # So it is visible!
+                    # It blocks vision.
+                    # logger.trace(f"Blocked by {hit.shape} at {hit.point}")
+                    blocked = True
+                    break
 
+            if not blocked:
+                # If the raycast to the target was not blocked by any obstacles,
+                # the target is considered visible. This covers both cases:
+                # 1. The ray hit the target directly.
+                # 2. The ray hit nothing at all (e.g., target is small or not in the query mask),
+                #    but the path is clear.
                 visible.add(target_ent)
 
         ai.visible_entities = visible
