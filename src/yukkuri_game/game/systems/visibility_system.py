@@ -128,12 +128,12 @@ class VisibilitySystem(System):
                     blocked = True
                     break
 
-            if found_target and not blocked:
+            if not blocked:
+                # If the raycast to the target was not blocked by any obstacles,
+                # the target is considered visible. This covers both cases:
+                # 1. The ray hit the target directly.
+                # 2. The ray hit nothing at all (e.g., target is small or not in the query mask),
+                #    but the path is clear.
                 visible.add(target_ent)
-            elif not found_target and not blocked:
-                 # If we didn't hit the target shape (maybe it's small or we cast to center),
-                 # BUT we also didn't hit any walls, we assume visible.
-                 # This covers cases where target is not in the mask or query missed slightly but path is clear.
-                 visible.add(target_ent)
 
         ai.visible_entities = visible
