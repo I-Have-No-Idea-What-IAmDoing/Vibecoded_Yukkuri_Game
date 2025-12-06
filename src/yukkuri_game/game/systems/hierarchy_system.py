@@ -36,7 +36,10 @@ class HierarchySystem(System):
 
         # 3. Process roots
         for root in roots:
-            self.recalculate_root_collider(world, root, mounts)
+            mount = mounts.get(root)
+            if mount and mount.structure_dirty:
+                self.recalculate_root_collider(world, root, mounts)
+                mount.structure_dirty = False
             self.process_entity(world, root, mounts)
 
         # 4. Process Pending Dismounts
@@ -70,40 +73,37 @@ class HierarchySystem(System):
         if not phys or not isinstance(phys.shape, pymunk.Circle):
             return
 
+        # Capture base radius if not set
+        if phys.base_radius is None:
+            phys.base_radius = phys.shape.radius
+
         mount = mounts.get(root_entity)
-        if not mount or not mount.children_ids:
-             return
+        # Even if mount is empty, we might need to shrink back to base_radius
 
         # Recursive collection
         descendants = []
-        self.collect_descendants(root_entity, mounts, pymunk.Vec2d(0, 0), descendants)
+        if mount:
+            self.collect_descendants(root_entity, mounts, pymunk.Vec2d(0, 0), descendants)
 
-        max_req_radius = phys.shape.radius
-        # Ideally fetch base radius from prefab or component?
-        # We assume current radius is at least base radius.
+        # Start with base radius
+        max_req_radius = phys.base_radius
 
         for child_id, offset in descendants:
-            dist = offset.length
-
-            # Add child radius
+            # Add child radius. Safe get, if missing default to 0.
             child_phys = world.get_component(child_id, PhysicsBody)
-            child_r = 10.0
-            if child_phys and hasattr(child_phys.shape, 'radius'):
+            child_r = 0.0
+            if child_phys and isinstance(child_phys.shape, pymunk.Circle):
                 child_r = child_phys.shape.radius
 
-            req_r = dist + child_r
+            # Use offset length + child radius to determine extent
+            req_r = offset.length + child_r
             if req_r > max_req_radius:
                 max_req_radius = req_r
 
         # Update radius if significantly different
         current_r = phys.shape.radius
 
-        # Only grow to avoid getting stuck when shrinking?
-        # Proposal says: "recalculate the radius required to cover the new stack."
-        # If we shrink, we might no longer collide with something we were touching, which is fine.
-        # But if we grow, we might push into something.
-
-        if max_req_radius > current_r + 1.0:
+        if abs(max_req_radius - current_r) > 1.0:
             logger.trace(f"Resizing root collider from {current_r} to {max_req_radius}")
             phys.shape.unsafe_set_radius(max_req_radius)
             physics_system = world.services.try_get(PhysicsSystem)
