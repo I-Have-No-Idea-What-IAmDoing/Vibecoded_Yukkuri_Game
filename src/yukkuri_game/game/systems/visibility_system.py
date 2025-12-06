@@ -56,7 +56,7 @@ class VisibilitySystem(System):
 
     def update_visibility(self, entity, vision, trans, ai, targets, world):
         visible = set()
-        logger.trace(f"Updating visibility for entity {entity}")
+        # logger.trace(f"Updating visibility for entity {entity}")
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
         range_sq = vision.range * vision.range
@@ -71,9 +71,6 @@ class VisibilitySystem(System):
 
         # Vision Blocker Mask: Walls and Yukkuris (Units)
         # We want to know if the ray hits a WALL or another UNIT before hitting the TARGET.
-        # But wait, if the ray hits the TARGET first, it's visible.
-        # So we query against EVERYTHING that blocks vision (Walls + Units).
-
         vision_mask = CollisionCategories.WALL | CollisionCategories.YUKKURI
         vision_filter = pymunk.ShapeFilter(mask=vision_mask)
 
@@ -98,38 +95,35 @@ class VisibilitySystem(System):
             # 3. Narrowphase: Raycast
             # Check for obstruction
 
-            # segment_query_first returns the FIRST shape hit.
-            # We want to see if that shape belongs to the target or is a transparent sensor,
-            # or is an obstacle.
+            # Use segment_query (all hits) to properly filter sensors
+            infos = self.space.segment_query(obs_pos, target_pos, 1.0, vision_filter)
 
-            hit = self.space.segment_query_first(obs_pos, target_pos, 1.0, vision_filter)
+            # Sort by distance (alpha)
+            infos.sort(key=lambda x: x.alpha)
 
-            if hit:
-                if hit.shape == target_phys.shape:
-                    # We hit the target directly
-                    visible.add(target_ent)
-                elif hit.shape.sensor:
-                    # Hit a sensor (should be filtered out by mask usually, but if not...)
-                    # If we hit a sensor that is NOT the target (targets might have sensor shapes if they are children)
-                    # For now, assume sensors don't block vision.
-                    # But segment_query_first stops at the first hit.
-                    # If the first hit is a sensor, we don't know if there is a wall behind it.
-                    # Ideally, sensors should not be in the vision_mask.
-                    pass
-                else:
-                    # Hit something else (Wall or another Unit)
-                    # Blocked.
-                    pass
-            else:
-                # No hit?
-                # This is weird if the target has a shape and is in the mask.
-                # If target is NOT in the mask (e.g. Item or Poop?), then we won't hit it.
-                # If we assume Items don't block vision but can be seen...
-                # The logic above assumes we MUST hit the target shape to see it.
-                # If target is not in mask, we won't hit it.
-                # So if hit is None, it means line of sight is clear of OBSTACLES.
-                # So it is visible!
+            is_blocked = False
+            for info in infos:
+                if info.shape == target_phys.shape:
+                    # We hit the target!
+                    # If we haven't been blocked yet, it's visible.
+                    break
 
+                if info.shape == phys_comp.shape:
+                    # Ignore self
+                    continue
+
+                if info.shape.sensor:
+                    # Ignore sensors (transparent to vision)
+                    # Unless specifically designed to be opaque (like smoke?)
+                    # For now, sensors are transparent.
+                    continue
+
+                # If we hit something else (Wall or another Unit's body)
+                # It blocks vision.
+                is_blocked = True
+                break
+
+            if not is_blocked:
                 visible.add(target_ent)
 
         ai.visible_entities = visible

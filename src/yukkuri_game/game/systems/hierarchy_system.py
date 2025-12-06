@@ -22,7 +22,6 @@ class HierarchySystem(System):
         Recursive update of the hierarchy.
         """
         # 1. Build a map of all mounted entities
-        # Use get_components (singular) to get a Dict {id: component}
         mounts = world.get_components(Mount)
 
         # 2. Identify roots
@@ -52,19 +51,9 @@ class HierarchySystem(System):
 
         mount = mounts.get(root_entity)
         if not mount or not mount.children_ids:
-             # Reset to default if no children?
-             # But we don't know the default. Assume 10.0 or keep as is.
-             # Ideally we should store 'base_radius' in a component.
              return
 
-        # Heuristic: Find max distance of children from root + child radius
-        # For a stack (totem pole), they are usually at (0, 0) offset but layered.
-        # But if they have offsets (vehicle), we need to cover them.
-
         max_dist_sq = 0.0
-
-        # Iterate all descendants?
-        # For now, just direct children to be fast.
 
         for child_id in mount.children_ids:
             child_mount = mounts.get(child_id)
@@ -72,30 +61,21 @@ class HierarchySystem(System):
                 continue
 
             dist_sq = child_mount.mount_point_offset.length_squared
-
-            # Add child radius
             child_phys = world.get_component(child_id, PhysicsBody)
             child_r = 10.0
             if child_phys and hasattr(child_phys.shape, 'radius'):
                 child_r = child_phys.shape.radius
 
-            # Approximate total radius required
             req_r = math.sqrt(dist_sq) + child_r
             if req_r > max_dist_sq:
                 max_dist_sq = req_r
 
-        # Update radius if significantly different
-        # Base radius for Yukkuri is ~10-20.
         current_r = phys.shape.radius
         target_r = max(current_r, max_dist_sq)
 
-        # Only update if growing, or maybe shrinking?
-        # Shrinking is dangerous if we get stuck.
-        # Let's only grow for now to cover passengers.
         if target_r > current_r + 1.0:
             logger.trace(f"Resizing root collider from {current_r} to {target_r}")
             phys.shape.unsafe_set_radius(target_r)
-            # Reindex shape to notify space of change
             physics_system = world.services.try_get(PhysicsSystem)
             if physics_system:
                 physics_system.space.reindex_shape(phys.shape)
@@ -104,10 +84,7 @@ class HierarchySystem(System):
         """
         Iteratively update children of this entity using a stack.
         """
-        # Stack contains (entity_id, parent_pos, parent_rot)
-        # For the root, we need to fetch its current pos/rot first.
-
-        # Initial fetch for root
+        # Fetch root current and prev pos
         root_pos = None
         root_rot = 0.0
         root_prev_pos = None
@@ -122,7 +99,6 @@ class HierarchySystem(System):
                 root_pos = pymunk.Vec2d(trans.x, trans.y)
                 root_rot = 0.0
 
-        # Fetch root prev pos for interpolation syncing
         trans = world.get_component(root_entity, Transform)
         if trans:
             root_prev_pos = pymunk.Vec2d(trans.prev_x, trans.prev_y) if trans.prev_x is not None else root_pos
@@ -133,6 +109,7 @@ class HierarchySystem(System):
         if root_prev_pos is None:
             root_prev_pos = root_pos
 
+        # Stack: (entity_id, parent_pos, parent_rot, parent_prev_pos)
         stack = [(root_entity, root_pos, root_rot, root_prev_pos)]
 
         while stack:
@@ -142,21 +119,24 @@ class HierarchySystem(System):
             if not mount:
                 continue
 
-            # Iterate over children
-            # Note: We reverse the list to process them in order if stack behavior matters (LIFO)
-            # But order probably doesn't matter for independent children.
             for child_id in mount.children_ids:
                 child_mount = mounts.get(child_id)
                 if not child_mount:
                     continue
 
-                # Calculate Child Position
+                # Child logic
                 offset = child_mount.mount_point_offset
                 rotated_offset = offset.rotated(parent_rot)
                 child_pos = parent_pos + rotated_offset
 
-                # Calculate Child Prev Position
-                # Using current rotation for prev offset is an approximation but better than no interpolation.
+                # Interpolation Logic:
+                # Calculate what the child's prev position SHOULD have been based on parent's prev position.
+                # Use current rotation for simplicity, or ideally parent_prev_rot if we had it.
+                # Assuming rotation is slow/instant or we don't interpolate rotation perfectly here:
+                # Better approximation: rotated_offset is based on CURRENT rot.
+                # If we want smooth interp, we should use parent_prev_rot.
+                # But we don't track prev_rot in Transform.
+                # So we approximate using current rotation for the offset.
                 child_prev_pos = parent_prev_pos + rotated_offset
 
                 # Apply to Child
@@ -164,22 +144,34 @@ class HierarchySystem(System):
                 child_rot = parent_rot # Children inherit rotation
 
                 if child_phys:
-                    # Sync physics body directly
                     child_phys.body.position = child_pos
                     child_phys.body.angle = child_rot
 
+                    # Ensure children are sensors
                     if not child_phys.shape.sensor:
                         child_phys.shape.sensor = True
+
+                    # Reindex needed? Usually children follow parent.
+                    # If parent moved, we reindexed parent. Children are sensors, so maybe less critical for collision blocking,
+                    # but critical for hitboxes.
+                    # PhysicsSystem.space.reindex_shapes_for_body(child_phys.body) could be called here if we had access.
+                    # Or rely on global step() if it happens later.
+                    # But hierarchy system usually runs AFTER movement.
+                    # So global step has already happened?
+                    # If KinematicMovementSystem calls step(), then Hierarchy runs, children positions are updated.
+                    # The spatial hash for children is now STALE until next frame's step().
+                    # This means raycasts (Visibility) might miss children in this frame.
+                    # So we should reindex children here.
+                    if child_phys.body.space:
+                        child_phys.body.space.reindex_shapes_for_body(child_phys.body)
 
                 child_trans = world.get_component(child_id, Transform)
                 if child_trans:
                     child_trans.x = child_pos.x
                     child_trans.y = child_pos.y
-                    # Update prev to match parent's relative motion for interpolation
                     child_trans.prev_x = child_prev_pos.x
                     child_trans.prev_y = child_prev_pos.y
 
-                # Push child to stack to process ITS children
                 stack.append((child_id, child_pos, child_rot, child_prev_pos))
 
     def process_pending_dismounts(self, world: World, dt: float):
@@ -187,20 +179,27 @@ class HierarchySystem(System):
         Handle entities that are trying to find a spot to dismount.
         """
         for entity, (pending, trans, phys) in world.get_components_tuple(PendingDismount, Transform, PhysicsBody):
-            logger.trace(f"Processing pending dismount for entity {entity}")
+            # logger.trace(f"Processing pending dismount for entity {entity}")
             pending.time_in_pending += dt
 
-            # Throttle search: every 0.2s?
-            # For simplicity, search every frame but limit iterations.
+            # Check timeout
+            if pending.time_in_pending > 5.0:
+                 # Emergency Teleport
+                 # Teleport to (0,0) or some safe spot
+                 phys.body.position = pymunk.Vec2d(0, 0)
+                 trans.x = 0
+                 trans.y = 0
+                 world.remove_component(entity, PendingDismount)
+                 if phys.shape.sensor:
+                     phys.shape.sensor = False
+                 continue
 
             # Search for a valid spot
-            # Concentric search
-
             found_spot = False
             target_pos = phys.body.position
-
-            # Define search pattern
             search_radius = 50.0
+
+            # Concentric/Spiral Search Pattern
             offsets = [
                 pymunk.Vec2d(0, 0),
                 pymunk.Vec2d(search_radius, 0),
@@ -211,6 +210,11 @@ class HierarchySystem(System):
                 pymunk.Vec2d(-search_radius, search_radius),
                 pymunk.Vec2d(search_radius, -search_radius),
                 pymunk.Vec2d(-search_radius, -search_radius),
+                # Expand search
+                pymunk.Vec2d(search_radius*2, 0),
+                pymunk.Vec2d(-search_radius*2, 0),
+                pymunk.Vec2d(0, search_radius*2),
+                pymunk.Vec2d(0, -search_radius*2),
             ]
 
             space = phys.body.space
@@ -224,27 +228,59 @@ class HierarchySystem(System):
             for offset in offsets:
                 candidate_pos = target_pos + offset
 
-                info = space.point_query_nearest(candidate_pos, collider_radius, pymunk.ShapeFilter(mask=CollisionCategories.WALL))
+                # Check for overlap with walls
+                # point_query checks if point is INSIDE a shape.
+                # We need to check if our SHAPE would overlap.
+                # shape_query is better.
 
-                if info is None or info.distance > 0:
-                    if info and info.distance < 0:
-                        continue
+                # Create a temporary shape or use point_query with radius?
+                # point_query_nearest finds distance to nearest shape.
 
-                    phys.body.position = candidate_pos
-                    trans.x = candidate_pos.x
-                    trans.y = candidate_pos.y
+                info = space.point_query_nearest(candidate_pos, collider_radius + 1.0, pymunk.ShapeFilter(mask=CollisionCategories.WALL))
 
-                    world.remove_component(entity, PendingDismount)
+                # info.distance is distance to surface. Negative means inside.
+                # We want distance > collider_radius (approximately) to be safe?
+                # Wait, point_query_nearest returns info about the nearest point on a shape.
+                # If distance < 0, we are inside.
 
-                    if phys.shape.sensor:
-                        phys.shape.sensor = False
+                # Using point_query_nearest(pos, max_dist, filter)
+                # If it finds something within max_dist, it returns it.
+                # If we want to check if free:
+                # If info is None (nothing within max_dist), we are good (assuming max_dist covers our radius).
+                # But point_query_nearest checks infinite distance? No, max_distance is 2nd arg.
 
-                    found_spot = True
-                    break
+                # Actually, correct way to check "Can I place here?" is shape_query.
+                # But we can't easily move the shape to query without modifying body.
+                # Alternative: point_query with (radius + skin).
 
-            if not found_spot:
-                if pending.time_in_pending > 5.0:
-                    phys.body.position = pymunk.Vec2d(0, 0)
-                    world.remove_component(entity, PendingDismount)
-                    if phys.shape.sensor:
-                        phys.shape.sensor = False
+                # If we use point_query_nearest with max_dist = collider_radius:
+                # If it returns a hit with dist < 0, we are overlapping.
+                # If dist > 0, we are near but not overlapping?
+
+                # Let's try to trust point_query for now.
+                # Check if point is inside any WALL.
+
+                # Use a cleaner check:
+                # Check if position is valid.
+
+                # Simple check:
+                query = space.point_query_nearest(candidate_pos, 0, pymunk.ShapeFilter(mask=CollisionCategories.WALL))
+
+                if query and query.distance < collider_radius:
+                     # Too close or inside
+                     continue
+
+                # If safe:
+                phys.body.position = candidate_pos
+                trans.x = candidate_pos.x
+                trans.y = candidate_pos.y
+
+                world.remove_component(entity, PendingDismount)
+                if phys.shape.sensor:
+                    phys.shape.sensor = False
+
+                if space:
+                    space.reindex_shapes_for_body(phys.body)
+
+                found_spot = True
+                break

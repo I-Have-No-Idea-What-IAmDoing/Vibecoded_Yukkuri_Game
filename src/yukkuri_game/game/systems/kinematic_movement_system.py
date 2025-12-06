@@ -53,6 +53,7 @@ class KinematicMovementSystem(System):
         # Note: get_components_tuple returns (ent, [comp1, comp2, ...])
         components = world.get_components_tuple(PhysicsBody, MovementController, Transform)
 
+        # 1. Move all Kinematic Bodies
         for entity, (phys, controller, trans) in components:
             # Only handle Kinematic bodies
             if phys.body.body_type != pymunk.Body.KINEMATIC:
@@ -64,10 +65,22 @@ class KinematicMovementSystem(System):
 
             self.move_and_slide(phys, controller, trans, dt)
 
+            # Reindex shape immediately so subsequent queries in this frame (or by other entities)
+            # see the new position. This is crucial for unit-vs-unit collision accuracy within the same frame.
+            if self.space:
+                self.space.reindex_shapes_for_body(phys.body)
+
             # Note: trans is updated inside move_and_slide now, but we can verify
             if trans.x != phys.body.position.x:
                  trans.x = phys.body.position.x
                  trans.y = phys.body.position.y
+
+        # 2. Step the Physics Space (Spatial Hash Update)
+        # We do this AFTER moving kinematic bodies so the hash is consistent for the NEXT frame,
+        # or for any non-kinematic physics (if added later).
+        # Also, reindex_shapes_for_body handles the immediate update, but step() handles global maintenance.
+        if self.space:
+            self.space.step(dt)
 
     def move_and_slide(self, phys: PhysicsBody, controller: MovementController, trans: Transform, dt: float):
         """
@@ -110,10 +123,14 @@ class KinematicMovementSystem(System):
 
         # Early exit if negligible movement
         if move_delta.length_squared < 0.000001:
+            # Even if not moving, sync transform
+            trans.x = body.position.x
+            trans.y = body.position.y
             return
 
         # 3. Sweep and Slide
         remaining_move = move_delta
+        original_intent = move_delta # Save for dot product check
         original_pos = body.position
         start_pos = body.position
 
@@ -122,11 +139,11 @@ class KinematicMovementSystem(System):
         if isinstance(shape, pymunk.Circle):
              radius = shape.radius
         elif isinstance(shape, pymunk.Poly):
-             # For Poly, calculate radius from bounding box.
+             # For Poly, use max dimension to be safe (circumscribed-ish)
              bb = shape.bb
              width = bb.right - bb.left
              height = bb.top - bb.bottom
-             radius = min(width, height) / 2.0
+             radius = max(width, height) / 2.0
         elif hasattr(shape, 'radius'):
              radius = shape.radius
 
@@ -140,8 +157,6 @@ class KinematicMovementSystem(System):
             if remaining_move.length_squared < 0.000001:
                 break
 
-            # Extend cast by skin width to detect collision slightly early?
-            # Or just cast exactly. Pymunk segment_query checks against shapes.
             end_pos = start_pos + remaining_move
 
             # Cast
@@ -160,24 +175,16 @@ class KinematicMovementSystem(System):
                     continue
 
                 # 4. Filter internal edges or back-faces
-                # Determine if the normal opposes our movement.
-                # If dot(normal, direction) > 0, we are moving away from the wall (back-face)
-                # We use a small epsilon because sometimes due to precision we might be slightly off.
+                # If moving away from normal, ignore
                 if info.normal.dot(remaining_move) > 0.0001:
                      continue
-
-                # Internal Edge Check:
-                # This is tricky without graph info, but usually checking distance > small_val helps.
-                # Here we rely on the segment_query returning the first true hit.
-                # If we are starting 'inside' a wall because of skin width penetration, we might hit it with t=0 or negative.
-                # But start_pos is adjusted to be safe.
 
                 hit = info
                 break
 
             if hit:
                 # Resolve Collision
-                logger.trace(f"Collision detected with normal {hit.normal} at alpha {hit.alpha}")
+                # logger.trace(f"Collision detected with normal {hit.normal} at alpha {hit.alpha}")
 
                 safe_fraction = max(0.0, hit.alpha - (skin_width / remaining_move.length) if remaining_move.length > 0 else 0)
 
@@ -186,23 +193,21 @@ class KinematicMovementSystem(System):
                 start_pos += actual_move
 
                 # Slide
-                # Remainder is the part of the vector we couldn't travel
                 remainder = remaining_move * (1.0 - safe_fraction)
-
-                # Project remainder onto wall tangent
                 normal = hit.normal
 
-                # Safety: Ensure normal is normalized (it should be from pymunk)
-
                 dot = remainder.dot(normal)
-
-                # Subtract component parallel to normal to slide
                 slide_vec = remainder - normal * dot
 
-                # Corner Handling:
-                # If the slide vector would make us go back into the wall we just hit (due to precision),
-                # or if we are pinched, we might need to stop or adjust.
-                # However, basic projection usually handles this unless the angle is acute.
+                # Corner Handling / Opposing Intent
+                # If the slide vector opposes the ORIGINAL intent, we might be wedged.
+                # However, sliding along a wall usually means dot(slide, original) > 0.
+                # If we hit a second wall that reflects us BACK, dot might be negative.
+
+                if slide_vec.dot(original_intent) < 0:
+                     # Stop movement if sliding pushes us back against our will
+                     remaining_move = pymunk.Vec2d(0, 0)
+                     break
 
                 remaining_move = slide_vec
             else:
