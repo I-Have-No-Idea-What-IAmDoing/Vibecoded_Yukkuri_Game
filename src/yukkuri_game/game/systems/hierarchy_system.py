@@ -78,10 +78,9 @@ class HierarchySystem(System):
         descendants = []
         self.collect_descendants(root_entity, mounts, pymunk.Vec2d(0, 0), descendants)
 
-        max_req_radius = 10.0 # Default/Base
+        max_req_radius = phys.shape.radius
         # Ideally fetch base radius from prefab or component?
         # We assume current radius is at least base radius.
-        base_radius = phys.shape.radius
 
         for child_id, offset in descendants:
             dist = offset.length
