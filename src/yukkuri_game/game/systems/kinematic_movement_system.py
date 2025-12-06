@@ -140,8 +140,6 @@ class KinematicMovementSystem(System):
             if remaining_move.length_squared < 0.000001:
                 break
 
-            # Extend cast by skin width to detect collision slightly early?
-            # Or just cast exactly. Pymunk segment_query checks against shapes.
             end_pos = start_pos + remaining_move
 
             # Cast
@@ -161,23 +159,41 @@ class KinematicMovementSystem(System):
 
                 # 4. Filter internal edges or back-faces
                 # Determine if the normal opposes our movement.
-                # If dot(normal, direction) > 0, we are moving away from the wall (back-face)
-                # We use a small epsilon because sometimes due to precision we might be slightly off.
-                if info.normal.dot(remaining_move) > 0.0001:
-                     continue
+                # If dot(normal, direction) > 0, we are moving away from the wall (back-face).
+                # Note: We should be careful about "inside" cases.
+                # If alpha is 0 (already intersecting), and dot > 0 (moving away), we ignore.
+                # If alpha is 0, and dot < 0 (moving deeper), we block.
 
-                # Internal Edge Check:
-                # This is tricky without graph info, but usually checking distance > small_val helps.
-                # Here we rely on the segment_query returning the first true hit.
-                # If we are starting 'inside' a wall because of skin width penetration, we might hit it with t=0 or negative.
-                # But start_pos is adjusted to be safe.
+                # Check if we are moving against the normal (into the wall)
+                # But allow hits if alpha is near zero (inside), even if normal seems to point same way
+                # (which shouldn't happen usually for convex shapes, but for segments it might depend on winding)
+
+                # Note: Pymunk segment query normals are relative to the segment, not necessarily opposing the ray?
+                # Actually, standard Pymunk segment query returns normal facing the ray origin if outside.
+                # If inside, it might be tricky.
+
+                # Relaxed check: Only skip if we are CLEARLY moving away (dot > epsilon) AND alpha is not tiny.
+                # If alpha is tiny, we might be inside and the normal might be weird, so we should process it to slide out/stop.
+
+                dot = info.normal.dot(remaining_move)
+                if dot > 0.0001 and info.alpha > 0.001:
+                     continue
 
                 hit = info
                 break
 
             if hit:
                 # Resolve Collision
-                logger.trace(f"Collision detected with normal {hit.normal} at alpha {hit.alpha}")
+                # logger.trace(f"Collision detected with normal {hit.normal} at alpha {hit.alpha}")
+
+                if hit.alpha <= 0.00001:
+                    # We are starting inside or extremely close.
+                    # Stop movement to prevent tunneling further.
+                    # Ideally we should push out, but for kinematic controller, just stopping the component
+                    # of movement into the wall is safer than teleporting.
+
+                    # If we are stuck, we just slide.
+                    pass
 
                 safe_fraction = max(0.0, hit.alpha - (skin_width / remaining_move.length) if remaining_move.length > 0 else 0)
 
@@ -192,21 +208,46 @@ class KinematicMovementSystem(System):
                 # Project remainder onto wall tangent
                 normal = hit.normal
 
-                # Safety: Ensure normal is normalized (it should be from pymunk)
-
                 dot = remainder.dot(normal)
 
                 # Subtract component parallel to normal to slide
                 slide_vec = remainder - normal * dot
 
-                # Corner Handling:
-                # If the slide vector would make us go back into the wall we just hit (due to precision),
-                # or if we are pinched, we might need to stop or adjust.
-                # However, basic projection usually handles this unless the angle is acute.
+                # Safety check: If slide_vec is extremely small or opposes original intention significantly?
+                # Actually, standard projection is fine.
 
                 remaining_move = slide_vec
             else:
                 # No hit
+                # Safety Check: Did we tunnel?
+                # Pymunk segment_query can miss collisions near corners or complex geometry.
+                # We perform a point_query at the destination to ensure we are not overlapping.
+
+                pq_info = self.space.point_query_nearest(end_pos, radius + skin_width, query_filter)
+                if pq_info and pq_info.shape and not pq_info.shape.sensor and pq_info.shape != shape:
+                    # Check overlap
+                    # point_query_nearest returns distance to the shape surface.
+                    # Overlap if distance < radius.
+                    # Note: pq_info.distance is positive if outside, negative if inside shape.
+
+                    overlap = radius - pq_info.distance
+                    if overlap > 0:
+                        # We tunneled or are overlapping.
+                        # Push out along the gradient (normal).
+                        # pq_info.gradient points OUT of the shape.
+
+                        # Fix position
+                        correction = pq_info.gradient * overlap
+                        end_pos += correction
+
+                        # Also treat this as a collision for sliding purposes?
+                        # If we just correct position, we might keep pushing into it next frame.
+                        # Ideally we should reflect velocity or slide.
+                        # But since 'remaining_move' was fully consumed (we thought no hit),
+                        # we assume we reached the end.
+                        # Correcting position is enough to prevent deep tunneling.
+                        pass
+
                 start_pos = end_pos
                 remaining_move = pymunk.Vec2d(0, 0)
                 break

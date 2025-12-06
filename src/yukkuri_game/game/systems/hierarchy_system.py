@@ -42,6 +42,26 @@ class HierarchySystem(System):
         # 4. Process Pending Dismounts
         self.process_pending_dismounts(world, dt)
 
+    def collect_descendants(self, entity_id: int, mounts: dict, accumulated_offset: pymunk.Vec2d, results: list):
+        """
+        Recursively collects all descendants and their absolute offsets relative to the root.
+        """
+        mount = mounts.get(entity_id)
+        if not mount:
+            return
+
+        for child_id in mount.children_ids:
+            child_mount = mounts.get(child_id)
+            if not child_mount:
+                continue
+
+            # Note: This ignores rotation for radius calculation (assuming worst case circular expansion)
+            # A precise AABB would require checking rotations, but for a Circle collider, max distance is enough.
+            child_abs_offset = accumulated_offset + child_mount.mount_point_offset
+            results.append((child_id, child_abs_offset))
+
+            self.collect_descendants(child_id, mounts, child_abs_offset, results)
+
     def recalculate_root_collider(self, world: World, root_entity: int, mounts: dict):
         """
         Updates the root entity's collider to encompass the entire stack (Totem Pole).
@@ -52,26 +72,18 @@ class HierarchySystem(System):
 
         mount = mounts.get(root_entity)
         if not mount or not mount.children_ids:
-             # Reset to default if no children?
-             # But we don't know the default. Assume 10.0 or keep as is.
-             # Ideally we should store 'base_radius' in a component.
              return
 
-        # Heuristic: Find max distance of children from root + child radius
-        # For a stack (totem pole), they are usually at (0, 0) offset but layered.
-        # But if they have offsets (vehicle), we need to cover them.
+        # Recursive collection
+        descendants = []
+        self.collect_descendants(root_entity, mounts, pymunk.Vec2d(0, 0), descendants)
 
-        max_dist_sq = 0.0
+        max_req_radius = phys.shape.radius
+        # Ideally fetch base radius from prefab or component?
+        # We assume current radius is at least base radius.
 
-        # Iterate all descendants?
-        # For now, just direct children to be fast.
-
-        for child_id in mount.children_ids:
-            child_mount = mounts.get(child_id)
-            if not child_mount:
-                continue
-
-            dist_sq = child_mount.mount_point_offset.length_squared
+        for child_id, offset in descendants:
+            dist = offset.length
 
             # Add child radius
             child_phys = world.get_component(child_id, PhysicsBody)
@@ -79,23 +91,21 @@ class HierarchySystem(System):
             if child_phys and hasattr(child_phys.shape, 'radius'):
                 child_r = child_phys.shape.radius
 
-            # Approximate total radius required
-            req_r = math.sqrt(dist_sq) + child_r
-            if req_r > max_dist_sq:
-                max_dist_sq = req_r
+            req_r = dist + child_r
+            if req_r > max_req_radius:
+                max_req_radius = req_r
 
         # Update radius if significantly different
-        # Base radius for Yukkuri is ~10-20.
         current_r = phys.shape.radius
-        target_r = max(current_r, max_dist_sq)
 
-        # Only update if growing, or maybe shrinking?
-        # Shrinking is dangerous if we get stuck.
-        # Let's only grow for now to cover passengers.
-        if target_r > current_r + 1.0:
-            logger.trace(f"Resizing root collider from {current_r} to {target_r}")
-            phys.shape.unsafe_set_radius(target_r)
-            # Reindex shape to notify space of change
+        # Only grow to avoid getting stuck when shrinking?
+        # Proposal says: "recalculate the radius required to cover the new stack."
+        # If we shrink, we might no longer collide with something we were touching, which is fine.
+        # But if we grow, we might push into something.
+
+        if max_req_radius > current_r + 1.0:
+            logger.trace(f"Resizing root collider from {current_r} to {max_req_radius}")
+            phys.shape.unsafe_set_radius(max_req_radius)
             physics_system = world.services.try_get(PhysicsSystem)
             if physics_system:
                 physics_system.space.reindex_shape(phys.shape)
@@ -111,6 +121,7 @@ class HierarchySystem(System):
         root_pos = None
         root_rot = 0.0
         root_prev_pos = None
+        root_prev_rot = 0.0
 
         phys = world.get_component(root_entity, PhysicsBody)
         if phys:
@@ -120,12 +131,13 @@ class HierarchySystem(System):
             trans = world.get_component(root_entity, Transform)
             if trans:
                 root_pos = pymunk.Vec2d(trans.x, trans.y)
-                root_rot = 0.0
+                root_rot = trans.rotation
 
         # Fetch root prev pos for interpolation syncing
         trans = world.get_component(root_entity, Transform)
         if trans:
             root_prev_pos = pymunk.Vec2d(trans.prev_x, trans.prev_y) if trans.prev_x is not None else root_pos
+            root_prev_rot = trans.prev_rotation if trans.prev_rotation is not None else root_rot
 
         if root_pos is None:
             return
@@ -133,10 +145,10 @@ class HierarchySystem(System):
         if root_prev_pos is None:
             root_prev_pos = root_pos
 
-        stack = [(root_entity, root_pos, root_rot, root_prev_pos)]
+        stack = [(root_entity, root_pos, root_rot, root_prev_pos, root_prev_rot)]
 
         while stack:
-            current_entity, parent_pos, parent_rot, parent_prev_pos = stack.pop()
+            current_entity, parent_pos, parent_rot, parent_prev_pos, parent_prev_rot = stack.pop()
 
             mount = mounts.get(current_entity)
             if not mount:
@@ -156,12 +168,14 @@ class HierarchySystem(System):
                 child_pos = parent_pos + rotated_offset
 
                 # Calculate Child Prev Position
-                # Using current rotation for prev offset is an approximation but better than no interpolation.
-                child_prev_pos = parent_prev_pos + rotated_offset
+                # Use parent_prev_rot to correctly interpolate the offset
+                prev_rotated_offset = offset.rotated(parent_prev_rot)
+                child_prev_pos = parent_prev_pos + prev_rotated_offset
 
                 # Apply to Child
                 child_phys = world.get_component(child_id, PhysicsBody)
                 child_rot = parent_rot # Children inherit rotation
+                child_prev_rot = parent_prev_rot
 
                 if child_phys:
                     # Sync physics body directly
@@ -175,12 +189,15 @@ class HierarchySystem(System):
                 if child_trans:
                     child_trans.x = child_pos.x
                     child_trans.y = child_pos.y
+                    child_trans.rotation = child_rot
+
                     # Update prev to match parent's relative motion for interpolation
                     child_trans.prev_x = child_prev_pos.x
                     child_trans.prev_y = child_prev_pos.y
+                    child_trans.prev_rotation = child_prev_rot
 
                 # Push child to stack to process ITS children
-                stack.append((child_id, child_pos, child_rot, child_prev_pos))
+                stack.append((child_id, child_pos, child_rot, child_prev_pos, child_prev_rot))
 
     def process_pending_dismounts(self, world: World, dt: float):
         """

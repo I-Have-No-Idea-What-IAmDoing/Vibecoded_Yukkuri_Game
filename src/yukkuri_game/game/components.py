@@ -37,9 +37,11 @@ class Transform:
 
     x: float
     y: float
+    rotation: float = 0.0
     scale: float = 1.0
     prev_x: Optional[float] = None
     prev_y: Optional[float] = None
+    prev_rotation: Optional[float] = None
 
     def __post_init__(self) -> None:
         """Initialize prev positions to current positions to avoid jumps."""
@@ -47,6 +49,8 @@ class Transform:
             self.prev_x = self.x
         if self.prev_y is None:
             self.prev_y = self.y
+        if self.prev_rotation is None:
+            self.prev_rotation = self.rotation
 
 
 @dataclass
