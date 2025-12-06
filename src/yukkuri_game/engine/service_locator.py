@@ -84,3 +84,10 @@ class ServiceLocator:
             Optional[T]: The registered service instance, or None if not found.
         """
         return self._services.get(service_type)
+
+    def clear(self) -> None:
+        """
+        Clears all registered services.
+        Useful for testing or resetting state.
+        """
+        self._services.clear()

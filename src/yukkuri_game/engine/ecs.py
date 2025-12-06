@@ -11,6 +11,7 @@ import esper
 from .service_locator import ServiceLocator
 from .events import EntityDestroyedEvent
 from .event_bus import EventBus
+import contextlib
 
 T = TypeVar("T")
 
@@ -40,10 +41,10 @@ class World:
     def __init__(self) -> None:
         """Initializes a new ECS World."""
         self.name = str(uuid.uuid4())
-        esper.switch_world(self.name)
-        # Note: esper doesn't have explicit world creation, switching to a new name creates it.
         self.services = ServiceLocator()
         self._next_stable_id = 1
+        # Create the world context in esper
+        esper.switch_world(self.name)
 
     def get_next_stable_id(self) -> int:
         """
@@ -69,6 +70,27 @@ class World:
         """Switches to this world's context."""
         if esper.current_world != self.name:
             esper.switch_world(self.name)
+
+    @contextlib.contextmanager
+    def context(self):
+        """
+        Context manager to ensure operations are performed in this world's context.
+
+        Usage:
+            with world.context():
+                # perform esper operations directly or via methods
+        """
+        previous_world = esper.current_world
+        self._switch()
+        try:
+            yield
+        finally:
+            if previous_world and previous_world != self.name:
+                try:
+                    esper.switch_world(previous_world)
+                except KeyError:
+                    # Previous world might have been deleted
+                    pass
 
     def create_entity(self, *components: Any) -> int:
         """
@@ -328,6 +350,7 @@ class System(ProcessorBase):
         """
         # We need to ensure we are operating on the correct world context
         if hasattr(self, "ecs_world"):
+            self.ecs_world._switch()
             self.update(self.ecs_world, dt)
 
     def update(self, world: World, dt: float) -> None:
