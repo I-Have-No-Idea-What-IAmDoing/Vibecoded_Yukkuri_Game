@@ -14,93 +14,76 @@ class MockWorld(World):
         super().__init__()
         self.services = MockServiceLocator()
 
-def test_hallway_movement():
-    # Setup Pymunk Space
+def create_kinematic_entity(space, position, velocity, radius=5):
+    body = pymunk.Body(1, 1, body_type=pymunk.Body.KINEMATIC)
+    body.position = position
+    shape = pymunk.Circle(body, radius)
+    space.add(body, shape)
+
+    phys = PhysicsBody(body=body, shape=shape)
+    controller = MovementController(acceleration=100.0, friction=10.0)
+    controller.target_velocity = velocity
+    trans = Transform(x=position.x, y=position.y)
+
+    return phys, controller, trans, body
+
+def setup_simulation():
     space = pymunk.Space()
     space.gravity = (0, 0)
+    kms = KinematicMovementSystem()
+    kms.space = space
+    return space, kms
+
+def test_hallway_movement():
+    space, kms = setup_simulation()
 
     # Create Wall (Hallway)
-    # Wall from (0, 10) to (100, 10)
-    # And (0, -10) to (100, -10)
     wall_body = pymunk.Body(body_type=pymunk.Body.STATIC)
     wall_shape1 = pymunk.Segment(wall_body, (0, 10), (100, 10), 1)
     wall_shape2 = pymunk.Segment(wall_body, (0, -10), (100, -10), 1)
     space.add(wall_body, wall_shape1, wall_shape2)
 
-    # Create Character
-    body = pymunk.Body(1, 1, body_type=pymunk.Body.KINEMATIC)
-    body.position = (10, 0)
-    shape = pymunk.Circle(body, 5)
-    space.add(body, shape)
+    phys, controller, trans, body = create_kinematic_entity(
+        space,
+        pymunk.Vec2d(10, 0),
+        pymunk.Vec2d(50, 0)
+    )
 
-    # Components
-    phys = PhysicsBody(body=body, shape=shape)
-    controller = MovementController(acceleration=100.0, friction=10.0)
-    controller.target_velocity = pymunk.Vec2d(50, 0) # Moving right
-    trans = Transform(x=10, y=0)
-
-    # System
-    kms = KinematicMovementSystem()
-    kms.space = space
-
-    # Step
     dt = 1.0/60.0
 
-    # print(f"Start Pos: {body.position}")
-
-    for _ in range(60): # 1 second
+    for _ in range(60):
         kms.move_and_slide(phys, controller, trans, dt)
 
-    print(f"End Pos: {body.position}")
     # We expect roughly 47.5 based on calculation (10 + 37.5)
     assert body.position.x > 45
-    assert abs(body.position.y) < 0.1 # Should stay centered
+    assert abs(body.position.y) < 0.1
 
 def test_corner_collision():
-    # Setup Pymunk Space
-    space = pymunk.Space()
-    space.gravity = (0, 0)
+    space, kms = setup_simulation()
 
-    # Create Corner (0,0) -> (0, 100) and (0,0) -> (100, 0)
+    # Create Corner
     wall_body = pymunk.Body(body_type=pymunk.Body.STATIC)
     wall_shape1 = pymunk.Segment(wall_body, (0, 0), (0, 100), 1)
     wall_shape2 = pymunk.Segment(wall_body, (0, 0), (100, 0), 1)
     space.add(wall_body, wall_shape1, wall_shape2)
 
-    # Create Character at (10, 10) moving towards (-10, -10)
-    body = pymunk.Body(1, 1, body_type=pymunk.Body.KINEMATIC)
-    body.position = (10, 10)
-    shape = pymunk.Circle(body, 5)
-    space.add(body, shape)
-
-    # Components
-    phys = PhysicsBody(body=body, shape=shape)
-    controller = MovementController(acceleration=1000.0, friction=0.0)
-    controller.target_velocity = pymunk.Vec2d(-50, -50) # Moving diagonal into corner
-    trans = Transform(x=10, y=10)
-
-    # System
-    kms = KinematicMovementSystem()
-    kms.space = space
+    # Moving diagonal into corner with higher acceleration
+    phys, controller, trans, body = create_kinematic_entity(
+        space,
+        pymunk.Vec2d(10, 10),
+        pymunk.Vec2d(-50, -50)
+    )
+    controller.acceleration = 1000.0
+    controller.friction = 0.0
 
     dt = 1.0/60.0
 
-    # print(f"Corner Start Pos: {body.position}")
     for _ in range(30):
         kms.move_and_slide(phys, controller, trans, dt)
 
-    print(f"Corner Pos: {body.position}")
-
     # Should stop near corner
-    # Expected stop: x>=6, y>=6.
-
     assert body.position.x >= 5.9
     assert body.position.y >= 5.9
-
-    # Also check max distance to corner
-    # dist_sq = (body.position.x - 6)**2 + (body.position.y - 6)**2
-    # print(f"Distance to expected stop (6,6): {dist_sq}")
-    # assert dist_sq < 25.0
 
 if __name__ == "__main__":
     test_hallway_movement()

@@ -122,6 +122,7 @@ class HierarchySystem(System):
         root_pos = None
         root_rot = 0.0
         root_prev_pos = None
+        root_prev_rot = 0.0
 
         phys = world.get_component(root_entity, PhysicsBody)
         if phys:
@@ -137,8 +138,7 @@ class HierarchySystem(System):
         trans = world.get_component(root_entity, Transform)
         if trans:
             root_prev_pos = pymunk.Vec2d(trans.prev_x, trans.prev_y) if trans.prev_x is not None else root_pos
-            # NOTE: We don't track prev_rot explicitly in a way easily used here without adding Vector2 support,
-            # but Transform has prev_rotation now.
+            root_prev_rot = trans.prev_rotation if trans.prev_rotation is not None else root_rot
 
         if root_pos is None:
             return
@@ -146,10 +146,10 @@ class HierarchySystem(System):
         if root_prev_pos is None:
             root_prev_pos = root_pos
 
-        stack = [(root_entity, root_pos, root_rot, root_prev_pos)]
+        stack = [(root_entity, root_pos, root_rot, root_prev_pos, root_prev_rot)]
 
         while stack:
-            current_entity, parent_pos, parent_rot, parent_prev_pos = stack.pop()
+            current_entity, parent_pos, parent_rot, parent_prev_pos, parent_prev_rot = stack.pop()
 
             mount = mounts.get(current_entity)
             if not mount:
@@ -169,12 +169,14 @@ class HierarchySystem(System):
                 child_pos = parent_pos + rotated_offset
 
                 # Calculate Child Prev Position
-                # Using current rotation for prev offset is an approximation but better than no interpolation.
-                child_prev_pos = parent_prev_pos + rotated_offset
+                # Use parent_prev_rot to correctly interpolate the offset
+                prev_rotated_offset = offset.rotated(parent_prev_rot)
+                child_prev_pos = parent_prev_pos + prev_rotated_offset
 
                 # Apply to Child
                 child_phys = world.get_component(child_id, PhysicsBody)
                 child_rot = parent_rot # Children inherit rotation
+                child_prev_rot = parent_prev_rot
 
                 if child_phys:
                     # Sync physics body directly
@@ -193,13 +195,10 @@ class HierarchySystem(System):
                     # Update prev to match parent's relative motion for interpolation
                     child_trans.prev_x = child_prev_pos.x
                     child_trans.prev_y = child_prev_pos.y
-                    child_trans.prev_rotation = child_rot # Assume no rot diff for child relative to parent?
-                    # If parent rotates, child rotates. So child_rot includes parent rotation.
-                    # We should ideally compute prev_rot based on parent_prev_rot.
-                    # But for now, setting it to current rot prevents wild interpolation if we don't have better data.
+                    child_trans.prev_rotation = child_prev_rot
 
                 # Push child to stack to process ITS children
-                stack.append((child_id, child_pos, child_rot, child_prev_pos))
+                stack.append((child_id, child_pos, child_rot, child_prev_pos, child_prev_rot))
 
     def process_pending_dismounts(self, world: World, dt: float):
         """
