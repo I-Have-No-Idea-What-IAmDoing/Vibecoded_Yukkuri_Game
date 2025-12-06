@@ -350,8 +350,8 @@ class System(ProcessorBase):
         """
         # We need to ensure we are operating on the correct world context
         if hasattr(self, "ecs_world"):
-            self.ecs_world._switch()
-            self.update(self.ecs_world, dt)
+            with self.ecs_world.context():
+                self.update(self.ecs_world, dt)
 
     def update(self, world: World, dt: float) -> None:
         """

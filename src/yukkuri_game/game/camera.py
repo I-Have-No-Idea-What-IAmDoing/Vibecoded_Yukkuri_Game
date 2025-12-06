@@ -98,10 +98,10 @@ class Camera:
         Returns:
             None
         """
+        zoom_amount = 0.0
         if event.type == pygame.MOUSEWHEEL:
             # Zoom in/out based on wheel movement
-            self.target_zoom += event.y * 0.1
-            self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
+            zoom_amount = event.y * 0.1
         elif event.type == pygame.MOUSEMOTION:
             if pygame.mouse.get_pressed()[1]:  # Middle mouse button
                 # Pan the camera
@@ -114,16 +114,14 @@ class Camera:
             if mods & pygame.KMOD_CTRL:
                 if event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
                     # Zoom In with Keyboard
-                    self.target_zoom += 0.1
-                    self.target_zoom = max(
-                        self.min_zoom, min(self.max_zoom, self.target_zoom)
-                    )
+                    zoom_amount = 0.1
                 elif event.key == pygame.K_MINUS:
                     # Zoom Out with Keyboard
-                    self.target_zoom -= 0.1
-                    self.target_zoom = max(
-                        self.min_zoom, min(self.max_zoom, self.target_zoom)
-                    )
+                    zoom_amount = -0.1
+
+        if zoom_amount != 0.0:
+            self.target_zoom += zoom_amount
+            self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
 
     def clear(self) -> None:
         """Reset camera to default."""
