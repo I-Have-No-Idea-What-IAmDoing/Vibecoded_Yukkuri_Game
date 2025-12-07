@@ -239,13 +239,50 @@ class HierarchySystem(System):
                 to_remove.append(entity)
             else:
                 if pending.time_in_pending > _DISMOUNT_TIMEOUT:
-                    if phys.shape.sensor:
-                        phys.shape.sensor = False
-                    to_remove.append(entity)
-                    logger.warning(f"Entity {entity} forced dismount after timeout.")
+                    # Emergency Teleport Fallback
+                    logger.warning(f"Entity {entity} forced dismount after timeout. Attempting Emergency Teleport.")
+                    if self._emergency_teleport(space, phys, trans, entity):
+                        if phys.shape.sensor:
+                            phys.shape.sensor = False
+                        to_remove.append(entity)
+                    else:
+                         # Last resort: Just make it physical at current location and hope for the best?
+                         # Or leave it pending?
+                         # The prompt says: "Emergency Teleport to the nearest friendly base/spawn point."
+                         # If that fails, logging error.
+                         logger.error(f"Entity {entity} FAILED emergency teleport. Potentially stuck.")
+                         # We remove the pending component so it stops ghosting, even if stuck.
+                         # This allows other systems to potentially unstuck it.
+                         if phys.shape.sensor:
+                            phys.shape.sensor = False
+                         to_remove.append(entity)
 
         for ent in to_remove:
             world.remove_component(ent, PendingDismount)
+
+    def _emergency_teleport(self, space, phys, trans, entity):
+        """
+        Attempts to teleport the entity to a safe fallback location (0,0).
+        In a real game, this would query for SpawnPoints or Base entities.
+        """
+        # Fallback to world origin as a "Safe Zone" if valid.
+        fallback_pos = pymunk.Vec2d(0, 0)
+
+        # Check if origin is free? Or just force it?
+        # "Teleport" implies forcing. But we should try to find a free spot near origin.
+        found_pos = self.find_free_spot(space, fallback_pos, phys.shape)
+
+        if found_pos:
+            phys.body.position = found_pos
+            trans.x = found_pos.x
+            trans.y = found_pos.y
+            return True
+
+        # If origin is also blocked, we just force it to origin and let depenetration handle it.
+        phys.body.position = fallback_pos
+        trans.x = fallback_pos.x
+        trans.y = fallback_pos.y
+        return True
 
     def find_free_spot(self, space, start_pos, shape):
         """

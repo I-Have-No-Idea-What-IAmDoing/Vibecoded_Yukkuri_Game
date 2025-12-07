@@ -31,6 +31,7 @@ class KinematicMovementSystem(System):
         self.skin_width = 0.01
         self.event_bus = None
         self.ecs_world = None
+        self._poly_radius_cache = {}
 
     def on_fixed_update(self, event: PhysicsFixedUpdateEvent):
         if not self.space:
@@ -94,15 +95,13 @@ class KinematicMovementSystem(System):
         This is a fallback mechanism. A perfect sweep system shouldn't need this often.
         """
         current_pos = pos
-        # Only 1 iteration needed for fallback
-        max_iterations = 1
+        # Increase iterations to handle complex overlaps
+        max_iterations = 3
 
-        for _ in range(max_iterations):
+        for iter_idx in range(max_iterations):
             phys.body.position = current_pos
-
-            # Using body-based shape query to handle Composite Shapes automatically
-            # Note: shape_query on space doesn't support "query all shapes of a body".
-            # We iterate shapes.
+            # Force update of shapes to match body position
+            phys.body.space.reindex_shapes_for_body(phys.body)
 
             total_push = pymunk.Vec2d(0, 0)
             hits = 0
@@ -129,7 +128,15 @@ class KinematicMovementSystem(System):
 
                     for point in contact_set.points:
                         if point.distance < -0.001:
-                            push = contact_set.normal * (-point.distance)
+                            # IMPORTANT: Pymunk's shape_query normal points from QueryShape -> SpaceShape (A->B).
+                            # If we want to push QueryShape (A) away from SpaceShape (B), we need to push in direction -Normal.
+                            # Since distance is negative (penetration), "Normal * Distance" is "-Normal * Positive".
+                            # This pushes A away from B.
+
+                            push = contact_set.normal * (point.distance)
+
+                            # Accumulate max penetration depth per contact normal?
+                            # Using just one best push per shape query might be enough
                             if push.length_squared > best_push.length_squared:
                                 best_push = push
 
@@ -150,39 +157,18 @@ class KinematicMovementSystem(System):
 
     def _get_poly_radius(self, shape: pymunk.Poly) -> float:
         """Calculates the radius of a circle that fully circumscribes the polygon."""
-        # Check cache if available? Pymunk doesn't cache this.
-        # Find max distance from centroid (0,0 in local space usually) to vertices.
-        # But wait, vertices are relative to body, not shape offset?
-        # shape.get_vertices() returns vertices in world coords? No, local coords?
-        # Actually Pymunk Poly vertices are relative to body position + rotation.
-        # But for radius calculation, we just need distance from "center".
-        # Which center? The one we use for sweeping.
-        # We sweep from `shape.body.local_to_world(shape.offset)`.
-        # So we need max distance from `shape.offset` to any vertex.
 
-        # For a Poly, get_vertices() returns vertices in local coordinates (relative to the body's center, if not offset).
-        # We perform the sweep from `body.local_to_world(shape.offset)`.
-        # Therefore, we need the radius of the circle centered at `shape.offset` that encloses all vertices.
+        # Check cache if available.
+        if shape in self._poly_radius_cache:
+            return self._poly_radius_cache[shape]
 
         verts = shape.get_vertices()
 
         # We don't need to transform verts to world, because we calculate the radius in local space.
         # `shape.offset` is the center of our sweep capsule in local space.
-        # Note: pymunk.Poly doesn't always have an 'offset' attribute exposed like Circle,
-        # but if we are sweeping from the "shape center", we should define what that is.
-        # If the shape is defined around (0,0), then offset is (0,0).
-        # If the user created a Poly offset from the body center, the vertices reflect that.
 
         # Pymunk's Poly vertices are stored relative to the body's position.
-        # If we sweep from the body's position (plus any explicit offset we use for the sweep),
-        # we generally assume the sweep starts at body.position (which is local 0,0).
-        # However, `move_and_slide` calculates `shape_center_world = shape.body.local_to_world(shape.offset)`.
-        # `pymunk.Poly` does NOT have an `offset` property. It relies on the vertices' positions.
-        # So `shape.offset` will likely fail if we try to access it on a Poly unless we monkey-patched it.
-        # But `move_and_slide` accesses `shape.offset`!
         # If `shape.offset` exists on Poly, we use it. If not, we assume (0,0).
-
-        # Let's fix the potential AttributeError here and in move_and_slide.
 
         sweep_origin_local = getattr(shape, 'offset', pymunk.Vec2d(0, 0))
 
@@ -192,7 +178,9 @@ class KinematicMovementSystem(System):
             if d_sq > max_sq:
                 max_sq = d_sq
 
-        return math.sqrt(max_sq)
+        radius = math.sqrt(max_sq)
+        self._poly_radius_cache[shape] = radius
+        return radius
 
 
     def move_and_slide(self, phys: PhysicsBody, controller: MovementController, trans: Transform, dt: float):
@@ -226,8 +214,6 @@ class KinematicMovementSystem(System):
         current_pos = body.position
 
         # Rigorous Slide Logic
-        # Instead of max_slides=4 and simple rejection, we use a loop that handles multiple planes.
-        # Max slides should be higher to handle complex jagged geometry.
         max_slides = 5
 
         for i in range(max_slides):
@@ -236,35 +222,23 @@ class KinematicMovementSystem(System):
 
             target_pos = current_pos + move_delta
 
-            # Perform Sweep for ALL shapes in the body (Composite Support)
+            # Perform Sweep for ALL shapes in the body
             best_hit = None
             best_alpha = 1.0
 
             for shape in body.shapes:
                 if shape.sensor: continue
 
-                # Determine radius for segment query approximation
-                # Note: Segment query is perfect for Circles/Capsules.
-                # For Polys, it is an approximation if we just use a radius.
-                # Pymunk doesn't have a "Shape Sweep" function exposed easily in Python without CFFI complexity
-                # or helper functions. segment_query with radius is the standard "Capsule Cast".
-                # If the shape is a Poly, we might want to cast a ray from the vertices?
-                # For now, we assume shapes are circular-ish or we use the bounding radius.
-                # Using specific shape logic:
                 radius = 0.0
                 if hasattr(shape, 'radius') and shape.radius > 0:
                     radius = shape.radius
                 elif isinstance(shape, pymunk.Poly):
-                    # Fix: Use circumscribing radius for Poly to prevent tunneling
                     radius = self._get_poly_radius(shape)
 
-                # Fix: Rename variable for clarity
-                # shape_center_world is the center of the shape in world coordinates
                 shape_offset = getattr(shape, 'offset', pymunk.Vec2d(0, 0))
                 shape_center_world = shape.body.local_to_world(shape_offset)
                 shape_dest = shape_center_world + move_delta
 
-                # We query using the shape's radius
                 results = self.space.segment_query(shape_center_world, shape_dest, radius, shape.filter)
 
                 for info in results:
@@ -290,23 +264,11 @@ class KinematicMovementSystem(System):
                 # Slide Logic
                 remainder = move_delta * (1.0 - safe_alpha)
 
-                # Project remainder along the surface
-                # New Velocity = Old Velocity - Normal * (Old Velocity . Normal)
-                # But we must be careful of acute angles (V-traps).
-
-                # Simple projection
                 dot = remainder.dot(best_hit.normal)
                 remainder = remainder - best_hit.normal * dot
 
-                # Re-check if this new remainder is valid against previous normals?
-                # In this loop, we just update move_delta and retry sweep.
-                # If we are stuck in a V, the next sweep will hit the other wall immediately (alpha ~ 0).
-                # Then we project against that normal.
-                # If the normals oppose, remainder becomes 0.
-
                 move_delta = remainder
 
-                # Update velocity to reflect the slide (for next frame consistency)
                 v_dot = velocity.dot(best_hit.normal)
                 velocity = velocity - best_hit.normal * v_dot
 

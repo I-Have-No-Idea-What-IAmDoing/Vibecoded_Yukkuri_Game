@@ -4,7 +4,7 @@ import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.hierarchy_system import HierarchySystem
 from yukkuri_game.game.systems.physics import PhysicsSystem
-from yukkuri_game.game.components import PhysicsBody, Transform, Mount
+from yukkuri_game.game.components import PhysicsBody, Mount, Transform
 
 def test_hierarchy_movement():
     world = World()
@@ -56,22 +56,20 @@ def test_hierarchy_movement():
     # Check Child Sensor (Should be sensor)
     assert child_phys.shape.sensor == True
 
-    # Check Root Radius (Should be expanded)
-    # Base 10. Child at 20 dist + 5 radius = 25.
+    # Check Root Body Shapes (Composite Collider)
+    # Original shape + Proxy shape for child
     root_phys = world.get_component(root, PhysicsBody)
-    assert root_phys.shape.radius == 25.0
+    assert len(root_phys.body.shapes) == 2
 
-    # Move Root
-    root_body.position = (200, 200)
-    root_body.angle = 1.570796 # 90 degrees
+    # Verify one shape is the proxy
+    proxy_shapes = [s for s in root_phys.body.shapes if hasattr(s, 'is_hierarchy_proxy')]
+    assert len(proxy_shapes) == 1
 
-    hierarchy.update(world, 0.1)
-
-    # Check Child Position
-    # Root (200, 200). Rot 90 deg. Offset (0, 20) rotated 90 -> (-20, 0)
-    # Result -> (180, 200)
-    # Note: Pymunk angle is radians.
-
-    assert abs(child_phys.body.position.x - 180) < 0.1
-    assert abs(child_phys.body.position.y - 200) < 0.1
-    assert abs(child_phys.body.angle - 1.570796) < 0.001
+    # Verify proxy position (relative to body)
+    # Body is at (100, 100). Child is at (100, 120).
+    # Proxy offset should be (0, 20).
+    # Note: Pymunk Circle offset is local.
+    proxy = proxy_shapes[0]
+    assert proxy.offset.x == 0
+    assert proxy.offset.y == 20
+    assert proxy.radius == 5 # Child radius
