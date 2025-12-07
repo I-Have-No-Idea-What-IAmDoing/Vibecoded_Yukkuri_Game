@@ -25,33 +25,12 @@ class VisibilitySystem(System):
         self.batch_size = 0.2  # Process 20% of entities per frame
         # Cache for physics body to entity ID mapping
         self.body_to_entity = {}
-        self.event_bus = None
-        self.ecs_world = None
-        self.initialized_map = False
-
-    def on_entity_destroyed(self, event: EntityDestroyedEvent):
-        # We need to find the body associated with this entity and remove it
-        # This is tricky because we only have Entity ID.
-        # We can iterate our map.
-        keys_to_remove = []
-        for body, ent in self.body_to_entity.items():
-            if ent == event.entity_id:
-                keys_to_remove.append(body)
-
-        for key in keys_to_remove:
-            del self.body_to_entity[key]
 
     def update(self, world: World, dt: float) -> None:
         if not self.space:
             physics_system = world.services.try_get(PhysicsSystem)
             if physics_system:
                 self.space = physics_system.space
-
-        if not self.event_bus:
-            self.event_bus = world.services.try_get(EventBus)
-            if self.event_bus:
-                self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
-                self.ecs_world = world
 
         # Initial map population (Run once)
         # We do this lazily because bodies might not be added immediately upon creation

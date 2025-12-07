@@ -42,7 +42,7 @@ class KinematicMovementSystem(System):
         else:
             # Fallback/Warning: This should be rare if PhysicsSystem and KinematicSystem
             # are initialized in order or if update() runs first.
-            pass
+            logger.warning("KinematicMovementSystem: Fixed update skipped because world is not initialized.")
 
     def update(self, world: World, dt: float) -> None:
         """
