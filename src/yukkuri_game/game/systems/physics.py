@@ -3,6 +3,7 @@ Module defining the PhysicsSystem logic.
 """
 
 import pymunk
+import math
 from typing import Optional
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus, Event
@@ -92,9 +93,17 @@ class PhysicsSystem(System):
         for entity, (phys, trans) in world.get_components_tuple(PhysicsBody, Transform):
             trans.prev_x = trans.x
             trans.prev_y = trans.y
+            trans.prev_rotation = trans.rotation
+
             trans.x = phys.body.position.x
             trans.y = phys.body.position.y
-            # Rotation could also be synced if Transform supported it
+            # Convert pymunk radians to degrees (pygame uses degrees)
+            # Pymunk: radians
+            # Pygame: degrees
+            # Note: We negate because pymunk y-axis is usually up (in standard physics) but here we use screen coords (y-down).
+            # However, in top-down games, if y is down, positive angle in math is clockwise on screen?
+            # Let's stick to standard conversion first: degrees = radians * (180/pi).
+            trans.rotation = math.degrees(phys.body.angle)
 
     def clear(self) -> None:
         """

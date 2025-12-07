@@ -178,6 +178,15 @@ class WorldRenderer:
         else:
             scaled_img = frame_img
 
+        # Apply Rotation
+        # We rotate after scaling to ensure best quality (though rotating first might be better for pixel art?)
+        # For smooth rotation, we should rotate the original image, but we need scaling too.
+        # pygame.transform.rotozoom could be used for combined scale/rotation with filtering.
+        # Here we just rotate the scaled image.
+        if transform.rotation != 0.0:
+            # Note: Pygame rotates counter-clockwise for positive degrees
+            scaled_img = pygame.transform.rotate(scaled_img, transform.rotation)
+
         # Center the sprite
         rect = scaled_img.get_rect(center=(int(base_screen_x), int(screen_y)))
 
