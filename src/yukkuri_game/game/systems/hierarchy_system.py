@@ -97,7 +97,7 @@ class HierarchySystem(System):
         # Update Shape
         if hasattr(phys.shape, 'unsafe_set_radius'):
             # Only update if significant change to avoid thrashing
-            if abs(phys.shape.radius - final_radius) > 0.1:
+            if abs(phys.shape.radius - final_radius) > _RADIUS_UPDATE_THRESHOLD:
                 phys.shape.unsafe_set_radius(final_radius)
                 if phys.body.space:
                     phys.body.space.reindex_shape(phys.shape)
