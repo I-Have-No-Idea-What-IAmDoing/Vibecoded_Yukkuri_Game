@@ -281,13 +281,13 @@ class HierarchySystem(System):
         query_filter = pymunk.ShapeFilter(mask=CollisionCategories.WALL | CollisionCategories.YUKKURI)
 
         def is_spot_free(pos):
-             # point_query finds shapes within `collider_radius` of `pos`.
-             # This effectively simulates a circle collider at `pos`.
-             infos = space.point_query(pos, collider_radius, query_filter)
+            # point_query finds shapes within `collider_radius` of `pos`.
+            # This effectively simulates a circle collider at `pos`.
+            infos = space.point_query(pos, collider_radius, query_filter)
 
-             # Filter out self
-             valid_hits = [i for i in infos if i.shape != shape and not i.shape.sensor]
-             return len(valid_hits) == 0
+            # Filter out self
+            valid_hits = [i for i in infos if i.shape != shape and not i.shape.sensor]
+            return len(valid_hits) == 0
 
         if is_spot_free(start_pos):
              return start_pos
