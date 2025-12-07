@@ -15,13 +15,10 @@ from .physics import PhysicsSystem
 
 _DISMOUNT_DEFAULT_RADIUS = 10.0
 _DISMOUNT_MAX_SEARCH_RADIUS = 100.0
-_DISMOUNT_MAX_SEARCH_CHECKS = 20 # Reduced from 50 to optimize perf
+_DISMOUNT_MAX_SEARCH_CHECKS = 20
 _DISMOUNT_TIMEOUT = 5.0
 _DEFAULT_ENTITY_RADIUS = 10.0
-_RADIUS_UPDATE_THRESHOLD = 0.1
 _SPIRAL_SEARCH_MIN_RADIUS = 0.1
-# Safety Cap: Prevent single unit from becoming a screen-sized collider
-_MAX_ROOT_COLLIDER_RADIUS = 50.0
 
 class HierarchySystem(System):
     """
@@ -54,7 +51,8 @@ class HierarchySystem(System):
 
     def process_structure_update(self, world: World, root_entity: int, mounts: dict):
         """
-        Recalculates the root collider radius if structure changed ("The Totem Pole").
+        Updates the Root's physics body shapes to represent the stack ("The Totem Pole").
+        Instead of one giant circle, we create a Composite Collider.
         """
         mount = mounts.get(root_entity)
         if not mount or not mount.structure_dirty:
@@ -64,13 +62,34 @@ class HierarchySystem(System):
         if not phys:
             return
 
-        # Base radius of the root itself
-        base_radius = phys.base_radius if phys.base_radius is not None else _DEFAULT_ENTITY_RADIUS
+        # We need to rebuild the shapes on the root body.
+        # Strategy:
+        # 1. Keep the original shape (the root unit).
+        # 2. Remove any "Child Proxy" shapes from previous updates.
+        # 3. Add new shapes for current children.
 
-        max_dist = 0.0
+        body = phys.body
+        space = body.space
 
-        # Traverse hierarchy to find furthest extent
-        # (This implies a spherical approximation of the whole stack)
+        # Remove old proxy shapes
+        to_remove = []
+        for shape in body.shapes:
+            if hasattr(shape, 'is_hierarchy_proxy'):
+                to_remove.append(shape)
+
+        # Simplified removal loop as suggested in PR comments
+        if space:
+            for s in to_remove:
+                space.remove(s)
+        # Note: If body is not in space, shapes are just attached to body.
+        # Pymunk pythonic API handles this, but explicitly:
+        # If we remove from space, it detaches from body if we added it via space.add(body, shape).
+        # But if it's just on the body?
+        # If we just added via body.shapes? Read-only.
+        # We must assume they were added to space.
+
+        # Now add new shapes for children
+        # Traverse hierarchy
         stack = [(root_entity, pymunk.Vec2d(0,0))]
 
         while stack:
@@ -84,36 +103,27 @@ class HierarchySystem(System):
                 if not child_mount:
                     continue
 
-                # We care about the magnitude of offset from Root
                 child_total_offset = curr_offset + child_mount.mount_point_offset
 
-                # Get child size
-                child_radius = _DEFAULT_ENTITY_RADIUS # Default
+                # Create a proxy shape for this child on the Root Body
                 c_phys = world.get_component(child_id, PhysicsBody)
+                child_radius = _DEFAULT_ENTITY_RADIUS
                 if c_phys and hasattr(c_phys.shape, 'radius'):
                     child_radius = c_phys.shape.radius
 
-                dist = child_total_offset.length + child_radius
-                if dist > max_dist:
-                    max_dist = dist
+                # Create Circle at offset
+                new_shape = pymunk.Circle(body, child_radius, child_total_offset)
+                new_shape.friction = 0.0 # Friction handled by root movement logic usually
+                new_shape.elasticity = 0.0
+                new_shape.is_hierarchy_proxy = True
+
+                # Inherit filter from root, but maybe ensure it blocks?
+                new_shape.filter = phys.shape.filter
+
+                if space:
+                    space.add(new_shape)
 
                 stack.append((child_id, child_total_offset))
-
-        final_radius = max(base_radius, max_dist)
-
-        # Critique Fix: Cap the radius to prevent game-breaking size
-        if final_radius > _MAX_ROOT_COLLIDER_RADIUS:
-             # Just cap it. Children outside will be sensors (no clip).
-             # This is a compromise: We prefer visual clipping over "I can't fit through the door".
-             final_radius = _MAX_ROOT_COLLIDER_RADIUS
-
-        # Update Shape
-        if hasattr(phys.shape, 'unsafe_set_radius'):
-            # Only update if significant change to avoid thrashing
-            if abs(phys.shape.radius - final_radius) > _RADIUS_UPDATE_THRESHOLD:
-                phys.shape.unsafe_set_radius(final_radius)
-                if phys.body.space:
-                    phys.body.space.reindex_shape(phys.shape)
 
         mount.structure_dirty = False
 
@@ -121,7 +131,6 @@ class HierarchySystem(System):
         """
         Iteratively update children of this entity using a stack.
         """
-        # Initial fetch for root
         root_pos = None
         root_rot = 0.0
         root_prev_pos = None
@@ -173,15 +182,15 @@ class HierarchySystem(System):
 
                 # Apply to Child
                 child_phys = world.get_component(child_id, PhysicsBody)
-                child_rot = parent_rot # Children inherit rotation
+                child_rot = parent_rot
                 child_prev_rot = parent_prev_rot
 
                 if child_phys:
-                    # Sync physics body directly
                     child_phys.body.position = child_pos
                     child_phys.body.angle = child_rot
 
-                    # Ensure child is sensor (Hitbox only) while mounted
+                    # Ensure child's OWN body is sensor (Hitbox only)
+                    # The physical collision is handled by the Root's Proxy Shapes now.
                     if not child_phys.shape.sensor:
                         child_phys.shape.sensor = True
 
@@ -199,7 +208,6 @@ class HierarchySystem(System):
     def process_dismounts(self, world: World, dt: float):
         """
         Handle entities that need to be placed back into the world.
-        Uses a Spiral Search to find a spot.
         """
         components = world.get_components_tuple(PendingDismount, Transform, PhysicsBody)
 
@@ -208,7 +216,6 @@ class HierarchySystem(System):
         for entity, (pending, trans, phys) in components:
             pending.time_in_pending += dt
 
-            # Ensure sensor mode
             if not phys.shape.sensor:
                 phys.shape.sensor = True
 
@@ -217,28 +224,21 @@ class HierarchySystem(System):
                 continue
 
             start_pos = phys.body.position
-            collider_radius = _DISMOUNT_DEFAULT_RADIUS
-            if hasattr(phys.shape, 'radius'):
-                collider_radius = phys.shape.radius
 
-            found_pos = self.find_free_spot(space, start_pos, collider_radius)
+            # Use Volume Query instead of Center Point
+            found_pos = self.find_free_spot(space, start_pos, phys.shape)
 
             if found_pos:
                 phys.body.position = found_pos
                 trans.x = found_pos.x
                 trans.y = found_pos.y
 
-                # Re-enable physical collision
                 if phys.shape.sensor:
                     phys.shape.sensor = False
 
                 to_remove.append(entity)
             else:
-                # Failed to find spot.
                 if pending.time_in_pending > _DISMOUNT_TIMEOUT:
-                    # Fallback: Force place and let depenetration handle it.
-                    # This deviates slightly from "Teleport to Base" but ensures the entity
-                    # remains in the play area near where they were lost, which is often preferred.
                     if phys.shape.sensor:
                         phys.shape.sensor = False
                     to_remove.append(entity)
@@ -247,48 +247,67 @@ class HierarchySystem(System):
         for ent in to_remove:
             world.remove_component(ent, PendingDismount)
 
-    def find_free_spot(self, space, start_pos, collider_radius):
+    def find_free_spot(self, space, start_pos, shape):
         """
         Searches for a free spot using a spiral pattern.
-        Critique Fix: Use shape_query (via point_query_nearest logic) to check full volume.
-        Critique Fix: Optimized to reduce checks and include relevant masks.
+        Uses shape_query to ensure the full volume fits.
         """
         max_radius = _DISMOUNT_MAX_SEARCH_RADIUS
         current_r = 0.0
         theta = 0.0
+
+        collider_radius = _DISMOUNT_DEFAULT_RADIUS
+        if hasattr(shape, 'radius') and shape.radius > 0:
+            collider_radius = shape.radius
+
         step_size = collider_radius * 2.0
         max_checks = _DISMOUNT_MAX_SEARCH_CHECKS
         checks = 0
 
-        query_mask = CollisionCategories.WALL | CollisionCategories.YUKKURI
-        # Create a shape filter once
-        shape_filter = pymunk.ShapeFilter(mask=query_mask)
+        # Temporary body for queries
+        temp_body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+
+        # Fix: Create matching shape type
+        temp_shape = None
+        if isinstance(shape, pymunk.Poly):
+            # Clone poly
+            # Transform vertices to local? No, create new poly with same verts
+            # Note: shape.get_vertices() returns verts in local coords?
+            # Yes, if we attach to a new body at (0,0), it's fine.
+            # But we must be careful about transform.
+            # We will move temp_body to probe positions.
+            verts = shape.get_vertices()
+            temp_shape = pymunk.Poly(temp_body, verts, transform=shape.get_transform())
+            # Transform might be tricky. Let's assume standard poly.
+            # Actually, standard Poly just takes verts.
+            temp_shape = pymunk.Poly(temp_body, verts)
+        else:
+            # Default to Circle (safe for Circle and Segment approx)
+            temp_shape = pymunk.Circle(temp_body, collider_radius)
+
+        temp_shape.filter = pymunk.ShapeFilter(mask=CollisionCategories.WALL | CollisionCategories.YUKKURI)
 
         def is_spot_free(pos):
-             # Check if anything is within collider_radius of pos
-             # point_query_nearest returns info about the nearest shape within max_dist.
-             # If it returns anything, it means there is a shape within that distance.
-             # So we are blocked.
-             info = space.point_query_nearest(pos, collider_radius, shape_filter)
-             return info is None
+             temp_body.position = pos
+             # shape_query returns a list of contact points if overlapping
+             infos = space.shape_query(temp_shape)
+             # Filter out our own real body if it happens to be hit (shouldn't be, it's sensor)
+             valid_hits = [i for i in infos if i.shape != shape and not i.shape.sensor]
+             return len(valid_hits) == 0
 
         if is_spot_free(start_pos):
              return start_pos
 
-        # Add some randomness to theta to prevent identical search patterns for stacked units causing "clumping"
         theta = random.uniform(0, 2 * math.pi)
 
         while current_r < max_radius and checks < max_checks:
             checks += 1
-
-            # Generate candidate
             offset = pymunk.Vec2d(current_r * math.cos(theta), current_r * math.sin(theta))
             candidate = start_pos + offset
 
             if is_spot_free(candidate):
                 return candidate
 
-            # Advance spiral
             arc = collider_radius
             d_theta = arc / (current_r if current_r > _SPIRAL_SEARCH_MIN_RADIUS else 1.0)
             theta += d_theta

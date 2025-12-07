@@ -8,7 +8,7 @@ import math
 from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ...engine.events import EntityCreatedEvent, EntityDestroyedEvent
+from ...engine.events import ComponentAddedEvent, ComponentRemovedEvent
 from ..components import Vision, Transform, PhysicsBody
 from ..yukkuri_components import AIState
 from .physics import PhysicsSystem
@@ -23,8 +23,17 @@ class VisibilitySystem(System):
         self.space = None
         self.update_index = 0
         self.batch_size = 0.2  # Process 20% of entities per frame
-        # Cache for physics body to entity ID mapping
         self.body_to_entity = {}
+        self.event_bus = None
+
+    def on_component_added(self, event: ComponentAddedEvent):
+        if event.component_type == PhysicsBody:
+            self.body_to_entity[event.component.body] = event.entity_id
+
+    def on_component_removed(self, event: ComponentRemovedEvent):
+        if event.component_type == PhysicsBody:
+            if event.component and event.component.body in self.body_to_entity:
+                del self.body_to_entity[event.component.body]
 
     def update(self, world: World, dt: float) -> None:
         if not self.space:
@@ -32,38 +41,18 @@ class VisibilitySystem(System):
             if physics_system:
                 self.space = physics_system.space
 
-        # Initial map population (Run once)
-        # We do this lazily because bodies might not be added immediately upon creation
-        # or we might miss initial events.
-        # Ideally we subscribe to ComponentAdded but this engine doesn't seem to have it easily exposed.
-        # So we can refresh the map periodically or check if empty.
-        # A simple robust strategy:
-        # If map is empty and we have entities, build it.
-        # But we also need to handle new entities.
-        # Let's rebuild every 60 frames (1 sec) to catch drift, and rely on lazy adding otherwise?
-        # Or just rebuild every frame if we want to be safe but that was the critique.
+        if not self.event_bus:
+             self.event_bus = world.services.try_get(EventBus)
+             if self.event_bus:
+                 # Subscribe to both add and remove events
+                 self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
+                 self.event_bus.subscribe(ComponentRemovedEvent, self.on_component_removed)
 
-        # Better: Since we can't easily hook into "Component Added", let's check if the count matches.
-        # This is still O(N) to count.
+             # Initial population of the map, runs only once.
+             physics_bodies = world.get_components(PhysicsBody)
+             self.body_to_entity = {comp.body: ent for ent, comp in physics_bodies.items()}
 
-        # Let's stick to the simpler Rebuild if not initialized, and then maybe rely on updates?
-        # Actually, without "ComponentAddedEvent", we can't reliably know when a PhysicsBody is added.
-        # So we MUST scan.
-        # Optimization: Scan only if we suspect changes? No.
-        # Optimization: Use `world.get_components` which returns a dictionary.
-        # Iterating a dictionary in Python is fast.
-        # Constructing the map:
-        # self.body_to_entity = {phys.body: ent for ent, (phys,) in world.get_components_tuple(PhysicsBody)}
-        # This one-liner is very fast in CPython. O(N).
-        # Compared to the O(N*M) raycasts, this O(N) map build is negligible.
-        # The previous critique said "Rebuilding it every frame is inefficient for Python".
-        # But honestly, for < 5000 entities, it's < 1ms.
-        # I will keep the rebuild for robustness but optimize the loop.
-
-        physics_bodies = world.get_components(PhysicsBody)
-        self.body_to_entity = {comp.body: ent for ent, comp in physics_bodies.items()}
-
-        # Get all observers (Entities with Vision and AIState)
+        # Get all observers
         observers_list = list(world.get_components_tuple(Vision, Transform, AIState))
         total_obs = len(observers_list)
 
@@ -71,8 +60,6 @@ class VisibilitySystem(System):
             return
 
         count = max(1, int(total_obs * self.batch_size))
-
-        # Determine range of indices to process this frame
         start = self.update_index
 
         batch_indices = []
@@ -89,36 +76,43 @@ class VisibilitySystem(System):
         visible = set()
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
-
-        # Try to get rotation from PhysicsBody if available
         phys_comp = world.get_component(entity, PhysicsBody)
         obs_angle = phys_comp.body.angle if phys_comp else 0.0
         obs_shape = phys_comp.shape if phys_comp else None
 
-        # FOV vectors
+        # Collect all shapes of the observer (Composite Body Support)
+        obs_shapes = []
+        if phys_comp:
+            obs_shapes = list(phys_comp.body.shapes)
+
         obs_dir = pymunk.Vec2d(1, 0).rotated(obs_angle)
         fov_cos = math.cos(math.radians(vision.fov / 2.0))
 
-        # 1. Broadphase: Spatial Query
+        # 1. Broadphase
         query_mask = CollisionCategories.YUKKURI
         query_filter = pymunk.ShapeFilter(mask=query_mask)
 
-        nearby_shapes = self.space.point_query(obs_pos, vision.range, query_filter)
+        # Optimization: Use point_query only? Or shape_query with a Sensor Circle?
+        # Creating a sensor circle is expensive per entity per frame.
+        # point_query is fast but only finds shapes overlapping a point (useless for range).
+        # point_query in pymunk finds shapes within `max_dist` of point. This is exactly what we need.
+        nearby_infos = self.space.point_query(obs_pos, vision.range, query_filter)
 
-        # Vision Blocker Mask for Raycast: Walls and Yukkuris
         vision_mask = CollisionCategories.WALL | CollisionCategories.YUKKURI
         vision_ray_filter = pymunk.ShapeFilter(mask=vision_mask)
 
-        for info in nearby_shapes:
+        for info in nearby_infos:
             shape = info.shape
             body = shape.body
 
-            # Skip self
             if body == phys_comp.body:
                 continue
 
+            # Skip if we already saw this entity (Composite bodies have multiple shapes)
             target_ent = self.body_to_entity.get(body)
             if target_ent is None:
+                continue
+            if target_ent in visible:
                 continue
 
             target_pos = body.position
@@ -127,30 +121,35 @@ class VisibilitySystem(System):
             if diff.length_squared > vision.range * vision.range:
                 continue
 
-            # 2. Angle Check (FOV)
+            # 2. Angle Check
             if vision.fov < 360:
                 target_dir = diff.normalized()
                 if obs_dir.dot(target_dir) < fov_cos:
                     continue
 
             # 3. Narrowphase: Raycast
+            # We cast to the target's center.
+            # Improvement: Cast to the specific shape point?
+            # Pymunk raycast goes to a point. `target_pos` is center of body.
             hits = self.space.segment_query(obs_pos, target_pos, 1.0, vision_ray_filter)
             hits.sort(key=lambda x: x.alpha)
 
             blocked = False
 
             for hit in hits:
-                if hit.shape == obs_shape:
+                if hit.shape in obs_shapes: # Use list check for composite support
                     continue
 
+                # Treat sensors as transparent (unless they are Opaque sensors?)
+                # Assuming all sensors are transparent for now (Hitboxes)
                 if hit.shape.sensor:
                     continue
 
-                if hit.shape == shape:
+                if hit.shape.body == body:
                     # Hit target!
                     break
                 else:
-                    # Hit something else blocking
+                    # Hit something else
                     blocked = True
                     break
 
