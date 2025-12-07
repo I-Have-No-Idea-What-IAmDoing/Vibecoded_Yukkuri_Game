@@ -4,7 +4,7 @@ import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.hierarchy_system import HierarchySystem
 from yukkuri_game.game.systems.physics import PhysicsSystem
-from yukkuri_game.game.components import PhysicsBody, Transform, Mount, MovementController
+from yukkuri_game.game.components import PhysicsBody, Transform, Mount
 
 def test_hierarchy_movement():
     world = World()
