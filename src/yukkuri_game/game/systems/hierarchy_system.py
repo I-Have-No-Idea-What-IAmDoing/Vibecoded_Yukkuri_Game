@@ -243,7 +243,7 @@ class HierarchySystem(System):
                     logger.warning(f"Entity {entity} forced dismount after timeout. Attempting Emergency Teleport.")
 
                     # _emergency_teleport always returns True because it forces position if search fails.
-                    self._emergency_teleport(space, phys, trans, entity)
+                    self._emergency_teleport(space, phys, trans)
 
                     if phys.shape.sensor:
                         phys.shape.sensor = False
@@ -252,7 +252,7 @@ class HierarchySystem(System):
         for ent in to_remove:
             world.remove_component(ent, PendingDismount)
 
-    def _emergency_teleport(self, space, phys, trans, entity):
+    def _emergency_teleport(self, space, phys, trans):
         """
         Attempts to teleport the entity to a safe fallback location (0,0).
         In a real game, this would query for SpawnPoints or Base entities.
@@ -260,21 +260,13 @@ class HierarchySystem(System):
         # Fallback to world origin as a "Safe Zone" if valid.
         fallback_pos = pymunk.Vec2d(0, 0)
 
-        # Check if origin is free? Or just force it?
-        # "Teleport" implies forcing. But we should try to find a free spot near origin.
-        found_pos = self.find_free_spot(space, fallback_pos, phys.shape)
+        # Try to find a free spot near origin. If one isn't found, we force the entity
+        # to the fallback position and let depenetration handle it.
+        final_pos = self.find_free_spot(space, fallback_pos, phys.shape) or fallback_pos
 
-        if found_pos:
-            phys.body.position = found_pos
-            trans.x = found_pos.x
-            trans.y = found_pos.y
-            return True
-
-        # If origin is also blocked, we just force it to origin and let depenetration handle it.
-        phys.body.position = fallback_pos
-        trans.x = fallback_pos.x
-        trans.y = fallback_pos.y
-        return True
+        phys.body.position = final_pos
+        trans.x = final_pos.x
+        trans.y = final_pos.y
 
     def find_free_spot(self, space, start_pos, shape):
         """
