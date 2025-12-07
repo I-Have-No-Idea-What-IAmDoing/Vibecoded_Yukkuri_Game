@@ -115,7 +115,5 @@ def test_kinematic_corner():
     # Should be stopped near the corner
     # Wall 1 Surface x = 100 - 5 = 95. Center x = 85.
     # Wall 2 Surface y = 100 - 5 = 95. Center y = 85.
-
-    print(f"Final Pos: {body.position}")
     assert 84.0 < body.position.x < 87.0
     assert 84.0 < body.position.y < 87.0
