@@ -11,6 +11,10 @@ from ..components import Mount, Transform, PhysicsBody, PendingDismount, Movemen
 from ..collision_constants import CollisionCategories
 from .physics import PhysicsSystem
 
+_DISMOUNT_DEFAULT_RADIUS = 10.0
+_DISMOUNT_MAX_SEARCH_RADIUS = 100.0
+_DISMOUNT_MAX_SEARCH_CHECKS = 50
+
 class HierarchySystem(System):
     """
     Updates positions of mounted entities based on their parents.
@@ -30,7 +34,7 @@ class HierarchySystem(System):
             if mount.parent_id == -1:
                 roots.append(ent)
             elif mount.parent_id not in mounts:
-                 roots.append(ent)
+                roots.append(ent)
 
         # 3. Process roots
         for root in roots:
@@ -139,7 +143,7 @@ class HierarchySystem(System):
                 continue
 
             start_pos = phys.body.position
-            collider_radius = 10.0
+            collider_radius = _DISMOUNT_DEFAULT_RADIUS
             if hasattr(phys.shape, 'radius'):
                 collider_radius = phys.shape.radius
 
@@ -148,13 +152,13 @@ class HierarchySystem(System):
             # r = a + b*theta
 
             found_pos = None
-            max_radius = 100.0 # How far are we willing to look?
+            max_radius = _DISMOUNT_MAX_SEARCH_RADIUS # How far are we willing to look?
             current_r = 0.0
             theta = 0.0
             step_size = collider_radius * 2.0 # Check every diameter roughly
 
             # Safety limit
-            max_checks = 50
+            max_checks = _DISMOUNT_MAX_SEARCH_CHECKS
             checks = 0
 
             # Check origin first
