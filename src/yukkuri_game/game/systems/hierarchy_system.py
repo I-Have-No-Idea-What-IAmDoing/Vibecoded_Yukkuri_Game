@@ -262,12 +262,12 @@ class HierarchySystem(System):
             collider_radius = shape.radius
         # If poly, approximate radius?
         elif isinstance(shape, pymunk.Poly):
-             # Simple bounding box approximation for optimization
-             bb = shape.cache_bb()
-             width = bb.right - bb.left
-             height = bb.top - bb.bottom
-             # Use half-diagonal to ensure we cover the corners (circumscribed circle)
-             collider_radius = math.hypot(width / 2.0, height / 2.0)
+            # Simple bounding box approximation for optimization
+            bb = shape.cache_bb()
+            width = bb.right - bb.left
+            height = bb.top - bb.bottom
+            # Use half-diagonal to ensure we cover the corners (circumscribed circle)
+            collider_radius = math.hypot(width / 2.0, height / 2.0)
 
         step_size = collider_radius * 2.0
         max_checks = _DISMOUNT_MAX_SEARCH_CHECKS
