@@ -1,5 +1,5 @@
 """
-Module defining the kinematic movement system.
+Module defining the visual movement system.
 """
 
 import math
@@ -10,9 +10,10 @@ from ..skill_service import SkillService
 from ..skill_constants import SkillId
 
 
-class MovementSystem(System):
+class VisualMovementSystem(System):
     """
-    Applies AI-driven velocity commands and updates visual transforms for effects like hopping.
+    Updates visual transforms for effects like hopping and handles side effects of movement (like XP).
+    Does NOT update physics bodies directly (that is handled by KinematicMovementSystem).
     """
 
     def __init__(self):
@@ -33,45 +34,36 @@ class MovementSystem(System):
         for entity, (phys, controller, visual) in world.get_components_tuple(
             PhysicsBody, MovementController, VisualTransform
         ):
-            # 1. Apply AI-commanded velocity to the physics body
-            # The 'controller.target_velocity' is usually set by the behavior system or input system.
-            # We directly set the pymunk body velocity, allowing the physics engine to handle integration.
-            if phys.body.body_type == pymunk.Body.DYNAMIC:
-                phys.body.velocity = controller.target_velocity
+            # NOTE: We do NOT set velocity here. KinematicMovementSystem does that.
 
-            # 2. Update the visual bobbing timer based on speed
-            # Only animate bobbing if the entity is moving appreciably.
+            # 1. Update the visual bobbing timer based on speed
+            # Use current_velocity which is set by KinematicMovementSystem
             if phys.body.body_type == pymunk.Body.KINEMATIC:
+                # Use the controller's current_velocity (calculated from virtual physics)
                 speed = controller.current_velocity.length
             else:
+                # Fallback for dynamic bodies if any (though Proposal 4 says all are Kinematic)
                 speed = phys.body.velocity.length
+
             if speed > 0.1:
                 controller.visual_bob_timer += dt * controller.bob_speed
 
-                # 3. Award Athletics XP
-                # XP Gain based on speed and time.
-                # Threshold for gain: moving at least a little bit.
-                # Scale XP by speed to reward faster movement (sprinting/chasing).
-                # Base 1.0 XP per second of movement at standard speed?
+                # 2. Award Athletics XP
                 if self.skill_service:
-                    # Let's say speed 100.0 is standard.
-                    # xp = (speed / 100.0) * dt
-                    # This might be too fast, let's clamp or scale.
-                    # Proposal: "Call SkillService.add_xp(entity, SkillId.ATHLETICS, 1.0)" when moving significant distance.
-                    # Let's accumulate. But here we have continuous update.
+                    # Scale XP by speed
                     xp_gain = (speed / 100.0) * dt
-                    # Cap gain per frame to avoid crazy spikes
+                    # Cap gain per frame
                     xp_gain = min(xp_gain, 5.0 * dt)
 
                     self.skill_service.add_xp(entity, SkillId.ATHLETICS, xp_gain)
 
-            # 4. Calculate the vertical offset for the bobbing effect
+            # 3. Calculate the vertical offset for the bobbing effect
             # Simple absolute sine wave creates a hopping/bobbing motion typical of Yukkuri.
             bob_offset = (
                 abs(math.sin(controller.visual_bob_timer)) * controller.bob_height
             )
             visual.vertical_offset = bob_offset
 
-            # 5. Ensure the shadow's position is locked to the entity's ground position
+            # 4. Ensure the shadow's position is locked to the entity's ground position
             # This is purely visual; the shadow indicates the actual position on the 2D plane.
             visual.shadow_position = phys.body.position

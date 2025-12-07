@@ -9,7 +9,7 @@ from .game.systems.emotion_system import EmotionSystem
 from .game.systems.lifecycle import LifecycleSystem
 from .game.systems.behavior import BehaviorSystem
 from .game.systems.physics import PhysicsSystem
-from .game.systems.movement_system import MovementSystem
+from .game.systems.visual_movement_system import VisualMovementSystem
 from .game.systems.kinematic_movement_system import KinematicMovementSystem
 from .game.systems.hierarchy_system import HierarchySystem
 from .game.systems.visibility_system import VisibilitySystem
@@ -71,7 +71,7 @@ class SystemRegistry:
         )
         world.add_system(KinematicMovementSystem())
         world.add_system(HierarchySystem())
-        world.add_system(MovementSystem())
+        world.add_system(VisualMovementSystem())
         world.add_system(ConstructionSystem())
         world.add_system(AnimationSystem())
         world.add_system(VisibilitySystem())
