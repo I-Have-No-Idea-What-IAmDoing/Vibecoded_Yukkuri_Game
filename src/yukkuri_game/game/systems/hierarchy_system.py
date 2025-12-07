@@ -265,7 +265,7 @@ class HierarchySystem(System):
 
             # Advance spiral
             arc = collider_radius
-            d_theta = arc / (current_r if current_r > 0.1 else 1.0)
+            d_theta = arc / (current_r if current_r > _SPIRAL_SEARCH_MIN_RADIUS else 1.0)
             theta += d_theta
             current_r = (step_size / (2*math.pi)) * theta
 
