@@ -58,7 +58,7 @@ class HierarchySystem(System):
             return
 
         # Base radius of the root itself
-        base_radius = phys.base_radius if phys.base_radius is not None else 10.0
+        base_radius = phys.base_radius if phys.base_radius is not None else _DEFAULT_ENTITY_RADIUS
 
         max_dist = 0.0
 
