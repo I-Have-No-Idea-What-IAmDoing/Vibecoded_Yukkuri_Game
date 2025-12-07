@@ -3,6 +3,7 @@ Module defining the PhysicsSystem logic.
 """
 
 import pymunk
+import math
 from typing import Optional
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus, Event
@@ -92,9 +93,17 @@ class PhysicsSystem(System):
         for entity, (phys, trans) in world.get_components_tuple(PhysicsBody, Transform):
             trans.prev_x = trans.x
             trans.prev_y = trans.y
+            trans.prev_rotation = trans.rotation
+
             trans.x = phys.body.position.x
             trans.y = phys.body.position.y
-            # Rotation could also be synced if Transform supported it
+            # Convert pymunk radians to degrees for pygame.
+            # Pymunk's angle is in radians (positive is counter-clockwise).
+            # Pygame's rotate function uses degrees (positive is counter-clockwise).
+            # With a Y-down coordinate system, a counter-clockwise rotation in world space
+            # appears as a clockwise rotation on screen. To achieve this with pygame's
+            # CCW rotation, we must negate the angle.
+            trans.rotation = -math.degrees(phys.body.angle)
 
     def clear(self) -> None:
         """
