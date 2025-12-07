@@ -160,40 +160,35 @@ class KinematicMovementSystem(System):
         # We sweep from `shape.body.local_to_world(shape.offset)`.
         # So we need max distance from `shape.offset` to any vertex.
 
-        # Pymunk's internal poly struct uses local verts relative to centroid usually.
-        # But let's be safe.
+        # For a Poly, get_vertices() returns vertices in local coordinates (relative to the body's center, if not offset).
+        # We perform the sweep from `body.local_to_world(shape.offset)`.
+        # Therefore, we need the radius of the circle centered at `shape.offset` that encloses all vertices.
 
-        # We need access to vertices.
-        # shape.get_vertices() returns list of Vec2d.
-        # They are in local coordinates relative to the body?
+        verts = shape.get_vertices()
 
-        # Let's assume shape.radius is 0.0 for Poly.
-        # If we sweep a "point" (radius=0) for a Poly, we miss the volume.
-        # If we sweep a "bounding circle", we are safe but conservative.
+        # We don't need to transform verts to world, because we calculate the radius in local space.
+        # `shape.offset` is the center of our sweep capsule in local space.
+        # Note: pymunk.Poly doesn't always have an 'offset' attribute exposed like Circle,
+        # but if we are sweeping from the "shape center", we should define what that is.
+        # If the shape is defined around (0,0), then offset is (0,0).
+        # If the user created a Poly offset from the body center, the vertices reflect that.
 
-        # Bounding Box Approach?
-        # bb = shape.bb (in world space).
-        # We can take (width + height)/4? No.
-        # Half-diagonal is safest?
+        # Pymunk's Poly vertices are stored relative to the body's position.
+        # If we sweep from the body's position (plus any explicit offset we use for the sweep),
+        # we generally assume the sweep starts at body.position (which is local 0,0).
+        # However, `move_and_slide` calculates `shape_center_world = shape.body.local_to_world(shape.offset)`.
+        # `pymunk.Poly` does NOT have an `offset` property. It relies on the vertices' positions.
+        # So `shape.offset` will likely fail if we try to access it on a Poly unless we monkey-patched it.
+        # But `move_and_slide` accesses `shape.offset`!
+        # If `shape.offset` exists on Poly, we use it. If not, we assume (0,0).
 
-        # Let's use the maximum distance from the sweep origin (shape center) to any vertex.
-        # If shape is offset, we must account for that.
+        # Let's fix the potential AttributeError here and in move_and_slide.
 
-        # Simplified: Use shape.cache_bb() then get radius from that?
-        # No, let's just use a simple heuristic if we can't get vertices easily.
-        # But we CAN get vertices.
-
-        verts = shape.get_vertices() # Local to body
-        # Shape center (sweep origin) in local space is shape.offset? Not necessarily.
-        # We usually sweep from the 'transform' position.
-        # If we sweep from body.local_to_world(shape.offset), that is our origin.
-        # So we need max(dist(v, shape.offset)) for v in verts.
+        sweep_origin_local = getattr(shape, 'offset', pymunk.Vec2d(0, 0))
 
         max_sq = 0.0
-        # shape.offset is typically (0,0) for centered polys.
-        center = shape.offset
         for v in verts:
-            d_sq = v.get_dist_sq(center)
+            d_sq = v.get_dist_sq(sweep_origin_local)
             if d_sq > max_sq:
                 max_sq = d_sq
 
@@ -265,7 +260,8 @@ class KinematicMovementSystem(System):
 
                 # Fix: Rename variable for clarity
                 # shape_center_world is the center of the shape in world coordinates
-                shape_center_world = shape.body.local_to_world(shape.offset)
+                shape_offset = getattr(shape, 'offset', pymunk.Vec2d(0, 0))
+                shape_center_world = shape.body.local_to_world(shape_offset)
                 shape_dest = shape_center_world + move_delta
 
                 # We query using the shape's radius

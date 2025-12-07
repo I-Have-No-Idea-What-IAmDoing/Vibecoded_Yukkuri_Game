@@ -250,7 +250,8 @@ class HierarchySystem(System):
     def find_free_spot(self, space, start_pos, shape):
         """
         Searches for a free spot using a spiral pattern.
-        Uses shape_query to ensure the full volume fits.
+        Uses point_query (or reusing the same temp shape if possible) to ensure the full volume fits.
+        Optimized to reduce garbage creation.
         """
         max_radius = _DISMOUNT_MAX_SEARCH_RADIUS
         current_r = 0.0
@@ -259,39 +260,32 @@ class HierarchySystem(System):
         collider_radius = _DISMOUNT_DEFAULT_RADIUS
         if hasattr(shape, 'radius') and shape.radius > 0:
             collider_radius = shape.radius
+        # If poly, approximate radius?
+        elif isinstance(shape, pymunk.Poly):
+             # Simple bounding box approximation for optimization
+             bb = shape.cache_bb()
+             width = bb.right - bb.left
+             height = bb.top - bb.bottom
+             # Use half-diagonal to ensure we cover the corners (circumscribed circle)
+             collider_radius = math.hypot(width / 2.0, height / 2.0)
 
         step_size = collider_radius * 2.0
         max_checks = _DISMOUNT_MAX_SEARCH_CHECKS
         checks = 0
 
-        # Temporary body for queries
-        temp_body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+        # Optimization: Use point_query with radius (Capsule/Circle Check) instead of creating temp bodies.
+        # This is much faster and cleaner.
+        # Effectively checks if a circle of `collider_radius` at `pos` hits anything.
 
-        # Fix: Create matching shape type
-        temp_shape = None
-        if isinstance(shape, pymunk.Poly):
-            # Clone poly
-            # Transform vertices to local? No, create new poly with same verts
-            # Note: shape.get_vertices() returns verts in local coords?
-            # Yes, if we attach to a new body at (0,0), it's fine.
-            # But we must be careful about transform.
-            # We will move temp_body to probe positions.
-            verts = shape.get_vertices()
-            temp_shape = pymunk.Poly(temp_body, verts, transform=shape.get_transform())
-            # Transform might be tricky. Let's assume standard poly.
-            # Actually, standard Poly just takes verts.
-            temp_shape = pymunk.Poly(temp_body, verts)
-        else:
-            # Default to Circle (safe for Circle and Segment approx)
-            temp_shape = pymunk.Circle(temp_body, collider_radius)
-
-        temp_shape.filter = pymunk.ShapeFilter(mask=CollisionCategories.WALL | CollisionCategories.YUKKURI)
+        # Filter: Match what the entity would collide with (Walls, Other Yukkuris)
+        query_filter = pymunk.ShapeFilter(mask=CollisionCategories.WALL | CollisionCategories.YUKKURI)
 
         def is_spot_free(pos):
-             temp_body.position = pos
-             # shape_query returns a list of contact points if overlapping
-             infos = space.shape_query(temp_shape)
-             # Filter out our own real body if it happens to be hit (shouldn't be, it's sensor)
+             # point_query finds shapes within `collider_radius` of `pos`.
+             # This effectively simulates a circle collider at `pos`.
+             infos = space.point_query(pos, collider_radius, query_filter)
+
+             # Filter out self
              valid_hits = [i for i in infos if i.shape != shape and not i.shape.sensor]
              return len(valid_hits) == 0
 
