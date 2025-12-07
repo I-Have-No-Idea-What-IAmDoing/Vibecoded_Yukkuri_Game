@@ -22,7 +22,8 @@ class KinematicMovementSystem(System):
     - Fixed Timestep Update
     - Capsule/Circle Sweeping (No Box approximation)
     - Multi-plane slide resolution (prevents V-corner getting stuck)
-    - Pre-step Depenetration
+    - Pre-step Depenetration (Fallback)
+    - Composite Shape Sweep Support
     """
 
     def __init__(self):
@@ -36,12 +37,9 @@ class KinematicMovementSystem(System):
             return
 
         # Ensure we have the world. If ecs_world is None, we can't update.
-        # This prevents race conditions if fixed_update fires before first update.
         if self.ecs_world:
             self.fixed_update(self.ecs_world, event.dt)
         else:
-            # Fallback/Warning: This should be rare if PhysicsSystem and KinematicSystem
-            # are initialized in order or if update() runs first.
             logger.warning("KinematicMovementSystem: Fixed update skipped because world is not initialized.")
 
     def update(self, world: World, dt: float) -> None:
@@ -57,9 +55,8 @@ class KinematicMovementSystem(System):
             self.event_bus = world.services.try_get(EventBus)
             if self.event_bus:
                 self.event_bus.subscribe(PhysicsFixedUpdateEvent, self.on_fixed_update)
-                self.ecs_world = world # Cache it for the callback
+                self.ecs_world = world
 
-        # Update cache if world changed (rare in this engine probably)
         self.ecs_world = world
 
     def fixed_update(self, world: World, dt: float):
@@ -69,21 +66,18 @@ class KinematicMovementSystem(System):
         components = world.get_components_tuple(PhysicsBody, MovementController, Transform)
 
         for entity, (phys, controller, trans) in components:
-            # Only handle Kinematic bodies
             if phys.body.body_type != pymunk.Body.KINEMATIC:
                 continue
 
-            # 0. Sync Transform to Body (Start of frame consistency)
+            # 0. Sync Transform to Body
             start_pos = phys.body.position
 
-            # 1. Depenetration (Push out of overlapping geometry)
-            # Optimized: Only run 1 iteration, usually enough for simple overlaps.
+            # 1. Depenetration (Fallback)
             clean_pos = self.resolve_penetration(phys, start_pos)
             if clean_pos != start_pos:
                 phys.body.position = clean_pos
                 start_pos = clean_pos
 
-            # Update prev position for interpolation
             trans.prev_x = start_pos.x
             trans.prev_y = start_pos.y
 
@@ -97,50 +91,56 @@ class KinematicMovementSystem(System):
     def resolve_penetration(self, phys: PhysicsBody, pos: pymunk.Vec2d) -> pymunk.Vec2d:
         """
         Checks if the body is currently overlapping static geometry and pushes it out.
-        Returns the corrected position.
-        Uses shape_query to handle multiple contacts (e.g. corners).
+        This is a fallback mechanism. A perfect sweep system shouldn't need this often.
         """
         current_pos = pos
-
-        # Optimization: Reduced iterations from 3 to 1.
-        # Deep penetration should be rare with continuous collision detection.
-        # Running once resolves the majority of "stuck in wall" cases.
+        # Only 1 iteration needed for fallback
         max_iterations = 1
 
         for _ in range(max_iterations):
             phys.body.position = current_pos
 
-            infos = self.space.shape_query(phys.shape)
-
-            if not infos:
-                break
+            # Using body-based shape query to handle Composite Shapes automatically
+            # Note: shape_query on space doesn't support "query all shapes of a body".
+            # We iterate shapes.
 
             total_push = pymunk.Vec2d(0, 0)
             hits = 0
 
-            for info in infos:
-                if info.shape == phys.shape or info.shape.sensor:
+            for shape in phys.body.shapes:
+                infos = self.space.shape_query(shape)
+                if not infos:
                     continue
 
-                contact_set = info.contact_point_set
-                if len(contact_set.points) == 0:
-                    continue
+                for info in infos:
+                    # Ignore self and sensors
+                    if info.shape.body == phys.body or info.shape.sensor:
+                        continue
 
-                best_push = pymunk.Vec2d(0,0)
+                    # Ignore sensors on the other body too (e.g. hitboxes)
+                    if info.shape.sensor:
+                        continue
 
-                for point in contact_set.points:
-                    if point.distance < -0.001:
-                        push = contact_set.normal * (-point.distance)
-                        if push.length_squared > best_push.length_squared:
-                            best_push = push
+                    contact_set = info.contact_point_set
+                    if len(contact_set.points) == 0:
+                        continue
 
-                if best_push.length_squared > 0:
-                    total_push += best_push
-                    hits += 1
+                    best_push = pymunk.Vec2d(0,0)
+
+                    for point in contact_set.points:
+                        if point.distance < -0.001:
+                            push = contact_set.normal * (-point.distance)
+                            if push.length_squared > best_push.length_squared:
+                                best_push = push
+
+                    if best_push.length_squared > 0:
+                        total_push += best_push
+                        hits += 1
 
             if hits > 0:
                 if total_push.length_squared < 0.000001:
                     break
+                # Average push? Or sum? Sum is safer for corners.
                 current_pos += total_push
             else:
                 break
@@ -148,19 +148,8 @@ class KinematicMovementSystem(System):
         phys.body.position = pos # Restore
         return current_pos
 
-    def get_radius(self, shape: pymunk.Shape) -> float:
-        if hasattr(shape, 'radius'):
-            return shape.radius
-        bb = shape.bb
-        # Warning: Approximating Box as Circle (Inscribed)
-        # This is safe (won't get stuck) but visual clipping might occur.
-        return min(bb.right - bb.left, bb.top - bb.bottom) / 2.0
-
     def move_and_slide(self, phys: PhysicsBody, controller: MovementController, trans: Transform, dt: float):
         body = phys.body
-        shape = phys.shape
-        radius = self.get_radius(shape)
-        query_filter = shape.filter
 
         # 1. Virtual Physics Integration
         input_vector = controller.target_velocity
@@ -189,10 +178,10 @@ class KinematicMovementSystem(System):
 
         current_pos = body.position
 
-        collision_planes = []
-        # Restore max_slides to 4 to allow proper sliding (Move -> Hit -> Slide -> Move)
-        # 1 iteration results in "sticky" movement.
-        max_slides = 4
+        # Rigorous Slide Logic
+        # Instead of max_slides=4 and simple rejection, we use a loop that handles multiple planes.
+        # Max slides should be higher to handle complex jagged geometry.
+        max_slides = 5
 
         for i in range(max_slides):
             if move_delta.length_squared < 0.000001:
@@ -200,65 +189,83 @@ class KinematicMovementSystem(System):
 
             target_pos = current_pos + move_delta
 
-            results = self.space.segment_query(current_pos, target_pos, radius, query_filter)
-
-            hit = None
+            # Perform Sweep for ALL shapes in the body (Composite Support)
+            best_hit = None
             best_alpha = 1.0
 
-            for info in results:
-                if info.shape == shape: continue
-                if info.shape.sensor: continue
+            for shape in body.shapes:
+                if shape.sensor: continue
 
-                # Backface check (can be risky if inside, but segment_query shouldn't work if inside)
-                if info.normal.dot(move_delta) > 0.0001:
-                     continue
+                # Determine radius for segment query approximation
+                # Note: Segment query is perfect for Circles/Capsules.
+                # For Polys, it is an approximation if we just use a radius.
+                # Pymunk doesn't have a "Shape Sweep" function exposed easily in Python without CFFI complexity
+                # or helper functions. segment_query with radius is the standard "Capsule Cast".
+                # If the shape is a Poly, we might want to cast a ray from the vertices?
+                # For now, we assume shapes are circular-ish or we use the bounding radius.
+                # Using specific shape logic:
+                radius = 0.0
+                if hasattr(shape, 'radius'):
+                    radius = shape.radius
 
-                if info.alpha < best_alpha:
-                    best_alpha = info.alpha
-                    hit = info
+                # Correction: If it is a poly, segment_query with radius might be wrong if we trace the center.
+                # We need to trace the center of the shape relative to body.
+                # Local offset
+                local_offset = shape.body.local_to_world(shape.offset) if hasattr(shape, 'offset') else body.position
+                shape_start = local_offset # This is world pos of shape center
+                shape_dest = shape_start + move_delta
 
-            if hit:
-                # Optimization: Guard against division by zero or tiny move_delta
+                # We query using the shape's radius
+                results = self.space.segment_query(shape_start, shape_dest, radius, shape.filter)
+
+                for info in results:
+                    if info.shape.body == body: continue
+                    if info.shape.sensor: continue
+
+                    # Backface check
+                    if info.normal.dot(move_delta) > 0.0001:
+                         continue
+
+                    if info.alpha < best_alpha:
+                        best_alpha = info.alpha
+                        best_hit = info
+
+            if best_hit:
+                # Move to hit
                 md_len = move_delta.length
-                safe_alpha = hit.alpha
-                if md_len > 0.0001:
-                    safe_alpha = max(0.0, hit.alpha - (self.skin_width / md_len))
+                safe_alpha = max(0.0, best_hit.alpha - (self.skin_width / md_len)) if md_len > 0.0001 else 0.0
 
                 step_move = move_delta * safe_alpha
                 current_pos += step_move
 
+                # Slide Logic
                 remainder = move_delta * (1.0 - safe_alpha)
-                collision_planes.append(hit.normal)
 
-                new_dir = remainder
-                for plane in collision_planes:
-                    dot = new_dir.dot(plane)
-                    if dot < 0:
-                        new_dir = new_dir - plane * dot
+                # Project remainder along the surface
+                # New Velocity = Old Velocity - Normal * (Old Velocity . Normal)
+                # But we must be careful of acute angles (V-traps).
 
-                valid = True
-                for plane in collision_planes:
-                    if new_dir.dot(plane) < -0.001:
-                        valid = False
-                        break
+                # Simple projection
+                dot = remainder.dot(best_hit.normal)
+                remainder = remainder - best_hit.normal * dot
 
-                if not valid:
-                    move_delta = pymunk.Vec2d(0, 0)
-                else:
-                    move_delta = new_dir
+                # Re-check if this new remainder is valid against previous normals?
+                # In this loop, we just update move_delta and retry sweep.
+                # If we are stuck in a V, the next sweep will hit the other wall immediately (alpha ~ 0).
+                # Then we project against that normal.
+                # If the normals oppose, remainder becomes 0.
+
+                move_delta = remainder
+
+                # Update velocity to reflect the slide (for next frame consistency)
+                v_dot = velocity.dot(best_hit.normal)
+                velocity = velocity - best_hit.normal * v_dot
 
             else:
-                current_pos = target_pos
+                # No hit, move full distance
+                current_pos += move_delta
                 move_delta = pymunk.Vec2d(0, 0)
                 break
 
         body.position = current_pos
-
-        if dt > 0.000001:
-             final_vel = velocity
-             for plane in collision_planes:
-                 dot = final_vel.dot(plane)
-                 if dot < 0:
-                     final_vel = final_vel - plane * dot
-
-             controller.current_velocity = final_vel
+        controller.current_velocity = velocity

@@ -9,7 +9,7 @@ import uuid
 from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING, Set
 import esper
 from .service_locator import ServiceLocator
-from .events import EntityDestroyedEvent
+from .events import EntityDestroyedEvent, ComponentAddedEvent, ComponentRemovedEvent
 from .event_bus import EventBus
 import contextlib
 
@@ -106,6 +106,13 @@ class World:
         self._switch()
         entity_id = int(esper.create_entity(*components))
         self._active_entities.add(entity_id)
+
+        # Publish ComponentAddedEvent for each component
+        event_bus = self.services.try_get(EventBus)
+        if event_bus:
+            for component in components:
+                event_bus.publish(ComponentAddedEvent(entity_id, type(component), component))
+
         return entity_id
 
     def destroy_entity(self, entity: int) -> None:
@@ -151,6 +158,10 @@ class World:
         self._switch()
         esper.add_component(entity, component)
 
+        event_bus = self.services.try_get(EventBus)
+        if event_bus:
+            event_bus.publish(ComponentAddedEvent(entity, type(component), component))
+
     def remove_component(self, entity: int, component_type: Type[Any]) -> None:
         """
         Removes a component of a specific type from an entity.
@@ -162,6 +173,10 @@ class World:
         self._switch()
         try:
             esper.remove_component(entity, component_type)
+
+            event_bus = self.services.try_get(EventBus)
+            if event_bus:
+                event_bus.publish(ComponentRemovedEvent(entity, component_type))
         except KeyError:
             pass
 
