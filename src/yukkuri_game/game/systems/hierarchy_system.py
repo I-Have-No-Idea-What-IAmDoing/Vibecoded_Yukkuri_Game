@@ -14,6 +14,7 @@ from .physics import PhysicsSystem
 _DISMOUNT_DEFAULT_RADIUS = 10.0
 _DISMOUNT_MAX_SEARCH_RADIUS = 100.0
 _DISMOUNT_MAX_SEARCH_CHECKS = 50
+_DISMOUNT_TIMEOUT = 5.0
 
 class HierarchySystem(System):
     """
@@ -38,12 +39,70 @@ class HierarchySystem(System):
 
         # 3. Process roots
         for root in roots:
-            # We NO LONGER resize the root collider ("The Totem Pole" fix).
-            # The root's movement collider is fixed.
+            self.process_structure_update(world, root, mounts)
             self.process_entity(world, root, mounts)
 
-        # 4. Process Pending Dismounts (Now immediate or short-lived)
-        self.process_dismounts(world)
+        # 4. Process Pending Dismounts
+        self.process_dismounts(world, dt)
+
+    def process_structure_update(self, world: World, root_entity: int, mounts: dict):
+        """
+        Recalculates the root collider radius if structure changed ("The Totem Pole").
+        """
+        mount = mounts.get(root_entity)
+        if not mount or not mount.structure_dirty:
+            return
+
+        phys = world.get_component(root_entity, PhysicsBody)
+        if not phys:
+            return
+
+        # Base radius of the root itself
+        base_radius = phys.base_radius if phys.base_radius is not None else 10.0
+
+        max_dist = 0.0
+
+        # Traverse hierarchy to find furthest extent
+        # (This implies a spherical approximation of the whole stack)
+        stack = [(root_entity, pymunk.Vec2d(0,0))]
+
+        while stack:
+            curr_ent, curr_offset = stack.pop()
+            curr_mount = mounts.get(curr_ent)
+            if not curr_mount:
+                continue
+
+            for child_id in curr_mount.children_ids:
+                child_mount = mounts.get(child_id)
+                if not child_mount:
+                    continue
+
+                # We care about the magnitude of offset from Root
+                child_total_offset = curr_offset + child_mount.mount_point_offset
+
+                # Get child size
+                child_radius = 10.0 # Default
+                c_phys = world.get_component(child_id, PhysicsBody)
+                if c_phys and hasattr(c_phys.shape, 'radius'):
+                    child_radius = c_phys.shape.radius
+
+                dist = child_total_offset.length + child_radius
+                if dist > max_dist:
+                    max_dist = dist
+
+                stack.append((child_id, child_total_offset))
+
+        final_radius = max(base_radius, max_dist)
+
+        # Update Shape
+        if hasattr(phys.shape, 'unsafe_set_radius'):
+            # Only update if significant change to avoid thrashing
+            if abs(phys.shape.radius - final_radius) > 0.1:
+                phys.shape.unsafe_set_radius(final_radius)
+                if phys.body.space:
+                    phys.body.space.reindex_shape(phys.shape)
+
+        mount.structure_dirty = False
 
     def process_entity(self, world: World, root_entity: int, mounts: dict):
         """
@@ -124,20 +183,22 @@ class HierarchySystem(System):
 
                 stack.append((child_id, child_pos, child_rot, child_prev_pos, child_prev_rot))
 
-    def process_dismounts(self, world: World):
+    def process_dismounts(self, world: World, dt: float):
         """
         Handle entities that need to be placed back into the world.
-        Uses a Spiral Search to find a spot IMMEDIATELY.
+        Uses a Spiral Search to find a spot.
         """
-        # We process all PendingDismounts this frame.
-        # If we can't find a spot, we might have to force it or fail.
-
         components = world.get_components_tuple(PendingDismount, Transform, PhysicsBody)
 
-        # Collect to remove component later (modifying during iteration safety)
         to_remove = []
 
         for entity, (pending, trans, phys) in components:
+            pending.time_in_pending += dt
+
+            # Ensure sensor mode
+            if not phys.shape.sensor:
+                phys.shape.sensor = True
+
             space = phys.body.space
             if not space:
                 continue
@@ -147,50 +208,7 @@ class HierarchySystem(System):
             if hasattr(phys.shape, 'radius'):
                 collider_radius = phys.shape.radius
 
-            # Spiral Search
-            # Theta step: depends on radius. Arc length ~ radius/2?
-            # r = a + b*theta
-
-            found_pos = None
-            max_radius = _DISMOUNT_MAX_SEARCH_RADIUS # How far are we willing to look?
-            current_r = 0.0
-            theta = 0.0
-            step_size = collider_radius * 2.0 # Check every diameter roughly
-
-            # Safety limit
-            max_checks = _DISMOUNT_MAX_SEARCH_CHECKS
-            checks = 0
-
-            # Check origin first
-            # Note: point_query_nearest finds the closest shape. If it returns something,
-            # it means a shape is within 'max_distance'. So returning 'info' is bad here.
-            # We assume max_distance=collider_radius means we are checking if anything overlaps our radius.
-            # If info is returned, we have a collision.
-            info = space.point_query_nearest(start_pos, collider_radius, pymunk.ShapeFilter(mask=CollisionCategories.WALL))
-            if info is None: # Nothing within radius -> Valid
-                 found_pos = start_pos
-
-            if not found_pos:
-                while current_r < max_radius and checks < max_checks:
-                    checks += 1
-
-                    # Generate candidate
-                    offset = pymunk.Vec2d(current_r * math.cos(theta), current_r * math.sin(theta))
-                    candidate = start_pos + offset
-
-                    # Check
-                    info = space.point_query_nearest(candidate, collider_radius, pymunk.ShapeFilter(mask=CollisionCategories.WALL))
-
-                    if info is None:
-                        found_pos = candidate
-                        break
-
-                    # Advance spiral
-                    # approximate arc length
-                    arc = collider_radius
-                    d_theta = arc / (current_r if current_r > 0.1 else 1.0)
-                    theta += d_theta
-                    current_r = (step_size / (2*math.pi)) * theta # Archimedean spiral r = b*theta
+            found_pos = self.find_free_spot(space, start_pos, collider_radius)
 
             if found_pos:
                 phys.body.position = found_pos
@@ -204,16 +222,51 @@ class HierarchySystem(System):
                 to_remove.append(entity)
             else:
                 # Failed to find spot.
-                # If we fail, we FORCE them at the parents position but kept as Sensor?
-                # Or we just accept the overlap (tunneling) and let depenetration handle it next frame?
-
-                # Let's try forcing overlap but resetting velocity so they don't explode.
-                phys.body.position = start_pos
-                if phys.shape.sensor:
-                    phys.shape.sensor = False # Be physical
-
-                # They will be inside the wall. The KinematicMovementSystem depenetration will push them out next frame.
-                to_remove.append(entity)
+                if pending.time_in_pending > _DISMOUNT_TIMEOUT:
+                    # Fallback: Force place and let depenetration handle it.
+                    # This deviates slightly from "Teleport to Base" but ensures the entity
+                    # remains in the play area near where they were lost, which is often preferred.
+                    if phys.shape.sensor:
+                        phys.shape.sensor = False
+                    to_remove.append(entity)
+                    logger.warning(f"Entity {entity} forced dismount after timeout.")
 
         for ent in to_remove:
             world.remove_component(ent, PendingDismount)
+
+    def find_free_spot(self, space, start_pos, collider_radius):
+        """
+        Searches for a free spot using a spiral pattern.
+        """
+        max_radius = _DISMOUNT_MAX_SEARCH_RADIUS
+        current_r = 0.0
+        theta = 0.0
+        step_size = collider_radius * 2.0
+        max_checks = _DISMOUNT_MAX_SEARCH_CHECKS
+        checks = 0
+
+        # Check origin first
+        info = space.point_query_nearest(start_pos, collider_radius, pymunk.ShapeFilter(mask=CollisionCategories.WALL))
+        if info is None:
+             return start_pos
+
+        while current_r < max_radius and checks < max_checks:
+            checks += 1
+
+            # Generate candidate
+            offset = pymunk.Vec2d(current_r * math.cos(theta), current_r * math.sin(theta))
+            candidate = start_pos + offset
+
+            # Check
+            info = space.point_query_nearest(candidate, collider_radius, pymunk.ShapeFilter(mask=CollisionCategories.WALL))
+
+            if info is None:
+                return candidate
+
+            # Advance spiral
+            arc = collider_radius
+            d_theta = arc / (current_r if current_r > 0.1 else 1.0)
+            theta += d_theta
+            current_r = (step_size / (2*math.pi)) * theta
+
+        return None
