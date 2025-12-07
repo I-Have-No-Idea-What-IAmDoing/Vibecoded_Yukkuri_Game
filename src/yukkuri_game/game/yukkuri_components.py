@@ -254,11 +254,12 @@ class RelationshipData:
 
     def add_headline(self, headline: MemoryHeadline, threshold: float = 50.0) -> None:
         """
-        Adds a headline to the appropriate buffer.
+        Adds a headline to the appropriate buffer based on its importance.
 
         Args:
-            headline (MemoryHeadline): The memory to add.
-            threshold (float): Importance threshold for core memories.
+            headline (MemoryHeadline): The memory event to add.
+            threshold (float): Importance threshold for determining if a memory is 'core'.
+                               Defaults to 50.0.
         """
         if headline.importance > threshold or headline.is_locked:
             self._add_core_memory(headline)
@@ -269,6 +270,9 @@ class RelationshipData:
         """
         Support for pickling: Ensure running sums are consistent when loading old data
         or data that wasn't saved with sums.
+
+        Args:
+            state (Dict[str, Any]): The pickled state dictionary.
         """
         self.__dict__.update(state)
         # Recalculate sums on load to ensure data integrity
@@ -276,6 +280,12 @@ class RelationshipData:
         self.core_sentiment_sum = sum(m.sentiment for m in self.core_buffer)
 
     def _add_trivial_memory(self, headline: MemoryHeadline) -> None:
+        """
+        Adds a memory to the trivial buffer. Manages buffer size FIFO.
+
+        Args:
+            headline (MemoryHeadline): The memory to add.
+        """
         if len(self.trivial_buffer) >= self.TRIVIAL_MAX_LEN:
             removed = self.trivial_buffer.pop(0)  # Remove oldest
             self.trivial_sentiment_sum -= removed.sentiment
@@ -285,8 +295,11 @@ class RelationshipData:
 
     def _add_core_memory(self, headline: MemoryHeadline) -> None:
         """
-        Adds to core buffer with Locking logic.
-        If full, only overwrites unlocked memories or lower importance if allowed.
+        Adds to core buffer with locking and priority logic.
+        If full, only overwrites unlocked memories or lower importance locked memories if significantly better.
+
+        Args:
+            headline (MemoryHeadline): The memory to add.
         """
         # If space exists
         if len(self.core_buffer) < self.CORE_MAX_LEN:
