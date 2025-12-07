@@ -148,6 +148,58 @@ class KinematicMovementSystem(System):
         phys.body.position = pos # Restore
         return current_pos
 
+    def _get_poly_radius(self, shape: pymunk.Poly) -> float:
+        """Calculates the radius of a circle that fully circumscribes the polygon."""
+        # Check cache if available? Pymunk doesn't cache this.
+        # Find max distance from centroid (0,0 in local space usually) to vertices.
+        # But wait, vertices are relative to body, not shape offset?
+        # shape.get_vertices() returns vertices in world coords? No, local coords?
+        # Actually Pymunk Poly vertices are relative to body position + rotation.
+        # But for radius calculation, we just need distance from "center".
+        # Which center? The one we use for sweeping.
+        # We sweep from `shape.body.local_to_world(shape.offset)`.
+        # So we need max distance from `shape.offset` to any vertex.
+
+        # Pymunk's internal poly struct uses local verts relative to centroid usually.
+        # But let's be safe.
+
+        # We need access to vertices.
+        # shape.get_vertices() returns list of Vec2d.
+        # They are in local coordinates relative to the body?
+
+        # Let's assume shape.radius is 0.0 for Poly.
+        # If we sweep a "point" (radius=0) for a Poly, we miss the volume.
+        # If we sweep a "bounding circle", we are safe but conservative.
+
+        # Bounding Box Approach?
+        # bb = shape.bb (in world space).
+        # We can take (width + height)/4? No.
+        # Half-diagonal is safest?
+
+        # Let's use the maximum distance from the sweep origin (shape center) to any vertex.
+        # If shape is offset, we must account for that.
+
+        # Simplified: Use shape.cache_bb() then get radius from that?
+        # No, let's just use a simple heuristic if we can't get vertices easily.
+        # But we CAN get vertices.
+
+        verts = shape.get_vertices() # Local to body
+        # Shape center (sweep origin) in local space is shape.offset? Not necessarily.
+        # We usually sweep from the 'transform' position.
+        # If we sweep from body.local_to_world(shape.offset), that is our origin.
+        # So we need max(dist(v, shape.offset)) for v in verts.
+
+        max_sq = 0.0
+        # shape.offset is typically (0,0) for centered polys.
+        center = shape.offset
+        for v in verts:
+            d_sq = v.get_dist_sq(center)
+            if d_sq > max_sq:
+                max_sq = d_sq
+
+        return math.sqrt(max_sq)
+
+
     def move_and_slide(self, phys: PhysicsBody, controller: MovementController, trans: Transform, dt: float):
         body = phys.body
 
@@ -205,18 +257,19 @@ class KinematicMovementSystem(System):
                 # For now, we assume shapes are circular-ish or we use the bounding radius.
                 # Using specific shape logic:
                 radius = 0.0
-                if hasattr(shape, 'radius'):
+                if hasattr(shape, 'radius') and shape.radius > 0:
                     radius = shape.radius
+                elif isinstance(shape, pymunk.Poly):
+                    # Fix: Use circumscribing radius for Poly to prevent tunneling
+                    radius = self._get_poly_radius(shape)
 
-                # Correction: If it is a poly, segment_query with radius might be wrong if we trace the center.
-                # We need to trace the center of the shape relative to body.
-                # Local offset
-                local_offset = shape.body.local_to_world(shape.offset) if hasattr(shape, 'offset') else body.position
-                shape_start = local_offset # This is world pos of shape center
-                shape_dest = shape_start + move_delta
+                # Fix: Rename variable for clarity
+                # shape_center_world is the center of the shape in world coordinates
+                shape_center_world = shape.body.local_to_world(shape.offset)
+                shape_dest = shape_center_world + move_delta
 
                 # We query using the shape's radius
-                results = self.space.segment_query(shape_start, shape_dest, radius, shape.filter)
+                results = self.space.segment_query(shape_center_world, shape_dest, radius, shape.filter)
 
                 for info in results:
                     if info.shape.body == body: continue

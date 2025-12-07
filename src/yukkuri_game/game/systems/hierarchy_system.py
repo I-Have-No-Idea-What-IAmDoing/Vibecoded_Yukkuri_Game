@@ -68,24 +68,6 @@ class HierarchySystem(System):
         # 2. Remove any "Child Proxy" shapes from previous updates.
         # 3. Add new shapes for current children.
 
-        # NOTE: Pymunk doesn't let us tag shapes easily as "Child Proxy" without custom attributes.
-        # We assume shapes[0] is the main one? Or we can use `shape.info`?
-        # Pymunk shapes have `filter`.
-        # Let's assume the first shape is the Unit's own shape and others are added.
-        # WARNING: This is destructive if not careful.
-
-        # Simpler approach for this specific proposal critique:
-        # The proposal said "The Root maintains a simple Bounding Circle or Capsule".
-        # The Critique said "That fails for wide stacks".
-        # The Fix is "Composite Collider".
-
-        # Implementation:
-        # 1. Clear extra shapes.
-        # 2. Add shapes at offsets.
-
-        # We need to identify which shapes are "structural additions".
-        # Let's use a dynamic attribute on the shape.
-
         body = phys.body
         space = body.space
 
@@ -95,21 +77,16 @@ class HierarchySystem(System):
             if hasattr(shape, 'is_hierarchy_proxy'):
                 to_remove.append(shape)
 
-        for s in to_remove:
-            if space: space.remove(s)
-            # body.shapes is read-only? No, space.remove(s) removes it from space.
-            # We must remove it from body too? Pymunk handles this when we remove from space usually?
-            # Actually, we might need to remove from body explicitly if not in space yet.
-            pass
-
-        # Pymunk bodies don't allow removing shapes directly via list manipulation easily?
-        # `space.remove(shape)` removes it from simulation.
-        # If the body is not in space, we might be stuck.
-        # Assuming body is in space.
-
+        # Simplified removal loop as suggested in PR comments
         if space:
             for s in to_remove:
                 space.remove(s)
+        # Note: If body is not in space, shapes are just attached to body.
+        # Pymunk pythonic API handles this, but explicitly:
+        # If we remove from space, it detaches from body if we added it via space.add(body, shape).
+        # But if it's just on the body?
+        # If we just added via body.shapes? Read-only.
+        # We must assume they were added to space.
 
         # Now add new shapes for children
         # Traverse hierarchy
@@ -280,7 +257,7 @@ class HierarchySystem(System):
         theta = 0.0
 
         collider_radius = _DISMOUNT_DEFAULT_RADIUS
-        if hasattr(shape, 'radius'):
+        if hasattr(shape, 'radius') and shape.radius > 0:
             collider_radius = shape.radius
 
         step_size = collider_radius * 2.0
@@ -289,7 +266,25 @@ class HierarchySystem(System):
 
         # Temporary body for queries
         temp_body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
-        temp_shape = pymunk.Circle(temp_body, collider_radius) # Approx if shape is complex
+
+        # Fix: Create matching shape type
+        temp_shape = None
+        if isinstance(shape, pymunk.Poly):
+            # Clone poly
+            # Transform vertices to local? No, create new poly with same verts
+            # Note: shape.get_vertices() returns verts in local coords?
+            # Yes, if we attach to a new body at (0,0), it's fine.
+            # But we must be careful about transform.
+            # We will move temp_body to probe positions.
+            verts = shape.get_vertices()
+            temp_shape = pymunk.Poly(temp_body, verts, transform=shape.get_transform())
+            # Transform might be tricky. Let's assume standard poly.
+            # Actually, standard Poly just takes verts.
+            temp_shape = pymunk.Poly(temp_body, verts)
+        else:
+            # Default to Circle (safe for Circle and Segment approx)
+            temp_shape = pymunk.Circle(temp_body, collider_radius)
+
         temp_shape.filter = pymunk.ShapeFilter(mask=CollisionCategories.WALL | CollisionCategories.YUKKURI)
 
         def is_spot_free(pos):

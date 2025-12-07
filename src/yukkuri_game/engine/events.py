@@ -42,6 +42,7 @@ class ComponentAddedEvent(Event):
 class ComponentRemovedEvent(Event):
     entity_id: int
     component_type: Type[Any]
+    component: Any
 
 
 # Gameplay Events

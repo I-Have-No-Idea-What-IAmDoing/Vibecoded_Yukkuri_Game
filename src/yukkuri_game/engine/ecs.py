@@ -172,11 +172,12 @@ class World:
         """
         self._switch()
         try:
-            esper.remove_component(entity, component_type)
+            # esper.remove_component returns the removed component instance
+            removed_component = esper.remove_component(entity, component_type)
 
             event_bus = self.services.try_get(EventBus)
             if event_bus:
-                event_bus.publish(ComponentRemovedEvent(entity, component_type))
+                event_bus.publish(ComponentRemovedEvent(entity, component_type, removed_component))
         except KeyError:
             pass
 

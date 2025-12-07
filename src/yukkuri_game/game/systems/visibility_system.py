@@ -32,35 +32,8 @@ class VisibilitySystem(System):
 
     def on_component_removed(self, event: ComponentRemovedEvent):
         if event.component_type == PhysicsBody:
-             # This is tricky because we don't have the component instance anymore to get the body key
-             # We have to linear search or maintain a reverse map.
-             # Or just ignore it and let it be garbage collected / overwritten?
-             # Since body addresses might be reused, it's safer to remove.
-             # Linear search is slow.
-             # Optimization: Build a reverse lookup? Or just wait for full rebuild?
-             # Given Python dicts are fast, linear search on values for one removal is okay-ish?
-             # No, removal is frequent on death.
-             # Let's clean up lazy?
-             # Actually, if the body object is destroyed, it won't match future lookups.
-             # But if memory is re-allocated? Python objects are unique by id().
-             # The key is the body object.
-             # So we need to know WHICH body was removed.
-             # The event unfortunately only gives the type.
-             # Wait, `ComponentRemovedEvent` in my implementation only has `type`.
-             # So I cannot know the body instance.
-             # Critique: My event system implementation was insufficient.
-             # Fix: I will just perform a full clean-up periodically or iterate.
-             # BUT, we can just rebuild the map *lazily* if we detect an issue?
-             # Actually, if we use `world.get_components` we get the current state.
-             # The `on_component_added` helps us ADD fast.
-             # Removing is the issue.
-             # Let's rebuild the map periodically (e.g. every 100 frames) or just stick to the frame rebuild if N < 1000.
-             # The Critique said "Rebuilding every frame is O(N)".
-             # For rigorousness:
-             # I will maintain the map by scanning `world.get_components(PhysicsBody)` but ONLY if the count differs significantly
-             # or just rely on the fact that dict construction in CPython is super optimized.
-             # `dict(world.get_components(PhysicsBody).items())` might actually be faster than event handling overhead in Python.
-             pass
+            if event.component and event.component.body in self.body_to_entity:
+                del self.body_to_entity[event.component.body]
 
     def update(self, world: World, dt: float) -> None:
         if not self.space:
@@ -70,16 +43,14 @@ class VisibilitySystem(System):
 
         if not self.event_bus:
              self.event_bus = world.services.try_get(EventBus)
-             # I am not subscribing to Removed because of the limitation.
-             # I will subscribe to Added to handle dynamic spawns efficiently if I were maintaining state.
-             # But given the removal issue, I will stick to the "Fast Rebuild" strategy which is robust.
-             # "Premature optimization is the root of all evil".
-             # A dict comprehension of 5000 items takes ~0.5ms. This is acceptable for 60fps (16ms).
-             pass
+             if self.event_bus:
+                 # Subscribe to both add and remove events
+                 self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
+                 self.event_bus.subscribe(ComponentRemovedEvent, self.on_component_removed)
 
-        # Robust Rebuild (O(N) but fast in C)
-        physics_bodies = world.get_components(PhysicsBody)
-        self.body_to_entity = {comp.body: ent for ent, comp in physics_bodies.items()}
+             # Initial population of the map, runs only once.
+             physics_bodies = world.get_components(PhysicsBody)
+             self.body_to_entity = {comp.body: ent for ent, comp in physics_bodies.items()}
 
         # Get all observers
         observers_list = list(world.get_components_tuple(Vision, Transform, AIState))
