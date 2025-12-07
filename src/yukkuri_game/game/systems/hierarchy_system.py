@@ -81,7 +81,7 @@ class HierarchySystem(System):
                 child_total_offset = curr_offset + child_mount.mount_point_offset
 
                 # Get child size
-                child_radius = 10.0 # Default
+                child_radius = _DEFAULT_ENTITY_RADIUS # Default
                 c_phys = world.get_component(child_id, PhysicsBody)
                 if c_phys and hasattr(c_phys.shape, 'radius'):
                     child_radius = c_phys.shape.radius
