@@ -7,7 +7,7 @@ import math
 from typing import Optional
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus, Event
-from ...engine.events import EntityDestroyedEvent
+from ...engine.events import EntityDestroyedEvent, PhysicsFixedUpdateEvent
 from ..components import Transform, PhysicsBody
 
 
@@ -84,6 +84,11 @@ class PhysicsSystem(System):
         # We process physics in fixed increments (self.time_step) to ensure determinism
         # and stability, regardless of the variable frame render time (dt).
         while self.accumulator >= self.time_step:
+            # Broadcast Fixed Update Event so other systems (like KinematicMovement)
+            # can sync their logic exactly with the physics step.
+            if self.event_bus:
+                self.event_bus.publish(PhysicsFixedUpdateEvent(dt=self.time_step))
+
             self.space.step(self.time_step)
             self.accumulator -= self.time_step
 
