@@ -97,13 +97,13 @@ class PhysicsSystem(System):
 
             trans.x = phys.body.position.x
             trans.y = phys.body.position.y
-            # Convert pymunk radians to degrees (pygame uses degrees)
-            # Pymunk: radians
-            # Pygame: degrees
-            # Note: We negate because pymunk y-axis is usually up (in standard physics) but here we use screen coords (y-down).
-            # However, in top-down games, if y is down, positive angle in math is clockwise on screen?
-            # Let's stick to standard conversion first: degrees = radians * (180/pi).
-            trans.rotation = math.degrees(phys.body.angle)
+            # Convert pymunk radians to degrees for pygame.
+            # Pymunk's angle is in radians (positive is counter-clockwise).
+            # Pygame's rotate function uses degrees (positive is counter-clockwise).
+            # With a Y-down coordinate system, a counter-clockwise rotation in world space
+            # appears as a clockwise rotation on screen. To achieve this with pygame's
+            # CCW rotation, we must negate the angle.
+            trans.rotation = -math.degrees(phys.body.angle)
 
     def clear(self) -> None:
         """
