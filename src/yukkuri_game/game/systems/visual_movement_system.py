@@ -11,6 +11,8 @@ from ..skill_constants import SkillId
 
 
 class VisualMovementSystem(System):
+    XP_SPEED_SCALAR = 100.0
+    MAX_XP_GAIN_PER_SECOND = 5.0
     """
     Updates visual transforms for effects like hopping and handles side effects of movement (like XP).
     Does NOT update physics bodies directly (that is handled by KinematicMovementSystem).
@@ -51,9 +53,9 @@ class VisualMovementSystem(System):
                 # 2. Award Athletics XP
                 if self.skill_service:
                     # Scale XP by speed
-                    xp_gain = (speed / 100.0) * dt
+                    xp_gain = (speed / XP_SPEED_SCALAR) * dt
                     # Cap gain per frame
-                    xp_gain = min(xp_gain, 5.0 * dt)
+                    xp_gain = min(xp_gain, MAX_XP_GAIN_PER_SECOND * dt)
 
                     self.skill_service.add_xp(entity, SkillId.ATHLETICS, xp_gain)
 
