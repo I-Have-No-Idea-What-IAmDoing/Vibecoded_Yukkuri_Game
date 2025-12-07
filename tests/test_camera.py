@@ -1,7 +1,8 @@
 import pytest
 import pygame
 from unittest.mock import MagicMock, patch, Mock
-from yukkuri_game.game.yukkurrium import Yukkurrium, WorldRenderer
+from yukkuri_game.game.camera import Camera
+from yukkuri_game.game.renderer import WorldRenderer
 from yukkuri_game.game.systems.render_system import RenderSystem
 from yukkuri_game.game.systems.time_system import TimeSystem
 from yukkuri_game.engine.ecs import World
@@ -15,106 +16,106 @@ from yukkuri_game.game.components import (
 
 
 @pytest.fixture
-def yukkurrium():
+def camera():
     pygame.init()
     from yukkuri_game.config import WorldSettings
 
     settings = WorldSettings(width=1000, height=1000)
-    return Yukkurrium(settings)
+    return Camera(settings)
 
 
-def test_coordinate_conversion(yukkurrium):
+def test_coordinate_conversion(camera):
     screen_w, screen_h = 800, 600
 
     # Center of world (0,0) should be center of screen when camera is at (0,0)
-    sx, sy = yukkurrium.world_to_screen(0, 0, screen_w, screen_h)
+    sx, sy = camera.world_to_screen(0, 0, screen_w, screen_h)
     assert sx == 400
     assert sy == 300
 
     # Reverse
-    wx, wy = yukkurrium.screen_to_world(400, 300, screen_w, screen_h)
+    wx, wy = camera.screen_to_world(400, 300, screen_w, screen_h)
     assert wx == 0
     assert wy == 0
 
     # With camera offset
-    yukkurrium.camera_x = 100
-    yukkurrium.camera_y = 50
+    camera.camera_x = 100
+    camera.camera_y = 50
 
     # (100, 50) in world should now be center of screen
-    sx, sy = yukkurrium.world_to_screen(100, 50, screen_w, screen_h)
+    sx, sy = camera.world_to_screen(100, 50, screen_w, screen_h)
     assert sx == 400
     assert sy == 300
 
     # With zoom
-    yukkurrium.camera_x = 0
-    yukkurrium.camera_y = 0
-    yukkurrium.zoom = 2.0
+    camera.camera_x = 0
+    camera.camera_y = 0
+    camera.zoom = 2.0
 
     # (50, 50) world -> (50*2 + 400, 50*2 + 300) = (500, 400)
-    sx, sy = yukkurrium.world_to_screen(50, 50, screen_w, screen_h)
+    sx, sy = camera.world_to_screen(50, 50, screen_w, screen_h)
     assert sx == 500
     assert sy == 400
 
 
-def test_handle_input_zoom(yukkurrium):
+def test_handle_input_zoom(camera):
     # Mock mouse wheel event
     event = MagicMock()
     event.type = pygame.MOUSEWHEEL
     event.y = 1  # Scroll up (zoom in)
 
-    initial_zoom = yukkurrium.target_zoom
-    yukkurrium.handle_input(event, 800, 600)
+    initial_zoom = camera.target_zoom
+    camera.handle_input(event, 800, 600)
 
-    assert yukkurrium.target_zoom > initial_zoom
-    assert yukkurrium.target_zoom <= yukkurrium.max_zoom
+    assert camera.target_zoom > initial_zoom
+    assert camera.target_zoom <= camera.max_zoom
 
     # Test max zoom
-    yukkurrium.target_zoom = yukkurrium.max_zoom
-    yukkurrium.handle_input(event, 800, 600)
-    assert yukkurrium.target_zoom == yukkurrium.max_zoom
+    camera.target_zoom = camera.max_zoom
+    camera.handle_input(event, 800, 600)
+    assert camera.target_zoom == camera.max_zoom
 
 
-def test_handle_input_pan(yukkurrium):
+def test_handle_input_pan(camera):
     # Mock mouse motion event with middle click
     event = MagicMock()
     event.type = pygame.MOUSEMOTION
     event.rel = (10, 20)
 
     with patch("pygame.mouse.get_pressed", return_value=(0, 1, 0)):  # Middle click
-        initial_cam_x = yukkurrium.camera_x
-        initial_cam_y = yukkurrium.camera_y
+        initial_cam_x = camera.camera_x
+        initial_cam_y = camera.camera_y
 
-        yukkurrium.handle_input(event, 800, 600)
+        camera.handle_input(event, 800, 600)
 
         # Camera moves opposite to drag
-        assert yukkurrium.camera_x == initial_cam_x - 10
-        assert yukkurrium.camera_y == initial_cam_y - 20
+        assert camera.camera_x == initial_cam_x - 10
+        assert camera.camera_y == initial_cam_y - 20
 
 
-def test_handle_input_other(yukkurrium):
+def test_handle_input_other(camera):
     # Test other events are ignored
     event = MagicMock()
     event.type = pygame.KEYDOWN
 
-    initial_zoom = yukkurrium.target_zoom
-    initial_cam_x = yukkurrium.camera_x
+    initial_zoom = camera.target_zoom
+    initial_cam_x = camera.camera_x
 
-    yukkurrium.handle_input(event, 800, 600)
+    camera.handle_input(event, 800, 600)
 
-    assert yukkurrium.target_zoom == initial_zoom
-    assert yukkurrium.camera_x == initial_cam_x
+    assert camera.target_zoom == initial_zoom
+    assert camera.camera_x == initial_cam_x
 
 
-def test_update_zoom_smoothing(yukkurrium):
-    yukkurrium.zoom = 1.0
-    yukkurrium.target_zoom = 2.0
+def test_update_zoom_smoothing(camera):
+    camera.zoom = 1.0
+    camera.target_zoom = 2.0
 
     dt = 0.1
-    yukkurrium.update(dt)
+    camera.update(dt)
 
     # Zoom should approach target
-    assert yukkurrium.zoom > 1.0
-    assert yukkurrium.zoom < 2.0
+    assert camera.zoom > 1.0
+    assert camera.zoom < 2.0
 
 
 def test_render_system_update():
@@ -125,7 +126,7 @@ def test_render_system_update():
     screen.get_rect.return_value = screen_rect
     # Make colliderect return True so we draw
 
-    yukkurrium = Yukkurrium()
+    camera = Camera()
     rm = MagicMock()
 
     # Mock image
@@ -137,14 +138,14 @@ def test_render_system_update():
 
     rm.load_image.return_value = img
 
-    # RenderSystem takes screen and world, fetches yukkurrium and rm from world services
+    # RenderSystem takes screen and world, fetches camera and rm from world services
     world = MagicMock()
     # Mock services.get behavior for multiple types
     from yukkuri_game.engine.resource_manager import ResourceManager
 
     def get_service(service_type):
-        if service_type == Yukkurrium:
-            return yukkurrium
+        if service_type == Camera:
+            return camera
         if service_type == ResourceManager:
             return rm
         return None
@@ -194,9 +195,9 @@ def test_render_system_update_scaling_and_culling():
     screen_rect = MagicMock()
     screen.get_rect.return_value = screen_rect
 
-    yukkurrium = Yukkurrium()
+    camera = Camera()
     # Zoom in to trigger scaling code
-    yukkurrium.zoom = 2.0
+    camera.zoom = 2.0
 
     rm = MagicMock()
     img = MagicMock()
@@ -225,8 +226,8 @@ def test_render_system_update_scaling_and_culling():
         from yukkuri_game.engine.resource_manager import ResourceManager
 
         def get_service(service_type):
-            if service_type == Yukkurrium:
-                return yukkurrium
+            if service_type == Camera:
+                return camera
             if service_type == ResourceManager:
                 return rm
             return None
@@ -264,11 +265,11 @@ def test_render_system_update_scaling_and_culling():
         with patch("pygame.draw.line"), patch("pygame.draw.rect") as mock_rect:
             rs.update(world, 0.016)
 
-            # Verify scaling
-            mock_scale.assert_called()
+        # Verify scaling
+        mock_scale.assert_called()
 
-            # Verify selection highlight
-            mock_rect.assert_called()
+        # Verify selection highlight
+        mock_rect.assert_called()
 
 
 def test_render_system_update_culling():
@@ -277,7 +278,7 @@ def test_render_system_update_culling():
     screen_rect = MagicMock()
     screen.get_rect.return_value = screen_rect
 
-    yukkurrium = Yukkurrium()
+    camera = Camera()
     rm = MagicMock()
     img = MagicMock()
     rect = MagicMock()
@@ -299,8 +300,8 @@ def test_render_system_update_culling():
     from yukkuri_game.engine.resource_manager import ResourceManager
 
     def get_service(service_type):
-        if service_type == Yukkurrium:
-            return yukkurrium
+        if service_type == Camera:
+            return camera
         if service_type == ResourceManager:
             return rm
         return None
@@ -341,8 +342,8 @@ def test_render_system_update_culling():
 def test_render_system_update_invalid_size():
     screen = MagicMock()
     screen.get_size.return_value = (800, 600)
-    yukkurrium = Yukkurrium()
-    yukkurrium.zoom = 0.001  # Very small zoom
+    camera = Camera()
+    camera.zoom = 0.001  # Very small zoom
 
     rm = MagicMock()
     img = MagicMock()
@@ -353,8 +354,8 @@ def test_render_system_update_invalid_size():
     from yukkuri_game.engine.resource_manager import ResourceManager
 
     def get_service(service_type):
-        if service_type == Yukkurrium:
-            return yukkurrium
+        if service_type == Camera:
+            return camera
         if service_type == ResourceManager:
             return rm
         return None
@@ -395,15 +396,15 @@ def test_render_system_update_invalid_size():
 def test_render_system_missing_components():
     screen = MagicMock()
     screen.get_size.return_value = (800, 600)
-    yukkurrium = Yukkurrium()
+    camera = Camera()
     rm = MagicMock()
 
     world = MagicMock()
     from yukkuri_game.engine.resource_manager import ResourceManager
 
     def get_service(service_type):
-        if service_type == Yukkurrium:
-            return yukkurrium
+        if service_type == Camera:
+            return camera
         if service_type == ResourceManager:
             return rm
         return None
@@ -465,7 +466,7 @@ def mock_screen():
 
 
 @pytest.fixture
-def mock_yukkurrium():
+def mock_camera():
     m = Mock()
     m.world_to_screen.side_effect = lambda wx, wy, sw, sh: (wx, wy)
     m.screen_to_world.side_effect = lambda sx, sy, sw, sh: (sx, sy)
@@ -483,12 +484,12 @@ def mock_rm():
     return m
 
 
-def test_single_frame_large_image_scaling(mock_screen, mock_yukkurrium, mock_rm):
+def test_single_frame_large_image_scaling(mock_screen, mock_camera, mock_rm):
     """
     Test that a single frame sprite with a larger source image is scaled, not cropped.
     We verify this by ensuring pygame.transform.scale is called.
     """
-    renderer = WorldRenderer(mock_screen, mock_yukkurrium, mock_rm)
+    renderer = WorldRenderer(mock_screen, mock_camera, mock_rm)
     world = World()
 
     ent = world.create_entity()
@@ -535,11 +536,11 @@ def test_single_frame_large_image_scaling(mock_screen, mock_yukkurrium, mock_rm)
         assert found_sprite, "The scaled surface was not blitted to the screen"
 
 
-def test_single_frame_matching_image_no_scaling(mock_screen, mock_yukkurrium, mock_rm):
+def test_single_frame_matching_image_no_scaling(mock_screen, mock_camera, mock_rm):
     """
     Test that a single frame sprite with matching source image size is NOT scaled.
     """
-    renderer = WorldRenderer(mock_screen, mock_yukkurrium, mock_rm)
+    renderer = WorldRenderer(mock_screen, mock_camera, mock_rm)
     world = World()
 
     ent = world.create_entity()

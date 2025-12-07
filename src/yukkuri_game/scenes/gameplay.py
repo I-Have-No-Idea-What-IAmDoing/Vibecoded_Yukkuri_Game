@@ -33,7 +33,7 @@ from ..game.systems.physics import PhysicsSystem
 from ..game.systems.physics_reconstruction import reconstruct_physics
 from ..game.systems.render_system import RenderSystem
 from ..game.ui.hud import HUD
-from ..game.yukkurrium import Yukkurrium
+from ..game.camera import Camera
 
 
 class GameplayScene(Scene):
@@ -66,7 +66,7 @@ class GameplayScene(Scene):
         # Load Config
         self.game_config = load_config()
 
-        self.yukkurrium = Yukkurrium(settings=self.game_config.world)
+        self.camera = Camera(settings=self.game_config.world)
         self.audio = AudioManager()
         self.audio.load_from_config()
 
@@ -81,7 +81,7 @@ class GameplayScene(Scene):
 
         # Register services
         self.loader.register_services(
-            context, self.audio, self.yukkurrium, self.physics_system, self.event_bus
+            context, self.audio, self.camera, self.physics_system, self.event_bus
         )
 
         # Cache service references for local usage
@@ -102,7 +102,7 @@ class GameplayScene(Scene):
 
         # Systems
         self.input_system = self.loader.register_systems(
-            self.yukkurrium, self.event_bus, self.physics_system, self.ui_manager
+            self.camera, self.event_bus, self.physics_system, self.ui_manager
         )
 
         self.is_setup = True
@@ -110,11 +110,11 @@ class GameplayScene(Scene):
 
         # Initial Population if empty
         if not self.application.headless and len(self.world.get_all_entities()) == 0:
-            start_x = float(self.yukkurrium.width) / 2.0
-            start_y = float(self.yukkurrium.height) / 2.0
+            start_x = float(self.camera.width) / 2.0
+            start_y = float(self.camera.height) / 2.0
             create_yukkuri(self.world, "reimu", start_x, start_y)
-            self.yukkurrium.camera_x = float(start_x)
-            self.yukkurrium.camera_y = float(start_y)
+            self.camera.camera_x = float(start_x)
+            self.camera.camera_y = float(start_y)
 
     def _apply_initial_settings(self) -> None:
         audio_settings = self.settings_service.settings.audio
@@ -229,7 +229,7 @@ class GameplayScene(Scene):
         self.world.clear_database()
         if hasattr(self, "physics_system"):
             self.physics_system.clear()
-        self.yukkurrium.clear()
+        self.camera.clear()
 
         # Load Global Data
         import json
@@ -274,7 +274,7 @@ class GameplayScene(Scene):
 
             self.event_manager.process_phase(GamePhase.UPDATE)
             self.world.update(sim_dt)
-            self.yukkurrium.update(sim_dt)
+            self.camera.update(sim_dt)
 
         self.event_manager.process_phase(GamePhase.POST_UPDATE)
 
@@ -307,8 +307,8 @@ class GameplayScene(Scene):
         self.ui_manager.process_events(event)
         # InputManager processing is handled by Application
 
-        if hasattr(self, "yukkurrium"):
-            self.yukkurrium.handle_input(
+        if hasattr(self, "camera"):
+            self.camera.handle_input(
                 event, self.application.width, self.application.height
             )
 

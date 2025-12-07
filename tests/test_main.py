@@ -24,7 +24,7 @@ def yukkuri_game_headless(mock_pygame):
         patch("yukkuri_game.engine.audio.AudioManager"),
         patch("yukkuri_game.game.services.PersistenceService"),
         patch("yukkuri_game.game.input_system.InputSystem"),
-        patch("yukkuri_game.game.yukkurrium.Yukkurrium"),
+        patch("yukkuri_game.game.camera.Camera"),
     ):
         with patch("yukkuri_game.engine.resource_manager.ResourceManager") as MockRM:
             # Configure mock instance

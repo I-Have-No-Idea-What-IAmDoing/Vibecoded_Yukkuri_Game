@@ -16,7 +16,7 @@ from ..game.systems.physics import PhysicsSystem
 from ..game.systems.sector_system import SectorMap, SectorSystem
 from ..game.trait_service import TraitService
 from ..game.skill_service import SkillService
-from ..game.yukkurrium import Yukkurrium
+from ..game.camera import Camera
 from ..game.utils.evaluator import ConditionEvaluator
 from ..game.entity_factory import EntityFactory
 from ..game.ai.utility import UtilityAIEngine
@@ -45,13 +45,13 @@ class GameLoader:
         self,
         context: "SceneContext",
         audio: AudioManager,
-        yukkurrium: Yukkurrium,
+        camera: Camera,
         physics_system: PhysicsSystem,
         event_bus: EventBus,
     ) -> None:
         """Registers services to the world."""
         self.world.services.register(audio, AudioManager)
-        self.world.services.register(yukkurrium, Yukkurrium)
+        self.world.services.register(camera, Camera)
         self.world.services.register(physics_system, PhysicsSystem)
         self.world.services.register(event_bus, EventBus)
 
@@ -133,7 +133,7 @@ class GameLoader:
 
     def register_systems(
         self,
-        yukkurrium: Yukkurrium,
+        camera: Camera,
         event_bus: EventBus,
         physics_system: PhysicsSystem,
         ui_manager: "pygame_gui.UIManager",
@@ -142,7 +142,7 @@ class GameLoader:
         input_system = SystemRegistry.register_systems(
             self.world,
             self.game_config,
-            yukkurrium,
+            camera,
             event_bus,
             physics_system,
         )
