@@ -1,10 +1,11 @@
 """
 Kinematic Movement System.
-Implements the Sweep-and-Slide algorithm for deterministic character movement.
+Implements a Robust Sweep-and-Slide algorithm for deterministic character movement.
+Includes multi-plane sliding to prevent corner jitter and a pre-step depenetration pass.
 """
 
 import pymunk
-from typing import Optional
+import math
 from loguru import logger
 from ...engine.ecs import System, World
 from ..components import PhysicsBody, MovementController, Transform
@@ -15,15 +16,19 @@ class KinematicMovementSystem(System):
     System responsible for moving Kinematic bodies using a sweep-and-slide algorithm
     against the static/dynamic geometry database.
 
-    This system implements a FIXED TIMESTEP update loop internally to ensure
-    determinism regardless of the frame rate.
+    Features:
+    - Fixed Timestep Update
+    - Capsule/Circle Sweeping (No Box approximation)
+    - Multi-plane slide resolution (prevents V-corner getting stuck)
+    - Pre-step Depenetration
     """
 
     def __init__(self):
-        self.space: Optional[pymunk.Space] = None
+        self.space: pymunk.Space = None
         self.accumulator = 0.0
         self.time_step = 1.0 / 60.0
         self.max_frame_time = 0.25
+        self.skin_width = 0.01
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -36,7 +41,7 @@ class KinematicMovementSystem(System):
             else:
                 return
 
-        # Clamp dt
+        # Clamp dt to prevent spiral of death
         if dt > self.max_frame_time:
             dt = self.max_frame_time
 
@@ -50,7 +55,6 @@ class KinematicMovementSystem(System):
         """
         Runs the deterministic movement logic.
         """
-        # Note: get_components_tuple returns (ent, [comp1, comp2, ...])
         components = world.get_components_tuple(PhysicsBody, MovementController, Transform)
 
         for entity, (phys, controller, trans) in components:
@@ -58,208 +62,182 @@ class KinematicMovementSystem(System):
             if phys.body.body_type != pymunk.Body.KINEMATIC:
                 continue
 
-            # Update prev position for interpolation BEFORE moving
-            trans.prev_x = phys.body.position.x
-            trans.prev_y = phys.body.position.y
+            # 0. Sync Transform to Body (Start of frame consistency)
+            start_pos = phys.body.position
 
+            # 1. Depenetration (Push out of overlapping geometry)
+            clean_pos = self.resolve_penetration(phys, start_pos)
+            if clean_pos != start_pos:
+                phys.body.position = clean_pos
+                start_pos = clean_pos
+
+            # Update prev position for interpolation
+            trans.prev_x = start_pos.x
+            trans.prev_y = start_pos.y
+
+            # 2. Perform Movement
             self.move_and_slide(phys, controller, trans, dt)
 
-            # Note: trans is updated inside move_and_slide now, but we can verify
-            if trans.x != phys.body.position.x:
-                 trans.x = phys.body.position.x
-                 trans.y = phys.body.position.y
+            # 3. Sync Transform back
+            trans.x = phys.body.position.x
+            trans.y = phys.body.position.y
+
+    def resolve_penetration(self, phys: PhysicsBody, pos: pymunk.Vec2d) -> pymunk.Vec2d:
+        """
+        Checks if the body is currently overlapping static geometry and pushes it out.
+        Returns the corrected position.
+        Uses shape_query to handle multiple contacts (e.g. corners).
+        """
+        current_pos = pos
+
+        # Max iterations to converge
+        for _ in range(10):
+            phys.body.position = current_pos
+
+            infos = self.space.shape_query(phys.shape)
+
+            if not infos:
+                break
+
+            total_push = pymunk.Vec2d(0, 0)
+            hits = 0
+
+            for info in infos:
+                if info.shape == phys.shape or info.shape.sensor:
+                    continue
+
+                contact_set = info.contact_point_set
+                if len(contact_set.points) == 0:
+                    continue
+
+                best_push = pymunk.Vec2d(0,0)
+
+                for point in contact_set.points:
+                    if point.distance < -0.001:
+                        push = contact_set.normal * (-point.distance)
+                        if push.length_squared > best_push.length_squared:
+                            best_push = push
+
+                if best_push.length_squared > 0:
+                    total_push += best_push
+                    hits += 1
+
+            if hits > 0:
+                current_pos += total_push
+            else:
+                break
+
+        phys.body.position = pos # Restore
+        return current_pos
+
+    def get_radius(self, shape: pymunk.Shape) -> float:
+        if hasattr(shape, 'radius'):
+            return shape.radius
+        bb = shape.bb
+        return min(bb.right - bb.left, bb.top - bb.bottom) / 2.0
 
     def move_and_slide(self, phys: PhysicsBody, controller: MovementController, trans: Transform, dt: float):
-        """
-        Performs the sweep-and-slide movement logic.
-        """
         body = phys.body
         shape = phys.shape
+        radius = self.get_radius(shape)
+        query_filter = shape.filter
 
-        # 1. Virtual Physics: Acceleration / Friction
+        # 1. Virtual Physics Integration
         input_vector = controller.target_velocity
-        current_velocity = controller.current_velocity
+        velocity = controller.current_velocity
 
         if input_vector.length_squared < 0.000001:
-            # Apply Friction (Damping)
             friction = controller.friction
-            # Simple damping: vel = vel * (1 - friction * dt)
-            # Ensure we don't flip direction if friction is huge
             damping = max(0.0, 1.0 - friction * dt)
-            current_velocity = current_velocity * damping
-
-            # Snap to 0 if very small
-            if current_velocity.length_squared < 0.0001:
-                current_velocity = pymunk.Vec2d(0, 0)
+            velocity = velocity * damping
+            if velocity.length_squared < 0.0001:
+                velocity = pymunk.Vec2d(0, 0)
         else:
-            # Apply Acceleration
-            target = input_vector
-            diff = target - current_velocity
-            change_mag = controller.acceleration * dt
+            diff = input_vector - velocity
+            change = controller.acceleration * dt
+            if change >= diff.length:
+                velocity = input_vector
+            else:
+                velocity += diff.normalized() * change
 
-            if diff.length_squared > 0.000001:
-                if change_mag >= diff.length:
-                    current_velocity = target
-                else:
-                    current_velocity += diff.normalized() * change_mag
+        controller.current_velocity = velocity
 
-        controller.current_velocity = current_velocity
-
-        # 2. Desired Displacement
-        move_delta = current_velocity * dt
-
-        # Early exit if negligible movement
+        # 2. Sweep Movement
+        move_delta = velocity * dt
         if move_delta.length_squared < 0.000001:
             return
 
-        # 3. Sweep and Slide
-        remaining_move = move_delta
-        original_pos = body.position
-        start_pos = body.position
+        current_pos = body.position
 
-        # Determine appropriate radius for sweep
-        radius = 1.0
-        if isinstance(shape, pymunk.Circle):
-             radius = shape.radius
-        elif isinstance(shape, pymunk.Poly):
-             # For Poly, calculate radius from bounding box.
-             bb = shape.bb
-             width = bb.right - bb.left
-             height = bb.top - bb.bottom
-             radius = min(width, height) / 2.0
-        elif hasattr(shape, 'radius'):
-             radius = shape.radius
+        collision_planes = []
+        max_slides = 4
 
-        query_filter = shape.filter
-
-        # Skin width to avoid getting stuck in walls
-        skin_width = 0.01
-
-        iterations = 3
-        for i in range(iterations):
-            if remaining_move.length_squared < 0.000001:
+        for i in range(max_slides):
+            if move_delta.length_squared < 0.000001:
                 break
 
-            end_pos = start_pos + remaining_move
+            target_pos = current_pos + move_delta
 
-            # Cast
-            infos = self.space.segment_query(start_pos, end_pos, radius, query_filter)
+            results = self.space.segment_query(current_pos, target_pos, radius, query_filter)
 
-            # Sort by fraction (alpha)
-            infos.sort(key=lambda x: x.alpha)
+            # DEBUG PRINT
+            # if len(results) > 0:
+            #    print(f"Frame Hit! Pos {current_pos} -> {target_pos}. Hits: {len(results)}")
 
             hit = None
-            for info in infos:
-                # Ignore self
-                if info.shape == shape:
-                    continue
-                # Ignore sensors
-                if info.shape.sensor:
-                    continue
+            best_alpha = 1.0
 
-                # 4. Filter internal edges or back-faces
-                # Determine if the normal opposes our movement.
-                # If dot(normal, direction) > 0, we are moving away from the wall (back-face).
-                # Note: We should be careful about "inside" cases.
-                # If alpha is 0 (already intersecting), and dot > 0 (moving away), we ignore.
-                # If alpha is 0, and dot < 0 (moving deeper), we block.
+            for info in results:
+                if info.shape == shape: continue
+                if info.shape.sensor: continue
 
-                # Check if we are moving against the normal (into the wall)
-                # But allow hits if alpha is near zero (inside), even if normal seems to point same way
-                # (which shouldn't happen usually for convex shapes, but for segments it might depend on winding)
-
-                # Note: Pymunk segment query normals are relative to the segment, not necessarily opposing the ray?
-                # Actually, standard Pymunk segment query returns normal facing the ray origin if outside.
-                # If inside, it might be tricky.
-
-                # Relaxed check: Only skip if we are CLEARLY moving away (dot > epsilon) AND alpha is not tiny.
-                # If alpha is tiny, we might be inside and the normal might be weird, so we should process it to slide out/stop.
-
-                dot = info.normal.dot(remaining_move)
-                if dot > 0.0001 and info.alpha > 0.001:
+                # Backface check (can be risky if inside, but segment_query shouldn't work if inside)
+                if info.normal.dot(move_delta) > 0.0001:
                      continue
 
-                hit = info
-                break
+                if info.alpha < best_alpha:
+                    best_alpha = info.alpha
+                    hit = info
 
             if hit:
-                # Resolve Collision
-                # logger.trace(f"Collision detected with normal {hit.normal} at alpha {hit.alpha}")
+                # print(f"Processing Hit: Alpha {hit.alpha}, Normal {hit.normal}")
+                safe_alpha = max(0.0, hit.alpha - (self.skin_width / move_delta.length if move_delta.length > 0 else 0))
 
-                if hit.alpha <= 0.00001:
-                    # We are starting inside or extremely close.
-                    # Stop movement to prevent tunneling further.
-                    # Ideally we should push out, but for kinematic controller, just stopping the component
-                    # of movement into the wall is safer than teleporting.
+                step_move = move_delta * safe_alpha
+                current_pos += step_move
 
-                    # If we are stuck, we just slide.
-                    pass
+                remainder = move_delta * (1.0 - safe_alpha)
+                collision_planes.append(hit.normal)
 
-                safe_fraction = max(0.0, hit.alpha - (skin_width / remaining_move.length) if remaining_move.length > 0 else 0)
+                new_dir = remainder
+                for plane in collision_planes:
+                    dot = new_dir.dot(plane)
+                    if dot < 0:
+                        new_dir = new_dir - plane * dot
 
-                # Move to the safe spot
-                actual_move = remaining_move * safe_fraction
-                start_pos += actual_move
+                valid = True
+                for plane in collision_planes:
+                    if new_dir.dot(plane) < -0.001:
+                        valid = False
+                        break
 
-                # Slide
-                # Remainder is the part of the vector we couldn't travel
-                remainder = remaining_move * (1.0 - safe_fraction)
+                if not valid:
+                    move_delta = pymunk.Vec2d(0, 0)
+                else:
+                    move_delta = new_dir
 
-                # Project remainder onto wall tangent
-                normal = hit.normal
-
-                dot = remainder.dot(normal)
-
-                # Subtract component parallel to normal to slide
-                slide_vec = remainder - normal * dot
-
-                # Safety check: If slide_vec is extremely small or opposes original intention significantly?
-                # Actually, standard projection is fine.
-
-                remaining_move = slide_vec
             else:
-                # No hit
-                # Safety Check: Did we tunnel?
-                # Pymunk segment_query can miss collisions near corners or complex geometry.
-                # We perform a point_query at the destination to ensure we are not overlapping.
-
-                pq_info = self.space.point_query_nearest(end_pos, radius + skin_width, query_filter)
-                if pq_info and pq_info.shape and not pq_info.shape.sensor and pq_info.shape != shape:
-                    # Check overlap
-                    # point_query_nearest returns distance to the shape surface.
-                    # Overlap if distance < radius.
-                    # Note: pq_info.distance is positive if outside, negative if inside shape.
-
-                    overlap = radius - pq_info.distance
-                    if overlap > 0:
-                        # We tunneled or are overlapping.
-                        # Push out along the gradient (normal).
-                        # pq_info.gradient points OUT of the shape.
-
-                        # Fix position
-                        correction = pq_info.gradient * overlap
-                        end_pos += correction
-
-                        # Also treat this as a collision for sliding purposes?
-                        # If we just correct position, we might keep pushing into it next frame.
-                        # Ideally we should reflect velocity or slide.
-                        # But since 'remaining_move' was fully consumed (we thought no hit),
-                        # we assume we reached the end.
-                        # Correcting position is enough to prevent deep tunneling.
-                        pass
-
-                start_pos = end_pos
-                remaining_move = pymunk.Vec2d(0, 0)
+                current_pos = target_pos
+                move_delta = pymunk.Vec2d(0, 0)
                 break
 
-        # 4. Commit Position
-        body.position = start_pos
+        body.position = current_pos
 
-        # Update Transform immediately to ensure rendering sync
-        trans.x = start_pos.x
-        trans.y = start_pos.y
-
-        # 5. Update Velocity based on actual movement
         if dt > 0.000001:
-            effective_velocity = (start_pos - original_pos) / dt
-            controller.current_velocity = effective_velocity
+             final_vel = velocity
+             for plane in collision_planes:
+                 dot = final_vel.dot(plane)
+                 if dot < 0:
+                     final_vel = final_vel - plane * dot
+
+             controller.current_velocity = final_vel
