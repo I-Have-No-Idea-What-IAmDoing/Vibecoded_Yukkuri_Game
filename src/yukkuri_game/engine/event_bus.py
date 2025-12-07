@@ -5,7 +5,7 @@ The EventBus provides a mechanism for decoupled communication between different
 parts of the application using a publish-subscribe pattern.
 """
 
-from typing import Dict, List, Type, Callable, Any, TypeVar
+from typing import Dict, List, Type, Callable, Any, TypeVar, Generic
 from dataclasses import dataclass
 
 
@@ -50,6 +50,7 @@ class EventBus:
         """
         if event_type not in self._subscribers:
             self._subscribers[event_type] = []
+        # We need to cast handler to Callable[[Any], None] because Dict is invariant
         self._subscribers[event_type].append(handler)  # type: ignore
 
     def unsubscribe(self, event_type: Type[E], handler: EventHandler[E]) -> None:
@@ -77,3 +78,9 @@ class EventBus:
         if event_type in self._subscribers:
             for handler in self._subscribers[event_type]:
                 handler(event)
+
+    def clear(self) -> None:
+        """
+        Clears all subscribers.
+        """
+        self._subscribers.clear()

@@ -20,7 +20,7 @@ from .yukkuri_components import Poop
 from .services import InputService
 
 if TYPE_CHECKING:
-    from .yukkurrium import Yukkurrium
+    from .camera import Camera
     import pygame_gui
 
 
@@ -31,7 +31,7 @@ class InputSystem(System):
     Handles entity selection and triggers placement requests via events.
 
     Attributes:
-        yukkurrium (Yukkurrium): The world view manager.
+        camera (Camera): The world view manager.
         event_bus (Optional[EventBus]): The event bus service.
         input_service (Optional[InputService]): The input service.
         input_manager (Optional[InputManager]): The input manager service.
@@ -42,14 +42,14 @@ class InputSystem(System):
         drag_start_screen_pos (Optional[Tuple[int, int]]): Screen coordinates where drag started.
     """
 
-    def __init__(self, yukkurrium: "Yukkurrium"):
+    def __init__(self, camera: "Camera"):
         """
         Initializes the InputSystem.
 
         Args:
-            yukkurrium (Yukkurrium): The game world view manager.
+            camera (Camera): The game world view manager.
         """
-        self.yukkurrium = yukkurrium
+        self.camera = camera
         self.event_bus: Optional[EventBus] = None
         self.input_service: Optional[InputService] = None
         self.input_manager: Optional[InputManager] = None
@@ -139,7 +139,7 @@ class InputSystem(System):
         is_cancel_pressed = self.input_manager.is_action_just_pressed("cancel_action")
         is_select_released = self.input_manager.is_action_just_released("select")
 
-        wx, wy = self.yukkurrium.screen_to_world(mx, my, screen_w, screen_h)
+        wx, wy = self.camera.screen_to_world(mx, my, screen_w, screen_h)
 
         self._check_hover(world, wx, wy, mx, my)
 

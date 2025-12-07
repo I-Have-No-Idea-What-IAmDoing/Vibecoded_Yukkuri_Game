@@ -9,7 +9,10 @@ from .game.systems.emotion_system import EmotionSystem
 from .game.systems.lifecycle import LifecycleSystem
 from .game.systems.behavior import BehaviorSystem
 from .game.systems.physics import PhysicsSystem
-from .game.systems.movement_system import MovementSystem
+from .game.systems.visual_movement_system import VisualMovementSystem
+from .game.systems.kinematic_movement_system import KinematicMovementSystem
+from .game.systems.hierarchy_system import HierarchySystem
+from .game.systems.visibility_system import VisibilitySystem
 from .game.systems.construction_system import ConstructionSystem
 from .game.systems.animation import AnimationSystem
 from .game.systems.poop_system import PoopSystem
@@ -25,7 +28,7 @@ from .game.systems.time_system import TimeSystem
 
 if TYPE_CHECKING:
     from .config import GameConfig
-    from .game.yukkurrium import Yukkurrium
+    from .game.camera import Camera
 
 
 class SystemRegistry:
@@ -37,7 +40,7 @@ class SystemRegistry:
     def register_systems(
         world: World,
         game_config: "GameConfig",
-        yukkurrium: "Yukkurrium",
+        camera: "Camera",
         event_bus: EventBus,
         physics_system: PhysicsSystem,
     ) -> InputSystem:
@@ -47,7 +50,7 @@ class SystemRegistry:
         Args:
             world (World): The ECS World.
             game_config (GameConfig): The game configuration.
-            yukkurrium (Yukkurrium): The game world view.
+            camera (Camera): The game world view.
             event_bus (EventBus): The event bus.
             physics_system (PhysicsSystem): The physics system (pre-initialized).
 
@@ -55,7 +58,7 @@ class SystemRegistry:
             InputSystem: The registered input system (needed for event handling).
         """
 
-        input_system = InputSystem(yukkurrium)
+        input_system = InputSystem(camera)
         world.add_system(input_system)
 
         world.add_system(TimeSystem())
@@ -64,11 +67,14 @@ class SystemRegistry:
         world.add_system(EmotionSystem(settings=game_config.rules.stat_decay))
         world.add_system(LifecycleSystem(settings=game_config.rules.lifecycle))
         world.add_system(
-            BehaviorSystem(float(yukkurrium.width), float(yukkurrium.height))
+            BehaviorSystem(float(camera.width), float(camera.height))
         )
-        world.add_system(MovementSystem())
+        world.add_system(KinematicMovementSystem())
+        world.add_system(HierarchySystem())
+        world.add_system(VisualMovementSystem())
         world.add_system(ConstructionSystem())
         world.add_system(AnimationSystem())
+        world.add_system(VisibilitySystem())
         world.add_system(PoopSystem())
         world.add_system(FeedbackSystem(world))
         world.add_system(HungerSystem())

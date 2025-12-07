@@ -18,10 +18,16 @@ class PhysicsBody:
     Attributes:
         body (pymunk.Body): The physics body.
         shape (pymunk.Shape): The physics shape.
+        base_radius (Optional[float]): The original radius of the shape (for Totem Pole resizing).
     """
 
     body: pymunk.Body
     shape: pymunk.Shape
+    base_radius: Optional[float] = None
+
+    def __post_init__(self):
+        if self.base_radius is None and isinstance(self.shape, pymunk.Circle):
+            self.base_radius = self.shape.radius
 
 
 @dataclass
@@ -37,7 +43,20 @@ class Transform:
 
     x: float
     y: float
+    rotation: float = 0.0
     scale: float = 1.0
+    prev_x: Optional[float] = None
+    prev_y: Optional[float] = None
+    prev_rotation: Optional[float] = None
+
+    def __post_init__(self) -> None:
+        """Initialize prev positions to current positions to avoid jumps."""
+        if self.prev_x is None:
+            self.prev_x = self.x
+        if self.prev_y is None:
+            self.prev_y = self.y
+        if self.prev_rotation is None:
+            self.prev_rotation = self.rotation
 
 
 @dataclass
@@ -164,10 +183,49 @@ class MovementController:
     # Safety Fix: Use default_factory for mutable Vector2
     target_velocity: Vector2 = field(default_factory=lambda: Vector2(0, 0))
 
+    # New fields for Kinematic Controller
+    acceleration: float = 500.0
+    friction: float = 10.0
+    current_velocity: Vector2 = field(default_factory=lambda: Vector2(0, 0))
+
     # --- Visual Tuning ---
     visual_bob_timer: float = 0.0
     bob_height: float = 10.0
     bob_speed: float = 5.0
+
+
+@dataclass
+class Mount:
+    """
+    Component for handling parent-child relationships in the hierarchy.
+    Tracks parent and children entities, mount offsets, and render layering.
+    """
+
+    parent_id: EntityID = EntityID(-1)
+    children_ids: list[EntityID] = field(default_factory=list)
+    mount_point_offset: Vector2 = field(default_factory=lambda: Vector2(0, 0))
+    layer_order: int = 0
+    structure_dirty: bool = True
+
+
+@dataclass
+class PendingDismount:
+    """
+    Component for entities that are in the process of dismounting (Ghost Mode).
+    Entities in this state are searching for a valid physical location to materialize.
+    """
+
+    time_in_pending: float = 0.0
+
+
+@dataclass
+class Vision:
+    """
+    Component for visibility calculation.
+    """
+
+    range: float = 200.0
+    fov: float = 360.0  # in degrees
 
 
 @dataclass

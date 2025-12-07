@@ -4,6 +4,7 @@ Prefab functions for Yukkuri entities.
 
 from typing import Optional, List, Any
 import random
+import pymunk
 
 from ...engine.ecs import World
 from ...engine.resource_manager import ResourceManager
@@ -13,6 +14,8 @@ from ..components import (
     Selectable,
     MovementController,
     VisualTransform,
+    Vision,
+    Mount,
 )
 from ..yukkuri_components import (
     YukkuriStats,
@@ -224,6 +227,12 @@ def create_yukkuri(
     if skill_service:
         skill_service.initialize_skills(entity)
 
+    # Vision
+    world.add_component(entity, Vision(range=300.0, fov=360.0))
+
+    # Mount (Hierarchy Root)
+    world.add_component(entity, Mount())
+
     # Physics
     add_physics_body(
         world=world,
@@ -239,6 +248,7 @@ def create_yukkuri(
         elasticity=0.5,
         friction=0.5,
         set_userdata=True,
+        body_type=pymunk.Body.KINEMATIC,
     )
 
     return entity

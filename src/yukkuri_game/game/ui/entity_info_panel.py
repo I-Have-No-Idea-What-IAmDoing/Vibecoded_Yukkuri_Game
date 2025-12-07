@@ -35,6 +35,13 @@ class EntityInfoPanel:
     def __init__(
         self, manager: pygame_gui.UIManager, root_container: Optional[UIPanel] = None
     ):
+        """
+        Initializes the EntityInfoPanel.
+
+        Args:
+            manager (pygame_gui.UIManager): The UI Manager.
+            root_container (Optional[UIPanel]): Parent container, if any.
+        """
         self.manager = manager
         self.window: Optional[UIWindow] = None
         self.tabbed_panel: Optional[TabbedPanel] = None
@@ -221,6 +228,12 @@ class EntityInfoPanel:
             )
 
     def update_stats(self, text: str):
+        """
+        Updates the stats text box content.
+
+        Args:
+            text (str): The HTML text to display.
+        """
         if self.stats_text_box and self.stats_text_box.html_text != text:
             old_height = self.stats_text_box.rect.height
             self.stats_text_box.set_text(text)
@@ -232,6 +245,12 @@ class EntityInfoPanel:
                 )
 
     def update_skills(self, text: str):
+        """
+        Updates the skills text box content.
+
+        Args:
+            text (str): The HTML text to display.
+        """
         if self.skills_text_box and self.skills_text_box.html_text != text:
             old_height = self.skills_text_box.rect.height
             self.skills_text_box.set_text(text)

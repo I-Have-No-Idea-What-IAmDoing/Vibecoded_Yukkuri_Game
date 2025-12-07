@@ -42,6 +42,10 @@ class MainMenuScene(Scene):
         )
 
     def on_enter(self) -> None:
+        """
+        Called when the scene is entered.
+        Sets up the UI resolution.
+        """
         logger.info("Entered Main Menu Scene")
         # Ensure we have the right resolution for UI
         self.ui_manager.set_window_resolution(
@@ -49,17 +53,36 @@ class MainMenuScene(Scene):
         )
 
     def on_exit(self) -> None:
+        """
+        Called when the scene is exited.
+        Clears the UI manager.
+        """
         logger.info("Exited Main Menu Scene")
         self.ui_manager.clear_and_reset()
 
     def update(self, dt: float) -> None:
+        """
+        Updates the scene.
+
+        Args:
+            dt (float): Delta time.
+        """
         super().update(dt)
         self.ui_manager.update(dt)
 
     def render(self) -> None:
+        """
+        Renders the scene.
+        """
         self.ui_manager.draw_ui(self.application.screen)
 
     def handle_event(self, event: pygame.event.Event) -> None:
+        """
+        Handles input events.
+
+        Args:
+            event (pygame.event.Event): The Pygame event.
+        """
         self.ui_manager.process_events(event)
         # InputManager processing is handled by Application
 

@@ -33,7 +33,7 @@ from ..game.systems.physics import PhysicsSystem
 from ..game.systems.physics_reconstruction import reconstruct_physics
 from ..game.systems.render_system import RenderSystem
 from ..game.ui.hud import HUD
-from ..game.yukkurrium import Yukkurrium
+from ..game.camera import Camera
 
 
 class GameplayScene(Scene):
@@ -55,6 +55,9 @@ class GameplayScene(Scene):
         self.dt = 0.0
 
     def on_enter(self) -> None:
+        """
+        Called when the scene becomes active.
+        """
         logger.info("Entered Gameplay Scene")
         # setup is called by SceneManager before on_enter
         self.ui_manager.set_window_resolution(
@@ -66,7 +69,7 @@ class GameplayScene(Scene):
         # Load Config
         self.game_config = load_config()
 
-        self.yukkurrium = Yukkurrium(settings=self.game_config.world)
+        self.camera = Camera(settings=self.game_config.world)
         self.audio = AudioManager()
         self.audio.load_from_config()
 
@@ -81,7 +84,7 @@ class GameplayScene(Scene):
 
         # Register services
         self.loader.register_services(
-            context, self.audio, self.yukkurrium, self.physics_system, self.event_bus
+            context, self.audio, self.camera, self.physics_system, self.event_bus
         )
 
         # Cache service references for local usage
@@ -102,7 +105,7 @@ class GameplayScene(Scene):
 
         # Systems
         self.input_system = self.loader.register_systems(
-            self.yukkurrium, self.event_bus, self.physics_system, self.ui_manager
+            self.camera, self.event_bus, self.physics_system, self.ui_manager
         )
 
         self.is_setup = True
@@ -110,11 +113,11 @@ class GameplayScene(Scene):
 
         # Initial Population if empty
         if not self.application.headless and len(self.world.get_all_entities()) == 0:
-            start_x = float(self.yukkurrium.width) / 2.0
-            start_y = float(self.yukkurrium.height) / 2.0
+            start_x = float(self.camera.width) / 2.0
+            start_y = float(self.camera.height) / 2.0
             create_yukkuri(self.world, "reimu", start_x, start_y)
-            self.yukkurrium.camera_x = float(start_x)
-            self.yukkurrium.camera_y = float(start_y)
+            self.camera.camera_x = float(start_x)
+            self.camera.camera_y = float(start_y)
 
     def _apply_initial_settings(self) -> None:
         audio_settings = self.settings_service.settings.audio
@@ -134,6 +137,10 @@ class GameplayScene(Scene):
             self.event_bus.subscribe(LoadGameRequest, lambda e: self.load(e.filename))
 
     def on_exit(self) -> None:
+        """
+        Called when the scene is exited.
+        Clears UI and syncs global state.
+        """
         logger.info("Exited Gameplay Scene")
         self.ui_manager.clear_and_reset()
 
@@ -148,9 +155,11 @@ class GameplayScene(Scene):
             )
 
     def toggle_pause(self) -> None:
+        """Toggles the pause state."""
         self.paused = not self.paused
 
     def cycle_speed(self) -> None:
+        """Cycles through game speed multipliers."""
         speeds = [1.0, 2.0, 5.0, 0.5]
         try:
             current_idx = speeds.index(self.time_scale)
@@ -162,6 +171,12 @@ class GameplayScene(Scene):
             self.hud.layout.speed_btn.set_text(f"{self.time_scale}x")
 
     def on_resolution_changed(self, event: ResolutionChangedEvent) -> None:
+        """
+        Handles resolution change event.
+
+        Args:
+            event (ResolutionChangedEvent): The event data.
+        """
         if self.application.headless:
             return
 
@@ -178,6 +193,7 @@ class GameplayScene(Scene):
             self.hud.resize(event.width, event.height)
 
     def take_screenshot(self) -> None:
+        """Takes a screenshot and saves it to the screenshots directory."""
         if not os.path.exists("screenshots"):
             os.makedirs("screenshots")
 
@@ -229,7 +245,7 @@ class GameplayScene(Scene):
         self.world.clear_database()
         if hasattr(self, "physics_system"):
             self.physics_system.clear()
-        self.yukkurrium.clear()
+        self.camera.clear()
 
         # Load Global Data
         import json
@@ -262,6 +278,12 @@ class GameplayScene(Scene):
         logger.info("World loaded.")
 
     def update(self, dt: float) -> None:
+        """
+        Updates the scene logic.
+
+        Args:
+            dt (float): Delta time.
+        """
         self.dt = dt
         self.ui_manager.update(dt)
 
@@ -274,7 +296,7 @@ class GameplayScene(Scene):
 
             self.event_manager.process_phase(GamePhase.UPDATE)
             self.world.update(sim_dt)
-            self.yukkurrium.update(sim_dt)
+            self.camera.update(sim_dt)
 
         self.event_manager.process_phase(GamePhase.POST_UPDATE)
 
@@ -283,6 +305,9 @@ class GameplayScene(Scene):
             self.hud.update(dt)
 
     def render(self) -> None:
+        """
+        Renders the scene.
+        """
         self.render_world()
 
         if not self.application.headless:
@@ -290,15 +315,34 @@ class GameplayScene(Scene):
             self.ui_manager.draw_ui(self.application.screen)
 
     def render_world(self) -> None:
+        """
+        Renders the game world entities.
+        """
         if hasattr(self, "render_system") and self.render_system:
-            self.render_system.update(self.world, self.dt)
+            alpha = 1.0
+            if hasattr(self.application, "accumulator") and hasattr(
+                self.application, "fixed_dt"
+            ):
+                alpha = self.application.accumulator / self.application.fixed_dt
+                # Clamp alpha just in case
+                alpha = max(0.0, min(1.0, alpha))
+
+            # Pass alpha instead of dt to render_system.update
+            # RenderSystem.update expects (world, dt), but we re-purpose second arg for alpha
+            self.render_system.update(self.world, alpha)
 
     def handle_event(self, event: pygame.event.Event) -> None:
+        """
+        Handles input events.
+
+        Args:
+            event (pygame.event.Event): The Pygame event.
+        """
         self.ui_manager.process_events(event)
         # InputManager processing is handled by Application
 
-        if hasattr(self, "yukkurrium"):
-            self.yukkurrium.handle_input(
+        if hasattr(self, "camera"):
+            self.camera.handle_input(
                 event, self.application.width, self.application.height
             )
 

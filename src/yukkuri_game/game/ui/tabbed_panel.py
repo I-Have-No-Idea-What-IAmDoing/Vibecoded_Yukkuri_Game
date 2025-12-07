@@ -24,6 +24,21 @@ class TabbedPanel(UITabContainer):
         orientation: str = "horizontal",
         tab_button_size: Tuple[int, int] = (150, 30),
     ):
+        """
+        Initializes the TabbedPanel.
+
+        Args:
+            relative_rect: The relative position and size.
+            manager: The UI manager.
+            container: The container.
+            starting_height: The starting height layer.
+            parent_element: The parent element.
+            object_id: The object ID.
+            anchors: Layout anchors.
+            visible: Initial visibility.
+            orientation: "horizontal" or "vertical".
+            tab_button_size: Size of tab buttons (width, height).
+        """
         self.orientation = orientation
         self.tab_button_size = tab_button_size
 
@@ -45,6 +60,12 @@ class TabbedPanel(UITabContainer):
         self.button_width = self.tab_button_size[0]
 
     def _calculate_container_rect_by_layout(self) -> pygame.Rect:
+        """
+        Calculates the content container rect based on orientation.
+
+        Returns:
+            pygame.Rect: The content container rect.
+        """
         # Use self.rect to ensure we are sizing relative to this widget
         # self.rect is absolute, but we want size.
         # And we return a relative rect for the child container.
@@ -72,6 +93,13 @@ class TabbedPanel(UITabContainer):
         """
         Create a new tab.
         Override to support vertical layout.
+
+        Args:
+            title_text (str): The tab title.
+            title_object_id (str): The object ID for styling.
+
+        Returns:
+            int: The index of the new tab.
         """
         # We must use self._root_container as container for children, verified by test.
 
@@ -135,6 +163,9 @@ class TabbedPanel(UITabContainer):
     def rebuild(self, count: Optional[int] = None):
         """
         Rebuilds the tab container.
+
+        Args:
+            count (int, optional): Override for number of tabs to process.
         """
         UIElement.rebuild(self)
 

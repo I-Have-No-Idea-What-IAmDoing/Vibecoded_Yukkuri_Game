@@ -378,6 +378,9 @@ class HudRenderer:
     def _update_skills_display(self, selected_entities: List[int]) -> None:
         """
         Updates the skills display for the selected entity.
+
+        Args:
+            selected_entities (list[int]): The IDs of the selected entities.
         """
         if not self.layout.entity_info_panel:
             return

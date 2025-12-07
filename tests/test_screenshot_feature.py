@@ -49,7 +49,7 @@ class TestScreenshot(unittest.TestCase):
             # We need to mock things inside GameplayScene.__init__/setup
             with (
                 patch("yukkuri_game.scenes.gameplay.load_config"),
-                patch("yukkuri_game.scenes.gameplay.Yukkurrium"),
+                patch("yukkuri_game.scenes.gameplay.Camera"),
                 patch("yukkuri_game.scenes.gameplay.AudioManager"),
                 patch("yukkuri_game.scenes.gameplay.PhysicsSystem"),
                 patch("yukkuri_game.scenes.gameplay.GameService"),
@@ -110,7 +110,7 @@ class TestScreenshot(unittest.TestCase):
 
             with (
                 patch("yukkuri_game.scenes.gameplay.load_config"),
-                patch("yukkuri_game.scenes.gameplay.Yukkurrium"),
+                patch("yukkuri_game.scenes.gameplay.Camera"),
                 patch("yukkuri_game.scenes.gameplay.AudioManager"),
                 patch("yukkuri_game.scenes.gameplay.PhysicsSystem"),
                 patch("yukkuri_game.scenes.gameplay.GameService"),

@@ -3,9 +3,11 @@ Render System Module.
 """
 
 import pygame
+from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.resource_manager import ResourceManager
-from ..yukkurrium import Yukkurrium, WorldRenderer
+from ..camera import Camera
+from ..renderer import WorldRenderer
 
 
 class RenderSystem(System):
@@ -24,9 +26,9 @@ class RenderSystem(System):
             screen (pygame.Surface): The target Pygame surface.
             world (World): The ECS World instance (used to locate services).
         """
-        yukkurrium = world.services.get(Yukkurrium)
+        camera = world.services.get(Camera)
         rm = world.services.get(ResourceManager)
-        self.renderer = WorldRenderer(screen, yukkurrium, rm)
+        self.renderer = WorldRenderer(screen, camera, rm)
 
     @property
     def screen(self) -> pygame.Surface:
@@ -36,15 +38,16 @@ class RenderSystem(System):
     def screen(self, value: pygame.Surface) -> None:
         self.renderer.screen = value
 
-    def update(self, world: World, dt: float) -> None:
+    def update(self, world: World, alpha: float) -> None:
         """
         Renders the world grid and all visible entities.
 
         Args:
             world (World): The ECS World.
-            dt (float): Delta time.
+            alpha (float): Interpolation alpha (0.0 to 1.0).
 
         Returns:
             None
         """
-        self.renderer.render(world)
+        logger.trace(f"Rendering frame with alpha {alpha}")
+        self.renderer.render(world, alpha=alpha)
