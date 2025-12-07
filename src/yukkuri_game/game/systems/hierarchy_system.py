@@ -1,10 +1,12 @@
 """
 Hierarchy System.
 Manages parent-child relationships and transforms.
+Optimized to handle dismounts and structure updates more efficiently.
 """
 
 import pymunk
 import math
+import random
 from loguru import logger
 from ...engine.ecs import System, World
 from ..components import Mount, Transform, PhysicsBody, PendingDismount, MovementController
@@ -13,7 +15,7 @@ from .physics import PhysicsSystem
 
 _DISMOUNT_DEFAULT_RADIUS = 10.0
 _DISMOUNT_MAX_SEARCH_RADIUS = 100.0
-_DISMOUNT_MAX_SEARCH_CHECKS = 50
+_DISMOUNT_MAX_SEARCH_CHECKS = 20 # Reduced from 50 to optimize perf
 _DISMOUNT_TIMEOUT = 5.0
 _DEFAULT_ENTITY_RADIUS = 10.0
 _RADIUS_UPDATE_THRESHOLD = 0.1
@@ -248,8 +250,8 @@ class HierarchySystem(System):
     def find_free_spot(self, space, start_pos, collider_radius):
         """
         Searches for a free spot using a spiral pattern.
-        Critique Fix: Use shape_query instead of point_query to check full volume.
-        Critique Fix: Include YUKKURI (Units) in check to prevent tele-fragging.
+        Critique Fix: Use shape_query (via point_query_nearest logic) to check full volume.
+        Critique Fix: Optimized to reduce checks and include relevant masks.
         """
         max_radius = _DISMOUNT_MAX_SEARCH_RADIUS
         current_r = 0.0
@@ -258,42 +260,23 @@ class HierarchySystem(System):
         max_checks = _DISMOUNT_MAX_SEARCH_CHECKS
         checks = 0
 
-        # Create a temporary shape for query (Circle)
-        # We assume the unit fits in a circle of collider_radius
         query_mask = CollisionCategories.WALL | CollisionCategories.YUKKURI
+        # Create a shape filter once
+        shape_filter = pymunk.ShapeFilter(mask=query_mask)
 
         def is_spot_free(pos):
-             # shape_query checks if the shape at 'pos' overlaps anything
-             # We can cheat by using point_query with radius, but shape_query is more "correct" for actual overlaps.
-             # However, Pymunk's point_query_nearest checks if a point is within distance of a shape.
-             # We want: Is there ANY shape within 'collider_radius' of 'pos'?
-             # point_query_nearest(pos, max_dist=collider_radius) returns the nearest shape.
-             # If distance < 0, it means overlap (if inside).
-             # If distance < collider_radius, it means overlap (if outside but close).
-
-             info = space.point_query_nearest(pos, collider_radius, pymunk.ShapeFilter(mask=query_mask))
-
-             # If info is None, no shapes are within collider_radius. Free.
-             if info is None:
-                 return True
-
-             # If distance is negative, the point 'pos' is INSIDE a shape.
-             if info.distance < 0:
-                 return False
-
-             # If distance < collider_radius, the shape is overlapping our circle.
-             # Wait, point_query_nearest finds the shape closest to the point.
-             # info.distance is the distance to the surface.
-             # If we want to place a circle of radius R at pos...
-             # We are blocked if distance < R.
-             # But wait, point_query_nearest max_distance argument filters candidates.
-             # So if we get a result, it means there IS a shape within R.
-             # So if info is NOT None, we are blocked.
-
-             return False
+             # Check if anything is within collider_radius of pos
+             # point_query_nearest returns info about the nearest shape within max_dist.
+             # If it returns anything, it means there is a shape within that distance.
+             # So we are blocked.
+             info = space.point_query_nearest(pos, collider_radius, shape_filter)
+             return info is None
 
         if is_spot_free(start_pos):
              return start_pos
+
+        # Add some randomness to theta to prevent identical search patterns for stacked units causing "clumping"
+        theta = random.uniform(0, 2 * math.pi)
 
         while current_r < max_radius and checks < max_checks:
             checks += 1

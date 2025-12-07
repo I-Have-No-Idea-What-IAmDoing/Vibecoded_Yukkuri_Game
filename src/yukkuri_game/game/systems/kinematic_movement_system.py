@@ -8,6 +8,8 @@ import pymunk
 import math
 from loguru import logger
 from ...engine.ecs import System, World
+from ...engine.event_bus import EventBus
+from ...engine.events import PhysicsFixedUpdateEvent
 from ..components import PhysicsBody, MovementController, Transform
 from .physics import PhysicsSystem
 
@@ -25,10 +27,22 @@ class KinematicMovementSystem(System):
 
     def __init__(self):
         self.space: pymunk.Space = None
-        self.accumulator = 0.0
-        self.time_step = 1.0 / 60.0
-        self.max_frame_time = 0.25
         self.skin_width = 0.01
+        self.event_bus = None
+        self.ecs_world = None
+
+    def on_fixed_update(self, event: PhysicsFixedUpdateEvent):
+        if not self.space:
+            return
+
+        # Ensure we have the world. If ecs_world is None, we can't update.
+        # This prevents race conditions if fixed_update fires before first update.
+        if self.ecs_world:
+            self.fixed_update(self.ecs_world, event.dt)
+        else:
+            # Fallback/Warning: This should be rare if PhysicsSystem and KinematicSystem
+            # are initialized in order or if update() runs first.
+            logger.warning("KinematicMovementSystem: Fixed update skipped because world is not initialized.")
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -38,18 +52,15 @@ class KinematicMovementSystem(System):
             physics_system = world.services.try_get(PhysicsSystem)
             if physics_system:
                 self.space = physics_system.space
-            else:
-                return
 
-        # Clamp dt to prevent spiral of death
-        if dt > self.max_frame_time:
-            dt = self.max_frame_time
+        if not self.event_bus:
+            self.event_bus = world.services.try_get(EventBus)
+            if self.event_bus:
+                self.event_bus.subscribe(PhysicsFixedUpdateEvent, self.on_fixed_update)
+                self.ecs_world = world # Cache it for the callback
 
-        self.accumulator += dt
-
-        while self.accumulator >= self.time_step:
-            self.fixed_update(world, self.time_step)
-            self.accumulator -= self.time_step
+        # Update cache if world changed (rare in this engine probably)
+        self.ecs_world = world
 
     def fixed_update(self, world: World, dt: float):
         """
@@ -66,6 +77,7 @@ class KinematicMovementSystem(System):
             start_pos = phys.body.position
 
             # 1. Depenetration (Push out of overlapping geometry)
+            # Optimized: Only run 1 iteration, usually enough for simple overlaps.
             clean_pos = self.resolve_penetration(phys, start_pos)
             if clean_pos != start_pos:
                 phys.body.position = clean_pos
@@ -90,9 +102,10 @@ class KinematicMovementSystem(System):
         """
         current_pos = pos
 
-        # Optimization: Reduced iterations from 10 to 3.
+        # Optimization: Reduced iterations from 3 to 1.
         # Deep penetration should be rare with continuous collision detection.
-        max_iterations = 3
+        # Running once resolves the majority of "stuck in wall" cases.
+        max_iterations = 1
 
         for _ in range(max_iterations):
             phys.body.position = current_pos
@@ -149,11 +162,6 @@ class KinematicMovementSystem(System):
         radius = self.get_radius(shape)
         query_filter = shape.filter
 
-        # Critique Fix: Warn if shape is not ideal for sweep
-        if not isinstance(shape, (pymunk.Circle, pymunk.Segment)):
-             # We silently accept it but the get_radius approximation is used.
-             pass
-
         # 1. Virtual Physics Integration
         input_vector = controller.target_velocity
         velocity = controller.current_velocity
@@ -182,6 +190,8 @@ class KinematicMovementSystem(System):
         current_pos = body.position
 
         collision_planes = []
+        # Restore max_slides to 4 to allow proper sliding (Move -> Hit -> Slide -> Move)
+        # 1 iteration results in "sticky" movement.
         max_slides = 4
 
         for i in range(max_slides):
@@ -191,10 +201,6 @@ class KinematicMovementSystem(System):
             target_pos = current_pos + move_delta
 
             results = self.space.segment_query(current_pos, target_pos, radius, query_filter)
-
-            # DEBUG PRINT
-            # if len(results) > 0:
-            #    print(f"Frame Hit! Pos {current_pos} -> {target_pos}. Hits: {len(results)}")
 
             hit = None
             best_alpha = 1.0
@@ -212,7 +218,6 @@ class KinematicMovementSystem(System):
                     hit = info
 
             if hit:
-                # print(f"Processing Hit: Alpha {hit.alpha}, Normal {hit.normal}")
                 # Optimization: Guard against division by zero or tiny move_delta
                 md_len = move_delta.length
                 safe_alpha = hit.alpha

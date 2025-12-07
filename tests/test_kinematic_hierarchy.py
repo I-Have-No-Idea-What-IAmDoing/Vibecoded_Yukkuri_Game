@@ -5,15 +5,20 @@ from yukkuri_game.game.systems.kinematic_movement_system import KinematicMovemen
 from yukkuri_game.game.systems.hierarchy_system import HierarchySystem
 from yukkuri_game.game.components import PhysicsBody, MovementController, Transform, Mount, PendingDismount
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
+from yukkuri_game.engine.events import PhysicsFixedUpdateEvent
 
 # Mock classes
 class MockServiceLocator:
     def __init__(self, physics_system):
         self.physics_system = physics_system
+        self.event_bus = EventBus()
 
     def try_get(self, service_type):
         if service_type.__name__ == 'PhysicsSystem':
             return self.physics_system
+        if service_type.__name__ == 'EventBus':
+            return self.event_bus
         return None
 
 class MockPhysicsSystem:
@@ -54,8 +59,15 @@ def test_kinematic_movement():
 
     # Step 1 second
     dt = 1.0/60.0
+
+    # Need to init system first so it subscribes to events
+    system.update(world, 0)
+
     for _ in range(60):
-        system.update(world, dt)
+        # We must manually trigger the event because MockPhysicsSystem doesn't run its update loop
+        world.services.event_bus.publish(PhysicsFixedUpdateEvent(dt))
+        # system.update(world, dt) # No longer needed for movement logic, but might be needed for other things?
+        # Actually KinematicMovementSystem.update is only for setup now. The logic is in on_fixed_update.
 
     print(f"Position after 1s: {body.position}")
 
@@ -77,7 +89,7 @@ def test_kinematic_movement():
 
     # Step until impact
     for _ in range(60):
-        system.update(world, dt)
+        world.services.event_bus.publish(PhysicsFixedUpdateEvent(dt))
 
     print(f"Position after hitting wall: {body.position}")
 

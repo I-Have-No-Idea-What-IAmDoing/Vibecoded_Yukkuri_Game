@@ -39,3 +39,7 @@ class PauseEvent(Event):
 @dataclass(frozen=True)
 class SpeedChangeEvent(Event):
     speed: float
+
+@dataclass(frozen=True)
+class PhysicsFixedUpdateEvent(Event):
+    dt: float
