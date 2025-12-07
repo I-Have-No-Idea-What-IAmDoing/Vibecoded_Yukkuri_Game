@@ -44,6 +44,15 @@ class HudEvents:
         event_bus: EventBus,
         on_error: Optional[Callable[[str], None]] = None,
     ):
+        """
+        Initializes HudEvents.
+
+        Args:
+            layout (HudLayout): The layout object containing UI elements.
+            world (World): The ECS World instance.
+            event_bus (EventBus): The event bus for publishing game events.
+            on_error (Optional[Callable[[str], None]]): Callback for error reporting.
+        """
         self.layout = layout
         self.world = world
         self.event_bus = event_bus
@@ -72,10 +81,12 @@ class HudEvents:
         }
 
     def _save_game(self) -> None:
+        """Publishes a SaveGameRequest."""
         # Default filename for UI-based save
         self.event_bus.publish(SaveGameRequest("savegame"))
 
     def _load_game(self) -> None:
+        """Publishes a LoadGameRequest."""
         self.event_bus.publish(LoadGameRequest("savegame"))
 
     def on_level_up(self, event: LevelUpEvent) -> None:
@@ -94,9 +105,24 @@ class HudEvents:
             )
 
     def set_selected_entities(self, entity_ids: list[int]) -> None:
+        """
+        Sets the currently selected entities.
+
+        Args:
+            entity_ids (list[int]): List of selected entity IDs.
+        """
         self.selected_entities = entity_ids
 
     def process_event(self, event: pygame.event.Event) -> bool:
+        """
+        Processes a Pygame event for UI interactions.
+
+        Args:
+            event (pygame.event.Event): The event to process.
+
+        Returns:
+            bool: True if the event was handled, False otherwise.
+        """
         if event.type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
             return self._handle_slider_event(event)
 
@@ -128,6 +154,7 @@ class HudEvents:
         return False
 
     def _handle_settings_buttons(self, ui_element: Any) -> bool:
+        """Handles clicks on settings window buttons."""
         if not self.layout.settings_window:
             return False
 
@@ -148,6 +175,7 @@ class HudEvents:
         return False
 
     def _handle_buy_buttons(self, ui_element: Any) -> bool:
+        """Handles clicks on buy buttons."""
         if ui_element in self.layout.buy_buttons:
             data = self.layout.buy_buttons[ui_element]
             type_id = data["type_id"]
@@ -164,6 +192,7 @@ class HudEvents:
         return False
 
     def _handle_selection_buttons(self, ui_element: Any) -> bool:
+        """Handles clicks on selection panel buttons (Sell, Train, Punish)."""
         if (
             not self.layout.entity_info_panel
             or not self.layout.entity_info_panel.window
@@ -190,6 +219,7 @@ class HudEvents:
         return False
 
     def _open_settings(self) -> None:
+        """Opens the settings window."""
         if not self.settings_service:
             self.settings_service = self.world.services.try_get(SettingsService)
 
@@ -200,6 +230,7 @@ class HudEvents:
                 self.on_error("Settings Service not available.")
 
     def _handle_slider_event(self, event: pygame.event.Event) -> bool:
+        """Handles slider movement events."""
         if not self.layout.settings_window:
             return False
 
@@ -224,6 +255,7 @@ class HudEvents:
         return False
 
     def _toggle_fullscreen_btn(self) -> None:
+        """Toggles the fullscreen setting state."""
         if not self.layout.settings_window:
             return
 
@@ -236,6 +268,7 @@ class HudEvents:
             btn.set_text("Fullscreen: ON" if new_value else "Fullscreen: OFF")
 
     def _save_settings(self) -> None:
+        """Saves current settings from UI to SettingsService."""
         if not self.settings_service or not self.layout.settings_window:
             return
 
@@ -269,6 +302,7 @@ class HudEvents:
         self._apply_window_settings(width, height, fullscreen)
 
     def _apply_window_settings(self, width: int, height: int, fullscreen: bool) -> None:
+        """Applies window settings (resolution/fullscreen)."""
         flags = pygame.RESIZABLE
         if fullscreen:
             flags |= pygame.FULLSCREEN
@@ -283,6 +317,7 @@ class HudEvents:
                 logger.error(f"Failed to change display mode: {e}")
 
     def _revert_audio_settings(self) -> None:
+        """Reverts audio settings to last saved values (on cancel)."""
         if not self.settings_service or not self.audio_manager:
             return
 

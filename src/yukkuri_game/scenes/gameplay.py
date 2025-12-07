@@ -55,6 +55,9 @@ class GameplayScene(Scene):
         self.dt = 0.0
 
     def on_enter(self) -> None:
+        """
+        Called when the scene becomes active.
+        """
         logger.info("Entered Gameplay Scene")
         # setup is called by SceneManager before on_enter
         self.ui_manager.set_window_resolution(
@@ -134,6 +137,10 @@ class GameplayScene(Scene):
             self.event_bus.subscribe(LoadGameRequest, lambda e: self.load(e.filename))
 
     def on_exit(self) -> None:
+        """
+        Called when the scene is exited.
+        Clears UI and syncs global state.
+        """
         logger.info("Exited Gameplay Scene")
         self.ui_manager.clear_and_reset()
 
@@ -148,9 +155,11 @@ class GameplayScene(Scene):
             )
 
     def toggle_pause(self) -> None:
+        """Toggles the pause state."""
         self.paused = not self.paused
 
     def cycle_speed(self) -> None:
+        """Cycles through game speed multipliers."""
         speeds = [1.0, 2.0, 5.0, 0.5]
         try:
             current_idx = speeds.index(self.time_scale)
@@ -162,6 +171,12 @@ class GameplayScene(Scene):
             self.hud.layout.speed_btn.set_text(f"{self.time_scale}x")
 
     def on_resolution_changed(self, event: ResolutionChangedEvent) -> None:
+        """
+        Handles resolution change event.
+
+        Args:
+            event (ResolutionChangedEvent): The event data.
+        """
         if self.application.headless:
             return
 
@@ -178,6 +193,7 @@ class GameplayScene(Scene):
             self.hud.resize(event.width, event.height)
 
     def take_screenshot(self) -> None:
+        """Takes a screenshot and saves it to the screenshots directory."""
         if not os.path.exists("screenshots"):
             os.makedirs("screenshots")
 
@@ -262,6 +278,12 @@ class GameplayScene(Scene):
         logger.info("World loaded.")
 
     def update(self, dt: float) -> None:
+        """
+        Updates the scene logic.
+
+        Args:
+            dt (float): Delta time.
+        """
         self.dt = dt
         self.ui_manager.update(dt)
 
@@ -283,6 +305,9 @@ class GameplayScene(Scene):
             self.hud.update(dt)
 
     def render(self) -> None:
+        """
+        Renders the scene.
+        """
         self.render_world()
 
         if not self.application.headless:
@@ -290,6 +315,9 @@ class GameplayScene(Scene):
             self.ui_manager.draw_ui(self.application.screen)
 
     def render_world(self) -> None:
+        """
+        Renders the game world entities.
+        """
         if hasattr(self, "render_system") and self.render_system:
             alpha = 1.0
             if hasattr(self.application, "accumulator") and hasattr(
@@ -304,6 +332,12 @@ class GameplayScene(Scene):
             self.render_system.update(self.world, alpha)
 
     def handle_event(self, event: pygame.event.Event) -> None:
+        """
+        Handles input events.
+
+        Args:
+            event (pygame.event.Event): The Pygame event.
+        """
         self.ui_manager.process_events(event)
         # InputManager processing is handled by Application
 
