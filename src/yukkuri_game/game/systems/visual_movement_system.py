@@ -53,9 +53,9 @@ class VisualMovementSystem(System):
                 # 2. Award Athletics XP
                 if self.skill_service:
                     # Scale XP by speed
-                    xp_gain = (speed / XP_SPEED_SCALAR) * dt
+                    xp_gain = (speed / self.XP_SPEED_SCALAR) * dt
                     # Cap gain per frame
-                    xp_gain = min(xp_gain, MAX_XP_GAIN_PER_SECOND * dt)
+                    xp_gain = min(xp_gain, self.MAX_XP_GAIN_PER_SECOND * dt)
 
                     self.skill_service.add_xp(entity, SkillId.ATHLETICS, xp_gain)
 

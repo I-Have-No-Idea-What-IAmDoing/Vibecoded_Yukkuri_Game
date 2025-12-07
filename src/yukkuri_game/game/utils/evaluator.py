@@ -108,6 +108,8 @@ class ConditionEvaluator:
 
             # Use internal _eval with cached AST
             # Note: _eval takes (node) and uses self.names
+            # We use _eval because simpleeval does not expose a public method to evaluate a pre-parsed AST node.
+            # This is safe as long as we are careful with the AST generation (which we do via evaluator.parse).
             result = self.evaluator._eval(cached_node)
 
             if expected_type is bool and not isinstance(result, bool):

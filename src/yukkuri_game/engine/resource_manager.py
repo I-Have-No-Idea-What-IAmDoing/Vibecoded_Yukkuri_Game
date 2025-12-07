@@ -83,6 +83,8 @@ class ResourceManager:
         """
         full_path = os.path.join(self.data_dir, filepath)
         try:
+            # We open in binary mode because msgspec handles decoding.
+            # If explicit text reading is needed, use encoding="utf-8".
             with open(full_path, "rb") as f:
                 data = f.read()
 

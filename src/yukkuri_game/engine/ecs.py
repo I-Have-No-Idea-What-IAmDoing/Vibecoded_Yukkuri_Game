@@ -6,7 +6,7 @@ structured and type-safe interface for managing entities and components.
 """
 
 import uuid
-from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING
+from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING, Set
 import esper
 from .service_locator import ServiceLocator
 from .events import EntityDestroyedEvent
@@ -43,6 +43,7 @@ class World:
         self.name = str(uuid.uuid4())
         self.services = ServiceLocator()
         self._next_stable_id = 1
+        self._active_entities: Set[int] = set()
         # Create the world context in esper
         esper.switch_world(self.name)
 
@@ -103,7 +104,9 @@ class World:
             int: The unique ID of the newly created entity.
         """
         self._switch()
-        return int(esper.create_entity(*components))
+        entity_id = int(esper.create_entity(*components))
+        self._active_entities.add(entity_id)
+        return entity_id
 
     def destroy_entity(self, entity: int) -> None:
         """
@@ -120,6 +123,7 @@ class World:
                 event_bus.publish(EntityDestroyedEvent(entity))
 
             esper.delete_entity(entity, immediate=True)
+            self._active_entities.discard(entity)
         except KeyError:
             pass
 
@@ -222,12 +226,8 @@ class World:
         Returns:
             List[int]: A list of all entity IDs.
         """
-        self._switch()
-        try:
-            # Accessing the internal _entities attribute of esper directly is necessary
-            return list(esper._entities.keys())
-        except AttributeError:
-            return []
+        # We maintain a separate set of entities to avoid accessing private members of esper
+        return list(self._active_entities)
 
     def get_entities_with(self, *component_types: Type[Any]) -> List[int]:
         """
@@ -307,6 +307,7 @@ class World:
         """
         self._switch()
         esper.clear_database()
+        self._active_entities.clear()
 
 
 if TYPE_CHECKING:

@@ -135,5 +135,3 @@ class Application:
         if self.running:
             self.running = False
         pygame.quit()
-        if not self.headless:
-            sys.exit()
