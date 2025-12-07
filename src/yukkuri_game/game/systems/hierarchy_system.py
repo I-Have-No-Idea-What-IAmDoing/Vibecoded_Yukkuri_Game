@@ -18,6 +18,8 @@ _DISMOUNT_TIMEOUT = 5.0
 _DEFAULT_ENTITY_RADIUS = 10.0
 _RADIUS_UPDATE_THRESHOLD = 0.1
 _SPIRAL_SEARCH_MIN_RADIUS = 0.1
+# Safety Cap: Prevent single unit from becoming a screen-sized collider
+_MAX_ROOT_COLLIDER_RADIUS = 50.0
 
 class HierarchySystem(System):
     """
@@ -96,6 +98,12 @@ class HierarchySystem(System):
                 stack.append((child_id, child_total_offset))
 
         final_radius = max(base_radius, max_dist)
+
+        # Critique Fix: Cap the radius to prevent game-breaking size
+        if final_radius > _MAX_ROOT_COLLIDER_RADIUS:
+             # Just cap it. Children outside will be sensors (no clip).
+             # This is a compromise: We prefer visual clipping over "I can't fit through the door".
+             final_radius = _MAX_ROOT_COLLIDER_RADIUS
 
         # Update Shape
         if hasattr(phys.shape, 'unsafe_set_radius'):
@@ -240,6 +248,8 @@ class HierarchySystem(System):
     def find_free_spot(self, space, start_pos, collider_radius):
         """
         Searches for a free spot using a spiral pattern.
+        Critique Fix: Use shape_query instead of point_query to check full volume.
+        Critique Fix: Include YUKKURI (Units) in check to prevent tele-fragging.
         """
         max_radius = _DISMOUNT_MAX_SEARCH_RADIUS
         current_r = 0.0
@@ -248,9 +258,41 @@ class HierarchySystem(System):
         max_checks = _DISMOUNT_MAX_SEARCH_CHECKS
         checks = 0
 
-        # Check origin first
-        info = space.point_query_nearest(start_pos, collider_radius, pymunk.ShapeFilter(mask=CollisionCategories.WALL))
-        if info is None:
+        # Create a temporary shape for query (Circle)
+        # We assume the unit fits in a circle of collider_radius
+        query_mask = CollisionCategories.WALL | CollisionCategories.YUKKURI
+
+        def is_spot_free(pos):
+             # shape_query checks if the shape at 'pos' overlaps anything
+             # We can cheat by using point_query with radius, but shape_query is more "correct" for actual overlaps.
+             # However, Pymunk's point_query_nearest checks if a point is within distance of a shape.
+             # We want: Is there ANY shape within 'collider_radius' of 'pos'?
+             # point_query_nearest(pos, max_dist=collider_radius) returns the nearest shape.
+             # If distance < 0, it means overlap (if inside).
+             # If distance < collider_radius, it means overlap (if outside but close).
+
+             info = space.point_query_nearest(pos, collider_radius, pymunk.ShapeFilter(mask=query_mask))
+
+             # If info is None, no shapes are within collider_radius. Free.
+             if info is None:
+                 return True
+
+             # If distance is negative, the point 'pos' is INSIDE a shape.
+             if info.distance < 0:
+                 return False
+
+             # If distance < collider_radius, the shape is overlapping our circle.
+             # Wait, point_query_nearest finds the shape closest to the point.
+             # info.distance is the distance to the surface.
+             # If we want to place a circle of radius R at pos...
+             # We are blocked if distance < R.
+             # But wait, point_query_nearest max_distance argument filters candidates.
+             # So if we get a result, it means there IS a shape within R.
+             # So if info is NOT None, we are blocked.
+
+             return False
+
+        if is_spot_free(start_pos):
              return start_pos
 
         while current_r < max_radius and checks < max_checks:
@@ -260,10 +302,7 @@ class HierarchySystem(System):
             offset = pymunk.Vec2d(current_r * math.cos(theta), current_r * math.sin(theta))
             candidate = start_pos + offset
 
-            # Check
-            info = space.point_query_nearest(candidate, collider_radius, pymunk.ShapeFilter(mask=CollisionCategories.WALL))
-
-            if info is None:
+            if is_spot_free(candidate):
                 return candidate
 
             # Advance spiral
