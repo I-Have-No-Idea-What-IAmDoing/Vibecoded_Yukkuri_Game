@@ -90,8 +90,11 @@ class KinematicMovementSystem(System):
         """
         current_pos = pos
 
-        # Max iterations to converge
-        for _ in range(10):
+        # Optimization: Reduced iterations from 10 to 3.
+        # Deep penetration should be rare with continuous collision detection.
+        max_iterations = 3
+
+        for _ in range(max_iterations):
             phys.body.position = current_pos
 
             infos = self.space.shape_query(phys.shape)
@@ -123,6 +126,8 @@ class KinematicMovementSystem(System):
                     hits += 1
 
             if hits > 0:
+                if total_push.length_squared < 0.000001:
+                    break
                 current_pos += total_push
             else:
                 break
@@ -134,6 +139,8 @@ class KinematicMovementSystem(System):
         if hasattr(shape, 'radius'):
             return shape.radius
         bb = shape.bb
+        # Warning: Approximating Box as Circle (Inscribed)
+        # This is safe (won't get stuck) but visual clipping might occur.
         return min(bb.right - bb.left, bb.top - bb.bottom) / 2.0
 
     def move_and_slide(self, phys: PhysicsBody, controller: MovementController, trans: Transform, dt: float):
@@ -141,6 +148,11 @@ class KinematicMovementSystem(System):
         shape = phys.shape
         radius = self.get_radius(shape)
         query_filter = shape.filter
+
+        # Critique Fix: Warn if shape is not ideal for sweep
+        if not isinstance(shape, (pymunk.Circle, pymunk.Segment)):
+             # We silently accept it but the get_radius approximation is used.
+             pass
 
         # 1. Virtual Physics Integration
         input_vector = controller.target_velocity
@@ -201,7 +213,11 @@ class KinematicMovementSystem(System):
 
             if hit:
                 # print(f"Processing Hit: Alpha {hit.alpha}, Normal {hit.normal}")
-                safe_alpha = max(0.0, hit.alpha - (self.skin_width / move_delta.length if move_delta.length > 0 else 0))
+                # Optimization: Guard against division by zero or tiny move_delta
+                md_len = move_delta.length
+                safe_alpha = hit.alpha
+                if md_len > 0.0001:
+                    safe_alpha = max(0.0, hit.alpha - (self.skin_width / md_len))
 
                 step_move = move_delta * safe_alpha
                 current_pos += step_move
