@@ -48,16 +48,21 @@ def test_kinematic_movement_slide():
     controller.target_velocity = pymunk.Vec2d(100, 100)
     controller.acceleration = 10000 # Instant accel for test
 
+    # Initialize system
+    kms.update(world, 0)
+
     # Simulate for 1 second in steps
     dt = 1.0/60.0
     for _ in range(60):
-        kms.update(world, dt)
+        kms.fixed_update(world, dt)
 
     # Check Result
     # Should be close to the wall but not through it
     assert body.position.x < 100
 
     # Allow some slack in the position check due to floating point and segment query approximation
+    # 100 (wall x) - 5 (wall thickness) - 10 (radius) = 85.
+    # Skin width is 0.01.
     assert 84.0 < body.position.x < 87.0
 
     # Y should have increased significantly (sliding up)
@@ -108,9 +113,12 @@ def test_kinematic_corner():
     controller.target_velocity = pymunk.Vec2d(100, 100)
     controller.acceleration = 10000
 
+    # Initialize system
+    kms.update(world, 0)
+
     dt = 1.0/60.0
     for _ in range(120): # 2 seconds
-        kms.update(world, dt)
+        kms.fixed_update(world, dt)
 
     # Should be stopped near the corner
     # Wall 1 Surface x = 100 - 5 = 95. Center x = 85.
