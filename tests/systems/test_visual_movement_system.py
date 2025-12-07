@@ -8,10 +8,6 @@ from yukkuri_game.game.components import PhysicsBody, MovementController, Visual
 from yukkuri_game.game.skill_service import SkillService
 from yukkuri_game.game.skill_constants import SkillId
 
-class MockSkillService:
-    def add_xp(self, entity, skill, amount):
-        pass
-
 def test_visual_movement_system_bobbing():
     world = World()
     system = VisualMovementSystem()
