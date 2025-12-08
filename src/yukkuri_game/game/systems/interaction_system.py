@@ -133,11 +133,8 @@ class InteractionSystem(System):
             transform.x - target_transform.x, transform.y - target_transform.y
         )
         if dist > 50.0:  # Slightly larger than action threshold to account for movement
-            # Too far, interaction fails -> remove request
-            logger.debug(
-                f"Interaction failed: Entity {entity} too far from target {target_id} ({dist:.2f} > 50.0)"
-            )
-            return True
+            # Too far, but we don't remove request yet (maybe moving towards it)
+            return False
 
         # Handle Consumption (Item)
         item_stats = world.get_component(target_id, ItemStats)
