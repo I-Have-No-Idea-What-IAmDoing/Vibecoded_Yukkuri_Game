@@ -72,6 +72,7 @@ class MoveToTarget(Action):
         if ai is None or trans is None or needs is None or controller is None:
             return Status.FAILURE
 
+        # Determine Target Position (Entity or Coordinate)
         target_pos = None
         if ai.current_target_id != -1:
             target_trans = self.world.get_component(ai.current_target_id, Transform)
@@ -118,7 +119,7 @@ class MoveToTarget(Action):
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 return Status.FAILURE
 
-        # Move along path
+        # Path Follower Logic
         next_point = pymunk.Vec2d(ai.path[0][0], ai.path[0][1])
         current_pos = pymunk.Vec2d(trans.x, trans.y)
         vector_to_next = next_point - current_pos
@@ -130,6 +131,7 @@ class MoveToTarget(Action):
             ai.path = []
             return Status.SUCCESS
 
+        # Advance to next waypoint if close enough
         if dist_to_next < 15.0:  # Waypoint acceptance can remain small
             ai.path.pop(0)
             if not ai.path:
@@ -1053,12 +1055,13 @@ BehaviorRegistry.register_goal(
 
 def create_yukkuri_behavior_tree(
     entity_id: int, world: "World", width: int, height: int
-) -> py_trees.composites.Sequence:
+) -> py_trees.composites.Selector:
     """
     Builds the behavior tree for a Yukkuri.
 
-    The tree structure uses a UtilitySelector to pick a goal, then executes that goal.
-    It now includes a "Stress Break" high-priority sequence.
+    The tree structure is a high-level Selector with two branches:
+    1. Stress Break (Emergency)
+    2. Normal Behavior (Utility Selection + Execution)
 
     Args:
         entity_id (int): The ID of the Yukkuri entity.
@@ -1067,7 +1070,7 @@ def create_yukkuri_behavior_tree(
         height (int): The height of the world boundary.
 
     Returns:
-        py_trees.composites.Sequence: The root node of the behavior tree.
+        py_trees.composites.Selector: The root node of the behavior tree.
     """
 
     # Check Goal Condition
@@ -1109,24 +1112,15 @@ def create_yukkuri_behavior_tree(
 
         return True
 
-    # --- Root Sequence ---
-    # 0. Stress Break (High Priority)
-    # 1. Select Goal (UtilitySelector)
-    # 2. Execute Goal (Selector)
-    root = py_trees.composites.Sequence(name="Root Sequence", memory=False)
-
-    # 0. Stress Break
-    # If Stress > 90, force panic/tantrum. This should ideally interrupt everything else.
-    # We can use a Selector at the top. If StressBreak succeeds (meaning we are stressed and doing panic),
-    # the rest is skipped. Wait, Sequence runs all. We want a Selector for "Emergency vs Normal".
-
-    # Let's restructure:
-    # Root (Selector)
-    #   -> Stress Break Sequence (Check Stress -> Panic Action)
-    #   -> Normal Behavior Sequence (Utility -> Execution)
+    # --- Root Structure ---
+    # We use a Selector (Fall-back) node at the root.
+    # It tries the first child (Stress Break). If that fails (not stressed),
+    # it proceeds to the Normal Behavior.
 
     root_selector = py_trees.composites.Selector(name="Root Selector", memory=False)
 
+    # Branch 1: Stress Break
+    # If Stress > 90, we interrupt normal behavior.
     stress_break = py_trees.composites.Sequence(name="Stress Break", memory=False)
     check_stress = CheckEmotion(
         name="High Stress?",
@@ -1141,14 +1135,17 @@ def create_yukkuri_behavior_tree(
 
     root_selector.add_child(stress_break)
 
-    # Normal Behavior
+    # Branch 2: Normal Behavior
+    # Sequence: 1. Select Best Utility -> 2. Execute that Utility
     normal_behavior = py_trees.composites.Sequence(name="Normal Behavior", memory=False)
 
     # 1. Utility Selector
+    # Evaluates all available actions and sets the highest scoring one in AIState.
     utility_selector = UtilitySelector(entity_id=entity_id, world=world)
     normal_behavior.add_child(utility_selector)
 
     # 2. Execution Selector
+    # Tries to run the behavior tree corresponding to the selected action.
     execution_selector = py_trees.composites.Selector(
         name="Execution Selector", memory=False
     )
@@ -1160,6 +1157,7 @@ def create_yukkuri_behavior_tree(
             builder(entity_id, world, width, height, check_goal, check_target_exists)
         )
 
+    # Fallback to Idle if no specific action succeeds
     idle = Idle(entity_id=entity_id, world=world)
     execution_selector.add_child(idle)
 

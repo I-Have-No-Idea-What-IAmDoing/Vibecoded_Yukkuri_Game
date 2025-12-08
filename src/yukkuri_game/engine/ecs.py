@@ -77,6 +77,8 @@ class World:
         Returns:
             None
         """
+        # esper uses a global dictionary to store worlds, accessed by name.
+        # We ensure the global state points to this world instance.
         if esper.current_world != self.name:
             esper.switch_world(self.name)
 
@@ -92,11 +94,13 @@ class World:
         Yields:
             None
         """
+        # Store the previous world to restore it after the block
         previous_world = esper.current_world
         self._switch()
         try:
             yield
         finally:
+            # Restore previous context to prevent side effects in other parts of the app
             if previous_world and previous_world != self.name:
                 try:
                     esper.switch_world(previous_world)
@@ -118,7 +122,8 @@ class World:
         entity_id = int(esper.create_entity(*components))
         self._active_entities.add(entity_id)
 
-        # Publish ComponentAddedEvent for each component
+        # Publish ComponentAddedEvent for each component so systems can react
+        # (e.g., renderers registering sprites, physics systems creating bodies)
         event_bus = self.services.try_get(EventBus)
         if event_bus:
             for component in components:

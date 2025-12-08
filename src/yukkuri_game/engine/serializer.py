@@ -153,6 +153,10 @@ class WorldSerializer:
         """
         Loads entities from a list of entity data dicts with two-pass reference resolution.
 
+        This method uses a two-pass approach to handle circular dependencies and ID remapping:
+        1. Create all entities and components first, building a map of old_id -> new_id.
+        2. Iterate through all created components and resolve any EntityID fields to the new IDs.
+
         Args:
             entities_data (list[Dict[str, Any]]): A list of serialized entity data dictionaries.
 
@@ -163,6 +167,8 @@ class WorldSerializer:
             return
 
         # Pass 1: Create Entities and Mapping
+        # We instantiate the entities so they have valid IDs in the current world.
+        # We also deserialize components but leave EntityID references pointing to old IDs for now.
         id_map: Dict[int, int] = {}  # old_id -> new_id
         max_stable_id = 0
 
@@ -204,15 +210,17 @@ class WorldSerializer:
                 else:
                     logger.warning(f"Unknown component type: {comp_name}")
 
-        # Update World's next stable ID
+        # Update World's next stable ID to ensure future entities don't collide with loaded ones
         if hasattr(self.world, "set_next_stable_id"):
             self.world.set_next_stable_id(max_stable_id + 1)
 
         # Pass 2: Resolve References
+        # Now that all entities exist, we scan components for EntityID fields
+        # and update them using the id_map.
         for new_entity in id_map.values():
             all_components = self.world.get_all_components(new_entity)
             for component in all_components:
-                # Introspect type hints
+                # Introspect type hints to find fields that hold EntityID
                 try:
                     type_hints = typing.get_type_hints(component)
                 except Exception:
@@ -234,7 +242,7 @@ class WorldSerializer:
                             if val in id_map:
                                 setattr(component, field_name, EntityID(id_map[val]))
                             elif val > 0:
-                                # Dangling reference
+                                # Dangling reference (pointed to an entity that wasn't saved)
                                 setattr(component, field_name, EntityID(-1))
 
                     # Check for List[EntityID] or Set[EntityID]
