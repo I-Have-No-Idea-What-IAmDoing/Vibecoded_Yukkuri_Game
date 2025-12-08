@@ -75,9 +75,17 @@ class SystemRegistry:
         world.add_system(VisibilitySystem())
         world.add_system(PoopSystem())
         world.add_system(FeedbackSystem(world))
-        world.add_system(HungerSystem())
+
+        hunger_system = HungerSystem()
+        world.services.register(hunger_system, HungerSystem)
+        world.add_system(hunger_system)
+
         world.add_system(InteractionSystem())
-        world.add_system(SocialSystem(event_bus))
+
+        social_system = SocialSystem(event_bus)
+        world.services.register(social_system, SocialSystem)
+        world.add_system(social_system)
+
         world.add_system(GossipSystem(event_bus))
         world.add_system(FamilySystem())
         world.add_system(GameRulesSystem(event_bus))
