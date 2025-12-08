@@ -19,11 +19,18 @@ class SceneManager:
     """
 
     def __init__(self) -> None:
+        """Initializes the SceneManager."""
         self._scenes: List["Scene"] = []
         self.persistent_data: Dict[str, Any] = {}
 
     @property
     def current_scene(self) -> Optional["Scene"]:
+        """
+        Gets the current active scene (the one on top of the stack).
+
+        Returns:
+            Optional[Scene]: The current scene, or None if the stack is empty.
+        """
         return self._scenes[-1] if self._scenes else None
 
     def push(self, scene: "Scene") -> None:
@@ -32,6 +39,9 @@ class SceneManager:
 
         Args:
             scene (Scene): The scene to push.
+
+        Returns:
+            None
         """
         context = self._prepare_context(scene)
 
@@ -42,7 +52,14 @@ class SceneManager:
         scene.on_enter()
 
     def pop(self) -> None:
-        """Pop the current scene from the stack."""
+        """
+        Pop the current scene from the stack.
+
+        Calls on_exit() on the popped scene.
+
+        Returns:
+            None
+        """
         if self._scenes:
             scene = self._scenes.pop()
             scene.on_exit()
@@ -53,6 +70,9 @@ class SceneManager:
 
         Args:
             scene (Scene): The new scene.
+
+        Returns:
+            None
         """
         if self._scenes:
             self.pop()
@@ -62,6 +82,15 @@ class SceneManager:
         """
         Resolves dependencies declared by the Scene and creates the Context.
         Handles data migration and deserialization if data is in raw dict form.
+
+        Args:
+            scene (Scene): The scene requesting dependencies.
+
+        Returns:
+            SceneContext: The context containing injected dependencies.
+
+        Raises:
+            RuntimeError: If data corruption or incompatible versions are detected.
         """
         context_data = {}
         for key, expected_type in scene.INJECTIONS.items():
@@ -125,12 +154,20 @@ class SceneManager:
 
         Args:
             dt (float): Delta time in seconds.
+
+        Returns:
+            None
         """
         if self.current_scene:
             self.current_scene.update(dt)
 
     def render(self) -> None:
-        """Render the current scene."""
+        """
+        Render the current scene.
+
+        Returns:
+            None
+        """
         if self.current_scene:
             self.current_scene.render()
 
@@ -139,7 +176,10 @@ class SceneManager:
         Handle events in the current scene.
 
         Args:
-            event: The pygame event.
+            event (pygame.event.Event): The pygame event.
+
+        Returns:
+            None
         """
         if self.current_scene:
             self.current_scene.handle_event(event)
@@ -147,18 +187,38 @@ class SceneManager:
     def set_global_data(self, key: str, value: Any) -> None:
         """
         Sets a global persistent data value.
+
+        Args:
+            key (str): The key for the data.
+            value (Any): The value to store.
+
+        Returns:
+            None
         """
         self.persistent_data[key] = value
 
     def get_global_data(self, key: str, default: Any = None) -> Any:
         """
         Gets a global persistent data value.
+
+        Args:
+            key (str): The key to retrieve.
+            default (Any): The default value if the key is not found. Defaults to None.
+
+        Returns:
+            Any: The stored value or the default.
         """
         return self.persistent_data.get(key, default)
 
     def save_global_data(self, filepath: str) -> None:
         """
         Saves the global persistent data to a file.
+
+        Args:
+            filepath (str): The path to the file to save to.
+
+        Returns:
+            None
         """
         try:
             # We need to serialize the values in persistent_data.
@@ -183,6 +243,12 @@ class SceneManager:
     def load_global_data(self, filepath: str) -> None:
         """
         Loads the global persistent data from a file.
+
+        Args:
+            filepath (str): The path to the file to load from.
+
+        Returns:
+            None
         """
         try:
             with open(filepath, "rb") as f:

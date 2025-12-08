@@ -6,7 +6,7 @@ structured and type-safe interface for managing entities and components.
 """
 
 import uuid
-from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING, Set
+from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING, Set, Iterator
 import esper
 from .service_locator import ServiceLocator
 from .events import EntityDestroyedEvent, ComponentAddedEvent, ComponentRemovedEvent
@@ -64,22 +64,33 @@ class World:
 
         Args:
             next_id (int): The next stable ID to use.
+
+        Returns:
+            None
         """
         self._next_stable_id = next_id
 
     def _switch(self) -> None:
-        """Switches to this world's context."""
+        """
+        Switches to this world's context.
+
+        Returns:
+            None
+        """
         if esper.current_world != self.name:
             esper.switch_world(self.name)
 
     @contextlib.contextmanager
-    def context(self):
+    def context(self) -> Iterator[None]:
         """
         Context manager to ensure operations are performed in this world's context.
 
         Usage:
             with world.context():
                 # perform esper operations directly or via methods
+
+        Yields:
+            None
         """
         previous_world = esper.current_world
         self._switch()
@@ -121,6 +132,9 @@ class World:
 
         Args:
             entity (int): The ID of the entity to destroy.
+
+        Returns:
+            None
         """
         self._switch()
         try:
@@ -154,6 +168,9 @@ class World:
         Args:
             entity (int): The ID of the entity.
             component (Any): The component instance to add.
+
+        Returns:
+            None
         """
         self._switch()
         esper.add_component(entity, component)
@@ -169,6 +186,9 @@ class World:
         Args:
             entity (int): The ID of the entity.
             component_type (Type[Any]): The type of component to remove.
+
+        Returns:
+            None
         """
         self._switch()
         try:
@@ -199,7 +219,16 @@ class World:
             return None
 
     def try_get_component(self, entity: int, component_type: Type[T]) -> Optional[T]:
-        """Alias for get_component."""
+        """
+        Alias for get_component.
+
+        Args:
+            entity (int): The ID of the entity.
+            component_type (Type[T]): The type of component to retrieve.
+
+        Returns:
+            Optional[T]: The component instance, or None if the entity does not have it.
+        """
         return self.get_component(entity, component_type)
 
     def has_component(self, entity: int, component_type: Type[Any]) -> bool:
@@ -299,6 +328,9 @@ class World:
 
         Args:
             system (System): The System instance to add.
+
+        Returns:
+            None
         """
         self._switch()
         # Inject world reference into system
@@ -311,6 +343,9 @@ class World:
 
         Args:
             dt (float): The time elapsed since the last update in seconds.
+
+        Returns:
+            None
         """
         self._switch()
         # Process all registered systems (Processors) in order of priority
@@ -320,6 +355,9 @@ class World:
         """
         Clears all entities and components from the world.
         Note: This does NOT remove Processors (Systems).
+
+        Returns:
+            None
         """
         self._switch()
         esper.clear_database()
@@ -340,6 +378,9 @@ if TYPE_CHECKING:
 
             Args:
                 dt (float): Delta time.
+
+            Returns:
+                None
             """
             ...
 else:
@@ -364,6 +405,9 @@ class System(ProcessorBase):
 
         Args:
             dt (float): The time elapsed since the last update in seconds.
+
+        Returns:
+            None
         """
         # We need to ensure we are operating on the correct world context
         if hasattr(self, "ecs_world"):
@@ -377,6 +421,9 @@ class System(ProcessorBase):
         Args:
             world (World): The ECS World instance.
             dt (float): The time elapsed since the last update in seconds.
+
+        Returns:
+            None
 
         Raises:
             NotImplementedError: If the subclass does not implement this method.

@@ -25,6 +25,15 @@ class Application:
         title: str = "Yukkuri Raising Game",
         headless: bool = False,
     ):
+        """
+        Initializes the Application.
+
+        Args:
+            width (int): The width of the application window in pixels. Defaults to 1280.
+            height (int): The height of the application window in pixels. Defaults to 720.
+            title (str): The title of the application window. Defaults to "Yukkuri Raising Game".
+            headless (bool): Whether to run in headless mode (no graphics). Defaults to False.
+        """
         self.width = width
         self.height = height
         self.headless = headless
@@ -61,7 +70,15 @@ class Application:
         logger.info("Application initialized.")
 
     def run(self) -> None:
-        """Starts the main application loop."""
+        """
+        Starts the main application loop.
+
+        This method enters an infinite loop until the application is signaled to quit.
+        It handles timing, event processing, updates, and rendering.
+
+        Returns:
+            None
+        """
         logger.info("Application Started")
         current_time = pygame.time.get_ticks() / 1000.0
 
@@ -90,7 +107,14 @@ class Application:
         self.quit()
 
     def process_events(self) -> None:
-        """Process input events."""
+        """
+        Process input events from the system queue.
+
+        Delegates events to InputManager, UIManager, and SceneManager.
+
+        Returns:
+            None
+        """
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -105,6 +129,9 @@ class Application:
 
         Args:
             dt (float): Delta time in seconds.
+
+        Returns:
+            None
         """
         # 1. Pre-Update Phase (Prepare systems)
         self.event_manager.process_phase(GamePhase.PRE_UPDATE)
@@ -123,14 +150,28 @@ class Application:
         self.input_manager.update()
 
     def render(self) -> None:
-        """Render the application."""
+        """
+        Render the application to the screen.
+
+        Clears the screen, renders the current scene, draws the UI, and flips the display buffer.
+
+        Returns:
+            None
+        """
         self.screen.fill((0, 0, 0))
         self.scene_manager.render()
         self.ui_manager.draw_ui(self.screen)
         pygame.display.flip()
 
     def quit(self) -> None:
-        """Stops the application."""
+        """
+        Stops the application.
+
+        Sets the running flag to False and quits pygame.
+
+        Returns:
+            None
+        """
         logger.info("Application Ended")
         if self.running:
             self.running = False

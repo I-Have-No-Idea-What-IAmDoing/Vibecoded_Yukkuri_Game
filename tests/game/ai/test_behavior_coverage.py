@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 from py_trees.common import Status
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.ai.behavior import MoveToTarget, Interact, FindItem
 from yukkuri_game.game.yukkuri_components import AIState, ItemStats, YukkuriStats, Needs
 from yukkuri_game.game.components import (
@@ -104,8 +105,21 @@ def test_find_item():
     world = World()
     game_service = MagicMock(spec=GameService)
     world.services.register(game_service)
-    # Need to ensure try_get returns mock
-    world.services.try_get = MagicMock(return_value=game_service)
+
+    # Mock EventBus to prevent 'Mock object has no attribute publish' error
+    # when ECS tries to publish ComponentAddedEvent
+    event_bus = MagicMock(spec=EventBus)
+    world.services.register(event_bus, EventBus)
+
+    # We need to ensure try_get returns the correct mock based on the type
+    def try_get_side_effect(service_type):
+        if service_type == GameService:
+            return game_service
+        if service_type == EventBus:
+            return event_bus
+        return None
+
+    world.services.try_get = MagicMock(side_effect=try_get_side_effect)
 
     entity = world.create_entity()
     world.add_component(entity, AIState())

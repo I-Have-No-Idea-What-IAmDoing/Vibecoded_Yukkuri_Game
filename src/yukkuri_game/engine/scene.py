@@ -37,6 +37,12 @@ class Scene(ABC):
     INJECTIONS: ClassVar[Dict[str, Type]] = {}
 
     def __init__(self, application: "Application"):
+        """
+        Initializes a Scene.
+
+        Args:
+            application (Application): The main application instance.
+        """
         self.application = application
         self.world = World()
         self.registered_components: Set[Type] = {Persistable, StableIDComponent}
@@ -54,6 +60,12 @@ class Scene(ABC):
         """
         Register a component type for serialization support.
         Must be called during setup/init for any component that might be saved/loaded.
+
+        Args:
+            component_type (Type): The component type to register.
+
+        Returns:
+            None
         """
         self.registered_components.add(component_type)
 
@@ -63,17 +75,30 @@ class Scene(ABC):
 
         Args:
             context (SceneContext): The context containing injected data.
+
+        Returns:
+            None
         """
         pass
 
     @abstractmethod
     def on_enter(self) -> None:
-        """Called when the scene becomes active."""
+        """
+        Called when the scene becomes active.
+
+        Returns:
+            None
+        """
         pass
 
     @abstractmethod
     def on_exit(self) -> None:
-        """Called when the scene is no longer active."""
+        """
+        Called when the scene is no longer active.
+
+        Returns:
+            None
+        """
         pass
 
     @abstractmethod
@@ -83,12 +108,20 @@ class Scene(ABC):
 
         Args:
             dt (float): Delta time in seconds.
+
+        Returns:
+            None
         """
         self.world.update(dt)
 
     @abstractmethod
     def render(self) -> None:
-        """Render the scene."""
+        """
+        Render the scene.
+
+        Returns:
+            None
+        """
         pass
 
     @abstractmethod
@@ -97,16 +130,29 @@ class Scene(ABC):
         Handle input events.
 
         Args:
-            event: The pygame event.
+            event (pygame.event.Event): The pygame event.
+
+        Returns:
+            None
         """
         pass
 
     def save(self, filepath: str) -> None:
         """
         Save the scene state to a file.
+
+        Use explicitly registered types to ensure serializer knows about
+        components even if they aren't currently active on any entity.
+
+        Args:
+            filepath (str): The path to the file to save to.
+
+        Returns:
+            None
+
+        Raises:
+            IOError: If saving fails.
         """
-        # Use explicitly registered types to ensure serializer knows about
-        # components even if they aren't currently active on any entity.
         serializer = WorldSerializer(self.world, self.registered_components)
         try:
             serializer.save_to_file(filepath)
@@ -117,6 +163,15 @@ class Scene(ABC):
     def load(self, filepath: str) -> None:
         """
         Load the scene state from a file.
+
+        Args:
+            filepath (str): The path to the file to load from.
+
+        Returns:
+            None
+
+        Raises:
+            IOError: If loading fails.
         """
         if not self.registered_components:
             # Warn developer if they forgot to register components

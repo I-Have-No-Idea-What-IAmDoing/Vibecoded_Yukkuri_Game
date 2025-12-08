@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.poop_system import PoopSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, Poop, AIState
 from yukkuri_game.game.components import Transform
@@ -13,8 +14,20 @@ def test_poop_system_spawning():
     # Mock EntityFactory
     factory = MagicMock(spec=EntityFactory)
     world.services.register(factory)
-    # Ensure try_get returns our mock
-    world.services.try_get = MagicMock(return_value=factory)
+
+    # Mock EventBus
+    event_bus = MagicMock(spec=EventBus)
+    world.services.register(event_bus, EventBus)
+
+    # Ensure try_get returns our mocks
+    def try_get_side_effect(service_type):
+        if service_type == EntityFactory:
+            return factory
+        if service_type == EventBus:
+            return event_bus
+        return None
+
+    world.services.try_get = MagicMock(side_effect=try_get_side_effect)
 
     # Create a Yukkuri entity
     entity = world.create_entity()
@@ -49,6 +62,24 @@ def test_poop_system_low_cleanliness_spawning():
     world = World()
     system = PoopSystem()
 
+    # Mock EventBus
+    event_bus = MagicMock(spec=EventBus)
+    world.services.register(event_bus, EventBus)
+
+    # Mock EntityFactory
+    factory = MagicMock(spec=EntityFactory)
+    world.services.register(factory, EntityFactory)
+
+    # Ensure try_get returns our mocks
+    def try_get_side_effect(service_type):
+        if service_type == EntityFactory:
+            return factory
+        if service_type == EventBus:
+            return event_bus
+        return None
+
+    world.services.try_get = MagicMock(side_effect=try_get_side_effect)
+
     # Create entity
     entity = world.create_entity()
     stats = YukkuriStats(name="Test", type_id="reimu")
@@ -75,6 +106,11 @@ def test_poop_system_low_cleanliness_spawning():
 def test_poop_smell_effect():
     world = World()
     system = PoopSystem()
+
+    # Mock EventBus
+    event_bus = MagicMock(spec=EventBus)
+    world.services.register(event_bus, EventBus)
+    world.services.try_get = MagicMock(return_value=event_bus)
 
     # Create Poop Entity
     poop_ent = world.create_entity()
@@ -103,6 +139,11 @@ def test_poop_smell_effect():
 def test_poop_smell_range():
     world = World()
     system = PoopSystem()
+
+    # Mock EventBus
+    event_bus = MagicMock(spec=EventBus)
+    world.services.register(event_bus, EventBus)
+    world.services.try_get = MagicMock(return_value=event_bus)
 
     # Poop far away
     poop_ent = world.create_entity()

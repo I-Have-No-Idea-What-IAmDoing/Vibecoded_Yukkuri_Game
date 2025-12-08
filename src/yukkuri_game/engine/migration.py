@@ -32,6 +32,9 @@ class MigrationRegistry:
             from_version (int): The version to migrate from.
             to_version (int): The version to migrate to.
             func (MigrationFunc): The function that transforms the data dict.
+
+        Returns:
+            None
         """
         name = component_class.__name__
         if name not in cls._migrations:

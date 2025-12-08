@@ -161,7 +161,7 @@ This project follows a modular structure separating core engine features from ga
     -   `yukkuri_components.py`: **Game-Specific Components** (e.g., `YukkuriStats`, `Personality`).
     -   `entity_factory.py`: Centralized factory for creating entities.
     -   `services.py`: Game Services (Economy, Time, Persistence, Input).
-    -   `yukkurrium.py`: World rendering and camera management.
+    -   `renderer.py`: World rendering and camera management.
 
 -   `src/yukkuri_game/scenes/`: **Scene Management**
     -   `main_menu.py`: The main menu screen.

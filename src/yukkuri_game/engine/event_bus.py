@@ -47,6 +47,9 @@ class EventBus:
         Args:
             event_type (Type[E]): The class of the event to subscribe to.
             handler (EventHandler[E]): The function to call when the event is published.
+
+        Returns:
+            None
         """
         if event_type not in self._subscribers:
             self._subscribers[event_type] = []
@@ -60,6 +63,9 @@ class EventBus:
         Args:
             event_type (Type[E]): The class of the event to unsubscribe from.
             handler (EventHandler[E]): The handler function to remove.
+
+        Returns:
+            None
         """
         if event_type in self._subscribers:
             try:
@@ -73,6 +79,9 @@ class EventBus:
 
         Args:
             event (Event): The event instance to publish.
+
+        Returns:
+            None
         """
         event_type = type(event)
         if event_type in self._subscribers:
@@ -81,6 +90,9 @@ class EventBus:
 
     def clear(self) -> None:
         """
-        Clears all subscribers.
+        Clears all subscribers from the event bus.
+
+        Returns:
+            None
         """
         self._subscribers.clear()
