@@ -52,7 +52,11 @@ class HierarchySystem(System):
     def process_structure_update(self, world: World, root_entity: int, mounts: dict):
         """
         Updates the Root's physics body shapes to represent the stack ("The Totem Pole").
-        Instead of one giant circle, we create a Composite Collider.
+
+        Deviation: Instead of one giant "Simple Bounding Circle" (as per proposal),
+        we create a Composite Collider using Proxy Shapes. This provides superior collision
+        accuracy (no phantom gaps) and allows the Sweep-and-Slide system to check
+        each child's volume against the world, preventing tunneling even for complex stacks.
         """
         mount = mounts.get(root_entity)
         if not mount or not mount.structure_dirty:

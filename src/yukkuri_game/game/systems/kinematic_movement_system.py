@@ -22,7 +22,8 @@ class KinematicMovementSystem(System):
     - Fixed Timestep Update
     - Capsule/Circle Sweeping (No Box approximation)
     - Multi-plane slide resolution (prevents V-corner getting stuck)
-    - Pre-step Depenetration (Fallback)
+    - Pre-step Depenetration (Fallback): A superior deviation from the original proposal,
+      ensuring entities don't get stuck if they spawn inside geometry.
     - Composite Shape Sweep Support
     """
 
@@ -92,7 +93,11 @@ class KinematicMovementSystem(System):
     def resolve_penetration(self, phys: PhysicsBody, pos: pymunk.Vec2d) -> pymunk.Vec2d:
         """
         Checks if the body is currently overlapping static geometry and pushes it out.
-        This is a fallback mechanism. A perfect sweep system shouldn't need this often.
+
+        This serves as a "Pre-Step Depenetration" pass, which is a superior deviation from the
+        original pure Sweep-and-Slide proposal. While the proposal relies on preventing tunneling
+        via sweeps, it doesn't account for initial states (spawning inside a wall) or
+        changes in body size (growing). This method robustly handles those edge cases.
         """
         current_pos = pos
         # Increase iterations to handle complex overlaps
