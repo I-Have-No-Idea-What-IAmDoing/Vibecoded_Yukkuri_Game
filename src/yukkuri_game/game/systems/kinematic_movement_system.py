@@ -295,7 +295,7 @@ class KinematicMovementSystem(System):
 
                      infos = self.space.shape_query(shape)
                      for info in infos:
-                         if info.shape.body == body or info.shape.sensor or info.shape.sensor:
+                         if info.shape.body == body or info.shape.sensor:
                              continue
 
                          contact_set = info.contact_point_set
