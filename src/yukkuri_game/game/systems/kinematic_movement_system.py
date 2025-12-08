@@ -17,9 +17,9 @@ from .physics import PhysicsSystem
 class FakeHit:
     """Helper class to simulate a collision hit result."""
 
-    def __init__(self, n, a):
-        self.normal = n
-        self.alpha = a
+    def __init__(self, normal, alpha):
+        self.normal = normal
+        self.alpha = alpha
 
 
 class KinematicMovementSystem(System):
