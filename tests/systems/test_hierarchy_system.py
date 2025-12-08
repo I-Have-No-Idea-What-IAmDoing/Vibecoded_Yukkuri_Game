@@ -1,10 +1,9 @@
-
-import pytest
 import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.hierarchy_system import HierarchySystem
 from yukkuri_game.game.systems.physics import PhysicsSystem
 from yukkuri_game.game.components import PhysicsBody, Mount, Transform
+
 
 def test_hierarchy_movement():
     world = World()
@@ -37,7 +36,9 @@ def test_hierarchy_movement():
 
     world.add_component(child, PhysicsBody(body=child_body, shape=child_shape))
     world.add_component(child, Transform(x=100, y=100))
-    world.add_component(child, Mount(parent_id=root, mount_point_offset=pymunk.Vec2d(0, 20)))
+    world.add_component(
+        child, Mount(parent_id=root, mount_point_offset=pymunk.Vec2d(0, 20))
+    )
 
     # Link
     root_mount = world.get_component(root, Mount)
@@ -62,7 +63,9 @@ def test_hierarchy_movement():
     assert len(root_phys.body.shapes) == 2
 
     # Verify one shape is the proxy
-    proxy_shapes = [s for s in root_phys.body.shapes if hasattr(s, 'is_hierarchy_proxy')]
+    proxy_shapes = [
+        s for s in root_phys.body.shapes if hasattr(s, "is_hierarchy_proxy")
+    ]
     assert len(proxy_shapes) == 1
 
     # Verify proxy position (relative to body)
@@ -72,11 +75,11 @@ def test_hierarchy_movement():
     proxy = proxy_shapes[0]
     assert proxy.offset.x == 0
     assert proxy.offset.y == 20
-    assert proxy.radius == 5 # Child radius
+    assert proxy.radius == 5  # Child radius
 
     # Move Root and verify child follows
     root_body.position = (200, 200)
-    root_body.angle = 1.570796 # 90 degrees
+    root_body.angle = 1.570796  # 90 degrees
 
     hierarchy.update(world, 0.1)
 

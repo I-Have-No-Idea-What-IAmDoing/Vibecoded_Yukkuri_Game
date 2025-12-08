@@ -2,7 +2,6 @@
 Application Module.
 """
 
-import sys
 import pygame
 import pygame_gui
 import os

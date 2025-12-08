@@ -1,12 +1,17 @@
-
 import pymunk
 import math
 from yukkuri_game.game.systems.kinematic_movement_system import KinematicMovementSystem
 from yukkuri_game.game.systems.hierarchy_system import HierarchySystem
-from yukkuri_game.game.components import PhysicsBody, MovementController, Transform, Mount, PendingDismount
+from yukkuri_game.game.components import (
+    PhysicsBody,
+    MovementController,
+    Transform,
+    Mount,
+)
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.events import PhysicsFixedUpdateEvent
+
 
 # Mock classes
 class MockServiceLocator:
@@ -15,11 +20,12 @@ class MockServiceLocator:
         self.event_bus = EventBus()
 
     def try_get(self, service_type):
-        if service_type.__name__ == 'PhysicsSystem':
+        if service_type.__name__ == "PhysicsSystem":
             return self.physics_system
-        if service_type.__name__ == 'EventBus':
+        if service_type.__name__ == "EventBus":
             return self.event_bus
         return None
+
 
 class MockPhysicsSystem:
     def __init__(self):
@@ -27,10 +33,12 @@ class MockPhysicsSystem:
         self.space.gravity = (0, 0)
         self.space.damping = 0.9
 
+
 class MockWorld(World):
     def __init__(self):
         super().__init__()
         self.services = MockServiceLocator(MockPhysicsSystem())
+
 
 # Verify Kinematic Movement
 def test_kinematic_movement():
@@ -58,7 +66,7 @@ def test_kinematic_movement():
     ctrl.target_velocity = pymunk.Vec2d(100, 0)
 
     # Step 1 second
-    dt = 1.0/60.0
+    dt = 1.0 / 60.0
 
     # Need to init system first so it subscribes to events
     system.update(world, 0)
@@ -79,12 +87,14 @@ def test_kinematic_movement():
     # Add wall at x=200
     wall_body = pymunk.Body(body_type=pymunk.Body.STATIC)
     wall_body.position = (200, 100)
-    wall_shape = pymunk.Poly.create_box(wall_body, (20, 100)) # width 20, height 100. Left edge at 190.
+    wall_shape = pymunk.Poly.create_box(
+        wall_body, (20, 100)
+    )  # width 20, height 100. Left edge at 190.
     world.services.physics_system.space.add(wall_body, wall_shape)
 
     # Reset entity
     body.position = (150, 100)
-    ctrl.current_velocity = pymunk.Vec2d(100, 0) # Already moving
+    ctrl.current_velocity = pymunk.Vec2d(100, 0)  # Already moving
     ctrl.target_velocity = pymunk.Vec2d(100, 0)
 
     # Step until impact
@@ -95,6 +105,7 @@ def test_kinematic_movement():
 
     assert body.position.x < 190, "Should not penetrate wall center"
     assert body.position.x > 170, "Should be close to wall"
+
 
 # Verify Hierarchy
 def test_hierarchy():
@@ -119,31 +130,34 @@ def test_hierarchy():
     world.services.physics_system.space.add(child_body, child_shape)
 
     world.add_component(child, PhysicsBody(child_body, child_shape))
-    world.add_component(child, Transform(0, 0)) # Initial doesn't matter
+    world.add_component(child, Transform(0, 0))  # Initial doesn't matter
 
     # Mount
     root_mount = Mount(children_ids=[child])
-    child_mount = Mount(parent_id=root, mount_point_offset=pymunk.Vec2d(0, -20)) # On top
+    child_mount = Mount(
+        parent_id=root, mount_point_offset=pymunk.Vec2d(0, -20)
+    )  # On top
 
     world.add_component(root, root_mount)
     world.add_component(child, child_mount)
 
     # Run System
-    h_system.update(world, 1.0/60.0)
+    h_system.update(world, 1.0 / 60.0)
 
     print(f"Child Pos: {child_body.position}")
     assert child_body.position == pymunk.Vec2d(100, 80), "Child should be at (100, 80)"
 
     # Rotate Root
-    root_body.angle = math.radians(90) # 90 degrees
+    root_body.angle = math.radians(90)  # 90 degrees
     # Update
-    h_system.update(world, 1.0/60.0)
+    h_system.update(world, 1.0 / 60.0)
 
     print(f"Child Pos after Rotation: {child_body.position}")
 
     # Floating point comparison
     assert abs(child_body.position.x - 120) < 0.1
     assert abs(child_body.position.y - 100) < 0.1
+
 
 if __name__ == "__main__":
     test_kinematic_movement()

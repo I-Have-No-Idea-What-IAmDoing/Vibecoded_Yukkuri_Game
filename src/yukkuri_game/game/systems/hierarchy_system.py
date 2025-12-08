@@ -9,9 +9,13 @@ import math
 import random
 from loguru import logger
 from ...engine.ecs import System, World
-from ..components import Mount, Transform, PhysicsBody, PendingDismount, MovementController
+from ..components import (
+    Mount,
+    Transform,
+    PhysicsBody,
+    PendingDismount,
+)
 from ..collision_constants import CollisionCategories
-from .physics import PhysicsSystem
 
 _DISMOUNT_DEFAULT_RADIUS = 10.0
 _DISMOUNT_MAX_SEARCH_RADIUS = 100.0
@@ -19,6 +23,7 @@ _DISMOUNT_MAX_SEARCH_CHECKS = 20
 _DISMOUNT_TIMEOUT = 5.0
 _DEFAULT_ENTITY_RADIUS = 10.0
 _SPIRAL_SEARCH_MIN_RADIUS = 0.1
+
 
 class HierarchySystem(System):
     """
@@ -74,7 +79,7 @@ class HierarchySystem(System):
         # Remove old proxy shapes
         to_remove = []
         for shape in body.shapes:
-            if hasattr(shape, 'is_hierarchy_proxy'):
+            if hasattr(shape, "is_hierarchy_proxy"):
                 to_remove.append(shape)
 
         # Simplified removal loop as suggested in PR comments
@@ -90,7 +95,7 @@ class HierarchySystem(System):
 
         # Now add new shapes for children
         # Traverse hierarchy
-        stack = [(root_entity, pymunk.Vec2d(0,0))]
+        stack = [(root_entity, pymunk.Vec2d(0, 0))]
 
         while stack:
             curr_ent, curr_offset = stack.pop()
@@ -108,12 +113,14 @@ class HierarchySystem(System):
                 # Create a proxy shape for this child on the Root Body
                 c_phys = world.get_component(child_id, PhysicsBody)
                 child_radius = _DEFAULT_ENTITY_RADIUS
-                if c_phys and hasattr(c_phys.shape, 'radius'):
+                if c_phys and hasattr(c_phys.shape, "radius"):
                     child_radius = c_phys.shape.radius
 
                 # Create Circle at offset
                 new_shape = pymunk.Circle(body, child_radius, child_total_offset)
-                new_shape.friction = 0.0 # Friction handled by root movement logic usually
+                new_shape.friction = (
+                    0.0  # Friction handled by root movement logic usually
+                )
                 new_shape.elasticity = 0.0
                 new_shape.is_hierarchy_proxy = True
 
@@ -148,8 +155,14 @@ class HierarchySystem(System):
 
         trans = world.get_component(root_entity, Transform)
         if trans:
-            root_prev_pos = pymunk.Vec2d(trans.prev_x, trans.prev_y) if trans.prev_x is not None else root_pos
-            root_prev_rot = trans.prev_rotation if trans.prev_rotation is not None else root_rot
+            root_prev_pos = (
+                pymunk.Vec2d(trans.prev_x, trans.prev_y)
+                if trans.prev_x is not None
+                else root_pos
+            )
+            root_prev_rot = (
+                trans.prev_rotation if trans.prev_rotation is not None else root_rot
+            )
 
         if root_pos is None:
             return
@@ -160,7 +173,9 @@ class HierarchySystem(System):
         stack = [(root_entity, root_pos, root_rot, root_prev_pos, root_prev_rot)]
 
         while stack:
-            current_entity, parent_pos, parent_rot, parent_prev_pos, parent_prev_rot = stack.pop()
+            current_entity, parent_pos, parent_rot, parent_prev_pos, parent_prev_rot = (
+                stack.pop()
+            )
 
             mount = mounts.get(current_entity)
             if not mount:
@@ -203,7 +218,9 @@ class HierarchySystem(System):
                     child_trans.prev_y = child_prev_pos.y
                     child_trans.prev_rotation = child_prev_rot
 
-                stack.append((child_id, child_pos, child_rot, child_prev_pos, child_prev_rot))
+                stack.append(
+                    (child_id, child_pos, child_rot, child_prev_pos, child_prev_rot)
+                )
 
     def process_dismounts(self, world: World, dt: float):
         """
@@ -240,7 +257,9 @@ class HierarchySystem(System):
             else:
                 if pending.time_in_pending > _DISMOUNT_TIMEOUT:
                     # Emergency Teleport Fallback
-                    logger.warning(f"Entity {entity} forced dismount after timeout. Attempting Emergency Teleport.")
+                    logger.warning(
+                        f"Entity {entity} forced dismount after timeout. Attempting Emergency Teleport."
+                    )
 
                     # _emergency_teleport always returns True because it forces position if search fails.
                     self._emergency_teleport(space, phys, trans)
@@ -279,7 +298,7 @@ class HierarchySystem(System):
         theta = 0.0
 
         collider_radius = _DISMOUNT_DEFAULT_RADIUS
-        if hasattr(shape, 'radius') and shape.radius > 0:
+        if hasattr(shape, "radius") and shape.radius > 0:
             collider_radius = shape.radius
         # If poly, approximate radius?
         elif isinstance(shape, pymunk.Poly):
@@ -299,7 +318,9 @@ class HierarchySystem(System):
         # Effectively checks if a circle of `collider_radius` at `pos` hits anything.
 
         # Filter: Match what the entity would collide with (Walls, Other Yukkuris)
-        query_filter = pymunk.ShapeFilter(mask=CollisionCategories.WALL | CollisionCategories.YUKKURI)
+        query_filter = pymunk.ShapeFilter(
+            mask=CollisionCategories.WALL | CollisionCategories.YUKKURI
+        )
 
         def is_spot_free(pos):
             # point_query finds shapes within `collider_radius` of `pos`.
@@ -311,21 +332,25 @@ class HierarchySystem(System):
             return len(valid_hits) == 0
 
         if is_spot_free(start_pos):
-             return start_pos
+            return start_pos
 
         theta = random.uniform(0, 2 * math.pi)
 
         while current_r < max_radius and checks < max_checks:
             checks += 1
-            offset = pymunk.Vec2d(current_r * math.cos(theta), current_r * math.sin(theta))
+            offset = pymunk.Vec2d(
+                current_r * math.cos(theta), current_r * math.sin(theta)
+            )
             candidate = start_pos + offset
 
             if is_spot_free(candidate):
                 return candidate
 
             arc = collider_radius
-            d_theta = arc / (current_r if current_r > _SPIRAL_SEARCH_MIN_RADIUS else 1.0)
+            d_theta = arc / (
+                current_r if current_r > _SPIRAL_SEARCH_MIN_RADIUS else 1.0
+            )
             theta += d_theta
-            current_r = (step_size / (2*math.pi)) * theta
+            current_r = (step_size / (2 * math.pi)) * theta
 
         return None

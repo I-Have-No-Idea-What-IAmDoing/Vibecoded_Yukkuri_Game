@@ -66,9 +66,7 @@ class SystemRegistry:
 
         world.add_system(EmotionSystem(settings=game_config.rules.stat_decay))
         world.add_system(LifecycleSystem(settings=game_config.rules.lifecycle))
-        world.add_system(
-            BehaviorSystem(float(camera.width), float(camera.height))
-        )
+        world.add_system(BehaviorSystem(float(camera.width), float(camera.height)))
         world.add_system(KinematicMovementSystem())
         world.add_system(HierarchySystem())
         world.add_system(VisualMovementSystem())

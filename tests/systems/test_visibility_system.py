@@ -1,5 +1,3 @@
-
-import pytest
 import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.visibility_system import VisibilitySystem
@@ -7,6 +5,7 @@ from yukkuri_game.game.systems.physics import PhysicsSystem
 from yukkuri_game.game.components import PhysicsBody, Transform, Vision
 from yukkuri_game.game.yukkuri_components import AIState
 from yukkuri_game.game.collision_constants import CollisionCategories
+
 
 def test_visibility_occlusion():
     world = World()
@@ -68,6 +67,7 @@ def test_visibility_occlusion():
     assert target1 in ai.visible_entities
     assert target2 not in ai.visible_entities
 
+
 def test_visibility_fov():
     world = World()
     physics_system = PhysicsSystem()
@@ -87,7 +87,7 @@ def test_visibility_fov():
 
     world.add_component(obs, PhysicsBody(body=obs_body, shape=obs_shape))
     world.add_component(obs, Transform(x=0, y=0, rotation=0))
-    world.add_component(obs, Vision(range=200, fov=90)) # 90 degree FOV (+- 45)
+    world.add_component(obs, Vision(range=200, fov=90))  # 90 degree FOV (+- 45)
     world.add_component(obs, AIState())
 
     # Target In Front

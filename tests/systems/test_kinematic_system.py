@@ -1,11 +1,10 @@
-
-import pytest
 import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.kinematic_movement_system import KinematicMovementSystem
 from yukkuri_game.game.systems.physics import PhysicsSystem
 from yukkuri_game.game.components import PhysicsBody, MovementController, Transform
 from yukkuri_game.game.collision_constants import CollisionCategories
+
 
 def test_kinematic_movement_slide():
     world = World()
@@ -22,7 +21,7 @@ def test_kinematic_movement_slide():
     # Wall at x=100, vertical
     wall_body = pymunk.Body(body_type=pymunk.Body.STATIC)
     wall_body.position = (100, 0)
-    wall_shape = pymunk.Segment(wall_body, (0, -100), (0, 100), 5) # Thickness 5
+    wall_shape = pymunk.Segment(wall_body, (0, -100), (0, 100), 5)  # Thickness 5
     wall_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.WALL)
     physics_system.space.add(wall_body, wall_shape)
 
@@ -31,7 +30,9 @@ def test_kinematic_movement_slide():
     body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     body.position = (0, 0)
     shape = pymunk.Circle(body, 10)
-    shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.YUKKURI, mask=CollisionCategories.WALL)
+    shape.filter = pymunk.ShapeFilter(
+        categories=CollisionCategories.YUKKURI, mask=CollisionCategories.WALL
+    )
     physics_system.space.add(body, shape)
 
     phys = PhysicsBody(body=body, shape=shape)
@@ -46,13 +47,13 @@ def test_kinematic_movement_slide():
     # Velocity (100, 100). Should hit wall at x ~ 90 (100 - 5 thickness - 10 radius = 85 actually)
     # And slide upwards.
     controller.target_velocity = pymunk.Vec2d(100, 100)
-    controller.acceleration = 10000 # Instant accel for test
+    controller.acceleration = 10000  # Instant accel for test
 
     # Initialize system
     kms.update(world, 0)
 
     # Simulate for 1 second in steps
-    dt = 1.0/60.0
+    dt = 1.0 / 60.0
     for _ in range(60):
         kms.fixed_update(world, dt)
 
@@ -67,6 +68,7 @@ def test_kinematic_movement_slide():
 
     # Y should have increased significantly (sliding up)
     assert body.position.y > 50.0
+
 
 def test_kinematic_corner():
     world = World()
@@ -98,7 +100,9 @@ def test_kinematic_corner():
     body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     body.position = (50, 50)
     shape = pymunk.Circle(body, 10)
-    shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.YUKKURI, mask=CollisionCategories.WALL)
+    shape.filter = pymunk.ShapeFilter(
+        categories=CollisionCategories.YUKKURI, mask=CollisionCategories.WALL
+    )
     physics_system.space.add(body, shape)
 
     phys = PhysicsBody(body=body, shape=shape)
@@ -116,8 +120,8 @@ def test_kinematic_corner():
     # Initialize system
     kms.update(world, 0)
 
-    dt = 1.0/60.0
-    for _ in range(120): # 2 seconds
+    dt = 1.0 / 60.0
+    for _ in range(120):  # 2 seconds
         kms.fixed_update(world, dt)
 
     # Should be stopped near the corner

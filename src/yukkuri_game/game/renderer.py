@@ -154,7 +154,9 @@ class WorldRenderer:
             # Ensure source_rect is within image bounds
             if source_rect.right > img_width or source_rect.bottom > img_height:
                 if img_width < sprite.width or img_height < sprite.height:
-                    frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
+                    frame_img = pygame.transform.scale(
+                        img, (sprite.width, sprite.height)
+                    )
                 else:
                     frame_img = img.subsurface(source_rect.clip(img.get_rect()))
             else:

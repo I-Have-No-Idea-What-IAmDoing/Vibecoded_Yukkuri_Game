@@ -1,12 +1,15 @@
-
-import pytest
 import pymunk
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.visual_movement_system import VisualMovementSystem
-from yukkuri_game.game.components import PhysicsBody, MovementController, VisualTransform
+from yukkuri_game.game.components import (
+    PhysicsBody,
+    MovementController,
+    VisualTransform,
+)
 from yukkuri_game.game.skill_service import SkillService
 from yukkuri_game.game.skill_constants import SkillId
+
 
 def test_visual_movement_system_bobbing():
     world = World()
@@ -40,6 +43,7 @@ def test_visual_movement_system_bobbing():
     assert controller.visual_bob_timer > 0
     # Check vertical offset updated
     assert visual.vertical_offset >= 0
+
 
 def test_visual_movement_system_xp():
     world = World()

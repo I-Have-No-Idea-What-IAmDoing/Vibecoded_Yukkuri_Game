@@ -3,9 +3,9 @@ Visibility System.
 Optimized to use Spatial Hash for broadphase (O(N*logM)) instead of O(N*M).
 Uses Event Bus to maintain Entity Map incrementally.
 """
+
 import pymunk
 import math
-from loguru import logger
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import ComponentAddedEvent, ComponentRemovedEvent
@@ -13,6 +13,7 @@ from ..components import Vision, Transform, PhysicsBody
 from ..yukkuri_components import AIState
 from .physics import PhysicsSystem
 from ..collision_constants import CollisionCategories
+
 
 class VisibilitySystem(System):
     """
@@ -42,15 +43,19 @@ class VisibilitySystem(System):
                 self.space = physics_system.space
 
         if not self.event_bus:
-             self.event_bus = world.services.try_get(EventBus)
-             if self.event_bus:
-                 # Subscribe to both add and remove events
-                 self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
-                 self.event_bus.subscribe(ComponentRemovedEvent, self.on_component_removed)
+            self.event_bus = world.services.try_get(EventBus)
+            if self.event_bus:
+                # Subscribe to both add and remove events
+                self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
+                self.event_bus.subscribe(
+                    ComponentRemovedEvent, self.on_component_removed
+                )
 
-             # Initial population of the map, runs only once.
-             physics_bodies = world.get_components(PhysicsBody)
-             self.body_to_entity = {comp.body: ent for ent, comp in physics_bodies.items()}
+            # Initial population of the map, runs only once.
+            physics_bodies = world.get_components(PhysicsBody)
+            self.body_to_entity = {
+                comp.body: ent for ent, comp in physics_bodies.items()
+            }
 
         # Get all observers
         observers_list = list(world.get_components_tuple(Vision, Transform, AIState))
@@ -137,7 +142,7 @@ class VisibilitySystem(System):
             blocked = False
 
             for hit in hits:
-                if hit.shape in obs_shapes: # Use list check for composite support
+                if hit.shape in obs_shapes:  # Use list check for composite support
                     continue
 
                 # Treat sensors as transparent (unless they are Opaque sensors?)

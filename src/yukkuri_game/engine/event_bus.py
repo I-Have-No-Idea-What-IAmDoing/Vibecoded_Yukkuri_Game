@@ -5,7 +5,7 @@ The EventBus provides a mechanism for decoupled communication between different
 parts of the application using a publish-subscribe pattern.
 """
 
-from typing import Dict, List, Type, Callable, Any, TypeVar, Generic
+from typing import Dict, List, Type, Callable, Any, TypeVar
 from dataclasses import dataclass
 
 

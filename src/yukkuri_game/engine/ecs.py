@@ -6,7 +6,18 @@ structured and type-safe interface for managing entities and components.
 """
 
 import uuid
-from typing import Type, TypeVar, Dict, Any, List, Optional, Tuple, TYPE_CHECKING, Set, Iterator
+from typing import (
+    Type,
+    TypeVar,
+    Dict,
+    Any,
+    List,
+    Optional,
+    Tuple,
+    TYPE_CHECKING,
+    Set,
+    Iterator,
+)
 import esper
 from .service_locator import ServiceLocator
 from .events import EntityDestroyedEvent, ComponentAddedEvent, ComponentRemovedEvent
@@ -122,7 +133,9 @@ class World:
         event_bus = self.services.try_get(EventBus)
         if event_bus:
             for component in components:
-                event_bus.publish(ComponentAddedEvent(entity_id, type(component), component))
+                event_bus.publish(
+                    ComponentAddedEvent(entity_id, type(component), component)
+                )
 
         return entity_id
 
@@ -197,7 +210,9 @@ class World:
 
             event_bus = self.services.try_get(EventBus)
             if event_bus:
-                event_bus.publish(ComponentRemovedEvent(entity, component_type, removed_component))
+                event_bus.publish(
+                    ComponentRemovedEvent(entity, component_type, removed_component)
+                )
         except KeyError:
             pass
 

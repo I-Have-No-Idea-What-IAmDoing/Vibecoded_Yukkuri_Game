@@ -37,7 +37,6 @@ class TestSocialSystem:
         return sys
 
     def test_cleanup_relationships(self, system, world):
-
         e1 = 1
         reg = RelationshipRegistry()
         # Old relationship: updated 10 minutes (600s) + 100s ago

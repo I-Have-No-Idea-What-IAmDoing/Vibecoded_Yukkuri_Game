@@ -13,6 +13,7 @@ from ...engine.events import PhysicsFixedUpdateEvent
 from ..components import PhysicsBody, MovementController, Transform
 from .physics import PhysicsSystem
 
+
 class KinematicMovementSystem(System):
     """
     System responsible for moving Kinematic bodies using a sweep-and-slide algorithm
@@ -41,7 +42,9 @@ class KinematicMovementSystem(System):
         if self.ecs_world:
             self.fixed_update(self.ecs_world, event.dt)
         else:
-            logger.warning("KinematicMovementSystem: Fixed update skipped because world is not initialized.")
+            logger.warning(
+                "KinematicMovementSystem: Fixed update skipped because world is not initialized."
+            )
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -64,7 +67,9 @@ class KinematicMovementSystem(System):
         """
         Runs the deterministic movement logic.
         """
-        components = world.get_components_tuple(PhysicsBody, MovementController, Transform)
+        components = world.get_components_tuple(
+            PhysicsBody, MovementController, Transform
+        )
 
         for entity, (phys, controller, trans) in components:
             if phys.body.body_type != pymunk.Body.KINEMATIC:
@@ -124,7 +129,7 @@ class KinematicMovementSystem(System):
                     if len(contact_set.points) == 0:
                         continue
 
-                    best_push = pymunk.Vec2d(0,0)
+                    best_push = pymunk.Vec2d(0, 0)
 
                     for point in contact_set.points:
                         if point.distance < -0.001:
@@ -152,7 +157,7 @@ class KinematicMovementSystem(System):
             else:
                 break
 
-        phys.body.position = pos # Restore
+        phys.body.position = pos  # Restore
         return current_pos
 
     def _get_poly_radius(self, shape: pymunk.Poly) -> float:
@@ -170,7 +175,7 @@ class KinematicMovementSystem(System):
         # Pymunk's Poly vertices are stored relative to the body's position.
         # If `shape.offset` exists on Poly, we use it. If not, we assume (0,0).
 
-        sweep_origin_local = getattr(shape, 'offset', pymunk.Vec2d(0, 0))
+        sweep_origin_local = getattr(shape, "offset", pymunk.Vec2d(0, 0))
 
         max_sq = 0.0
         for v in verts:
@@ -182,8 +187,13 @@ class KinematicMovementSystem(System):
         self._poly_radius_cache[shape] = radius
         return radius
 
-
-    def move_and_slide(self, phys: PhysicsBody, controller: MovementController, trans: Transform, dt: float):
+    def move_and_slide(
+        self,
+        phys: PhysicsBody,
+        controller: MovementController,
+        trans: Transform,
+        dt: float,
+    ):
         body = phys.body
 
         # 1. Virtual Physics Integration
@@ -227,27 +237,32 @@ class KinematicMovementSystem(System):
             best_alpha = 1.0
 
             for shape in body.shapes:
-                if shape.sensor: continue
+                if shape.sensor:
+                    continue
 
                 radius = 0.0
-                if hasattr(shape, 'radius') and shape.radius > 0:
+                if hasattr(shape, "radius") and shape.radius > 0:
                     radius = shape.radius
                 elif isinstance(shape, pymunk.Poly):
                     radius = self._get_poly_radius(shape)
 
-                shape_offset = getattr(shape, 'offset', pymunk.Vec2d(0, 0))
+                shape_offset = getattr(shape, "offset", pymunk.Vec2d(0, 0))
                 shape_center_world = shape.body.local_to_world(shape_offset)
                 shape_dest = shape_center_world + move_delta
 
-                results = self.space.segment_query(shape_center_world, shape_dest, radius, shape.filter)
+                results = self.space.segment_query(
+                    shape_center_world, shape_dest, radius, shape.filter
+                )
 
                 for info in results:
-                    if info.shape.body == body: continue
-                    if info.shape.sensor: continue
+                    if info.shape.body == body:
+                        continue
+                    if info.shape.sensor:
+                        continue
 
                     # Backface check
                     if info.normal.dot(move_delta) > 0.0001:
-                         continue
+                        continue
 
                     if info.alpha < best_alpha:
                         best_alpha = info.alpha
@@ -256,7 +271,11 @@ class KinematicMovementSystem(System):
             if best_hit:
                 # Move to hit
                 md_len = move_delta.length
-                safe_alpha = max(0.0, best_hit.alpha - (self.skin_width / md_len)) if md_len > 0.0001 else 0.0
+                safe_alpha = (
+                    max(0.0, best_hit.alpha - (self.skin_width / md_len))
+                    if md_len > 0.0001
+                    else 0.0
+                )
 
                 step_move = move_delta * safe_alpha
                 current_pos += step_move

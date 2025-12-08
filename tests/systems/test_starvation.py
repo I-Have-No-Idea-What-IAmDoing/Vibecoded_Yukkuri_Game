@@ -1,4 +1,3 @@
-
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
