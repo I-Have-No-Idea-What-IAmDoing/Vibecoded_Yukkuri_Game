@@ -110,9 +110,8 @@ def test_distance_check(interaction_env):
     # Should not consume (too far)
     assert world.entity_exists(item)
 
-    # Request should still exist because it wasn't handled (distance check failed in InteractionSystem or HungerSystem)
-    # Actually if InteractionSystem checks distance first and returns False, request is NOT removed.
-    assert world.has_component(consumer, InteractionRequest)
+    # Request should be removed even if failed, to prevent infinite loops
+    assert not world.has_component(consumer, InteractionRequest)
 
 
 def test_predation_not_allowed(interaction_env):
