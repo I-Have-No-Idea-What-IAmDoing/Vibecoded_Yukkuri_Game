@@ -42,6 +42,9 @@ class EventManager:
         Args:
             event_type (Type[Event]): The type of event to subscribe to.
             handler (Callable[[Any], None]): The handler function.
+
+        Returns:
+            None
         """
         self.bus.subscribe(event_type, handler)
 
@@ -51,6 +54,9 @@ class EventManager:
 
         Args:
             event (Event): The event to publish.
+
+        Returns:
+            None
         """
         self.bus.publish(event)
 
@@ -61,6 +67,9 @@ class EventManager:
         Args:
             event (Event): The event to queue.
             phase (GamePhase): The phase in which to process the event.
+
+        Returns:
+            None
         """
         self._queues[phase].append(event)
 
@@ -70,6 +79,9 @@ class EventManager:
 
         Args:
             phase (GamePhase): The phase to process.
+
+        Returns:
+            None
         """
         events = self._queues[phase]
         self._queues[

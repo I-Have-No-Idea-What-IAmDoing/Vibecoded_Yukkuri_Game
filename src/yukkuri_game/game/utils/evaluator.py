@@ -1,3 +1,7 @@
+"""
+Module defining the ConditionEvaluator for dynamic expression parsing.
+"""
+
 from typing import Any, Dict, Type
 from simpleeval import SimpleEval
 from loguru import logger
@@ -12,11 +16,24 @@ from ..yukkuri_components import (
 
 
 class ConditionEvaluator:
+    """
+    Evaluates condition strings using SimpleEval.
+    Provides a safe environment to check entity state (stats, traits, skills).
+
+    Attributes:
+        evaluator (SimpleEval): The expression evaluator engine.
+        _cache (Dict[str, Any]): Cache for compiled expression ASTs to improve performance.
+    """
+
     def __init__(self) -> None:
+        """Initializes the ConditionEvaluator."""
         self.evaluator = SimpleEval()
         self._cache: Dict[str, Any] = {}
 
         def has_trait(trait: str) -> bool:
+            """
+            Checks if the 'traits' list in context contains the given trait.
+            """
             # Access traits from the current evaluation context
             traits = self.evaluator.names.get("traits", [])
             if traits is None:
@@ -27,7 +44,16 @@ class ConditionEvaluator:
         self.evaluator.functions = {"min": min, "max": max, "has_trait": has_trait}
 
     def build_context(self, world: World, entity_id: int) -> Dict[str, Any]:
-        """Builds a flat data context for an entity."""
+        """
+        Builds a flat data context for an entity suitable for expression evaluation.
+
+        Args:
+            world (World): The ECS World.
+            entity_id (int): The entity ID.
+
+        Returns:
+            Dict[str, Any]: The context dictionary containing stats, needs, etc.
+        """
         context: Dict[str, Any] = {}
 
         # Stats
@@ -84,10 +110,10 @@ class ConditionEvaluator:
         self, expression: str, context: Dict[str, Any], expected_type: Type = bool
     ) -> bool:
         """
-        Evaluates a boolean expression string.
+        Evaluates a boolean expression string against a given context.
 
         Args:
-            expression (str): The expression to evaluate.
+            expression (str): The expression string (e.g., "hunger > 50 and not has_trait('Stoic')").
             context (Dict[str, Any]): The variables available to the expression.
             expected_type (Type): The expected return type (default bool). Logs warning if mismatched.
 

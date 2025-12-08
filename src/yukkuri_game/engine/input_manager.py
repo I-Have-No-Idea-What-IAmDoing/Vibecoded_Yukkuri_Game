@@ -88,7 +88,10 @@ class InputManager:
 
         Args:
             context (InputContext): The context to modify.
-            active (bool): True to enable the context, False to disable.
+            active (bool): True to enable the context, False to disable. Defaults to True.
+
+        Returns:
+            None
         """
         if active:
             self._active_contexts.add(context)
@@ -101,6 +104,9 @@ class InputManager:
 
         Args:
             context (InputContext): The context to make active.
+
+        Returns:
+            None
         """
         self._active_contexts.clear()
         self._active_contexts.add(context)
@@ -111,6 +117,9 @@ class InputManager:
 
         Args:
             event (pygame.event.Event): The pygame event to process.
+
+        Returns:
+            None
         """
         if event.type == pygame.KEYDOWN:
             self._keys_pressed.add(event.key)
@@ -138,6 +147,9 @@ class InputManager:
         """
         Clear frame-transient state.
         Should be called at the beginning or end of each frame.
+
+        Returns:
+            None
         """
         self._keys_down.clear()
         self._keys_up.clear()

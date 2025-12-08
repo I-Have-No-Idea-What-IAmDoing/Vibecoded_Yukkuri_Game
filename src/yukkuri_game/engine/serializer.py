@@ -25,6 +25,13 @@ class WorldSerializer:
     """
 
     def __init__(self, world: World, component_types: Iterable[Type[Any]]):
+        """
+        Initializes the WorldSerializer.
+
+        Args:
+            world (World): The ECS World to serialize/deserialize.
+            component_types (Iterable[Type[Any]]): A collection of component types to support.
+        """
         self.world = world
         self.component_map = {c.__name__: c for c in component_types}
         self._persistable_type = self.component_map.get("Persistable")
@@ -33,7 +40,13 @@ class WorldSerializer:
     def serialize_entity(self, entity: int) -> Optional[Dict[str, Any]]:
         """
         Serializes a single entity.
-        Returns a dict containing 'entity_id', 'stable_id', 'components'.
+
+        Args:
+            entity (int): The entity ID to serialize.
+
+        Returns:
+            Optional[Dict[str, Any]]: A dict containing 'entity_id', 'stable_id', 'components',
+            or None if the entity is not persistable.
         """
         if not self._persistable_type or not self.world.has_component(
             entity, self._persistable_type
@@ -86,6 +99,9 @@ class WorldSerializer:
     def get_persistable_entities_data(self) -> list[Dict[str, Any]]:
         """
         Returns a list of serialized data for all persistable entities.
+
+        Returns:
+            list[Dict[str, Any]]: A list of serialized entity data dictionaries.
         """
         if not self._persistable_type:
             logger.warning("Persistable component type not registered. Cannot save.")
@@ -98,16 +114,30 @@ class WorldSerializer:
                 entities_data.append(data)
         return entities_data
 
-    def save_to_file(self, filepath: str):
-        """Saves all persistable entities to a file using MessagePack."""
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves all persistable entities to a file using MessagePack.
+
+        Args:
+            filepath (str): The path to the file to save to.
+
+        Returns:
+            None
+        """
         entities_data = self.get_persistable_entities_data()
         with open(filepath, "wb") as f:
             f.write(msgspec.msgpack.encode(entities_data))
         logger.info(f"Saved {len(entities_data)} entities to {filepath}")
 
-    def load_from_file(self, filepath: str):
+    def load_from_file(self, filepath: str) -> None:
         """
         Loads entities from a file using MessagePack with two-pass reference resolution.
+
+        Args:
+            filepath (str): The path to the file to load from.
+
+        Returns:
+            None
         """
         try:
             with open(filepath, "rb") as f:
@@ -122,6 +152,12 @@ class WorldSerializer:
     def load_from_data(self, entities_data: list[Dict[str, Any]]) -> None:
         """
         Loads entities from a list of entity data dicts with two-pass reference resolution.
+
+        Args:
+            entities_data (list[Dict[str, Any]]): A list of serialized entity data dictionaries.
+
+        Returns:
+            None
         """
         if not entities_data:
             return
@@ -246,7 +282,15 @@ class WorldSerializer:
         logger.info(f"Loaded {len(entities_data)} entities from data")
 
     def _is_entity_ref(self, tp: Type) -> bool:
-        """Check if type is EntityID or Optional[EntityID]"""
+        """
+        Check if type is EntityID or Optional[EntityID].
+
+        Args:
+            tp (Type): The type to check.
+
+        Returns:
+            bool: True if it is an EntityID reference.
+        """
         if tp is EntityID:
             return True
         origin = get_origin(tp)
@@ -257,7 +301,15 @@ class WorldSerializer:
         return False
 
     def _is_container_of_entity_ref(self, tp: Type) -> bool:
-        """Check if type is List[EntityID] or Set[EntityID]"""
+        """
+        Check if type is List[EntityID] or Set[EntityID].
+
+        Args:
+            tp (Type): The type to check.
+
+        Returns:
+            bool: True if it is a container of EntityID.
+        """
         origin = get_origin(tp)
         if origin in (list, set, typing.List, typing.Set):
             args = get_args(tp)
@@ -266,7 +318,15 @@ class WorldSerializer:
         return False
 
     def _is_dict_key_entity_ref(self, tp: Type) -> bool:
-        """Check if type is Dict[EntityID, Any]"""
+        """
+        Check if type is Dict[EntityID, Any].
+
+        Args:
+            tp (Type): The type to check.
+
+        Returns:
+            bool: True if the key type is EntityID.
+        """
         origin = get_origin(tp)
         if origin in (dict, typing.Dict):
             args = get_args(tp)

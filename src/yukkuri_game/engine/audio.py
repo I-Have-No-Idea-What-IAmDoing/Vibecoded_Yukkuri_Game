@@ -6,7 +6,7 @@ import os
 import sys
 import pygame
 from loguru import logger
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 
 class AudioManager:
@@ -48,6 +48,9 @@ class AudioManager:
 
         Args:
             config_path (str): Path to the sounds configuration file.
+
+        Returns:
+            None
         """
         if os.path.exists(config_path):
             if sys.version_info >= (3, 11):
@@ -74,7 +77,12 @@ class AudioManager:
             self._load_fallback_sounds()
 
     def _load_fallback_sounds(self) -> None:
-        """Loads fallback sounds if configuration fails."""
+        """
+        Loads fallback sounds if configuration fails.
+
+        Returns:
+            None
+        """
         defaults = {
             "click": "data/audio/click.wav",
             "place": "data/audio/place.wav",
@@ -94,6 +102,9 @@ class AudioManager:
         Args:
             name (str): The name to assign to the sound.
             filepath (str): The path to the sound file.
+
+        Returns:
+            None
         """
         if not self.enabled:
             return
@@ -111,6 +122,9 @@ class AudioManager:
 
         Args:
             name (str): The name of the sound to play.
+
+        Returns:
+            None
         """
         if not self.enabled:
             return
@@ -124,6 +138,9 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 and 1.0.
+
+        Returns:
+            None
         """
         # Clamp volume
         self.master_volume = max(0.0, min(1.0, volume))
@@ -135,6 +152,9 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 and 1.0.
+
+        Returns:
+            None
         """
         self.bgm_volume = max(0.0, min(1.0, volume))
         if self.enabled and pygame.mixer.get_init():
@@ -146,6 +166,9 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 and 1.0.
+
+        Returns:
+            None
         """
         self.sfx_volume = max(0.0, min(1.0, volume))
         self._update_all_volumes()
@@ -156,12 +179,18 @@ class AudioManager:
 
         Args:
             sound (pygame.mixer.Sound): The sound object to update.
+
+        Returns:
+            None
         """
         sound.set_volume(self.master_volume * self.sfx_volume)
 
     def _update_all_volumes(self) -> None:
         """
         Updates volumes for all loaded sounds and music.
+
+        Returns:
+            None
         """
         if not self.enabled:
             return
@@ -179,5 +208,8 @@ class AudioManager:
 
         Args:
             volume (float): The volume level between 0.0 (mute) and 1.0 (max).
+
+        Returns:
+            None
         """
         self.set_master_volume(volume)

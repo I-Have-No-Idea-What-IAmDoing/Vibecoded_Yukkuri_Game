@@ -38,7 +38,7 @@ class ServiceLocator:
         Args:
             instance (Any): The service instance to register.
             service_type (Optional[Type[Any]]): The type key to use for registration. If None, the instance's type is used.
-            replace (bool): If True, allows overwriting an existing service of the same type.
+            replace (bool): If True, allows overwriting an existing service of the same type. Defaults to False.
 
         Returns:
             None
@@ -89,5 +89,8 @@ class ServiceLocator:
         """
         Clears all registered services.
         Useful for testing or resetting state.
+
+        Returns:
+            None
         """
         self._services.clear()
