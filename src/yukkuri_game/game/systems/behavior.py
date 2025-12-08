@@ -54,9 +54,11 @@ class BehaviorSystem(System):
             tree.tick()
 
             # Check if the tree execution finished (SUCCESS or FAILURE)
-            # The root is a Sequence(UtilitySelector, ExecutionSelector).
-            # If ExecutionSelector finishes, the root finishes.
-            # If so, we clear the manual override to allow Utility AI to take over again.
+            # The root is a Selector(StressBreak, Sequence(UtilitySelector, ExecutionSelector)).
+            # If the tree completes a full tick cycle with a definitive status,
+            # we check if we need to reset any flags.
+            # Specifically, if Manual Override was active and the tree finished, it means
+            # the manual action completed or failed, so we return control to the AI.
             if tree.root.status == Status.SUCCESS or tree.root.status == Status.FAILURE:
                 if getattr(ai, "manual_override", False):
                     ai.manual_override = False

@@ -83,6 +83,11 @@ class SceneManager:
         Resolves dependencies declared by the Scene and creates the Context.
         Handles data migration and deserialization if data is in raw dict form.
 
+        This method performs "Just-In-Time" hydration:
+        If the data in persistent_data is a raw dictionary (from a loaded file),
+        it attempts to convert it to the `expected_type` requested by the scene,
+        running any necessary migrations first.
+
         Args:
             scene (Scene): The scene requesting dependencies.
 
@@ -123,9 +128,11 @@ class SceneManager:
                         hydration_data.pop("_version_", None)
 
                         # 3. Convert
+                        # msgspec.convert is highly efficient and validates the schema
                         obj = msgspec.convert(hydration_data, expected_type)
 
                         # 4. Update memory with the hydrated object
+                        # This ensures subsequent access uses the live object
                         context_data[key] = obj
                         self.persistent_data[key] = obj
 
