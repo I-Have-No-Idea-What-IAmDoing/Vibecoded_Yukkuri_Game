@@ -14,6 +14,14 @@ from ..components import PhysicsBody, MovementController, Transform
 from .physics import PhysicsSystem
 
 
+class FakeHit:
+    """Helper class to simulate a collision hit result."""
+
+    def __init__(self, n, a):
+        self.normal = n
+        self.alpha = a
+
+
 class KinematicMovementSystem(System):
     """
     System responsible for moving Kinematic bodies using a sweep-and-slide algorithm
@@ -246,8 +254,11 @@ class KinematicMovementSystem(System):
                 elif isinstance(shape, pymunk.Poly):
                     radius = self._get_poly_radius(shape)
 
+                # Bugfix: shape_center_world must be calculated from CURRENT_POS, not body.position
+                # Calculate offset relative to body
                 shape_offset = getattr(shape, "offset", pymunk.Vec2d(0, 0))
-                shape_center_world = shape.body.local_to_world(shape_offset)
+                rotated_offset = shape_offset.rotated(body.angle)
+                shape_center_world = current_pos + rotated_offset
                 shape_dest = shape_center_world + move_delta
 
                 results = self.space.segment_query(
@@ -267,6 +278,59 @@ class KinematicMovementSystem(System):
                     if info.alpha < best_alpha:
                         best_alpha = info.alpha
                         best_hit = info
+
+            # Fallback: If no hit detected, verify if target_pos is penetrating
+            # This handles cases where segment_query misses start-overlap or corner cases
+            if best_hit is None:
+                 # Temporarily move body to target to check for overlap
+                 original_pos = body.position
+                 body.position = target_pos
+                 self.space.reindex_shapes_for_body(body)
+
+                 found_overlap = False
+                 fallback_normal = pymunk.Vec2d(0, 0)
+
+                 for shape in body.shapes:
+                     if shape.sensor: continue
+
+                     infos = self.space.shape_query(shape)
+                     for info in infos:
+                         if info.shape.body == body or info.shape.sensor or info.shape.sensor:
+                             continue
+
+                         contact_set = info.contact_point_set
+                         if len(contact_set.points) > 0:
+                             # Check if meaningful penetration
+                             # Use same threshold as resolve_penetration
+                             # Only block if we are actually penetrating, not just touching
+                             min_dist = 0.0
+                             for p in contact_set.points:
+                                 if p.distance < min_dist:
+                                     min_dist = p.distance
+
+                             if min_dist < -0.001:
+                                 # We have a penetration at target
+                                 # Find the normal that opposes movement
+                                 # Use the normal from contact set
+                                 normal = contact_set.normal
+
+                                 surface_normal = -normal
+
+                                 # Only consider if it opposes movement?
+                                 if surface_normal.dot(move_delta) < 0:
+                                     found_overlap = True
+                                     fallback_normal = surface_normal
+                                     break
+                     if found_overlap: break
+
+                 # Restore body
+                 body.position = original_pos
+                 self.space.reindex_shapes_for_body(body)
+
+                 if found_overlap:
+                     # Simulate a hit at alpha=0
+                     best_alpha = 0.0
+                     best_hit = FakeHit(fallback_normal, 0.0)
 
             if best_hit:
                 # Move to hit

@@ -67,9 +67,6 @@ def test_hallway_movement():
     assert abs(body.position.y) < 0.1
 
 
-@pytest.mark.skip(
-    reason="Corner collision logic in Pymunk is proving flaky in test environment, needs visual debug"
-)
 def test_corner_collision():
     space, kms = setup_simulation()
 
