@@ -110,8 +110,7 @@ def test_distance_check(interaction_env):
     # Should not consume (too far)
     assert world.entity_exists(item)
 
-    # Request should still exist because it wasn't handled (distance check failed in InteractionSystem or HungerSystem)
-    # Actually if InteractionSystem checks distance first and returns False, request is NOT removed.
+    # Request should still exist because it wasn't handled (waiting for movement)
     assert world.has_component(consumer, InteractionRequest)
 
 
@@ -217,3 +216,27 @@ def test_social_interaction_dispatch(interaction_env):
     # Should dispatch to SocialSystem
     social_system.process_interaction_request.assert_called_once()
     assert not world.has_component(initiator, InteractionRequest)
+
+
+def test_interaction_request_removed_when_target_destroyed(interaction_env):
+    """
+    Verifies that if the target entity does not exist, the request is removed.
+    """
+    world, system, audio, trait_service, hunger_system, social_system = interaction_env
+
+    consumer = world.create_entity()
+    world.add_component(consumer, Transform(x=0, y=0))
+    world.add_component(consumer, YukkuriStats(name="Test", type_id="test"))
+    world.add_component(consumer, Needs())
+
+    # Target ID that definitely doesn't exist (using a large number)
+    target_id = 99999
+
+    req = InteractionRequest(target_id=target_id, consume=True)
+    world.add_component(consumer, req)
+
+    # Run system update
+    system.update(world, 0.1)
+
+    # Request should be removed because target is invalid
+    assert not world.has_component(consumer, InteractionRequest)

@@ -120,17 +120,20 @@ class InteractionSystem(System):
         target_id = request.target_id
 
         if not world.entity_exists(target_id):
-            return False
+            # Target is gone, invalid request -> remove it
+            return True
 
         target_transform = world.get_component(target_id, Transform)
         if not target_transform:
-            return False
+            # Target invalid, remove request
+            return True
 
         # Verify distance (sanity check)
         dist = math.hypot(
             transform.x - target_transform.x, transform.y - target_transform.y
         )
         if dist > 50.0:  # Slightly larger than action threshold to account for movement
+            # Too far, but we don't remove request yet (maybe moving towards it)
             return False
 
         # Handle Consumption (Item)
