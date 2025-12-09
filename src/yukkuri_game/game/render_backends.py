@@ -40,8 +40,9 @@ class RenderBackend(ABC):
         """Calculates the interpolated world position."""
         curr_x = transform.x
         curr_y = transform.y
-        prev_x = getattr(transform, "prev_x", curr_x)
-        prev_y = getattr(transform, "prev_y", curr_y)
+        # Transform's __post_init__ guarantees prev_x/y are set
+        prev_x = transform.prev_x
+        prev_y = transform.prev_y
 
         interp_x = prev_x + (curr_x - prev_x) * alpha
         interp_y = prev_y + (curr_y - prev_y) * alpha
@@ -59,13 +60,32 @@ class RenderBackend(ABC):
 
         return start_col, end_col, start_row, end_row
 
-    def _create_shadow_surface_generator(self, radius_x: int, radius_y: int) -> Callable[[], pygame.Surface]:
-        """Returns a generator function for creating a shadow surface."""
-        def generator():
+    def _create_shadow_surface_factory(self, radius_x: int, radius_y: int) -> Callable[[], pygame.Surface]:
+        """Returns a factory function for creating a shadow surface."""
+        def factory():
             surface = pygame.Surface((radius_x * 2, radius_y * 2), pygame.SRCALPHA)
             pygame.draw.ellipse(surface, SHADOW_COLOR, surface.get_rect())
             return surface
-        return generator
+        return factory
+
+    def _calculate_shadow_properties(self, camera: Camera, sprite: Sprite, visual_transform: VisualTransform, scale: float, sw: int, sh: int) -> Optional[Tuple[int, int, float, float]]:
+        """
+        Calculates the shadow radius and screen position.
+        Returns None if shadow shouldn't be drawn.
+        """
+        shadow_radius_x = int(sprite.width * scale * SHADOW_SCALE_X)
+        shadow_radius_y = int(shadow_radius_x * SHADOW_SCALE_Y)
+
+        if shadow_radius_x <= 0 or shadow_radius_y <= 0:
+            return None
+
+        shadow_x, shadow_y = camera.world_to_screen(
+            visual_transform.shadow_position.x,
+            visual_transform.shadow_position.y,
+            sw,
+            sh,
+        )
+        return shadow_radius_x, shadow_radius_y, shadow_x, shadow_y
 
     @abstractmethod
     def clear(self):
@@ -133,27 +153,22 @@ class PygameRenderBackend(RenderBackend):
     def _get_shadow_surface(self, radius_x: int, radius_y: int) -> pygame.Surface:
         key = (radius_x, radius_y)
         if key not in self.shadow_cache:
-            self.shadow_cache[key] = self._create_shadow_surface_generator(radius_x, radius_y)()
+            self.shadow_cache[key] = self._create_shadow_surface_factory(radius_x, radius_y)()
         return self.shadow_cache[key]
 
     def _draw_shadow(self, camera: Camera, sprite: Sprite, visual_transform: VisualTransform, scale: float, sw: int, sh: int):
-        shadow_radius_x = int(sprite.width * scale * SHADOW_SCALE_X)
-        shadow_radius_y = int(shadow_radius_x * SHADOW_SCALE_Y)
+        shadow_props = self._calculate_shadow_properties(camera, sprite, visual_transform, scale, sw, sh)
+        if not shadow_props:
+            return
 
-        if shadow_radius_x > 0 and shadow_radius_y > 0:
-            shadow_x, shadow_y = camera.world_to_screen(
-                visual_transform.shadow_position.x,
-                visual_transform.shadow_position.y,
-                sw,
-                sh,
-            )
+        shadow_radius_x, shadow_radius_y, shadow_x, shadow_y = shadow_props
 
-            shadow_surface = self._get_shadow_surface(shadow_radius_x, shadow_radius_y)
+        shadow_surface = self._get_shadow_surface(shadow_radius_x, shadow_radius_y)
 
-            self.screen.blit(
-                shadow_surface,
-                (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y),
-            )
+        self.screen.blit(
+            shadow_surface,
+            (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y),
+        )
 
     def draw_entity(
         self,
@@ -281,27 +296,23 @@ class Light2DRenderBackend(RenderBackend):
             )
 
     def _draw_shadow(self, camera: Camera, sprite: Sprite, visual_transform: VisualTransform, scale: float, sw: int, sh: int):
-        shadow_radius_x = int(sprite.width * scale * SHADOW_SCALE_X)
-        shadow_radius_y = int(shadow_radius_x * SHADOW_SCALE_Y)
+        shadow_props = self._calculate_shadow_properties(camera, sprite, visual_transform, scale, sw, sh)
+        if not shadow_props:
+            return
 
-        if shadow_radius_x > 0 and shadow_radius_y > 0:
-            shadow_x, shadow_y = camera.world_to_screen(
-                visual_transform.shadow_position.x,
-                visual_transform.shadow_position.y,
-                sw,
-                sh,
+        shadow_radius_x, shadow_radius_y, shadow_x, shadow_y = shadow_props
+
+        shadow_key = ("shadow", shadow_radius_x, shadow_radius_y)
+        shadow_gen = self._create_shadow_surface_factory(shadow_radius_x, shadow_radius_y)
+
+        shadow_tex = self._get_cached_texture(shadow_key, shadow_gen)
+        if shadow_tex:
+            self.lights_engine.render_texture(
+                shadow_tex,
+                pl2d.BACKGROUND,
+                pygame.Rect(shadow_x - shadow_radius_x, shadow_y - shadow_radius_y, shadow_radius_x * 2, shadow_radius_y * 2),
+                pygame.Rect(0, 0, shadow_radius_x * 2, shadow_radius_y * 2)
             )
-            shadow_key = ("shadow", shadow_radius_x, shadow_radius_y)
-            shadow_gen = self._create_shadow_surface_generator(shadow_radius_x, shadow_radius_y)
-
-            shadow_tex = self._get_cached_texture(shadow_key, shadow_gen)
-            if shadow_tex:
-                self.lights_engine.render_texture(
-                    shadow_tex,
-                    pl2d.BACKGROUND,
-                    pygame.Rect(shadow_x - shadow_radius_x, shadow_y - shadow_radius_y, shadow_radius_x * 2, shadow_radius_y * 2),
-                    pygame.Rect(0, 0, shadow_radius_x * 2, shadow_radius_y * 2)
-                )
 
     def draw_entity(
         self,
