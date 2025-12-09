@@ -75,6 +75,11 @@ class HungerSystem(System):
         # Apply Stats
         if item_stats.nutrition > 0:
             consumer_needs.hunger = max(0, consumer_needs.hunger - item_stats.nutrition)
+            # Increase bladder (waste) based on nutrition consumed.
+            # Using 0.5 as a conversion factor (20 nutrition -> 10 waste).
+            consumer_needs.bladder = min(
+                100, consumer_needs.bladder + (item_stats.nutrition * 0.5)
+            )
 
         emotional = world.get_component(consumer_id, EmotionalState)
         if item_stats.fun > 0 and emotional:
