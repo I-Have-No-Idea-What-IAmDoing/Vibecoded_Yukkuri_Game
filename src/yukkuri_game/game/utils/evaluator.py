@@ -33,6 +33,12 @@ class ConditionEvaluator:
         def has_trait(trait: str) -> bool:
             """
             Checks if the 'traits' list in context contains the given trait.
+
+            Args:
+                trait (str): The trait to check for.
+
+            Returns:
+                bool: True if the trait is present, False otherwise.
             """
             # Access traits from the current evaluation context
             traits = self.evaluator.names.get("traits", [])

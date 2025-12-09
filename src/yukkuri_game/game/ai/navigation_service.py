@@ -29,9 +29,9 @@ class NavigationService:
         Initializes the NavigationService with a persistent grid.
 
         Args:
-            world_width: The width of the world.
-            world_height: The height of the world.
-            grid_step_size: The size of each grid cell.
+            world_width (int): The width of the world.
+            world_height (int): The height of the world.
+            grid_step_size (int): The size of each grid cell.
         """
         self.world_width = world_width
         self.world_height = world_height
@@ -73,8 +73,8 @@ class NavigationService:
         Finds a path from start to goal using the persistent grid.
 
         Args:
-            start: The starting coordinates (x, y).
-            goal: The target coordinates (x, y).
+            start (Tuple[float, float]): The starting coordinates (x, y).
+            goal (Tuple[float, float]): The target coordinates (x, y).
 
         Returns:
             List[Tuple[float, float]]: A list of points (x, y) representing the path.

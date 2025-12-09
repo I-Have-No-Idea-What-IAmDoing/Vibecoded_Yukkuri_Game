@@ -7,6 +7,7 @@ Optimized to handle dismounts and structure updates more efficiently.
 import pymunk
 import math
 import random
+from typing import Optional
 from loguru import logger
 from ...engine.ecs import System, World
 from ..components import (
@@ -34,6 +35,13 @@ class HierarchySystem(System):
     def update(self, world: World, dt: float) -> None:
         """
         Recursive update of the hierarchy.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+
+        Returns:
+            None
         """
         # 1. Build a map of all mounted entities
         mounts = world.get_components(Mount)
@@ -54,10 +62,20 @@ class HierarchySystem(System):
         # 4. Process Pending Dismounts
         self.process_dismounts(world, dt)
 
-    def process_structure_update(self, world: World, root_entity: int, mounts: dict):
+    def process_structure_update(
+        self, world: World, root_entity: int, mounts: dict
+    ) -> None:
         """
         Updates the Root's physics body shapes to represent the stack ("The Totem Pole").
         Instead of one giant circle, we create a Composite Collider.
+
+        Args:
+            world (World): The ECS World.
+            root_entity (int): The root entity ID.
+            mounts (dict): Dictionary of all Mount components.
+
+        Returns:
+            None
         """
         mount = mounts.get(root_entity)
         if not mount or not mount.structure_dirty:
@@ -134,9 +152,17 @@ class HierarchySystem(System):
 
         mount.structure_dirty = False
 
-    def process_entity(self, world: World, root_entity: int, mounts: dict):
+    def process_entity(self, world: World, root_entity: int, mounts: dict) -> None:
         """
         Iteratively update children of this entity using a stack.
+
+        Args:
+            world (World): The ECS World.
+            root_entity (int): The root entity ID.
+            mounts (dict): Dictionary of all Mount components.
+
+        Returns:
+            None
         """
         root_pos = None
         root_rot = 0.0
@@ -222,9 +248,16 @@ class HierarchySystem(System):
                     (child_id, child_pos, child_rot, child_prev_pos, child_prev_rot)
                 )
 
-    def process_dismounts(self, world: World, dt: float):
+    def process_dismounts(self, world: World, dt: float) -> None:
         """
         Handle entities that need to be placed back into the world.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+
+        Returns:
+            None
         """
         components = world.get_components_tuple(PendingDismount, Transform, PhysicsBody)
 
@@ -271,10 +304,20 @@ class HierarchySystem(System):
         for ent in to_remove:
             world.remove_component(ent, PendingDismount)
 
-    def _emergency_teleport(self, space, phys, trans):
+    def _emergency_teleport(
+        self, space: pymunk.Space, phys: PhysicsBody, trans: Transform
+    ) -> None:
         """
         Attempts to teleport the entity to a safe fallback location (0,0).
         In a real game, this would query for SpawnPoints or Base entities.
+
+        Args:
+            space (pymunk.Space): The physics space.
+            phys (PhysicsBody): The physics component.
+            trans (Transform): The transform component.
+
+        Returns:
+            None
         """
         # Fallback to world origin as a "Safe Zone" if valid.
         fallback_pos = pymunk.Vec2d(0, 0)
@@ -287,11 +330,21 @@ class HierarchySystem(System):
         trans.x = final_pos.x
         trans.y = final_pos.y
 
-    def find_free_spot(self, space, start_pos, shape):
+    def find_free_spot(
+        self, space: pymunk.Space, start_pos: pymunk.Vec2d, shape: pymunk.Shape
+    ) -> Optional[pymunk.Vec2d]:
         """
         Searches for a free spot using a spiral pattern.
         Uses point_query (or reusing the same temp shape if possible) to ensure the full volume fits.
         Optimized to reduce garbage creation.
+
+        Args:
+            space (pymunk.Space): The physics space.
+            start_pos (pymunk.Vec2d): The starting position to search from.
+            shape (pymunk.Shape): The shape of the entity.
+
+        Returns:
+            Optional[pymunk.Vec2d]: A free position, or None if not found.
         """
         max_radius = _DISMOUNT_MAX_SEARCH_RADIUS
         current_r = 0.0
@@ -322,7 +375,7 @@ class HierarchySystem(System):
             mask=CollisionCategories.WALL | CollisionCategories.YUKKURI
         )
 
-        def is_spot_free(pos):
+        def is_spot_free(pos: pymunk.Vec2d) -> bool:
             # point_query finds shapes within `collider_radius` of `pos`.
             # This effectively simulates a circle collider at `pos`.
             infos = space.point_query(pos, collider_radius, query_filter)

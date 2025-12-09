@@ -99,7 +99,15 @@ class FeedbackSystem(System):
             world.destroy_entity(entity)
 
     def on_entity_sold(self, event: EntitySoldEvent) -> None:
-        """Handles EntitySoldEvent."""
+        """
+        Handles EntitySoldEvent.
+
+        Args:
+            event (EntitySoldEvent): The event data.
+
+        Returns:
+            None
+        """
         create_floating_text(
             self.world,
             event.position[0],
@@ -117,7 +125,15 @@ class FeedbackSystem(System):
             )
 
     def on_growth(self, event: EntityGrewEvent) -> None:
-        """Handles EntityGrewEvent."""
+        """
+        Handles EntityGrewEvent.
+
+        Args:
+            event (EntityGrewEvent): The event data.
+
+        Returns:
+            None
+        """
         name = "Entity"
         stats = self.world.get_component(event.entity_id, YukkuriStats)
         if stats:
@@ -140,7 +156,15 @@ class FeedbackSystem(System):
             )
 
     def on_death(self, event: EntityDiedEvent) -> None:
-        """Handles EntityDiedEvent."""
+        """
+        Handles EntityDiedEvent.
+
+        Args:
+            event (EntityDiedEvent): The event data.
+
+        Returns:
+            None
+        """
         name = "Entity"
         stats = self.world.get_component(event.entity_id, YukkuriStats)
         if stats:
@@ -161,7 +185,15 @@ class FeedbackSystem(System):
             )
 
     def on_trained(self, event: EntityTrainedEvent) -> None:
-        """Handles EntityTrainedEvent."""
+        """
+        Handles EntityTrainedEvent.
+
+        Args:
+            event (EntityTrainedEvent): The event data.
+
+        Returns:
+            None
+        """
         name = "Entity"
         stats = self.world.get_component(event.entity_id, YukkuriStats)
         if stats:
@@ -184,7 +216,15 @@ class FeedbackSystem(System):
             )
 
     def on_punished(self, event: EntityPunishedEvent) -> None:
-        """Handles EntityPunishedEvent."""
+        """
+        Handles EntityPunishedEvent.
+
+        Args:
+            event (EntityPunishedEvent): The event data.
+
+        Returns:
+            None
+        """
         name = "Entity"
         stats = self.world.get_component(event.entity_id, YukkuriStats)
         if stats:

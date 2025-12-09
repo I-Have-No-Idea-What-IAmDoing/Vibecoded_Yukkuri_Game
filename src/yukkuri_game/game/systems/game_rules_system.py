@@ -26,7 +26,6 @@ class GameRulesSystem(System):
 
     Attributes:
         event_bus (EventBus): The event bus for subscription and publishing.
-        ecs_world (World): The ECS World instance (injected).
     """
 
     def __init__(self, event_bus: EventBus):
