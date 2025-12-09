@@ -61,7 +61,7 @@ class WorldRenderer:
         # Initialize Backend
         if lights_engine:
             self.backend: RenderBackend = Light2DRenderBackend(
-                lights_engine, texture_cache_max_size
+                lights_engine, screen, texture_cache_max_size
             )
         else:
             self.backend: RenderBackend = PygameRenderBackend(screen)
@@ -115,7 +115,6 @@ class WorldRenderer:
         is_selected = selectable.selected if selectable else False
 
         self.backend.draw_entity(
-            self.screen,
             self.camera,
             self.surface_cache,
             transform,
@@ -138,7 +137,6 @@ class WorldRenderer:
             Transform, FloatingText
         ):
             self.backend.draw_floating_text(
-                self.screen,
                 self.camera,
                 transform,
                 text_comp,

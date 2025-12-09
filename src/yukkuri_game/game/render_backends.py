@@ -1,6 +1,6 @@
 import pygame
 import pygame_light2d as pl2d
-from typing import Tuple, List, Optional, Callable
+from typing import Tuple, List, Optional, Callable, Dict
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from .camera import Camera
@@ -33,7 +33,6 @@ class RenderBackend(ABC):
     @abstractmethod
     def draw_entity(
         self,
-        screen: pygame.Surface,
         camera: Camera,
         surface_cache: SurfaceCache,
         transform: Transform,
@@ -48,7 +47,6 @@ class RenderBackend(ABC):
     @abstractmethod
     def draw_floating_text(
         self,
-        screen: pygame.Surface,
         camera: Camera,
         transform: Transform,
         text_comp: FloatingText,
@@ -66,6 +64,7 @@ class PygameRenderBackend(RenderBackend):
     def __init__(self, screen: pygame.Surface):
         super().__init__()
         self.screen = screen
+        self.shadow_cache: Dict[Tuple[int, int], pygame.Surface] = {}
 
     def clear(self):
         # In standard pygame, we usually fill screen, but WorldRenderer might handle background.
@@ -91,9 +90,21 @@ class PygameRenderBackend(RenderBackend):
             _, sy = camera.world_to_screen(0, y, screen_w, screen_h)
             pygame.draw.line(self.screen, (50, 50, 50), (0, int(sy)), (screen_w, int(sy)))
 
+    def _get_shadow_surface(self, radius_x: int, radius_y: int) -> pygame.Surface:
+        key = (radius_x, radius_y)
+        if key not in self.shadow_cache:
+            shadow_surface = pygame.Surface(
+                (radius_x * 2, radius_y * 2), pygame.SRCALPHA
+            )
+            shadow_color = (0, 0, 0, 100)
+            pygame.draw.ellipse(
+                shadow_surface, shadow_color, shadow_surface.get_rect()
+            )
+            self.shadow_cache[key] = shadow_surface
+        return self.shadow_cache[key]
+
     def draw_entity(
         self,
-        screen: pygame.Surface,
         camera: Camera,
         surface_cache: SurfaceCache,
         transform: Transform,
@@ -111,7 +122,7 @@ class PygameRenderBackend(RenderBackend):
         interp_x = prev_x + (curr_x - prev_x) * alpha
         interp_y = prev_y + (curr_y - prev_y) * alpha
 
-        sw, sh = screen.get_size()
+        sw, sh = self.screen.get_size()
         scale = transform.scale * camera.zoom
 
         # Sprite
@@ -148,13 +159,9 @@ class PygameRenderBackend(RenderBackend):
                         sw,
                         sh,
                     )
-                    shadow_color = (0, 0, 0, 100)
-                    shadow_surface = pygame.Surface(
-                        (shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA
-                    )
-                    pygame.draw.ellipse(
-                        shadow_surface, shadow_color, shadow_surface.get_rect()
-                    )
+
+                    shadow_surface = self._get_shadow_surface(shadow_radius_x, shadow_radius_y)
+
                     self.screen.blit(
                         shadow_surface,
                         (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y),
@@ -167,7 +174,6 @@ class PygameRenderBackend(RenderBackend):
 
     def draw_floating_text(
         self,
-        screen: pygame.Surface,
         camera: Camera,
         transform: Transform,
         text_comp: FloatingText,
@@ -193,9 +199,10 @@ class Light2DRenderBackend(RenderBackend):
     """
     Pygame Light2D rendering backend.
     """
-    def __init__(self, lights_engine: pl2d.LightingEngine, texture_cache_max_size: int = 500):
+    def __init__(self, lights_engine: pl2d.LightingEngine, screen: pygame.Surface, texture_cache_max_size: int = 500):
         super().__init__()
         self.lights_engine = lights_engine
+        self.screen = screen
         self.texture_cache: OrderedDict[tuple, "pl2d.Texture"] = OrderedDict()
         self.texture_cache_max_size = texture_cache_max_size
 
@@ -254,7 +261,6 @@ class Light2DRenderBackend(RenderBackend):
 
     def draw_entity(
         self,
-        screen: pygame.Surface,
         camera: Camera,
         surface_cache: SurfaceCache,
         transform: Transform,
@@ -271,7 +277,7 @@ class Light2DRenderBackend(RenderBackend):
         interp_x = prev_x + (curr_x - prev_x) * alpha
         interp_y = prev_y + (curr_y - prev_y) * alpha
 
-        sw, sh = screen.get_size()
+        sw, sh = self.screen.get_size()
         scale = transform.scale * camera.zoom
 
         # Texture Key
@@ -313,7 +319,7 @@ class Light2DRenderBackend(RenderBackend):
         rect.center = (int(base_screen_x), int(screen_y))
 
         # Culling
-        if rect.colliderect(screen.get_rect()):
+        if rect.colliderect(self.screen.get_rect()):
             # Shadow
             shadow_radius_x = int(sprite.width * scale * 0.4)
             shadow_radius_y = int(shadow_radius_x * 0.5)
@@ -368,7 +374,6 @@ class Light2DRenderBackend(RenderBackend):
 
     def draw_floating_text(
         self,
-        screen: pygame.Surface,
         camera: Camera,
         transform: Transform,
         text_comp: FloatingText,
