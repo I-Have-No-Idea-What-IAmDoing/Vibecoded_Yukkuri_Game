@@ -4,6 +4,7 @@ Module handling the game world rendering logic.
 
 import pygame
 import pygame_light2d as pl2d
+from collections import OrderedDict
 from pygame_light2d import LightingEngine
 from ..engine.ecs import World
 from ..engine.resource_manager import ResourceManager
@@ -16,6 +17,7 @@ from .components import (
     VisualTransform,
 )
 from .camera import Camera
+from .surface_cache import SurfaceCache
 
 
 class WorldRenderer:
@@ -36,6 +38,7 @@ class WorldRenderer:
         camera: Camera,
         resource_manager: ResourceManager,
         lights_engine: LightingEngine = None,
+        texture_cache_max_size: int = 500
     ):
         """
         Initializes the WorldRenderer.
@@ -45,6 +48,7 @@ class WorldRenderer:
             camera (Camera): The world view manager.
             resource_manager (ResourceManager): The resource manager.
             lights_engine (LightingEngine): The lighting engine instance.
+            texture_cache_max_size (int): The maximum number of textures to keep in memory. Defaults to 500.
         """
         self.screen = screen
         self.camera = camera
@@ -53,7 +57,11 @@ class WorldRenderer:
         self.lights_engine = lights_engine
         # Key: (image_name, frame, round(scale, 3), round(rotation, 1), flip_x, flip_y)
         # Or specialized keys for shadows/selection
-        self.texture_cache: dict[tuple, "pl2d.Texture"] = {}
+        self.texture_cache: OrderedDict[tuple, "pl2d.Texture"] = OrderedDict()
+        self.texture_cache_max_size = texture_cache_max_size
+
+        # Initialize Surface Cache
+        self.surface_cache = SurfaceCache(self.rm)
 
     def _get_font(self, size: int) -> pygame.font.Font:
         """
@@ -99,69 +107,6 @@ class WorldRenderer:
         # Render Floating Text
         self.render_floating_text(world, sw, sh)
 
-    def _prepare_entity_surface(
-        self, sprite: Sprite, transform: Transform, image_name: str
-    ) -> tuple[pygame.Surface, float]:
-        """
-        Prepares the entity surface by handling animation, scaling, flipping, and rotation.
-
-        Args:
-            sprite (Sprite): The sprite component.
-            transform (Transform): The transform component.
-            image_name (str): The name of the image to load.
-
-        Returns:
-            tuple[pygame.Surface, float]: The prepared surface and the applied scale.
-        """
-        img = self.rm.load_image(image_name)
-        scale = transform.scale * self.camera.zoom
-
-        # Handle animation
-        img_width, img_height = img.get_size()
-
-        if sprite.frame_count > 1:
-            source_rect = pygame.Rect(0, 0, sprite.width, sprite.height)
-            sx = sprite.current_frame * sprite.width
-            if sx + sprite.width <= img_width:
-                source_rect.x = sx
-
-            # Ensure source_rect is within image bounds
-            if source_rect.right > img_width or source_rect.bottom > img_height:
-                if img_width < sprite.width or img_height < sprite.height:
-                    frame_img = pygame.transform.scale(
-                        img, (sprite.width, sprite.height)
-                    )
-                else:
-                    frame_img = img.subsurface(source_rect.clip(img.get_rect()))
-            else:
-                frame_img = img.subsurface(source_rect)
-        else:
-            if img_width != sprite.width or img_height != sprite.height:
-                frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
-            else:
-                frame_img = img
-
-        # Apply flips
-        if sprite.flip_x or sprite.flip_y:
-            frame_img = pygame.transform.flip(frame_img, sprite.flip_x, sprite.flip_y)
-
-        # Apply Scale
-        if scale != 1.0:
-            w = int(sprite.width * scale)
-            h = int(sprite.height * scale)
-            if w > 0 and h > 0:
-                scaled_img = pygame.transform.scale(frame_img, (w, h))
-            else:
-                return None, scale  # Invalid size
-        else:
-            scaled_img = frame_img
-
-        # Apply Rotation
-        if transform.rotation != 0.0:
-            scaled_img = pygame.transform.rotate(scaled_img, transform.rotation)
-
-        return scaled_img, scale
-
     def _get_cached_texture(
         self, key: tuple, surface_generator
     ) -> "pl2d.Texture":
@@ -176,11 +121,18 @@ class WorldRenderer:
             pl2d.Texture: The cached or newly created texture.
         """
         if key in self.texture_cache:
+            self.texture_cache.move_to_end(key)
             return self.texture_cache[key]
 
         surface = surface_generator()
         tex = self.lights_engine.surface_to_texture(surface)
         self.texture_cache[key] = tex
+
+        # LRU Eviction for textures
+        if len(self.texture_cache) > self.texture_cache_max_size:
+            _, old_tex = self.texture_cache.popitem(last=False)
+            old_tex.release()
+
         return tex
 
     def _render_entity(
@@ -218,22 +170,13 @@ class WorldRenderer:
             sh,
         )
 
-        # Helper to prepare surface (Used only if needed for fallback or size calc)
-        # For lights_engine, we want to check cache first.
-
         scale = transform.scale * self.camera.zoom
 
-        # We need width/height to calculate rect for culling and positioning.
-        # But we don't want to prepare the surface yet if we have it cached.
-        # We can estimate width/height from sprite data + scale.
-
-        # Basic dimensions calculation (approximate if rotated, but consistent with original logic)
-        # Original logic: scaled_img = scale(rotate(flip(subsurface(img))))
-        # Rotation changes dimensions.
-        # If we want exact dimensions without generating surface, we need math.
-        # Or we can just cache the dimensions too?
-
         # Key: (image_name, frame, scale, rotation, flip_x, flip_y)
+        # We need width and height to calculate key for SurfaceCache
+        # but SurfaceCache expects them as arguments to get_surface
+        # For texture_cache key, we use what we have.
+
         sprite_key = (
             sprite.image_name,
             sprite.current_frame,
@@ -246,20 +189,45 @@ class WorldRenderer:
         tex = None
         scaled_img = None
 
+        # Function to generate the surface using SurfaceCache
+        def sprite_gen():
+            return self.surface_cache.get_surface(
+                sprite.image_name,
+                sprite.current_frame,
+                sprite.frame_count,
+                sprite.width,
+                sprite.height,
+                scale,
+                transform.rotation,
+                sprite.flip_x,
+                sprite.flip_y
+            )
+
         if self.lights_engine:
              if sprite_key in self.texture_cache:
                  tex = self.texture_cache[sprite_key]
-                 # We can get size from texture
+                 self.texture_cache.move_to_end(sprite_key)
                  tex_w, tex_h = tex.width, tex.height
              else:
-                 # Not in cache, we must prepare surface
-                 scaled_img, _ = self._prepare_entity_surface(sprite, transform, sprite.image_name)
+                 # Not in texture cache, get it via generator which uses surface cache
+                 # We need to know the size first?
+                 # No, we can get texture from cache if present.
+                 # If not, we generate it.
+                 # But we need dimensions to calculate RECT before rendering/checking visibility?
+                 # Yes, usually. But here we can lazily get it if we assume we might render it.
+                 # Optimization: Calculate approx size for culling without generating surface.
+
+                 # Approximate dimensions for culling
+                 # Note: rotation changes bounding box.
+                 # If we want exact, we need surface or math.
+                 # Let's trust that getting surface from SurfaceCache is fast enough (it's cached)
+                 scaled_img = sprite_gen()
                  if scaled_img is None:
                      return
                  tex_w, tex_h = scaled_img.get_size()
         else:
             # Fallback always needs surface
-            scaled_img, _ = self._prepare_entity_surface(sprite, transform, sprite.image_name)
+            scaled_img = sprite_gen()
             if scaled_img is None:
                 return
             tex_w, tex_h = scaled_img.get_size()
@@ -305,9 +273,9 @@ class WorldRenderer:
 
                 # Main Sprite
                 if tex is None:
-                    # We have scaled_img from earlier
-                    def sprite_gen():
-                        return scaled_img
+                    # We have scaled_img and generator
+                    # But _get_cached_texture takes a generator.
+                    # We can pass sprite_gen.
                     tex = self._get_cached_texture(sprite_key, sprite_gen)
 
                 self.lights_engine.render_texture(
