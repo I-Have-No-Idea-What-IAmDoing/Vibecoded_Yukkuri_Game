@@ -1,3 +1,7 @@
+"""
+Tests for the Input Manager.
+"""
+
 import pytest
 import pygame
 from unittest.mock import MagicMock
@@ -5,165 +9,191 @@ from yukkuri_game.engine.input_manager import InputManager, InputContext
 
 
 @pytest.fixture
-def input_manager():
+def input_manager() -> InputManager:
+    """
+    Creates an InputManager instance for testing.
+    """
     return InputManager()
 
 
-def test_input_context_management(input_manager):
+def test_initialization(input_manager: InputManager) -> None:
+    """
+    Tests initialization of InputManager.
+    """
+    # Initially only MENU context is active
     assert InputContext.MENU in input_manager._active_contexts
+    assert len(input_manager._active_contexts) == 1
+    assert input_manager._mouse_pos == (0, 0)
+    assert input_manager._mouse_wheel == 0.0
 
+
+def test_context_management(input_manager: InputManager) -> None:
+    """
+    Tests enabling, disabling, and switching contexts.
+    """
+    # Add Gameplay context
     input_manager.set_context(InputContext.GAMEPLAY, active=True)
     assert InputContext.GAMEPLAY in input_manager._active_contexts
-
-    input_manager.set_context(InputContext.MENU, active=False)
-    assert InputContext.MENU not in input_manager._active_contexts
-
-    input_manager.switch_context(InputContext.MENU)
-    assert len(input_manager._active_contexts) == 1
     assert InputContext.MENU in input_manager._active_contexts
 
+    # Disable Gameplay context
+    input_manager.set_context(InputContext.GAMEPLAY, active=False)
+    assert InputContext.GAMEPLAY not in input_manager._active_contexts
+    assert InputContext.MENU in input_manager._active_contexts
 
-def test_key_processing(input_manager):
-    # Simulate Key Press
-    event_down = MagicMock()
-    event_down.type = pygame.KEYDOWN
-    event_down.key = pygame.K_z
+    # Switch to Gameplay context (clears others)
+    input_manager.switch_context(InputContext.GAMEPLAY)
+    assert InputContext.GAMEPLAY in input_manager._active_contexts
+    assert InputContext.MENU not in input_manager._active_contexts
+    assert len(input_manager._active_contexts) == 1
 
-    input_manager.process_event(event_down)
 
-    assert pygame.K_z in input_manager._keys_pressed
-    assert pygame.K_z in input_manager._keys_down
+def test_process_keyboard_events(input_manager: InputManager) -> None:
+    """
+    Tests processing of keyboard events.
+    """
+    # Simulate Key Down
+    key_down_event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SPACE)
+    input_manager.process_event(key_down_event)
 
-    # Simulate Key Release
-    event_up = MagicMock()
-    event_up.type = pygame.KEYUP
-    event_up.key = pygame.K_z
+    assert pygame.K_SPACE in input_manager._keys_pressed
+    assert pygame.K_SPACE in input_manager._keys_down
 
-    input_manager.process_event(event_up)
+    # Simulate Key Up
+    key_up_event = pygame.event.Event(pygame.KEYUP, key=pygame.K_SPACE)
+    input_manager.process_event(key_up_event)
 
-    assert pygame.K_z not in input_manager._keys_pressed
-    assert pygame.K_z in input_manager._keys_up
+    assert pygame.K_SPACE not in input_manager._keys_pressed
+    assert pygame.K_SPACE in input_manager._keys_up
 
-    # Update should clear frame transient state
+
+def test_process_mouse_events(input_manager: InputManager) -> None:
+    """
+    Tests processing of mouse events.
+    """
+    # Simulate Mouse Button Down (Left Click)
+    mouse_down_event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(100, 200))
+    input_manager.process_event(mouse_down_event)
+
+    assert 1 in input_manager._mouse_buttons
+    assert 1 in input_manager._mouse_buttons_down
+
+    # Simulate Mouse Button Up
+    mouse_up_event = pygame.event.Event(pygame.MOUSEBUTTONUP, button=1, pos=(100, 200))
+    input_manager.process_event(mouse_up_event)
+
+    assert 1 not in input_manager._mouse_buttons
+    assert 1 in input_manager._mouse_buttons_up
+
+    # Simulate Mouse Motion
+    mouse_move_event = pygame.event.Event(pygame.MOUSEMOTION, pos=(150, 250))
+    input_manager.process_event(mouse_move_event)
+    assert input_manager.get_mouse_position() == (150, 250)
+
+    # Simulate Mouse Wheel
+    mouse_wheel_event = pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=1.0)
+    input_manager.process_event(mouse_wheel_event)
+    assert input_manager.get_mouse_wheel() == 1.0
+
+
+def test_update_clears_transient_state(input_manager: InputManager) -> None:
+    """
+    Tests that update() clears just_pressed/released states.
+    """
+    input_manager.process_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_a))
+    input_manager.process_event(pygame.event.Event(pygame.KEYUP, key=pygame.K_b))
+    input_manager.process_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1))
+    input_manager.process_event(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=1.0))
+
+    assert pygame.K_a in input_manager._keys_down
+    assert pygame.K_b in input_manager._keys_up
+    assert 1 in input_manager._mouse_buttons_down
+    assert input_manager._mouse_wheel == 1.0
+
     input_manager.update()
-    assert pygame.K_z not in input_manager._keys_down
-    assert pygame.K_z not in input_manager._keys_up
+
+    assert len(input_manager._keys_down) == 0
+    assert len(input_manager._keys_up) == 0
+    assert len(input_manager._mouse_buttons_down) == 0
+    assert len(input_manager._mouse_buttons_up) == 0
+    assert input_manager._mouse_wheel == 0.0
 
 
-def test_action_checking(input_manager):
+def test_action_mapping_menu(input_manager: InputManager) -> None:
+    """
+    Tests action mapping in MENU context.
+    """
+    # Default is MENU context
+    # confirm -> pygame.K_RETURN
+
+    input_manager.process_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
+
+    assert input_manager.is_action_pressed("confirm")
+    assert input_manager.is_action_just_pressed("confirm")
+
+    input_manager.process_event(pygame.event.Event(pygame.KEYUP, key=pygame.K_RETURN))
+
+    assert not input_manager.is_action_pressed("confirm")
+    assert input_manager.is_action_just_released("confirm")
+
+
+def test_action_mapping_gameplay(input_manager: InputManager) -> None:
+    """
+    Tests action mapping in GAMEPLAY context.
+    """
     input_manager.switch_context(InputContext.GAMEPLAY)
 
-    # "interact" is mapped to K_z in GAMEPLAY
-    event = MagicMock()
-    event.type = pygame.KEYDOWN
-    event.key = pygame.K_z
-    input_manager.process_event(event)
+    # up -> pygame.K_UP
+    input_manager.process_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_UP))
 
-    assert input_manager.is_action_pressed("interact")
-    assert input_manager.is_action_just_pressed("interact")
+    assert input_manager.is_action_pressed("up")
 
-    input_manager.update()
-    assert input_manager.is_action_pressed("interact")
-    assert not input_manager.is_action_just_pressed("interact")
+    # select -> Mouse Button 1
+    input_manager.process_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1))
+    assert input_manager.is_action_pressed("select")
 
 
-def test_context_priority_blocking(input_manager):
-    """Test that higher priority context blocks lower priority input if consumed."""
-    # MENU (10) > GAMEPLAY (1)
+def test_input_consumption(input_manager: InputManager) -> None:
+    """
+    Tests that higher priority contexts consume input.
+    """
+    # Enable both contexts
+    input_manager.set_context(InputContext.GAMEPLAY, active=True) # Priority 1
+    input_manager.set_context(InputContext.MENU, active=True)     # Priority 10
 
-    # Suppose both have "up" mapped to K_UP
+    # Assume MENU has 'up' mapped to K_UP, and GAMEPLAY also has 'up' mapped to K_UP.
+    # But checking source code:
     # MENU: up -> K_UP
     # GAMEPLAY: up -> K_UP
 
-    input_manager.set_context(InputContext.GAMEPLAY, True)
-    input_manager.set_context(InputContext.MENU, True)
+    # If MENU is active (higher priority), checking "up" in GAMEPLAY context should fail
+    # if it were checking internally, but is_action_pressed checks if ANY active context maps it.
 
-    event = MagicMock()
-    event.type = pygame.KEYDOWN
-    event.key = pygame.K_UP
-    input_manager.process_event(event)
+    # However, the InputManager._check_action_in_collection iterates contexts from high to low.
+    # If MENU handles it, it returns True.
 
-    # Check if MENU consumes it
-    # Implementation detail: _is_consumed checks if a HIGHER priority context consumes it.
-    # When checking for MENU (High), no higher context exists -> Not consumed -> Action triggered.
-    # When checking for GAMEPLAY (Low), MENU (High) has it mapped -> Consumed -> Action BLOCKED.
+    # To test consumption properly, we need a scenario where a high priority context consumes a key
+    # that a lower priority context also uses, and we want to ensure the lower priority one
+    # doesn't trigger if we were querying specifically for it?
+    # Wait, `is_action_pressed` takes an action string. The action string might be the same or different.
 
-    # We need to verify that is_action_pressed("up") returns True for MENU but False for GAMEPLAY logic?
-    # Actually is_action_pressed takes an action name string.
-    # If I ask for "up", it checks all contexts.
-    # If MENU handles "up", it returns True.
-    # If I had different action names, say "menu_up" and "game_up", and both used K_UP.
+    # Let's look at `_is_consumed`.
+    # It checks if a key is used by a higher priority context.
 
-    # Let's test with custom mappings or rely on existing.
-    # Existing: Both have "up": K_UP.
+    # Case: "pause" is in GAMEPLAY (K_ESCAPE). "cancel" is in MENU (K_ESCAPE).
+    # If both contexts are active, K_ESCAPE should trigger "cancel" (MENU).
+    # "pause" (GAMEPLAY) should be blocked because MENU consumes K_ESCAPE.
 
-    # However, InputManager._check_action_in_collection iterates contexts high to low.
-    # It finds "up" in MENU. Checks if anything HIGHER consumes it. No. Returns True.
+    input_manager.process_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
 
-    assert input_manager.is_action_pressed("up")
+    # MENU (Priority 10) should handle it
+    assert input_manager.is_action_pressed("cancel")
 
-    # But what if we want to verify that GAMEPLAY didn't receive it?
-    # The public API doesn't expose "get action for context".
-    # But we can infer priority behavior by consuming a key that is used in Low context but mapped to something else in High context?
-    # Or simply: if I disable MENU, GAMEPLAY should get it.
+    # GAMEPLAY (Priority 1) should NOT handle it because it's consumed
+    assert not input_manager.is_action_pressed("pause")
 
-    input_manager.set_context(InputContext.MENU, False)
-    assert input_manager.is_action_pressed("up")
+    # Disable MENU context
+    input_manager.set_context(InputContext.MENU, active=False)
 
-
-def test_priority_consumption_explicit(input_manager):
-    # Let's mock the mappings to be sure
-    input_manager._key_mappings = {
-        InputContext.MENU: {"unique_menu": pygame.K_a},  # Priority 10
-        InputContext.GAMEPLAY: {"unique_game": pygame.K_a},  # Priority 1
-    }
-
-    input_manager.set_context(InputContext.MENU, True)
-    input_manager.set_context(InputContext.GAMEPLAY, True)
-
-    # Press K_a
-    event = MagicMock()
-    event.type = pygame.KEYDOWN
-    event.key = pygame.K_a
-    input_manager.process_event(event)
-
-    # MENU should see it
-    assert input_manager.is_action_pressed("unique_menu")
-
-    # GAMEPLAY should NOT see it because MENU consumes K_a
-    assert not input_manager.is_action_pressed("unique_game")
-
-    # If we disable MENU
-    input_manager.set_context(InputContext.MENU, False)
-    assert input_manager.is_action_pressed("unique_game")
-
-
-def test_mouse_input(input_manager):
-    input_manager.switch_context(InputContext.GAMEPLAY)
-
-    # Move mouse
-    event_move = MagicMock()
-    event_move.type = pygame.MOUSEMOTION
-    event_move.pos = (100, 200)
-    input_manager.process_event(event_move)
-
-    assert input_manager.get_mouse_position() == (100, 200)
-
-    # Click Left Button (1) -> "select"
-    event_click = MagicMock()
-    event_click.type = pygame.MOUSEBUTTONDOWN
-    event_click.button = 1
-    input_manager.process_event(event_click)
-
-    assert input_manager.is_action_just_pressed("select")
-
-    # Wheel
-    event_wheel = MagicMock()
-    event_wheel.type = pygame.MOUSEWHEEL
-    event_wheel.y = 1.0
-    input_manager.process_event(event_wheel)
-
-    assert input_manager.get_mouse_wheel() == 1.0
-
-    input_manager.update()
-    assert input_manager.get_mouse_wheel() == 0.0
+    # Now GAMEPLAY should handle it
+    assert input_manager.is_action_pressed("pause")
