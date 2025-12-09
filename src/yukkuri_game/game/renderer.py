@@ -4,7 +4,7 @@ Module handling the game world rendering logic.
 
 import pygame
 import pygame_light2d as pl2d
-from typing import Optional
+from typing import Optional, List, Tuple
 from pygame_light2d import LightingEngine
 from ..engine.ecs import World
 from ..engine.resource_manager import ResourceManager
@@ -40,7 +40,7 @@ class WorldRenderer:
         resource_manager: ResourceManager,
         lights_engine: Optional[LightingEngine] = None,
         texture_cache_max_size: int = 500
-    ):
+    ) -> None:
         """
         Initializes the WorldRenderer.
 
@@ -81,13 +81,23 @@ class WorldRenderer:
         self.backend.draw_grid(self.camera, sw, sh)
 
         # Render entities
-        entities = world.get_entities_with(
-            Transform, Sprite, PhysicsBody, VisualTransform
+        # Filter entities that have at least Transform and Sprite.
+        # We relaxed the PhysicsBody requirement if it's not strictly needed for rendering.
+        entities: List[int] = world.get_entities_with(
+            Transform, Sprite, VisualTransform
         )
-        # Sort by Y for depth (ground position)
-        entities.sort(key=lambda e: getattr(world.get_component(e, Transform), "y", 0))
 
+        # Sort by Y for depth (ground position).
+        # Pre-fetching transforms for sorting efficiency.
+        entity_depths = []
         for ent in entities:
+             transform = world.get_component(ent, Transform)
+             if transform:
+                 entity_depths.append((ent, transform.y))
+
+        entity_depths.sort(key=lambda x: x[1])
+
+        for ent, _ in entity_depths:
             self._render_entity(world, ent, alpha)
 
         # Render Floating Text
@@ -133,6 +143,7 @@ class WorldRenderer:
             sw (int): Screen width.
             sh (int): Screen height.
         """
+        # get_components_tuple is efficient
         for entity, (transform, text_comp) in world.get_components_tuple(
             Transform, FloatingText
         ):
