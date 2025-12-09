@@ -62,8 +62,11 @@ class World:
         """
         Returns the next unique stable ID for this world.
 
+        The stable ID is used for persistence to identify entities across game sessions,
+        separate from the runtime entity ID.
+
         Returns:
-            int: The next stable ID.
+            int: The next available stable ID.
         """
         sid = self._next_stable_id
         self._next_stable_id += 1
@@ -71,13 +74,13 @@ class World:
 
     def set_next_stable_id(self, next_id: int) -> None:
         """
-        Sets the next stable ID. Used during loading.
+        Sets the next stable ID manually.
+
+        This is primarily used during level loading to ensure that new entities
+        do not conflict with loaded stable IDs.
 
         Args:
             next_id (int): The next stable ID to use.
-
-        Returns:
-            None
         """
         self._next_stable_id = next_id
 
@@ -412,38 +415,41 @@ class System(ProcessorBase):
     Base class for systems in the ECS.
 
     Systems contain logic that operates on entities with specific components.
+    Subclasses should implement the `update` method.
 
     Attributes:
         ecs_world (World): The ECS World instance the system belongs to.
+                           Injected when the system is added to the World.
     """
 
     ecs_world: World
 
     def process(self, dt: float) -> None:
         """
-        Esper calls this method. We delegate to the update method for backward compatibility.
+        The method called by the ECS engine (Esper) every frame.
+
+        This implementation ensures the correct world context is active before
+        delegating to the user-defined `update` method.
 
         Args:
             dt (float): The time elapsed since the last update in seconds.
-
-        Returns:
-            None
         """
         # We need to ensure we are operating on the correct world context
         if hasattr(self, "ecs_world"):
             with self.ecs_world.context():
                 self.update(self.ecs_world, dt)
+        else:
+            # Fallback if ecs_world wasn't injected (shouldn't happen if used correctly)
+            # Pass a dummy or try to proceed if update doesn't use world (rare)
+            pass
 
     def update(self, world: World, dt: float) -> None:
         """
-        Updates the system.
+        Updates the system logic. Must be implemented by subclasses.
 
         Args:
             world (World): The ECS World instance.
             dt (float): The time elapsed since the last update in seconds.
-
-        Returns:
-            None
 
         Raises:
             NotImplementedError: If the subclass does not implement this method.
