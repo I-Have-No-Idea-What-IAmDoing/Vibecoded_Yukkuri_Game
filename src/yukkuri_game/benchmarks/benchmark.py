@@ -170,8 +170,14 @@ class BenchmarkRunner:
                 if frame_times:
                     frame_times_ms = [t * 1000 for t in frame_times]
                     frame_time_stats["p50"].append(statistics.median(frame_times_ms))
-                    frame_time_stats["p95"].append(statistics.quantiles(frame_times_ms, n=20)[18] if len(frame_times_ms) >= 20 else max(frame_times_ms))
-                    frame_time_stats["p99"].append(statistics.quantiles(frame_times_ms, n=100)[98] if len(frame_times_ms) >= 100 else max(frame_times_ms))
+
+                    if np:
+                        frame_time_stats["p95"].append(np.percentile(frame_times_ms, 95))
+                        frame_time_stats["p99"].append(np.percentile(frame_times_ms, 99))
+                    else:
+                        frame_time_stats["p95"].append(statistics.quantiles(frame_times_ms, n=20)[18] if len(frame_times_ms) >= 20 else max(frame_times_ms))
+                        frame_time_stats["p99"].append(statistics.quantiles(frame_times_ms, n=100)[98] if len(frame_times_ms) >= 100 else max(frame_times_ms))
+
                     if len(frame_times_ms) > 1:
                         frame_time_stats["jitter"].append(statistics.stdev(frame_times_ms))
                     else:
