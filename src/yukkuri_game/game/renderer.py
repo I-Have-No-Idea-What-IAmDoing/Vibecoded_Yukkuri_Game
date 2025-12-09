@@ -51,6 +51,9 @@ class WorldRenderer:
         self.rm = resource_manager
         self.font_cache: dict[int, pygame.font.Font] = {}
         self.lights_engine = lights_engine
+        # Key: (image_name, frame, round(scale, 3), round(rotation, 1), flip_x, flip_y)
+        # Or specialized keys for shadows/selection
+        self.texture_cache: dict[tuple, "pl2d.Texture"] = {}
 
     def _get_font(self, size: int) -> pygame.font.Font:
         """
@@ -96,161 +99,21 @@ class WorldRenderer:
         # Render Floating Text
         self.render_floating_text(world, sw, sh)
 
-    def _render_entity(
-        self, world: World, ent: int, sw: int, sh: int, alpha: float
-    ) -> None:
+    def _prepare_entity_surface(
+        self, sprite: Sprite, transform: Transform, image_name: str
+    ) -> tuple[pygame.Surface, float]:
         """
-        Renders a single entity.
+        Prepares the entity surface by handling animation, scaling, flipping, and rotation.
+
+        Args:
+            sprite (Sprite): The sprite component.
+            transform (Transform): The transform component.
+            image_name (str): The name of the image to load.
+
+        Returns:
+            tuple[pygame.Surface, float]: The prepared surface and the applied scale.
         """
-        transform = world.get_component(ent, Transform)
-        sprite = world.get_component(ent, Sprite)
-        phys_body = world.get_component(ent, PhysicsBody)
-        visual_transform = world.get_component(ent, VisualTransform)
-
-        if (
-            transform is None
-            or sprite is None
-            or phys_body is None
-            or visual_transform is None
-        ):
-            return
-
-        # --- Interpolation ---
-        # Linear interpolate between previous and current position
-        curr_x = transform.x
-        curr_y = transform.y
-        prev_x = getattr(transform, "prev_x", curr_x)
-        prev_y = getattr(transform, "prev_y", curr_y)
-
-        interp_x = prev_x + (curr_x - prev_x) * alpha
-        interp_y = prev_y + (curr_y - prev_y) * alpha
-
-        shadow_x, shadow_y = self.camera.world_to_screen(
-            visual_transform.shadow_position.x,
-            visual_transform.shadow_position.y,
-            sw,
-            sh,
-        )
-        shadow_radius_x = int(sprite.width * transform.scale * self.camera.zoom * 0.4)
-        shadow_radius_y = int(shadow_radius_x * 0.5)
-
-        # --- Draw Sprite ---
-
-        # Calculate screen position
-        base_screen_x, base_screen_y = self.camera.world_to_screen(
-            interp_x, interp_y, sw, sh
-        )
-
-        # Apply vertical offset for hopping effect, scaled by zoom
-        screen_y = base_screen_y - (visual_transform.vertical_offset * self.camera.zoom)
-
-        # Scale
-        scale = transform.scale * self.camera.zoom
-
-        # If we have a lighting engine, use it
-        if self.lights_engine:
-            # We use surface_to_texture with the rotated surface to guarantee correctness
-            # of transformations (scale, flip, rotation) matching the original renderer exactly.
-
-            img = self.rm.load_image(sprite.image_name)
-
-            # Handle animation
-            if sprite.frame_count > 1:
-                source_rect = pygame.Rect(0, 0, sprite.width, sprite.height)
-                sx = sprite.current_frame * sprite.width
-                if sx + sprite.width <= img.get_width():
-                    source_rect.x = sx
-                if source_rect.right > img.get_width() or source_rect.bottom > img.get_height():
-                     if img.get_width() < sprite.width or img.get_height() < sprite.height:
-                         frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
-                     else:
-                         frame_img = img.subsurface(source_rect.clip(img.get_rect()))
-                else:
-                    frame_img = img.subsurface(source_rect)
-            else:
-                if img.get_width() != sprite.width or img.get_height() != sprite.height:
-                    frame_img = pygame.transform.scale(img, (sprite.width, sprite.height))
-                else:
-                    frame_img = img
-
-            if sprite.flip_x or sprite.flip_y:
-                frame_img = pygame.transform.flip(frame_img, sprite.flip_x, sprite.flip_y)
-
-            if scale != 1.0:
-                w = int(sprite.width * scale)
-                h = int(sprite.height * scale)
-                if w > 0 and h > 0:
-                    scaled_img = pygame.transform.scale(frame_img, (w, h))
-                else:
-                    return
-            else:
-                scaled_img = frame_img
-
-            if transform.rotation != 0.0:
-                scaled_img = pygame.transform.rotate(scaled_img, transform.rotation)
-
-            # Center the sprite
-            rect = scaled_img.get_rect(center=(int(base_screen_x), int(screen_y)))
-
-            # Culling
-            if rect.colliderect(self.screen.get_rect()):
-                # Shadow
-                if shadow_radius_x > 0 and shadow_radius_y > 0:
-                    shadow_surface = pygame.Surface(
-                        (shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA
-                    )
-                    shadow_color = (0, 0, 0, 100)
-                    pygame.draw.ellipse(
-                        shadow_surface, shadow_color, shadow_surface.get_rect()
-                    )
-                    shadow_tex = self.lights_engine.surface_to_texture(shadow_surface)
-                    self.lights_engine.render_texture(
-                        shadow_tex,
-                        pl2d.BACKGROUND,
-                        pygame.Rect(shadow_x - shadow_radius_x, shadow_y - shadow_radius_y, shadow_radius_x * 2, shadow_radius_y * 2),
-                        pygame.Rect(0, 0, shadow_radius_x * 2, shadow_radius_y * 2)
-                    )
-                    shadow_tex.release()
-
-                # Main Sprite
-                tex = self.lights_engine.surface_to_texture(scaled_img)
-                self.lights_engine.render_texture(
-                    tex,
-                    pl2d.BACKGROUND,
-                    rect,
-                    pygame.Rect(0, 0, tex.width, tex.height)
-                )
-                tex.release()
-
-                # Selection highlight
-                selectable = world.get_component(ent, Selectable)
-                if selectable and selectable.selected:
-                    # Draw selection rect to a surface and render
-                    sel_surf = pygame.Surface(rect.size, pygame.SRCALPHA)
-                    pygame.draw.rect(sel_surf, (255, 255, 0), sel_surf.get_rect(), 2)
-                    sel_tex = self.lights_engine.surface_to_texture(sel_surf)
-                    self.lights_engine.render_texture(
-                        sel_tex,
-                        pl2d.BACKGROUND,
-                        rect,
-                        pygame.Rect(0, 0, sel_tex.width, sel_tex.height)
-                    )
-                    sel_tex.release()
-            return
-
-        # Fallback to original render if no lights_engine (e.g. headless or failed init)
-        # --- Draw Sprite ---
-        img = self.rm.load_image(sprite.image_name)
-
-        # Calculate screen position
-        base_screen_x, base_screen_y = self.camera.world_to_screen(
-            interp_x, interp_y, sw, sh
-        )
-
-        # Apply vertical offset for hopping effect, scaled by zoom
-        screen_y = base_screen_y - (visual_transform.vertical_offset * self.camera.zoom)
-
-        # Scale
+        img = self.rm.load_image(image_name)
         scale = transform.scale * self.camera.zoom
 
         # Handle animation
@@ -282,47 +145,198 @@ class WorldRenderer:
         if sprite.flip_x or sprite.flip_y:
             frame_img = pygame.transform.flip(frame_img, sprite.flip_x, sprite.flip_y)
 
+        # Apply Scale
         if scale != 1.0:
             w = int(sprite.width * scale)
             h = int(sprite.height * scale)
-            if w <= 0 or h <= 0:
-                return
-            scaled_img = pygame.transform.scale(frame_img, (w, h))
+            if w > 0 and h > 0:
+                scaled_img = pygame.transform.scale(frame_img, (w, h))
+            else:
+                return None, scale  # Invalid size
         else:
             scaled_img = frame_img
 
         # Apply Rotation
-        # We rotate after scaling to ensure best quality (though rotating first might be better for pixel art?)
-        # For smooth rotation, we should rotate the original image, but we need scaling too.
-        # pygame.transform.rotozoom could be used for combined scale/rotation with filtering.
-        # Here we just rotate the scaled image.
         if transform.rotation != 0.0:
-            # Note: Pygame rotates counter-clockwise for positive degrees
             scaled_img = pygame.transform.rotate(scaled_img, transform.rotation)
+
+        return scaled_img, scale
+
+    def _get_cached_texture(
+        self, key: tuple, surface_generator
+    ) -> "pl2d.Texture":
+        """
+        Retrieves a texture from cache or generates it using the provided generator function.
+
+        Args:
+            key (tuple): The unique cache key.
+            surface_generator (callable): Function that returns a pygame.Surface.
+
+        Returns:
+            pl2d.Texture: The cached or newly created texture.
+        """
+        if key in self.texture_cache:
+            return self.texture_cache[key]
+
+        surface = surface_generator()
+        tex = self.lights_engine.surface_to_texture(surface)
+        self.texture_cache[key] = tex
+        return tex
+
+    def _render_entity(
+        self, world: World, ent: int, sw: int, sh: int, alpha: float
+    ) -> None:
+        """
+        Renders a single entity.
+        """
+        transform = world.get_component(ent, Transform)
+        sprite = world.get_component(ent, Sprite)
+        phys_body = world.get_component(ent, PhysicsBody)
+        visual_transform = world.get_component(ent, VisualTransform)
+
+        if (
+            transform is None
+            or sprite is None
+            or phys_body is None
+            or visual_transform is None
+        ):
+            return
+
+        # --- Interpolation ---
+        curr_x = transform.x
+        curr_y = transform.y
+        prev_x = getattr(transform, "prev_x", curr_x)
+        prev_y = getattr(transform, "prev_y", curr_y)
+
+        interp_x = prev_x + (curr_x - prev_x) * alpha
+        interp_y = prev_y + (curr_y - prev_y) * alpha
+
+        shadow_x, shadow_y = self.camera.world_to_screen(
+            visual_transform.shadow_position.x,
+            visual_transform.shadow_position.y,
+            sw,
+            sh,
+        )
+
+        # Helper to prepare surface
+        scaled_img, scale = self._prepare_entity_surface(sprite, transform, sprite.image_name)
+        if scaled_img is None:
+            return
+
+        shadow_radius_x = int(sprite.width * scale * 0.4)
+        shadow_radius_y = int(shadow_radius_x * 0.5)
+
+        # Calculate screen position
+        base_screen_x, base_screen_y = self.camera.world_to_screen(
+            interp_x, interp_y, sw, sh
+        )
+
+        screen_y = base_screen_y - (visual_transform.vertical_offset * self.camera.zoom)
 
         # Center the sprite
         rect = scaled_img.get_rect(center=(int(base_screen_x), int(screen_y)))
 
         # Culling
         if rect.colliderect(self.screen.get_rect()):
-            if shadow_radius_x > 0 and shadow_radius_y > 0:
-                shadow_color = (0, 0, 0, 100)  # RGBA with transparency
-                shadow_surface = pygame.Surface(
-                    (shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA
-                )
-                pygame.draw.ellipse(
-                    shadow_surface, shadow_color, shadow_surface.get_rect()
-                )
-                self.screen.blit(
-                    shadow_surface,
-                    (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y),
-                )
-            self.screen.blit(scaled_img, rect)
+            if self.lights_engine:
+                # Shadow
+                if shadow_radius_x > 0 and shadow_radius_y > 0:
+                    shadow_key = ("shadow", shadow_radius_x, shadow_radius_y)
 
-            # Selection highlight
-            selectable = world.get_component(ent, Selectable)
-            if selectable and selectable.selected:
-                pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
+                    def shadow_gen():
+                        surf = pygame.Surface(
+                            (shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA
+                        )
+                        shadow_color = (0, 0, 0, 100)
+                        pygame.draw.ellipse(
+                            surf, shadow_color, surf.get_rect()
+                        )
+                        return surf
+
+                    shadow_tex = self._get_cached_texture(shadow_key, shadow_gen)
+                    self.lights_engine.render_texture(
+                        shadow_tex,
+                        pl2d.BACKGROUND,
+                        pygame.Rect(shadow_x - shadow_radius_x, shadow_y - shadow_radius_y, shadow_radius_x * 2, shadow_radius_y * 2),
+                        pygame.Rect(0, 0, shadow_radius_x * 2, shadow_radius_y * 2)
+                    )
+                    # Do not release cached texture
+
+                # Main Sprite
+                # Key: (image_name, frame, scale, rotation, flip_x, flip_y)
+                sprite_key = (
+                    sprite.image_name,
+                    sprite.current_frame,
+                    round(scale, 3),
+                    round(transform.rotation, 1),
+                    sprite.flip_x,
+                    sprite.flip_y
+                )
+
+                # We already have scaled_img from _prepare_entity_surface, but for caching logic
+                # we need to be able to recreate it if not in cache.
+                # However, we already computed it efficiently in _prepare_entity_surface.
+                # To integrate with _get_cached_texture, we should check cache first.
+                # But _prepare_entity_surface does the work unconditionally.
+                # Refactoring slightly to optimize: we should check cache before doing heavy lifting.
+                # But _prepare_entity_surface returns the surface, which we need to upload.
+                # If we want to use the cache, we should use the surface we just created as the generator result.
+                # But that means we created the surface anyway.
+                # The bottleneck is texture upload, so caching texture is still valuable even if surface is recreated.
+                # But ideally we cache the surface transformation too?
+                # Pygame blits are fast. Texture upload is slow.
+                # So caching the texture is the main win.
+
+                def sprite_gen():
+                    return scaled_img
+
+                tex = self._get_cached_texture(sprite_key, sprite_gen)
+                self.lights_engine.render_texture(
+                    tex,
+                    pl2d.BACKGROUND,
+                    rect,
+                    pygame.Rect(0, 0, tex.width, tex.height)
+                )
+                # Do not release cached texture
+
+                # Selection highlight
+                selectable = world.get_component(ent, Selectable)
+                if selectable and selectable.selected:
+                    sel_key = ("selection", rect.width, rect.height)
+
+                    def sel_gen():
+                        surf = pygame.Surface(rect.size, pygame.SRCALPHA)
+                        pygame.draw.rect(surf, (255, 255, 0), surf.get_rect(), 2)
+                        return surf
+
+                    sel_tex = self._get_cached_texture(sel_key, sel_gen)
+                    self.lights_engine.render_texture(
+                        sel_tex,
+                        pl2d.BACKGROUND,
+                        rect,
+                        pygame.Rect(0, 0, sel_tex.width, sel_tex.height)
+                    )
+            else:
+                # Fallback rendering
+                if shadow_radius_x > 0 and shadow_radius_y > 0:
+                    shadow_color = (0, 0, 0, 100)
+                    shadow_surface = pygame.Surface(
+                        (shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA
+                    )
+                    pygame.draw.ellipse(
+                        shadow_surface, shadow_color, shadow_surface.get_rect()
+                    )
+                    self.screen.blit(
+                        shadow_surface,
+                        (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y),
+                    )
+
+                self.screen.blit(scaled_img, rect)
+
+                # Selection highlight
+                selectable = world.get_component(ent, Selectable)
+                if selectable and selectable.selected:
+                    pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
 
     def render_floating_text(self, world: World, screen_w: int, screen_h: int) -> None:
         """

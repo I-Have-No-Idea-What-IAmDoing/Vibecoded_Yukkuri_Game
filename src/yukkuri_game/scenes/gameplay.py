@@ -323,6 +323,8 @@ class GameplayScene(Scene):
                     (self.application.width, self.application.height), pygame.SRCALPHA
                 )
                 self.hud.draw(hud_surface)
+                # Also draw scene-specific UI manager
+                self.ui_manager.draw_ui(hud_surface)
 
                 import pygame_light2d as pl2d
                 tex = self.application.lights_engine.surface_to_texture(hud_surface)
@@ -333,7 +335,7 @@ class GameplayScene(Scene):
                     pygame.Rect(0, 0, tex.width, tex.height)
                 )
                 tex.release()
-                # UI Manager is rendered by Application (global UI)
+                # Global UI Manager is rendered by Application
             else:
                 self.hud.draw(self.application.screen)
                 self.ui_manager.draw_ui(self.application.screen)
