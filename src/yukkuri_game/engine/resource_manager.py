@@ -4,6 +4,7 @@ Module for managing game resources like images, sounds, and data files.
 
 import os
 from typing import Any, Dict, Type, TypeVar, Optional
+from collections import OrderedDict
 
 import msgspec
 import pygame
@@ -57,7 +58,8 @@ class ResourceManager:
         """
         self.data_dir = data_dir
         self.assets_dir = assets_dir
-        self.images: Dict[str, pygame.Surface] = {}
+        # Using OrderedDict for simple LRU if needed, though raw images are usually few
+        self.images: OrderedDict[str, pygame.Surface] = OrderedDict()
         self.sounds: Dict[str, pygame.mixer.Sound] = {}
         self.configs: Dict[str, Any] = {}
 
@@ -69,6 +71,9 @@ class ResourceManager:
         self.skills: Dict[str, SkillDefinition] = {}
         self.traits: Dict[str, TraitDefinition] = {}
         self.interactions: Dict[str, InteractionDefinition] = {}
+
+        # Max number of images to keep in memory (usually base images are few, but good to have a limit)
+        self.image_cache_limit = 100
 
     def load_toml_model(self, filepath: str, model: Type[T]) -> Optional[T]:
         """
@@ -144,6 +149,7 @@ class ResourceManager:
             pygame.Surface: The loaded image surface or a placeholder.
         """
         if filename in self.images:
+            self.images.move_to_end(filename)
             return self.images[filename]
 
         full_path = self.get_image_path(filename)
@@ -157,6 +163,10 @@ class ResourceManager:
 
             img = pygame.image.load(full_path).convert_alpha()
             self.images[filename] = img
+
+            if len(self.images) > self.image_cache_limit:
+                self.images.popitem(last=False)
+
             return img
         except Exception as e:
             logger.error(f"Failed to load image {filename}: {e}")
