@@ -63,9 +63,11 @@ class BenchmarkRunner:
                 # Spawn entities
                 # We'll spawn them in a grid or randomly
                 for _ in range(self.num_entities):
-                    # Random position within bounds (assuming 800x600 default)
-                    x = (driver.frame_count * 1234 + _ * 5678) % 750 + 25
-                    y = (driver.frame_count * 9876 + _ * 4321) % 550 + 25
+                    # Random position within bounds based on application size
+                    width = app.width
+                    height = app.height
+                    x = (driver.frame_count * 1234 + _ * 5678) % (width - 50) + 25
+                    y = (driver.frame_count * 9876 + _ * 4321) % (height - 50) + 25
                     driver.create_yukkuri("reimu", x, y)
 
                 # Run simulation
@@ -84,8 +86,12 @@ class BenchmarkRunner:
                 # Actually, driver.frame_count starts at 0.
 
                 frames = driver.frame_count
-                avg_fps = frames / elapsed_wall_time
-                sim_speed = driver.simulated_time / elapsed_wall_time
+                if elapsed_wall_time > 0:
+                    avg_fps = frames / elapsed_wall_time
+                    sim_speed = driver.simulated_time / elapsed_wall_time
+                else:
+                    avg_fps = float('inf')
+                    sim_speed = float('inf')
 
                 fps_results.append(avg_fps)
                 speed_ratio_results.append(sim_speed)
