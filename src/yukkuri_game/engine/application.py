@@ -5,6 +5,8 @@ Application Module.
 import pygame
 import pygame_gui
 import os
+import pygame_light2d as pl2d
+from pygame_light2d import LightingEngine
 from loguru import logger
 from .resource_manager import ResourceManager
 from .scene_manager import SceneManager
@@ -45,9 +47,25 @@ class Application:
 
         if self.headless:
             self.screen = pygame.display.set_mode((width, height))
+            self.lights_engine = None
         else:
-            self.screen = pygame.display.set_mode((width, height), pygame.RESIZABLE)
+            # Initialize LightingEngine instead of standard display
+            # We match native_res to screen_res for now to keep pixel density same as before
+            # unless we want pixel art style (which yukkuri usually is).
+            # Assuming current sprites are high res or we want 1:1.
+            # If we want scaling, we can adjust native_res.
+            self.lights_engine = LightingEngine(
+                screen_res=(width, height),
+                native_res=(width, height),
+                lightmap_res=(width // 2, height // 2)
+            )
+            # LightingEngine creates the window, so we can get the surface if needed,
+            # but usually we render via engine.
+            # Some parts of code expect self.screen to be the display surface.
+            # LightingEngine manages display, but we can access it via pygame.display.get_surface()
+            self.screen = pygame.display.get_surface()
             pygame.display.set_caption(title)
+            self.lights_engine.set_ambient(128, 128, 128, 255)
 
         self.clock = pygame.time.Clock()
         self.running = True
@@ -62,6 +80,9 @@ class Application:
 
         # Global UI Manager (for overlays or shared UI resources)
         self.ui_manager = pygame_gui.UIManager((width, height))
+
+        # Surface for UI rendering
+        self.ui_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
         self.fixed_dt = 1.0 / 60.0
         self.accumulator = 0.0
@@ -157,10 +178,37 @@ class Application:
         Returns:
             None
         """
-        self.screen.fill((0, 0, 0))
-        self.scene_manager.render()
-        self.ui_manager.draw_ui(self.screen)
-        pygame.display.flip()
+        if self.headless or not self.lights_engine:
+            self.screen.fill((0, 0, 0))
+            self.scene_manager.render()
+            self.ui_manager.draw_ui(self.screen)
+            pygame.display.flip()
+        else:
+            # Clear lights engine surfaces
+            self.lights_engine.clear(0, 0, 0, 255)
+
+            # Render scene (which should now use lights_engine)
+            # We need to make sure scene_manager passes lights_engine or scene has access to it.
+            # Since we haven't updated scene_manager yet, this might fail if we don't update it soon.
+            self.scene_manager.render()
+
+            # Render UI to separate surface
+            self.ui_surface.fill((0, 0, 0, 0))
+            self.ui_manager.draw_ui(self.ui_surface)
+
+            # Convert UI surface to texture and render to FOREGROUND
+            ui_tex = self.lights_engine.surface_to_texture(self.ui_surface)
+            self.lights_engine.render_texture(
+                ui_tex,
+                pl2d.FOREGROUND,
+                pygame.Rect(0, 0, self.width, self.height),
+                pygame.Rect(0, 0, self.width, self.height)
+            )
+            ui_tex.release()
+
+            # Render lighting and present
+            self.lights_engine.render()
+            pygame.display.flip()
 
     def quit(self) -> None:
         """

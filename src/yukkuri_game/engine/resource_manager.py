@@ -118,6 +118,18 @@ class ResourceManager:
             logger.error(f"Failed to save TOML {filepath}: {e}")
             return False
 
+    def get_image_path(self, filename: str) -> str:
+        """
+        Returns the full path to an image file.
+
+        Args:
+            filename (str): The filename of the image.
+
+        Returns:
+            str: The full path to the image file.
+        """
+        return os.path.join(self.assets_dir, "images", filename)
+
     def load_image(self, filename: str) -> pygame.Surface:
         """
         Loads an image relative to the assets/images directory.
@@ -134,7 +146,7 @@ class ResourceManager:
         if filename in self.images:
             return self.images[filename]
 
-        full_path = os.path.join(self.assets_dir, "images", filename)
+        full_path = self.get_image_path(filename)
         try:
             if not os.path.exists(full_path):
                 logger.warning(f"Image not found: {filename}. Creating placeholder.")
