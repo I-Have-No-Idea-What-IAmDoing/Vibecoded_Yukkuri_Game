@@ -10,6 +10,14 @@ from ..components_persistence import StableIDComponent, Persistable
 def create_player(world: World, x: float = 0, y: float = 0) -> int:
     """
     Creates a Player entity (representing the god hand/camera/global state).
+
+    Args:
+        world (World): The ECS World instance.
+        x (float): The initial x-coordinate. Defaults to 0.
+        y (float): The initial y-coordinate. Defaults to 0.
+
+    Returns:
+        int: The ID of the created entity.
     """
     entity = world.create_entity()
     world.add_component(entity, Transform(x=x, y=y))

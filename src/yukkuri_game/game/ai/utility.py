@@ -39,8 +39,8 @@ class Consideration:
         Calculates the score for this consideration based on the context.
 
         Args:
-            context: A dictionary containing the current world state/context.
-            override_curve: Optional dictionary with 'curve' and 'params' keys to override the default behavior.
+            context (Dict[str, Any]): A dictionary containing the current world state/context.
+            override_curve (Optional[Dict[str, Any]]): Optional dictionary with 'curve' and 'params' keys to override the default behavior.
 
         Returns:
             float: A score between 0.0 and 1.0.
@@ -68,9 +68,9 @@ class Consideration:
         Maps the input value 'x' to a normalized utility score between 0.0 and 1.0.
 
         Args:
-            x: The input value.
-            curve_type: The type of curve (optional override).
-            params: Parameters for the curve (optional override).
+            x (float): The input value.
+            curve_type (Optional[str]): The type of curve (optional override).
+            params (Optional[Dict[str, float]]): Parameters for the curve (optional override).
 
         Returns:
             float: The mapped output value between 0.0 and 1.0.
@@ -136,8 +136,8 @@ class Action:
         the entire action utility becomes 0.
 
         Args:
-            context: A dictionary containing the current world state/context.
-            trait_overrides: A dictionary where keys are consideration names (e.g. "Survival/Eat")
+            context (Dict[str, Any]): A dictionary containing the current world state/context.
+            trait_overrides (Optional[Dict[str, Any]]): A dictionary where keys are consideration names (e.g. "Survival/Eat")
                              and values are override definitions.
 
         Returns:
@@ -177,7 +177,7 @@ class UtilityAIEngine:
         Initializes the UtilityAIEngine.
 
         Args:
-            resource_manager: The ResourceManager instance.
+            resource_manager (ResourceManager): The ResourceManager instance.
         """
         self.rm = resource_manager
         self.actions: Dict[str, Action] = {}
@@ -199,8 +199,8 @@ class UtilityAIEngine:
         Parses action data (either from dict or msgspec struct) into an Action object.
 
         Args:
-            name: The name of the action.
-            data: The action data (dict or msgspec struct).
+            name (str): The name of the action.
+            data (Any): The action data (dict or msgspec struct).
 
         Returns:
             Action: The parsed Action object.
@@ -258,9 +258,9 @@ class UtilityAIEngine:
         Selects the action with the highest utility score.
 
         Args:
-            context: A dictionary containing the current world state/context.
-            personality: The personality component of the entity (optional).
-            trait_service: The trait service to look up trait data (optional).
+            context (Dict[str, Any]): A dictionary containing the current world state/context.
+            personality (Optional[Personality]): The personality component of the entity (optional).
+            trait_service (Optional[TraitService]): The trait service to look up trait data (optional).
 
         Returns:
             str: The name of the selected action.

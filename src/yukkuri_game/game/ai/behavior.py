@@ -48,6 +48,17 @@ class MoveToTarget(Action):
         speed: float = 100.0,
         acceptance_radius: float = 15.0,
     ):
+        """
+        Initializes the MoveToTarget action.
+
+        Args:
+            name (str): The name of the behavior node.
+            entity_id (Optional[int]): The ID of the entity.
+            world (Optional[World]): The ECS World instance.
+            blackboard (Optional[Any]): The Behavior Tree blackboard.
+            speed (float): Movement speed in pixels per second.
+            acceptance_radius (float): Distance threshold for reaching target.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self.speed = speed
         self.acceptance_radius = acceptance_radius
@@ -96,15 +107,6 @@ class MoveToTarget(Action):
             return Status.FAILURE
 
         # Pathfinding (simplified)
-        # Check if path needs (re)calculation.
-        # This includes if path is empty, OR if we're moving to a dynamic target (entity)
-        # and the target has moved significantly.
-        # For now, just check if empty or None, but also ensure we don't assume empty path means success here.
-
-        # NOTE: One issue might be that ai.path is empty because we just finished a path?
-        # But if we are here, dist_to_final >= acceptance_radius. So we are NOT there yet.
-        # So empty path means we need to find one.
-
         if ai.path is None or len(ai.path) == 0:
             nav_service = self.world.services.try_get(NavigationService)
             if nav_service:
@@ -136,7 +138,6 @@ class MoveToTarget(Action):
             ai.path.pop(0)
             if not ai.path:
                 # Path finished. Check if we are actually at the target.
-                # If target moved or path was partial, we might not be there yet.
                 if dist_to_final < self.acceptance_radius:
                     controller.target_velocity = pymunk.Vec2d(0, 0)
                     return Status.SUCCESS
@@ -298,7 +299,6 @@ class Interact(Action):
                 )
             # We return SUCCESS immediately as the request is queued.
             # The system will handle the rest next frame.
-            # If animations are needed, we might need to wait, but for now immediate success matches previous behavior.
             return Status.SUCCESS
 
         return Status.RUNNING
@@ -353,30 +353,7 @@ class SocialInteract(Action):
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
         if dist <= 40.0:  # Interaction range slightly larger for social
-            # Trigger social interaction via InteractionRequest
-            # SocialSystem will pick this up if we attach an InteractionRequest.
-            # However, SocialSystem usually listens to SocialInteractionEvent for gossip,
-            # but for direct interaction (Talk/Fight), we want immediate feedback or managed state.
-
-            # The previous implementation called game_service.interact_social directly which applied stats.
-            # We will now use InteractionRequest, but we need to specify type.
-            # Currently InteractionRequest only supports target_id and consume bool.
-            # We might need to extend InteractionRequest or use a specific event.
-
-            # Plan: Use InteractionRequest but SocialSystem needs to distinguish.
-            # OR better: Dispatch an Event that SocialSystem listens to?
-            # BUT this is an Action that needs Status return.
-            # If we dispatch event, we don't know if it succeeded immediately (though it usually does).
-
-            # Let's check the plan: "Move Logic Flow: AI/Input Sets InteractionRequest(target_id, type="Talk")"
-            # So we need to update InteractionRequest component to support 'type'.
-
             if not self.world.has_component(self.entity_id, InteractionRequest):
-                # We need to import InteractionRequest and ensure it has 'action_type' or similar.
-                # Assuming we will update InteractionRequest component definition soon.
-                # For now, let's assume we update the component to accept a type.
-
-                # Check if we can add 'action' field to InteractionRequest
                 self.world.add_component(
                     self.entity_id,
                     InteractionRequest(
@@ -768,7 +745,6 @@ class FindItem(Action):
 
         # If no item found, but we have ignored some targets (failed previously),
         # clear the failed list so we can retry them next frame.
-        # This prevents the AI from starving if the only food source was momentarily unreachable.
         if ai.failed_targets:
             ai.failed_targets.clear()
 

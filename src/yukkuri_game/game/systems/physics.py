@@ -20,6 +20,7 @@ class PhysicsSystem(System):
         accumulator (float): Time accumulator for fixed time step.
         time_step (float): The fixed time step for physics (default 1/60).
         max_frame_time (float): Maximum time to simulate per frame to avoid spiral of death.
+        event_bus (Optional[EventBus]): The event bus for physics events.
     """
 
     def __init__(self, gravity: tuple[float, float] = (0, 0)):

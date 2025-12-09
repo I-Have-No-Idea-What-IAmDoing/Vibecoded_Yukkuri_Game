@@ -12,6 +12,9 @@ def TestEnvironment() -> Generator[None, None, None]:
     """
     Context manager that sets up a safe environment for headless testing.
     Sets SDL_VIDEODRIVER to 'dummy' and restores original environment variables afterwards.
+
+    Yields:
+        None
     """
     # Cache original values
     original_video = os.environ.get("SDL_VIDEODRIVER")

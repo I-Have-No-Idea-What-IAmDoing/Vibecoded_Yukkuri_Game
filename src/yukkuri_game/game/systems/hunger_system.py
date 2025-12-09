@@ -16,9 +16,14 @@ from ..skill_constants import SkillId
 class HungerSystem(System):
     """
     System responsible for processing consumption interactions (eating items).
+
+    Attributes:
+        audio (Optional[AudioManager]): The audio manager instance.
+        skill_service (Optional[SkillService]): The skill service instance.
     """
 
     def __init__(self) -> None:
+        """Initializes the HungerSystem."""
         super().__init__()
         self.audio: Optional[AudioManager] = None
         self.skill_service: Optional[SkillService] = None
@@ -27,6 +32,13 @@ class HungerSystem(System):
         """
         Updates the hunger system.
         Note: Consumption logic is now dispatched from InteractionSystem.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+
+        Returns:
+            None
         """
         if self.audio is None:
             self.audio = world.services.try_get(AudioManager)
@@ -46,8 +58,17 @@ class HungerSystem(System):
         """
         Executes the logic for eating an item.
 
+        Args:
+            world (World): The ECS World.
+            consumer_id (int): The entity ID consuming the item.
+            request (InteractionRequest): The interaction request details.
+            consumer_transform (Transform): Transform of the consumer.
+            consumer_stats (YukkuriStats): Stats of the consumer.
+            item_id (int): The entity ID of the item being consumed.
+            item_stats (ItemStats): Stats of the item.
+
         Returns:
-            bool: True if consumption was processed (valid).
+            bool: True if consumption was processed (valid), False otherwise.
         """
         # Ensure services are loaded
         if self.audio is None:

@@ -131,6 +131,16 @@ class FamilySystem(System):
     def _process_benefits_with_sectors(
         self, world: World, sector_map: SectorMap
     ) -> None:
+        """
+        Process family benefits using spatial partitioning for efficiency.
+
+        Args:
+            world (World): The ECS World.
+            sector_map (SectorMap): The sector map service.
+
+        Returns:
+            None
+        """
         from ..components import Transform
 
         entities = world.get_entities_with(
@@ -201,6 +211,15 @@ class FamilySystem(System):
                 )
 
     def _process_benefits_fallback(self, world: World) -> None:
+        """
+        Process family benefits using O(N^2) checks (fallback).
+
+        Args:
+            world (World): The ECS World.
+
+        Returns:
+            None
+        """
         from ..components import Transform
 
         entities = world.get_entities_with(
@@ -276,7 +295,26 @@ class FamilySystem(System):
         emotional: Optional[EmotionalState],
         other_emotional: Optional[EmotionalState],
     ) -> None:
-        """Helper to apply benefits between two entities."""
+        """
+        Helper to apply benefits between two entities if they are close enough.
+
+        Args:
+            eid (int): First entity ID.
+            other_eid (int): Second entity ID.
+            stats (YukkuriStats): First entity stats.
+            other_stats (YukkuriStats): Second entity stats.
+            needs (Needs): First entity needs.
+            other_needs (Needs): Second entity needs.
+            trans (Transform): First entity transform.
+            other_trans (Transform): Second entity transform.
+            ai (AIState): First entity AI state.
+            other_ai (AIState): Second entity AI state.
+            emotional (Optional[EmotionalState]): First entity emotional state.
+            other_emotional (Optional[EmotionalState]): Second entity emotional state.
+
+        Returns:
+            None
+        """
 
         dist_sq = (trans.x - other_trans.x) ** 2 + (trans.y - other_trans.y) ** 2
         if dist_sq < 150 * 150:  # Range for family benefits

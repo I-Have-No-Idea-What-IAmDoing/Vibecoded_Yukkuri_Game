@@ -1,3 +1,7 @@
+"""
+Module for Entity Info Panel logic.
+"""
+
 import pygame
 import pygame_gui
 from typing import Optional
@@ -20,6 +24,13 @@ class SafeUIScrollingContainer(UIScrollingContainer):
     """
 
     def __init__(self, *args, **kwargs):
+        """
+        Initializes the SafeUIScrollingContainer.
+
+        Args:
+            *args: Variable length argument list for UIScrollingContainer.
+            **kwargs: Arbitrary keyword arguments for UIScrollingContainer.
+        """
         self.vert_scroll_bar = None
         self.horiz_scroll_bar = None
         self._root_container = None
@@ -30,6 +41,20 @@ class SafeUIScrollingContainer(UIScrollingContainer):
 class EntityInfoPanel:
     """
     Manages the Entity Info Window, including Tabs for Stats and Skills.
+
+    Attributes:
+        manager (pygame_gui.UIManager): The UI manager.
+        window (Optional[UIWindow]): The main window element.
+        tabbed_panel (Optional[TabbedPanel]): The tabbed panel element.
+        stats_text_box (Optional[UITextBox]): Text box for stats.
+        stats_scroll (Optional[UIScrollingContainer]): Scroll container for stats.
+        skills_text_box (Optional[UITextBox]): Text box for skills.
+        skills_scroll (Optional[UIScrollingContainer]): Scroll container for skills.
+        sell_btn (Optional[UIButton]): Button to sell entity.
+        train_btn (Optional[UIButton]): Button to train entity.
+        punish_btn (Optional[UIButton]): Button to punish entity.
+        width (int): Window width.
+        height (int): Window height.
     """
 
     def __init__(
@@ -69,8 +94,19 @@ class EntityInfoPanel:
         has_stats: bool,
         selection_count: int,
         title: str = "Entity Info",
-    ):
-        """Creates and shows the window."""
+    ) -> None:
+        """
+        Creates and shows the window.
+
+        Args:
+            position (tuple[int, int]): Position to display the window.
+            has_stats (bool): Whether the selected entity has stats.
+            selection_count (int): Number of selected entities.
+            title (str): Title of the window.
+
+        Returns:
+            None
+        """
         self.close()
 
         rect = pygame.Rect(position[0], position[1], self.width, self.height)
@@ -106,8 +142,13 @@ class EntityInfoPanel:
         # Action Buttons
         self._create_buttons(has_stats, selection_count)
 
-    def close(self):
-        """Closes the window."""
+    def close(self) -> None:
+        """
+        Closes the window and cleans up elements.
+
+        Returns:
+            None
+        """
         if self.window:
             self.window.kill()
             self.window = None
@@ -118,7 +159,8 @@ class EntityInfoPanel:
             self.train_btn = None
             self.punish_btn = None
 
-    def _create_stats_tab(self):
+    def _create_stats_tab(self) -> None:
+        """Creates the Stats tab."""
         if not self.tabbed_panel:
             return
 
@@ -148,7 +190,8 @@ class EntityInfoPanel:
             anchors={"top": "top", "bottom": "top", "left": "left", "right": "left"},
         )
 
-    def _create_skills_tab(self):
+    def _create_skills_tab(self) -> None:
+        """Creates the Skills tab."""
         if not self.tabbed_panel:
             return
 
@@ -178,7 +221,8 @@ class EntityInfoPanel:
             anchors={"top": "top", "bottom": "top", "left": "left", "right": "left"},
         )
 
-    def _create_buttons(self, has_stats: bool, selection_count: int):
+    def _create_buttons(self, has_stats: bool, selection_count: int) -> None:
+        """Creates action buttons based on entity type."""
         if not self.window:
             return
 
@@ -227,12 +271,15 @@ class EntityInfoPanel:
                 container=self.window,
             )
 
-    def update_stats(self, text: str):
+    def update_stats(self, text: str) -> None:
         """
         Updates the stats text box content.
 
         Args:
             text (str): The HTML text to display.
+
+        Returns:
+            None
         """
         if self.stats_text_box and self.stats_text_box.html_text != text:
             old_height = self.stats_text_box.rect.height
@@ -244,12 +291,15 @@ class EntityInfoPanel:
                     (self.stats_scroll.rect.width - 20, new_height)
                 )
 
-    def update_skills(self, text: str):
+    def update_skills(self, text: str) -> None:
         """
         Updates the skills text box content.
 
         Args:
             text (str): The HTML text to display.
+
+        Returns:
+            None
         """
         if self.skills_text_box and self.skills_text_box.html_text != text:
             old_height = self.skills_text_box.rect.height

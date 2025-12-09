@@ -1,5 +1,9 @@
 """
 Module for loading and managing game configuration.
+
+This module defines the configuration structures for the game, including
+world settings, rule settings (stats, lifecycle, social, skills), and
+the main configuration loader.
 """
 
 import msgspec
@@ -39,15 +43,15 @@ class StatDecaySettings(msgspec.Struct):  # type: ignore[misc]
     Configuration settings for stat decay rates.
 
     Attributes:
-        hunger (float): Decay rate for hunger.
-        happiness (float): Decay rate for happiness.
-        stress (float): Decay rate for stress.
-        energy (float): Decay rate for energy.
-        cleanliness (float): Decay rate for cleanliness.
-        social (float): Decay rate for social needs.
-        age (float): Decay rate for age (or growth rate).
-        starvation_damage (float): Damage per tick when starving.
-        personality_drift_rate (float): Rate at which personality traits can drift.
+        hunger (float): Decay rate for hunger per tick or unit time.
+        happiness (float): Decay rate for happiness per tick or unit time.
+        stress (float): Decay rate for stress per tick or unit time.
+        energy (float): Decay rate for energy per tick or unit time.
+        cleanliness (float): Decay rate for cleanliness per tick or unit time.
+        social (float): Decay rate for social needs per tick or unit time.
+        age (float): Decay rate for age (or growth rate) per tick or unit time.
+        starvation_damage (float): Damage taken per tick when starving.
+        personality_drift_rate (float): Rate at which personality traits can drift over time.
     """
 
     hunger: float = 2.0
@@ -66,12 +70,12 @@ class LifecycleSettings(msgspec.Struct):  # type: ignore[misc]
     Configuration settings for lifecycle events (birth, growth, death).
 
     Attributes:
-        baby_age_threshold (float): Age until becoming a child.
-        child_age_threshold (float): Age until becoming an adult.
-        breeding_happiness_threshold (float): Happiness required to breed.
-        breeding_energy_threshold (float): Energy required to breed.
-        breeding_cost (float): Energy cost of breeding.
-        breeding_chance (float): Probability of breeding per tick if conditions met.
+        baby_age_threshold (float): Age threshold until a yukkuri stops being a baby.
+        child_age_threshold (float): Age threshold until a yukkuri stops being a child.
+        breeding_happiness_threshold (float): Minimum happiness required to breed.
+        breeding_energy_threshold (float): Minimum energy required to breed.
+        breeding_cost (float): Energy cost incurred during breeding.
+        breeding_chance (float): Probability of breeding per tick if conditions are met.
     """
 
     baby_age_threshold: float = 100.0
@@ -87,9 +91,9 @@ class SocialSettings(msgspec.Struct):  # type: ignore[misc]
     Configuration for the social system.
 
     Attributes:
-        memory_importance_threshold (float): Threshold for memory importance.
-        max_gossip_length (int): Maximum length of gossip chains.
-        witness_threshold (float): Threshold for witnessing events.
+        memory_importance_threshold (float): Threshold for a memory to be considered important.
+        max_gossip_length (int): Maximum length of gossip chains (number of participants).
+        witness_threshold (float): Distance threshold for witnessing events.
     """
 
     memory_importance_threshold: float = 50.0
@@ -103,7 +107,7 @@ class SkillsSettings(msgspec.Struct):  # type: ignore[misc]
 
     Attributes:
         xp_base (float): Base XP required for level up.
-        xp_exponent (float): Exponent for XP scaling.
+        xp_exponent (float): Exponent for XP scaling with level.
     """
 
     xp_base: float = 100.0
@@ -115,10 +119,10 @@ class StatsSettings(msgspec.Struct):  # type: ignore[misc]
     Configuration for calculating yukkuri stats and value.
 
     Attributes:
-        badge_value (int): Value per badge.
-        health_deficit_penalty (float): Value penalty multiplier per missing health.
+        badge_value (int): Monetary value assigned to each badge type.
+        health_deficit_penalty (float): Value penalty multiplier per missing health point.
         age_value_bonus (float): Value bonus per minute of age.
-        intelligence_base (float): Base intelligence multiplier.
+        intelligence_base (float): Base intelligence multiplier for stats.
     """
 
     badge_value: int = 500
@@ -151,8 +155,8 @@ class GameConfig(msgspec.Struct):  # type: ignore[misc]
     Combined configuration for the game.
 
     Attributes:
-        world (WorldSettings): World settings from config.toml.
-        rules (RulesFile): Game rules from rules.toml.
+        world (WorldSettings): World settings loaded from config.toml.
+        rules (RulesFile): Game rules loaded from rules.toml.
     """
 
     world: WorldSettings
@@ -163,14 +167,18 @@ def load_config(data_dir: Path = Path("data")) -> GameConfig:
     """
     Loads configuration from TOML files in the specified directory.
 
+    It looks for 'config.toml' and 'rules.toml' in the given directory.
+    If the files do not exist, default configurations are used.
+
     Args:
         data_dir (Path): The directory containing config.toml and rules.toml.
+                         Defaults to 'data'.
 
     Returns:
-        GameConfig: The loaded configuration.
+        GameConfig: The loaded game configuration object.
 
     Raises:
-        msgspec.ValidationError: If the configuration files contain invalid types.
+        msgspec.ValidationError: If the configuration files contain invalid types or structures.
     """
     config_path = data_dir / "config.toml"
     rules_path = data_dir / "rules.toml"

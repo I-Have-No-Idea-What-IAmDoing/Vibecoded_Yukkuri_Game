@@ -1,5 +1,8 @@
 """
 Module for registering ECS systems.
+
+This module provides a registry class to handle the initialization and registration
+of various Entity-Component-System (ECS) systems into the game world.
 """
 
 from typing import TYPE_CHECKING
@@ -34,6 +37,9 @@ if TYPE_CHECKING:
 class SystemRegistry:
     """
     Helper class to register systems to the ECS World.
+
+    This class provides static methods to instantiate and add systems to the
+    world instance, ensuring all necessary dependencies are injected.
     """
 
     @staticmethod
@@ -45,17 +51,22 @@ class SystemRegistry:
         physics_system: PhysicsSystem,
     ) -> InputSystem:
         """
-        Registers all game systems.
+        Registers all game systems to the provided ECS World.
+
+        This method initializes various systems (Time, Physics, Emotion, etc.) with
+        necessary configurations and adds them to the world. It also registers
+        certain systems as services within the world's service locator.
 
         Args:
-            world (World): The ECS World.
-            game_config (GameConfig): The game configuration.
-            camera (Camera): The game world view.
-            event_bus (EventBus): The event bus.
-            physics_system (PhysicsSystem): The physics system (pre-initialized).
+            world (World): The ECS World instance to register systems with.
+            game_config (GameConfig): The game configuration object containing rules and settings.
+            camera (Camera): The camera object used for view-dependent systems and input.
+            event_bus (EventBus): The event bus for inter-system communication.
+            physics_system (PhysicsSystem): The pre-initialized physics system.
 
         Returns:
-            InputSystem: The registered input system (needed for event handling).
+            InputSystem: The registered input system, which is returned so it can be accessed
+                         for event handling in the main loop.
         """
 
         input_system = InputSystem(camera)

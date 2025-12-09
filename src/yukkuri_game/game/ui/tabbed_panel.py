@@ -160,12 +160,15 @@ class TabbedPanel(UITabContainer):
 
         return tab_id
 
-    def rebuild(self, count: Optional[int] = None):
+    def rebuild(self, count: Optional[int] = None) -> None:
         """
         Rebuilds the tab container.
 
         Args:
             count (int, optional): Override for number of tabs to process.
+
+        Returns:
+            None
         """
         UIElement.rebuild(self)
 
