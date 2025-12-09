@@ -4,6 +4,7 @@ Main Menu Scene.
 
 import pygame
 import pygame_gui
+import pygame_light2d as pl2d
 from loguru import logger
 from ..engine.scene import Scene
 from ..engine.application import Application
@@ -22,6 +23,12 @@ class MainMenuScene(Scene):
         )
         self.input_manager = self.world.services.get(InputManager)
         self.input_manager.switch_context(InputContext.MENU)
+
+        # Surface for UI rendering when using lights engine
+        self.ui_surface = pygame.Surface(
+            (self.application.width, self.application.height), pygame.SRCALPHA
+        )
+
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -74,7 +81,24 @@ class MainMenuScene(Scene):
         """
         Renders the scene.
         """
-        self.ui_manager.draw_ui(self.application.screen)
+        if self.application.lights_engine:
+            # Clear the UI surface
+            self.ui_surface.fill((0, 0, 0, 0))
+
+            # Draw UI to the surface
+            self.ui_manager.draw_ui(self.ui_surface)
+
+            # Convert surface to texture and render via lights engine
+            tex = self.application.lights_engine.surface_to_texture(self.ui_surface)
+            self.application.lights_engine.render_texture(
+                tex,
+                pl2d.FOREGROUND,
+                pygame.Rect(0, 0, self.application.width, self.application.height),
+                pygame.Rect(0, 0, self.application.width, self.application.height)
+            )
+            tex.release()
+        else:
+            self.ui_manager.draw_ui(self.application.screen)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         """
