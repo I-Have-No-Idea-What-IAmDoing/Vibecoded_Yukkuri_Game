@@ -4,7 +4,7 @@ Module handling the game world rendering logic.
 
 import pygame
 import pygame_light2d as pl2d
-from typing import Optional
+from typing import Optional, List, Tuple
 from pygame_light2d import LightingEngine
 from ..engine.ecs import World
 from ..engine.resource_manager import ResourceManager
@@ -40,7 +40,7 @@ class WorldRenderer:
         resource_manager: ResourceManager,
         lights_engine: Optional[LightingEngine] = None,
         texture_cache_max_size: int = 500
-    ):
+    ) -> None:
         """
         Initializes the WorldRenderer.
 
@@ -81,20 +81,33 @@ class WorldRenderer:
         self.backend.draw_grid(self.camera, sw, sh)
 
         # Render entities
-        entities = world.get_entities_with(
-            Transform, Sprite, PhysicsBody, VisualTransform
+        # Use get_components_tuple for efficient retrieval of all required components
+        # (entity_id, (Transform, Sprite, VisualTransform))
+        render_data = world.get_components_tuple(
+            Transform, Sprite, VisualTransform
         )
-        # Sort by Y for depth (ground position)
-        entities.sort(key=lambda e: getattr(world.get_component(e, Transform), "y", 0))
 
-        for ent in entities:
-            self._render_entity(world, ent, alpha)
+        # Sort by Transform.y for depth (ground position).
+        # Data structure: [(entity_id, (transform, sprite, visual_transform)), ...]
+        # x[1] is the tuple of components, x[1][0] is Transform
+        render_data.sort(key=lambda x: x[1][0].y)
+
+        for ent, (transform, sprite, visual_transform) in render_data:
+            self._render_entity(
+                world, ent, transform, sprite, visual_transform, alpha
+            )
 
         # Render Floating Text
         self._render_floating_text(world, sw, sh)
 
     def _render_entity(
-        self, world: World, ent: int, alpha: float
+        self,
+        world: World,
+        ent: int,
+        transform: Transform,
+        sprite: Sprite,
+        visual_transform: VisualTransform,
+        alpha: float
     ) -> None:
         """
         Prepares and delegates entity rendering to the backend.
@@ -102,16 +115,13 @@ class WorldRenderer:
         Args:
             world (World): The ECS World.
             ent (int): Entity ID.
+            transform (Transform): The transform component.
+            sprite (Sprite): The sprite component.
+            visual_transform (VisualTransform): The visual transform component.
             alpha (float): Interpolation factor.
         """
-        transform = world.get_component(ent, Transform)
-        sprite = world.get_component(ent, Sprite)
-        visual_transform = world.get_component(ent, VisualTransform)
-        selectable = world.get_component(ent, Selectable)
-
-        if not (transform and sprite and visual_transform):
-            return
-
+        # Selectable is optional
+        selectable = world.try_get_component(ent, Selectable)
         is_selected = selectable.selected if selectable else False
 
         self.backend.draw_entity(
@@ -133,6 +143,7 @@ class WorldRenderer:
             sw (int): Screen width.
             sh (int): Screen height.
         """
+        # get_components_tuple is efficient
         for entity, (transform, text_comp) in world.get_components_tuple(
             Transform, FloatingText
         ):
