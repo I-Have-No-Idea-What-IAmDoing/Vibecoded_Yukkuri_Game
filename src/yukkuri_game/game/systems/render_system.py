@@ -4,6 +4,7 @@ Render System Module.
 
 import pygame
 from loguru import logger
+from pygame_light2d import LightingEngine
 from ...engine.ecs import System, World
 from ...engine.resource_manager import ResourceManager
 from ..camera import Camera
@@ -18,17 +19,18 @@ class RenderSystem(System):
         renderer (WorldRenderer): The world renderer.
     """
 
-    def __init__(self, screen: pygame.Surface, world: World):
+    def __init__(self, screen: pygame.Surface, world: World, lights_engine: LightingEngine = None):
         """
         Initializes the RenderSystem.
 
         Args:
             screen (pygame.Surface): The target Pygame surface.
             world (World): The ECS World instance (used to locate services).
+            lights_engine (LightingEngine): The lighting engine to use.
         """
         camera = world.services.get(Camera)
         rm = world.services.get(ResourceManager)
-        self.renderer = WorldRenderer(screen, camera, rm)
+        self.renderer = WorldRenderer(screen, camera, rm, lights_engine)
 
     @property
     def screen(self) -> pygame.Surface:

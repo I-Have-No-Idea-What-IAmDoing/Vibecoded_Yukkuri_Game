@@ -127,7 +127,11 @@ class GameplayScene(Scene):
 
     def _setup_event_handlers(self) -> None:
         if not self.application.headless:
-            self.render_system = RenderSystem(self.application.screen, self.world)
+            self.render_system = RenderSystem(
+                self.application.screen,
+                self.world,
+                lights_engine=getattr(self.application, "lights_engine", None)
+            )
             self.hud = HUD(self.ui_manager, self.world)
 
             self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
@@ -311,8 +315,30 @@ class GameplayScene(Scene):
         self.render_world()
 
         if not self.application.headless:
-            self.hud.draw(self.application.screen)
-            self.ui_manager.draw_ui(self.application.screen)
+            # HUD rendering
+            if getattr(self.application, "lights_engine", None):
+                # We need to render HUD to a surface, convert to texture, and render to FOREGROUND
+                # HUD draws to a surface passed to it.
+                hud_surface = pygame.Surface(
+                    (self.application.width, self.application.height), pygame.SRCALPHA
+                )
+                self.hud.draw(hud_surface)
+                # Also draw scene-specific UI manager
+                self.ui_manager.draw_ui(hud_surface)
+
+                import pygame_light2d as pl2d
+                tex = self.application.lights_engine.surface_to_texture(hud_surface)
+                self.application.lights_engine.render_texture(
+                    tex,
+                    pl2d.FOREGROUND,
+                    pygame.Rect(0, 0, tex.width, tex.height),
+                    pygame.Rect(0, 0, tex.width, tex.height)
+                )
+                tex.release()
+                # Global UI Manager is rendered by Application
+            else:
+                self.hud.draw(self.application.screen)
+                self.ui_manager.draw_ui(self.application.screen)
 
     def render_world(self) -> None:
         """
