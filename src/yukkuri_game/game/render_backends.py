@@ -7,18 +7,85 @@ from .camera import Camera
 from .surface_cache import SurfaceCache
 from .components import Transform, Sprite, VisualTransform, FloatingText
 
+# Constants
+GRID_SIZE = 100
+GRID_COLOR = (50, 50, 50)
+GRID_COLOR_FLOAT = (50/255, 50/255, 50/255, 1.0)
+SHADOW_COLOR = (0, 0, 0, 100)
+SELECTION_COLOR = (255, 255, 0)
+SELECTION_COLOR_FLOAT = (1.0, 1.0, 0.0, 1.0)
+SELECTION_WIDTH = 2
+SHADOW_SCALE_X = 0.4
+SHADOW_SCALE_Y = 0.5
+
+
 class RenderBackend(ABC):
     """
     Abstract base class for rendering backends.
+
+    Provides common functionality for coordinate transformation,
+    caching, and helper methods.
     """
 
     def __init__(self):
-        self.font_cache = {}
+        self.font_cache: Dict[int, pygame.font.Font] = {}
 
     def _get_font(self, size: int) -> pygame.font.Font:
+        """Retrieves a cached font object."""
         if size not in self.font_cache:
             self.font_cache[size] = pygame.font.SysFont(None, size)
         return self.font_cache[size]
+
+    def _get_interpolated_position(self, transform: Transform, alpha: float) -> Tuple[float, float]:
+        """Calculates the interpolated world position."""
+        curr_x = transform.x
+        curr_y = transform.y
+        # Transform's __post_init__ guarantees prev_x/y are set
+        prev_x = transform.prev_x
+        prev_y = transform.prev_y
+
+        interp_x = prev_x + (curr_x - prev_x) * alpha
+        interp_y = prev_y + (curr_y - prev_y) * alpha
+        return interp_x, interp_y
+
+    def _calculate_grid_bounds(self, camera: Camera, screen_w: int, screen_h: int) -> Tuple[int, int, int, int]:
+        """Calculates the grid column and row ranges visible on screen."""
+        start_x, start_y = camera.screen_to_world(0, 0, screen_w, screen_h)
+        end_x, end_y = camera.screen_to_world(screen_w, screen_h, screen_w, screen_h)
+
+        start_col = int(start_x // GRID_SIZE)
+        end_col = int(end_x // GRID_SIZE) + 1
+        start_row = int(start_y // GRID_SIZE)
+        end_row = int(end_y // GRID_SIZE) + 1
+
+        return start_col, end_col, start_row, end_row
+
+    def _create_shadow_surface_factory(self, radius_x: int, radius_y: int) -> Callable[[], pygame.Surface]:
+        """Returns a factory function for creating a shadow surface."""
+        def factory():
+            surface = pygame.Surface((radius_x * 2, radius_y * 2), pygame.SRCALPHA)
+            pygame.draw.ellipse(surface, SHADOW_COLOR, surface.get_rect())
+            return surface
+        return factory
+
+    def _calculate_shadow_properties(self, camera: Camera, sprite: Sprite, visual_transform: VisualTransform, scale: float, sw: int, sh: int) -> Optional[Tuple[int, int, float, float]]:
+        """
+        Calculates the shadow radius and screen position.
+        Returns None if shadow shouldn't be drawn.
+        """
+        shadow_radius_x = int(sprite.width * scale * SHADOW_SCALE_X)
+        shadow_radius_y = int(shadow_radius_x * SHADOW_SCALE_Y)
+
+        if shadow_radius_x <= 0 or shadow_radius_y <= 0:
+            return None
+
+        shadow_x, shadow_y = camera.world_to_screen(
+            visual_transform.shadow_position.x,
+            visual_transform.shadow_position.y,
+            sw,
+            sh,
+        )
+        return shadow_radius_x, shadow_radius_y, shadow_x, shadow_y
 
     @abstractmethod
     def clear(self):
@@ -71,37 +138,37 @@ class PygameRenderBackend(RenderBackend):
         pass
 
     def draw_grid(self, camera: Camera, screen_w: int, screen_h: int):
-        grid_size = 100
-        start_x, start_y = camera.screen_to_world(0, 0, screen_w, screen_h)
-        end_x, end_y = camera.screen_to_world(screen_w, screen_h, screen_w, screen_h)
-
-        start_col = int(start_x // grid_size)
-        end_col = int(end_x // grid_size) + 1
-        start_row = int(start_y // grid_size)
-        end_row = int(end_y // grid_size) + 1
+        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(camera, screen_w, screen_h)
 
         for col in range(start_col, end_col):
-            x = col * grid_size
+            x = col * GRID_SIZE
             sx, _ = camera.world_to_screen(x, 0, screen_w, screen_h)
-            pygame.draw.line(self.screen, (50, 50, 50), (int(sx), 0), (int(sx), screen_h))
+            pygame.draw.line(self.screen, GRID_COLOR, (int(sx), 0), (int(sx), screen_h))
 
         for row in range(start_row, end_row):
-            y = row * grid_size
+            y = row * GRID_SIZE
             _, sy = camera.world_to_screen(0, y, screen_w, screen_h)
-            pygame.draw.line(self.screen, (50, 50, 50), (0, int(sy)), (screen_w, int(sy)))
+            pygame.draw.line(self.screen, GRID_COLOR, (0, int(sy)), (screen_w, int(sy)))
 
     def _get_shadow_surface(self, radius_x: int, radius_y: int) -> pygame.Surface:
         key = (radius_x, radius_y)
         if key not in self.shadow_cache:
-            shadow_surface = pygame.Surface(
-                (radius_x * 2, radius_y * 2), pygame.SRCALPHA
-            )
-            shadow_color = (0, 0, 0, 100)
-            pygame.draw.ellipse(
-                shadow_surface, shadow_color, shadow_surface.get_rect()
-            )
-            self.shadow_cache[key] = shadow_surface
+            self.shadow_cache[key] = self._create_shadow_surface_factory(radius_x, radius_y)()
         return self.shadow_cache[key]
+
+    def _draw_shadow(self, camera: Camera, sprite: Sprite, visual_transform: VisualTransform, scale: float, sw: int, sh: int):
+        shadow_props = self._calculate_shadow_properties(camera, sprite, visual_transform, scale, sw, sh)
+        if not shadow_props:
+            return
+
+        shadow_radius_x, shadow_radius_y, shadow_x, shadow_y = shadow_props
+
+        shadow_surface = self._get_shadow_surface(shadow_radius_x, shadow_radius_y)
+
+        self.screen.blit(
+            shadow_surface,
+            (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y),
+        )
 
     def draw_entity(
         self,
@@ -113,19 +180,11 @@ class PygameRenderBackend(RenderBackend):
         is_selected: bool,
         alpha: float
     ):
-        # Interpolation
-        curr_x = transform.x
-        curr_y = transform.y
-        prev_x = getattr(transform, "prev_x", curr_x)
-        prev_y = getattr(transform, "prev_y", curr_y)
-
-        interp_x = prev_x + (curr_x - prev_x) * alpha
-        interp_y = prev_y + (curr_y - prev_y) * alpha
-
+        interp_x, interp_y = self._get_interpolated_position(transform, alpha)
         sw, sh = self.screen.get_size()
         scale = transform.scale * camera.zoom
 
-        # Sprite
+        # Get Sprite Surface
         scaled_img = surface_cache.get_surface(
             sprite.image_name,
             sprite.current_frame,
@@ -138,39 +197,24 @@ class PygameRenderBackend(RenderBackend):
             sprite.flip_y
         )
 
-        if scaled_img:
-            base_screen_x, base_screen_y = camera.world_to_screen(
-                interp_x, interp_y, sw, sh
-            )
-            screen_y = base_screen_y - (visual_transform.vertical_offset * camera.zoom)
+        if not scaled_img:
+            return
 
-            rect = scaled_img.get_rect()
-            rect.center = (int(base_screen_x), int(screen_y))
+        base_screen_x, base_screen_y = camera.world_to_screen(
+            interp_x, interp_y, sw, sh
+        )
+        screen_y = base_screen_y - (visual_transform.vertical_offset * camera.zoom)
 
-            if rect.colliderect(self.screen.get_rect()):
-                # Shadow
-                shadow_radius_x = int(sprite.width * scale * 0.4)
-                shadow_radius_y = int(shadow_radius_x * 0.5)
+        rect = scaled_img.get_rect()
+        rect.center = (int(base_screen_x), int(screen_y))
 
-                if shadow_radius_x > 0 and shadow_radius_y > 0:
-                    shadow_x, shadow_y = camera.world_to_screen(
-                        visual_transform.shadow_position.x,
-                        visual_transform.shadow_position.y,
-                        sw,
-                        sh,
-                    )
+        # Check visibility
+        if rect.colliderect(self.screen.get_rect()):
+            self._draw_shadow(camera, sprite, visual_transform, scale, sw, sh)
+            self.screen.blit(scaled_img, rect)
 
-                    shadow_surface = self._get_shadow_surface(shadow_radius_x, shadow_radius_y)
-
-                    self.screen.blit(
-                        shadow_surface,
-                        (shadow_x - shadow_radius_x, shadow_y - shadow_radius_y),
-                    )
-
-                self.screen.blit(scaled_img, rect)
-
-                if is_selected:
-                    pygame.draw.rect(self.screen, (255, 255, 0), rect, 2)
+            if is_selected:
+                pygame.draw.rect(self.screen, SELECTION_COLOR, rect, SELECTION_WIDTH)
 
     def draw_floating_text(
         self,
@@ -228,35 +272,46 @@ class Light2DRenderBackend(RenderBackend):
         return tex
 
     def draw_grid(self, camera: Camera, screen_w: int, screen_h: int):
-        grid_size = 100
-        start_x, start_y = camera.screen_to_world(0, 0, screen_w, screen_h)
-        end_x, end_y = camera.screen_to_world(screen_w, screen_h, screen_w, screen_h)
-
-        start_col = int(start_x // grid_size)
-        end_col = int(end_x // grid_size) + 1
-        start_row = int(start_y // grid_size)
-        end_row = int(end_y // grid_size) + 1
+        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(camera, screen_w, screen_h)
 
         bg_layer = self.lights_engine._get_layer(pl2d.BACKGROUND)
         vertices = []
 
         for col in range(start_col, end_col):
-            x = col * grid_size
+            x = col * GRID_SIZE
             sx, _ = camera.world_to_screen(x, 0, screen_w, screen_h)
             vertices.extend([(sx, 0), (sx, screen_h)])
 
         for row in range(start_row, end_row):
-            y = row * grid_size
+            y = row * GRID_SIZE
             _, sy = camera.world_to_screen(0, y, screen_w, screen_h)
             vertices.extend([(0, sy), (screen_w, sy)])
 
         if vertices:
-            color = (50/255, 50/255, 50/255, 1.0)
             self.lights_engine.graphics.render_lines(
                 bg_layer,
-                color,
+                GRID_COLOR_FLOAT,
                 vertices,
                 antialias=False
+            )
+
+    def _draw_shadow(self, camera: Camera, sprite: Sprite, visual_transform: VisualTransform, scale: float, sw: int, sh: int):
+        shadow_props = self._calculate_shadow_properties(camera, sprite, visual_transform, scale, sw, sh)
+        if not shadow_props:
+            return
+
+        shadow_radius_x, shadow_radius_y, shadow_x, shadow_y = shadow_props
+
+        shadow_key = ("shadow", shadow_radius_x, shadow_radius_y)
+        shadow_gen = self._create_shadow_surface_factory(shadow_radius_x, shadow_radius_y)
+
+        shadow_tex = self._get_cached_texture(shadow_key, shadow_gen)
+        if shadow_tex:
+            self.lights_engine.render_texture(
+                shadow_tex,
+                pl2d.BACKGROUND,
+                pygame.Rect(shadow_x - shadow_radius_x, shadow_y - shadow_radius_y, shadow_radius_x * 2, shadow_radius_y * 2),
+                pygame.Rect(0, 0, shadow_radius_x * 2, shadow_radius_y * 2)
             )
 
     def draw_entity(
@@ -269,14 +324,7 @@ class Light2DRenderBackend(RenderBackend):
         is_selected: bool,
         alpha: float
     ):
-        curr_x = transform.x
-        curr_y = transform.y
-        prev_x = getattr(transform, "prev_x", curr_x)
-        prev_y = getattr(transform, "prev_y", curr_y)
-
-        interp_x = prev_x + (curr_x - prev_x) * alpha
-        interp_y = prev_y + (curr_y - prev_y) * alpha
-
+        interp_x, interp_y = self._get_interpolated_position(transform, alpha)
         sw, sh = self.screen.get_size()
         scale = transform.scale * camera.zoom
 
@@ -320,35 +368,7 @@ class Light2DRenderBackend(RenderBackend):
 
         # Culling
         if rect.colliderect(self.screen.get_rect()):
-            # Shadow
-            shadow_radius_x = int(sprite.width * scale * 0.4)
-            shadow_radius_y = int(shadow_radius_x * 0.5)
-
-            if shadow_radius_x > 0 and shadow_radius_y > 0:
-                shadow_x, shadow_y = camera.world_to_screen(
-                    visual_transform.shadow_position.x,
-                    visual_transform.shadow_position.y,
-                    sw,
-                    sh,
-                )
-                shadow_key = ("shadow", shadow_radius_x, shadow_radius_y)
-
-                def shadow_gen():
-                    surf = pygame.Surface(
-                        (shadow_radius_x * 2, shadow_radius_y * 2), pygame.SRCALPHA
-                    )
-                    shadow_color = (0, 0, 0, 100)
-                    pygame.draw.ellipse(surf, shadow_color, surf.get_rect())
-                    return surf
-
-                shadow_tex = self._get_cached_texture(shadow_key, shadow_gen)
-                if shadow_tex:
-                    self.lights_engine.render_texture(
-                        shadow_tex,
-                        pl2d.BACKGROUND,
-                        pygame.Rect(shadow_x - shadow_radius_x, shadow_y - shadow_radius_y, shadow_radius_x * 2, shadow_radius_y * 2),
-                        pygame.Rect(0, 0, shadow_radius_x * 2, shadow_radius_y * 2)
-                    )
+            self._draw_shadow(camera, sprite, visual_transform, scale, sw, sh)
 
             # Draw Sprite
             self.lights_engine.render_texture(
@@ -361,10 +381,9 @@ class Light2DRenderBackend(RenderBackend):
             # Selection
             if is_selected:
                 bg_layer = self.lights_engine._get_layer(pl2d.BACKGROUND)
-                color = (1.0, 1.0, 0.0, 1.0)
                 self.lights_engine.graphics.render_rectangle(
                     bg_layer,
-                    color,
+                    SELECTION_COLOR_FLOAT,
                     rect.center,
                     rect.width,
                     rect.height,
