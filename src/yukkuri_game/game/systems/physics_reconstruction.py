@@ -61,7 +61,7 @@ def reconstruct_physics(world: World) -> None:
             collision_mask=CollisionCategories.ALL,
             elasticity=0.2,
             friction=0.8,
-            body_type=pymunk.Body.KINEMATIC,
+            body_type=pymunk.Body.DYNAMIC,
         )
 
     # Reconstruct Items
@@ -93,5 +93,5 @@ def reconstruct_physics(world: World) -> None:
             | CollisionCategories.ITEM,
             elasticity=0.5,
             friction=0.5,
-            body_type=pymunk.Body.KINEMATIC,
+            body_type=pymunk.Body.DYNAMIC,
         )
