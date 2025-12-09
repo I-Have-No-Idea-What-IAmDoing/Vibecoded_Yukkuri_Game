@@ -81,30 +81,33 @@ class WorldRenderer:
         self.backend.draw_grid(self.camera, sw, sh)
 
         # Render entities
-        # Filter entities that have at least Transform and Sprite.
-        # We relaxed the PhysicsBody requirement if it's not strictly needed for rendering.
-        entities: List[int] = world.get_entities_with(
+        # Use get_components_tuple for efficient retrieval of all required components
+        # (entity_id, (Transform, Sprite, VisualTransform))
+        render_data = world.get_components_tuple(
             Transform, Sprite, VisualTransform
         )
 
-        # Sort by Y for depth (ground position).
-        # Pre-fetching transforms for sorting efficiency.
-        entity_depths = []
-        for ent in entities:
-             transform = world.get_component(ent, Transform)
-             if transform:
-                 entity_depths.append((ent, transform.y))
+        # Sort by Transform.y for depth (ground position).
+        # Data structure: [(entity_id, (transform, sprite, visual_transform)), ...]
+        # x[1] is the tuple of components, x[1][0] is Transform
+        render_data.sort(key=lambda x: x[1][0].y)
 
-        entity_depths.sort(key=lambda x: x[1])
-
-        for ent, _ in entity_depths:
-            self._render_entity(world, ent, alpha)
+        for ent, (transform, sprite, visual_transform) in render_data:
+            self._render_entity(
+                world, ent, transform, sprite, visual_transform, alpha
+            )
 
         # Render Floating Text
         self._render_floating_text(world, sw, sh)
 
     def _render_entity(
-        self, world: World, ent: int, alpha: float
+        self,
+        world: World,
+        ent: int,
+        transform: Transform,
+        sprite: Sprite,
+        visual_transform: VisualTransform,
+        alpha: float
     ) -> None:
         """
         Prepares and delegates entity rendering to the backend.
@@ -112,16 +115,13 @@ class WorldRenderer:
         Args:
             world (World): The ECS World.
             ent (int): Entity ID.
+            transform (Transform): The transform component.
+            sprite (Sprite): The sprite component.
+            visual_transform (VisualTransform): The visual transform component.
             alpha (float): Interpolation factor.
         """
-        transform = world.get_component(ent, Transform)
-        sprite = world.get_component(ent, Sprite)
-        visual_transform = world.get_component(ent, VisualTransform)
-        selectable = world.get_component(ent, Selectable)
-
-        if not (transform and sprite and visual_transform):
-            return
-
+        # Selectable is optional
+        selectable = world.try_get_component(ent, Selectable)
         is_selected = selectable.selected if selectable else False
 
         self.backend.draw_entity(
