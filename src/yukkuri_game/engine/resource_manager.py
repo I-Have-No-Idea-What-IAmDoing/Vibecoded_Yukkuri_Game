@@ -48,13 +48,14 @@ class ResourceManager:
         interactions (Dict[str, InteractionDefinition]): Loaded interaction definitions.
     """
 
-    def __init__(self, data_dir: str = "data", assets_dir: str = "assets"):
+    def __init__(self, data_dir: str = "data", assets_dir: str = "assets", image_cache_limit: int = 100):
         """
         Initializes the ResourceManager.
 
         Args:
             data_dir (str): The directory path for data files. Defaults to "data".
             assets_dir (str): The directory path for asset files. Defaults to "assets".
+            image_cache_limit (int): The maximum number of images to keep in memory. Defaults to 100.
         """
         self.data_dir = data_dir
         self.assets_dir = assets_dir
@@ -73,7 +74,7 @@ class ResourceManager:
         self.interactions: Dict[str, InteractionDefinition] = {}
 
         # Max number of images to keep in memory (usually base images are few, but good to have a limit)
-        self.image_cache_limit = 100
+        self.image_cache_limit = image_cache_limit
 
     def load_toml_model(self, filepath: str, model: Type[T]) -> Optional[T]:
         """

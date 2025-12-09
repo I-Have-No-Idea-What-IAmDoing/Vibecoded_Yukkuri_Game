@@ -38,6 +38,7 @@ class WorldRenderer:
         camera: Camera,
         resource_manager: ResourceManager,
         lights_engine: LightingEngine = None,
+        texture_cache_max_size: int = 500
     ):
         """
         Initializes the WorldRenderer.
@@ -47,6 +48,7 @@ class WorldRenderer:
             camera (Camera): The world view manager.
             resource_manager (ResourceManager): The resource manager.
             lights_engine (LightingEngine): The lighting engine instance.
+            texture_cache_max_size (int): The maximum number of textures to keep in memory. Defaults to 500.
         """
         self.screen = screen
         self.camera = camera
@@ -56,7 +58,7 @@ class WorldRenderer:
         # Key: (image_name, frame, round(scale, 3), round(rotation, 1), flip_x, flip_y)
         # Or specialized keys for shadows/selection
         self.texture_cache: OrderedDict[tuple, "pl2d.Texture"] = OrderedDict()
-        self.texture_cache_max_size = 500
+        self.texture_cache_max_size = texture_cache_max_size
 
         # Initialize Surface Cache
         self.surface_cache = SurfaceCache(self.rm)

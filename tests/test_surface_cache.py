@@ -52,7 +52,7 @@ def test_surface_cache_returns_cached_surface(mock_resource_manager):
     assert surface1 is surface2
     assert len(cache._cache) == 1
     # load_image should be called at least once (implementation detail: it is called inside _create_surface)
-    mock_resource_manager.load_image.assert_called()
+    mock_resource_manager.load_image.assert_called_once()
 
 def test_surface_cache_eviction(mock_resource_manager):
     max_size = 2
