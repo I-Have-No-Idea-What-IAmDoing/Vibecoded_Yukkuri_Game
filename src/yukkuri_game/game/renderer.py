@@ -218,10 +218,51 @@ class WorldRenderer:
             sh,
         )
 
-        # Helper to prepare surface
-        scaled_img, scale = self._prepare_entity_surface(sprite, transform, sprite.image_name)
-        if scaled_img is None:
-            return
+        # Helper to prepare surface (Used only if needed for fallback or size calc)
+        # For lights_engine, we want to check cache first.
+
+        scale = transform.scale * self.camera.zoom
+
+        # We need width/height to calculate rect for culling and positioning.
+        # But we don't want to prepare the surface yet if we have it cached.
+        # We can estimate width/height from sprite data + scale.
+
+        # Basic dimensions calculation (approximate if rotated, but consistent with original logic)
+        # Original logic: scaled_img = scale(rotate(flip(subsurface(img))))
+        # Rotation changes dimensions.
+        # If we want exact dimensions without generating surface, we need math.
+        # Or we can just cache the dimensions too?
+
+        # Key: (image_name, frame, scale, rotation, flip_x, flip_y)
+        sprite_key = (
+            sprite.image_name,
+            sprite.current_frame,
+            round(scale, 3),
+            round(transform.rotation, 1),
+            sprite.flip_x,
+            sprite.flip_y
+        )
+
+        tex = None
+        scaled_img = None
+
+        if self.lights_engine:
+             if sprite_key in self.texture_cache:
+                 tex = self.texture_cache[sprite_key]
+                 # We can get size from texture
+                 tex_w, tex_h = tex.width, tex.height
+             else:
+                 # Not in cache, we must prepare surface
+                 scaled_img, _ = self._prepare_entity_surface(sprite, transform, sprite.image_name)
+                 if scaled_img is None:
+                     return
+                 tex_w, tex_h = scaled_img.get_size()
+        else:
+            # Fallback always needs surface
+            scaled_img, _ = self._prepare_entity_surface(sprite, transform, sprite.image_name)
+            if scaled_img is None:
+                return
+            tex_w, tex_h = scaled_img.get_size()
 
         shadow_radius_x = int(sprite.width * scale * 0.4)
         shadow_radius_y = int(shadow_radius_x * 0.5)
@@ -233,8 +274,9 @@ class WorldRenderer:
 
         screen_y = base_screen_y - (visual_transform.vertical_offset * self.camera.zoom)
 
-        # Center the sprite
-        rect = scaled_img.get_rect(center=(int(base_screen_x), int(screen_y)))
+        # Center the sprite (using tex dimensions or surface dimensions)
+        rect = pygame.Rect(0, 0, tex_w, tex_h)
+        rect.center = (int(base_screen_x), int(screen_y))
 
         # Culling
         if rect.colliderect(self.screen.get_rect()):
@@ -260,61 +302,35 @@ class WorldRenderer:
                         pygame.Rect(shadow_x - shadow_radius_x, shadow_y - shadow_radius_y, shadow_radius_x * 2, shadow_radius_y * 2),
                         pygame.Rect(0, 0, shadow_radius_x * 2, shadow_radius_y * 2)
                     )
-                    # Do not release cached texture
 
                 # Main Sprite
-                # Key: (image_name, frame, scale, rotation, flip_x, flip_y)
-                sprite_key = (
-                    sprite.image_name,
-                    sprite.current_frame,
-                    round(scale, 3),
-                    round(transform.rotation, 1),
-                    sprite.flip_x,
-                    sprite.flip_y
-                )
+                if tex is None:
+                    # We have scaled_img from earlier
+                    def sprite_gen():
+                        return scaled_img
+                    tex = self._get_cached_texture(sprite_key, sprite_gen)
 
-                # We already have scaled_img from _prepare_entity_surface, but for caching logic
-                # we need to be able to recreate it if not in cache.
-                # However, we already computed it efficiently in _prepare_entity_surface.
-                # To integrate with _get_cached_texture, we should check cache first.
-                # But _prepare_entity_surface does the work unconditionally.
-                # Refactoring slightly to optimize: we should check cache before doing heavy lifting.
-                # But _prepare_entity_surface returns the surface, which we need to upload.
-                # If we want to use the cache, we should use the surface we just created as the generator result.
-                # But that means we created the surface anyway.
-                # The bottleneck is texture upload, so caching texture is still valuable even if surface is recreated.
-                # But ideally we cache the surface transformation too?
-                # Pygame blits are fast. Texture upload is slow.
-                # So caching the texture is the main win.
-
-                def sprite_gen():
-                    return scaled_img
-
-                tex = self._get_cached_texture(sprite_key, sprite_gen)
                 self.lights_engine.render_texture(
                     tex,
                     pl2d.BACKGROUND,
                     rect,
                     pygame.Rect(0, 0, tex.width, tex.height)
                 )
-                # Do not release cached texture
 
                 # Selection highlight
                 selectable = world.get_component(ent, Selectable)
                 if selectable and selectable.selected:
-                    sel_key = ("selection", rect.width, rect.height)
-
-                    def sel_gen():
-                        surf = pygame.Surface(rect.size, pygame.SRCALPHA)
-                        pygame.draw.rect(surf, (255, 255, 0), surf.get_rect(), 2)
-                        return surf
-
-                    sel_tex = self._get_cached_texture(sel_key, sel_gen)
-                    self.lights_engine.render_texture(
-                        sel_tex,
-                        pl2d.BACKGROUND,
-                        rect,
-                        pygame.Rect(0, 0, sel_tex.width, sel_tex.height)
+                    bg_layer = self.lights_engine._get_layer(pl2d.BACKGROUND)
+                    # Yellow color (255, 255, 0) -> (1.0, 1.0, 0.0)
+                    color = (1.0, 1.0, 0.0, 1.0)
+                    self.lights_engine.graphics.render_rectangle(
+                        bg_layer,
+                        color,
+                        rect.center,
+                        rect.width,
+                        rect.height,
+                        angle=0, # Rotation already applied to texture/rect dimensions usually, but rect is axis aligned here
+                        antialias=False
                     )
             else:
                 # Fallback rendering
@@ -404,29 +420,45 @@ class WorldRenderer:
         end_row = int(end_y // grid_size) + 1
 
         if self.lights_engine:
-            # We can draw lines to a surface and render that surface.
-            # Or use primitives if we had access.
-            # Using surface for simplicity and robustness.
-            grid_surf = pygame.Surface((sw, sh), pygame.SRCALPHA)
+            # Use primitives rendering from pygame-render via lights_engine.graphics
+            # We need to access the BACKGROUND layer.
+            # Note: pygame-light2d BACKGROUND is an enum, we need the layer object.
+            # Accessing private _get_layer for now or assuming we can pass the enum if supported.
+            # But render_lines takes a Layer object.
+            # Using _get_layer since it returns the layer object for the enum.
+            bg_layer = self.lights_engine._get_layer(pl2d.BACKGROUND)
 
+            # Prepare vertices for lines
+            vertices = []
+
+            # Vertical lines
             for col in range(start_col, end_col):
                 x = col * grid_size
                 sx, _ = self.camera.world_to_screen(x, 0, sw, sh)
-                pygame.draw.line(grid_surf, (50, 50, 50), (int(sx), 0), (int(sx), sh))
+                # render_lines expects list of tuples
+                vertices.extend([(sx, 0), (sx, sh)])
 
+            # Horizontal lines
             for row in range(start_row, end_row):
                 y = row * grid_size
                 _, sy = self.camera.world_to_screen(0, y, sw, sh)
-                pygame.draw.line(grid_surf, (50, 50, 50), (0, int(sy)), (sw, int(sy)))
+                vertices.extend([(0, sy), (sw, sy)])
 
-            tex = self.lights_engine.surface_to_texture(grid_surf)
-            self.lights_engine.render_texture(
-                tex,
-                pl2d.BACKGROUND,
-                pygame.Rect(0, 0, sw, sh),
-                pygame.Rect(0, 0, sw, sh)
-            )
-            tex.release()
+            if vertices:
+                # Color (50, 50, 50) normalized to 0-1 range
+                color = (50/255, 50/255, 50/255, 1.0)
+                # render_lines draws connected lines if strip=False (default is False? No, default strip=False usually means separate lines?
+                # Let's check docs again: render_lines(..., strip=False)
+                # If strip=False, it draws GL_LINES (pairs of vertices).
+                # If strip=True, it draws GL_LINE_STRIP.
+                # We have pairs, so strip=False is correct.
+                self.lights_engine.graphics.render_lines(
+                    bg_layer,
+                    color,
+                    vertices,
+                    antialias=False
+                )
+
         else:
             for col in range(start_col, end_col):
                 x = col * grid_size
