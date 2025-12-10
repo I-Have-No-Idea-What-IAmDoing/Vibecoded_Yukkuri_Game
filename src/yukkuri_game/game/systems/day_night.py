@@ -66,10 +66,10 @@ https://github.com/I-Have-No-Idea-What-IAmDoing/Vibecoded_Yukkuri_Game/pull/360/
 
         # Simple mapping: TimeService.time_elapsed is total seconds.
 
-        elapsed = self.time_service.time_elapsed
-        day_progress = (elapsed % self.GAME_DAY_LENGTH) / self.GAME_DAY_LENGTH
-        time_of_day = day_progress * 24.0
+        # We use TimeService centralized logic now, but checking against local GAME_DAY_LENGTH if consistent
+        # Actually better to use TimeService.time_of_day
 
+        time_of_day = self.time_service.time_of_day
         color = self._get_ambient_color(time_of_day)
 
         # Update renderer

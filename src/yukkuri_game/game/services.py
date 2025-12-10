@@ -156,6 +156,8 @@ class TimeService:
         _time_elapsed (float): The total elapsed game time in seconds.
     """
 
+    GAME_DAY_LENGTH: float = 600.0
+
     def __init__(self, time_elapsed: float = 0.0) -> None:
         """Initializes the TimeService."""
         self._time_elapsed = time_elapsed
@@ -177,6 +179,22 @@ class TimeService:
             dt (float): The time delta to add.
         """
         self._time_elapsed += dt
+
+    @property
+    def time_of_day(self) -> float:
+        """
+        Returns the time of day in hours (0.0 to 24.0).
+        """
+        day_progress = (self._time_elapsed % self.GAME_DAY_LENGTH) / self.GAME_DAY_LENGTH
+        return day_progress * 24.0
+
+    @property
+    def is_night(self) -> bool:
+        """
+        Returns True if it is currently night time (roughly 20:00 to 06:00).
+        """
+        t = self.time_of_day
+        return t > 20.0 or t < 6.0
 
 
 class EconomyService:
