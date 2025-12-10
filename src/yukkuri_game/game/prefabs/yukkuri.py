@@ -199,7 +199,7 @@ def create_yukkuri(
     if trait_service:
         for trait_id in traits:
             t_data = trait_service.get_trait(trait_id)
-            if t_data:
+            if t_data and t_data.axis_shift:
                 shifts = t_data.axis_shift
                 axis.kindness += shifts.get("kindness", 0)
                 axis.energy += shifts.get("energy", 0)

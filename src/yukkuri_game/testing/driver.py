@@ -376,7 +376,9 @@ class GameDriver:
         except Exception as e:
             self.save_screenshot(f"screenshots/failure_{self.frame_count}.png")
             # Dump logs/events
-            with open(f"screenshots/failure_{self.frame_count}.log", "w") as f:
+            log_filename = f"screenshots/failure_{self.frame_count}.log"
+            os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+            with open(log_filename, "w") as f:
                 f.write(f"Exception: {e}\n")
                 f.write("Last 100 Events:\n")
                 for evt in self.event_history:

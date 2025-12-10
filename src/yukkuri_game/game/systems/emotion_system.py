@@ -99,7 +99,7 @@ class EmotionSystem(System):
             if self.trait_service and personality:
                 for trait_id in personality.traits:
                     trait_data = self.trait_service.get_trait(trait_id)
-                    if trait_data:
+                    if trait_data and trait_data.stat_modifiers:
                         mods = trait_data.stat_modifiers
                         mult_hunger *= mods.get("hunger_decay", 1.0)
                         mult_energy *= mods.get("energy_decay", 1.0)

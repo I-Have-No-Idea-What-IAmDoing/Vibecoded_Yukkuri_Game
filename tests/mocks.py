@@ -35,5 +35,5 @@ class MockAudioManager:
     def set_volume(self, volume: float) -> None:
         self.master_volume = volume
 
-    def reset_mocks(self):
+    def reset_mocks(self) -> None:
         self.played_sounds.clear()

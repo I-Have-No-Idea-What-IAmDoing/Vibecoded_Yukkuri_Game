@@ -277,7 +277,7 @@ class UtilityAIEngine:
             # Fallback if no cache (should generally be cached by selector)
             for trait_id in personality.traits:
                 trait_data = trait_service.get_trait(trait_id)
-                if trait_data:
+                if trait_data and trait_data.ai_modifiers:
                     # Merge modifiers. If multiple traits modify the same consideration, last one wins (simple approach)
                     # Or we could average/multiply them. For now, last one wins.
                     for cons_name, mod in trait_data.ai_modifiers.items():
