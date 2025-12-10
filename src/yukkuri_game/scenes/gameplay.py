@@ -119,6 +119,9 @@ class GameplayScene(Scene):
             self.camera.camera_x = float(start_x)
             self.camera.camera_y = float(start_y)
 
+        # Note: Headless mode intentionally does not auto-populate entities,
+        # allowing tests to configure the initial state explicitly.
+
     def _apply_initial_settings(self) -> None:
         audio_settings = self.settings_service.settings.audio
         self.audio.set_master_volume(audio_settings.master_volume)
@@ -402,6 +405,9 @@ class GameplayScene(Scene):
         """
         Initializes the render system in headless mode for screenshots/verification.
         """
+        # Always re-initialize or create if missing to ensure fresh state for screenshot
+        # But we must be careful not to destroy existing state if it's fine.
+        # Actually, RenderSystem is stateless except for screen reference.
         if not hasattr(self, "render_system") or self.render_system is None:
             self.render_system = RenderSystem(
                 self.application.screen,
