@@ -210,6 +210,14 @@ class Application:
             self.lights_engine.render()
             pygame.display.flip()
 
+    def init_render_system_headless(self) -> None:
+        """
+        Initializes the render system for the current scene if in headless mode.
+        This allows taking screenshots or verifying rendering logic without a window.
+        """
+        if self.scene_manager.current_scene and hasattr(self.scene_manager.current_scene, "init_render_system_headless"):
+            self.scene_manager.current_scene.init_render_system_headless()
+
     def quit(self) -> None:
         """
         Stops the application.

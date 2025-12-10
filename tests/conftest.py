@@ -37,7 +37,8 @@ def game_driver() -> GameDriver:
         # by the driver.
 
         driver = GameDriver(game)
-        driver.seed_rng(42)  # Default deterministic seed
+        # Ensure the driver is set up (this pushes the initial scene)
+        driver.setup()
         yield driver
 
         # Cleanup
