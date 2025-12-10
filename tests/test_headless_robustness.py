@@ -24,7 +24,7 @@ def driver(headless_app):
     driver.setup()
     return driver
 
-def test_rendering_verification(driver):
+def test_rendering_verification(driver, tmp_path):
     """
     Verifies that rendering logic works and produces non-empty output.
     """
@@ -37,9 +37,7 @@ def test_rendering_verification(driver):
     # Advance a few frames to let systems update
     driver.run_for(0.5)
 
-    screenshot_path = "screenshots/test_render.png"
-    if os.path.exists(screenshot_path):
-        os.remove(screenshot_path)
+    screenshot_path = str(tmp_path / "test_render.png")
 
     driver.save_screenshot(screenshot_path)
 
@@ -66,9 +64,6 @@ def test_rendering_verification(driver):
         if has_content: break
 
     assert has_content, "Screenshot appears to be empty/black where entity should be."
-
-    if os.path.exists(screenshot_path):
-        os.remove(screenshot_path)
 
 def test_input_injection(driver):
     """
