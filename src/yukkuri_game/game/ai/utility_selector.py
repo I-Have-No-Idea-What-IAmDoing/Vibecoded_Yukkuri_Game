@@ -19,6 +19,7 @@ from ..yukkuri_components import (
 )
 from ..components import Transform
 from ..trait_service import TraitService
+from ..services import TimeService
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
@@ -105,6 +106,8 @@ class UtilitySelector(Action):
         if not self.trait_service:
             self.trait_service = self.world.services.try_get(TraitService)
 
+        time_service = self.world.services.try_get(TimeService)
+
         stats = self.world.get_component(self.entity_id, YukkuriStats)
         needs = self.world.get_component(self.entity_id, Needs)
         personality = self.world.get_component(self.entity_id, Personality)
@@ -159,6 +162,14 @@ class UtilitySelector(Action):
             happiness = (emotional.happiness + 100.0) / 2.0
             stress = emotional.stress
 
+        # Time of Day (0.0 to 24.0)
+        time_of_day = 12.0
+        is_night = 0.0
+        if time_service:
+            time_of_day = time_service.time_of_day
+            if time_service.is_night:
+                is_night = 1.0
+
         context = {
             "hunger": needs.hunger,
             "hunger_inv": 100.0 - needs.hunger,  # Inverse hunger (Satiety)
@@ -174,6 +185,8 @@ class UtilitySelector(Action):
             "easiness": needs.easiness,  # Added Easiness
             "nearby_friends": float(nearby_friends),
             "nearby_enemies": float(nearby_enemies),
+            "time_of_day": time_of_day,
+            "is_night": is_night,
             "constant_100": 100.0,
             "constant_0": 0.0,
         }
