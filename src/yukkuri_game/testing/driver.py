@@ -5,9 +5,11 @@ Game Driver for automated testing.
 import random
 import pygame
 import os
-from typing import Generator, Any, Callable, List, Optional
+from typing import Generator, Any, Callable, List, Optional, Type
 from dataclasses import dataclass
+from collections import deque
 from ..engine.application import Application
+from ..engine.event_bus import Event
 
 # --- Predicates & Commands ---
 
@@ -62,6 +64,20 @@ class Screenshot:
     """
 
     filename: str
+
+
+@dataclass
+class WaitUntilScene:
+    """
+    Command to wait until the current scene is of a specific type.
+
+    Attributes:
+        scene_type (Type): The expected scene class.
+        timeout (float): Max wait time in seconds. Defaults to 10.0.
+    """
+
+    scene_type: Type
+    timeout: float = 10.0
 
 
 # --- Input Helpers ---
@@ -131,6 +147,7 @@ class GameDriver:
         self.simulated_time = 0.0
         self.frame_count = 0
         self._scenario_deadline: Optional[float] = None
+        self.event_history: deque = deque(maxlen=100)
 
     def seed_rng(self, seed: int = 42) -> None:
         """
@@ -155,6 +172,19 @@ class GameDriver:
         self.seed_rng()
         if hasattr(self.game, "set_headless") and not self.game.headless:
             self.game.set_headless(True)
+
+        # Hook event bus for logging
+        if isinstance(self.game, Application) and hasattr(self.game, "event_manager"):
+            # We want to intercept events to store them in history
+            # but we can't easily replace the method on the instance if it's bound.
+            # Actually we can replace the instance method.
+            original_publish = self.game.event_manager.bus.publish
+
+            def intercepted_publish(event: Event) -> None:
+                self.event_history.append(event)
+                original_publish(event)
+
+            self.game.event_manager.bus.publish = intercepted_publish
 
         # Application initializes on creation. Ensure GameplayScene is active.
         if isinstance(self.game, Application):
@@ -254,6 +284,52 @@ class GameDriver:
         """Cleans up the game instance."""
         self.game.quit()
 
+    def wait_until_scene(self, scene_type: Type, timeout: float = 10.0) -> None:
+        """
+        Waits until the current scene is of the specified type.
+
+        Args:
+            scene_type (Type): The expected scene class.
+            timeout (float): Max wait time in seconds.
+        """
+
+        def predicate() -> bool:
+            if isinstance(self.game, Application):
+                return isinstance(self.game.scene_manager.current_scene, scene_type)
+            return False
+
+        self._wait_until(
+            WaitUntil(predicate, timeout, f"Scene is {scene_type.__name__}")
+        )
+
+    def get_entities_with(self, *components: Type) -> List[int]:
+        """
+        Returns a list of entity IDs that have all specified components.
+
+        Args:
+            *components (Type): Component classes.
+
+        Returns:
+            List[int]: List of entity IDs.
+        """
+        if self.world:
+            return self.world.get_entities_with(*components)
+        return []
+
+    def assert_entity_count(self, count: int, *components: Type) -> None:
+        """
+        Asserts that a specific number of entities exist with the given components.
+
+        Args:
+            count (int): Expected number of entities.
+            *components (Type): Component classes.
+        """
+        entities = self.get_entities_with(*components)
+        assert len(entities) == count, (
+            f"Expected {count} entities with components {components}, "
+            f"but found {len(entities)}: {entities}"
+        )
+
     def run_scenario(
         self, scenario_gen: Generator[Any, None, None], timeout: float = 10.0
     ) -> None:
@@ -291,24 +367,44 @@ class GameDriver:
                         pygame.event.post(event)
                 elif isinstance(step, Screenshot):
                     self.save_screenshot(step.filename)
+                elif isinstance(step, WaitUntilScene):
+                    self.wait_until_scene(step.scene_type, step.timeout)
                 elif callable(step):
                     step()
                 else:
                     pass
         except Exception as e:
             self.save_screenshot(f"screenshots/failure_{self.frame_count}.png")
+            # Dump logs/events
+            log_filename = f"screenshots/failure_{self.frame_count}.log"
+            os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+            with open(log_filename, "w") as f:
+                f.write(f"Exception: {e}\n")
+                f.write("Last 100 Events:\n")
+                for evt in self.event_history:
+                    f.write(f"{evt}\n")
             raise e
         finally:
             self._scenario_deadline = None
 
     def _tick(self) -> None:
         """Advances the game by one fixed time step."""
+        # 0. Check if game is running
+        if hasattr(self.game, "running") and not self.game.running:
+            return
+
         # 1. Handle Events
-        # Check if handle_events exists on self.game (GameLoop method)
+        # Check if handle_events or process_events exists on self.game
         if hasattr(self.game, "handle_events"):
             self.game.handle_events()
+        elif hasattr(self.game, "process_events"):
+            self.game.process_events()
         else:
             pygame.event.pump()
+
+        # Check again if game stopped running after event processing
+        if hasattr(self.game, "running") and not self.game.running:
+            return
 
         # 2. Update Game State
         if hasattr(self.game, "update"):
