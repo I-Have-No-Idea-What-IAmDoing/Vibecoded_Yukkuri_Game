@@ -1,0 +1,73 @@
+[traits.GESU]
+name = "Gesu"
+description = "Selfish and cruel. Gains happiness from others' suffering."
+conflicts = ["NICE"]
+axis_shift = { kindness = -50, greed = 50 }
+
+[traits.GESU.stat_modifiers]
+happiness_decay = 1.2
+stress_decay = 1.5
+
+[traits.GESU.ai_modifiers]
+"Social/Empathy" = { curve = "linear", params = { m = -1.0 } }
+
+[traits.GESU.social_modifiers]
+compatibility = { NICE = -50.0, GESU = 10.0 }
+
+[traits.NICE]
+name = "Nice"
+description = "Kind and gentle. Enjoys helping others."
+conflicts = ["GESU"]
+axis_shift = { kindness = 50, greed = -20 }
+
+[traits.NICE.stat_modifiers]
+happiness_decay = 0.8
+social_decay = 1.2
+
+[traits.NICE.ai_modifiers]
+"Social/Empathy" = { curve = "linear", params = { m = 1.0 } }
+
+[traits.NICE.social_modifiers]
+compatibility = { NICE = 20.0, GESU = -50.0 }
+
+[traits.GLUTTON]
+name = "Glutton"
+description = "Loves to eat. Gets hungry faster."
+axis_shift = { greed = 20, energy = -10 }
+
+[traits.GLUTTON.stat_modifiers]
+hunger_decay = 1.5
+max_health = 1.1
+
+[traits.GLUTTON.ai_modifiers]
+"Survival/Eat" = { curve = "logit", params = { k = 2.0 } }
+
+[traits.LONER]
+name = "Loner"
+description = "Prefers solitude. Social needs decay slower."
+axis_shift = { kindness = -10, energy = -10 }
+
+[traits.LONER.stat_modifiers]
+social_decay = 0.5
+
+[traits.LONER.ai_modifiers]
+"Social/Play" = { curve = "linear", params = { m = 0.5 } }
+
+[traits.LONER.skill_modifiers]
+socialization = { passion_multiplier = 0.5, soft_cap_offset = -2 }
+
+[traits.ATHLETIC]
+name = "Athletic"
+description = "Physically active."
+axis_shift = { energy = 50 }
+
+[traits.ATHLETIC.skill_modifiers]
+athletics = { passion_multiplier = 1.5, soft_cap_offset = 5 }
+
+[traits.PREDATOR]
+name = "Predator"
+description = "Sees other Yukkuris as food."
+axis_shift = { bravery = 50, kindness = -50, greed = 20 }
+
+[traits.PREDATOR.ai_modifiers]
+can_eat_yukkuri = true

@@ -1,0 +1,110 @@
+[actions.Eat]
+weight = 2.0
+[actions.Eat.effects]
+type = "interact_item"
+target_stat = "nutrition"
+consume = true
+stat_changes = { hunger = -20.0, happiness = 5.0 }
+
+[[actions.Eat.considerations]]
+name = "Hunger"
+input = "hunger"
+curve = "linear"
+params = { m = 1.0, b = 0.0 }
+
+[actions.Sleep]
+weight = 1.5
+[actions.Sleep.effects]
+type = "interact_item"
+target_stat = "comfort"
+consume = false
+stat_changes = { energy = 10.0 } # Per second? Or one shot? Let's assume per second while doing it.
+
+[[actions.Sleep.considerations]]
+name = "Tiredness"
+input = "energy_inv"
+curve = "logit"
+params = { k = 10.0, x0 = 0.7 }
+
+[actions.Play]
+weight = 1.0
+[actions.Play.effects]
+type = "interact_item"
+target_stat = "fun"
+consume = false # Toys aren't consumed immediately
+stat_changes = { happiness = 10.0 }
+
+[[actions.Play.considerations]]
+name = "Boredom"
+input = "happiness_inv"
+curve = "linear"
+
+[actions.Wander]
+weight = 0.5
+[actions.Wander.effects]
+type = "move_random"
+
+[[actions.Wander.considerations]]
+name = "Base"
+input = "constant_100"
+curve = "linear"
+
+[actions.Talk]
+weight = 1.2
+[actions.Talk.effects]
+type = "interact_social"
+target_stat = "social"
+consume = false
+stat_changes = { happiness = 5.0, social = 15.0 }
+
+[[actions.Talk.considerations]]
+name = "Loneliness"
+input = "social_inv"
+curve = "logit"
+params = { k = 10.0, x0 = 0.5 }
+
+[[actions.Talk.considerations]]
+name = "HasFriends"
+input = "nearby_friends"
+curve = "threshold"
+params = { threshold = 1.0 }
+
+[actions.Fight]
+weight = 2.5
+[actions.Fight.effects]
+type = "interact_social"
+target_stat = "stress"
+consume = false
+stat_changes = { happiness = -10.0, health = -5.0 }
+
+[[actions.Fight.considerations]]
+name = "Stress"
+input = "stress"
+curve = "logit"
+params = { k = 10.0, x0 = 0.7 }
+
+[[actions.Fight.considerations]]
+name = "HasEnemies"
+input = "nearby_enemies"
+curve = "threshold"
+params = { threshold = 1.0 }
+
+[actions.Dance]
+weight = 0.8
+[actions.Dance.effects]
+type = "interact_social"
+target_stat = "happiness"
+consume = false
+stat_changes = { happiness = 10.0, social = 10.0 }
+
+[[actions.Dance.considerations]]
+name = "HighSpirit"
+input = "happiness"
+curve = "logit"
+params = { k = 10.0, x0 = 0.8 }
+
+[[actions.Dance.considerations]]
+name = "HasPartner"
+input = "nearby_friends"
+curve = "threshold"
+params = { threshold = 1.0 }
