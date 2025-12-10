@@ -397,25 +397,11 @@ class GameService:
         candidate_items = []
 
         if sector_map:
-            # Query nearby sectors using simplified visual/auditory range which covers adjacent sectors
-            # This gives us a starting set. For strict radius check, we still measure distance.
-            # get_entities_in_range defaults to 'visual' which is same + adjacent sectors.
-            # Sector size is usually 500. So 'visual' covers roughly 1000-1500 units.
-            # If max_radius is larger than what 'visual' covers, we might miss items.
-            # But usually max_radius is around 500-1000.
-
-            # TODO: If max_radius is very large, we might need a custom query on SectorMap
-            # For now, we assume standard scavenging range fits within adjacent sectors logic.
-            # Or we can iterate sectors manually if we want to be safe.
-
-            # Let's use get_entities_in_range for efficiency if it covers enough ground.
-            # With sector_size=500, adjacent sectors cover 3x3 grid (1500 x 1500).
-            # Center is at position. Radius of coverage is roughly 750 (from center of center sector).
-            # If max_radius > 750, we might need more sectors.
-            # Let's try to trust SectorMap or fallback if not present.
-
-            nearby_entities = sector_map.get_entities_in_range(
-                position[0], position[1], range_type="visual"
+            # Query entities within the calculated max_radius.
+            # SectorMap.get_entities_in_radius handles querying the appropriate sectors
+            # even if the radius is very large.
+            nearby_entities = sector_map.get_entities_in_radius(
+                position[0], position[1], max_radius
             )
 
             # Filter for items

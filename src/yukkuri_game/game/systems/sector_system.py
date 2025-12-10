@@ -125,6 +125,37 @@ class SectorMap:
 
         return result
 
+    def get_entities_in_radius(
+        self, x: float, y: float, radius: float
+    ) -> Set[int]:
+        """
+        Returns all entities in sectors overlapping the given radius.
+        Note: This returns a superset of entities (all entities in touched sectors).
+        Distance checking should be done by the caller for precision.
+
+        Args:
+            x, y: Center position.
+            radius: The search radius.
+        """
+        # Calculate bounding box of the circle
+        min_x = x - radius
+        max_x = x + radius
+        min_y = y - radius
+        max_y = y + radius
+
+        # Convert to sector indices
+        start_col, start_row = self.get_sector_coords(min_x, min_y)
+        end_col, end_row = self.get_sector_coords(max_x, max_y)
+
+        result = set()
+
+        # Iterate over rectangular range of sectors
+        for c in range(start_col, end_col + 1):
+            for r in range(start_row, end_row + 1):
+                result.update(self.get_entities_in_sector(c, r))
+
+        return result
+
 
 class SectorSystem(System):
     """
