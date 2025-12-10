@@ -6,7 +6,7 @@ from typing import Any
 import pymunk
 from ...engine.ecs import World
 from ...engine.resource_manager import ResourceManager
-from ..components import Transform, Sprite, Selectable, VisualTransform, PhysicsBody
+from ..components import Transform, Sprite, Selectable, VisualTransform, PhysicsBody, LightSource, Occluder
 from ..yukkuri_components import ItemStats, Poop
 from ..components_persistence import StableIDComponent, Persistable
 from ..collision_constants import CollisionCategories
@@ -78,6 +78,18 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         is_portable=_get_attr(data, "is_portable", False),
     )
     world.add_component(entity, stats)
+
+    # Lighting Components
+    light_radius = _get_attr(data, "light_radius", None)
+    if light_radius:
+        color = tuple(_get_attr(data, "light_color", [255, 255, 255]))
+        intensity = _get_attr(data, "light_intensity", 1.0)
+        world.add_component(entity, LightSource(radius=light_radius, color=color, intensity=intensity))
+
+    is_occluder = _get_attr(data, "occluder", False)
+    if is_occluder:
+        # Occluder without polygon defaults to physics shape
+        world.add_component(entity, Occluder())
 
     if physics_system:
         mass = 1

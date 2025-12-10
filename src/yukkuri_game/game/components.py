@@ -3,7 +3,8 @@ Module defining core game components.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from enum import Enum, auto
+from typing import Dict, Optional, List, Tuple
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
 from ..engine.data_models import AnimationDefinition
@@ -235,3 +236,33 @@ class VisualTransform:
     vertical_offset: float = 0.0
     # Safety Fix: Use default_factory for mutable Vector2
     shadow_position: Vector2 = field(default_factory=lambda: Vector2(0, 0))
+
+
+class FlickerStyle(Enum):
+    NONE = auto()
+    FIRE = auto()
+    PULSE = auto()
+
+
+@dataclass
+class LightSource:
+    """
+    Component defining a point light source.
+    """
+
+    radius: float = 300.0
+    color: Tuple[int, int, int] = (255, 255, 220)
+    intensity: float = 1.0
+    flicker_style: FlickerStyle = FlickerStyle.NONE
+    # Internal state for flickering
+    _flicker_offset: float = 0.0
+
+
+@dataclass
+class Occluder:
+    """
+    Component defining a light-blocking shape (Hull).
+    """
+
+    # If None, defaults to the entity's PhysicsBody shape or Sprite rect
+    polygon: Optional[List[Tuple[float, float]]] = None
