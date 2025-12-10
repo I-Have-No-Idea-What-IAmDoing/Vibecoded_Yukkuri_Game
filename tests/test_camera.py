@@ -1,18 +1,20 @@
-import pytest
+from unittest.mock import MagicMock, Mock, patch
+
 import pygame
-from unittest.mock import MagicMock, patch, Mock
+import pytest
+
+from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.camera import Camera
+from yukkuri_game.game.components import (
+    PhysicsBody,
+    Selectable,
+    Sprite,
+    Transform,
+    VisualTransform,
+)
 from yukkuri_game.game.renderer import WorldRenderer
 from yukkuri_game.game.systems.render_system import RenderSystem
 from yukkuri_game.game.systems.time_system import TimeSystem
-from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import (
-    Transform,
-    Sprite,
-    Selectable,
-    PhysicsBody,
-    VisualTransform,
-)
 
 
 @pytest.fixture
@@ -163,6 +165,14 @@ def test_render_system_update():
     phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
     visual_transform = VisualTransform()
 
+    # Mock get_components_tuple for efficient rendering
+    world.get_components_tuple.side_effect = [
+        # First call is for (Transform, Sprite, VisualTransform)
+        [(ent, (transform, sprite, visual_transform))],
+        # Second call (if any) is for (Transform, FloatingText) - return empty
+        [],
+    ]
+
     def get_component_side_effect(e, c):
         if c == Transform:
             return transform
@@ -177,6 +187,7 @@ def test_render_system_update():
         return None
 
     world.get_component.side_effect = get_component_side_effect
+    world.try_get_component.side_effect = get_component_side_effect
 
     with patch("pygame.draw.line"), patch("pygame.draw.rect"):
         rs.update(world, 0.016)
@@ -247,6 +258,14 @@ def test_render_system_update_scaling_and_culling():
         phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
         visual_transform = VisualTransform()
 
+        # Mock get_components_tuple for efficient rendering
+        world.get_components_tuple.side_effect = [
+            # First call is for (Transform, Sprite, VisualTransform)
+            [(ent, (transform, sprite, visual_transform))],
+            # Second call (if any) is for (Transform, FloatingText) - return empty
+            [],
+        ]
+
         def get_component_side_effect(e, c):
             if c == Transform:
                 return transform
@@ -261,6 +280,7 @@ def test_render_system_update_scaling_and_culling():
             return None
 
         world.get_component.side_effect = get_component_side_effect
+        world.try_get_component.side_effect = get_component_side_effect
 
         with patch("pygame.draw.line"), patch("pygame.draw.rect") as mock_rect:
             rs.update(world, 0.016)
@@ -318,6 +338,14 @@ def test_render_system_update_culling():
     phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
     visual_transform = VisualTransform()
 
+    # Mock get_components_tuple for efficient rendering
+    world.get_components_tuple.side_effect = [
+        # First call is for (Transform, Sprite, VisualTransform)
+        [(ent, (transform, sprite, visual_transform))],
+        # Second call (if any) is for (Transform, FloatingText) - return empty
+        [],
+    ]
+
     world.get_component.side_effect = (
         lambda e, c: transform
         if c == Transform
@@ -331,6 +359,7 @@ def test_render_system_update_culling():
             )
         )
     )
+    world.try_get_component.side_effect = world.get_component.side_effect
 
     with patch("pygame.draw.line"), patch("pygame.draw.rect"):
         rs.update(world, 0.016)
@@ -372,6 +401,14 @@ def test_render_system_update_invalid_size():
     phys_body = PhysicsBody(body=MagicMock(), shape=MagicMock())
     visual_transform = VisualTransform()
 
+    # Mock get_components_tuple for efficient rendering
+    world.get_components_tuple.side_effect = [
+        # First call is for (Transform, Sprite, VisualTransform)
+        [(ent, (transform, sprite, visual_transform))],
+        # Second call (if any) is for (Transform, FloatingText) - return empty
+        [],
+    ]
+
     world.get_component.side_effect = (
         lambda e, c: transform
         if c == Transform
@@ -385,6 +422,7 @@ def test_render_system_update_invalid_size():
             )
         )
     )
+    world.try_get_component.side_effect = world.get_component.side_effect
 
     with patch("pygame.draw.line"), patch("pygame.draw.rect"):
         rs.update(world, 0.016)
