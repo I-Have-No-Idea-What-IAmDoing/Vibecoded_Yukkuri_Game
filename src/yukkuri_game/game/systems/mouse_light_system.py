@@ -2,8 +2,10 @@
 Mouse Light System.
 """
 
+import pygame
 from ..engine.system import System
 from ..engine.ecs import World
+from ..engine.input_manager import InputManager
 from ..game.components import Transform, LightSource
 from ..game.services import InputService
 from ..game.camera import Camera
@@ -53,7 +55,6 @@ class MouseLightSystem(System):
         # But InputSystem updates InputService.drag_current_pos? No, only when dragging.
 
         # Best way is to ask InputManager.
-        from ..engine.input_manager import InputManager
         input_manager = self.world.services.try_get(InputManager)
 
         if input_manager:
@@ -63,7 +64,6 @@ class MouseLightSystem(System):
             # We can get them from Camera if it stores them, or assume standard resolution?
             # Camera.screen_to_world needs screen_w, screen_h.
             # We can try to get surface size.
-            import pygame
             surface = pygame.display.get_surface()
             if surface:
                 sw, sh = surface.get_size()

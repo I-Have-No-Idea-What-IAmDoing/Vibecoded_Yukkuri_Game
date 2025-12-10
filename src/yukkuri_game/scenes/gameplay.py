@@ -34,6 +34,7 @@ from ..game.systems.physics_reconstruction import reconstruct_physics
 from ..game.systems.render_system import RenderSystem
 from ..game.ui.hud import HUD
 from ..game.camera import Camera
+from ..game.systems.mouse_light_system import MouseLightSystem
 
 
 class GameplayScene(Scene):
@@ -417,7 +418,6 @@ class GameplayScene(Scene):
                     )
                 elif pygame.key.get_mods() & pygame.KMOD_CTRL:
                      # Ctrl+F3 -> Toggle Mouse Light
-                    from ..game.systems.mouse_light_system import MouseLightSystem
                     mouse_light = self.world.services.try_get(MouseLightSystem)
                     if mouse_light:
                         mouse_light.toggle()

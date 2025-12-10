@@ -24,6 +24,8 @@ SECONDS_PER_DAY = 3600.0
 
 
 class EmotionSystem(System):
+    DARKNESS_STRESS_RATE: float = 5.0
+
     """
     System responsible for decaying Yukkuri stats and updating Emotional State over time.
 
@@ -162,9 +164,7 @@ class EmotionSystem(System):
 
                     if not in_light:
                         # Increase stress
-                        # Rate: 10 stress per second?
-                        darkness_stress_rate = 5.0
-                        emotional_state.stress += darkness_stress_rate * dt
+                        emotional_state.stress += self.DARKNESS_STRESS_RATE * dt
 
                 # Stress decays fast to 0
                 stress_decay_rate = getattr(self.settings, "stress", 5.0)
