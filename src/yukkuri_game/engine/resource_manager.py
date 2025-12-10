@@ -48,7 +48,12 @@ class ResourceManager:
         interactions (Dict[str, InteractionDefinition]): Loaded interaction definitions.
     """
 
-    def __init__(self, data_dir: str = "data", assets_dir: str = "assets", image_cache_limit: int = 100):
+    def __init__(
+        self,
+        data_dir: str = "data",
+        assets_dir: str = "assets",
+        image_cache_limit: int = 100,
+    ):
         """
         Initializes the ResourceManager.
 

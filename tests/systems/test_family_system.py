@@ -1,6 +1,4 @@
-
 import pytest
-import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.family_system import FamilySystem
 from yukkuri_game.game.yukkuri_components import (
@@ -9,10 +7,11 @@ from yukkuri_game.game.yukkuri_components import (
     AIState,
     EmotionalState,
     Needs,
-    RelationshipData
+    RelationshipData,
 )
 from yukkuri_game.game.components import Transform
 from yukkuri_game.game.systems.sector_system import SectorMap
+
 
 class MockSectorMap:
     def __init__(self):
@@ -27,19 +26,22 @@ class MockSectorMap:
 
         results = []
         for eid, pos in self.entities.items():
-            dist_sq = (pos[0] - x)**2 + (pos[1] - y)**2
+            dist_sq = (pos[0] - x) ** 2 + (pos[1] - y) ** 2
             if dist_sq <= radius**2:
                 results.append(eid)
         return results
+
 
 @pytest.fixture
 def world():
     w = World()
     return w
 
+
 @pytest.fixture
 def family_system():
     return FamilySystem()
+
 
 def test_family_formation_no_family(world, family_system):
     """Test two entities with high affinity forming a new family."""
@@ -70,6 +72,7 @@ def test_family_formation_no_family(world, family_system):
     assert r2.family_group_id is not None
     assert r1.family_group_id == r2.family_group_id
 
+
 def test_family_formation_join_existing(world, family_system):
     """Test an entity joining an existing family."""
 
@@ -95,6 +98,7 @@ def test_family_formation_join_existing(world, family_system):
 
     assert r2.family_group_id == 12345
 
+
 def test_family_formation_reverse_join(world, family_system):
     """Test an entity joining an existing family (reverse check)."""
 
@@ -118,6 +122,7 @@ def test_family_formation_reverse_join(world, family_system):
     family_system.update(world, 2.1)
 
     assert r1.family_group_id == 67890
+
 
 def test_family_benefits_proximity(world, family_system):
     """Test happiness boost when family members are close."""
@@ -165,6 +170,7 @@ def test_family_benefits_proximity(world, family_system):
     assert em2.happiness == 50.5
     assert em2.stress == 49.5
 
+
 def test_family_benefits_too_far(world, family_system):
     """Test no benefits when family members are too far."""
 
@@ -195,6 +201,7 @@ def test_family_benefits_too_far(world, family_system):
     assert em1.happiness == 50.0
     assert em2.happiness == 50.0
 
+
 def test_food_sharing(world, family_system):
     """Test food sharing behavior."""
 
@@ -221,9 +228,10 @@ def test_food_sharing(world, family_system):
     family_system.update(world, 2.1)
 
     # Starver should get hunger reduction and happiness boost
-    assert n2.hunger == 79.0 # 80 - 1
+    assert n2.hunger == 79.0  # 80 - 1
     # Happiness increases by 0.5 (proximity) + 0.5 (food sharing) = 1.0
     assert em2.happiness == 51.0
+
 
 def test_nest_sharing(world, family_system):
     """Test nest sharing (sleep) behavior."""
@@ -253,6 +261,7 @@ def test_nest_sharing(world, family_system):
     # Partner benefits
     assert n2.energy == 50.5
     assert em2.stress == 48.5
+
 
 def test_benefits_with_sector_map(world, family_system):
     """Test benefits logic when SectorMap is available (optimization path)."""
@@ -291,6 +300,7 @@ def test_benefits_with_sector_map(world, family_system):
     assert em1.happiness == 50.5
     assert em2.happiness == 50.5
 
+
 def test_fallback_benefits_no_sector_map(world, family_system):
     """Test fallback logic when SectorMap is not present."""
     # Ensure SectorMap is NOT in services
@@ -323,6 +333,7 @@ def test_fallback_benefits_no_sector_map(world, family_system):
 
     assert em1.happiness == 50.5
     assert em2.happiness == 50.5
+
 
 def test_fallback_benefits_different_families(world, family_system):
     """Test fallback logic ignores different families."""
@@ -357,6 +368,7 @@ def test_fallback_benefits_different_families(world, family_system):
     assert em1.happiness == 50.0
     assert em2.happiness == 50.0
 
+
 def test_benefits_missing_components(world, family_system):
     """Test benefits logic handles missing components gracefully."""
     # Ensure SectorMap is NOT in services
@@ -389,6 +401,7 @@ def test_benefits_missing_components(world, family_system):
 
     assert em1.happiness == 50.0
     assert em2.happiness == 50.0
+
 
 def test_benefits_no_emotional_state(world, family_system):
     """Test benefits logic when EmotionalState is missing (it's optional in _apply_benefit_pair)."""

@@ -4,7 +4,6 @@ Tests for the Input Manager.
 
 import pytest
 import pygame
-from unittest.mock import MagicMock
 from yukkuri_game.engine.input_manager import InputManager, InputContext
 
 
@@ -72,7 +71,9 @@ def test_process_mouse_events(input_manager: InputManager) -> None:
     Tests processing of mouse events.
     """
     # Simulate Mouse Button Down (Left Click)
-    mouse_down_event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(100, 200))
+    mouse_down_event = pygame.event.Event(
+        pygame.MOUSEBUTTONDOWN, button=1, pos=(100, 200)
+    )
     input_manager.process_event(mouse_down_event)
 
     assert 1 in input_manager._mouse_buttons
@@ -158,8 +159,8 @@ def test_input_consumption(input_manager: InputManager) -> None:
     Tests that higher priority contexts consume input.
     """
     # Enable both contexts
-    input_manager.set_context(InputContext.GAMEPLAY, active=True) # Priority 1
-    input_manager.set_context(InputContext.MENU, active=True)     # Priority 10
+    input_manager.set_context(InputContext.GAMEPLAY, active=True)  # Priority 1
+    input_manager.set_context(InputContext.MENU, active=True)  # Priority 10
 
     # Assume MENU has 'up' mapped to K_UP, and GAMEPLAY also has 'up' mapped to K_UP.
     # But checking source code:

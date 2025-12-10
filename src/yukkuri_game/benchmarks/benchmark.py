@@ -10,8 +10,7 @@ import statistics
 import platform
 import gc
 import csv
-import os
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 import random
 import logging
 
@@ -26,8 +25,6 @@ except ImportError:
     np = None
 
 import cProfile
-import pstats
-import io
 
 from ..testing.driver import GameDriver
 from ..testing.environment import TestEnvironment
@@ -37,17 +34,20 @@ from ..scenes.gameplay import GameplayScene
 # Configure logging
 logger = logging.getLogger(__name__)
 
+
 class BenchmarkRunner:
     """
     Runs performance benchmarks for the game.
     """
 
-    def __init__(self,
-                 num_entities: int = 100,
-                 duration_seconds: float = 10.0,
-                 iterations: int = 3,
-                 warmup_seconds: float = 2.0,
-                 seed: Optional[int] = None):
+    def __init__(
+        self,
+        num_entities: int = 100,
+        duration_seconds: float = 10.0,
+        iterations: int = 3,
+        warmup_seconds: float = 2.0,
+        seed: Optional[int] = None,
+    ):
         """
         Initializes the BenchmarkRunner.
 
@@ -94,10 +94,12 @@ class BenchmarkRunner:
             try:
                 info["cpu_freq_max"] = str(psutil.cpu_freq().max)
             except (AttributeError, FileNotFoundError):
-                 pass # cpu_freq might not be available
+                pass  # cpu_freq might not be available
         return info
 
-    def run(self, profile: bool = False, profile_output: str = "benchmark_profile.stats") -> Dict[str, Any]:
+    def run(
+        self, profile: bool = False, profile_output: str = "benchmark_profile.stats"
+    ) -> Dict[str, Any]:
         """
         Runs the benchmark.
 
@@ -111,7 +113,10 @@ class BenchmarkRunner:
         fps_results: List[float] = []
         speed_ratio_results: List[float] = []
         frame_time_stats: Dict[str, List[float]] = {
-            "p50": [], "p95": [], "p99": [], "jitter": []
+            "p50": [],
+            "p95": [],
+            "p99": [],
+            "jitter": [],
         }
         memory_usage: List[float] = []
         cpu_usage: List[float] = []
@@ -119,8 +124,10 @@ class BenchmarkRunner:
         # Store all raw frame times for CSV export [iteration][frame_index] -> ms
         all_raw_frame_times: List[List[float]] = []
 
-        logger.info(f"Running benchmark with {self.num_entities} entities for {self.duration_seconds}s game time "
-              f"(warmup: {self.warmup_seconds}s, {self.iterations} iterations)...")
+        logger.info(
+            f"Running benchmark with {self.num_entities} entities for {self.duration_seconds}s game time "
+            f"(warmup: {self.warmup_seconds}s, {self.iterations} iterations)..."
+        )
 
         if profile:
             profiler = cProfile.Profile()
@@ -159,11 +166,15 @@ class BenchmarkRunner:
                         height = app.height
                         # Use seeded random or deterministic placement
                         if current_seed is not None:
-                             x = random.randint(25, width - 25)
-                             y = random.randint(25, height - 25)
+                            x = random.randint(25, width - 25)
+                            y = random.randint(25, height - 25)
                         else:
-                             x = (driver.frame_count * 1234 + j * 5678) % (width - 50) + 25
-                             y = (driver.frame_count * 9876 + j * 4321) % (height - 50) + 25
+                            x = (driver.frame_count * 1234 + j * 5678) % (
+                                width - 50
+                            ) + 25
+                            y = (driver.frame_count * 9876 + j * 4321) % (
+                                height - 50
+                            ) + 25
                         driver.create_yukkuri("reimu", x, y)
 
                     # Warmup
@@ -193,10 +204,12 @@ class BenchmarkRunner:
                     frames = len(frame_times)
                     if elapsed_wall_time > 0:
                         avg_fps = frames / elapsed_wall_time
-                        sim_speed = (self.duration_seconds) / elapsed_wall_time # Approximate
+                        sim_speed = (
+                            self.duration_seconds
+                        ) / elapsed_wall_time  # Approximate
                     else:
-                        avg_fps = float('inf')
-                        sim_speed = float('inf')
+                        avg_fps = float("inf")
+                        sim_speed = float("inf")
 
                     fps_results.append(avg_fps)
                     speed_ratio_results.append(sim_speed)
@@ -205,17 +218,33 @@ class BenchmarkRunner:
                         frame_times_ms = [t * 1000 for t in frame_times]
                         all_raw_frame_times.append(frame_times_ms)
 
-                        frame_time_stats["p50"].append(statistics.median(frame_times_ms))
+                        frame_time_stats["p50"].append(
+                            statistics.median(frame_times_ms)
+                        )
 
                         if np:
-                            frame_time_stats["p95"].append(np.percentile(frame_times_ms, 95))
-                            frame_time_stats["p99"].append(np.percentile(frame_times_ms, 99))
+                            frame_time_stats["p95"].append(
+                                np.percentile(frame_times_ms, 95)
+                            )
+                            frame_time_stats["p99"].append(
+                                np.percentile(frame_times_ms, 99)
+                            )
                         else:
-                            frame_time_stats["p95"].append(statistics.quantiles(frame_times_ms, n=20)[18] if len(frame_times_ms) >= 20 else max(frame_times_ms))
-                            frame_time_stats["p99"].append(statistics.quantiles(frame_times_ms, n=100)[98] if len(frame_times_ms) >= 100 else max(frame_times_ms))
+                            frame_time_stats["p95"].append(
+                                statistics.quantiles(frame_times_ms, n=20)[18]
+                                if len(frame_times_ms) >= 20
+                                else max(frame_times_ms)
+                            )
+                            frame_time_stats["p99"].append(
+                                statistics.quantiles(frame_times_ms, n=100)[98]
+                                if len(frame_times_ms) >= 100
+                                else max(frame_times_ms)
+                            )
 
                         if len(frame_times_ms) > 1:
-                            frame_time_stats["jitter"].append(statistics.stdev(frame_times_ms))
+                            frame_time_stats["jitter"].append(
+                                statistics.stdev(frame_times_ms)
+                            )
                         else:
                             frame_time_stats["jitter"].append(0.0)
 
@@ -223,18 +252,22 @@ class BenchmarkRunner:
                         memory_usage.append(self._get_process_memory())
                         cpu_usage.append(self._get_process_cpu())
 
-                    logger.info(f"Iteration {i+1}: {avg_fps:.2f} FPS, {sim_speed:.2f}x speed")
+                    logger.info(
+                        f"Iteration {i + 1}: {avg_fps:.2f} FPS, {sim_speed:.2f}x speed"
+                    )
                     successful_iterations += 1
 
                 except Exception as e:
-                    logger.error(f"Iteration {i+1} failed: {e}", exc_info=True)
+                    logger.error(f"Iteration {i + 1} failed: {e}", exc_info=True)
 
                 finally:
                     if driver:
                         try:
                             driver.cleanup()
                         except Exception as e:
-                            logger.error(f"Failed to cleanup driver in iteration {i+1}: {e}")
+                            logger.error(
+                                f"Failed to cleanup driver in iteration {i + 1}: {e}"
+                            )
 
         if profile:
             profiler.disable()
@@ -242,8 +275,8 @@ class BenchmarkRunner:
             profiler.dump_stats(profile_output)
 
         if successful_iterations == 0:
-             logger.error("All iterations failed.")
-             return {}
+            logger.error("All iterations failed.")
+            return {}
 
         results = {
             "config": {
@@ -251,7 +284,7 @@ class BenchmarkRunner:
                 "duration_seconds": self.duration_seconds,
                 "iterations": self.iterations,
                 "warmup_seconds": self.warmup_seconds,
-                "seed": self.seed
+                "seed": self.seed,
             },
             "system_info": self._get_system_info(),
             "results": {
@@ -259,26 +292,41 @@ class BenchmarkRunner:
                     "mean": statistics.mean(fps_results) if fps_results else 0.0,
                     "min": min(fps_results) if fps_results else 0.0,
                     "max": max(fps_results) if fps_results else 0.0,
-                    "stdev": statistics.stdev(fps_results) if len(fps_results) > 1 else 0.0
+                    "stdev": statistics.stdev(fps_results)
+                    if len(fps_results) > 1
+                    else 0.0,
                 },
-                "speed_ratio_mean": statistics.mean(speed_ratio_results) if speed_ratio_results else 0.0,
+                "speed_ratio_mean": statistics.mean(speed_ratio_results)
+                if speed_ratio_results
+                else 0.0,
                 "frame_time_ms": {
-                    "p50_mean": statistics.mean(frame_time_stats["p50"]) if frame_time_stats["p50"] else 0.0,
-                    "p95_mean": statistics.mean(frame_time_stats["p95"]) if frame_time_stats["p95"] else 0.0,
-                    "p99_mean": statistics.mean(frame_time_stats["p99"]) if frame_time_stats["p99"] else 0.0,
-                    "jitter_mean": statistics.mean(frame_time_stats["jitter"]) if frame_time_stats["jitter"] else 0.0,
-                }
+                    "p50_mean": statistics.mean(frame_time_stats["p50"])
+                    if frame_time_stats["p50"]
+                    else 0.0,
+                    "p95_mean": statistics.mean(frame_time_stats["p95"])
+                    if frame_time_stats["p95"]
+                    else 0.0,
+                    "p99_mean": statistics.mean(frame_time_stats["p99"])
+                    if frame_time_stats["p99"]
+                    else 0.0,
+                    "jitter_mean": statistics.mean(frame_time_stats["jitter"])
+                    if frame_time_stats["jitter"]
+                    else 0.0,
+                },
             },
-            "raw_frame_times": all_raw_frame_times
+            "raw_frame_times": all_raw_frame_times,
         }
 
         if psutil:
             results["results"]["system"] = {
-                "memory_mb_mean": statistics.mean(memory_usage) if memory_usage else 0.0,
+                "memory_mb_mean": statistics.mean(memory_usage)
+                if memory_usage
+                else 0.0,
                 "cpu_percent_mean": statistics.mean(cpu_usage) if cpu_usage else 0.0,
             }
 
         return results
+
 
 def compare_results(current: Dict[str, Any], baseline: Dict[str, Any]) -> None:
     """
@@ -305,7 +353,7 @@ def compare_results(current: Dict[str, Any], baseline: Dict[str, Any]) -> None:
 
             # For frame time, lower is better. For FPS/Speed, higher is better.
             is_good = pct > 0 if "FPS" in label or "Speed" in label else pct < 0
-            color_code = "" # Could add ANSI codes if terminal supports it
+            color_code = ""  # Could add ANSI codes if terminal supports it
 
             sign = "+" if pct > 0 else ""
             print(f"{label}: {base_val:.2f} -> {curr_val:.2f} ({sign}{pct:.2f}%)")
@@ -313,13 +361,14 @@ def compare_results(current: Dict[str, Any], baseline: Dict[str, Any]) -> None:
         except KeyError:
             print(f"{label}: Could not find metric in one of the results.")
 
+
 def export_csv(results: Dict[str, Any], filepath: str):
     """
     Exports raw frame times to CSV.
     Format: iteration, frame_index, frame_time_ms
     """
     try:
-        with open(filepath, 'w', newline='') as f:
+        with open(filepath, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["iteration", "frame_index", "frame_time_ms"])
 
@@ -332,19 +381,37 @@ def export_csv(results: Dict[str, Any], filepath: str):
     except IOError as e:
         logger.error(f"Failed to write CSV: {e}")
 
+
 def main():
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
 
     parser = argparse.ArgumentParser(description="Yukkuri Game Benchmark")
-    parser.add_argument("--entities", type=int, default=100, help="Number of entities to spawn")
-    parser.add_argument("--duration", type=float, default=10.0, help="Simulation duration in seconds")
-    parser.add_argument("--iterations", type=int, default=3, help="Number of iterations")
-    parser.add_argument("--warmup", type=float, default=2.0, help="Warmup duration in seconds")
+    parser.add_argument(
+        "--entities", type=int, default=100, help="Number of entities to spawn"
+    )
+    parser.add_argument(
+        "--duration", type=float, default=10.0, help="Simulation duration in seconds"
+    )
+    parser.add_argument(
+        "--iterations", type=int, default=3, help="Number of iterations"
+    )
+    parser.add_argument(
+        "--warmup", type=float, default=2.0, help="Warmup duration in seconds"
+    )
     parser.add_argument("--json", type=str, help="Output results to JSON file")
     parser.add_argument("--csv", type=str, help="Output raw frame times to CSV file")
-    parser.add_argument("--baseline", type=str, help="Baseline JSON file to compare against")
+    parser.add_argument(
+        "--baseline", type=str, help="Baseline JSON file to compare against"
+    )
     parser.add_argument("--profile", action="store_true", help="Run with cProfile")
-    parser.add_argument("--profile-output", type=str, default="benchmark_profile.stats", help="Profile output file")
+    parser.add_argument(
+        "--profile-output",
+        type=str,
+        default="benchmark_profile.stats",
+        help="Profile output file",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
 
     args = parser.parse_args()
@@ -354,7 +421,7 @@ def main():
         duration_seconds=args.duration,
         iterations=args.iterations,
         warmup_seconds=args.warmup,
-        seed=args.seed
+        seed=args.seed,
     )
 
     results = runner.run(profile=args.profile, profile_output=args.profile_output)
@@ -367,16 +434,18 @@ def main():
     print(f"Entities: {results['config']['num_entities']}")
     print(f"Duration: {results['config']['duration_seconds']}s")
     print(f"FPS (Mean): {results['results']['fps']['mean']:.2f}")
-    print(f"Frame Time p99 (Mean): {results['results']['frame_time_ms']['p99_mean']:.2f} ms")
+    print(
+        f"Frame Time p99 (Mean): {results['results']['frame_time_ms']['p99_mean']:.2f} ms"
+    )
     print(f"Simulation Speed: {results['results']['speed_ratio_mean']:.2f}x real-time")
 
     if "system" in results["results"]:
-         print(f"Memory Usage: {results['results']['system']['memory_mb_mean']:.2f} MB")
-         print(f"CPU Usage: {results['results']['system']['cpu_percent_mean']:.2f}%")
+        print(f"Memory Usage: {results['results']['system']['memory_mb_mean']:.2f} MB")
+        print(f"CPU Usage: {results['results']['system']['cpu_percent_mean']:.2f}%")
 
     if args.baseline:
         try:
-            with open(args.baseline, 'r') as f:
+            with open(args.baseline, "r") as f:
                 baseline_results = json.load(f)
             compare_results(results, baseline_results)
         except (IOError, json.JSONDecodeError) as e:
@@ -387,7 +456,7 @@ def main():
         # but here we include it for completeness unless we want to separate it.
         # For now, I'll include it.
         try:
-            with open(args.json, 'w') as f:
+            with open(args.json, "w") as f:
                 json.dump(results, f, indent=4)
             print(f"Results saved to {args.json}")
         except IOError as e:
@@ -395,6 +464,7 @@ def main():
 
     if args.csv:
         export_csv(results, args.csv)
+
 
 if __name__ == "__main__":
     main()

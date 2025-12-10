@@ -57,7 +57,7 @@ class Application:
             self.lights_engine = LightingEngine(
                 screen_res=(width, height),
                 native_res=(width, height),
-                lightmap_res=(width // 2, height // 2)
+                lightmap_res=(width // 2, height // 2),
             )
             # LightingEngine creates the window, so we can get the surface if needed,
             # but usually we render via engine.
@@ -202,7 +202,7 @@ class Application:
                 ui_tex,
                 pl2d.FOREGROUND,
                 pygame.Rect(0, 0, self.width, self.height),
-                pygame.Rect(0, 0, self.width, self.height)
+                pygame.Rect(0, 0, self.width, self.height),
             )
             ui_tex.release()
 
@@ -215,7 +215,9 @@ class Application:
         Initializes the render system for the current scene if in headless mode.
         This allows taking screenshots or verifying rendering logic without a window.
         """
-        if self.scene_manager.current_scene and hasattr(self.scene_manager.current_scene, "init_render_system_headless"):
+        if self.scene_manager.current_scene and hasattr(
+            self.scene_manager.current_scene, "init_render_system_headless"
+        ):
             self.scene_manager.current_scene.init_render_system_headless()
 
     def quit(self) -> None:

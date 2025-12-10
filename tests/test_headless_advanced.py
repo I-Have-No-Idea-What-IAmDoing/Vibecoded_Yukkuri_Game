@@ -1,11 +1,10 @@
-
 import pytest
 import os
-import pygame
-from yukkuri_game.testing.driver import GameDriver, WaitFrames
+from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.engine.application import Application
 from yukkuri_game.scenes.gameplay import GameplayScene
 from yukkuri_game.game.yukkuri_components import YukkuriStats
+
 
 @pytest.fixture
 def headless_app():
@@ -14,11 +13,13 @@ def headless_app():
     yield app
     app.quit()
 
+
 @pytest.fixture
 def driver(headless_app):
     driver = GameDriver(headless_app)
     driver.setup()
     return driver
+
 
 def test_image_comparison(driver, tmp_path):
     """
@@ -38,10 +39,10 @@ def test_image_comparison(driver, tmp_path):
     # For image comparison, let's be sure.
     driver.game.scene_manager.pop()
     driver.setup()
-    driver.seed_rng(12345) # Force seed for rendering determinism
+    driver.seed_rng(12345)  # Force seed for rendering determinism
 
     driver.create_yukkuri("reimu", 400, 300)
-    driver.run_for(1.0) # Let it settle
+    driver.run_for(1.0)  # Let it settle
 
     reference_path = str(tmp_path / "reference.png")
     driver.save_screenshot(reference_path)
@@ -59,6 +60,7 @@ def test_image_comparison(driver, tmp_path):
 
     # Should match exactly or very closely
     assert driver.compare_screenshot(test_path, reference_path, tolerance=0.01)
+
 
 def test_image_comparison_failure(driver, tmp_path):
     """
@@ -88,7 +90,7 @@ def test_image_comparison_failure(driver, tmp_path):
     # Let's spawn many entities in different spots.
 
     for i in range(20):
-        driver.create_yukkuri("reimu", 100 + i*30, 100 + i*20)
+        driver.create_yukkuri("reimu", 100 + i * 30, 100 + i * 20)
 
     driver.run_for(0.5)
 
@@ -96,6 +98,7 @@ def test_image_comparison_failure(driver, tmp_path):
 
     # Should fail comparison (return False)
     assert not driver.compare_screenshot(test_path, reference_path, tolerance=0.01)
+
 
 def test_state_dump_on_failure(driver):
     """
@@ -112,6 +115,7 @@ def test_state_dump_on_failure(driver):
     # Entity ID might be just a number
     assert "Entity" in dump
 
+
 def test_reset_consistency(driver):
     """
     Verify that reset clears everything properly.
@@ -119,7 +123,9 @@ def test_reset_consistency(driver):
     driver.wait_until_scene(GameplayScene)
     driver.create_yukkuri("reimu", 100, 100)
 
-    assert len(driver.get_entities_with(YukkuriStats)) >= 1 # 1 + potentially initial one
+    assert (
+        len(driver.get_entities_with(YukkuriStats)) >= 1
+    )  # 1 + potentially initial one
 
     driver.reset()
 
@@ -138,6 +144,6 @@ def test_reset_consistency(driver):
 
     # If headless, we manually spawn.
     if driver.game.headless:
-         driver.create_yukkuri("reimu", 100, 100)
+        driver.create_yukkuri("reimu", 100, 100)
 
     assert len(driver.get_entities_with(YukkuriStats)) >= 1

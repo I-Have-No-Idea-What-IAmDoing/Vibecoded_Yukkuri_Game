@@ -191,9 +191,7 @@ class VisibilitySystem(System):
             # We cast to the target's center.
             # Improvement: Cast to the specific shape point?
             # Pymunk raycast goes to a point. `target_pos` is center of body.
-            hits = self.space.segment_query(
-                obs_pos, target_pos, 1.0, vision_ray_filter
-            )
+            hits = self.space.segment_query(obs_pos, target_pos, 1.0, vision_ray_filter)
             hits.sort(key=lambda x: x.alpha)
 
             blocked = False

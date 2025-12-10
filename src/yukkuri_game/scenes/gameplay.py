@@ -140,12 +140,15 @@ class GameplayScene(Scene):
             self.render_system = RenderSystem(
                 self.application.screen,
                 self.world,
-                lights_engine=getattr(self.application, "lights_engine", None)
+                lights_engine=getattr(self.application, "lights_engine", None),
             )
 
             # Day/Night System
             from ..game.systems.day_night import DayNightSystem
-            self.day_night_system = DayNightSystem(self.world, self.render_system.renderer)
+
+            self.day_night_system = DayNightSystem(
+                self.world, self.render_system.renderer
+            )
             self.world.add_system(self.day_night_system)
 
             self.hud = HUD(self.ui_manager, self.world)
@@ -343,12 +346,13 @@ class GameplayScene(Scene):
                 self.ui_manager.draw_ui(hud_surface)
 
                 import pygame_light2d as pl2d
+
                 tex = self.application.lights_engine.surface_to_texture(hud_surface)
                 self.application.lights_engine.render_texture(
                     tex,
                     pl2d.FOREGROUND,
                     pygame.Rect(0, 0, tex.width, tex.height),
-                    pygame.Rect(0, 0, tex.width, tex.height)
+                    pygame.Rect(0, 0, tex.width, tex.height),
                 )
                 tex.release()
                 # Global UI Manager is rendered by Application
@@ -405,9 +409,11 @@ class GameplayScene(Scene):
         if not self.application.headless:
             if self.input_manager.is_action_just_pressed("debug_toggle"):
                 if pygame.key.get_mods() & pygame.KMOD_SHIFT:
-                     # Shift+F3 -> Toggle Lighting Debug
-                     self.hud.toggle_lighting_debug()
-                     self.render_system.renderer.toggle_lighting_debug(self.hud.lighting_debug)
+                    # Shift+F3 -> Toggle Lighting Debug
+                    self.hud.toggle_lighting_debug()
+                    self.render_system.renderer.toggle_lighting_debug(
+                        self.hud.lighting_debug
+                    )
                 else:
                     self.hud.toggle_debug()
             elif self.input_manager.is_action_just_pressed("screenshot"):
@@ -430,5 +436,5 @@ class GameplayScene(Scene):
             self.render_system = RenderSystem(
                 self.application.screen,
                 self.world,
-                lights_engine=None  # Force Pygame backend
+                lights_engine=None,  # Force Pygame backend
             )

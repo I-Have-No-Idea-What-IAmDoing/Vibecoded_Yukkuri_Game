@@ -1,11 +1,12 @@
+from typing import List, Dict, Any
 
-from typing import List, Dict, Any, Optional
 
 class MockAudioManager:
     """
     Mock AudioManager for testing.
     Captures played sounds and allows verification.
     """
+
     def __init__(self) -> None:
         self.enabled = True
         self.played_sounds: List[str] = []

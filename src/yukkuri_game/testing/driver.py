@@ -13,9 +13,7 @@ from loguru import logger
 from ..engine.application import Application
 from ..engine.event_bus import Event
 from ..game.services import TimeService
-from ..engine.ecs import World
 from ..game.components import Transform
-from ..game.yukkuri_components import YukkuriStats
 
 # --- Predicates & Commands ---
 
@@ -130,12 +128,15 @@ class LogCapture:
     """
     Captures log records for assertion.
     """
+
     def __init__(self):
         self.records = []
         self.handler_id = None
 
     def __enter__(self):
-        self.handler_id = logger.add(lambda msg: self.records.append(msg), format="{message}")
+        self.handler_id = logger.add(
+            lambda msg: self.records.append(msg), format="{message}"
+        )
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -145,12 +146,16 @@ class LogCapture:
     def assert_logged(self, message_substring: str) -> None:
         """Asserts that a message containing the substring was logged."""
         found = any(message_substring in str(record) for record in self.records)
-        assert found, f"Expected log containing '{message_substring}' not found. Logs: {self.records}"
+        assert found, (
+            f"Expected log containing '{message_substring}' not found. Logs: {self.records}"
+        )
 
     def assert_not_logged(self, message_substring: str) -> None:
         """Asserts that a message containing the substring was NOT logged."""
         found = any(message_substring in str(record) for record in self.records)
-        assert not found, f"Expected no log containing '{message_substring}', but found it."
+        assert not found, (
+            f"Expected no log containing '{message_substring}', but found it."
+        )
 
 
 # --- Driver ---
@@ -192,6 +197,7 @@ class GameDriver:
         random.seed(seed)
         try:
             import numpy as np
+
             np.random.seed(seed)
         except ImportError:
             pass
@@ -496,7 +502,6 @@ class GameDriver:
         Returns:
             Optional[Transform]: The transform component.
         """
-        from ..game.components import Transform
 
         if not self.world:
             return None
@@ -551,7 +556,9 @@ class GameDriver:
 
         pygame.image.save(self.game.screen, filename)
 
-    def compare_screenshot(self, filename: str, reference_filename: str, tolerance: float = 0.01) -> bool:
+    def compare_screenshot(
+        self, filename: str, reference_filename: str, tolerance: float = 0.01
+    ) -> bool:
         """
         Compares the current screen against a reference image.
 
@@ -566,14 +573,18 @@ class GameDriver:
         self.save_screenshot(filename)
 
         if not os.path.exists(reference_filename):
-            logger.warning(f"Reference screenshot {reference_filename} not found. Comparison skipped (assumed new test).")
+            logger.warning(
+                f"Reference screenshot {reference_filename} not found. Comparison skipped (assumed new test)."
+            )
             return True
 
         current_img = pygame.image.load(filename)
         ref_img = pygame.image.load(reference_filename)
 
         if current_img.get_size() != ref_img.get_size():
-            logger.error(f"Image dimensions mismatch: {current_img.get_size()} vs {ref_img.get_size()}")
+            logger.error(
+                f"Image dimensions mismatch: {current_img.get_size()} vs {ref_img.get_size()}"
+            )
             return False
 
         width, height = current_img.get_size()
@@ -598,7 +609,7 @@ class GameDriver:
             arr2 = pygame.surfarray.array3d(ref_img)
 
             diff = np.abs(arr1 - arr2)
-            num_diff = np.count_nonzero(diff > 5) # Allow small color drift
+            num_diff = np.count_nonzero(diff > 5)  # Allow small color drift
 
             diff_ratio = num_diff / (total_pixels * 3)
 
@@ -607,12 +618,15 @@ class GameDriver:
             return diff_ratio <= tolerance
 
         except ImportError:
-            logger.warning("Numpy not found for advanced image comparison. Falling back to strict buffer check.")
+            logger.warning(
+                "Numpy not found for advanced image comparison. Falling back to strict buffer check."
+            )
             # The initial raw buffer check already failed if we are here,
             # so we can just report the error.
-            logger.error("Images differ (strict check failed, numpy not available for tolerant check).")
+            logger.error(
+                "Images differ (strict check failed, numpy not available for tolerant check)."
+            )
             return False
-
 
         except Exception as e:
             logger.error(f"Comparison failed with error: {e}")
@@ -635,7 +649,6 @@ class GameDriver:
 
         for entity_id in self.world.get_all_entities():
             output.write(f"  Entity {entity_id}:\n")
-
 
             components_tuple = self.world.get_all_components(entity_id)
 

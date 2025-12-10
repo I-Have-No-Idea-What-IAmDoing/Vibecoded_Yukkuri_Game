@@ -19,7 +19,9 @@ class RenderSystem(System):
         renderer (WorldRenderer): The world renderer.
     """
 
-    def __init__(self, screen: pygame.Surface, world: World, lights_engine: LightingEngine = None):
+    def __init__(
+        self, screen: pygame.Surface, world: World, lights_engine: LightingEngine = None
+    ):
         """
         Initializes the RenderSystem.
 

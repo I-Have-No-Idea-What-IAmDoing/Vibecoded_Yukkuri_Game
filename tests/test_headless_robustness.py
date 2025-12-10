@@ -1,14 +1,18 @@
-
 import pytest
 import os
 import pygame
 import random
-from yukkuri_game.testing.driver import GameDriver, WaitFrames, InjectInput, KeyPress, WaitUntilScene
+from yukkuri_game.testing.driver import (
+    GameDriver,
+    WaitFrames,
+    KeyPress,
+)
 from yukkuri_game.engine.application import Application
 from yukkuri_game.scenes.gameplay import GameplayScene
 from yukkuri_game.scenes.main_menu import MainMenuScene
 from yukkuri_game.game.yukkuri_components import YukkuriStats
 from tests.mocks import MockAudioManager
+
 
 @pytest.fixture
 def headless_app():
@@ -18,11 +22,13 @@ def headless_app():
     yield app
     app.quit()
 
+
 @pytest.fixture
 def driver(headless_app):
     driver = GameDriver(headless_app)
     driver.setup()
     return driver
+
 
 def test_rendering_verification(driver, tmp_path):
     """
@@ -64,9 +70,11 @@ def test_rendering_verification(driver, tmp_path):
             if color[3] > 0 and (color[0] > 0 or color[1] > 0 or color[2] > 0):
                 has_content = True
                 break
-        if has_content: break
+        if has_content:
+            break
 
     assert has_content, "Screenshot appears to be empty/black where entity should be."
+
 
 def test_input_injection(driver):
     """
@@ -80,14 +88,10 @@ def test_input_injection(driver):
     assert isinstance(scene, GameplayScene)
 
     # Inject ESC to pause/exit to menu
-    driver.run_scenario(
-        (step for step in [
-            KeyPress(pygame.K_ESCAPE),
-            WaitFrames(10)
-        ])
-    )
+    driver.run_scenario((step for step in [KeyPress(pygame.K_ESCAPE), WaitFrames(10)]))
 
     assert isinstance(driver.game.scene_manager.current_scene, MainMenuScene)
+
 
 def test_stress_test(driver):
     """
@@ -98,7 +102,7 @@ def test_stress_test(driver):
     # Use reset to ensure clean slate if needed (though fixture does it)
     driver.reset()
     driver.game.scene_manager.pop()
-    driver.setup() # This will create and push a new GameplayScene
+    driver.setup()  # This will create and push a new GameplayScene
 
     # Spawn 50 Yukkuris
     for _ in range(50):
@@ -107,7 +111,7 @@ def test_stress_test(driver):
     start_frame = driver.frame_count
 
     with driver.capture_logs() as logs:
-        driver.run_for(2.0) # Run for 2 seconds (simulated)
+        driver.run_for(2.0)  # Run for 2 seconds (simulated)
 
     logs.assert_not_logged("Exception")
 
@@ -122,6 +126,7 @@ def test_stress_test(driver):
     count = len(driver.get_entities_with(YukkuriStats))
     # Initial 1 (from setup) + 50 created = 51.
     assert count >= 50
+
 
 def test_audio_mock(driver):
     """

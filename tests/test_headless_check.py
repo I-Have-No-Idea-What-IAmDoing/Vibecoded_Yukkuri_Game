@@ -1,9 +1,9 @@
-
 import pytest
 import os
 import pygame
 from yukkuri_game.engine.application import Application
 from yukkuri_game.testing.driver import GameDriver
+
 
 def test_headless_mode(game_driver: GameDriver):
     """

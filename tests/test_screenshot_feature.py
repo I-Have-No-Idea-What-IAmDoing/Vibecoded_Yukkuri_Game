@@ -38,7 +38,9 @@ class TestScreenshot(unittest.TestCase):
         # Application needs ResourceManager.
         with (
             patch("yukkuri_game.engine.application.ResourceManager") as mock_res_mgr,
-            patch("yukkuri_game.engine.application.LightingEngine") as mock_lighting_engine,
+            patch(
+                "yukkuri_game.engine.application.LightingEngine"
+            ) as mock_lighting_engine,
         ):
             # Setup ResourceManager mock to prevent loading real data
             mock_res_mgr.return_value.load_all_data.return_value = None
@@ -105,7 +107,9 @@ class TestScreenshot(unittest.TestCase):
 
         with (
             patch("yukkuri_game.engine.application.ResourceManager") as mock_res_mgr,
-            patch("yukkuri_game.engine.application.LightingEngine") as mock_lighting_engine,
+            patch(
+                "yukkuri_game.engine.application.LightingEngine"
+            ) as mock_lighting_engine,
         ):
             mock_res_mgr.return_value.load_all_data.return_value = None
 

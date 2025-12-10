@@ -177,9 +177,10 @@ def test_update_publishes_event(physics_system: PhysicsSystem) -> None:
     event_bus = EventBus()
     world.services.register(event_bus, EventBus)
 
-    physics_system.update(world, 0) # Initialize event_bus in system
+    physics_system.update(world, 0)  # Initialize event_bus in system
 
     received_events = []
+
     def on_fixed_update(event: PhysicsFixedUpdateEvent):
         received_events.append(event)
 

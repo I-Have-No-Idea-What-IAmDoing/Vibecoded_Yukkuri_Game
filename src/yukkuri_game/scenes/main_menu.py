@@ -109,7 +109,7 @@ class MainMenuScene(Scene):
                 tex,
                 pl2d.FOREGROUND,
                 pygame.Rect(0, 0, self.application.width, self.application.height),
-                pygame.Rect(0, 0, self.application.width, self.application.height)
+                pygame.Rect(0, 0, self.application.width, self.application.height),
             )
             tex.release()
         else:

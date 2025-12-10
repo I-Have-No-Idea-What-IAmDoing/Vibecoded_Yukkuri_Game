@@ -1,11 +1,12 @@
 """
 Module for caching transformed surfaces to optimize rendering.
 """
+
 from collections import OrderedDict
 from typing import Tuple, Optional
 import pygame
 from ..engine.resource_manager import ResourceManager
-from loguru import logger
+
 
 class SurfaceCache:
     """

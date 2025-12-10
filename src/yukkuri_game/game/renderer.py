@@ -3,8 +3,7 @@ Module handling the game world rendering logic.
 """
 
 import pygame
-import pygame_light2d as pl2d
-from typing import Optional, List, Tuple
+from typing import Optional
 from pygame_light2d import LightingEngine
 from ..engine.ecs import World
 from ..engine.resource_manager import ResourceManager
@@ -41,7 +40,7 @@ class WorldRenderer:
         camera: Camera,
         resource_manager: ResourceManager,
         lights_engine: Optional[LightingEngine] = None,
-        texture_cache_max_size: int = 500
+        texture_cache_max_size: int = 500,
     ) -> None:
         """
         Initializes the WorldRenderer.
@@ -106,9 +105,7 @@ class WorldRenderer:
         # Render entities
         # Use get_components_tuple for efficient retrieval of all required components
         # (entity_id, (Transform, Sprite, VisualTransform))
-        render_data = world.get_components_tuple(
-            Transform, Sprite, VisualTransform
-        )
+        render_data = world.get_components_tuple(Transform, Sprite, VisualTransform)
 
         # Sort by Transform.y for depth (ground position).
         # Data structure: [(entity_id, (transform, sprite, visual_transform)), ...]
@@ -116,9 +113,7 @@ class WorldRenderer:
         render_data.sort(key=lambda x: x[1][0].y)
 
         for ent, (transform, sprite, visual_transform) in render_data:
-            self._render_entity(
-                world, ent, transform, sprite, visual_transform, alpha
-            )
+            self._render_entity(world, ent, transform, sprite, visual_transform, alpha)
 
         # Render Floating Text
         self._render_floating_text(world, sw, sh)
@@ -130,7 +125,7 @@ class WorldRenderer:
         transform: Transform,
         sprite: Sprite,
         visual_transform: VisualTransform,
-        alpha: float
+        alpha: float,
     ) -> None:
         """
         Prepares and delegates entity rendering to the backend.
@@ -154,7 +149,7 @@ class WorldRenderer:
             sprite,
             visual_transform,
             is_selected,
-            alpha
+            alpha,
         )
 
     def _render_floating_text(self, world: World, sw: int, sh: int) -> None:
@@ -170,13 +165,7 @@ class WorldRenderer:
         for entity, (transform, text_comp) in world.get_components_tuple(
             Transform, FloatingText
         ):
-            self.backend.draw_floating_text(
-                self.camera,
-                transform,
-                text_comp,
-                sw,
-                sh
-            )
+            self.backend.draw_floating_text(self.camera, transform, text_comp, sw, sh)
 
     def toggle_lighting_debug(self, enabled: bool) -> None:
         """

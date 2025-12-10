@@ -1,26 +1,30 @@
-
 import unittest
-import json
 import os
 import tempfile
 import logging
-from unittest.mock import MagicMock, patch
-from src.yukkuri_game.benchmarks.benchmark import BenchmarkRunner, compare_results, export_csv
+from unittest.mock import patch
+from src.yukkuri_game.benchmarks.benchmark import (
+    BenchmarkRunner,
+    compare_results,
+    export_csv,
+)
+
 
 class TestBenchmark(unittest.TestCase):
-
     def setUp(self):
         # Create a temporary directory for output files
         self.test_dir = tempfile.TemporaryDirectory()
         # Configure logging to capture output if needed, or suppress it
-        logging.getLogger('src.yukkuri_game.benchmarks.benchmark').setLevel(logging.CRITICAL)
+        logging.getLogger("src.yukkuri_game.benchmarks.benchmark").setLevel(
+            logging.CRITICAL
+        )
 
     def tearDown(self):
         self.test_dir.cleanup()
 
-    @patch('src.yukkuri_game.benchmarks.benchmark.Application')
-    @patch('src.yukkuri_game.benchmarks.benchmark.GameplayScene')
-    @patch('src.yukkuri_game.benchmarks.benchmark.GameDriver')
+    @patch("src.yukkuri_game.benchmarks.benchmark.Application")
+    @patch("src.yukkuri_game.benchmarks.benchmark.GameplayScene")
+    @patch("src.yukkuri_game.benchmarks.benchmark.GameDriver")
     def test_benchmark_run(self, mock_driver_cls, mock_scene_cls, mock_app_cls):
         # Setup mocks
         mock_driver = mock_driver_cls.return_value
@@ -42,7 +46,7 @@ class TestBenchmark(unittest.TestCase):
             duration_seconds=0.1,
             iterations=2,
             warmup_seconds=0.0,
-            seed=42
+            seed=42,
         )
 
         results = runner.run()
@@ -59,17 +63,12 @@ class TestBenchmark(unittest.TestCase):
         self.assertEqual(mock_driver.cleanup.call_count, 2)
 
     def test_export_csv(self):
-        results = {
-            "raw_frame_times": [
-                [16.6, 16.7, 16.6],
-                [16.5, 16.6, 16.8]
-            ]
-        }
+        results = {"raw_frame_times": [[16.6, 16.7, 16.6], [16.5, 16.6, 16.8]]}
         filepath = os.path.join(self.test_dir.name, "test.csv")
         export_csv(results, filepath)
 
         self.assertTrue(os.path.exists(filepath))
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             lines = f.readlines()
             # Header + 6 data rows
             self.assertEqual(len(lines), 7)
@@ -82,14 +81,14 @@ class TestBenchmark(unittest.TestCase):
             "results": {
                 "fps": {"mean": 60.0},
                 "frame_time_ms": {"p99_mean": 16.0},
-                "speed_ratio_mean": 1.0
+                "speed_ratio_mean": 1.0,
             }
         }
         baseline = {
             "results": {
                 "fps": {"mean": 50.0},
                 "frame_time_ms": {"p99_mean": 20.0},
-                "speed_ratio_mean": 0.8
+                "speed_ratio_mean": 0.8,
             }
         }
 
@@ -98,5 +97,6 @@ class TestBenchmark(unittest.TestCase):
         except Exception as e:
             self.fail(f"compare_results raised Exception: {e}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

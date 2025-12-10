@@ -5,7 +5,6 @@ from src.yukkuri_game.game.systems.kinematic_movement_system import (
 from src.yukkuri_game.game.components import PhysicsBody, MovementController, Transform
 from src.yukkuri_game.engine.ecs import World
 from dataclasses import dataclass
-import pytest
 
 
 @dataclass

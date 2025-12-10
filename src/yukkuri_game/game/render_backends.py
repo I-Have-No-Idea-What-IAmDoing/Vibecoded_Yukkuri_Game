@@ -8,13 +8,27 @@ from dataclasses import dataclass
 
 from .camera import Camera
 from .surface_cache import SurfaceCache
-from .components import Transform, Sprite, VisualTransform, FloatingText, LightSource, Occluder, PhysicsBody
+from .components import (
+    Transform,
+    Sprite,
+    VisualTransform,
+    FloatingText,
+    LightSource,
+    Occluder,
+    PhysicsBody,
+)
+
 
 # Constants
 class RenderConstants:
     GRID_SIZE: int = 100
     GRID_COLOR: Tuple[int, int, int] = (50, 50, 50)
-    GRID_COLOR_FLOAT: Tuple[float, float, float, float] = (50/255, 50/255, 50/255, 1.0)
+    GRID_COLOR_FLOAT: Tuple[float, float, float, float] = (
+        50 / 255,
+        50 / 255,
+        50 / 255,
+        1.0,
+    )
     SHADOW_COLOR: Tuple[int, int, int, int] = (0, 0, 0, 100)
     SELECTION_COLOR: Tuple[int, int, int] = (255, 255, 0)
     SELECTION_COLOR_FLOAT: Tuple[float, float, float, float] = (1.0, 1.0, 0.0, 1.0)
@@ -27,6 +41,7 @@ class RenderConstants:
 @dataclass
 class EntityRenderState:
     """Holds calculated render state for an entity."""
+
     screen_x: int
     screen_y: int
     scale: float
@@ -52,7 +67,9 @@ class RenderBackend(ABC):
             self.font_cache[size] = pygame.font.SysFont(None, size)
         return self.font_cache[size]
 
-    def _get_interpolated_position(self, transform: Transform, alpha: float) -> Tuple[float, float]:
+    def _get_interpolated_position(
+        self, transform: Transform, alpha: float
+    ) -> Tuple[float, float]:
         """Calculates the interpolated world position."""
         curr_x = transform.x
         curr_y = transform.y
@@ -64,7 +81,9 @@ class RenderBackend(ABC):
         interp_y = prev_y + (curr_y - prev_y) * alpha
         return interp_x, interp_y
 
-    def _calculate_grid_bounds(self, camera: Camera, screen_w: int, screen_h: int) -> Tuple[int, int, int, int]:
+    def _calculate_grid_bounds(
+        self, camera: Camera, screen_w: int, screen_h: int
+    ) -> Tuple[int, int, int, int]:
         """Calculates the grid column and row ranges visible on screen."""
         start_x, start_y = camera.screen_to_world(0, 0, screen_w, screen_h)
         end_x, end_y = camera.screen_to_world(screen_w, screen_h, screen_w, screen_h)
@@ -76,12 +95,18 @@ class RenderBackend(ABC):
 
         return start_col, end_col, start_row, end_row
 
-    def _create_shadow_surface_factory(self, radius_x: int, radius_y: int) -> Callable[[], pygame.Surface]:
+    def _create_shadow_surface_factory(
+        self, radius_x: int, radius_y: int
+    ) -> Callable[[], pygame.Surface]:
         """Returns a factory function for creating a shadow surface."""
+
         def factory() -> pygame.Surface:
             surface = pygame.Surface((radius_x * 2, radius_y * 2), pygame.SRCALPHA)
-            pygame.draw.ellipse(surface, RenderConstants.SHADOW_COLOR, surface.get_rect())
+            pygame.draw.ellipse(
+                surface, RenderConstants.SHADOW_COLOR, surface.get_rect()
+            )
             return surface
+
         return factory
 
     def _calculate_shadow_properties(
@@ -91,7 +116,7 @@ class RenderBackend(ABC):
         visual_transform: VisualTransform,
         scale: float,
         sw: int,
-        sh: int
+        sh: int,
     ) -> Optional[Tuple[int, int, int, int]]:
         """
         Calculates the shadow radius and screen position.
@@ -122,7 +147,7 @@ class RenderBackend(ABC):
         width: int,
         height: int,
         screen_rect: pygame.Rect,
-        scale: float
+        scale: float,
     ) -> EntityRenderState:
         """
         Calculates common entity render properties.
@@ -143,7 +168,9 @@ class RenderBackend(ABC):
 
         shadow_props = None
         if is_visible:
-             shadow_props = self._calculate_shadow_properties(camera, sprite, visual_transform, scale, sw, sh)
+            shadow_props = self._calculate_shadow_properties(
+                camera, sprite, visual_transform, scale, sw, sh
+            )
 
         return EntityRenderState(
             screen_x=int(screen_x),
@@ -151,7 +178,7 @@ class RenderBackend(ABC):
             scale=scale,
             rect=rect,
             is_visible=is_visible,
-            shadow_props=shadow_props
+            shadow_props=shadow_props,
         )
 
     @abstractmethod
@@ -173,7 +200,7 @@ class RenderBackend(ABC):
         sprite: Sprite,
         visual_transform: VisualTransform,
         is_selected: bool,
-        alpha: float
+        alpha: float,
     ) -> None:
         """Draws a single entity (shadow + sprite + selection)."""
         pass
@@ -185,7 +212,7 @@ class RenderBackend(ABC):
         transform: Transform,
         text_comp: FloatingText,
         screen_w: int,
-        screen_h: int
+        screen_h: int,
     ) -> None:
         """Draws floating text."""
         pass
@@ -195,6 +222,7 @@ class PygameRenderBackend(RenderBackend):
     """
     Standard Pygame rendering backend.
     """
+
     def __init__(self, screen: pygame.Surface) -> None:
         super().__init__()
         self.screen = screen
@@ -205,22 +233,36 @@ class PygameRenderBackend(RenderBackend):
         pass
 
     def draw_grid(self, camera: Camera, screen_w: int, screen_h: int) -> None:
-        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(camera, screen_w, screen_h)
+        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(
+            camera, screen_w, screen_h
+        )
 
         for col in range(start_col, end_col):
             x = col * RenderConstants.GRID_SIZE
             sx, _ = camera.world_to_screen(x, 0, screen_w, screen_h)
-            pygame.draw.line(self.screen, RenderConstants.GRID_COLOR, (int(sx), 0), (int(sx), screen_h))
+            pygame.draw.line(
+                self.screen,
+                RenderConstants.GRID_COLOR,
+                (int(sx), 0),
+                (int(sx), screen_h),
+            )
 
         for row in range(start_row, end_row):
             y = row * RenderConstants.GRID_SIZE
             _, sy = camera.world_to_screen(0, y, screen_w, screen_h)
-            pygame.draw.line(self.screen, RenderConstants.GRID_COLOR, (0, int(sy)), (screen_w, int(sy)))
+            pygame.draw.line(
+                self.screen,
+                RenderConstants.GRID_COLOR,
+                (0, int(sy)),
+                (screen_w, int(sy)),
+            )
 
     def _get_shadow_surface(self, radius_x: int, radius_y: int) -> pygame.Surface:
         key = (radius_x, radius_y)
         if key not in self.shadow_cache:
-            self.shadow_cache[key] = self._create_shadow_surface_factory(radius_x, radius_y)()
+            self.shadow_cache[key] = self._create_shadow_surface_factory(
+                radius_x, radius_y
+            )()
         return self.shadow_cache[key]
 
     def draw_entity(
@@ -231,7 +273,7 @@ class PygameRenderBackend(RenderBackend):
         sprite: Sprite,
         visual_transform: VisualTransform,
         is_selected: bool,
-        alpha: float
+        alpha: float,
     ) -> None:
         # We need the surface first to know the size for visibility check
         # But calculating the surface might be expensive if not cached?
@@ -249,7 +291,7 @@ class PygameRenderBackend(RenderBackend):
             scale,
             transform.rotation,
             sprite.flip_x,
-            sprite.flip_y
+            sprite.flip_y,
         )
 
         if not scaled_img:
@@ -264,7 +306,7 @@ class PygameRenderBackend(RenderBackend):
             scaled_img.get_width(),
             scaled_img.get_height(),
             self.screen.get_rect(),
-            scale
+            scale,
         )
 
         if state.is_visible:
@@ -285,7 +327,7 @@ class PygameRenderBackend(RenderBackend):
                     self.screen,
                     RenderConstants.SELECTION_COLOR,
                     state.rect,
-                    RenderConstants.SELECTION_WIDTH
+                    RenderConstants.SELECTION_WIDTH,
                 )
 
     def draw_floating_text(
@@ -294,7 +336,7 @@ class PygameRenderBackend(RenderBackend):
         transform: Transform,
         text_comp: FloatingText,
         screen_w: int,
-        screen_h: int
+        screen_h: int,
     ) -> None:
         font = self._get_font(text_comp.size)
         text_surface = font.render(text_comp.text, True, text_comp.color)
@@ -335,7 +377,9 @@ class Light2DRenderBackend(RenderBackend):
 
         # Track transform state to avoid unnecessary Hull rebuilds
         # Map entity_id -> (x, y, rotation, scale, sprite_width, sprite_height)
-        self.hull_transform_state: Dict[int, Tuple[float, float, float, float, int, int]] = {}
+        self.hull_transform_state: Dict[
+            int, Tuple[float, float, float, float, int, int]
+        ] = {}
 
         # Track camera state for global invalidation
         self._last_camera_state: Optional[Tuple[float, float, float]] = None
@@ -344,7 +388,9 @@ class Light2DRenderBackend(RenderBackend):
         """Sets the ambient light color."""
         self.lights_engine.set_ambient(color)
 
-    def update_lights(self, lights_data: List[Tuple[int, Transform, LightSource]], camera: Camera) -> None:
+    def update_lights(
+        self, lights_data: List[Tuple[int, Transform, LightSource]], camera: Camera
+    ) -> None:
         """
         Syncs ECS LightSource components with the engine.
         Args:
@@ -367,7 +413,9 @@ class Light2DRenderBackend(RenderBackend):
 
             # Simple world-space culling might be easier if we know camera bounds in world space
             # But let's stick to screen space projection for now
-            screen_x, screen_y = camera.world_to_screen(transform.x, transform.y, screen_w, screen_h)
+            screen_x, screen_y = camera.world_to_screen(
+                transform.x, transform.y, screen_w, screen_h
+            )
 
             # Use radius to expand check
             light_rect = pygame.Rect(0, 0, 0, 0)
@@ -392,7 +440,7 @@ class Light2DRenderBackend(RenderBackend):
                 pl_light = pl2d.PointLight(
                     position=(screen_x, screen_y),
                     power=light_comp.intensity,
-                    radius=light_radius_screen
+                    radius=light_radius_screen,
                 )
                 pl_light.set_color(*light_comp.color)
                 self.lights_engine.lights.append(pl_light)
@@ -410,15 +458,19 @@ class Light2DRenderBackend(RenderBackend):
         if stale_ids:
             stale_lights_set = {self.active_lights[eid] for eid in stale_ids}
             self.lights_engine.lights[:] = [
-                light for light in self.lights_engine.lights if light not in stale_lights_set
+                light
+                for light in self.lights_engine.lights
+                if light not in stale_lights_set
             ]
             for eid in stale_ids:
                 del self.active_lights[eid]
 
     def update_occluders(
         self,
-        occluders_data: List[Tuple[int, Transform, Occluder, Optional[Sprite], Optional[PhysicsBody]]],
-        camera: Camera
+        occluders_data: List[
+            Tuple[int, Transform, Occluder, Optional[Sprite], Optional[PhysicsBody]]
+        ],
+        camera: Camera,
     ) -> None:
         """
         Syncs ECS Occluder components with the engine.
@@ -443,13 +495,19 @@ class Light2DRenderBackend(RenderBackend):
             self._last_camera_state = current_camera_state
 
         for ent_id, transform, occluder, sprite, body in occluders_data:
-
             # Optimization: Check if state changed
             # Key state vars: x, y, rot, scale. Sprite dims if sprite fallback.
             sprite_w = sprite.width if sprite else 0
             sprite_h = sprite.height if sprite else 0
 
-            current_state = (transform.x, transform.y, transform.rotation, transform.scale, sprite_w, sprite_h)
+            current_state = (
+                transform.x,
+                transform.y,
+                transform.rotation,
+                transform.scale,
+                sprite_w,
+                sprite_h,
+            )
 
             # If we have an active hull and state matches, skip calculation
             if ent_id in self.active_hulls and ent_id in self.hull_transform_state:
@@ -479,59 +537,67 @@ class Light2DRenderBackend(RenderBackend):
 
                     world_vertices.append((transform.x + rx, transform.y + ry))
             elif body:
-                 # Use physics shape if available (best for walls)
-                 if hasattr(body.shape, 'get_vertices'):
-                     # Poly
-                     for v in body.shape.get_vertices():
-                         wv = body.body.local_to_world(v)
-                         world_vertices.append((wv.x, wv.y))
-                 elif isinstance(body.shape, pymunk.Segment):
-                     # Line segment wall
-                     v1 = body.body.local_to_world(body.shape.a)
-                     v2 = body.body.local_to_world(body.shape.b)
+                # Use physics shape if available (best for walls)
+                if hasattr(body.shape, "get_vertices"):
+                    # Poly
+                    for v in body.shape.get_vertices():
+                        wv = body.body.local_to_world(v)
+                        world_vertices.append((wv.x, wv.y))
+                elif isinstance(body.shape, pymunk.Segment):
+                    # Line segment wall
+                    v1 = body.body.local_to_world(body.shape.a)
+                    v2 = body.body.local_to_world(body.shape.b)
 
-                     # Extrude segment into a thin quad (e.g. 4px thick)
-                     # Vector direction
-                     dx = v2.x - v1.x
-                     dy = v2.y - v1.y
-                     length = (dx*dx + dy*dy)**0.5
-                     if length > 0.001:
-                         nx = -dy / length
-                         ny = dx / length
-                         thickness = 2.0 # Half thickness
+                    # Extrude segment into a thin quad (e.g. 4px thick)
+                    # Vector direction
+                    dx = v2.x - v1.x
+                    dy = v2.y - v1.y
+                    length = (dx * dx + dy * dy) ** 0.5
+                    if length > 0.001:
+                        nx = -dy / length
+                        ny = dx / length
+                        thickness = 2.0  # Half thickness
 
-                         world_vertices.append((v1.x + nx * thickness, v1.y + ny * thickness))
-                         world_vertices.append((v2.x + nx * thickness, v2.y + ny * thickness))
-                         world_vertices.append((v2.x - nx * thickness, v2.y - ny * thickness))
-                         world_vertices.append((v1.x - nx * thickness, v1.y - ny * thickness))
-                     else:
-                         # Degenerate segment
-                         world_vertices.append((v1.x, v1.y))
-                         world_vertices.append((v2.x, v2.y))
+                        world_vertices.append(
+                            (v1.x + nx * thickness, v1.y + ny * thickness)
+                        )
+                        world_vertices.append(
+                            (v2.x + nx * thickness, v2.y + ny * thickness)
+                        )
+                        world_vertices.append(
+                            (v2.x - nx * thickness, v2.y - ny * thickness)
+                        )
+                        world_vertices.append(
+                            (v1.x - nx * thickness, v1.y - ny * thickness)
+                        )
+                    else:
+                        # Degenerate segment
+                        world_vertices.append((v1.x, v1.y))
+                        world_vertices.append((v2.x, v2.y))
 
-                 elif isinstance(body.shape, pymunk.Circle):
-                     # Approximate circle with a polygon
-                     num_segments = RenderConstants.CIRCLE_OCCLUDER_SEGMENTS
-                     radius = body.shape.radius
-                     for i in range(num_segments):
-                         angle = 2 * math.pi * i / num_segments
-                         # Get local coordinates relative to body center
-                         vx = radius * math.cos(angle)
-                         vy = radius * math.sin(angle)
-                         # Convert to world coordinates
-                         # Note: pymunk.Body.local_to_world expects a Vec2d or tuple
-                         wv = body.body.local_to_world((vx, vy))
-                         world_vertices.append((wv.x, wv.y))
+                elif isinstance(body.shape, pymunk.Circle):
+                    # Approximate circle with a polygon
+                    num_segments = RenderConstants.CIRCLE_OCCLUDER_SEGMENTS
+                    radius = body.shape.radius
+                    for i in range(num_segments):
+                        angle = 2 * math.pi * i / num_segments
+                        # Get local coordinates relative to body center
+                        vx = radius * math.cos(angle)
+                        vy = radius * math.sin(angle)
+                        # Convert to world coordinates
+                        # Note: pymunk.Body.local_to_world expects a Vec2d or tuple
+                        wv = body.body.local_to_world((vx, vy))
+                        world_vertices.append((wv.x, wv.y))
             elif sprite:
                 # Fallback to sprite rect (box)
                 w = sprite.width * transform.scale
                 h = sprite.height * transform.scale
                 # Corners relative to center
                 corners = [
-                    (-w/2, -h/2),
-                    (w/2, -h/2),
-                    (w/2, h/2),
-                    (-w/2, h/2)
+                    (-w / 2, -h / 2),
+                    (w / 2, -h / 2),
+                    (w / 2, h / 2),
+                    (-w / 2, h / 2),
                 ]
                 # Rotate
                 rad = math.radians(transform.rotation)
@@ -556,8 +622,12 @@ class Light2DRenderBackend(RenderBackend):
             max_y = max(v[1] for v in world_vertices)
 
             # Project bounds to screen
-            screen_min_x, screen_min_y = camera.world_to_screen(min_x, min_y, screen_w, screen_h)
-            screen_max_x, screen_max_y = camera.world_to_screen(max_x, max_y, screen_w, screen_h)
+            screen_min_x, screen_min_y = camera.world_to_screen(
+                min_x, min_y, screen_w, screen_h
+            )
+            screen_max_x, screen_max_y = camera.world_to_screen(
+                max_x, max_y, screen_w, screen_h
+            )
 
             # Simple rect check (doesn't account for rotation perfectly but good enough for culling)
             # Actually world_to_screen flips Y, so min_y world might be max_y screen depending on axis
@@ -569,7 +639,9 @@ class Light2DRenderBackend(RenderBackend):
 
             xs = [v[0] for v in screen_vertices]
             ys = [v[1] for v in screen_vertices]
-            obj_rect = pygame.Rect(min(xs), min(ys), max(xs)-min(xs), max(ys)-min(ys))
+            obj_rect = pygame.Rect(
+                min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)
+            )
 
             if not cull_rect.colliderect(obj_rect):
                 if ent_id in self.active_hulls:
@@ -622,9 +694,7 @@ class Light2DRenderBackend(RenderBackend):
         pass
 
     def _get_cached_texture(
-        self,
-        key: tuple,
-        surface_generator: Callable[[], Optional[pygame.Surface]]
+        self, key: tuple, surface_generator: Callable[[], Optional[pygame.Surface]]
     ) -> Optional["pl2d.Texture"]:
         if key in self.texture_cache:
             self.texture_cache.move_to_end(key)
@@ -644,7 +714,9 @@ class Light2DRenderBackend(RenderBackend):
         return tex
 
     def draw_grid(self, camera: Camera, screen_w: int, screen_h: int) -> None:
-        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(camera, screen_w, screen_h)
+        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(
+            camera, screen_w, screen_h
+        )
 
         bg_layer = self.lights_engine._get_layer(pl2d.BACKGROUND)
         vertices = []
@@ -661,10 +733,7 @@ class Light2DRenderBackend(RenderBackend):
 
         if vertices:
             self.lights_engine.graphics.render_lines(
-                bg_layer,
-                RenderConstants.GRID_COLOR_FLOAT,
-                vertices,
-                antialias=False
+                bg_layer, RenderConstants.GRID_COLOR_FLOAT, vertices, antialias=False
             )
 
     def draw_entity(
@@ -675,7 +744,7 @@ class Light2DRenderBackend(RenderBackend):
         sprite: Sprite,
         visual_transform: VisualTransform,
         is_selected: bool,
-        alpha: float
+        alpha: float,
     ) -> None:
         # For Light2D, we need the texture.
         # We also need dimensions for culling, but texture gives us dimensions.
@@ -690,7 +759,7 @@ class Light2DRenderBackend(RenderBackend):
             round(scale, 3),
             round(transform.rotation, 1),
             sprite.flip_x,
-            sprite.flip_y
+            sprite.flip_y,
         )
 
         def sprite_gen() -> Optional[pygame.Surface]:
@@ -703,7 +772,7 @@ class Light2DRenderBackend(RenderBackend):
                 scale,
                 transform.rotation,
                 sprite.flip_x,
-                sprite.flip_y
+                sprite.flip_y,
             )
 
         tex = self._get_cached_texture(sprite_key, sprite_gen)
@@ -719,7 +788,7 @@ class Light2DRenderBackend(RenderBackend):
             tex.width,
             tex.height,
             self.screen.get_rect(),
-            scale
+            scale,
         )
 
         # Override state.rect calculation if needed, but it should be correct as we passed tex.width/height
@@ -733,11 +802,13 @@ class Light2DRenderBackend(RenderBackend):
                 shadow_tex = self._get_cached_texture(shadow_key, shadow_gen)
 
                 if shadow_tex:
-                     self.lights_engine.render_texture(
+                    self.lights_engine.render_texture(
                         shadow_tex,
                         pl2d.BACKGROUND,
-                        pygame.Rect(sx - radius_x, sy - radius_y, radius_x * 2, radius_y * 2),
-                        pygame.Rect(0, 0, radius_x * 2, radius_y * 2)
+                        pygame.Rect(
+                            sx - radius_x, sy - radius_y, radius_x * 2, radius_y * 2
+                        ),
+                        pygame.Rect(0, 0, radius_x * 2, radius_y * 2),
                     )
 
             # Draw Sprite
@@ -745,7 +816,7 @@ class Light2DRenderBackend(RenderBackend):
                 tex,
                 pl2d.BACKGROUND,
                 state.rect,
-                pygame.Rect(0, 0, tex.width, tex.height)
+                pygame.Rect(0, 0, tex.width, tex.height),
             )
 
             # Selection
@@ -758,7 +829,7 @@ class Light2DRenderBackend(RenderBackend):
                     state.rect.width,
                     state.rect.height,
                     angle=0,
-                    antialias=False
+                    antialias=False,
                 )
 
     def draw_floating_text(
@@ -767,7 +838,7 @@ class Light2DRenderBackend(RenderBackend):
         transform: Transform,
         text_comp: FloatingText,
         screen_w: int,
-        screen_h: int
+        screen_h: int,
     ) -> None:
         font = self._get_font(text_comp.size)
         text_surface = font.render(text_comp.text, True, text_comp.color)
@@ -785,9 +856,6 @@ class Light2DRenderBackend(RenderBackend):
         rect = text_surface.get_rect(center=(int(screen_x), int(screen_y)))
 
         self.lights_engine.render_texture(
-            tex,
-            pl2d.FOREGROUND,
-            rect,
-            pygame.Rect(0, 0, tex.width, tex.height)
+            tex, pl2d.FOREGROUND, rect, pygame.Rect(0, 0, tex.width, tex.height)
         )
         tex.release()
