@@ -97,8 +97,8 @@ def test_stress_test(driver):
 
     # Use reset to ensure clean slate if needed (though fixture does it)
     driver.reset()
-    driver.setup() # Re-setup since reset cleared everything
-    driver.wait_until_scene(GameplayScene) # Ensure scene is back
+    driver.game.scene_manager.pop()
+    driver.setup() # This will create and push a new GameplayScene
 
     # Spawn 50 Yukkuris
     for _ in range(50):

@@ -608,12 +608,12 @@ class GameDriver:
 
         except ImportError:
             logger.warning("Numpy not found for advanced image comparison. Falling back to strict buffer check.")
-            # Fallback to byte comparison
-            # Note: get_view returns a BufferProxy. accessing raw gives bytes.
-            if curr_buffer.raw == ref_buffer.raw:
-                 return True
+            # The initial raw buffer check already failed if we are here,
+            # so we can just report the error.
             logger.error("Images differ (strict check failed, numpy not available for tolerant check).")
             return False
+
+
         except Exception as e:
             logger.error(f"Comparison failed with error: {e}")
             return False
@@ -635,9 +635,9 @@ class GameDriver:
 
         for entity_id in self.world.get_all_entities():
             output.write(f"  Entity {entity_id}:\n")
-            # We can't easily iterate all components for an entity without access to internal storage
-            # But we can try to guess common ones or if ECS supports it.
-            # Our ECS implementation (ecs.py) allows getting all components.
+
+
+            components_tuple = self.world.get_all_components(entity_id)
 
             components_tuple = self.world.get_all_components(entity_id)
             for comp in components_tuple:
