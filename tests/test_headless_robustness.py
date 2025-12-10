@@ -3,11 +3,11 @@ import pytest
 import os
 import pygame
 import random
-from src.yukkuri_game.testing.driver import GameDriver, WaitFrames, InjectInput, KeyPress, WaitUntilScene
-from src.yukkuri_game.engine.application import Application
-from src.yukkuri_game.scenes.gameplay import GameplayScene
-from src.yukkuri_game.scenes.main_menu import MainMenuScene
-from src.yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.testing.driver import GameDriver, WaitFrames, InjectInput, KeyPress, WaitUntilScene
+from yukkuri_game.engine.application import Application
+from yukkuri_game.scenes.gameplay import GameplayScene
+from yukkuri_game.scenes.main_menu import MainMenuScene
+from yukkuri_game.game.yukkuri_components import YukkuriStats
 from tests.mocks import MockAudioManager
 
 @pytest.fixture
@@ -27,37 +27,40 @@ def driver(headless_app):
 def test_rendering_verification(driver, tmp_path):
     """
     Verifies that rendering logic works and produces non-empty output.
+    Uses log capture to ensure rendering system is doing work.
     """
     # Wait for scene
     driver.wait_until_scene(GameplayScene)
 
-    # Spawn a Yukkuri to ensure there is something to render
-    driver.create_yukkuri("reimu", 100, 100)
+    # Capture logs during setup/render
+    with driver.capture_logs() as logs:
+        # Spawn a Yukkuri to ensure there is something to render
+        driver.create_yukkuri("reimu", 100, 100)
 
-    # Advance a few frames to let systems update
-    driver.run_for(0.5)
+        # Advance a few frames to let systems update
+        driver.run_for(0.5)
 
-    screenshot_path = str(tmp_path / "test_render.png")
+        screenshot_path = str(tmp_path / "test_render.png")
 
-    driver.save_screenshot(screenshot_path)
+        # Saving screenshot forces a render
+        driver.save_screenshot(screenshot_path)
 
-    assert os.path.exists(screenshot_path)
-    assert os.path.getsize(screenshot_path) > 0
+        assert os.path.exists(screenshot_path)
+        assert os.path.getsize(screenshot_path) > 0
+
+    # Note: Application init logs are captured if we wrap creation, but here we wrap usage.
+    # We can check if any warning/error occurred.
+    logs.assert_not_logged("Error")
 
     # Load and check content
     img = pygame.image.load(screenshot_path)
     width, height = img.get_size()
 
     # Check that it's not all black
-    center_x = width // 2
-    center_y = height // 2
-
     has_content = False
-    # Sample a grid
     for x in range(0, width, 50):
         for y in range(0, height, 50):
             color = img.get_at((x, y))
-            # Alpha is not fully transparent and color is not black
             if color[3] > 0 and (color[0] > 0 or color[1] > 0 or color[2] > 0):
                 has_content = True
                 break
@@ -92,12 +95,22 @@ def test_stress_test(driver):
     """
     driver.wait_until_scene(GameplayScene)
 
+    # Use reset to ensure clean slate if needed (though fixture does it)
+    driver.reset()
+    driver.game.scene_manager.pop()
+    driver.setup() # This will create and push a new GameplayScene
+
     # Spawn 50 Yukkuris
     for _ in range(50):
         driver.create_yukkuri("reimu", random.randint(0, 800), random.randint(0, 600))
 
     start_frame = driver.frame_count
-    driver.run_for(2.0) # Run for 2 seconds (simulated)
+
+    with driver.capture_logs() as logs:
+        driver.run_for(2.0) # Run for 2 seconds (simulated)
+
+    logs.assert_not_logged("Exception")
+
     end_frame = driver.frame_count
 
     # Check frames advanced

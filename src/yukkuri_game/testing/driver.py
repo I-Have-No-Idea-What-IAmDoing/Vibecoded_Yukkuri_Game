@@ -5,11 +5,17 @@ Game Driver for automated testing.
 import random
 import pygame
 import os
+import io
 from typing import Generator, Any, Callable, List, Optional, Type
 from dataclasses import dataclass
 from collections import deque
+from loguru import logger
 from ..engine.application import Application
 from ..engine.event_bus import Event
+from ..game.services import TimeService
+from ..engine.ecs import World
+from ..game.components import Transform
+from ..game.yukkuri_components import YukkuriStats
 
 # --- Predicates & Commands ---
 
@@ -120,6 +126,33 @@ def KeyPress(key: int) -> InjectInput:
     )
 
 
+class LogCapture:
+    """
+    Captures log records for assertion.
+    """
+    def __init__(self):
+        self.records = []
+        self.handler_id = None
+
+    def __enter__(self):
+        self.handler_id = logger.add(lambda msg: self.records.append(msg), format="{message}")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.handler_id is not None:
+            logger.remove(self.handler_id)
+
+    def assert_logged(self, message_substring: str) -> None:
+        """Asserts that a message containing the substring was logged."""
+        found = any(message_substring in str(record) for record in self.records)
+        assert found, f"Expected log containing '{message_substring}' not found. Logs: {self.records}"
+
+    def assert_not_logged(self, message_substring: str) -> None:
+        """Asserts that a message containing the substring was NOT logged."""
+        found = any(message_substring in str(record) for record in self.records)
+        assert not found, f"Expected no log containing '{message_substring}', but found it."
+
+
 # --- Driver ---
 
 
@@ -159,7 +192,6 @@ class GameDriver:
         random.seed(seed)
         try:
             import numpy as np
-
             np.random.seed(seed)
         except ImportError:
             pass
@@ -176,8 +208,6 @@ class GameDriver:
         # Hook event bus for logging
         if isinstance(self.game, Application) and hasattr(self.game, "event_manager"):
             # We want to intercept events to store them in history
-            # but we can't easily replace the method on the instance if it's bound.
-            # Actually we can replace the instance method.
             original_publish = self.game.event_manager.bus.publish
 
             def intercepted_publish(event: Event) -> None:
@@ -383,6 +413,8 @@ class GameDriver:
                 f.write("Last 100 Events:\n")
                 for evt in self.event_history:
                     f.write(f"{evt}\n")
+                f.write("\nState Dump:\n")
+                f.write(self.dump_state())
             raise e
         finally:
             self._scenario_deadline = None
@@ -477,15 +509,10 @@ class GameDriver:
         if self.world:
             # Clear the ECS world to remove all entities
             self.world.clear_database()
-
-        # Reset game setup flag so setup() runs again if needed (to create initial entities)
-        # However, setup() also adds systems. If clear() keeps systems, we shouldn't re-add them.
-        # But setup() creates initial entities (like Reimu).
-        # We need a way to re-populate initial entities without re-adding systems.
-        # Ideally, tests call setup() explicitly.
-
-        # For now, we just clear entities. Tests that use reset() usually create their own entities.
-        # If the game relies on singletons created in setup (like managers), they persist.
+            # Also reset services that accumulate data if needed
+            time_service = self.world.services.try_get(TimeService)
+            if time_service:
+                time_service.time_elapsed = 0.0
 
         self.simulated_time = 0.0
         self.frame_count = 0
@@ -523,3 +550,106 @@ class GameDriver:
             self.game.render()
 
         pygame.image.save(self.game.screen, filename)
+
+    def compare_screenshot(self, filename: str, reference_filename: str, tolerance: float = 0.01) -> bool:
+        """
+        Compares the current screen against a reference image.
+
+        Args:
+            filename (str): Where to save the current screenshot.
+            reference_filename (str): Path to the reference image.
+            tolerance (float): Percentage of pixels allowed to be different (0.0 to 1.0).
+
+        Returns:
+            bool: True if images match within tolerance.
+        """
+        self.save_screenshot(filename)
+
+        if not os.path.exists(reference_filename):
+            logger.warning(f"Reference screenshot {reference_filename} not found. Comparison skipped (assumed new test).")
+            return True
+
+        current_img = pygame.image.load(filename)
+        ref_img = pygame.image.load(reference_filename)
+
+        if current_img.get_size() != ref_img.get_size():
+            logger.error(f"Image dimensions mismatch: {current_img.get_size()} vs {ref_img.get_size()}")
+            return False
+
+        width, height = current_img.get_size()
+        diff_pixels = 0
+        total_pixels = width * height
+
+        try:
+            curr_buffer = current_img.get_view("2")
+            ref_buffer = ref_img.get_view("2")
+
+            # Use raw property to get bytes
+            if curr_buffer.raw == ref_buffer.raw:
+                return True
+
+            # If strict failed, count differences (slow path)
+            # Or just fail if we don't have numpy.
+            # Given the constraints, let's try to be helpful.
+
+            import numpy as np
+
+            arr1 = pygame.surfarray.array3d(current_img)
+            arr2 = pygame.surfarray.array3d(ref_img)
+
+            diff = np.abs(arr1 - arr2)
+            num_diff = np.count_nonzero(diff > 5) # Allow small color drift
+
+            diff_ratio = num_diff / (total_pixels * 3)
+
+            logger.info(f"Image comparison diff ratio: {diff_ratio:.4f}")
+
+            return diff_ratio <= tolerance
+
+        except ImportError:
+            logger.warning("Numpy not found for advanced image comparison. Falling back to strict buffer check.")
+            # The initial raw buffer check already failed if we are here,
+            # so we can just report the error.
+            logger.error("Images differ (strict check failed, numpy not available for tolerant check).")
+            return False
+
+
+        except Exception as e:
+            logger.error(f"Comparison failed with error: {e}")
+            return False
+
+    def dump_state(self) -> str:
+        """
+        Dumps the ECS world state to a string.
+
+        Returns:
+            str: The string representation of the world state.
+        """
+        if not self.world:
+            return "No World Active"
+
+        output = io.StringIO()
+        output.write(f"Simulated Time: {self.simulated_time:.2f}\n")
+        output.write(f"Frame Count: {self.frame_count}\n")
+        output.write("Entities:\n")
+
+        for entity_id in self.world.get_all_entities():
+            output.write(f"  Entity {entity_id}:\n")
+
+
+            components_tuple = self.world.get_all_components(entity_id)
+
+            components_tuple = self.world.get_all_components(entity_id)
+            for comp in components_tuple:
+                output.write(f"    {type(comp).__name__}: {comp}\n")
+
+        return output.getvalue()
+
+    def capture_logs(self) -> LogCapture:
+        """
+        Context manager to capture logs for assertions.
+
+        Returns:
+            LogCapture: The capture object.
+        """
+        return LogCapture()
