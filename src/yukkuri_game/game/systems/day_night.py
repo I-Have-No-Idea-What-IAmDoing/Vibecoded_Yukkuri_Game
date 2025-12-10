@@ -19,7 +19,7 @@ class DayNightSystem(System):
     # Time is 0.0 to 24.0 (hours)
     AMBIENT_COLORS = [
         (0.0, (20, 20, 50)),  # Midnight
-        (5.0, (20, 20, 50)),  # Early Morning (Dark)
+https://github.com/I-Have-No-Idea-What-IAmDoing/Vibecoded_Yukkuri_Game/pull/360/conflict?name=src%252Fyukkuri_game%252Fgame%252Fsystems%252Fsector_system.py&base_oid=fa1bff4a26529d47f7598553f44ea75798a158c0&head_oid=0082b8baa5b65e6e702ecc7ca40b88c75f1eda66        (5.0, (20, 20, 50)),  # Early Morning (Dark)
         (6.0, (100, 100, 120)),  # Dawn
         (8.0, (255, 255, 255)),  # Morning
         (17.0, (255, 255, 255)),  # Late Afternoon
