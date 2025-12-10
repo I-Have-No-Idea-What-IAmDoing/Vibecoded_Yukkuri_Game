@@ -163,7 +163,7 @@ class TraitDefinition(msgspec.Struct):  # type: ignore[misc]
     conflicts: List[str] = []
     axis_shift: Dict[str, int] = {}
     stat_modifiers: Dict[str, float] = {}
-    ai_modifiers: Dict[str, Dict[str, Any]] = {}  # Complex structure, kept generic
+    ai_modifiers: Dict[str, Any] = {}  # Complex structure, can be boolean flags or dicts
     skill_modifiers: Dict[str, Dict[str, float]] = {}
     social_modifiers: Dict[str, Dict[str, float]] = {}
 

@@ -397,3 +397,14 @@ class GameplayScene(Scene):
                 self.load("quicksave")
 
             self.hud.process_event(event)
+
+    def init_render_system_headless(self) -> None:
+        """
+        Initializes the render system in headless mode for screenshots/verification.
+        """
+        if not hasattr(self, "render_system") or self.render_system is None:
+            self.render_system = RenderSystem(
+                self.application.screen,
+                self.world,
+                lights_engine=None  # Force Pygame backend
+            )
