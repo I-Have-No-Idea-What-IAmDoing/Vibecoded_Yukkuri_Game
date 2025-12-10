@@ -151,6 +151,7 @@ class GameplayScene(Scene):
             )
             self.world.add_system(self.day_night_system)
 
+            # HUD
             self.hud = HUD(self.ui_manager, self.world)
 
             self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
@@ -414,6 +415,12 @@ class GameplayScene(Scene):
                     self.render_system.renderer.toggle_lighting_debug(
                         self.hud.lighting_debug
                     )
+                elif pygame.key.get_mods() & pygame.KMOD_CTRL:
+                     # Ctrl+F3 -> Toggle Mouse Light
+                    from ..game.systems.mouse_light_system import MouseLightSystem
+                    mouse_light = self.world.services.try_get(MouseLightSystem)
+                    if mouse_light:
+                        mouse_light.toggle()
                 else:
                     self.hud.toggle_debug()
             elif self.input_manager.is_action_just_pressed("screenshot"):

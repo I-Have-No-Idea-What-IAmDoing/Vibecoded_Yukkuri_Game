@@ -26,6 +26,12 @@ input = "energy_inv"
 curve = "logit"
 params = { k = 10.0, x0 = 0.7 }
 
+[[actions.Sleep.considerations]]
+name = "NightTime"
+input = "is_night"
+curve = "threshold"
+params = { threshold = 0.5 }
+
 [actions.Play]
 weight = 1.0
 [actions.Play.effects]
