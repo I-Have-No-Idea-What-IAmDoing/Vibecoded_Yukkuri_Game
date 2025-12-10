@@ -111,6 +111,13 @@ class GameplayScene(Scene):
         self.is_setup = True
         self._setup_event_handlers()
 
+        # Day/Night System (Registered here because it needs Renderer reference which is created in _setup_event_handlers for non-headless)
+        # However, _setup_event_handlers is called AFTER this.
+        # But we need renderer which is created in _setup_event_handlers.
+        # Let's move _setup_event_handlers call up?
+        # No, _setup_event_handlers uses things set up here.
+        # Let's manually add DayNightSystem in _setup_event_handlers.
+
         # Initial Population if empty
         if not self.application.headless and len(self.world.get_all_entities()) == 0:
             start_x = float(self.camera.width) / 2.0
@@ -135,6 +142,12 @@ class GameplayScene(Scene):
                 self.world,
                 lights_engine=getattr(self.application, "lights_engine", None)
             )
+
+            # Day/Night System
+            from ..game.systems.day_night import DayNightSystem
+            self.day_night_system = DayNightSystem(self.world, self.render_system.renderer)
+            self.world.add_system(self.day_night_system)
+
             self.hud = HUD(self.ui_manager, self.world)
 
             self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
@@ -391,7 +404,21 @@ class GameplayScene(Scene):
 
         if not self.application.headless:
             if self.input_manager.is_action_just_pressed("debug_toggle"):
-                self.hud.toggle_debug()
+                if pygame.key.get_mods() & pygame.KMOD_SHIFT:
+                     # Shift+F3 -> Toggle Lighting Debug
+                     self.hud.toggle_lighting_debug()
+
+                     from ..game.render_backends import Light2DRenderBackend
+                     if isinstance(self.render_system.renderer.backend, Light2DRenderBackend):
+                         backend = self.render_system.renderer.backend
+                         if self.hud.lighting_debug:
+                             backend.lights_engine.set_ambient((255, 255, 255, 255))
+                         else:
+                             # Revert to DayNightSystem control
+                             # The next update of DayNightSystem will fix the color.
+                             pass
+                else:
+                    self.hud.toggle_debug()
             elif self.input_manager.is_action_just_pressed("screenshot"):
                 self.take_screenshot()
             elif self.input_manager.is_action_just_pressed("quicksave"):

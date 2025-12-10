@@ -15,6 +15,8 @@ from .components import (
     FloatingText,
     PhysicsBody,
     VisualTransform,
+    LightSource,
+    Occluder,
 )
 from .camera import Camera
 from .surface_cache import SurfaceCache
@@ -79,6 +81,27 @@ class WorldRenderer:
         # Render background grid
         sw, sh = self.screen.get_size()
         self.backend.draw_grid(self.camera, sw, sh)
+
+        # Update Lighting (if backend supports it)
+        if isinstance(self.backend, Light2DRenderBackend):
+            # Gather Lights
+            lights_data = []
+            for ent, (transform, light) in world.get_components_tuple(
+                Transform, LightSource
+            ):
+                lights_data.append((ent, transform, light))
+            self.backend.update_lights(lights_data, self.camera)
+
+            # Gather Occluders
+            occluders_data = []
+            for ent, (transform, occluder) in world.get_components_tuple(
+                Transform, Occluder
+            ):
+                # Optionally get Sprite and PhysicsBody for fallback shape
+                sprite = world.try_get_component(ent, Sprite)
+                body = world.try_get_component(ent, PhysicsBody)
+                occluders_data.append((ent, transform, occluder, sprite, body))
+            self.backend.update_occluders(occluders_data, self.camera)
 
         # Render entities
         # Use get_components_tuple for efficient retrieval of all required components

@@ -1,5 +1,6 @@
 import pygame
 import pygame_light2d as pl2d
+import math
 from typing import Tuple, List, Optional, Callable, Dict
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -7,7 +8,7 @@ from dataclasses import dataclass
 
 from .camera import Camera
 from .surface_cache import SurfaceCache
-from .components import Transform, Sprite, VisualTransform, FloatingText
+from .components import Transform, Sprite, VisualTransform, FloatingText, LightSource, Occluder, PhysicsBody
 
 # Constants
 class RenderConstants:
@@ -313,17 +314,298 @@ class Light2DRenderBackend(RenderBackend):
     """
     Pygame Light2D rendering backend.
     """
+
     def __init__(
         self,
         lights_engine: pl2d.LightingEngine,
         screen: pygame.Surface,
-        texture_cache_max_size: int = 500
+        texture_cache_max_size: int = 500,
     ) -> None:
         super().__init__()
         self.lights_engine = lights_engine
         self.screen = screen
         self.texture_cache: OrderedDict[tuple, "pl2d.Texture"] = OrderedDict()
         self.texture_cache_max_size = texture_cache_max_size
+
+        # Persistent Light/Hull management
+        # Map entity_id -> pl2d.PointLight / pl2d.Hull
+        self.active_lights: Dict[int, pl2d.PointLight] = {}
+        self.active_hulls: Dict[int, pl2d.Hull] = {}
+
+        # Track transform state to avoid unnecessary Hull rebuilds
+        # Map entity_id -> (x, y, rotation, scale, sprite_width, sprite_height)
+        self.hull_transform_state: Dict[int, Tuple[float, float, float, float, int, int]] = {}
+
+        # Track camera state for global invalidation
+        self._last_camera_state: Optional[Tuple[float, float, float]] = None
+
+    def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
+        """Sets the ambient light color."""
+        self.lights_engine.set_ambient(color)
+
+    def update_lights(self, lights_data: List[Tuple[int, Transform, LightSource]], camera: Camera) -> None:
+        """
+        Syncs ECS LightSource components with the engine.
+        Args:
+            lights_data: List of (entity_id, Transform, LightSource)
+            camera: The camera for visibility check.
+        """
+        # Track which entities are processed this frame to identify removals
+        processed_ids = set()
+        screen_w, screen_h = self.screen.get_size()
+        screen_rect = pygame.Rect(0, 0, screen_w, screen_h)
+        # Inflate screen rect for culling tolerance
+        cull_rect = screen_rect.inflate(200, 200)
+
+        for ent_id, transform, light_comp in lights_data:
+            # 1. Culling Check
+            # We transform world pos to screen pos to check against screen rect
+            # Note: Light engine works in screen coordinates (native res).
+            # If native res != screen res, we might need conversion, but usually they match or scale.
+            # Assuming camera.world_to_screen gives coordinates relevant to the light engine's view.
+
+            # Simple world-space culling might be easier if we know camera bounds in world space
+            # But let's stick to screen space projection for now
+            screen_x, screen_y = camera.world_to_screen(transform.x, transform.y, screen_w, screen_h)
+
+            # Use radius to expand check
+            light_rect = pygame.Rect(0, 0, 0, 0)
+            # Center the rect
+            light_radius_screen = light_comp.radius * camera.zoom
+            light_rect.width = light_radius_screen * 2
+            light_rect.height = light_radius_screen * 2
+            light_rect.center = (screen_x, screen_y)
+
+            if not cull_rect.colliderect(light_rect):
+                # Light is off-screen. If it was active, remove it.
+                if ent_id in self.active_lights:
+                    self.lights_engine.lights.remove(self.active_lights[ent_id])
+                    del self.active_lights[ent_id]
+                continue
+
+            processed_ids.add(ent_id)
+
+            # 2. Update or Create Light
+            if ent_id not in self.active_lights:
+                # Create new light
+                pl_light = pl2d.PointLight(
+                    position=(screen_x, screen_y),
+                    power=light_comp.intensity,
+                    radius=light_radius_screen
+                )
+                pl_light.set_color(*light_comp.color)
+                self.lights_engine.lights.append(pl_light)
+                self.active_lights[ent_id] = pl_light
+            else:
+                # Update existing light
+                pl_light = self.active_lights[ent_id]
+                pl_light.position = (screen_x, screen_y)
+                pl_light.power = light_comp.intensity
+                pl_light.radius = light_radius_screen
+                pl_light.set_color(*light_comp.color)
+
+        # 3. Cleanup Stale Lights
+        # Entities that were active but not in current visible list
+        # This covers: deleted entities, entities moved off-screen, component removed
+
+        # However, processed_ids only contains visible lights.
+        # So any ID in active_lights NOT in processed_ids should be removed.
+        stale_ids = [eid for eid in self.active_lights if eid not in processed_ids]
+        for eid in stale_ids:
+            self.lights_engine.lights.remove(self.active_lights[eid])
+            del self.active_lights[eid]
+
+    def update_occluders(
+        self,
+        occluders_data: List[Tuple[int, Transform, Occluder, Optional[Sprite], Optional[PhysicsBody]]],
+        camera: Camera
+    ) -> None:
+        """
+        Syncs ECS Occluder components with the engine.
+        Args:
+            occluders_data: List of (entity_id, Transform, Occluder, Sprite?, PhysicsBody?)
+            camera: The camera.
+        """
+        processed_ids = set()
+        screen_w, screen_h = self.screen.get_size()
+        screen_rect = pygame.Rect(0, 0, screen_w, screen_h)
+        cull_rect = screen_rect.inflate(100, 100)
+
+        # Invalidate cache if camera changed
+        current_camera_state = (camera.camera_x, camera.camera_y, camera.zoom)
+        if self._last_camera_state != current_camera_state:
+            # Camera moved: Screen coordinates for all static objects are invalid.
+            # We must force a rebuild of all hulls.
+            # However, removing/re-adding Hulls is expensive if list is large.
+            # Ideally we'd modify vertices in place, but pygame_light2d Hull vertices might be read-only or cached internally by it.
+            # Safe bet: Clear our transform state cache to force rebuild.
+            self.hull_transform_state.clear()
+            self._last_camera_state = current_camera_state
+
+        for ent_id, transform, occluder, sprite, body in occluders_data:
+
+            # Optimization: Check if state changed
+            # Key state vars: x, y, rot, scale. Sprite dims if sprite fallback.
+            sprite_w = sprite.width if sprite else 0
+            sprite_h = sprite.height if sprite else 0
+
+            current_state = (transform.x, transform.y, transform.rotation, transform.scale, sprite_w, sprite_h)
+
+            # If we have an active hull and state matches, skip calculation
+            if ent_id in self.active_hulls and ent_id in self.hull_transform_state:
+                if self.hull_transform_state[ent_id] == current_state:
+                    processed_ids.add(ent_id)
+                    continue
+
+            # 1. Determine Vertices
+            # We need world space vertices first, then convert to screen space
+
+            world_vertices = []
+
+            if occluder.polygon:
+                # Use custom polygon relative to transform
+                # Rotate and translate
+                rad = math.radians(transform.rotation)
+                cos_a = math.cos(rad)
+                sin_a = math.sin(rad)
+
+                for vx, vy in occluder.polygon:
+                    # Apply rotation
+                    rx = vx * cos_a - vy * sin_a
+                    ry = vx * sin_a + vy * cos_a
+                    # Apply scale (assume uniform for now or x scale)
+                    rx *= transform.scale
+                    ry *= transform.scale
+
+                    world_vertices.append((transform.x + rx, transform.y + ry))
+            elif body:
+                 # Use physics shape if available (best for walls)
+                 if hasattr(body.shape, 'get_vertices'):
+                     # Poly
+                     for v in body.shape.get_vertices():
+                         wv = body.body.local_to_world(v)
+                         world_vertices.append((wv.x, wv.y))
+                 elif isinstance(body.shape, pymunk.Segment):
+                     # Line segment wall
+                     v1 = body.body.local_to_world(body.shape.a)
+                     v2 = body.body.local_to_world(body.shape.b)
+
+                     # Extrude segment into a thin quad (e.g. 4px thick)
+                     # Vector direction
+                     dx = v2.x - v1.x
+                     dy = v2.y - v1.y
+                     length = (dx*dx + dy*dy)**0.5
+                     if length > 0.001:
+                         nx = -dy / length
+                         ny = dx / length
+                         thickness = 2.0 # Half thickness
+
+                         world_vertices.append((v1.x + nx * thickness, v1.y + ny * thickness))
+                         world_vertices.append((v2.x + nx * thickness, v2.y + ny * thickness))
+                         world_vertices.append((v2.x - nx * thickness, v2.y - ny * thickness))
+                         world_vertices.append((v1.x - nx * thickness, v1.y - ny * thickness))
+                     else:
+                         # Degenerate segment
+                         world_vertices.append((v1.x, v1.y))
+                         world_vertices.append((v2.x, v2.y))
+
+                 elif isinstance(body.shape, pymunk.Circle):
+                     # Approximating circle
+                     pass
+            elif sprite:
+                # Fallback to sprite rect (box)
+                w = sprite.width * transform.scale
+                h = sprite.height * transform.scale
+                # Corners relative to center
+                corners = [
+                    (-w/2, -h/2),
+                    (w/2, -h/2),
+                    (w/2, h/2),
+                    (-w/2, h/2)
+                ]
+                # Rotate
+                rad = math.radians(transform.rotation)
+                cos_a = math.cos(rad)
+                sin_a = math.sin(rad)
+
+                for vx, vy in corners:
+                    rx = vx * cos_a - vy * sin_a
+                    ry = vx * sin_a + vy * cos_a
+                    world_vertices.append((transform.x + rx, transform.y + ry))
+
+            # Hull requires at least 3 vertices
+            if len(world_vertices) < 3:
+                continue
+
+            # 2. Culling
+            # Check if any vertex is within cull_rect (projected)
+            # Or bounding box of vertices
+            min_x = min(v[0] for v in world_vertices)
+            max_x = max(v[0] for v in world_vertices)
+            min_y = min(v[1] for v in world_vertices)
+            max_y = max(v[1] for v in world_vertices)
+
+            # Project bounds to screen
+            screen_min_x, screen_min_y = camera.world_to_screen(min_x, min_y, screen_w, screen_h)
+            screen_max_x, screen_max_y = camera.world_to_screen(max_x, max_y, screen_w, screen_h)
+
+            # Simple rect check (doesn't account for rotation perfectly but good enough for culling)
+            # Actually world_to_screen flips Y, so min_y world might be max_y screen depending on axis
+            # Let's just project all vertices
+            screen_vertices = []
+            for wx, wy in world_vertices:
+                sx, sy = camera.world_to_screen(wx, wy, screen_w, screen_h)
+                screen_vertices.append((sx, sy))
+
+            xs = [v[0] for v in screen_vertices]
+            ys = [v[1] for v in screen_vertices]
+            obj_rect = pygame.Rect(min(xs), min(ys), max(xs)-min(xs), max(ys)-min(ys))
+
+            if not cull_rect.colliderect(obj_rect):
+                if ent_id in self.active_hulls:
+                    self.lights_engine.hulls.remove(self.active_hulls[ent_id])
+                    del self.active_hulls[ent_id]
+                continue
+
+            processed_ids.add(ent_id)
+
+            # 3. Update/Create Hull
+            # pygame_light2d Hull vertices are immutable?
+            # Looking at source/docs: Hull(vertices, ...).
+            # Changing vertices after init might not be supported or requires property set.
+            # If not supported, we must recreate.
+            # Assuming we need to recreate if geometry changes (moving objects).
+            # For static objects (Walls), optimization would be to check if transform changed.
+            # For now, let's just recreate if needed or update if possible.
+
+            # Checking `help(Hull)` provided earlier: no explicit set_vertices.
+            # It just has __init__.
+            # So we likely need to recreate the Hull object if it moves.
+            # Optimally we only do this if it moved.
+
+            # Let's assume we replace it every frame for now, or check for equality?
+            # Recreating Hulls every frame is expensive.
+            # But `lights_engine.hulls` is a list.
+
+            # Optimization: Only update if position changed?
+            # But we don't track prev pos here easily without checking Transform.
+            # Transform has prev_x, prev_y.
+
+            if ent_id in self.active_hulls:
+                self.lights_engine.hulls.remove(self.active_hulls[ent_id])
+
+            hull = pl2d.Hull(screen_vertices)
+            self.lights_engine.hulls.append(hull)
+            self.active_hulls[ent_id] = hull
+            self.hull_transform_state[ent_id] = current_state
+
+        # Cleanup
+        stale_ids = [eid for eid in self.active_hulls if eid not in processed_ids]
+        for eid in stale_ids:
+            self.lights_engine.hulls.remove(self.active_hulls[eid])
+            del self.active_hulls[eid]
+            if eid in self.hull_transform_state:
+                del self.hull_transform_state[eid]
 
     def clear(self) -> None:
         pass
