@@ -1,10 +1,10 @@
-# Benchmarking Package
+# Benchmarking Module
 
-The Benchmarking package (`yukkuri_game.benchmarks`) provides tools to measure and analyze the performance of the Yukkuri Game. It allows developers to run standardized scenarios, collect metrics like FPS and memory usage, and compare results against baselines to detect regressions.
+The Benchmarking module (`yukkuri_game.benchmarks`) provides tools to measure and analyze the performance of the Yukkuri Game. It allows developers to run standardized scenarios, collect metrics like FPS and memory usage, and compare results against baselines to detect regressions.
 
 ## Prerequisites
 
-The package uses standard Python libraries. For enhanced metrics (memory/CPU usage) and statistical analysis, the following optional dependencies are recommended:
+The module uses standard Python libraries. For enhanced metrics (memory/CPU usage) and statistical analysis, the following optional dependencies are recommended:
 
 *   `psutil`: For memory and CPU usage tracking.
 *   `numpy`: For more accurate percentile calculations.
