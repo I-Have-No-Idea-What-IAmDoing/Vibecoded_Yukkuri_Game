@@ -148,6 +148,10 @@ cython_debug/
 # Pygame
 pygame_gui.log
 
+# Benchmarks
+*.stats
+benchmark_results.json
+
 uv.lock
 
 # --- Added Best Practices ---

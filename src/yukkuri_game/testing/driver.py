@@ -14,7 +14,14 @@ from ..engine.application import Application
 
 @dataclass
 class WaitUntil:
-    """Waits until a predicate returns True."""
+    """
+    Command to wait until a predicate returns True.
+
+    Attributes:
+        predicate (Callable[[], bool]): The condition function to check.
+        timeout (float): Max wait time in seconds. Defaults to 10.0.
+        description (str): Description of the condition for logging.
+    """
 
     predicate: Callable[[], bool]
     timeout: float = 10.0
@@ -23,21 +30,36 @@ class WaitUntil:
 
 @dataclass
 class WaitFrames:
-    """Waits for a specific number of frames."""
+    """
+    Command to wait for a specific number of frames.
+
+    Attributes:
+        frames (int): Number of frames to wait.
+    """
 
     frames: int
 
 
 @dataclass
 class InjectInput:
-    """Wraps a list of input events to inject."""
+    """
+    Command to inject a list of input events.
+
+    Attributes:
+        events (List[pygame.event.Event]): List of events to inject.
+    """
 
     events: List[pygame.event.Event]
 
 
 @dataclass
 class Screenshot:
-    """Command to take a screenshot."""
+    """
+    Command to take a screenshot.
+
+    Attributes:
+        filename (str): The filename to save the screenshot as.
+    """
 
     filename: str
 

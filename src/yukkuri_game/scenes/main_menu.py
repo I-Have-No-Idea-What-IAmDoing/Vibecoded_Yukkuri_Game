@@ -14,9 +14,24 @@ from ..engine.input_manager import InputManager, InputContext
 class MainMenuScene(Scene):
     """
     The Main Menu Scene.
+
+    Manages the initial menu screen with Start and Quit buttons.
+
+    Attributes:
+        ui_manager (pygame_gui.UIManager): The UI manager for the menu.
+        input_manager (InputManager): The input manager service.
+        ui_surface (pygame.Surface): Surface for UI rendering (used with lights engine).
+        start_button (pygame_gui.elements.UIButton): The start button element.
+        quit_button (pygame_gui.elements.UIButton): The quit button element.
     """
 
     def __init__(self, application: Application):
+        """
+        Initializes the MainMenuScene.
+
+        Args:
+            application (Application): The main application instance.
+        """
         super().__init__(application)
         self.ui_manager = pygame_gui.UIManager(
             (self.application.width, self.application.height)

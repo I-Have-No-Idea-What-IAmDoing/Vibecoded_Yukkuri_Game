@@ -28,6 +28,7 @@ class EmotionSystem(System):
     Attributes:
         settings (StatDecaySettings): The configuration settings for decay rates.
         trait_service (Optional[TraitService]): Service to access trait modifiers.
+        last_day_index (int): Index of the last day processed for decay.
     """
 
     def __init__(self, settings: StatDecaySettings):
@@ -167,20 +168,13 @@ class EmotionSystem(System):
     def _drift_personality(self, personality: Personality, dt: float) -> None:
         """
         Drifts the current personality axis towards the base axis (resting point).
-        Rate: Configured in rules file.
 
-        Uses a deterministic accumulator (not yet implemented in Component, so using a temp workaround or stochastic approximation).
-        Actually, we can use a small float accumulation if we add it to Personality, but for now,
-        let's make it deterministic by accumulating drift debt if we could.
+        Args:
+            personality (Personality): The personality component.
+            dt (float): Delta time.
 
-        Since we can't easily change the Component structure to add a 'drift_accumulator' without breaking pickles or migration (simulated constraint),
-        we will use a clearer stochastic method that scales correctly with DT, or better:
-
-        We treat 'axis' as the integer representation, but we could drift by checking if (current != base).
-        If we want true deterministic drift, we need storage.
-
-        Wait, I can add a `_drift_accumulator` field to the Personality component in yukkuri_components.py first.
-        But for this step, I will stick to fixing the "drift_chance > 1.0" issue first.
+        Returns:
+            None
         """
         drift_rate = getattr(
             self.settings, "personality_drift_rate", 0.1

@@ -16,5 +16,12 @@ class NonBlockingTextBox(UITextBox):
         Override hover_point to always return False.
         This prevents the UI Manager from considering this element as 'hovered',
         allowing input to pass through to the game world.
+
+        Args:
+            hover_x (float): The x-coordinate of the mouse hover.
+            hover_y (float): The y-coordinate of the mouse hover.
+
+        Returns:
+            bool: Always returns False.
         """
         return False

@@ -11,14 +11,19 @@ from ..skill_constants import SkillId
 
 
 class VisualMovementSystem(System):
-    XP_SPEED_SCALAR = 100.0
-    MAX_XP_GAIN_PER_SECOND = 5.0
     """
     Updates visual transforms for effects like hopping and handles side effects of movement (like XP).
     Does NOT update physics bodies directly (that is handled by KinematicMovementSystem).
+
+    Attributes:
+        skill_service (Optional[SkillService]): The skill service instance.
     """
 
-    def __init__(self):
+    XP_SPEED_SCALAR = 100.0
+    MAX_XP_GAIN_PER_SECOND = 5.0
+
+    def __init__(self) -> None:
+        """Initializes the VisualMovementSystem."""
         super().__init__()
         self.skill_service = None
 
@@ -26,9 +31,14 @@ class VisualMovementSystem(System):
         """
         Updates entities with movement commands.
 
+        Calculates visual bobbing based on speed and awards Athletics XP.
+
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
+
+        Returns:
+            None
         """
         if not self.skill_service:
             self.skill_service = world.services.try_get(SkillService)

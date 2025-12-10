@@ -28,6 +28,8 @@ class InteractionSystem(System):
     Attributes:
         audio (Optional[AudioManager]): The audio manager instance.
         trait_service (Optional[TraitService]): The trait service.
+        hunger_system (Optional[HungerSystem]): The hunger system.
+        social_system (Optional[SocialSystem]): The social system.
     """
 
     def __init__(self) -> None:
