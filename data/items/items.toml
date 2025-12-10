@@ -24,3 +24,23 @@ height = 32
 cost = 25
 fun = 30
 is_portable = true
+
+[items.lamp]
+name = "Street Lamp"
+image = "lamp.png"
+width = 32
+height = 64
+cost = 50
+is_portable = false
+light_radius = 400.0
+light_color = [255, 220, 150]
+light_intensity = 1.0
+
+[items.wall]
+name = "Brick Wall"
+image = "wall.png"
+width = 64
+height = 64
+cost = 20
+is_portable = false
+occluder = true

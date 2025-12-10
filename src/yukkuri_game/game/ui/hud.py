@@ -57,6 +57,7 @@ class HUD:
         self.selected_entities: List[int] = []
         self.show_debug = False
         self.fps = 0.0
+        self.lighting_debug = False
 
         # Subscribe to events
         self.event_bus.subscribe(EntitySelectedEvent, self.on_entity_selected)
@@ -191,6 +192,12 @@ class HUD:
             self.layout.create_debug_window()
         else:
             self.layout.close_debug_window()
+
+    def toggle_lighting_debug(self) -> None:
+        """Toggles lighting debug visuals."""
+        self.lighting_debug = not self.lighting_debug
+        # Access renderer via renderer property or other means if needed.
+        # This will be used by the main loop or renderer.
 
     def show_error(self, message: str) -> None:
         """
