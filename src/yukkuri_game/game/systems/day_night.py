@@ -15,23 +15,23 @@ class DayNightSystem(System):
 
     GAME_DAY_LENGTH: float = 600.0
 
+    # Color Ramp (Time of Day -> Ambient Color)
+    # Time is 0.0 to 24.0 (hours)
+    AMBIENT_COLORS = [
+        (0.0, (20, 20, 50)),    # Midnight
+        (5.0, (20, 20, 50)),    # Early Morning (Dark)
+        (6.0, (100, 100, 120)), # Dawn
+        (8.0, (255, 255, 255)), # Morning
+        (17.0, (255, 255, 255)),# Late Afternoon
+        (19.0, (150, 100, 100)),# Dusk
+        (21.0, (50, 40, 60)),   # Evening
+        (24.0, (20, 20, 50)),   # Midnight Loop
+    ]
+
     def __init__(self, world: World, renderer: WorldRenderer) -> None:
         super().__init__(world)
         self.renderer = renderer
         self.time_service = world.services.get(TimeService)
-
-        # Color Ramp (Time of Day -> Ambient Color)
-        # Time is 0.0 to 24.0 (hours)
-        self.ambient_colors = [
-            (0.0, (20, 20, 50)),    # Midnight
-            (5.0, (20, 20, 50)),    # Early Morning (Dark)
-            (6.0, (100, 100, 120)), # Dawn
-            (8.0, (255, 255, 255)), # Morning
-            (17.0, (255, 255, 255)),# Late Afternoon
-            (19.0, (150, 100, 100)),# Dusk
-            (21.0, (50, 40, 60)),   # Evening
-            (24.0, (20, 20, 50)),   # Midnight Loop
-        ]
 
     def _interpolate_color(self, c1, c2, t) -> tuple:
         return (
@@ -46,16 +46,16 @@ class DayNightSystem(System):
         # Wrap time to 24h
         t = time_of_day % 24.0
 
-        for i in range(len(self.ambient_colors) - 1):
-            t1, c1 = self.ambient_colors[i]
-            t2, c2 = self.ambient_colors[i+1]
+        for i in range(len(self.AMBIENT_COLORS) - 1):
+            t1, c1 = self.AMBIENT_COLORS[i]
+            t2, c2 = self.AMBIENT_COLORS[i+1]
 
             if t1 <= t <= t2:
                 # Interpolate
                 factor = (t - t1) / (t2 - t1)
                 return self._interpolate_color(c1, c2, factor)
 
-        return self.ambient_colors[0][1] # Fallback
+        return self.AMBIENT_COLORS[0][1] # Fallback
 
     def update(self, dt: float) -> None:
         # Assuming TimeService tracks elapsed time in seconds.

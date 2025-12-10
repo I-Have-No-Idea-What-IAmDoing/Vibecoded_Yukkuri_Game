@@ -21,6 +21,7 @@ class RenderConstants:
     SELECTION_WIDTH: int = 2
     SHADOW_SCALE_X: float = 0.4
     SHADOW_SCALE_Y: float = 0.5
+    CIRCLE_OCCLUDER_SEGMENTS: int = 12
 
 
 @dataclass
@@ -510,7 +511,7 @@ class Light2DRenderBackend(RenderBackend):
 
                  elif isinstance(body.shape, pymunk.Circle):
                      # Approximate circle with a polygon
-                     num_segments = 12
+                     num_segments = RenderConstants.CIRCLE_OCCLUDER_SEGMENTS
                      radius = body.shape.radius
                      for i in range(num_segments):
                          angle = 2 * math.pi * i / num_segments
@@ -600,25 +601,22 @@ class Light2DRenderBackend(RenderBackend):
             # But we don't track prev pos here easily without checking Transform.
             # Transform has prev_x, prev_y.
 
-            if ent_id in self.active_hulls:
-                self.lights_engine.hulls.remove(self.active_hulls[ent_id])
-
+            # We delay modifying the engine's hull list until the end
             hull = pl2d.Hull(screen_vertices)
-            self.lights_engine.hulls.append(hull)
             self.active_hulls[ent_id] = hull
             self.hull_transform_state[ent_id] = current_state
 
         # Cleanup
         stale_ids = self.active_hulls.keys() - processed_ids
         if stale_ids:
-            stale_hulls_set = {self.active_hulls[eid] for eid in stale_ids}
-            self.lights_engine.hulls[:] = [
-                h for h in self.lights_engine.hulls if h not in stale_hulls_set
-            ]
             for eid in stale_ids:
                 del self.active_hulls[eid]
                 if eid in self.hull_transform_state:
                     del self.hull_transform_state[eid]
+
+        # Rebuild the engine's hull list from active hulls
+        # This avoids O(N) removals inside the loop
+        self.lights_engine.hulls[:] = list(self.active_hulls.values())
 
     def clear(self) -> None:
         pass
