@@ -358,6 +358,7 @@ class PygameRenderBackend(RenderBackend):
 class Light2DRenderBackend(RenderBackend):
     """
     Pygame Light2D rendering backend.
+    Handles dynamic lighting and shadows using pygame-light2d.
     """
 
     def __init__(

@@ -244,6 +244,8 @@ class FlickerStyle(Enum):
     PULSE = auto()
 
 
+# --- Lighting Components ---
+
 @dataclass
 class LightSource:
     """
