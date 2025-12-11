@@ -156,6 +156,35 @@ class SectorMap:
 
         return result
 
+    def get_entities_in_rect(
+        self, x: float, y: float, width: float, height: float
+    ) -> Set[int]:
+        """
+        Returns all entities in sectors overlapping the given rectangle.
+        Note: This returns a superset of entities (all entities in touched sectors).
+
+        Args:
+            x, y: Top-left position (world space).
+            width, height: dimensions.
+        """
+        min_x = x
+        max_x = x + width
+        min_y = y
+        max_y = y + height
+
+        # Convert to sector indices
+        start_col, start_row = self.get_sector_coords(min_x, min_y)
+        end_col, end_row = self.get_sector_coords(max_x, max_y)
+
+        result = set()
+
+        # Iterate over rectangular range of sectors
+        for c in range(start_col, end_col + 1):
+            for r in range(start_row, end_row + 1):
+                result.update(self.get_entities_in_sector(c, r))
+
+        return result
+
 
 class SectorSystem(System):
     """

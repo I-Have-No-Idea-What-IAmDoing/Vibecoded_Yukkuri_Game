@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
+from yukkuri_game.game.components import LightSource, Transform
 from yukkuri_game.config import StatDecaySettings
 
 
@@ -14,7 +15,14 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         needs.max_health = 100.0
         needs.health = 150.0  # Over limit
 
-        mock_world.get_components_tuple.return_value = [(1, (stats, needs))]
+        def get_components_tuple(*args):
+            if args == (Transform, LightSource):
+                return []
+            if args == (YukkuriStats, Needs):
+                return [(1, (stats, needs))]
+            return []
+
+        mock_world.get_components_tuple.side_effect = get_components_tuple
 
         # Mock EmotionalState to return None or a valid object
         # If None, the system skips emotional update
@@ -35,7 +43,14 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         needs.max_health = 100.0
         needs.health = -50.0  # Under limit
 
-        mock_world.get_components_tuple.return_value = [(1, (stats, needs))]
+        def get_components_tuple(*args):
+            if args == (Transform, LightSource):
+                return []
+            if args == (YukkuriStats, Needs):
+                return [(1, (stats, needs))]
+            return []
+
+        mock_world.get_components_tuple.side_effect = get_components_tuple
 
         # Mock EmotionalState to return None
         mock_world.get_component.return_value = None

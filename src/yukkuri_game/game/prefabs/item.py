@@ -14,6 +14,7 @@ from ..components import (
     PhysicsBody,
     LightSource,
     Occluder,
+    FlickerStyle,
 )
 from ..yukkuri_components import ItemStats, Poop
 from ..components_persistence import StableIDComponent, Persistable
@@ -92,14 +93,23 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
     if light_radius:
         color = tuple(_get_attr(data, "light_color", [255, 255, 255]))
         intensity = _get_attr(data, "light_intensity", 1.0)
+        flicker_str = _get_attr(data, "light_flicker", "NONE")
+        flicker_style = FlickerStyle.NONE
+        if flicker_str == "FIRE":
+            flicker_style = FlickerStyle.FIRE
+        elif flicker_str == "PULSE":
+            flicker_style = FlickerStyle.PULSE
+
         world.add_component(
-            entity, LightSource(radius=light_radius, color=color, intensity=intensity)
+            entity, LightSource(radius=light_radius, color=color, intensity=intensity, flicker_style=flicker_style)
         )
 
     is_occluder = _get_attr(data, "occluder", False)
     if is_occluder:
         # Occluder without polygon defaults to physics shape
-        world.add_component(entity, Occluder())
+        # Assume static if it's an occluder item (like a wall segment or furniture)
+        is_static = _get_attr(data, "static_occluder", True)
+        world.add_component(entity, Occluder(static=is_static))
 
     if physics_system:
         mass = 1

@@ -75,6 +75,26 @@ input = "nearby_friends"
 curve = "threshold"
 params = { threshold = 1.0 }
 
+[actions.SeekLight]
+weight = 3.0
+[actions.SeekLight.effects]
+type = "seek_light"
+target_stat = "stress" # Reduces stress
+consume = false
+stat_changes = { stress = -20.0 }
+
+[[actions.SeekLight.considerations]]
+name = "NightTime"
+input = "is_night"
+curve = "threshold"
+params = { threshold = 0.5 }
+
+[[actions.SeekLight.considerations]]
+name = "Fear"
+input = "stress"
+curve = "logit"
+params = { k = 5.0, x0 = 0.5 }
+
 [actions.Fight]
 weight = 2.5
 [actions.Fight.effects]

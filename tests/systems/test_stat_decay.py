@@ -7,6 +7,7 @@ from yukkuri_game.game.yukkuri_components import (
     EmotionalState,
     Personality,
 )
+from yukkuri_game.game.components import LightSource, Transform
 from yukkuri_game.config import StatDecaySettings
 
 
@@ -29,7 +30,14 @@ class TestEmotionSystem(unittest.TestCase):
         emotional.stress = 10.0
 
         # Setup mock return
-        mock_world.get_components_tuple.return_value = [(1, (stats, needs))]
+        def get_components_tuple(*args):
+            if args == (Transform, LightSource):
+                return []
+            if args == (YukkuriStats, Needs):
+                return [(1, (stats, needs))]
+            return []
+
+        mock_world.get_components_tuple.side_effect = get_components_tuple
 
         # Handle get_component calls inside update
         def get_component(entity, comp_type):
@@ -71,7 +79,14 @@ class TestEmotionSystem(unittest.TestCase):
         emotional.happiness = 50.0  # Baseline
         emotional.stress = 0.0
 
-        mock_world.get_components_tuple.return_value = [(1, (stats, needs))]
+        def get_components_tuple(*args):
+            if args == (Transform, LightSource):
+                return []
+            if args == (YukkuriStats, Needs):
+                return [(1, (stats, needs))]
+            return []
+
+        mock_world.get_components_tuple.side_effect = get_components_tuple
 
         def get_component(entity, comp_type):
             if comp_type == EmotionalState:
@@ -97,7 +112,14 @@ class TestEmotionSystem(unittest.TestCase):
         needs = Needs()
         needs.cleanliness = 1.0
 
-        mock_world.get_components_tuple.return_value = [(1, (stats, needs))]
+        def get_components_tuple(*args):
+            if args == (Transform, LightSource):
+                return []
+            if args == (YukkuriStats, Needs):
+                return [(1, (stats, needs))]
+            return []
+
+        mock_world.get_components_tuple.side_effect = get_components_tuple
         mock_world.get_component.return_value = None
 
         system = EmotionSystem(settings=StatDecaySettings())

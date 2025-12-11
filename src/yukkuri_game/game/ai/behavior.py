@@ -16,6 +16,7 @@ from ..components import (
     MovementController,
     PhysicsBody,
     Transform,
+    LightSource,
 )
 from ..services import GameService
 from ..yukkuri_components import AIState, ItemStats, YukkuriStats, Needs, EmotionalState
@@ -751,6 +752,53 @@ class FindItem(Action):
         return Status.FAILURE
 
 
+class FindLightSource(Action):
+    """
+    Action to find the nearest light source.
+    """
+
+    def __init__(self, name: str, entity_id: int, world: "World"):
+        super().__init__(name, entity_id, world)
+
+    def update(self) -> Status:
+        super().update()
+        if not self.world or not self.entity_id:
+            return Status.FAILURE
+
+        ai = self.world.get_component(self.entity_id, AIState)
+        trans = self.world.get_component(self.entity_id, Transform)
+
+        if not ai or not trans:
+            return Status.FAILURE
+
+        # Find nearest LightSource
+        # We can iterate all entities with LightSource.
+        # Ideally should use SectorMap or SpatialHash, but iteration is fine for now if lights are few.
+        best_dist = float("inf")
+        best_light = -1
+
+        for ent, (l_trans, light) in self.world.get_components_tuple(Transform, LightSource):
+            if ent == self.entity_id:
+                continue
+
+            # Use light.radius to check if it's even relevant? Or just center?
+            # We want to be *inside* the light usually, or near it.
+            # Let's find the center of the light.
+
+            dist = math.hypot(l_trans.x - trans.x, l_trans.y - trans.y)
+            if dist < best_dist:
+                best_dist = dist
+                best_light = ent
+
+        if best_light != -1:
+            if ai.current_target_id != best_light:
+                ai.current_target_id = best_light
+                ai.path = None
+            return Status.SUCCESS
+
+        return Status.FAILURE
+
+
 def build_sleep_behavior(
     entity_id: int,
     world: "World",
@@ -1009,10 +1057,40 @@ def build_dance_behavior(
     return dance_sequence
 
 
+def build_seek_light_behavior(
+    entity_id: int,
+    world: "World",
+    width: int,
+    height: int,
+    check_goal_fn: Callable[[str], bool],
+    check_target_fn: Callable[[], bool],
+) -> Behaviour:
+    """
+    Builds the behavior subtree for seeking light (at night or when stressed).
+    """
+    seek_sequence = py_trees.composites.Sequence(name="Seek Light Sequence", memory=False)
+    is_seeking = Check(name="Goal=SeekLight?", check_fn=lambda: check_goal_fn("SeekLight"))
+
+    seek_execution = py_trees.composites.Sequence(name="Seek Light Execution", memory=False)
+
+    find_light = FindLightSource(name="Find Light", entity_id=entity_id, world=world)
+    # Move close (e.g. 50 units)
+    move_to_light = MoveToTarget(name="Move To Light", entity_id=entity_id, world=world, acceptance_radius=50.0)
+    # Idle there? Or loop? MoveToTarget success means we are there.
+    # We can just idle if we are there.
+
+    seek_execution.add_children([find_light, move_to_light])
+    seek_sequence.add_children([is_seeking, seek_execution])
+    return seek_sequence
+
+
 # Register default behaviors
 BehaviorRegistry.register_goal("Eat", build_eat_behavior, required_component=ItemStats)
 BehaviorRegistry.register_goal(
     "Sleep", build_sleep_behavior, required_component=ItemStats
+)
+BehaviorRegistry.register_goal(
+    "SeekLight", build_seek_light_behavior, required_component=LightSource
 )
 BehaviorRegistry.register_goal(
     "Play", build_play_behavior, required_component=ItemStats
