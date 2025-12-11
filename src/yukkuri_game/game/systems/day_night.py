@@ -2,10 +2,9 @@
 Day/Night Cycle System.
 """
 
-from ..engine.system import System
-from ..engine.ecs import World
-from ..game.services import TimeService
-from ..game.renderer import WorldRenderer, Light2DRenderBackend
+from ...engine.ecs import System, World
+from ..services import TimeService
+from ..renderer import WorldRenderer, Light2DRenderBackend
 
 
 class DayNightSystem(System):
@@ -57,7 +56,7 @@ class DayNightSystem(System):
 
         return self.AMBIENT_COLORS[0][1]  # Fallback
 
-    def update(self, dt: float) -> None:
+    def update(self, world: World, dt: float) -> None:
         # Assuming TimeService tracks elapsed time in seconds.
         # We need to map elapsed time to "Time of Day".
         # Let's assume 1 real second = 1 game minute? Or use configured ratio.
