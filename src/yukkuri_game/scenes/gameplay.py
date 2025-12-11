@@ -152,6 +152,12 @@ class GameplayScene(Scene):
             )
             self.world.add_system(self.day_night_system)
 
+            # Mouse Light System
+            self.mouse_light_system = MouseLightSystem(self.world, self.camera)
+            self.world.add_system(self.mouse_light_system)
+            # Register as service for easy retrieval in handle_event
+            self.world.services.register(self.mouse_light_system, MouseLightSystem)
+
             # HUD
             self.hud = HUD(self.ui_manager, self.world)
 
