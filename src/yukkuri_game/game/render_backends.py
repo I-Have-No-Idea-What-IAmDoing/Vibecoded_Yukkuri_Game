@@ -1,7 +1,8 @@
 import pygame
 import pygame_light2d as pl2d
 import math
-from typing import Tuple, List, Optional, Callable, Dict
+import random
+from typing import Tuple, List, Optional, Callable, Dict, Set
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ from .components import (
     LightSource,
     Occluder,
     PhysicsBody,
+    FlickerStyle,
 )
 
 
@@ -381,6 +383,10 @@ class Light2DRenderBackend(RenderBackend):
             int, Tuple[float, float, float, float, int, int]
         ] = {}
 
+        # Optimization: Cache world vertices for static occluders
+        # Map entity_id -> List[Tuple[float, float]]
+        self.static_world_vertices_cache: Dict[int, List[Tuple[float, float]]] = {}
+
         # Track camera state for global invalidation
         self._last_camera_state: Optional[Tuple[float, float, float]] = None
 
@@ -389,13 +395,17 @@ class Light2DRenderBackend(RenderBackend):
         self.lights_engine.set_ambient(color)
 
     def update_lights(
-        self, lights_data: List[Tuple[int, Transform, LightSource]], camera: Camera
+        self,
+        lights_data: List[Tuple[int, Transform, LightSource]],
+        camera: Camera,
+        time_elapsed: float = 0.0,
     ) -> None:
         """
         Syncs ECS LightSource components with the engine.
         Args:
             lights_data: List of (entity_id, Transform, LightSource)
             camera: The camera for visibility check.
+            time_elapsed: Total game time in seconds.
         """
         # Track which entities are processed this frame to identify removals
         processed_ids = set()
@@ -434,12 +444,31 @@ class Light2DRenderBackend(RenderBackend):
 
             processed_ids.add(ent_id)
 
+            # Flicker Logic
+            intensity = light_comp.intensity
+            if light_comp.flicker_style != FlickerStyle.NONE:
+                # Use sine waves for coherent flicker
+                if light_comp.flicker_style == FlickerStyle.FIRE:
+                    # Combine 3 sine waves for pseudo-random fire effect
+                    # Using entity ID as offset
+                    noise = (
+                        math.sin(time_elapsed * 10.0 + ent_id) * 0.1
+                        + math.sin(time_elapsed * 23.0 + ent_id * 2) * 0.05
+                        + math.sin(time_elapsed * 47.0 + ent_id * 0.5) * 0.02
+                    )
+                    intensity = light_comp.intensity * (1.0 + noise)
+                elif light_comp.flicker_style == FlickerStyle.PULSE:
+                    # Simple pulse (0.5Hz)
+                    intensity = light_comp.intensity * (
+                        0.8 + 0.2 * math.sin(time_elapsed * math.pi)
+                    )
+
             # 2. Update or Create Light
             if ent_id not in self.active_lights:
                 # Create new light
                 pl_light = pl2d.PointLight(
                     position=(screen_x, screen_y),
-                    power=light_comp.intensity,
+                    power=intensity,
                     radius=light_radius_screen,
                 )
                 pl_light.set_color(*light_comp.color)
@@ -449,7 +478,7 @@ class Light2DRenderBackend(RenderBackend):
                 # Update existing light
                 pl_light = self.active_lights[ent_id]
                 pl_light.position = (screen_x, screen_y)
-                pl_light.power = light_comp.intensity
+                pl_light.power = intensity
                 pl_light.radius = light_radius_screen
                 pl_light.set_color(*light_comp.color)
 
@@ -518,96 +547,104 @@ class Light2DRenderBackend(RenderBackend):
             # 1. Determine Vertices
             # We need world space vertices first, then convert to screen space
 
-            world_vertices = []
+            # Optimization: Use cached world vertices if static
+            if occluder.static and ent_id in self.static_world_vertices_cache:
+                world_vertices = self.static_world_vertices_cache[ent_id]
+            else:
+                world_vertices = []
 
-            if occluder.polygon:
-                # Use custom polygon relative to transform
-                # Rotate and translate
-                rad = math.radians(transform.rotation)
-                cos_a = math.cos(rad)
-                sin_a = math.sin(rad)
+                if occluder.polygon:
+                    # Use custom polygon relative to transform
+                    # Rotate and translate
+                    rad = math.radians(transform.rotation)
+                    cos_a = math.cos(rad)
+                    sin_a = math.sin(rad)
 
-                for vx, vy in occluder.polygon:
-                    # Apply rotation
-                    rx = vx * cos_a - vy * sin_a
-                    ry = vx * sin_a + vy * cos_a
-                    # Apply scale (assume uniform for now or x scale)
-                    rx *= transform.scale
-                    ry *= transform.scale
+                    for vx, vy in occluder.polygon:
+                        # Apply rotation
+                        rx = vx * cos_a - vy * sin_a
+                        ry = vx * sin_a + vy * cos_a
+                        # Apply scale (assume uniform for now or x scale)
+                        rx *= transform.scale
+                        ry *= transform.scale
 
-                    world_vertices.append((transform.x + rx, transform.y + ry))
-            elif body:
-                # Use physics shape if available (best for walls)
-                if hasattr(body.shape, "get_vertices"):
-                    # Poly
-                    for v in body.shape.get_vertices():
-                        wv = body.body.local_to_world(v)
-                        world_vertices.append((wv.x, wv.y))
-                elif isinstance(body.shape, pymunk.Segment):
-                    # Line segment wall
-                    v1 = body.body.local_to_world(body.shape.a)
-                    v2 = body.body.local_to_world(body.shape.b)
+                        world_vertices.append((transform.x + rx, transform.y + ry))
+                elif body:
+                    # Use physics shape if available (best for walls)
+                    if hasattr(body.shape, "get_vertices"):
+                        # Poly
+                        for v in body.shape.get_vertices():
+                            wv = body.body.local_to_world(v)
+                            world_vertices.append((wv.x, wv.y))
+                    elif isinstance(body.shape, pymunk.Segment):
+                        # Line segment wall
+                        v1 = body.body.local_to_world(body.shape.a)
+                        v2 = body.body.local_to_world(body.shape.b)
 
-                    # Extrude segment into a thin quad (e.g. 4px thick)
-                    # Vector direction
-                    dx = v2.x - v1.x
-                    dy = v2.y - v1.y
-                    length = (dx * dx + dy * dy) ** 0.5
-                    if length > 0.001:
-                        nx = -dy / length
-                        ny = dx / length
-                        thickness = 2.0  # Half thickness
+                        # Extrude segment into a thin quad (e.g. 4px thick)
+                        # Vector direction
+                        dx = v2.x - v1.x
+                        dy = v2.y - v1.y
+                        length = (dx * dx + dy * dy) ** 0.5
+                        if length > 0.001:
+                            nx = -dy / length
+                            ny = dx / length
+                            thickness = 2.0  # Half thickness
 
-                        world_vertices.append(
-                            (v1.x + nx * thickness, v1.y + ny * thickness)
-                        )
-                        world_vertices.append(
-                            (v2.x + nx * thickness, v2.y + ny * thickness)
-                        )
-                        world_vertices.append(
-                            (v2.x - nx * thickness, v2.y - ny * thickness)
-                        )
-                        world_vertices.append(
-                            (v1.x - nx * thickness, v1.y - ny * thickness)
-                        )
-                    else:
-                        # Degenerate segment
-                        world_vertices.append((v1.x, v1.y))
-                        world_vertices.append((v2.x, v2.y))
+                            world_vertices.append(
+                                (v1.x + nx * thickness, v1.y + ny * thickness)
+                            )
+                            world_vertices.append(
+                                (v2.x + nx * thickness, v2.y + ny * thickness)
+                            )
+                            world_vertices.append(
+                                (v2.x - nx * thickness, v2.y - ny * thickness)
+                            )
+                            world_vertices.append(
+                                (v1.x - nx * thickness, v1.y - ny * thickness)
+                            )
+                        else:
+                            # Degenerate segment
+                            world_vertices.append((v1.x, v1.y))
+                            world_vertices.append((v2.x, v2.y))
 
-                elif isinstance(body.shape, pymunk.Circle):
-                    # Approximate circle with a polygon
-                    num_segments = RenderConstants.CIRCLE_OCCLUDER_SEGMENTS
-                    radius = body.shape.radius
-                    for i in range(num_segments):
-                        angle = 2 * math.pi * i / num_segments
-                        # Get local coordinates relative to body center
-                        vx = radius * math.cos(angle)
-                        vy = radius * math.sin(angle)
-                        # Convert to world coordinates
-                        # Note: pymunk.Body.local_to_world expects a Vec2d or tuple
-                        wv = body.body.local_to_world((vx, vy))
-                        world_vertices.append((wv.x, wv.y))
-            elif sprite:
-                # Fallback to sprite rect (box)
-                w = sprite.width * transform.scale
-                h = sprite.height * transform.scale
-                # Corners relative to center
-                corners = [
-                    (-w / 2, -h / 2),
-                    (w / 2, -h / 2),
-                    (w / 2, h / 2),
-                    (-w / 2, h / 2),
-                ]
-                # Rotate
-                rad = math.radians(transform.rotation)
-                cos_a = math.cos(rad)
-                sin_a = math.sin(rad)
+                    elif isinstance(body.shape, pymunk.Circle):
+                        # Approximate circle with a polygon
+                        num_segments = RenderConstants.CIRCLE_OCCLUDER_SEGMENTS
+                        radius = body.shape.radius
+                        for i in range(num_segments):
+                            angle = 2 * math.pi * i / num_segments
+                            # Get local coordinates relative to body center
+                            vx = radius * math.cos(angle)
+                            vy = radius * math.sin(angle)
+                            # Convert to world coordinates
+                            # Note: pymunk.Body.local_to_world expects a Vec2d or tuple
+                            wv = body.body.local_to_world((vx, vy))
+                            world_vertices.append((wv.x, wv.y))
+                elif sprite:
+                    # Fallback to sprite rect (box)
+                    w = sprite.width * transform.scale
+                    h = sprite.height * transform.scale
+                    # Corners relative to center
+                    corners = [
+                        (-w / 2, -h / 2),
+                        (w / 2, -h / 2),
+                        (w / 2, h / 2),
+                        (-w / 2, h / 2),
+                    ]
+                    # Rotate
+                    rad = math.radians(transform.rotation)
+                    cos_a = math.cos(rad)
+                    sin_a = math.sin(rad)
 
-                for vx, vy in corners:
-                    rx = vx * cos_a - vy * sin_a
-                    ry = vx * sin_a + vy * cos_a
-                    world_vertices.append((transform.x + rx, transform.y + ry))
+                    for vx, vy in corners:
+                        rx = vx * cos_a - vy * sin_a
+                        ry = vx * sin_a + vy * cos_a
+                        world_vertices.append((transform.x + rx, transform.y + ry))
+
+                # Cache if static
+                if occluder.static and world_vertices:
+                    self.static_world_vertices_cache[ent_id] = world_vertices
 
             # Hull requires at least 3 vertices
             if len(world_vertices) < 3:
@@ -648,6 +685,47 @@ class Light2DRenderBackend(RenderBackend):
                     self.lights_engine.hulls.remove(self.active_hulls[ent_id])
                     del self.active_hulls[ent_id]
                 continue
+
+            # Shadow Mesh Culling:
+            # Check if this occluder is within the radius of any active light.
+            # We already have self.active_lights populated with screen positions and radii.
+            # If there are no lights, we might still want occluders if ambient light allows shadows?
+            # But typically ambient light does not cast shadows from Hulls in 2D engines unless configured.
+            # Assuming Hulls block PointLights.
+
+            # Optimization: If no lights overlap this hull, skip adding it.
+            # This is O(Lights * Hulls) which might be bad if many of both.
+            # But usually lights are few (tens).
+
+            # Simple check: Hull bounding box (screen space) vs Light bounding boxes.
+            is_near_light = False
+
+            # If we have no active lights, maybe skip all hulls?
+            # (Unless ambient shadows are a thing, or we want to support that).
+            # For safety, if active_lights is empty, we skip ONLY IF strict culling is desired.
+            # But let's assume if there are 0 lights, we don't need shadows.
+
+            if not self.active_lights:
+                # If no lights, we generally don't need hulls unless there's a global reason.
+                # Let's cull.
+                is_near_light = False
+            else:
+                 for light in self.active_lights.values():
+                    # light.position is (x, y), light.radius is float
+                    # obj_rect is pygame.Rect
+
+                    # Rect vs Circle check
+                    # Expand rect by radius is simpler:
+                    expanded_rect = obj_rect.inflate(light.radius * 2, light.radius * 2)
+                    if expanded_rect.collidepoint(light.position):
+                        is_near_light = True
+                        break
+
+            if not is_near_light:
+                 if ent_id in self.active_hulls:
+                    self.lights_engine.hulls.remove(self.active_hulls[ent_id])
+                    del self.active_hulls[ent_id]
+                 continue
 
             processed_ids.add(ent_id)
 

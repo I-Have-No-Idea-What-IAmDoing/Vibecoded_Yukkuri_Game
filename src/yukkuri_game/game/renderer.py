@@ -20,6 +20,8 @@ from .components import (
 from .camera import Camera
 from .surface_cache import SurfaceCache
 from .render_backends import RenderBackend, PygameRenderBackend, Light2DRenderBackend
+from .systems.sector_system import SectorMap
+from .services import TimeService
 
 
 class WorldRenderer:
@@ -83,23 +85,66 @@ class WorldRenderer:
 
         # Update Lighting (if backend supports it)
         if isinstance(self.backend, Light2DRenderBackend):
+            # Optimization: Use SectorMap to query only potentially visible lights/occluders
+            sector_map = world.services.try_get(SectorMap)
+            visible_entities = None
+
+            if sector_map:
+                # Calculate visible world bounds
+                # We need to include a buffer for lights that might be off-screen but casting light onto screen
+                # Largest light radius is roughly 600? Let's use 1000 buffer.
+                buffer = 1000.0
+                start_x, start_y = self.camera.screen_to_world(0, 0, sw, sh)
+                end_x, end_y = self.camera.screen_to_world(sw, sh, sw, sh)
+
+                # Handling zoom and rotation is tricky with simple rect, so we take min/max
+                min_x = min(start_x, end_x) - buffer
+                min_y = min(start_y, end_y) - buffer
+                width = abs(end_x - start_x) + 2 * buffer
+                height = abs(end_y - start_y) + 2 * buffer
+
+                visible_entities = sector_map.get_entities_in_rect(min_x, min_y, width, height)
+
             # Gather Lights
             lights_data = []
-            for ent, (transform, light) in world.get_components_tuple(
-                Transform, LightSource
-            ):
-                lights_data.append((ent, transform, light))
-            self.backend.update_lights(lights_data, self.camera)
+
+            if visible_entities is not None:
+                # Filter visible entities for lights
+                for ent in visible_entities:
+                    if world.has_component(ent, LightSource) and world.has_component(ent, Transform):
+                        lights_data.append((ent, world.get_component(ent, Transform), world.get_component(ent, LightSource)))
+            else:
+                # Fallback to iteration
+                for ent, (transform, light) in world.get_components_tuple(
+                    Transform, LightSource
+                ):
+                    lights_data.append((ent, transform, light))
+
+            # Get Time
+            time_service = world.services.try_get(TimeService)
+            time_elapsed = time_service.time_elapsed if time_service else 0.0
+
+            self.backend.update_lights(lights_data, self.camera, time_elapsed)
 
             # Gather Occluders
             occluders_data = []
-            for ent, (transform, occluder) in world.get_components_tuple(
-                Transform, Occluder
-            ):
-                # Optionally get Sprite and PhysicsBody for fallback shape
-                sprite = world.try_get_component(ent, Sprite)
-                body = world.try_get_component(ent, PhysicsBody)
-                occluders_data.append((ent, transform, occluder, sprite, body))
+            if visible_entities is not None:
+                for ent in visible_entities:
+                     if world.has_component(ent, Occluder) and world.has_component(ent, Transform):
+                        transform = world.get_component(ent, Transform)
+                        occluder = world.get_component(ent, Occluder)
+                        sprite = world.try_get_component(ent, Sprite)
+                        body = world.try_get_component(ent, PhysicsBody)
+                        occluders_data.append((ent, transform, occluder, sprite, body))
+            else:
+                for ent, (transform, occluder) in world.get_components_tuple(
+                    Transform, Occluder
+                ):
+                    # Optionally get Sprite and PhysicsBody for fallback shape
+                    sprite = world.try_get_component(ent, Sprite)
+                    body = world.try_get_component(ent, PhysicsBody)
+                    occluders_data.append((ent, transform, occluder, sprite, body))
+
             self.backend.update_occluders(occluders_data, self.camera)
 
         # Render entities

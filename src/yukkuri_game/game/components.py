@@ -266,3 +266,6 @@ class Occluder:
 
     # If None, defaults to the entity's PhysicsBody shape or Sprite rect
     polygon: Optional[List[Tuple[float, float]]] = None
+    # Optimization: If True, the occluder geometry is assumed to be static (e.g. walls)
+    # and can be cached more aggressively.
+    static: bool = False
