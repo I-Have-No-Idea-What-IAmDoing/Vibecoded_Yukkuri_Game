@@ -185,7 +185,9 @@ class TimeService:
         """
         Returns the time of day in hours (0.0 to 24.0).
         """
-        day_progress = (self._time_elapsed % self.GAME_DAY_LENGTH) / self.GAME_DAY_LENGTH
+        day_progress = (
+            self._time_elapsed % self.GAME_DAY_LENGTH
+        ) / self.GAME_DAY_LENGTH
         return day_progress * 24.0
 
     @property

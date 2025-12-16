@@ -1,8 +1,7 @@
 import pygame
 import pygame_light2d as pl2d
 import math
-import random
-from typing import Tuple, List, Optional, Callable, Dict, Set
+from typing import Tuple, List, Optional, Callable, Dict
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -711,7 +710,7 @@ class Light2DRenderBackend(RenderBackend):
                 # Let's cull.
                 is_near_light = False
             else:
-                 for light in self.active_lights.values():
+                for light in self.active_lights.values():
                     # light.position is (x, y), light.radius is float
                     # obj_rect is pygame.Rect
 
@@ -723,10 +722,10 @@ class Light2DRenderBackend(RenderBackend):
                         break
 
             if not is_near_light:
-                 if ent_id in self.active_hulls:
+                if ent_id in self.active_hulls:
                     self.lights_engine.hulls.remove(self.active_hulls[ent_id])
                     del self.active_hulls[ent_id]
-                 continue
+                continue
 
             processed_ids.add(ent_id)
 

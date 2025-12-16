@@ -103,7 +103,9 @@ class WorldRenderer:
                 width = abs(end_x - start_x) + 2 * buffer
                 height = abs(end_y - start_y) + 2 * buffer
 
-                visible_entities = sector_map.get_entities_in_rect(min_x, min_y, width, height)
+                visible_entities = sector_map.get_entities_in_rect(
+                    min_x, min_y, width, height
+                )
 
             # Gather Lights
             lights_data = []
@@ -111,8 +113,16 @@ class WorldRenderer:
             if visible_entities is not None:
                 # Filter visible entities for lights
                 for ent in visible_entities:
-                    if world.has_component(ent, LightSource) and world.has_component(ent, Transform):
-                        lights_data.append((ent, world.get_component(ent, Transform), world.get_component(ent, LightSource)))
+                    if world.has_component(ent, LightSource) and world.has_component(
+                        ent, Transform
+                    ):
+                        lights_data.append(
+                            (
+                                ent,
+                                world.get_component(ent, Transform),
+                                world.get_component(ent, LightSource),
+                            )
+                        )
             else:
                 # Fallback to iteration
                 for ent, (transform, light) in world.get_components_tuple(
@@ -130,7 +140,9 @@ class WorldRenderer:
             occluders_data = []
             if visible_entities is not None:
                 for ent in visible_entities:
-                     if world.has_component(ent, Occluder) and world.has_component(ent, Transform):
+                    if world.has_component(ent, Occluder) and world.has_component(
+                        ent, Transform
+                    ):
                         transform = world.get_component(ent, Transform)
                         occluder = world.get_component(ent, Occluder)
                         sprite = world.try_get_component(ent, Sprite)

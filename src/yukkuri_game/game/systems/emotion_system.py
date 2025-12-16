@@ -18,7 +18,6 @@ from ..services import TimeService
 from ..skill_service import SkillService
 from ...config import StatDecaySettings
 import random
-import math
 
 SECONDS_PER_DAY = 3600.0
 
@@ -69,10 +68,12 @@ class EmotionSystem(System):
         # Gather lights for darkness stress
         light_sources = []
         if is_night:
-             for ent, (trans, light) in world.get_components_tuple(Transform, LightSource):
-                 # Only consider lights that are actually on
-                 if light.intensity > 0.0:
-                     light_sources.append((trans, light))
+            for ent, (trans, light) in world.get_components_tuple(
+                Transform, LightSource
+            ):
+                # Only consider lights that are actually on
+                if light.intensity > 0.0:
+                    light_sources.append((trans, light))
 
         if time_service and skill_service:
             current_day_index = int(time_service.time_elapsed / SECONDS_PER_DAY)
@@ -156,11 +157,13 @@ class EmotionSystem(System):
                 if is_night and trans:
                     in_light = False
                     for l_trans, l_src in light_sources:
-                         dist_sq = (trans.x - l_trans.x)**2 + (trans.y - l_trans.y)**2
-                         # Use light radius
-                         if dist_sq < l_src.radius**2:
-                             in_light = True
-                             break
+                        dist_sq = (trans.x - l_trans.x) ** 2 + (
+                            trans.y - l_trans.y
+                        ) ** 2
+                        # Use light radius
+                        if dist_sq < l_src.radius**2:
+                            in_light = True
+                            break
 
                     if not in_light:
                         # Increase stress

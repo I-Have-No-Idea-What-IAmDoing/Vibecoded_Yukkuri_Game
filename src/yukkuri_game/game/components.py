@@ -246,6 +246,7 @@ class FlickerStyle(Enum):
 
 # --- Lighting Components ---
 
+
 @dataclass
 class LightSource:
     """

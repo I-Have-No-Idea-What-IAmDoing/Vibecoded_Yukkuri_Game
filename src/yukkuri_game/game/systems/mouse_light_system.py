@@ -17,7 +17,9 @@ class MouseLightSystem(System):
 
     def __init__(self, world: World, camera: Camera):
         super().__init__()
-        self.ecs_world = world  # Manually set ecs_world since System doesn't take it in init
+        self.ecs_world = (
+            world  # Manually set ecs_world since System doesn't take it in init
+        )
         self.camera = camera
         self.input_service = world.services.get(InputService)
         self.light_entity = self._create_mouse_light()

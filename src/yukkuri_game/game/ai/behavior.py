@@ -777,7 +777,9 @@ class FindLightSource(Action):
         best_dist = float("inf")
         best_light = -1
 
-        for ent, (l_trans, light) in self.world.get_components_tuple(Transform, LightSource):
+        for ent, (l_trans, light) in self.world.get_components_tuple(
+            Transform, LightSource
+        ):
             if ent == self.entity_id:
                 continue
 
@@ -1068,14 +1070,22 @@ def build_seek_light_behavior(
     """
     Builds the behavior subtree for seeking light (at night or when stressed).
     """
-    seek_sequence = py_trees.composites.Sequence(name="Seek Light Sequence", memory=False)
-    is_seeking = Check(name="Goal=SeekLight?", check_fn=lambda: check_goal_fn("SeekLight"))
+    seek_sequence = py_trees.composites.Sequence(
+        name="Seek Light Sequence", memory=False
+    )
+    is_seeking = Check(
+        name="Goal=SeekLight?", check_fn=lambda: check_goal_fn("SeekLight")
+    )
 
-    seek_execution = py_trees.composites.Sequence(name="Seek Light Execution", memory=False)
+    seek_execution = py_trees.composites.Sequence(
+        name="Seek Light Execution", memory=False
+    )
 
     find_light = FindLightSource(name="Find Light", entity_id=entity_id, world=world)
     # Move close (e.g. 50 units)
-    move_to_light = MoveToTarget(name="Move To Light", entity_id=entity_id, world=world, acceptance_radius=50.0)
+    move_to_light = MoveToTarget(
+        name="Move To Light", entity_id=entity_id, world=world, acceptance_radius=50.0
+    )
     # Idle there? Or loop? MoveToTarget success means we are there.
     # We can just idle if we are there.
 

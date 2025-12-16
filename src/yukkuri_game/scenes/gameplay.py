@@ -18,6 +18,7 @@ from ..engine.input_manager import InputContext, InputManager
 from ..engine.scene import Scene, SceneContext
 from ..engine.serializer import WorldSerializer
 from ..game import components, yukkuri_components
+from ..game.camera import Camera
 from ..game.events import (
     CycleSpeedRequest,
     LoadGameRequest,
@@ -29,12 +30,11 @@ from ..game.loader import GameLoader
 from ..game.prefabs.yukkuri import create_yukkuri
 from ..game.services import EconomyService, GameService, TimeService
 from ..game.settings_service import SettingsService
+from ..game.systems.mouse_light_system import MouseLightSystem
 from ..game.systems.physics import PhysicsSystem
 from ..game.systems.physics_reconstruction import reconstruct_physics
 from ..game.systems.render_system import RenderSystem
 from ..game.ui.hud import HUD
-from ..game.camera import Camera
-from ..game.systems.mouse_light_system import MouseLightSystem
 
 
 class GameplayScene(Scene):
@@ -151,12 +151,6 @@ class GameplayScene(Scene):
                 self.world, self.render_system.renderer
             )
             self.world.add_system(self.day_night_system)
-
-            # Mouse Light System
-            self.mouse_light_system = MouseLightSystem(self.world, self.camera)
-            self.world.add_system(self.mouse_light_system)
-            # Register as service for easy retrieval in handle_event
-            self.world.services.register(self.mouse_light_system, MouseLightSystem)
 
             # HUD
             self.hud = HUD(self.ui_manager, self.world)
@@ -423,7 +417,7 @@ class GameplayScene(Scene):
                         self.hud.lighting_debug
                     )
                 elif pygame.key.get_mods() & pygame.KMOD_CTRL:
-                     # Ctrl+F3 -> Toggle Mouse Light
+                    # Ctrl+F3 -> Toggle Mouse Light
                     mouse_light = self.world.services.try_get(MouseLightSystem)
                     if mouse_light:
                         mouse_light.toggle()

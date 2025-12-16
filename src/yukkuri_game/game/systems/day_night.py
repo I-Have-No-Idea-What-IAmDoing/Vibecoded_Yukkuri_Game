@@ -3,8 +3,8 @@ Day/Night Cycle System.
 """
 
 from ...engine.ecs import System, World
+from ..renderer import Light2DRenderBackend, WorldRenderer
 from ..services import TimeService
-from ..renderer import WorldRenderer, Light2DRenderBackend
 
 
 class DayNightSystem(System):
@@ -28,7 +28,7 @@ class DayNightSystem(System):
     ]
 
     def __init__(self, world: World, renderer: WorldRenderer) -> None:
-        super().__init__(world)
+        super().__init__()
         self.renderer = renderer
         self.time_service = world.services.get(TimeService)
 

@@ -125,9 +125,7 @@ class SectorMap:
 
         return result
 
-    def get_entities_in_radius(
-        self, x: float, y: float, radius: float
-    ) -> Set[int]:
+    def get_entities_in_radius(self, x: float, y: float, radius: float) -> Set[int]:
         """
         Returns all entities in sectors overlapping the given radius.
         Note: This returns a superset of entities (all entities in touched sectors).

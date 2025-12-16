@@ -101,7 +101,13 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
             flicker_style = FlickerStyle.PULSE
 
         world.add_component(
-            entity, LightSource(radius=light_radius, color=color, intensity=intensity, flicker_style=flicker_style)
+            entity,
+            LightSource(
+                radius=light_radius,
+                color=color,
+                intensity=intensity,
+                flicker_style=flicker_style,
+            ),
         )
 
     is_occluder = _get_attr(data, "occluder", False)
