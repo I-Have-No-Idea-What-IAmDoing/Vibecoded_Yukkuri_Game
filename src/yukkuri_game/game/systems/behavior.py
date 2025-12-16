@@ -86,7 +86,10 @@ class BehaviorSystem(System):
                 # we check if we need to reset any flags.
                 # Specifically, if Manual Override was active and the tree finished, it means
                 # the manual action completed or failed, so we return control to the AI.
-                if tree.root.status == Status.SUCCESS or tree.root.status == Status.FAILURE:
+                if (
+                    tree.root.status == Status.SUCCESS
+                    or tree.root.status == Status.FAILURE
+                ):
                     if getattr(ai, "manual_override", False):
                         ai.manual_override = False
                         # Optionally reset action to Idle to force re-evaluation next frame
