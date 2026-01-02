@@ -3,7 +3,7 @@ Module handling the game world rendering logic.
 """
 
 import pygame
-from typing import Optional
+from typing import Optional, List, Tuple, Any
 from pygame_light2d import LightingEngine
 from ..engine.ecs import World
 from ..engine.resource_manager import ResourceManager
@@ -83,30 +83,31 @@ class WorldRenderer:
         sw, sh = self.screen.get_size()
         self.backend.draw_grid(self.camera, sw, sh)
 
+        # Optimization: Use SectorMap to query only potentially visible entities
+        # This reduces the number of entities we iterate, sort, and process for rendering.
+        sector_map = world.services.try_get(SectorMap)
+        visible_entities = None
+
+        if sector_map:
+            # Calculate visible world bounds
+            # We use a large buffer (1000.0) to include lights that might be off-screen
+            # but casting light onto the screen, and large sprites.
+            buffer = 1000.0
+            start_x, start_y = self.camera.screen_to_world(0, 0, sw, sh)
+            end_x, end_y = self.camera.screen_to_world(sw, sh, sw, sh)
+
+            # Handling zoom and rotation is tricky with simple rect, so we take min/max
+            min_x = min(start_x, end_x) - buffer
+            min_y = min(start_y, end_y) - buffer
+            width = abs(end_x - start_x) + 2 * buffer
+            height = abs(end_y - start_y) + 2 * buffer
+
+            visible_entities = sector_map.get_entities_in_rect(
+                min_x, min_y, width, height
+            )
+
         # Update Lighting (if backend supports it)
         if isinstance(self.backend, Light2DRenderBackend):
-            # Optimization: Use SectorMap to query only potentially visible lights/occluders
-            sector_map = world.services.try_get(SectorMap)
-            visible_entities = None
-
-            if sector_map:
-                # Calculate visible world bounds
-                # We need to include a buffer for lights that might be off-screen but casting light onto screen
-                # Largest light radius is roughly 600? Let's use 1000 buffer.
-                buffer = 1000.0
-                start_x, start_y = self.camera.screen_to_world(0, 0, sw, sh)
-                end_x, end_y = self.camera.screen_to_world(sw, sh, sw, sh)
-
-                # Handling zoom and rotation is tricky with simple rect, so we take min/max
-                min_x = min(start_x, end_x) - buffer
-                min_y = min(start_y, end_y) - buffer
-                width = abs(end_x - start_x) + 2 * buffer
-                height = abs(end_y - start_y) + 2 * buffer
-
-                visible_entities = sector_map.get_entities_in_rect(
-                    min_x, min_y, width, height
-                )
-
             # Gather Lights
             lights_data = []
 
@@ -160,9 +161,30 @@ class WorldRenderer:
             self.backend.update_occluders(occluders_data, self.camera)
 
         # Render entities
-        # Use get_components_tuple for efficient retrieval of all required components
-        # (entity_id, (Transform, Sprite, VisualTransform))
-        render_data = world.get_components_tuple(Transform, Sprite, VisualTransform)
+        render_data: List[Tuple[int, Tuple[Any, ...]]] = []
+
+        if visible_entities is not None:
+            # Optimize: Only fetch components for visible entities
+            for ent in visible_entities:
+                # We need Transform, Sprite, VisualTransform
+                # Check presence efficiently
+                transform = world.try_get_component(ent, Transform)
+                if not transform:
+                    continue
+
+                sprite = world.try_get_component(ent, Sprite)
+                if not sprite:
+                    continue
+
+                visual_transform = world.try_get_component(ent, VisualTransform)
+                if not visual_transform:
+                    continue
+
+                render_data.append((ent, (transform, sprite, visual_transform)))
+        else:
+            # Fallback: Iterate all entities with these components
+            # Use get_components_tuple for efficient retrieval
+            render_data = world.get_components_tuple(Transform, Sprite, VisualTransform)
 
         # Sort by Transform.y for depth (ground position).
         # Data structure: [(entity_id, (transform, sprite, visual_transform)), ...]
@@ -173,7 +195,7 @@ class WorldRenderer:
             self._render_entity(world, ent, transform, sprite, visual_transform, alpha)
 
         # Render Floating Text
-        self._render_floating_text(world, sw, sh)
+        self._render_floating_text(world, sw, sh, visible_entities)
 
     def _render_entity(
         self,
@@ -209,7 +231,13 @@ class WorldRenderer:
             alpha,
         )
 
-    def _render_floating_text(self, world: World, sw: int, sh: int) -> None:
+    def _render_floating_text(
+        self,
+        world: World,
+        sw: int,
+        sh: int,
+        visible_entities: Optional[set[int]] = None,
+    ) -> None:
         """
         Renders floating text entities.
 
@@ -217,12 +245,23 @@ class WorldRenderer:
             world (World): The ECS World.
             sw (int): Screen width.
             sh (int): Screen height.
+            visible_entities (Optional[set[int]]): Set of visible entity IDs.
         """
-        # get_components_tuple is efficient
-        for entity, (transform, text_comp) in world.get_components_tuple(
-            Transform, FloatingText
-        ):
-            self.backend.draw_floating_text(self.camera, transform, text_comp, sw, sh)
+        if visible_entities is not None:
+            for ent in visible_entities:
+                transform = world.try_get_component(ent, Transform)
+                text_comp = world.try_get_component(ent, FloatingText)
+                if transform and text_comp:
+                    self.backend.draw_floating_text(
+                        self.camera, transform, text_comp, sw, sh
+                    )
+        else:
+            for entity, (transform, text_comp) in world.get_components_tuple(
+                Transform, FloatingText
+            ):
+                self.backend.draw_floating_text(
+                    self.camera, transform, text_comp, sw, sh
+                )
 
     def toggle_lighting_debug(self, enabled: bool) -> None:
         """
