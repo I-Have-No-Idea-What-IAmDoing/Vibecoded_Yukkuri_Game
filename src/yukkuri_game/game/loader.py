@@ -98,7 +98,8 @@ class GameLoader:
                 world_width=world_width,
                 world_height=world_height,
                 grid_step_size=grid_step_size,
-            )
+            ),
+            NavigationService,
         )
 
     def _init_sector_system(self) -> None:
