@@ -542,8 +542,6 @@ class Light2DRenderBackend(RenderBackend):
 
         # Use fast method lookup
         world_to_screen = camera.world_to_screen_fast
-        # Ensure matrices are up to date (though update_lights usually runs before this)
-        camera.update_matrices(screen_w, screen_h)
 
         for ent_id, transform, occluder, sprite, body in occluders_data:
             # Optimization: Check if state changed

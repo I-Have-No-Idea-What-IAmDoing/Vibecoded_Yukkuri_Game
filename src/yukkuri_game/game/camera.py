@@ -42,9 +42,9 @@ class Camera:
         self.max_zoom = 2.0
 
         # Optimization: Cached values for fast coordinate conversion
-        self._cached_zoom = 1.0
-        self._cached_offset_x = 0.0
-        self._cached_offset_y = 0.0
+        self._cached_zoom = None
+        self._cached_offset_x = None
+        self._cached_offset_y = None
 
     def update_matrices(self, screen_w: int, screen_h: int) -> None:
         """
@@ -82,6 +82,14 @@ class Camera:
         Optimized version of world_to_screen that uses cached values.
         Requires update_matrices() to be called first in the frame.
         """
+        if (
+            self._cached_zoom is None
+            or self._cached_offset_x is None
+            or self._cached_offset_y is None
+        ):
+            raise RuntimeError(
+                "Camera.update_matrices() must be called before world_to_screen_fast()"
+            )
         return (
             wx * self._cached_zoom + self._cached_offset_x,
             wy * self._cached_zoom + self._cached_offset_y,
