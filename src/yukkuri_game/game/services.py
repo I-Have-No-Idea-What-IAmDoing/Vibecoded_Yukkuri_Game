@@ -13,10 +13,6 @@ from .yukkuri_components import (
     ItemStats,
     Skills,
 )
-from ..engine.serializer import WorldSerializer
-from .components_persistence import Persistable, StableIDComponent
-from . import components
-from . import yukkuri_components
 from .skill_constants import SkillId
 from .systems.sector_system import SectorMap
 
@@ -25,127 +21,6 @@ if TYPE_CHECKING:
 
 BASE_SCAVENGING_RADIUS = 500.0
 SCAVENGING_RADIUS_PER_LEVEL = 50.0
-
-
-class PersistenceService:
-    """
-    Service responsible for saving and loading game state.
-
-    Attributes:
-        world (World): The ECS world instance.
-        save_dir (str): The directory to save games in.
-        serializer (WorldSerializer): The serializer instance.
-    """
-
-    def __init__(self, world: World, save_dir: str = "saves"):
-        """
-        Initializes the PersistenceService.
-
-        Args:
-            world (World): The ECS world instance.
-            save_dir (str): The directory path for save files.
-        """
-        self.world = world
-        self.save_dir = save_dir
-        if not os.path.exists(save_dir):
-            try:
-                os.makedirs(save_dir)
-            except OSError:
-                pass  # Might exist or permission error
-
-        # Gather all component types for the serializer
-        self.component_types = []
-        for module in [components, yukkuri_components]:
-            for name in dir(module):
-                obj = getattr(module, name)
-                if isinstance(obj, type) and hasattr(obj, "__dataclass_fields__"):
-                    self.component_types.append(obj)
-        # Add persistence components
-        self.component_types.append(Persistable)
-        self.component_types.append(StableIDComponent)
-
-        self.serializer = WorldSerializer(world, self.component_types)
-
-    def save_game(self, filename: str) -> bool:
-        """
-        Saves the current game state to a JSON file.
-
-        Args:
-            filename (str): The name of the save file.
-
-        Returns:
-            bool: True if successful, False otherwise.
-        """
-        filepath = os.path.join(self.save_dir, filename)
-
-        try:
-            # 1. Gather Global State
-            save_data = {}
-
-            economy = self.world.services.try_get(EconomyService)
-            if economy:
-                save_data["money"] = economy.get_money()
-
-            time_svc = self.world.services.try_get(TimeService)
-            if time_svc:
-                save_data["time"] = time_svc.time_elapsed
-
-            # 2. Serialize Entities
-            save_data["entities"] = self.serializer.get_persistable_entities_data()
-
-            # 3. Write to File
-            with open(filepath, "w") as f:
-                json.dump(save_data, f, indent=4)
-
-            logger.info(f"Game saved to {filepath}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to save game: {e}")
-            return False
-
-    def load_game(self, filename: str) -> bool:
-        """
-        Loads the game state from a JSON file.
-
-        Args:
-            filename (str): The name of the save file.
-
-        Returns:
-            bool: True if successful, False otherwise.
-        """
-        filepath = os.path.join(self.save_dir, filename)
-        if not os.path.exists(filepath):
-            logger.error(f"Save file {filepath} not found.")
-            return False
-
-        try:
-            with open(filepath, "r") as f:
-                save_data = json.load(f)
-
-            # 1. Restore Global State
-            if "money" in save_data:
-                economy = self.world.services.try_get(EconomyService)
-                if economy:
-                    economy.set_money(save_data["money"])
-
-            if "time" in save_data:
-                time_svc = self.world.services.try_get(TimeService)
-                if time_svc:
-                    time_svc.time_elapsed = save_data["time"]
-
-            # 2. Restore Entities
-            if "entities" in save_data:
-                # Clear existing entities? Usually we clear the scene before loading.
-                # But here we assume the scene is empty or we are appending.
-                # A proper load usually clears the world first.
-                # For this service, we just load what's in the file.
-                self.serializer.load_from_data(save_data["entities"])
-
-            logger.info(f"Game loaded from {filepath}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to load game: {e}")
-            return False
 
 
 class TimeService:

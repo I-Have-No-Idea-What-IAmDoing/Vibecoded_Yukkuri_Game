@@ -59,3 +59,8 @@ class SpeedChangeEvent(Event):
 @dataclass(frozen=True)
 class PhysicsFixedUpdateEvent(Event):
     dt: float
+
+
+@dataclass(frozen=True)
+class WorldClearedEvent(Event):
+    pass

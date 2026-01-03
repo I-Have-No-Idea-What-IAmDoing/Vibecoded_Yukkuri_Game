@@ -7,7 +7,11 @@ import math
 from typing import Optional
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus, Event
-from ...engine.events import EntityDestroyedEvent, PhysicsFixedUpdateEvent
+from ...engine.events import (
+    EntityDestroyedEvent,
+    PhysicsFixedUpdateEvent,
+    WorldClearedEvent,
+)
 from ..components import Transform, PhysicsBody
 
 
@@ -74,6 +78,7 @@ class PhysicsSystem(System):
             self.event_bus = world.services.try_get(EventBus)
             if self.event_bus:
                 self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
+                self.event_bus.subscribe(WorldClearedEvent, lambda e: self.clear())
 
         # Clamp dt to avoid spiral of death with high time scales or lag
         if dt > self.max_frame_time:

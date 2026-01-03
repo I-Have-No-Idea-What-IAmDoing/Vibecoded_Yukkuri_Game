@@ -18,6 +18,7 @@ from ..engine.input_manager import InputContext, InputManager
 from ..engine.scene import Scene, SceneContext
 from ..engine.serializer import WorldSerializer
 from ..game import components, yukkuri_components
+from ..game.ai.navigation_service import NavigationService
 from ..game.camera import Camera
 from ..game.events import (
     CycleSpeedRequest,
@@ -205,17 +206,34 @@ class GameplayScene(Scene):
         if self.application.headless:
             return
 
+        flags = pygame.RESIZABLE
+        if event.fullscreen:
+            flags |= pygame.FULLSCREEN
+
+        try:
+            # If we are using LightingEngine, it might lose context here.
+            # But we must resize the window.
+            pygame.display.set_mode((event.width, event.height), flags)
+        except pygame.error as e:
+            logger.error(f"Failed to change display mode: {e}")
+            return
+
         self.application.width = event.width
         self.application.height = event.height
 
         surface = pygame.display.get_surface()
         if surface:
             self.application.screen = surface
-            self.render_system.screen = surface
+            if hasattr(self, "render_system") and self.render_system:
+                self.render_system.screen = surface
 
         self.ui_manager.set_window_resolution((event.width, event.height))
         if self.hud:
             self.hud.resize(event.width, event.height)
+
+        # Invalidate hud_surface to force recreation in render()
+        if hasattr(self, "hud_surface"):
+            del self.hud_surface
 
     def take_screenshot(self) -> None:
         """Takes a screenshot and saves it to the screenshots directory."""
@@ -268,9 +286,14 @@ class GameplayScene(Scene):
 
         # Clear World
         self.world.clear_database()
-        if hasattr(self, "physics_system"):
-            self.physics_system.clear()
+        # Physics system clears itself via WorldClearedEvent
+
         self.camera.clear()
+
+        # Reset Navigation Service
+        nav_service = self.world.services.try_get(NavigationService)
+        if nav_service:
+            nav_service.reset()
 
         # Load Global Data
         import json
@@ -340,16 +363,23 @@ class GameplayScene(Scene):
             if getattr(self.application, "lights_engine", None):
                 # We need to render HUD to a surface, convert to texture, and render to FOREGROUND
                 # HUD draws to a surface passed to it.
-                hud_surface = pygame.Surface(
-                    (self.application.width, self.application.height), pygame.SRCALPHA
-                )
-                self.hud.draw(hud_surface)
+                if not hasattr(self, "hud_surface") or self.hud_surface.get_size() != (
+                    self.application.width,
+                    self.application.height,
+                ):
+                    self.hud_surface = pygame.Surface(
+                        (self.application.width, self.application.height), pygame.SRCALPHA
+                    )
+                else:
+                    self.hud_surface.fill((0, 0, 0, 0))
+
+                self.hud.draw(self.hud_surface)
                 # Also draw scene-specific UI manager
-                self.ui_manager.draw_ui(hud_surface)
+                self.ui_manager.draw_ui(self.hud_surface)
 
                 import pygame_light2d as pl2d
 
-                tex = self.application.lights_engine.surface_to_texture(hud_surface)
+                tex = self.application.lights_engine.surface_to_texture(self.hud_surface)
                 self.application.lights_engine.render_texture(
                     tex,
                     pl2d.FOREGROUND,
