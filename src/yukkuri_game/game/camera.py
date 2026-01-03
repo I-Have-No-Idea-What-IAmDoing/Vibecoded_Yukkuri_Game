@@ -41,6 +41,21 @@ class Camera:
         self.min_zoom = 0.5
         self.max_zoom = 2.0
 
+        # Optimization: Cached values for fast coordinate conversion
+        self._cached_zoom = 1.0
+        self._cached_offset_x = 0.0
+        self._cached_offset_y = 0.0
+
+    def update_matrices(self, screen_w: int, screen_h: int) -> None:
+        """
+        Updates cached transformation matrices.
+        Call this at the beginning of a render frame.
+        """
+        self._cached_zoom = self.zoom
+        # Precompute offset: -camera * zoom + screen_center
+        self._cached_offset_x = -self.camera_x * self.zoom + screen_w / 2
+        self._cached_offset_y = -self.camera_y * self.zoom + screen_h / 2
+
     def world_to_screen(
         self, wx: float, wy: float, screen_w: int, screen_h: int
     ) -> tuple[float, float]:
@@ -61,6 +76,16 @@ class Camera:
         sx = (wx - self.camera_x) * self.zoom + screen_w / 2
         sy = (wy - self.camera_y) * self.zoom + screen_h / 2
         return sx, sy
+
+    def world_to_screen_fast(self, wx: float, wy: float) -> tuple[float, float]:
+        """
+        Optimized version of world_to_screen that uses cached values.
+        Requires update_matrices() to be called first in the frame.
+        """
+        return (
+            wx * self._cached_zoom + self._cached_offset_x,
+            wy * self._cached_zoom + self._cached_offset_y,
+        )
 
     def screen_to_world(
         self, sx: float, sy: float, screen_w: int, screen_h: int
