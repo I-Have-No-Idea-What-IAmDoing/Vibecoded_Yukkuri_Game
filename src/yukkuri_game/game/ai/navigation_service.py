@@ -66,6 +66,14 @@ class NavigationService:
         if 0 <= gx < self.matrix_w and 0 <= gy < self.matrix_h:
             self.grid.node(gx, gy).walkable = walkable
 
+    def reset(self) -> None:
+        """
+        Resets the grid walkability to default (all walkable).
+        """
+        for x in range(self.matrix_w):
+            for y in range(self.matrix_h):
+                self.grid.node(x, y).walkable = True
+
     def find_path(
         self, start: Tuple[float, float], goal: Tuple[float, float]
     ) -> List[Tuple[float, float]]:

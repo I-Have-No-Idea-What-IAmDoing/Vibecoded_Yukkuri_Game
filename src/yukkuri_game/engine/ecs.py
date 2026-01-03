@@ -20,7 +20,12 @@ from typing import (
 )
 import esper
 from .service_locator import ServiceLocator
-from .events import EntityDestroyedEvent, ComponentAddedEvent, ComponentRemovedEvent
+from .events import (
+    EntityDestroyedEvent,
+    ComponentAddedEvent,
+    ComponentRemovedEvent,
+    WorldClearedEvent,
+)
 from .event_bus import EventBus
 import contextlib
 
@@ -385,6 +390,10 @@ class World:
         self._switch()
         esper.clear_database()
         self._active_entities.clear()
+
+        event_bus = self.services.try_get(EventBus)
+        if event_bus:
+            event_bus.publish(WorldClearedEvent())
 
 
 if TYPE_CHECKING:

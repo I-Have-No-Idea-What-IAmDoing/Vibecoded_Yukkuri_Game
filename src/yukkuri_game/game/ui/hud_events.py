@@ -303,18 +303,9 @@ class HudEvents:
 
     def _apply_window_settings(self, width: int, height: int, fullscreen: bool) -> None:
         """Applies window settings (resolution/fullscreen)."""
-        flags = pygame.RESIZABLE
-        if fullscreen:
-            flags |= pygame.FULLSCREEN
-
-        try:
-            pygame.display.set_mode((width, height), flags)
-            self.event_bus.publish(ResolutionChangedEvent(width, height, fullscreen))
-        except pygame.error as e:
-            if self.on_error:
-                self.on_error(f"Failed to change display mode: {e}")
-            else:
-                logger.error(f"Failed to change display mode: {e}")
+        # We just publish the event. The actual window resizing and context handling
+        # should be done by the Application or the Scene that owns the display/engine.
+        self.event_bus.publish(ResolutionChangedEvent(width, height, fullscreen))
 
     def _revert_audio_settings(self) -> None:
         """Reverts audio settings to last saved values (on cancel)."""
