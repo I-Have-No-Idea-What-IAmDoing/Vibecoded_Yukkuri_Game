@@ -104,7 +104,7 @@ class SectorMap:
 
     def get_entities_in_range(
         self, x: float, y: float, range_type: str = "visual"
-    ) -> Set[int]:
+    ) -> List[int]:
         """
         Returns entities based on propagation rules.
 
@@ -113,19 +113,23 @@ class SectorMap:
             range_type: "visual" (Same + Adjacent) or "auditory_loud" (Same + Adjacent) or "auditory" (Same).
         """
         col, row = self.get_sector_coords(x, y)
-        result = set()
+        result: List[int] = []
 
         # Always include current sector
-        result.update(self.get_entities_in_sector(col, row))
+        sector_entities = self.sectors.get((col, row))
+        if sector_entities:
+            result.extend(sector_entities)
 
         if range_type in ["visual", "auditory_loud"]:
             # Include adjacent sectors
             for acol, arow in self.get_adjacent_sectors(col, row):
-                result.update(self.get_entities_in_sector(acol, arow))
+                adj_sector_entities = self.sectors.get((acol, arow))
+                if adj_sector_entities:
+                    result.extend(adj_sector_entities)
 
         return result
 
-    def get_entities_in_radius(self, x: float, y: float, radius: float) -> Set[int]:
+    def get_entities_in_radius(self, x: float, y: float, radius: float) -> List[int]:
         """
         Returns all entities in sectors overlapping the given radius.
         Note: This returns a superset of entities (all entities in touched sectors).
@@ -145,18 +149,20 @@ class SectorMap:
         start_col, start_row = self.get_sector_coords(min_x, min_y)
         end_col, end_row = self.get_sector_coords(max_x, max_y)
 
-        result = set()
+        result: List[int] = []
 
         # Iterate over rectangular range of sectors
         for c in range(start_col, end_col + 1):
             for r in range(start_row, end_row + 1):
-                result.update(self.get_entities_in_sector(c, r))
+                sector_entities = self.sectors.get((c, r))
+                if sector_entities:
+                    result.extend(sector_entities)
 
         return result
 
     def get_entities_in_rect(
         self, x: float, y: float, width: float, height: float
-    ) -> Set[int]:
+    ) -> List[int]:
         """
         Returns all entities in sectors overlapping the given rectangle.
         Note: This returns a superset of entities (all entities in touched sectors).
@@ -174,12 +180,14 @@ class SectorMap:
         start_col, start_row = self.get_sector_coords(min_x, min_y)
         end_col, end_row = self.get_sector_coords(max_x, max_y)
 
-        result = set()
+        result: List[int] = []
 
         # Iterate over rectangular range of sectors
         for c in range(start_col, end_col + 1):
             for r in range(start_row, end_row + 1):
-                result.update(self.get_entities_in_sector(c, r))
+                sector_entities = self.sectors.get((c, r))
+                if sector_entities:
+                    result.extend(sector_entities)
 
         return result
 

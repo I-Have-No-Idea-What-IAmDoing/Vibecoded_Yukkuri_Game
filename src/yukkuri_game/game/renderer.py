@@ -3,7 +3,7 @@ Module handling the game world rendering logic.
 """
 
 import pygame
-from typing import Optional, List, Tuple, Any
+from typing import Optional, List, Tuple, Any, Iterable
 from pygame_light2d import LightingEngine
 from ..engine.ecs import World
 from ..engine.resource_manager import ResourceManager
@@ -236,7 +236,7 @@ class WorldRenderer:
         world: World,
         sw: int,
         sh: int,
-        visible_entities: Optional[set[int]] = None,
+        visible_entities: Optional[Iterable[int]] = None,
     ) -> None:
         """
         Renders floating text entities.
@@ -245,7 +245,7 @@ class WorldRenderer:
             world (World): The ECS World.
             sw (int): Screen width.
             sh (int): Screen height.
-            visible_entities (Optional[set[int]]): Set of visible entity IDs.
+            visible_entities (Optional[Iterable[int]]): Iterable of visible entity IDs.
         """
         if visible_entities is not None:
             for ent in visible_entities:
