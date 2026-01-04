@@ -49,23 +49,29 @@ class Application:
             self.screen = pygame.display.set_mode((width, height))
             self.lights_engine = None
         else:
-            # Initialize LightingEngine instead of standard display
-            # We match native_res to screen_res for now to keep pixel density same as before
-            # unless we want pixel art style (which yukkuri usually is).
-            # Assuming current sprites are high res or we want 1:1.
-            # If we want scaling, we can adjust native_res.
-            self.lights_engine = LightingEngine(
-                screen_res=(width, height),
-                native_res=(width, height),
-                lightmap_res=(width // 2, height // 2),
-            )
-            # LightingEngine creates the window, so we can get the surface if needed,
-            # but usually we render via engine.
-            # Some parts of code expect self.screen to be the display surface.
-            # LightingEngine manages display, but we can access it via pygame.display.get_surface()
-            self.screen = pygame.display.get_surface()
-            pygame.display.set_caption(title)
-            self.lights_engine.set_ambient(128, 128, 128, 255)
+            try:
+                # Initialize LightingEngine instead of standard display
+                # We match native_res to screen_res for now to keep pixel density same as before
+                # unless we want pixel art style (which yukkuri usually is).
+                # Assuming current sprites are high res or we want 1:1.
+                # If we want scaling, we can adjust native_res.
+                self.lights_engine = LightingEngine(
+                    screen_res=(width, height),
+                    native_res=(width, height),
+                    lightmap_res=(width // 2, height // 2),
+                )
+                # LightingEngine creates the window, so we can get the surface if needed,
+                # but usually we render via engine.
+                # Some parts of code expect self.screen to be the display surface.
+                # LightingEngine manages display, but we can access it via pygame.display.get_surface()
+                self.screen = pygame.display.get_surface()
+                pygame.display.set_caption(title)
+                self.lights_engine.set_ambient(128, 128, 128, 255)
+            except Exception as e:
+                logger.error(f"Failed to initialize LightingEngine: {e}. Falling back to standard Pygame display.")
+                self.lights_engine = None
+                self.screen = pygame.display.set_mode((width, height))
+                pygame.display.set_caption(title)
 
         self.clock = pygame.time.Clock()
         self.running = True
