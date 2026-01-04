@@ -1,7 +1,8 @@
 import pygame
 import pygame_light2d as pl2d
 import math
-from typing import Tuple, List, Optional, Callable, Dict
+import pymunk
+from typing import Tuple, List, Optional, Callable, Dict, Any
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -37,6 +38,19 @@ class RenderConstants:
     SHADOW_SCALE_X: float = 0.4
     SHADOW_SCALE_Y: float = 0.5
     CIRCLE_OCCLUDER_SEGMENTS: int = 12
+
+    # Cached unit circle vertices for occluders
+    _CIRCLE_CACHE: Optional[List[Tuple[float, float]]] = None
+
+    @classmethod
+    def get_circle_vertices(cls) -> List[Tuple[float, float]]:
+        """Returns cached unit circle vertices for occluder approximation."""
+        if cls._CIRCLE_CACHE is None:
+            cls._CIRCLE_CACHE = []
+            for i in range(cls.CIRCLE_OCCLUDER_SEGMENTS):
+                angle = 2 * math.pi * i / cls.CIRCLE_OCCLUDER_SEGMENTS
+                cls._CIRCLE_CACHE.append((math.cos(angle), math.sin(angle)))
+        return cls._CIRCLE_CACHE
 
 
 @dataclass
@@ -74,9 +88,9 @@ class RenderBackend(ABC):
         """Calculates the interpolated world position."""
         curr_x = transform.x
         curr_y = transform.y
-        # Transform's __post_init__ guarantees prev_x/y are set
-        prev_x = transform.prev_x
-        prev_y = transform.prev_y
+        # Transform's __post_init__ guarantees prev_x/y are set, but let's be safe
+        prev_x = transform.prev_x if transform.prev_x is not None else curr_x
+        prev_y = transform.prev_y if transform.prev_y is not None else curr_y
 
         interp_x = prev_x + (curr_x - prev_x) * alpha
         interp_y = prev_y + (curr_y - prev_y) * alpha
@@ -369,7 +383,7 @@ class Light2DRenderBackend(RenderBackend):
         super().__init__()
         self.lights_engine = lights_engine
         self.screen = screen
-        self.texture_cache: OrderedDict[tuple, "pl2d.Texture"] = OrderedDict()
+        self.texture_cache: OrderedDict[Tuple[Any, ...], "pl2d.Texture"] = OrderedDict()
         self.texture_cache_max_size = texture_cache_max_size
 
         # Persistent Light/Hull management
@@ -414,6 +428,11 @@ class Light2DRenderBackend(RenderBackend):
         # Inflate screen rect for culling tolerance
         cull_rect = screen_rect.inflate(200, 200)
 
+        # Optimization: Pre-calculate camera matrices
+        camera.update_matrices(screen_w, screen_h)
+        # Use fast method lookup
+        world_to_screen = camera.world_to_screen_fast
+
         for ent_id, transform, light_comp in lights_data:
             # 1. Culling Check
             # We transform world pos to screen pos to check against screen rect
@@ -423,9 +442,7 @@ class Light2DRenderBackend(RenderBackend):
 
             # Simple world-space culling might be easier if we know camera bounds in world space
             # But let's stick to screen space projection for now
-            screen_x, screen_y = camera.world_to_screen(
-                transform.x, transform.y, screen_w, screen_h
-            )
+            screen_x, screen_y = world_to_screen(transform.x, transform.y)
 
             # Use radius to expand check
             light_rect = pygame.Rect(0, 0, 0, 0)
@@ -523,6 +540,9 @@ class Light2DRenderBackend(RenderBackend):
             self.hull_transform_state.clear()
             self._last_camera_state = current_camera_state
 
+        # Use fast method lookup
+        world_to_screen = camera.world_to_screen_fast
+
         for ent_id, transform, occluder, sprite, body in occluders_data:
             # Optimization: Check if state changed
             # Key state vars: x, y, rot, scale. Sprite dims if sprite fallback.
@@ -610,16 +630,16 @@ class Light2DRenderBackend(RenderBackend):
 
                     elif isinstance(body.shape, pymunk.Circle):
                         # Approximate circle with a polygon
-                        num_segments = RenderConstants.CIRCLE_OCCLUDER_SEGMENTS
+                        # Optimization: Use precomputed unit circle vertices
                         radius = body.shape.radius
-                        for i in range(num_segments):
-                            angle = 2 * math.pi * i / num_segments
-                            # Get local coordinates relative to body center
-                            vx = radius * math.cos(angle)
-                            vy = radius * math.sin(angle)
-                            # Convert to world coordinates
-                            # Note: pymunk.Body.local_to_world expects a Vec2d or tuple
-                            wv = body.body.local_to_world((vx, vy))
+                        unit_verts = RenderConstants.get_circle_vertices()
+
+                        # Convert to world coordinates
+                        # Note: pymunk.Body.local_to_world expects a Vec2d or tuple
+                        # We use local_to_world directly which handles rotation/translation
+                        local_to_world = body.body.local_to_world
+                        for ux, uy in unit_verts:
+                            wv = local_to_world((ux * radius, uy * radius))
                             world_vertices.append((wv.x, wv.y))
                 elif sprite:
                     # Fallback to sprite rect (box)
@@ -659,19 +679,11 @@ class Light2DRenderBackend(RenderBackend):
             max_y = max(v[1] for v in world_vertices)
 
             # Project bounds to screen
-            screen_min_x, screen_min_y = camera.world_to_screen(
-                min_x, min_y, screen_w, screen_h
-            )
-            screen_max_x, screen_max_y = camera.world_to_screen(
-                max_x, max_y, screen_w, screen_h
-            )
-
-            # Simple rect check (doesn't account for rotation perfectly but good enough for culling)
-            # Actually world_to_screen flips Y, so min_y world might be max_y screen depending on axis
+            # Note: world_to_screen flips Y, so min_y world might be max_y screen depending on axis
             # Let's just project all vertices
             screen_vertices = []
             for wx, wy in world_vertices:
-                sx, sy = camera.world_to_screen(wx, wy, screen_w, screen_h)
+                sx, sy = world_to_screen(wx, wy)
                 screen_vertices.append((sx, sy))
 
             xs = [v[0] for v in screen_vertices]
@@ -772,7 +784,9 @@ class Light2DRenderBackend(RenderBackend):
         pass
 
     def _get_cached_texture(
-        self, key: tuple, surface_generator: Callable[[], Optional[pygame.Surface]]
+        self,
+        key: Tuple[Any, ...],
+        surface_generator: Callable[[], Optional[pygame.Surface]],
     ) -> Optional["pl2d.Texture"]:
         if key in self.texture_cache:
             self.texture_cache.move_to_end(key)
@@ -802,12 +816,13 @@ class Light2DRenderBackend(RenderBackend):
         for col in range(start_col, end_col):
             x = col * RenderConstants.GRID_SIZE
             sx, _ = camera.world_to_screen(x, 0, screen_w, screen_h)
-            vertices.extend([(sx, 0), (sx, screen_h)])
+            # render_lines expects list of (x, y) tuples
+            vertices.extend([(float(sx), 0.0), (float(sx), float(screen_h))])
 
         for row in range(start_row, end_row):
             y = row * RenderConstants.GRID_SIZE
             _, sy = camera.world_to_screen(0, y, screen_w, screen_h)
-            vertices.extend([(0, sy), (screen_w, sy)])
+            vertices.extend([(0.0, float(sy)), (float(screen_w), float(sy))])
 
         if vertices:
             self.lights_engine.graphics.render_lines(
