@@ -349,7 +349,12 @@ class GameplayScene(Scene):
         self.event_manager.process_phase(GamePhase.POST_UPDATE)
 
         if not self.application.headless:
-            self.hud.fps = self.application.clock.get_fps()
+            # Throttle FPS update to save redraws (every 0.25s)
+            self.hud.fps_timer = getattr(self.hud, "fps_timer", 0.0) + dt
+            if self.hud.fps_timer >= 0.25:
+                self.hud.fps = self.application.clock.get_fps()
+                self.hud.fps_timer = 0.0
+
             self.hud.update(dt)
 
     def render(self) -> None:
@@ -361,6 +366,8 @@ class GameplayScene(Scene):
         if not self.application.headless:
             # HUD rendering
             if getattr(self.application, "lights_engine", None):
+                import pygame_light2d as pl2d
+
                 # We need to render HUD to a surface, convert to texture, and render to FOREGROUND
                 # HUD draws to a surface passed to it.
                 if not hasattr(self, "hud_surface") or self.hud_surface.get_size() != (
@@ -370,6 +377,13 @@ class GameplayScene(Scene):
                     self.hud_surface = pygame.Surface(
                         (self.application.width, self.application.height), pygame.SRCALPHA
                     )
+                    # Invalidate texture if surface is recreated
+                    if hasattr(self, "hud_texture"):
+                        try:
+                            self.hud_texture.release()
+                        except:
+                            pass
+                        del self.hud_texture
                 else:
                     self.hud_surface.fill((0, 0, 0, 0))
 
@@ -377,16 +391,44 @@ class GameplayScene(Scene):
                 # Also draw scene-specific UI manager
                 self.ui_manager.draw_ui(self.hud_surface)
 
-                import pygame_light2d as pl2d
+                # Try to reuse texture if possible to avoid reallocation
+                if not hasattr(self, "hud_texture"):
+                    self.hud_texture = self.application.lights_engine.surface_to_texture(self.hud_surface)
+                else:
+                    # Attempt to update existing texture
+                    # If the underlying engine supports it (ModernGL texture usually has 'write')
+                    try:
+                        # self.hud_texture is likely a wrapper or a ModernGL Texture object
+                        # Check if it has a way to update.
+                        # If it is a ModernGL texture, it has .write(data)
+                        # If it is a wrapper, we might need to access .texture or similar.
+                        # We will assume it might support write or we fall back.
+                        if hasattr(self.hud_texture, "write"):
+                             self.hud_texture.write(self.hud_surface.get_view("1"))
+                        else:
+                             # Fallback: recreate
+                             self.hud_texture.release()
+                             self.hud_texture = self.application.lights_engine.surface_to_texture(self.hud_surface)
+                    except Exception as e:
+                        # Fallback if write fails
+                        logger.warning(f"Failed to update HUD texture, recreating: {e}")
+                        # Release old if possible (might be invalid)
+                        try:
+                             self.hud_texture.release()
+                        except:
+                             pass
+                        self.hud_texture = self.application.lights_engine.surface_to_texture(self.hud_surface)
 
-                tex = self.application.lights_engine.surface_to_texture(self.hud_surface)
                 self.application.lights_engine.render_texture(
-                    tex,
+                    self.hud_texture,
                     pl2d.FOREGROUND,
-                    pygame.Rect(0, 0, tex.width, tex.height),
-                    pygame.Rect(0, 0, tex.width, tex.height),
+                    pygame.Rect(0, 0, self.hud_texture.width, self.hud_texture.height),
+                    pygame.Rect(0, 0, self.hud_texture.width, self.hud_texture.height),
                 )
-                tex.release()
+
+                # Note: We do NOT release self.hud_texture here, we keep it for next frame.
+                # We should release it on exit or resize.
+
                 # Global UI Manager is rendered by Application
             else:
                 self.hud.draw(self.application.screen)
