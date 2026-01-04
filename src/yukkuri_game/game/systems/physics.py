@@ -61,6 +61,15 @@ class PhysicsSystem(System):
                 if phys.shape in self.space.shapes:
                     self.space.remove(phys.shape)
 
+    def on_world_cleared(self, event: Event) -> None:
+        """
+        Handles WorldClearedEvent to cleanup all physics bodies.
+
+        Args:
+            event (Event): The event data.
+        """
+        self.clear()
+
     def update(self, world: World, dt: float) -> None:
         """
         Updates the physics simulation.
@@ -78,7 +87,7 @@ class PhysicsSystem(System):
             self.event_bus = world.services.try_get(EventBus)
             if self.event_bus:
                 self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
-                self.event_bus.subscribe(WorldClearedEvent, lambda e: self.clear())
+                self.event_bus.subscribe(WorldClearedEvent, self.on_world_cleared)
 
         # Clamp dt to avoid spiral of death with high time scales or lag
         if dt > self.max_frame_time:
