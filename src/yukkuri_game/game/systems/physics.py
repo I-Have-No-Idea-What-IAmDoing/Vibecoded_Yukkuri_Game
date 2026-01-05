@@ -70,6 +70,15 @@ class PhysicsSystem(System):
         """
         self.clear()
 
+    def initialize(self) -> None:
+        """
+        Initializes the system by subscribing to events.
+        """
+        self.event_bus = self.ecs_world.services.try_get(EventBus)
+        if self.event_bus:
+            self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
+            self.event_bus.subscribe(WorldClearedEvent, self.on_world_cleared)
+
     def update(self, world: World, dt: float) -> None:
         """
         Updates the physics simulation.

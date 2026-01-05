@@ -363,6 +363,7 @@ class World:
         self._switch()
         # Inject world reference into system
         system.ecs_world = self
+        system.initialize()
         esper.add_processor(system)
 
     def update(self, dt: float) -> None:
@@ -451,6 +452,13 @@ class System(ProcessorBase):
             # Fallback if ecs_world wasn't injected (shouldn't happen if used correctly)
             # Pass a dummy or try to proceed if update doesn't use world (rare)
             pass
+
+    def initialize(self) -> None:
+        """
+        Called when the system is added to the world.
+        Can be overridden by subclasses to perform initialization (e.g., event subscription).
+        """
+        pass
 
     def update(self, world: World, dt: float) -> None:
         """
