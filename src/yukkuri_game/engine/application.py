@@ -6,7 +6,8 @@ import pygame
 import pygame_gui
 import os
 import pygame_light2d as pl2d
-from pygame_light2d import LightingEngine
+import moderngl
+from pygame_light2d import LightingEngine, DrawLayer
 from loguru import logger
 from .resource_manager import ResourceManager
 from .scene_manager import SceneManager
@@ -71,7 +72,40 @@ class Application:
         self.fixed_dt = 1.0 / 60.0
         self.accumulator = 0.0
 
+        # Patch LightingEngine.render_texture to fix vertex order (flip 180 degrees)
+        self._patch_lighting_engine()
+
         logger.info("Application initialized.")
+
+    def _patch_lighting_engine(self) -> None:
+        """
+        Patches LightingEngine.render_texture to fix coordinate flipping issue.
+        The original implementation in pygame-light2d 2.1.3 seems to invert vertices causing
+        180 degree rotation.
+        """
+        def patched_render_texture(self, tex: moderngl.Texture, layer: DrawLayer, dest: pygame.Rect, source: pygame.Rect):
+            # Render texture onto layer with the draw shader
+            layer = self._get_layer(layer)
+
+            # Corrected vertex order: TR, TL, BL, BR
+            # pygame_render.render_from_vertices has a bug where it swaps the first two vertices
+            # in the mapping logic (pairing dest[1] with src[0] and dest[0] with src[1]).
+            # We pre-swap them here to achieve identity mapping (TL->TL, TR->TR).
+            dest_vertices = [(dest.x + dest.width, dest.y),              # TR (Index 0)
+                             (dest.x, dest.y),                           # TL (Index 1)
+                             (dest.x, dest.y + dest.height),             # BL (Index 2)
+                             (dest.x + dest.width, dest.y + dest.height)]# BR (Index 3)
+
+            section_vertices = [(source.x, source.y),
+                                (source.x + source.width, source.y),
+                                (source.x, source.y + source.height),
+                                (source.x + source.width, source.y + source.height)]
+
+            self._graphics.render_from_vertices(
+                tex, layer, dest_vertices, section_vertices)
+
+        LightingEngine.render_texture = patched_render_texture
+        logger.info("Patched LightingEngine.render_texture")
 
     def _initialize_display(
         self, width: int, height: int, fullscreen: bool = False
