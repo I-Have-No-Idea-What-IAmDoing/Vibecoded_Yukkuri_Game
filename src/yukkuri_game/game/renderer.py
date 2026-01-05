@@ -20,7 +20,7 @@ from .components import (
 from .camera import Camera
 from .surface_cache import SurfaceCache
 from .render_backends import RenderBackend, PygameRenderBackend, Light2DRenderBackend
-from .systems.sector_system import SectorMap
+from .systems.sector_system import SectorMap, OccluderMap
 from .services import TimeService
 
 
@@ -86,6 +86,7 @@ class WorldRenderer:
         # Optimization: Use SectorMap to query only potentially visible entities
         # This reduces the number of entities we iterate, sort, and process for rendering.
         sector_map = world.services.try_get(SectorMap)
+        occluder_map = world.services.try_get(OccluderMap)
         visible_entities = None
 
         if sector_map:
@@ -139,7 +140,38 @@ class WorldRenderer:
 
             # Gather Occluders
             occluders_data = []
-            if visible_entities is not None:
+
+            # Use OccluderMap if available for optimal spatial querying
+            if occluder_map:
+                # Calculate bounds same as for visible entities
+                # (reusing min_x, min_y, width, height from above if sector_map logic ran)
+                # But sector_map logic only runs if sector_map is present.
+                # It's likely both are present or neither, but let's be safe.
+
+                # If sector_map was not present, we need to calculate bounds.
+                if not sector_map:
+                    buffer = 1000.0
+                    start_x, start_y = self.camera.screen_to_world(0, 0, sw, sh)
+                    end_x, end_y = self.camera.screen_to_world(sw, sh, sw, sh)
+                    min_x = min(start_x, end_x) - buffer
+                    min_y = min(start_y, end_y) - buffer
+                    width = abs(end_x - start_x) + 2 * buffer
+                    height = abs(end_y - start_y) + 2 * buffer
+
+                visible_occluders = occluder_map.get_entities_in_rect(
+                    min_x, min_y, width, height
+                )
+
+                for ent in visible_occluders:
+                    # Double check components in case of cleanup delay
+                    if world.has_component(ent, Occluder) and world.has_component(ent, Transform):
+                        transform = world.get_component(ent, Transform)
+                        occluder = world.get_component(ent, Occluder)
+                        sprite = world.try_get_component(ent, Sprite)
+                        body = world.try_get_component(ent, PhysicsBody)
+                        occluders_data.append((ent, transform, occluder, sprite, body))
+
+            elif visible_entities is not None:
                 for ent in visible_entities:
                     if world.has_component(ent, Occluder) and world.has_component(
                         ent, Transform

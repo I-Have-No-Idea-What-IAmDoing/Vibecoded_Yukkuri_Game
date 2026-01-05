@@ -8,7 +8,7 @@ import math
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import EntityDestroyedEvent
-from ..components import Transform
+from ..components import Transform, Occluder
 
 
 class SectorMap:
@@ -192,6 +192,14 @@ class SectorMap:
         return result
 
 
+class OccluderMap(SectorMap):
+    """
+    Specialized SectorMap for entities with Occluder components.
+    Allows efficient querying of only occluders in a region.
+    """
+    pass
+
+
 class SectorSystem(System):
     """
     System responsible for keeping the SectorMap updated with entity positions.
@@ -205,6 +213,7 @@ class SectorSystem(System):
         sector_size: float = 500,
     ):
         self.sector_map = SectorMap(width, height, sector_size)
+        self.occluder_map = OccluderMap(width, height, sector_size)
         self.event_bus = event_bus
         self._subscribed = False
 
@@ -220,6 +229,7 @@ class SectorSystem(System):
         Handler for when an entity is destroyed.
         """
         self.sector_map.remove_entity(event.entity_id)
+        self.occluder_map.remove_entity(event.entity_id)
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -236,10 +246,18 @@ class SectorSystem(System):
         # We need to register the map as a service if it's not already
         if not world.services.try_get(SectorMap):
             world.services.register(self.sector_map, SectorMap)
+        if not world.services.try_get(OccluderMap):
+            world.services.register(self.occluder_map, OccluderMap)
 
         # Iterate all entities with Transform
         for entity, (transform,) in world.get_components_tuple(Transform):
             self.sector_map.update_entity(entity, transform.x, transform.y)
+
+        # Update OccluderMap
+        for entity, (transform, occluder) in world.get_components_tuple(
+            Transform, Occluder
+        ):
+            self.occluder_map.update_entity(entity, transform.x, transform.y)
 
         # Periodic cleanup of dead entities
         self.cleanup_timer += dt
@@ -251,6 +269,7 @@ class SectorSystem(System):
         """
         Removes entities from SectorMap that no longer exist in the world or have no Transform.
         """
+        # Cleanup main sector map
         to_remove = []
         for entity_id in self.sector_map.entity_sectors.keys():
             if not world.has_component(entity_id, Transform):
@@ -258,3 +277,14 @@ class SectorSystem(System):
 
         for entity_id in to_remove:
             self.sector_map.remove_entity(entity_id)
+
+        # Cleanup occluder map
+        to_remove_occluder = []
+        for entity_id in self.occluder_map.entity_sectors.keys():
+            if not world.has_component(entity_id, Transform) or not world.has_component(
+                entity_id, Occluder
+            ):
+                to_remove_occluder.append(entity_id)
+
+        for entity_id in to_remove_occluder:
+            self.occluder_map.remove_entity(entity_id)
