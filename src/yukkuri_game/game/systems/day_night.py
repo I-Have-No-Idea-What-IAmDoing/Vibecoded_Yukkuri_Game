@@ -3,9 +3,8 @@ Day/Night Cycle System.
 """
 
 from ...engine.ecs import System, World
-from ..renderer import Light2DRenderBackend, WorldRenderer
 from ..services import TimeService
-
+from ..systems.render_system_new import NewRenderSystem
 
 class DayNightSystem(System):
     """
@@ -27,9 +26,9 @@ class DayNightSystem(System):
         (24.0, (20, 20, 50)),  # Midnight Loop
     ]
 
-    def __init__(self, world: World, renderer: WorldRenderer) -> None:
+    def __init__(self, world: World, renderer: NewRenderSystem) -> None:
         super().__init__()
-        self.renderer = renderer
+        self.render_system = renderer
         self.time_service = world.services.get(TimeService)
 
     def _interpolate_color(self, c1, c2, t) -> tuple:
@@ -57,20 +56,8 @@ class DayNightSystem(System):
         return self.AMBIENT_COLORS[0][1]  # Fallback
 
     def update(self, world: World, dt: float) -> None:
-        # Assuming TimeService tracks elapsed time in seconds.
-        # We need to map elapsed time to "Time of Day".
-        # Let's assume 1 real second = 1 game minute? Or use configured ratio.
-        # TimeService usually just accumulates time.
-        # If time_scale is 1.0.
-
-        # Simple mapping: TimeService.time_elapsed is total seconds.
-
-        # We use TimeService centralized logic now, but checking against local GAME_DAY_LENGTH if consistent
-        # Actually better to use TimeService.time_of_day
-
         time_of_day = self.time_service.time_of_day
         color = self._get_ambient_color(time_of_day)
 
-        # Update renderer
-        if isinstance(self.renderer.backend, Light2DRenderBackend):
-            self.renderer.backend.set_ambient_light(color)
+        if hasattr(self.render_system, 'set_ambient_light'):
+            self.render_system.set_ambient_light(color)
