@@ -379,7 +379,6 @@ def _render_lights_with_scissor(self):
     self._graphics.use_alpha_blending(False)
 
     ctx = self._graphics.ctx
-    ctx.enable(moderngl.SCISSOR_TEST)
     try:
         native_w = self._native_res[0]
         native_h = self._native_res[1]
@@ -429,7 +428,7 @@ def _render_lights_with_scissor(self):
             # Flip double buffer
             self._buf_lt.flip()
     finally:
-        ctx.disable(moderngl.SCISSOR_TEST)
+        ctx.scissor = None
 
         # Re-enable alpha blending
         self._graphics.use_alpha_blending(True)
