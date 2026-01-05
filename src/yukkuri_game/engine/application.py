@@ -25,6 +25,7 @@ class Application:
         height: int = 720,
         title: str = "Yukkuri Raising Game",
         headless: bool = False,
+        render_scale: float = 1.0,
     ):
         """
         Initializes the Application.
@@ -34,11 +35,13 @@ class Application:
             height (int): The height of the application window in pixels. Defaults to 720.
             title (str): The title of the application window. Defaults to "Yukkuri Raising Game".
             headless (bool): Whether to run in headless mode (no graphics). Defaults to False.
+            render_scale (float): Scale factor for rendering resolution relative to screen resolution. Defaults to 1.0.
         """
         self.width = width
         self.height = height
         self.title = title
         self.headless = headless
+        self.render_scale = render_scale
 
         if self.headless:
             # Set dummy driver for headless mode
@@ -84,6 +87,10 @@ class Application:
             self.lights_engine = None
         else:
             try:
+                # Calculate native resolution based on render scale
+                native_w = int(width * self.render_scale)
+                native_h = int(height * self.render_scale)
+
                 # Initialize LightingEngine instead of standard display
                 # We match native_res to screen_res for now to keep pixel density same as before
                 # unless we want pixel art style (which yukkuri usually is).
@@ -91,8 +98,8 @@ class Application:
                 # If we want scaling, we can adjust native_res.
                 self.lights_engine = LightingEngine(
                     screen_res=(width, height),
-                    native_res=(width, height),
-                    lightmap_res=(width // 2, height // 2),
+                    native_res=(native_w, native_h),
+                    lightmap_res=(native_w // 2, native_h // 2),
                     fullscreen=fullscreen
                 )
                 # LightingEngine creates the window, so we can get the surface if needed,
@@ -109,7 +116,7 @@ class Application:
                 self.screen = pygame.display.set_mode((width, height), flags)
                 pygame.display.set_caption(self.title)
 
-    def change_resolution(self, width: int, height: int, fullscreen: bool) -> None:
+    def change_resolution(self, width: int, height: int, fullscreen: bool, render_scale: float = None) -> None:
         """
         Changes the resolution and fullscreen state.
 
@@ -117,8 +124,12 @@ class Application:
             width (int): New width.
             height (int): New height.
             fullscreen (bool): Fullscreen flag.
+            render_scale (float, optional): New render scale. If None, keeps current scale.
         """
-        logger.info(f"Changing resolution to {width}x{height}, Fullscreen: {fullscreen}")
+        if render_scale is not None:
+            self.render_scale = render_scale
+
+        logger.info(f"Changing resolution to {width}x{height}, Fullscreen: {fullscreen}, Render Scale: {self.render_scale}")
         self.width = width
         self.height = height
 
