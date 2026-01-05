@@ -206,34 +206,35 @@ class GameplayScene(Scene):
         if self.application.headless:
             return
 
-        flags = pygame.RESIZABLE
-        if event.fullscreen:
-            flags |= pygame.FULLSCREEN
+        # Delegate resolution change to Application which handles LightingEngine lifecycle
+        self.application.change_resolution(event.width, event.height, event.fullscreen)
 
-        try:
-            # If we are using LightingEngine, it might lose context here.
-            # But we must resize the window.
-            pygame.display.set_mode((event.width, event.height), flags)
-        except pygame.error as e:
-            logger.error(f"Failed to change display mode: {e}")
-            return
+        # Re-initialize RenderSystem to use the new LightingEngine instance
+        # and update screen references.
+        if hasattr(self, "render_system"):
+            self.render_system = RenderSystem(
+                self.application.screen,
+                self.world,
+                lights_engine=getattr(self.application, "lights_engine", None),
+            )
+            # Update DayNightSystem renderer reference
+            if hasattr(self, "day_night_system"):
+                self.day_night_system.renderer = self.render_system.renderer
 
-        self.application.width = event.width
-        self.application.height = event.height
-
-        surface = pygame.display.get_surface()
-        if surface:
-            self.application.screen = surface
-            if hasattr(self, "render_system") and self.render_system:
-                self.render_system.screen = surface
-
+        # Update local UI Manager
         self.ui_manager.set_window_resolution((event.width, event.height))
+
+        # Update HUD layout
         if self.hud:
             self.hud.resize(event.width, event.height)
 
         # Invalidate hud_surface to force recreation in render()
         if hasattr(self, "hud_surface"):
             del self.hud_surface
+            # Also ensure texture is cleared
+            if hasattr(self, "hud_texture"):
+                # Texture is from old context, so it's invalid anyway, but good to clean ref
+                del self.hud_texture
 
     def take_screenshot(self) -> None:
         """Takes a screenshot and saves it to the screenshots directory."""
