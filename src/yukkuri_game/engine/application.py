@@ -37,6 +37,7 @@ class Application:
         """
         self.width = width
         self.height = height
+        self.title = title
         self.headless = headless
 
         if self.headless:
@@ -45,33 +46,7 @@ class Application:
 
         pygame.init()
 
-        if self.headless:
-            self.screen = pygame.display.set_mode((width, height))
-            self.lights_engine = None
-        else:
-            try:
-                # Initialize LightingEngine instead of standard display
-                # We match native_res to screen_res for now to keep pixel density same as before
-                # unless we want pixel art style (which yukkuri usually is).
-                # Assuming current sprites are high res or we want 1:1.
-                # If we want scaling, we can adjust native_res.
-                self.lights_engine = LightingEngine(
-                    screen_res=(width, height),
-                    native_res=(width, height),
-                    lightmap_res=(width // 2, height // 2),
-                )
-                # LightingEngine creates the window, so we can get the surface if needed,
-                # but usually we render via engine.
-                # Some parts of code expect self.screen to be the display surface.
-                # LightingEngine manages display, but we can access it via pygame.display.get_surface()
-                self.screen = pygame.display.get_surface()
-                pygame.display.set_caption(title)
-                self.lights_engine.set_ambient(128, 128, 128, 255)
-            except Exception as e:
-                logger.error(f"Failed to initialize LightingEngine: {e}. Falling back to standard Pygame display.")
-                self.lights_engine = None
-                self.screen = pygame.display.set_mode((width, height))
-                pygame.display.set_caption(title)
+        self._initialize_display(width, height, fullscreen=False)
 
         self.clock = pygame.time.Clock()
         self.running = True
@@ -94,6 +69,65 @@ class Application:
         self.accumulator = 0.0
 
         logger.info("Application initialized.")
+
+    def _initialize_display(self, width: int, height: int, fullscreen: bool = False) -> None:
+        """
+        Initializes the display and lighting engine.
+
+        Args:
+            width (int): Window width.
+            height (int): Window height.
+            fullscreen (bool): Whether to use fullscreen mode.
+        """
+        if self.headless:
+            self.screen = pygame.display.set_mode((width, height))
+            self.lights_engine = None
+        else:
+            try:
+                # Initialize LightingEngine instead of standard display
+                # We match native_res to screen_res for now to keep pixel density same as before
+                # unless we want pixel art style (which yukkuri usually is).
+                # Assuming current sprites are high res or we want 1:1.
+                # If we want scaling, we can adjust native_res.
+                self.lights_engine = LightingEngine(
+                    screen_res=(width, height),
+                    native_res=(width, height),
+                    lightmap_res=(width // 2, height // 2),
+                    fullscreen=fullscreen
+                )
+                # LightingEngine creates the window, so we can get the surface if needed,
+                # but usually we render via engine.
+                # Some parts of code expect self.screen to be the display surface.
+                # LightingEngine manages display, but we can access it via pygame.display.get_surface()
+                self.screen = pygame.display.get_surface()
+                pygame.display.set_caption(self.title)
+                self.lights_engine.set_ambient(128, 128, 128, 255)
+            except Exception as e:
+                logger.error(f"Failed to initialize LightingEngine: {e}. Falling back to standard Pygame display.")
+                self.lights_engine = None
+                flags = pygame.FULLSCREEN if fullscreen else 0
+                self.screen = pygame.display.set_mode((width, height), flags)
+                pygame.display.set_caption(self.title)
+
+    def change_resolution(self, width: int, height: int, fullscreen: bool) -> None:
+        """
+        Changes the resolution and fullscreen state.
+
+        Args:
+            width (int): New width.
+            height (int): New height.
+            fullscreen (bool): Fullscreen flag.
+        """
+        logger.info(f"Changing resolution to {width}x{height}, Fullscreen: {fullscreen}")
+        self.width = width
+        self.height = height
+
+        # Re-initialize display (and LightingEngine)
+        self._initialize_display(width, height, fullscreen)
+
+        # Update UI Surface and Manager
+        self.ui_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        self.ui_manager.set_window_resolution((width, height))
 
     def run(self) -> None:
         """
