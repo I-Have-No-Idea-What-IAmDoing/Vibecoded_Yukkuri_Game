@@ -393,45 +393,16 @@ class GameplayScene(Scene):
                 # Also draw scene-specific UI manager
                 self.ui_manager.draw_ui(self.hud_surface)
 
-                # Try to reuse texture if possible to avoid reallocation
-                if not hasattr(self, "hud_texture"):
-                    self.hud_texture = (
-                        self.application.lights_engine.surface_to_texture(
-                            self.hud_surface
-                        )
+                # Always recreate texture to ensure correct orientation (flipped for OpenGL)
+                # surface_to_texture handles flipping, but direct write() does not.
+                if hasattr(self, "hud_texture"):
+                    self.hud_texture.release()
+
+                self.hud_texture = (
+                    self.application.lights_engine.surface_to_texture(
+                        self.hud_surface
                     )
-                else:
-                    # Attempt to update existing texture
-                    # If the underlying engine supports it (ModernGL texture usually has 'write')
-                    try:
-                        # self.hud_texture is likely a wrapper or a ModernGL Texture object
-                        # Check if it has a way to update.
-                        # If it is a ModernGL texture, it has .write(data)
-                        # If it is a wrapper, we might need to access .texture or similar.
-                        # We will assume it might support write or we fall back.
-                        if hasattr(self.hud_texture, "write"):
-                            self.hud_texture.write(self.hud_surface.get_view("1"))
-                        else:
-                            # Fallback: recreate
-                            self.hud_texture.release()
-                            self.hud_texture = (
-                                self.application.lights_engine.surface_to_texture(
-                                    self.hud_surface
-                                )
-                            )
-                    except Exception as e:
-                        # Fallback if write fails
-                        logger.warning(f"Failed to update HUD texture, recreating: {e}")
-                        # Release old if possible (might be invalid)
-                        try:
-                            self.hud_texture.release()
-                        except:
-                            pass
-                        self.hud_texture = (
-                            self.application.lights_engine.surface_to_texture(
-                                self.hud_surface
-                            )
-                        )
+                )
 
                 self.application.lights_engine.render_texture(
                     self.hud_texture,
