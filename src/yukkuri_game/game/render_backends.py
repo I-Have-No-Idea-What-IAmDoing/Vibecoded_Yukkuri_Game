@@ -378,6 +378,10 @@ def _render_lights_with_scissor(self):
     # Switch to Additive Blending to accumulate lights without ping-ponging full-screen
     self._graphics.use_alpha_blending(False)
     ctx = self._graphics.ctx
+
+    # Ensure scissor is disabled to start with (defensive)
+    ctx.scissor = None
+
     ctx.enable(moderngl.BLEND)
     ctx.blend_func = (moderngl.ONE, moderngl.ONE)
 
@@ -387,8 +391,8 @@ def _render_lights_with_scissor(self):
         lm_w = self._lightmap_res[0]
         lm_h = self._lightmap_res[1]
 
-        scale_x = lm_w / native_w if native_w > 0 else 0.0
-        scale_y = lm_h / native_h if native_h > 0 else 0.0
+        scale_x = lm_w / native_w
+        scale_y = lm_h / native_h
 
         # Ensure we are drawing onto a clean slate.
         # render() already called self._buf_lt.clear(0,0,0,0) which clears both buffers.
@@ -409,10 +413,10 @@ def _render_lights_with_scissor(self):
             lr = light.radius
 
             # Scale to lightmap coordinates
-            x1, y1 = (lx - lr) * scale_x, (ly - lr) * scale_y
-            x2, y2 = (lx + lr) * scale_x, (ly + lr) * scale_y
-            x, y = int(x1), int(y1)
-            w, h = int(x2) - x, int(y2) - y
+            x = int((lx - lr) * scale_x)
+            y = int((ly - lr) * scale_y)
+            w = int(lr * 2 * scale_x)
+            h = int(lr * 2 * scale_y)
 
             # Convert y to bottom-left origin relative to lightmap
             # The bottom of the rect in top-left space is y + h.
@@ -447,8 +451,15 @@ def _render_lights_with_scissor(self):
         # After loop, flip ONCE so the result is in self._buf_lt.tex for the next stage
         self._buf_lt.flip()
 
+    except Exception as e:
+        print(f"Error in _render_lights_with_scissor: {e}")
+        raise e
     finally:
+        # Strictly reset Scissor
         ctx.scissor = None
+        ctx.disable(moderngl.BLEND)
+
+        # Reset Blend
         ctx.disable(moderngl.BLEND)
 
         # Re-enable alpha blending (standard mode)
