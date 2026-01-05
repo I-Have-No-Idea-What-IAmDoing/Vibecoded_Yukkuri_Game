@@ -2,6 +2,8 @@ import pygame
 import pygame_light2d as pl2d
 import math
 import pymunk
+import types
+import moderngl
 from typing import Tuple, List, Optional, Callable, Dict, Any
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -368,6 +370,71 @@ class PygameRenderBackend(RenderBackend):
         self.screen.blit(text_surface, rect)
 
 
+def _render_lights_with_scissor(self):
+    """
+    Patched method for pygame_light2d.LightingEngine._render_to_buf_lt
+    Uses glScissor to limit rendering area for each light.
+    """
+    # Disable alpha blending to render lights
+    self._graphics.use_alpha_blending(False)
+
+    ctx = self._graphics.ctx
+    ctx.enable(moderngl.SCISSOR_TEST)
+    try:
+        native_w = self._native_res[0]
+        native_h = self._native_res[1]
+
+        for light in self.lights:
+            # Skip light if disabled
+            if not light.enabled:
+                continue
+
+            # Calculate scissor rect
+            # light.position is (x, y) in screen coordinates (top-left origin)
+            # glScissor expects (x, y, w, h) in window coordinates (bottom-left origin)
+            lx, ly = light.position
+            lr = light.radius
+
+            # Calculate bounding box
+            x = int(lx - lr)
+            y = int(ly - lr)
+            w = int(lr * 2)
+            h = int(lr * 2)
+
+            # Convert y to bottom-left origin
+            # The bottom of the rect in top-left space is y + h.
+            # In bottom-left space, this corresponds to native_h - (y + h).
+            gl_y = native_h - (y + h)
+
+            # Set scissor
+            ctx.scissor = (x, gl_y, w, h)
+
+            # Send light uniforms
+            self._prog_light['lightPos'] = self._point_to_uv(
+                light.position)
+            self._prog_light['lightCol'] = light._color
+            self._prog_light['lightPower'] = light.power
+            self._prog_light['radius'] = light.radius
+            self._prog_light['castShadows'] = light.cast_shadows
+            self._prog_light['native_width'] = native_w
+            self._prog_light['native_height'] = native_h
+
+            # Send number of hulls
+            self._prog_light['numHulls'] = len(self.hulls)
+
+            # Render onto lightmap
+            self._graphics.render(
+                self._buf_lt.tex, self._buf_lt.fbo, shader=self._prog_light)
+
+            # Flip double buffer
+            self._buf_lt.flip()
+    finally:
+        ctx.disable(moderngl.SCISSOR_TEST)
+
+        # Re-enable alpha blending
+        self._graphics.use_alpha_blending(True)
+
+
 class Light2DRenderBackend(RenderBackend):
     """
     Pygame Light2D rendering backend.
@@ -382,6 +449,10 @@ class Light2DRenderBackend(RenderBackend):
     ) -> None:
         super().__init__()
         self.lights_engine = lights_engine
+
+        # Monkey-patch the light rendering method to use scissor test
+        self.lights_engine._render_to_buf_lt = types.MethodType(_render_lights_with_scissor, self.lights_engine)
+
         self.screen = screen
         self.texture_cache: OrderedDict[Tuple[Any, ...], "pl2d.Texture"] = OrderedDict()
         self.texture_cache_max_size = texture_cache_max_size
