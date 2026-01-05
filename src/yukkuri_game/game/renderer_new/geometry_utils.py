@@ -64,13 +64,12 @@ class GeometryUtils:
 
         elif body and body.body: # Ensure pymunk body exists
             # Use physics shape
-            # We iterate all shapes attached to the body? Or just the first one?
-            # Usually PhysicsBody wraps a single logical body which might have multiple shapes.
-            # But the old code checked `body.shape`. Let's assume PhysicsBody has a `shape` attribute.
+            # PhysicsBody wraps a single logical body which might have multiple shapes.
+            # We check body.shape which is expected to be the primary shape or a list.
+            # Assuming body.shape is a single pymunk.Shape for simplicity or primary collider.
 
-            shape = getattr(body, 'shape', None)
-            if shape:
-                 world_vertices = cls._get_shape_vertices(body.body, shape)
+            if body.shape:
+                 world_vertices = cls._get_shape_vertices(body.body, body.shape)
 
         elif sprite:
             # Sprite Rect Fallback

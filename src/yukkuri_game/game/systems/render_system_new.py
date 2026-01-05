@@ -95,7 +95,7 @@ class NewRenderSystem(System):
 
         # 3. Process Entities
         for ent in visible_entities:
-            self._process_entity(world, ent, alpha, sw, sh, world)
+            self._process_entity(world, ent, alpha, sw, sh)
 
         # 4. Floating Text
         self._process_floating_text(world, sw, sh, alpha)
@@ -149,7 +149,7 @@ class NewRenderSystem(System):
         end_row = int(end_y // grid_size) + 1
         return start_col, end_col, start_row, end_row
 
-    def _process_entity(self, world: World, ent: int, alpha: float, sw: int, sh: int, ecs_world: World) -> None:
+    def _process_entity(self, world: World, ent: int, alpha: float, sw: int, sh: int) -> None:
         transform = world.try_get_component(ent, Transform)
         if not transform: return
 
@@ -208,13 +208,25 @@ class NewRenderSystem(System):
                 # Apply vertical offset
                 sprite_sy = screen_pos[1] - (visual.vertical_offset * self.camera.zoom)
 
+                # Construct cache key for texture cache in Light2DBackend
+                # Must match what uniquely identifies the visual appearance
+                cache_key = (
+                    sprite.image_name,
+                    sprite.current_frame,
+                    round(scale, 3), # Round to reduce cache thrashing
+                    round(transform.rotation, 1),
+                    sprite.flip_x,
+                    sprite.flip_y
+                )
+
                 self.renderer.submit(SpriteCommand(
                     layer=LAYER_ENTITIES,
                     z_index=iy,
                     image=img,
                     position=(screen_pos[0], sprite_sy),
                     selected=is_selected,
-                    alpha=255 # TODO: Support transparency in component
+                    alpha=255, # TODO: Support transparency in component
+                    cache_key=cache_key
                 ))
 
         # 2. Light
@@ -276,6 +288,9 @@ class NewRenderSystem(System):
             entity_id=ent,
             vertices=screen_verts
         ))
+
+    def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
+        self.renderer.set_ambient_light(color)
 
     def _process_floating_text(self, world: World, sw: int, sh: int, alpha: float) -> None:
         # Iterate all FloatingText

@@ -47,12 +47,3 @@ class Renderer:
 
     def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
         self.backend.set_ambient_light(color)
-
-    def draw_debug_grid(self, width: int, height: int, cell_size: int, color: Tuple[int, int, int], camera_x: float, camera_y: float) -> None:
-        """Helper to draw grid directly (bypassing command queue for simplicity if needed, or we can make GridCommand)."""
-        # For now, immediate mode for debug is fine
-        # But wait, backend coordinates are screen space.
-        # We need to calculate screen lines.
-        # It's better if the RenderSystem handles the logic and submits LineCommands (if we had them).
-        # Let's add draw_line to backend.
-        pass

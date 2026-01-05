@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import Tuple, Optional, Any
+from typing import Tuple, Optional, Any, List, Union
 import pygame
+from ..components import FlickerStyle
 
 @dataclass
 class RenderCommand:
@@ -20,6 +21,7 @@ class SpriteCommand(RenderCommand):
     color: Optional[Tuple[int, int, int]] = None # Tint
     alpha: int = 255
     selected: bool = False
+    cache_key: Optional[Tuple[Any, ...]] = None
 
 @dataclass
 class TextCommand(RenderCommand):
@@ -39,7 +41,7 @@ class LightCommand(RenderCommand):
     radius: float
     color: Tuple[int, int, int, int]
     intensity: float
-    flicker_style: Any = None # Enum, but keeping Any to avoid circular import for now
+    flicker_style: Optional[FlickerStyle] = None
 
 @dataclass
 class ShadowCommand(RenderCommand):
@@ -52,4 +54,4 @@ class ShadowCommand(RenderCommand):
 class OccluderCommand(RenderCommand):
     """Command to define an occluder polygon."""
     entity_id: int
-    vertices: list[Tuple[float, float]] # Screen coordinates
+    vertices: List[Tuple[float, float]] # Screen coordinates

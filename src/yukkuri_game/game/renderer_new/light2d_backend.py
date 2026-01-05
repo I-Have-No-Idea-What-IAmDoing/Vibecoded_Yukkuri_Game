@@ -15,9 +15,13 @@ class Light2DBackend(RenderBackend):
         self.screen = screen
         self.engine = lighting_engine
 
-        self.texture_cache: OrderedDict[int, Any] = OrderedDict()
+        # Cache for textures: cache_key (hashable) -> pl2d.Texture
+        self.texture_cache: OrderedDict[Any, Any] = OrderedDict()
         self.texture_cache_max_size = texture_cache_max_size
+
         self.font_cache = {}
+        self.shadow_surface_cache = {} # Cache for Pygame Surfaces for shadows (not Textures, to avoid recreation)
+        self.shadow_texture_cache = OrderedDict() # Cache for Shadow Textures
 
         # State tracking for lights and occluders
         self.active_lights = {} # entity_id -> pl2d.PointLight
@@ -48,29 +52,29 @@ class Light2DBackend(RenderBackend):
         for eid in to_remove_lights:
             del self.active_lights[eid]
 
-        # Cleanup stale hulls
+        # Cleanup stale hulls from internal dict
         to_remove_hulls = []
         for eid, hull in self.active_hulls.items():
             if eid not in self.updated_hulls:
-                if hull in self.engine.hulls:
-                    self.engine.hulls.remove(hull)
+                # We don't remove from engine list individually (O(N)), we rebuild it below.
                 to_remove_hulls.append(eid)
         for eid in to_remove_hulls:
             del self.active_hulls[eid]
 
+        # Rebuild engine hull list (O(M))
+        # Note: If hulls didn't change, we could skip this, but detecting that is harder.
+        # Given user feedback, rebuilding is better than removing individually in loop.
+        self.engine.hulls[:] = list(self.active_hulls.values())
+
         self.engine.render()
 
-    def _get_texture(self, surface: pygame.Surface) -> Any:
-        # Use surface ID as key.
-        # This assumes surface objects are persistent or reused by SurfaceCache.
-        key = id(surface)
-
-        if key in self.texture_cache:
-            self.texture_cache.move_to_end(key)
-            return self.texture_cache[key]
+    def _get_texture(self, surface: pygame.Surface, cache_key: Any) -> Any:
+        if cache_key in self.texture_cache:
+            self.texture_cache.move_to_end(cache_key)
+            return self.texture_cache[cache_key]
 
         tex = self.engine.surface_to_texture(surface)
-        self.texture_cache[key] = tex
+        self.texture_cache[cache_key] = tex
 
         # LRU Eviction
         if len(self.texture_cache) > self.texture_cache_max_size:
@@ -80,7 +84,9 @@ class Light2DBackend(RenderBackend):
         return tex
 
     def draw_sprite(self, cmd: SpriteCommand) -> None:
-        tex = self._get_texture(cmd.image)
+        # If cache_key is provided, use it. Otherwise fall back to id(surface) (less safe but fallback)
+        key = cmd.cache_key if cmd.cache_key is not None else id(cmd.image)
+        tex = self._get_texture(cmd.image, key)
 
         dest_rect = pygame.Rect(0, 0, cmd.image.get_width(), cmd.image.get_height())
         dest_rect.center = (int(cmd.position[0]), int(cmd.position[1]))
@@ -123,21 +129,34 @@ class Light2DBackend(RenderBackend):
         tex.release() # Release immediately as text changes often
 
     def draw_shadow(self, cmd: ShadowCommand) -> None:
-        # Shadows are also drawn to background?
-        # TODO: Caching shadow textures is harder because we create them on fly in backend usually.
-        # But here we create surface every time.
-        s = pygame.Surface((cmd.radius[0]*2, cmd.radius[1]*2), pygame.SRCALPHA)
-        pygame.draw.ellipse(s, cmd.color, s.get_rect())
-        tex = self.engine.surface_to_texture(s)
+        # Use cache for shadow textures based on radius and color
+        key = (int(cmd.radius[0]), int(cmd.radius[1]), cmd.color)
 
-        dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
+        if key in self.shadow_texture_cache:
+            tex = self.shadow_texture_cache[key]
+            self.shadow_texture_cache.move_to_end(key)
+        else:
+            rx, ry = int(cmd.radius[0]), int(cmd.radius[1])
+            s = pygame.Surface((rx * 2, ry * 2), pygame.SRCALPHA)
+            pygame.draw.ellipse(s, cmd.color, s.get_rect())
+            tex = self.engine.surface_to_texture(s)
+            self.shadow_texture_cache[key] = tex
+
+            # LRU for shadows
+            if len(self.shadow_texture_cache) > 100: # Arbitrary limit
+                _, old_tex = self.shadow_texture_cache.popitem(last=False)
+                old_tex.release()
+
+        dest_rect = pygame.Rect(0, 0, tex.width, tex.height)
+        dest_rect.center = (int(cmd.position[0]), int(cmd.position[1]))
+
         self.engine.render_texture(
             tex,
             pl2d.BACKGROUND,
             dest_rect,
             pygame.Rect(0, 0, tex.width, tex.height)
         )
-        tex.release()
+        # Do not release texture here as it is cached
 
     def draw_light(self, cmd: LightCommand) -> None:
         self.updated_lights.add(cmd.entity_id)
@@ -153,26 +172,22 @@ class Light2DBackend(RenderBackend):
             l._color = col
         else:
             l = pl2d.PointLight(cmd.position, cmd.intensity, cmd.radius)
-            l.set_color(*cmd.color) # This expects 0-255 or 0-1? pl2d usually takes 0-255 in set_color wrapper?
-            # Looking at source, set_color usually normalizes.
-            # But here I manually set _color above, let's use the public API.
-            l.set_color(*cmd.color) # This takes r,g,b,a ints usually?
-            # pl2d.PointLight.set_color(r, g, b, a)
+            l.set_color(*cmd.color)
             self.engine.lights.append(l)
             self.active_lights[cmd.entity_id] = l
 
     def draw_occluder(self, cmd: OccluderCommand) -> None:
         self.updated_hulls.add(cmd.entity_id)
 
-        # Hull vertices must be list of (x,y)
-        if cmd.entity_id in self.active_hulls:
-            # We need to update vertices.
-            # Hull doesn't support update?
-            # If not, remove and add.
-             self.engine.hulls.remove(self.active_hulls[cmd.entity_id])
+        # Only update internal dict. Engine list update is deferred to end_frame.
+
+        # Optimization: If hull exists, we might need to recreate it if vertices changed.
+        # But we don't have easy check here without storing prev vertices.
+        # For now, just recreate hull object.
+        # Since we rebuild engine.hulls list every frame in end_frame,
+        # replacing the object in active_hulls is cheap (just dict update).
 
         h = pl2d.Hull(cmd.vertices)
-        self.engine.hulls.append(h)
         self.active_hulls[cmd.entity_id] = h
 
     def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:

@@ -4,9 +4,6 @@ Day/Night Cycle System.
 
 from ...engine.ecs import System, World
 from ..services import TimeService
-# Import from new renderer structure
-from ..renderer_new.light2d_backend import Light2DBackend
-from ..renderer_new.renderer import Renderer
 from ..systems.render_system_new import NewRenderSystem
 
 class DayNightSystem(System):
@@ -31,13 +28,7 @@ class DayNightSystem(System):
 
     def __init__(self, world: World, renderer: NewRenderSystem) -> None:
         super().__init__()
-        # The renderer passed here is likely the System, so we access its renderer attribute
-        if hasattr(renderer, 'renderer') and isinstance(renderer.renderer, Renderer):
-            self.renderer_backend = renderer.renderer.backend
-        else:
-            # Fallback or strict check
-             self.renderer_backend = None
-
+        self.render_system = renderer
         self.time_service = world.services.get(TimeService)
 
     def _interpolate_color(self, c1, c2, t) -> tuple:
@@ -68,5 +59,5 @@ class DayNightSystem(System):
         time_of_day = self.time_service.time_of_day
         color = self._get_ambient_color(time_of_day)
 
-        if self.renderer_backend:
-            self.renderer_backend.set_ambient_light(color)
+        if hasattr(self.render_system, 'set_ambient_light'):
+            self.render_system.set_ambient_light(color)
