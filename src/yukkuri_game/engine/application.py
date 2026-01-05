@@ -73,7 +73,9 @@ class Application:
 
         logger.info("Application initialized.")
 
-    def _initialize_display(self, width: int, height: int, fullscreen: bool = False) -> None:
+    def _initialize_display(
+        self, width: int, height: int, fullscreen: bool = False
+    ) -> None:
         """
         Initializes the display and lighting engine.
 
@@ -100,7 +102,7 @@ class Application:
                     screen_res=(width, height),
                     native_res=(native_w, native_h),
                     lightmap_res=(native_w // 2, native_h // 2),
-                    fullscreen=fullscreen
+                    fullscreen=fullscreen,
                 )
                 # LightingEngine creates the window, so we can get the surface if needed,
                 # but usually we render via engine.
@@ -110,13 +112,17 @@ class Application:
                 pygame.display.set_caption(self.title)
                 self.lights_engine.set_ambient(128, 128, 128, 255)
             except Exception as e:
-                logger.error(f"Failed to initialize LightingEngine: {e}. Falling back to standard Pygame display.")
+                logger.error(
+                    f"Failed to initialize LightingEngine: {e}. Falling back to standard Pygame display."
+                )
                 self.lights_engine = None
                 flags = pygame.FULLSCREEN if fullscreen else 0
                 self.screen = pygame.display.set_mode((width, height), flags)
                 pygame.display.set_caption(self.title)
 
-    def change_resolution(self, width: int, height: int, fullscreen: bool, render_scale: float = None) -> None:
+    def change_resolution(
+        self, width: int, height: int, fullscreen: bool, render_scale: float = None
+    ) -> None:
         """
         Changes the resolution and fullscreen state.
 
@@ -129,7 +135,9 @@ class Application:
         if render_scale is not None:
             self.render_scale = render_scale
 
-        logger.info(f"Changing resolution to {width}x{height}, Fullscreen: {fullscreen}, Render Scale: {self.render_scale}")
+        logger.info(
+            f"Changing resolution to {width}x{height}, Fullscreen: {fullscreen}, Render Scale: {self.render_scale}"
+        )
         self.width = width
         self.height = height
 

@@ -376,7 +376,8 @@ class GameplayScene(Scene):
                     self.application.height,
                 ):
                     self.hud_surface = pygame.Surface(
-                        (self.application.width, self.application.height), pygame.SRCALPHA
+                        (self.application.width, self.application.height),
+                        pygame.SRCALPHA,
                     )
                     # Invalidate texture if surface is recreated
                     if hasattr(self, "hud_texture"):
@@ -394,7 +395,11 @@ class GameplayScene(Scene):
 
                 # Try to reuse texture if possible to avoid reallocation
                 if not hasattr(self, "hud_texture"):
-                    self.hud_texture = self.application.lights_engine.surface_to_texture(self.hud_surface)
+                    self.hud_texture = (
+                        self.application.lights_engine.surface_to_texture(
+                            self.hud_surface
+                        )
+                    )
                 else:
                     # Attempt to update existing texture
                     # If the underlying engine supports it (ModernGL texture usually has 'write')
@@ -405,20 +410,28 @@ class GameplayScene(Scene):
                         # If it is a wrapper, we might need to access .texture or similar.
                         # We will assume it might support write or we fall back.
                         if hasattr(self.hud_texture, "write"):
-                             self.hud_texture.write(self.hud_surface.get_view("1"))
+                            self.hud_texture.write(self.hud_surface.get_view("1"))
                         else:
-                             # Fallback: recreate
-                             self.hud_texture.release()
-                             self.hud_texture = self.application.lights_engine.surface_to_texture(self.hud_surface)
+                            # Fallback: recreate
+                            self.hud_texture.release()
+                            self.hud_texture = (
+                                self.application.lights_engine.surface_to_texture(
+                                    self.hud_surface
+                                )
+                            )
                     except Exception as e:
                         # Fallback if write fails
                         logger.warning(f"Failed to update HUD texture, recreating: {e}")
                         # Release old if possible (might be invalid)
                         try:
-                             self.hud_texture.release()
+                            self.hud_texture.release()
                         except:
-                             pass
-                        self.hud_texture = self.application.lights_engine.surface_to_texture(self.hud_surface)
+                            pass
+                        self.hud_texture = (
+                            self.application.lights_engine.surface_to_texture(
+                                self.hud_surface
+                            )
+                        )
 
                 self.application.lights_engine.render_texture(
                     self.hud_texture,

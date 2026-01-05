@@ -5,7 +5,6 @@ Module for handling UI events from the HUD.
 import pygame
 import pygame_gui
 from typing import Optional, Callable, Dict, Any, TYPE_CHECKING
-from loguru import logger
 from ...engine.event_bus import EventBus
 from ...engine.audio import AudioManager
 from ..settings_service import SettingsService
