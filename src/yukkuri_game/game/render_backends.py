@@ -380,63 +380,59 @@ def _render_lights_with_scissor(self):
 
     ctx = self._graphics.ctx
     ctx.enable(moderngl.SCISSOR_TEST)
+    try:
+        native_w = self._native_res[0]
+        native_h = self._native_res[1]
 
-    native_w = self._native_res[0]
-    native_h = self._native_res[1]
+        for light in self.lights:
+            # Skip light if disabled
+            if not light.enabled:
+                continue
 
-    for light in self.lights:
-        # Skip light if disabled
-        if not light.enabled:
-            continue
+            # Calculate scissor rect
+            # light.position is (x, y) in screen coordinates (top-left origin)
+            # glScissor expects (x, y, w, h) in window coordinates (bottom-left origin)
+            lx, ly = light.position
+            lr = light.radius
 
-        # Calculate scissor rect
-        # light.position is (x, y) in screen coordinates (top-left origin)
-        # glScissor expects (x, y, w, h) in window coordinates (bottom-left origin)
-        lx, ly = light.position
-        lr = light.radius
+            # Calculate bounding box
+            x = int(lx - lr)
+            y = int(ly - lr)
+            w = int(lr * 2)
+            h = int(lr * 2)
 
-        # Calculate bounding box
-        x = int(lx - lr)
-        y = int(ly - lr)
-        w = int(lr * 2)
-        h = int(lr * 2)
+            # Convert y to bottom-left origin
+            # The bottom of the rect in top-left space is y + h.
+            # In bottom-left space, this corresponds to native_h - (y + h).
+            gl_y = native_h - (y + h)
 
-        # Convert y to bottom-left origin
-        # The bottom of the rect in top-left space is y + h.
-        # In bottom-left space, this corresponds to native_h - (y + h).
-        gl_y = native_h - (y + h)
+            # Set scissor
+            ctx.scissor = (x, gl_y, w, h)
 
-        # Clamp width and height to positive values
-        if w < 0: w = 0
-        if h < 0: h = 0
+            # Send light uniforms
+            self._prog_light['lightPos'] = self._point_to_uv(
+                light.position)
+            self._prog_light['lightCol'] = light._color
+            self._prog_light['lightPower'] = light.power
+            self._prog_light['radius'] = light.radius
+            self._prog_light['castShadows'] = light.cast_shadows
+            self._prog_light['native_width'] = native_w
+            self._prog_light['native_height'] = native_h
 
-        # Set scissor
-        ctx.scissor = (x, gl_y, w, h)
+            # Send number of hulls
+            self._prog_light['numHulls'] = len(self.hulls)
 
-        # Send light uniforms
-        self._prog_light['lightPos'] = self._point_to_uv(
-            light.position)
-        self._prog_light['lightCol'] = light._color
-        self._prog_light['lightPower'] = light.power
-        self._prog_light['radius'] = light.radius
-        self._prog_light['castShadows'] = light.cast_shadows
-        self._prog_light['native_width'] = native_w
-        self._prog_light['native_height'] = native_h
+            # Render onto lightmap
+            self._graphics.render(
+                self._buf_lt.tex, self._buf_lt.fbo, shader=self._prog_light)
 
-        # Send number of hulls
-        self._prog_light['numHulls'] = len(self.hulls)
+            # Flip double buffer
+            self._buf_lt.flip()
+    finally:
+        ctx.disable(moderngl.SCISSOR_TEST)
 
-        # Render onto lightmap
-        self._graphics.render(
-            self._buf_lt.tex, self._buf_lt.fbo, shader=self._prog_light)
-
-        # Flip double buffer
-        self._buf_lt.flip()
-
-    ctx.disable(moderngl.SCISSOR_TEST)
-
-    # Re-enable alpha blending
-    self._graphics.use_alpha_blending(True)
+        # Re-enable alpha blending
+        self._graphics.use_alpha_blending(True)
 
 
 class Light2DRenderBackend(RenderBackend):
