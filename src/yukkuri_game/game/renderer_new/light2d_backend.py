@@ -188,7 +188,7 @@ class Light2DBackend(RenderBackend):
         self.active_hulls[cmd.entity_id] = h
 
     def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
-        self.engine.set_ambient(color)
+        self.engine.set_ambient(*color)
 
     def draw_line(self, start: Tuple[float, float], end: Tuple[float, float], color: Tuple[int, int, int], width: int = 1) -> None:
         # Draw to background
