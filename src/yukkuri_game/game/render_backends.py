@@ -387,8 +387,8 @@ def _render_lights_with_scissor(self):
         lm_w = self._lightmap_res[0]
         lm_h = self._lightmap_res[1]
 
-        scale_x = lm_w / native_w
-        scale_y = lm_h / native_h
+        scale_x = lm_w / native_w if native_w > 0 else 0.0
+        scale_y = lm_h / native_h if native_h > 0 else 0.0
 
         # Ensure we are drawing onto a clean slate.
         # render() already called self._buf_lt.clear(0,0,0,0) which clears both buffers.
