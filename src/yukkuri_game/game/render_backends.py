@@ -409,10 +409,10 @@ def _render_lights_with_scissor(self):
             lr = light.radius
 
             # Scale to lightmap coordinates
-            x = int((lx - lr) * scale_x)
-            y = int((ly - lr) * scale_y)
-            w = int(lr * 2 * scale_x)
-            h = int(lr * 2 * scale_y)
+            x1, y1 = (lx - lr) * scale_x, (ly - lr) * scale_y
+            x2, y2 = (lx + lr) * scale_x, (ly + lr) * scale_y
+            x, y = int(x1), int(y1)
+            w, h = int(x2) - x, int(y2) - y
 
             # Convert y to bottom-left origin relative to lightmap
             # The bottom of the rect in top-left space is y + h.
