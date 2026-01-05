@@ -391,6 +391,9 @@ def _render_lights_with_scissor(self):
         lm_w = self._lightmap_res[0]
         lm_h = self._lightmap_res[1]
 
+        if native_w == 0 or native_h == 0:
+            return
+
         scale_x = lm_w / native_w
         scale_y = lm_h / native_h
 
@@ -417,6 +420,10 @@ def _render_lights_with_scissor(self):
             y = int((ly - lr) * scale_y)
             w = int(lr * 2 * scale_x)
             h = int(lr * 2 * scale_y)
+
+            # Scissor width/height must be non-negative
+            if w <= 0 or h <= 0:
+                continue
 
             # Convert y to bottom-left origin relative to lightmap
             # The bottom of the rect in top-left space is y + h.
@@ -453,11 +460,14 @@ def _render_lights_with_scissor(self):
 
     except Exception as e:
         print(f"Error in _render_lights_with_scissor: {e}")
+        import traceback
+        traceback.print_exc()
         raise e
     finally:
-        # Strictly reset Scissor
+        # Strictly reset Scissor - disable test explicitly
         ctx.scissor = None
-        ctx.disable(moderngl.BLEND)
+        if hasattr(moderngl, 'SCISSOR_TEST'):
+            ctx.disable(moderngl.SCISSOR_TEST)
 
         # Reset Blend
         ctx.disable(moderngl.BLEND)
