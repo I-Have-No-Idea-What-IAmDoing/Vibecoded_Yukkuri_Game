@@ -164,7 +164,9 @@ class WorldRenderer:
 
                 for ent in visible_occluders:
                     # Double check components in case of cleanup delay
-                    if world.has_component(ent, Occluder) and world.has_component(ent, Transform):
+                    if world.has_component(ent, Occluder) and world.has_component(
+                        ent, Transform
+                    ):
                         transform = world.get_component(ent, Transform)
                         occluder = world.get_component(ent, Occluder)
                         sprite = world.try_get_component(ent, Sprite)

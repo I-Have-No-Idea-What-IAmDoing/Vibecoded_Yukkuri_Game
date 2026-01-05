@@ -197,6 +197,7 @@ class OccluderMap(SectorMap):
     Specialized SectorMap for entities with Occluder components.
     Allows efficient querying of only occluders in a region.
     """
+
     pass
 
 

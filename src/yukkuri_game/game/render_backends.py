@@ -410,21 +410,21 @@ def _render_lights_with_scissor(self):
             ctx.scissor = (x, gl_y, w, h)
 
             # Send light uniforms
-            self._prog_light['lightPos'] = self._point_to_uv(
-                light.position)
-            self._prog_light['lightCol'] = light._color
-            self._prog_light['lightPower'] = light.power
-            self._prog_light['radius'] = light.radius
-            self._prog_light['castShadows'] = light.cast_shadows
-            self._prog_light['native_width'] = native_w
-            self._prog_light['native_height'] = native_h
+            self._prog_light["lightPos"] = self._point_to_uv(light.position)
+            self._prog_light["lightCol"] = light._color
+            self._prog_light["lightPower"] = light.power
+            self._prog_light["radius"] = light.radius
+            self._prog_light["castShadows"] = light.cast_shadows
+            self._prog_light["native_width"] = native_w
+            self._prog_light["native_height"] = native_h
 
             # Send number of hulls
-            self._prog_light['numHulls'] = len(self.hulls)
+            self._prog_light["numHulls"] = len(self.hulls)
 
             # Render onto lightmap
             self._graphics.render(
-                self._buf_lt.tex, self._buf_lt.fbo, shader=self._prog_light)
+                self._buf_lt.tex, self._buf_lt.fbo, shader=self._prog_light
+            )
 
             # Flip double buffer
             self._buf_lt.flip()
@@ -451,7 +451,9 @@ class Light2DRenderBackend(RenderBackend):
         self.lights_engine = lights_engine
 
         # Monkey-patch the light rendering method to use scissor test
-        self.lights_engine._render_to_buf_lt = types.MethodType(_render_lights_with_scissor, self.lights_engine)
+        self.lights_engine._render_to_buf_lt = types.MethodType(
+            _render_lights_with_scissor, self.lights_engine
+        )
 
         self.screen = screen
         self.texture_cache: OrderedDict[Tuple[Any, ...], "pl2d.Texture"] = OrderedDict()
