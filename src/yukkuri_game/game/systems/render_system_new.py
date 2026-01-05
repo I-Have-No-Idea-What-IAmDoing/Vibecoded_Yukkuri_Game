@@ -253,13 +253,18 @@ class NewRenderSystem(System):
                             0.8 + 0.2 * math.sin(time_elapsed * math.pi)
                         )
 
+                # Ensure color is RGBA
+                color = light.color
+                if len(color) == 3:
+                    color = (color[0], color[1], color[2], 255)
+
                 self.renderer.submit(LightCommand(
                     layer=LAYER_EFFECTS, # Lights are handled specially by backend
                     z_index=iy,
                     entity_id=ent,
                     position=screen_pos,
                     radius=radius,
-                    color=light.color,
+                    color=color,
                     intensity=intensity,
                     flicker_style=light.flicker_style
                 ))

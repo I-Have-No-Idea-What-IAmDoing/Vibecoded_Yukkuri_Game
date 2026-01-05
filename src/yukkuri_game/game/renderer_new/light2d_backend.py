@@ -161,15 +161,12 @@ class Light2DBackend(RenderBackend):
     def draw_light(self, cmd: LightCommand) -> None:
         self.updated_lights.add(cmd.entity_id)
 
-        # Convert color to 0-1 range
-        col = (cmd.color[0]/255, cmd.color[1]/255, cmd.color[2]/255, cmd.color[3]/255)
-
         if cmd.entity_id in self.active_lights:
             l = self.active_lights[cmd.entity_id]
             l.position = cmd.position
             l.radius = cmd.radius
             l.power = cmd.intensity
-            l._color = col
+            l.set_color(*cmd.color)
         else:
             l = pl2d.PointLight(cmd.position, cmd.intensity, cmd.radius)
             l.set_color(*cmd.color)
