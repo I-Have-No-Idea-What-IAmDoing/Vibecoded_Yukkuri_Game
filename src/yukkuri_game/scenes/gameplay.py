@@ -233,8 +233,8 @@ class GameplayScene(Scene):
             del self.hud_surface
             # Also ensure texture is cleared
             if hasattr(self, "hud_texture"):
-                 # Texture is from old context, so it's invalid anyway, but good to clean ref
-                 del self.hud_texture
+                # Texture is from old context, so it's invalid anyway, but good to clean ref
+                del self.hud_texture
 
     def take_screenshot(self) -> None:
         """Takes a screenshot and saves it to the screenshots directory."""
