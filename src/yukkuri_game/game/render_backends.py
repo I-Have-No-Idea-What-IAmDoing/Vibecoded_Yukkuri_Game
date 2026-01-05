@@ -382,6 +382,11 @@ def _render_lights_with_scissor(self):
     try:
         native_w = self._native_res[0]
         native_h = self._native_res[1]
+        lm_w = self._lightmap_res[0]
+        lm_h = self._lightmap_res[1]
+
+        scale_x = lm_w / native_w
+        scale_y = lm_h / native_h
 
         for light in self.lights:
             # Skip light if disabled
@@ -394,16 +399,17 @@ def _render_lights_with_scissor(self):
             lx, ly = light.position
             lr = light.radius
 
-            # Calculate bounding box
-            x = int(lx - lr)
-            y = int(ly - lr)
-            w = int(lr * 2)
-            h = int(lr * 2)
+            # Scale to lightmap coordinates
+            # We assume lightmap covers the same field of view as native res
+            x = int((lx - lr) * scale_x)
+            y = int((ly - lr) * scale_y)
+            w = int(lr * 2 * scale_x)
+            h = int(lr * 2 * scale_y)
 
-            # Convert y to bottom-left origin
+            # Convert y to bottom-left origin relative to lightmap
             # The bottom of the rect in top-left space is y + h.
-            # In bottom-left space, this corresponds to native_h - (y + h).
-            gl_y = native_h - (y + h)
+            # In bottom-left space, this corresponds to lm_h - (y + h).
+            gl_y = lm_h - (y + h)
 
             # Set scissor
             ctx.scissor = (x, gl_y, w, h)
