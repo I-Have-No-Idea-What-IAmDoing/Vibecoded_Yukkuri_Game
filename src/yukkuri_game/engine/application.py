@@ -87,11 +87,14 @@ class Application:
             # Render texture onto layer with the draw shader
             layer = self._get_layer(layer)
 
-            # Corrected vertex order: TL, TR, BL, BR to match section_vertices
-            dest_vertices = [(dest.x, dest.y),                           # TL
-                             (dest.x + dest.width, dest.y),              # TR
-                             (dest.x, dest.y + dest.height),             # BL
-                             (dest.x + dest.width, dest.y + dest.height)]# BR
+            # Corrected vertex order: TR, TL, BL, BR
+            # pygame_render.render_from_vertices has a bug where it swaps the first two vertices
+            # in the mapping logic (pairing dest[1] with src[0] and dest[0] with src[1]).
+            # We pre-swap them here to achieve identity mapping (TL->TL, TR->TR).
+            dest_vertices = [(dest.x + dest.width, dest.y),              # TR (Index 0)
+                             (dest.x, dest.y),                           # TL (Index 1)
+                             (dest.x, dest.y + dest.height),             # BL (Index 2)
+                             (dest.x + dest.width, dest.y + dest.height)]# BR (Index 3)
 
             section_vertices = [(source.x, source.y),
                                 (source.x + source.width, source.y),
