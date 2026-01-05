@@ -31,14 +31,14 @@ class Light2DBackend(RenderBackend):
         self.updated_lights = set()
         self.updated_hulls = set()
 
+        self._clear_color = (0, 0, 0)
+
     def clear(self, color: Tuple[int, int, int]) -> None:
-        # Clear the background layer with the color
-        # This prevents "hall of mirrors"
-        bg_layer = self.engine._get_layer(pl2d.BACKGROUND)
-        self.engine.graphics.clear(bg_layer, (color[0]/255, color[1]/255, color[2]/255, 1.0))
+        self._clear_color = color
 
     def begin_frame(self) -> None:
-        self.engine.clear(0, 0, 0, 0) # Clear lightmap
+        # Clear lightmap and background with the stored clear color
+        self.engine.clear(*self._clear_color, 255)
         self.updated_lights.clear()
         self.updated_hulls.clear()
 
