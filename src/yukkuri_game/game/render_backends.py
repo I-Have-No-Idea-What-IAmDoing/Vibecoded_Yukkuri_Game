@@ -375,13 +375,27 @@ def _render_lights_with_scissor(self):
     Patched method for pygame_light2d.LightingEngine._render_to_buf_lt
     Uses glScissor to limit rendering area for each light.
     """
-    # Disable alpha blending to render lights
+    # Switch to Additive Blending to accumulate lights without ping-ponging full-screen
     self._graphics.use_alpha_blending(False)
-
     ctx = self._graphics.ctx
+    ctx.enable(moderngl.BLEND)
+    ctx.blend_func = (moderngl.ONE, moderngl.ONE)
+
     try:
         native_w = self._native_res[0]
         native_h = self._native_res[1]
+        lm_w = self._lightmap_res[0]
+        lm_h = self._lightmap_res[1]
+
+        scale_x = lm_w / native_w if native_w > 0 else 0.0
+        scale_y = lm_h / native_h if native_h > 0 else 0.0
+
+        # Ensure we are drawing onto a clean slate.
+        # render() already called self._buf_lt.clear(0,0,0,0) which clears both buffers.
+        # So tex (source) is 0 and fbo (dest) is 0.
+        # Shader: color = texture(tex) + light -> 0 + light = light.
+        # Blend: Dest + Source -> 0 + light = light.
+        # Subsequent lights: Dest + light = Accumulated Light.
 
         for light in self.lights:
             # Skip light if disabled
@@ -394,16 +408,16 @@ def _render_lights_with_scissor(self):
             lx, ly = light.position
             lr = light.radius
 
-            # Calculate bounding box
-            x = int(lx - lr)
-            y = int(ly - lr)
-            w = int(lr * 2)
-            h = int(lr * 2)
+            # Scale to lightmap coordinates
+            x1, y1 = (lx - lr) * scale_x, (ly - lr) * scale_y
+            x2, y2 = (lx + lr) * scale_x, (ly + lr) * scale_y
+            x, y = int(x1), int(y1)
+            w, h = int(x2) - x, int(y2) - y
 
-            # Convert y to bottom-left origin
+            # Convert y to bottom-left origin relative to lightmap
             # The bottom of the rect in top-left space is y + h.
-            # In bottom-left space, this corresponds to native_h - (y + h).
-            gl_y = native_h - (y + h)
+            # In bottom-left space, this corresponds to lm_h - (y + h).
+            gl_y = lm_h - (y + h)
 
             # Set scissor
             ctx.scissor = (x, gl_y, w, h)
@@ -420,17 +434,24 @@ def _render_lights_with_scissor(self):
             # Send number of hulls
             self._prog_light["numHulls"] = len(self.hulls)
 
-            # Render onto lightmap
+            # Render onto lightmap FBO (accumulate)
+            # Input tex should be empty (black) so shader doesn't add anything extra,
+            # but since we are blending additively, we want shader to output JUST light.
+            # Shader = texture(tex) + light.
+            # If tex is black, Shader = light.
+            # Blend = Dest + Shader = Dest + light. Correct.
             self._graphics.render(
                 self._buf_lt.tex, self._buf_lt.fbo, shader=self._prog_light
             )
 
-            # Flip double buffer
-            self._buf_lt.flip()
+        # After loop, flip ONCE so the result is in self._buf_lt.tex for the next stage
+        self._buf_lt.flip()
+
     finally:
         ctx.scissor = None
+        ctx.disable(moderngl.BLEND)
 
-        # Re-enable alpha blending
+        # Re-enable alpha blending (standard mode)
         self._graphics.use_alpha_blending(True)
 
 
