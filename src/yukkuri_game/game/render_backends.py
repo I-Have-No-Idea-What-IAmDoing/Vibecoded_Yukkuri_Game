@@ -457,6 +457,7 @@ def _render_lights_with_scissor(self):
     finally:
         # Strictly reset Scissor
         ctx.scissor = None
+        ctx.disable(moderngl.BLEND)
 
         # Reset Blend
         ctx.disable(moderngl.BLEND)
