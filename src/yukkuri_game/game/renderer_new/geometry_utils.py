@@ -34,14 +34,9 @@ class GeometryUtils:
         occluder: Occluder,
         sprite: Optional[Sprite] = None,
         body: Optional[PhysicsBody] = None,
-        override_x: Optional[float] = None,
-        override_y: Optional[float] = None,
     ) -> List[Tuple[float, float]]:
         """
         Calculates world-space vertices for an occluder.
-        Args:
-            override_x (float): Optional override for X position (e.g. interpolated).
-            override_y (float): Optional override for Y position.
         """
         # Check cache for static objects
         if occluder.static:
@@ -58,10 +53,6 @@ class GeometryUtils:
 
         world_vertices = []
 
-        # Use overridden coordinates if provided, else transform's
-        tx = override_x if override_x is not None else transform.x
-        ty = override_y if override_y is not None else transform.y
-
         if occluder.polygon:
             # Custom polygon
             rad = math.radians(transform.rotation)
@@ -73,32 +64,16 @@ class GeometryUtils:
                 ry = vx * sin_a + vy * cos_a
                 rx *= transform.scale
                 ry *= transform.scale
-                world_vertices.append((tx + rx, ty + ry))
+                world_vertices.append((transform.x + rx, transform.y + ry))
 
         elif body and body.body:  # Ensure pymunk body exists
             # Use physics shape
-            # NOTE: Pymunk bodies are updated by physics step, so they are "current".
-            # If we want to interpolate them, we need to know their velocity or prev position.
-            # However, usually physics bodies are the source of truth for "current" frame.
-            # But rendering might be interpolated between physics steps.
-            # If we are interpolating, we should offset the vertices.
+            # PhysicsBody wraps a single logical body which might have multiple shapes.
+            # We check body.shape which is expected to be the primary shape or a list.
+            # Assuming body.shape is a single pymunk.Shape for simplicity or primary collider.
 
-            # The vertices from _get_shape_vertices are in world space based on body.position.
-            # body.position is usually the "current" physics state.
-            # If override_x/y is provided, it means we want to render at a different position (interpolated).
-            # We calculate the offset between desired position and body position.
-
-            body_x, body_y = body.body.position
-            offset_x = tx - body_x
-            offset_y = ty - body_y
-
-            raw_vertices = cls._get_shape_vertices(body.body, body.shape)
-            if offset_x != 0 or offset_y != 0:
-                world_vertices = [
-                    (vx + offset_x, vy + offset_y) for vx, vy in raw_vertices
-                ]
-            else:
-                world_vertices = raw_vertices
+            if body.shape:
+                world_vertices = cls._get_shape_vertices(body.body, body.shape)
 
         elif sprite:
             # Sprite Rect Fallback
@@ -118,7 +93,7 @@ class GeometryUtils:
             for vx, vy in corners:
                 rx = vx * cos_a - vy * sin_a
                 ry = vx * sin_a + vy * cos_a
-                world_vertices.append((tx + rx, ty + ry))
+                world_vertices.append((transform.x + rx, transform.y + ry))
 
         # Fallback to simple box if nothing else
         else:
@@ -131,7 +106,7 @@ class GeometryUtils:
                 (size / 2, -size / 2),
             ]
             for vx, vy in corners:
-                world_vertices.append((tx + vx, ty + vy))
+                world_vertices.append((transform.x + vx, transform.y + vy))
 
         if occluder.static:
             cls._STATIC_CACHE[entity_id] = world_vertices
