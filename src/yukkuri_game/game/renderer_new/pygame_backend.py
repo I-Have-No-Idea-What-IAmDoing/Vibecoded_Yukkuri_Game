@@ -1,7 +1,14 @@
-from typing import List, Tuple
+from typing import Tuple
 import pygame
 from .backend import RenderBackend
-from .commands import RenderCommand, SpriteCommand, TextCommand, LightCommand, ShadowCommand, OccluderCommand
+from .commands import (
+    SpriteCommand,
+    TextCommand,
+    LightCommand,
+    ShadowCommand,
+    OccluderCommand,
+)
+
 
 class PygameBackend(RenderBackend):
     """Standard Pygame backend (no dynamic lighting)."""
@@ -41,7 +48,9 @@ class PygameBackend(RenderBackend):
         # Given the `SurfaceCache` in the old code, the System likely resolves the specific surface.
         # So `cmd.image` is likely the *result* of the cache lookup.
 
-        dest_rect = cmd.image.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
+        dest_rect = cmd.image.get_rect(
+            center=(int(cmd.position[0]), int(cmd.position[1]))
+        )
 
         if cmd.alpha < 255:
             cmd.image.set_alpha(cmd.alpha)
@@ -49,7 +58,7 @@ class PygameBackend(RenderBackend):
         self.screen.blit(cmd.image, dest_rect)
 
         if cmd.selected:
-             pygame.draw.rect(self.screen, (255, 255, 0), dest_rect, 2)
+            pygame.draw.rect(self.screen, (255, 255, 0), dest_rect, 2)
 
     def draw_text(self, cmd: TextCommand) -> None:
         font = self._get_font(cmd.size, cmd.font_name)
@@ -87,7 +96,13 @@ class PygameBackend(RenderBackend):
         # No-op, or maybe overlay a dark rect if we wanted fake darkness
         pass
 
-    def draw_line(self, start: Tuple[float, float], end: Tuple[float, float], color: Tuple[int, int, int], width: int = 1) -> None:
+    def draw_line(
+        self,
+        start: Tuple[float, float],
+        end: Tuple[float, float],
+        color: Tuple[int, int, int],
+        width: int = 1,
+    ) -> None:
         pygame.draw.line(self.screen, color, start, end, width)
 
     def _get_font(self, size: int, name: str = None) -> pygame.font.Font:

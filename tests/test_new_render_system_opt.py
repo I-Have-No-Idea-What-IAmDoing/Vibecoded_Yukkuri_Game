@@ -1,7 +1,6 @@
-import pytest
 import pygame
 import sys
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 # Mock pygame_light2d before importing systems
 sys.modules["pygame_light2d"] = MagicMock()
@@ -10,12 +9,11 @@ sys.modules["moderngl"] = MagicMock()
 sys.modules["pygame_light2d"].Hull.side_effect = lambda *args, **kwargs: MagicMock()
 
 from src.yukkuri_game.game.systems.render_system_new import NewRenderSystem
-from src.yukkuri_game.game.renderer_new.commands import OccluderCommand
 from src.yukkuri_game.game.components import Transform, Occluder
 from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.engine.resource_manager import ResourceManager
 from src.yukkuri_game.game.camera import Camera
-from src.yukkuri_game.game.renderer_new.light2d_backend import Light2DBackend
+
 
 def test_occluder_optimization():
     pygame.init()
@@ -30,7 +28,7 @@ def test_occluder_optimization():
 
     # Mock LightingEngine
     lights_engine = MagicMock()
-    lights_engine.hulls = [] # List
+    lights_engine.hulls = []  # List
     lights_engine._native_res = (800, 600)
 
     system = NewRenderSystem(screen, world, lights_engine=lights_engine)
@@ -39,7 +37,7 @@ def test_occluder_optimization():
     # Add entity with Occluder
     ent = world.create_entity()
     world.add_component(ent, Transform(x=100, y=100))
-    world.add_component(ent, Occluder(polygon=[(-10,-10), (10,10), (10,-10)]))
+    world.add_component(ent, Occluder(polygon=[(-10, -10), (10, 10), (10, -10)]))
 
     # Update frame 1
     system.update(world, 1.0)
@@ -62,9 +60,9 @@ def test_occluder_optimization():
     system.update(world, 1.0)
 
     new_hull = backend.active_hulls[ent]
-    assert new_hull is not prev_hull # Current logic recreates it
+    assert new_hull is not prev_hull  # Current logic recreates it
     assert new_hull in lights_engine.hulls
-    assert prev_hull not in lights_engine.hulls # Should be replaced
+    assert prev_hull not in lights_engine.hulls  # Should be replaced
 
     # Remove entity
     world.destroy_entity(ent)
@@ -75,6 +73,7 @@ def test_occluder_optimization():
     # Verify removed
     assert ent not in backend.active_hulls
     assert len(lights_engine.hulls) == 0
+
 
 if __name__ == "__main__":
     test_occluder_optimization()

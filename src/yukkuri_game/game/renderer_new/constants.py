@@ -1,5 +1,5 @@
-from typing import Tuple, List, Optional
-import math
+from typing import Tuple
+
 
 class RenderConstants:
     GRID_SIZE: int = 100

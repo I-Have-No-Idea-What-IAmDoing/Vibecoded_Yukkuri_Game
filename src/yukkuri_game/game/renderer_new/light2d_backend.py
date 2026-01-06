@@ -1,17 +1,26 @@
-from typing import List, Tuple, Dict, Any, Optional
+from typing import Tuple, Any
 from collections import OrderedDict
 import pygame
 import pygame_light2d as pl2d
 from .backend import RenderBackend
-from .commands import RenderCommand, SpriteCommand, TextCommand, LightCommand, ShadowCommand, OccluderCommand
-import types
-import moderngl
-import math
+from .commands import (
+    SpriteCommand,
+    TextCommand,
+    LightCommand,
+    ShadowCommand,
+    OccluderCommand,
+)
+
 
 class Light2DBackend(RenderBackend):
     """Backend using pygame-light2d."""
 
-    def __init__(self, screen: pygame.Surface, lighting_engine: pl2d.LightingEngine, texture_cache_max_size: int = 500):
+    def __init__(
+        self,
+        screen: pygame.Surface,
+        lighting_engine: pl2d.LightingEngine,
+        texture_cache_max_size: int = 500,
+    ):
         self.screen = screen
         self.engine = lighting_engine
 
@@ -20,12 +29,12 @@ class Light2DBackend(RenderBackend):
         self.texture_cache_max_size = texture_cache_max_size
 
         self.font_cache = {}
-        self.shadow_surface_cache = {} # Cache for Pygame Surfaces for shadows (not Textures, to avoid recreation)
-        self.shadow_texture_cache = OrderedDict() # Cache for Shadow Textures
+        self.shadow_surface_cache = {}  # Cache for Pygame Surfaces for shadows (not Textures, to avoid recreation)
+        self.shadow_texture_cache = OrderedDict()  # Cache for Shadow Textures
 
         # State tracking for lights and occluders
-        self.active_lights = {} # entity_id -> pl2d.PointLight
-        self.active_hulls = {} # entity_id -> pl2d.Hull
+        self.active_lights = {}  # entity_id -> pl2d.PointLight
+        self.active_hulls = {}  # entity_id -> pl2d.Hull
 
         # We need to track which lights/hulls were updated this frame to remove stale ones
         self.updated_lights = set()
@@ -78,8 +87,8 @@ class Light2DBackend(RenderBackend):
 
         # LRU Eviction
         if len(self.texture_cache) > self.texture_cache_max_size:
-             _, old_tex = self.texture_cache.popitem(last=False)
-             old_tex.release()
+            _, old_tex = self.texture_cache.popitem(last=False)
+            old_tex.release()
 
         return tex
 
@@ -93,22 +102,19 @@ class Light2DBackend(RenderBackend):
 
         # Render to BACKGROUND layer (standard sprites)
         self.engine.render_texture(
-            tex,
-            pl2d.BACKGROUND,
-            dest_rect,
-            pygame.Rect(0, 0, tex.width, tex.height)
+            tex, pl2d.BACKGROUND, dest_rect, pygame.Rect(0, 0, tex.width, tex.height)
         )
 
         if cmd.selected:
-             self.engine.graphics.render_rectangle(
+            self.engine.graphics.render_rectangle(
                 self.engine._get_layer(pl2d.BACKGROUND),
                 (1.0, 1.0, 0.0, 1.0),
                 dest_rect.center,
                 dest_rect.width,
                 dest_rect.height,
                 0,
-                False
-             )
+                False,
+            )
 
     def draw_text(self, cmd: TextCommand) -> None:
         # Font rendering creates a surface
@@ -117,16 +123,16 @@ class Light2DBackend(RenderBackend):
         if cmd.alpha < 255:
             surf.set_alpha(cmd.alpha)
 
-        tex = self.engine.surface_to_texture(surf) # One-off texture
+        tex = self.engine.surface_to_texture(surf)  # One-off texture
         dest_rect = surf.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
 
         self.engine.render_texture(
             tex,
-            pl2d.FOREGROUND, # GUI usually on top
+            pl2d.FOREGROUND,  # GUI usually on top
             dest_rect,
-            pygame.Rect(0, 0, tex.width, tex.height)
+            pygame.Rect(0, 0, tex.width, tex.height),
         )
-        tex.release() # Release immediately as text changes often
+        tex.release()  # Release immediately as text changes often
 
     def draw_shadow(self, cmd: ShadowCommand) -> None:
         # Use cache for shadow textures based on radius and color
@@ -143,7 +149,7 @@ class Light2DBackend(RenderBackend):
             self.shadow_texture_cache[key] = tex
 
             # LRU for shadows
-            if len(self.shadow_texture_cache) > 100: # Arbitrary limit
+            if len(self.shadow_texture_cache) > 100:  # Arbitrary limit
                 _, old_tex = self.shadow_texture_cache.popitem(last=False)
                 old_tex.release()
 
@@ -151,10 +157,7 @@ class Light2DBackend(RenderBackend):
         dest_rect.center = (int(cmd.position[0]), int(cmd.position[1]))
 
         self.engine.render_texture(
-            tex,
-            pl2d.BACKGROUND,
-            dest_rect,
-            pygame.Rect(0, 0, tex.width, tex.height)
+            tex, pl2d.BACKGROUND, dest_rect, pygame.Rect(0, 0, tex.width, tex.height)
         )
         # Do not release texture here as it is cached
 
@@ -190,14 +193,20 @@ class Light2DBackend(RenderBackend):
     def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
         self.engine.set_ambient(*color)
 
-    def draw_line(self, start: Tuple[float, float], end: Tuple[float, float], color: Tuple[int, int, int], width: int = 1) -> None:
+    def draw_line(
+        self,
+        start: Tuple[float, float],
+        end: Tuple[float, float],
+        color: Tuple[int, int, int],
+        width: int = 1,
+    ) -> None:
         # Draw to background
         self.engine.graphics.render_lines(
             self.engine._get_layer(pl2d.BACKGROUND),
-            (color[0]/255, color[1]/255, color[2]/255, 1.0),
+            (color[0] / 255, color[1] / 255, color[2] / 255, 1.0),
             [start, end],
             width,
-            False
+            False,
         )
 
     def _get_font(self, size: int, name: str = None) -> pygame.font.Font:

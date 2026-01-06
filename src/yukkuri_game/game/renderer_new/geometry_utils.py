@@ -1,8 +1,8 @@
 import math
-import pygame
 import pymunk
 from typing import List, Tuple, Optional, Dict
 from ..components import Transform, Occluder, Sprite, PhysicsBody
+
 
 class GeometryUtils:
     """Utilities for generating render geometry."""
@@ -32,7 +32,7 @@ class GeometryUtils:
         transform: Transform,
         occluder: Occluder,
         sprite: Optional[Sprite] = None,
-        body: Optional[PhysicsBody] = None
+        body: Optional[PhysicsBody] = None,
     ) -> List[Tuple[float, float]]:
         """
         Calculates world-space vertices for an occluder.
@@ -41,7 +41,10 @@ class GeometryUtils:
         if occluder.static:
             key = (transform.x, transform.y, transform.rotation, transform.scale)
             if entity_id in cls._STATIC_CACHE:
-                if entity_id in cls._STATIC_CACHE_KEYS and cls._STATIC_CACHE_KEYS[entity_id] == key:
+                if (
+                    entity_id in cls._STATIC_CACHE_KEYS
+                    and cls._STATIC_CACHE_KEYS[entity_id] == key
+                ):
                     return cls._STATIC_CACHE[entity_id]
 
             # Update key
@@ -62,14 +65,14 @@ class GeometryUtils:
                 ry *= transform.scale
                 world_vertices.append((transform.x + rx, transform.y + ry))
 
-        elif body and body.body: # Ensure pymunk body exists
+        elif body and body.body:  # Ensure pymunk body exists
             # Use physics shape
             # PhysicsBody wraps a single logical body which might have multiple shapes.
             # We check body.shape which is expected to be the primary shape or a list.
             # Assuming body.shape is a single pymunk.Shape for simplicity or primary collider.
 
             if body.shape:
-                 world_vertices = cls._get_shape_vertices(body.body, body.shape)
+                world_vertices = cls._get_shape_vertices(body.body, body.shape)
 
         elif sprite:
             # Sprite Rect Fallback
@@ -93,9 +96,14 @@ class GeometryUtils:
         # Fallback to simple box if nothing else
         else:
             size = 32 * transform.scale
-            corners = [(-size/2, -size/2), (size/2, -size/2), (size/2, size/2), (-size/2, size/2)]
+            corners = [
+                (-size / 2, -size / 2),
+                (size / 2, -size / 2),
+                (size / 2, size / 2),
+                (-size / 2, size / 2),
+            ]
             for vx, vy in corners:
-                 world_vertices.append((transform.x + vx, transform.y + vy))
+                world_vertices.append((transform.x + vx, transform.y + vy))
 
         if occluder.static:
             cls._STATIC_CACHE[entity_id] = world_vertices
@@ -103,10 +111,12 @@ class GeometryUtils:
         return world_vertices
 
     @classmethod
-    def _get_shape_vertices(cls, body: pymunk.Body, shape: pymunk.Shape) -> List[Tuple[float, float]]:
+    def _get_shape_vertices(
+        cls, body: pymunk.Body, shape: pymunk.Shape
+    ) -> List[Tuple[float, float]]:
         verts = []
         if hasattr(shape, "get_vertices"):
-             # Poly
+            # Poly
             for v in shape.get_vertices():
                 wv = body.local_to_world(v)
                 verts.append((wv.x, wv.y))
@@ -128,12 +138,12 @@ class GeometryUtils:
                 verts.append((v2.x - nx * thickness, v2.y - ny * thickness))
                 verts.append((v1.x - nx * thickness, v1.y - ny * thickness))
         elif isinstance(shape, pymunk.Circle):
-             radius = shape.radius
-             unit_verts = cls.get_circle_vertices()
-             local_to_world = body.local_to_world
-             for ux, uy in unit_verts:
-                 wv = local_to_world((ux * radius, uy * radius))
-                 verts.append((wv.x, wv.y))
+            radius = shape.radius
+            unit_verts = cls.get_circle_vertices()
+            local_to_world = body.local_to_world
+            for ux, uy in unit_verts:
+                wv = local_to_world((ux * radius, uy * radius))
+                verts.append((wv.x, wv.y))
         return verts
 
     @classmethod

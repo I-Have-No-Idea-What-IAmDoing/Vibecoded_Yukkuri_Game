@@ -1,7 +1,6 @@
-import pytest
 import pygame
 import sys
-from unittest.mock import MagicMock, ANY
+from unittest.mock import MagicMock
 
 # Mock pygame_light2d before importing systems
 sys.modules["pygame_light2d"] = MagicMock()
@@ -15,6 +14,7 @@ from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.engine.resource_manager import ResourceManager
 from src.yukkuri_game.game.camera import Camera
 from src.yukkuri_game.game.renderer_new.light2d_backend import Light2DBackend
+
 
 def test_occluder_geometry_generation():
     pygame.init()
@@ -42,7 +42,9 @@ def test_occluder_geometry_generation():
     # Create entity
     ent = world.create_entity()
     world.add_component(ent, Transform(x=100, y=100))
-    world.add_component(ent, Occluder(polygon=[(-10,-10), (10,-10), (10,10), (-10,10)]))
+    world.add_component(
+        ent, Occluder(polygon=[(-10, -10), (10, -10), (10, 10), (-10, 10)])
+    )
 
     # Mock draw_occluder to verify calls
     system.renderer.backend.draw_occluder = MagicMock()
@@ -63,8 +65,9 @@ def test_occluder_geometry_generation():
     # Screen pos = (100-0) + 400 = 500, (100-0) + 300 = 400.
     # Box +/- 10.
     vx, vy = args.vertices[0]
-    assert 485 <= vx <= 515 # Allow some float precision/rounding
+    assert 485 <= vx <= 515  # Allow some float precision/rounding
     assert 385 <= vy <= 415
+
 
 if __name__ == "__main__":
     test_occluder_geometry_generation()

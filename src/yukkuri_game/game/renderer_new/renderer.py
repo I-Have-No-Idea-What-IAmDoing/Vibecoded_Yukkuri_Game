@@ -1,7 +1,14 @@
-from typing import List, Tuple, Optional
-import pygame
+from typing import List, Tuple
 from .backend import RenderBackend
-from .commands import RenderCommand, SpriteCommand, TextCommand, LightCommand, ShadowCommand, OccluderCommand
+from .commands import (
+    RenderCommand,
+    SpriteCommand,
+    TextCommand,
+    LightCommand,
+    ShadowCommand,
+    OccluderCommand,
+)
+
 
 class Renderer:
     """

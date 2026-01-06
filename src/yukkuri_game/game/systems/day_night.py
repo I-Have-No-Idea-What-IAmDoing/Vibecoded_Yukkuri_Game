@@ -6,6 +6,7 @@ from ...engine.ecs import System, World
 from ..services import TimeService
 from ..systems.render_system_new import NewRenderSystem
 
+
 class DayNightSystem(System):
     """
     Manages the ambient light color based on game time.
@@ -59,5 +60,5 @@ class DayNightSystem(System):
         time_of_day = self.time_service.time_of_day
         color = self._get_ambient_color(time_of_day)
 
-        if hasattr(self.render_system, 'set_ambient_light'):
+        if hasattr(self.render_system, "set_ambient_light"):
             self.render_system.set_ambient_light(color)

@@ -398,10 +398,8 @@ class GameplayScene(Scene):
                 if hasattr(self, "hud_texture"):
                     self.hud_texture.release()
 
-                self.hud_texture = (
-                    self.application.lights_engine.surface_to_texture(
-                        self.hud_surface
-                    )
+                self.hud_texture = self.application.lights_engine.surface_to_texture(
+                    self.hud_surface
                 )
 
                 self.application.lights_engine.render_texture(

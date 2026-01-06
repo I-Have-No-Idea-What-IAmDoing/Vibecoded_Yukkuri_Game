@@ -4,7 +4,6 @@ New Render System Module.
 
 import pygame
 import math
-from loguru import logger
 from typing import Optional, List, Tuple
 from pygame_light2d import LightingEngine
 
@@ -20,9 +19,9 @@ from ..components import (
     Selectable,
     FloatingText,
     PhysicsBody,
-    FlickerStyle
+    FlickerStyle,
 )
-from ..systems.sector_system import SectorMap, OccluderMap
+from ..systems.sector_system import SectorMap
 from ..services import TimeService
 from ..surface_cache import SurfaceCache
 
@@ -37,7 +36,6 @@ from ..renderer_new.commands import (
     LightCommand,
     ShadowCommand,
     OccluderCommand,
-    RenderCommand
 )
 from ..renderer_new.constants import RenderConstants
 
@@ -48,13 +46,17 @@ LAYER_ENTITIES = 2
 LAYER_EFFECTS = 3
 LAYER_UI = 10
 
+
 class NewRenderSystem(System):
     """
     System responsible for rendering using the new architecture.
     """
 
     def __init__(
-        self, screen: pygame.Surface, world: World, lights_engine: Optional[LightingEngine] = None
+        self,
+        screen: pygame.Surface,
+        world: World,
+        lights_engine: Optional[LightingEngine] = None,
     ):
         self.screen = screen
         self.rm = world.services.get(ResourceManager)
@@ -78,14 +80,14 @@ class NewRenderSystem(System):
 
         # If using lighting engine with scaling, use native resolution for camera calculations
         if self.lights_enabled:
-             # Try to get native resolution from engine (internal attribute)
-             engine = self.renderer.backend.engine
-             if hasattr(engine, '_native_res'):
-                 sw, sh = engine._native_res
+            # Try to get native resolution from engine (internal attribute)
+            engine = self.renderer.backend.engine
+            if hasattr(engine, "_native_res"):
+                sw, sh = engine._native_res
 
         self.camera.update_matrices(sw, sh)
 
-        self.renderer.clear_screen((30, 30, 30)) # Dark background
+        self.renderer.clear_screen((30, 30, 30))  # Dark background
 
         # 1. Grid (Optional, maybe make it a command or specialized draw)
         self._draw_grid(sw, sh)
@@ -127,7 +129,9 @@ class NewRenderSystem(System):
         grid_size = RenderConstants.GRID_SIZE
         color = RenderConstants.GRID_COLOR
 
-        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(sw, sh, grid_size)
+        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(
+            sw, sh, grid_size
+        )
 
         for col in range(start_col, end_col):
             x = col * grid_size
@@ -141,7 +145,9 @@ class NewRenderSystem(System):
 
     def _calculate_grid_bounds(self, screen_w: int, screen_h: int, grid_size: int):
         start_x, start_y = self.camera.screen_to_world(0, 0, screen_w, screen_h)
-        end_x, end_y = self.camera.screen_to_world(screen_w, screen_h, screen_w, screen_h)
+        end_x, end_y = self.camera.screen_to_world(
+            screen_w, screen_h, screen_w, screen_h
+        )
 
         start_col = int(start_x // grid_size)
         end_col = int(end_x // grid_size) + 1
@@ -149,16 +155,19 @@ class NewRenderSystem(System):
         end_row = int(end_y // grid_size) + 1
         return start_col, end_col, start_row, end_row
 
-    def _process_entity(self, world: World, ent: int, alpha: float, sw: int, sh: int) -> None:
+    def _process_entity(
+        self, world: World, ent: int, alpha: float, sw: int, sh: int
+    ) -> None:
         transform = world.try_get_component(ent, Transform)
-        if not transform: return
+        if not transform:
+            return
 
         # Interpolation
         ix = transform.x
         iy = transform.y
         if transform.prev_x is not None and transform.prev_y is not None:
-           ix = transform.prev_x + (transform.x - transform.prev_x) * alpha
-           iy = transform.prev_y + (transform.y - transform.prev_y) * alpha
+            ix = transform.prev_x + (transform.x - transform.prev_x) * alpha
+            iy = transform.prev_y + (transform.y - transform.prev_y) * alpha
 
         screen_pos = self.camera.world_to_screen_fast(ix, iy)
 
@@ -172,20 +181,21 @@ class NewRenderSystem(System):
             # Shadow
             # Calculate shadow position
             shadow_x, shadow_y = self.camera.world_to_screen_fast(
-                ix + visual.shadow_position.x,
-                iy + visual.shadow_position.y
+                ix + visual.shadow_position.x, iy + visual.shadow_position.y
             )
 
             shadow_radius_x = sprite.width * scale * RenderConstants.SHADOW_SCALE_X
             shadow_radius_y = shadow_radius_x * RenderConstants.SHADOW_SCALE_Y
 
             if shadow_radius_x > 0:
-                self.renderer.submit(ShadowCommand(
-                    layer=LAYER_SHADOWS,
-                    z_index=iy, # Shadow sorts with entity
-                    position=(shadow_x, shadow_y),
-                    radius=(shadow_radius_x, shadow_radius_y)
-                ))
+                self.renderer.submit(
+                    ShadowCommand(
+                        layer=LAYER_SHADOWS,
+                        z_index=iy,  # Shadow sorts with entity
+                        position=(shadow_x, shadow_y),
+                        radius=(shadow_radius_x, shadow_radius_y),
+                    )
+                )
 
             # Sprite
             # Get cached surface
@@ -198,7 +208,7 @@ class NewRenderSystem(System):
                 scale,
                 transform.rotation,
                 sprite.flip_x,
-                sprite.flip_y
+                sprite.flip_y,
             )
 
             if img:
@@ -213,21 +223,23 @@ class NewRenderSystem(System):
                 cache_key = (
                     sprite.image_name,
                     sprite.current_frame,
-                    round(scale, 3), # Round to reduce cache thrashing
+                    round(scale, 3),  # Round to reduce cache thrashing
                     round(transform.rotation, 1),
                     sprite.flip_x,
-                    sprite.flip_y
+                    sprite.flip_y,
                 )
 
-                self.renderer.submit(SpriteCommand(
-                    layer=LAYER_ENTITIES,
-                    z_index=iy,
-                    image=img,
-                    position=(screen_pos[0], sprite_sy),
-                    selected=is_selected,
-                    alpha=255, # TODO: Support transparency in component
-                    cache_key=cache_key
-                ))
+                self.renderer.submit(
+                    SpriteCommand(
+                        layer=LAYER_ENTITIES,
+                        z_index=iy,
+                        image=img,
+                        position=(screen_pos[0], sprite_sy),
+                        selected=is_selected,
+                        alpha=255,  # TODO: Support transparency in component
+                        cache_key=cache_key,
+                    )
+                )
 
         # 2. Light
         if self.lights_enabled:
@@ -258,26 +270,32 @@ class NewRenderSystem(System):
                 if len(color) == 3:
                     color = (color[0], color[1], color[2], 255)
 
-                self.renderer.submit(LightCommand(
-                    layer=LAYER_EFFECTS, # Lights are handled specially by backend
-                    z_index=iy,
-                    entity_id=ent,
-                    position=screen_pos,
-                    radius=radius,
-                    color=color,
-                    intensity=intensity,
-                    flicker_style=light.flicker_style
-                ))
+                self.renderer.submit(
+                    LightCommand(
+                        layer=LAYER_EFFECTS,  # Lights are handled specially by backend
+                        z_index=iy,
+                        entity_id=ent,
+                        position=screen_pos,
+                        radius=radius,
+                        color=color,
+                        intensity=intensity,
+                        flicker_style=light.flicker_style,
+                    )
+                )
 
             occluder = world.try_get_component(ent, Occluder)
             if occluder:
                 self._process_occluder(world, ent, transform, occluder)
 
-    def _process_occluder(self, world: World, ent: int, transform: Transform, occluder: Occluder):
+    def _process_occluder(
+        self, world: World, ent: int, transform: Transform, occluder: Occluder
+    ):
         sprite = world.try_get_component(ent, Sprite)
         body = world.try_get_component(ent, PhysicsBody)
 
-        world_verts = GeometryUtils.get_occluder_vertices(ent, transform, occluder, sprite, body)
+        world_verts = GeometryUtils.get_occluder_vertices(
+            ent, transform, occluder, sprite, body
+        )
 
         if len(world_verts) < 3:
             return
@@ -287,20 +305,23 @@ class NewRenderSystem(System):
             sx, sy = self.camera.world_to_screen_fast(wx, wy)
             screen_verts.append((sx, sy))
 
-        self.renderer.submit(OccluderCommand(
-            layer=LAYER_BACKGROUND,
-            z_index=0,
-            entity_id=ent,
-            vertices=screen_verts
-        ))
+        self.renderer.submit(
+            OccluderCommand(
+                layer=LAYER_BACKGROUND, z_index=0, entity_id=ent, vertices=screen_verts
+            )
+        )
 
     def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
         self.renderer.set_ambient_light(color)
 
-    def _process_floating_text(self, world: World, sw: int, sh: int, alpha: float) -> None:
+    def _process_floating_text(
+        self, world: World, sw: int, sh: int, alpha: float
+    ) -> None:
         # Iterate all FloatingText
         # Optimize: visible only?
-        for ent, (transform, text) in world.get_components_tuple(Transform, FloatingText):
+        for ent, (transform, text) in world.get_components_tuple(
+            Transform, FloatingText
+        ):
             sx, sy = self.camera.world_to_screen_fast(transform.x, transform.y)
 
             # Cull if offscreen?
@@ -309,12 +330,14 @@ class NewRenderSystem(System):
                 if text.max_lifetime > 0:
                     alpha_val = int(255 * (text.lifetime / text.max_lifetime))
 
-                self.renderer.submit(TextCommand(
-                    layer=LAYER_UI,
-                    z_index=transform.y + 1000, # On top
-                    text=text.text,
-                    position=(sx, sy),
-                    size=text.size,
-                    color=text.color,
-                    alpha=alpha_val
-                ))
+                self.renderer.submit(
+                    TextCommand(
+                        layer=LAYER_UI,
+                        z_index=transform.y + 1000,  # On top
+                        text=text.text,
+                        position=(sx, sy),
+                        size=text.size,
+                        color=text.color,
+                        alpha=alpha_val,
+                    )
+                )

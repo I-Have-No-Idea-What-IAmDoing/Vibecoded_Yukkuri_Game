@@ -1,6 +1,12 @@
-from typing import Protocol, List, Tuple
-import pygame
-from .commands import RenderCommand, SpriteCommand, TextCommand, LightCommand, ShadowCommand, OccluderCommand
+from typing import Protocol, Tuple
+from .commands import (
+    SpriteCommand,
+    TextCommand,
+    LightCommand,
+    ShadowCommand,
+    OccluderCommand,
+)
+
 
 class RenderBackend(Protocol):
     """Interface for rendering backends."""
@@ -41,6 +47,12 @@ class RenderBackend(Protocol):
         """Sets the ambient light color."""
         ...
 
-    def draw_line(self, start: Tuple[float, float], end: Tuple[float, float], color: Tuple[int, int, int], width: int = 1) -> None:
+    def draw_line(
+        self,
+        start: Tuple[float, float],
+        end: Tuple[float, float],
+        color: Tuple[int, int, int],
+        width: int = 1,
+    ) -> None:
         """Draws a line (mainly for debug/grid)."""
         ...
