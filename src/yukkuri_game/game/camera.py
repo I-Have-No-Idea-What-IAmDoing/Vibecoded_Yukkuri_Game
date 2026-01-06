@@ -37,24 +37,50 @@ class Camera:
         self.zoom = 1.0
         self.target_zoom = 1.0
 
+        # Previous state for interpolation
+        self.prev_camera_x = 0.0
+        self.prev_camera_y = 0.0
+        self.prev_zoom = 1.0
+
         # Bounds
         self.min_zoom = 0.5
         self.max_zoom = 2.0
 
         # Optimization: Cached values for fast coordinate conversion
-        self._cached_zoom = None
+        self._cached_zoom_x = None
+        self._cached_zoom_y = None
         self._cached_offset_x = None
         self._cached_offset_y = None
 
-    def update_matrices(self, screen_w: int, screen_h: int) -> None:
+        self.correction_x = 1.0
+        self.correction_y = 1.0
+
+    def set_aspect_correction(self, x: float, y: float) -> None:
+        """Sets the aspect ratio correction factors."""
+        self.correction_x = x
+        self.correction_y = y
+
+    def update_matrices(self, screen_w: int, screen_h: int, alpha: float = 1.0) -> None:
         """
-        Updates cached transformation matrices.
+        Updates cached transformation matrices using interpolation.
         Call this at the beginning of a render frame.
+
+        Args:
+            screen_w (int): Screen width.
+            screen_h (int): Screen height.
+            alpha (float): Interpolation factor (0.0 to 1.0).
         """
-        self._cached_zoom = self.zoom
+        # Interpolate camera position and zoom
+        curr_zoom = self.prev_zoom + (self.zoom - self.prev_zoom) * alpha
+        curr_x = self.prev_camera_x + (self.camera_x - self.prev_camera_x) * alpha
+        curr_y = self.prev_camera_y + (self.camera_y - self.prev_camera_y) * alpha
+
+        self._cached_zoom_x = curr_zoom * self.correction_x
+        self._cached_zoom_y = curr_zoom * self.correction_y
+
         # Precompute offset: -camera * zoom + screen_center
-        self._cached_offset_x = -self.camera_x * self.zoom + screen_w / 2
-        self._cached_offset_y = -self.camera_y * self.zoom + screen_h / 2
+        self._cached_offset_x = -curr_x * self._cached_zoom_x + screen_w / 2
+        self._cached_offset_y = -curr_y * self._cached_zoom_y + screen_h / 2
 
     def world_to_screen(
         self, wx: float, wy: float, screen_w: int, screen_h: int
@@ -73,8 +99,13 @@ class Camera:
         Returns:
             tuple[float, float]: (screen_x, screen_y)
         """
-        sx = (wx - self.camera_x) * self.zoom + screen_w / 2
-        sy = (wy - self.camera_y) * self.zoom + screen_h / 2
+        # Note: Slow version does NOT apply aspect correction by default unless we access self.correction_x
+        # But for consistency, we probably should?
+        # However, slow version is used for Input, which usually maps 1:1 to screen pixels.
+        # If visual is squashed, input should be squashed too to match?
+        # Yes.
+        sx = (wx - self.camera_x) * self.zoom * self.correction_x + screen_w / 2
+        sy = (wy - self.camera_y) * self.zoom * self.correction_y + screen_h / 2
         return sx, sy
 
     def world_to_screen_fast(self, wx: float, wy: float) -> tuple[float, float]:
@@ -83,7 +114,8 @@ class Camera:
         Requires update_matrices() to be called first in the frame.
         """
         if (
-            self._cached_zoom is None
+            self._cached_zoom_x is None
+            or self._cached_zoom_y is None
             or self._cached_offset_x is None
             or self._cached_offset_y is None
         ):
@@ -91,8 +123,8 @@ class Camera:
                 "Camera.update_matrices() must be called before world_to_screen_fast()"
             )
         return (
-            wx * self._cached_zoom + self._cached_offset_x,
-            wy * self._cached_zoom + self._cached_offset_y,
+            wx * self._cached_zoom_x + self._cached_offset_x,
+            wy * self._cached_zoom_y + self._cached_offset_y,
         )
 
     def screen_to_world(
@@ -113,8 +145,8 @@ class Camera:
         Returns:
             tuple[float, float]: (world_x, world_y)
         """
-        wx = (sx - screen_w / 2) / self.zoom + self.camera_x
-        wy = (sy - screen_h / 2) / self.zoom + self.camera_y
+        wx = (sx - screen_w / 2) / (self.zoom * self.correction_x) + self.camera_x
+        wy = (sy - screen_h / 2) / (self.zoom * self.correction_y) + self.camera_y
         return wx, wy
 
     def handle_input(
@@ -162,6 +194,9 @@ class Camera:
         self.camera_y = 0.0
         self.zoom = 1.0
         self.target_zoom = 1.0
+        self.prev_camera_x = 0.0
+        self.prev_camera_y = 0.0
+        self.prev_zoom = 1.0
 
     def update(self, dt: float) -> None:
         """
@@ -173,6 +208,11 @@ class Camera:
         Returns:
             None
         """
+        # Save previous state
+        self.prev_camera_x = self.camera_x
+        self.prev_camera_y = self.camera_y
+        self.prev_zoom = self.zoom
+
         # Handle continuous camera movement via keyboard
         keys = pygame.key.get_pressed()
         speed = (
