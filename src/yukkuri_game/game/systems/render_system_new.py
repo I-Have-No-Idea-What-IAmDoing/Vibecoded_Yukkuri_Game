@@ -271,7 +271,12 @@ class NewRenderSystem(System):
 
             occluder = world.try_get_component(ent, Occluder)
             if occluder:
-                self._process_occluder(world, ent, transform, occluder)
+                # If the entity has an active light source, we shouldn't render its occluder
+                # to prevent self-shadowing artifacts (where the light is trapped inside the occluder).
+                if light and light.intensity > 0:
+                    pass
+                else:
+                    self._process_occluder(world, ent, transform, occluder)
 
     def _process_occluder(self, world: World, ent: int, transform: Transform, occluder: Occluder):
         sprite = world.try_get_component(ent, Sprite)
