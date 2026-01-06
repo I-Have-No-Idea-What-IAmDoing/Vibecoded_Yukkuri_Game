@@ -290,16 +290,29 @@ class NewRenderSystem(System):
                 if light and light.intensity > 0:
                     pass
                 else:
-                    self._process_occluder(world, ent, transform, occluder)
+                    self._process_occluder(world, ent, transform, occluder, ix, iy)
 
     def _process_occluder(
-        self, world: World, ent: int, transform: Transform, occluder: Occluder
+        self,
+        world: World,
+        ent: int,
+        transform: Transform,
+        occluder: Occluder,
+        ix: float,
+        iy: float,
     ):
         sprite = world.try_get_component(ent, Sprite)
         body = world.try_get_component(ent, PhysicsBody)
 
+        # Pass interpolated positions (ix, iy) to GeometryUtils
         world_verts = GeometryUtils.get_occluder_vertices(
-            ent, transform, occluder, sprite, body
+            ent,
+            transform,
+            occluder,
+            sprite,
+            body,
+            override_x=ix,
+            override_y=iy,
         )
 
         if len(world_verts) < 3:
