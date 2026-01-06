@@ -77,15 +77,29 @@ class NewRenderSystem(System):
         Main render loop.
         """
         sw, sh = self.screen.get_size()
+        correction_x = 1.0
+        correction_y = 1.0
 
         # If using lighting engine with scaling, use native resolution for camera calculations
         if self.lights_enabled:
             # Try to get native resolution from engine (internal attribute)
             engine = self.renderer.backend.engine
             if hasattr(engine, "_native_res"):
-                sw, sh = engine._native_res
+                nw, nh = engine._native_res
+                current_w, current_h = self.screen.get_size()
 
-        self.camera.update_matrices(sw, sh)
+                # Calculate stretch factors to fix aspect ratio distortion
+                if nw > 0 and nh > 0 and current_w > 0 and current_h > 0:
+                    stretch_x = current_w / nw
+                    stretch_y = current_h / nh
+
+                    # Pre-squash X to compensate for excessive horizontal stretching (widescreen)
+                    correction_x = stretch_y / stretch_x
+
+                sw, sh = nw, nh
+
+        self.camera.set_aspect_correction(correction_x, correction_y)
+        self.camera.update_matrices(sw, sh, alpha)
 
         self.renderer.clear_screen((30, 30, 30))  # Dark background
 
@@ -290,16 +304,29 @@ class NewRenderSystem(System):
                 if light and light.intensity > 0:
                     pass
                 else:
-                    self._process_occluder(world, ent, transform, occluder)
+                    self._process_occluder(world, ent, transform, occluder, ix, iy)
 
     def _process_occluder(
-        self, world: World, ent: int, transform: Transform, occluder: Occluder
+        self,
+        world: World,
+        ent: int,
+        transform: Transform,
+        occluder: Occluder,
+        ix: float,
+        iy: float,
     ):
         sprite = world.try_get_component(ent, Sprite)
         body = world.try_get_component(ent, PhysicsBody)
 
+        # Pass interpolated positions (ix, iy) to GeometryUtils
         world_verts = GeometryUtils.get_occluder_vertices(
-            ent, transform, occluder, sprite, body
+            ent,
+            transform,
+            occluder,
+            sprite,
+            body,
+            override_x=ix,
+            override_y=iy,
         )
 
         if len(world_verts) < 3:
