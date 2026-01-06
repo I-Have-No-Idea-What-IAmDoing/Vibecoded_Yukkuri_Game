@@ -1,6 +1,3 @@
-import math
-import pytest
-import sys
 from unittest.mock import MagicMock
 
 # Ensure we can import modules that might depend on others
@@ -8,7 +5,8 @@ from unittest.mock import MagicMock
 # but it uses pymunk.
 
 from src.yukkuri_game.game.renderer_new.geometry_utils import GeometryUtils
-from src.yukkuri_game.game.components import Transform, Occluder, Sprite
+from src.yukkuri_game.game.components import Occluder
+
 
 def calculate_signed_area(vertices):
     """
@@ -34,6 +32,7 @@ def calculate_signed_area(vertices):
         area -= vertices[j][0] * vertices[i][1]
     return area / 2.0
 
+
 class MockTransform:
     def __init__(self):
         self.x = 0
@@ -41,10 +40,11 @@ class MockTransform:
         self.rotation = 0
         self.scale = 1.0
 
+
 def test_box_winding_order():
     """Test that generated box vertices are CCW in screen space (Negative Area)."""
     transform = MockTransform()
-    occluder = Occluder() # Use real component class if simple, or mock if complex
+    occluder = Occluder()  # Use real component class if simple, or mock if complex
     # Occluder is likely a simple data class or Pydantic model.
     # Let's check if we can instantiate it easily. If not, use MagicMock.
 
@@ -63,6 +63,7 @@ def test_box_winding_order():
     area = calculate_signed_area(verts)
     assert area < 0, f"Box area was {area}, expected negative (Screen CCW)"
 
+
 def test_sprite_box_winding_order():
     """Test that generated sprite box vertices are CCW in screen space."""
     transform = MockTransform()
@@ -78,6 +79,7 @@ def test_sprite_box_winding_order():
 
     area = calculate_signed_area(verts)
     assert area < 0, f"Sprite Box area was {area}, expected negative (Screen CCW)"
+
 
 def test_circle_winding_order():
     """Test that generated circle vertices are CCW in screen space."""

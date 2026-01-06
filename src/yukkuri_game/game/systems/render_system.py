@@ -2,7 +2,6 @@
 Render System Module.
 """
 
-
 from .render_system_new import NewRenderSystem
 
 

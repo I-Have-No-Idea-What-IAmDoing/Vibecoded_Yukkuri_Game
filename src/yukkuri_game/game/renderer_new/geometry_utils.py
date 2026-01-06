@@ -94,7 +94,9 @@ class GeometryUtils:
 
             raw_vertices = cls._get_shape_vertices(body.body, body.shape)
             if offset_x != 0 or offset_y != 0:
-                world_vertices = [(vx + offset_x, vy + offset_y) for vx, vy in raw_vertices]
+                world_vertices = [
+                    (vx + offset_x, vy + offset_y) for vx, vy in raw_vertices
+                ]
             else:
                 world_vertices = raw_vertices
 
