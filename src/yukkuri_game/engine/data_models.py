@@ -83,6 +83,12 @@ class ItemType(msgspec.Struct):  # type: ignore[misc]
     nutrition: Optional[int] = None
     comfort: Optional[int] = None
     fun: Optional[int] = None
+    light_radius: Optional[float] = None
+    light_color: Optional[List[int]] = None
+    light_intensity: Optional[float] = None
+    light_flicker: Optional[str] = None
+    occluder: bool = False
+    static_occluder: bool = True
 
 
 class ActionEffect(msgspec.Struct):  # type: ignore[misc]
