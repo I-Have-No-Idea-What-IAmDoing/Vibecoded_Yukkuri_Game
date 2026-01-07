@@ -1,4 +1,4 @@
-from typing import Tuple, Any
+from typing import Tuple, Any, List
 from collections import OrderedDict
 import pygame
 import pygame_light2d as pl2d
@@ -40,7 +40,12 @@ class Light2DBackend(RenderBackend):
         self.updated_lights = set()
         self.updated_hulls = set()
 
+        # Track static hulls separately to avoid recreation/check
+        # entity_id -> vertices tuple
+        self.static_hull_vertices = {}
+
         self._clear_color = (0, 0, 0)
+        self.screen_rect = self.screen.get_rect()
 
     def clear(self, color: Tuple[int, int, int]) -> None:
         self._clear_color = color
@@ -50,13 +55,15 @@ class Light2DBackend(RenderBackend):
         self.engine.clear(*self._clear_color, 255)
         self.updated_lights.clear()
         self.updated_hulls.clear()
+        self.screen_rect = self.screen.get_rect()
 
     def end_frame(self) -> None:
         # Cleanup stale lights
         to_remove_lights = []
         for eid, light in self.active_lights.items():
             if eid not in self.updated_lights:
-                self.engine.lights.remove(light)
+                if light in self.engine.lights:
+                    self.engine.lights.remove(light)
                 to_remove_lights.append(eid)
         for eid in to_remove_lights:
             del self.active_lights[eid]
@@ -65,7 +72,9 @@ class Light2DBackend(RenderBackend):
         to_remove_hulls = []
         for eid, hull in self.active_hulls.items():
             if eid not in self.updated_hulls:
-                # We don't remove from engine list individually (O(N)), we rebuild it below.
+                # Also remove from static tracking if present
+                if eid in self.static_hull_vertices:
+                    del self.static_hull_vertices[eid]
                 to_remove_hulls.append(eid)
         for eid in to_remove_hulls:
             del self.active_hulls[eid]
@@ -162,6 +171,20 @@ class Light2DBackend(RenderBackend):
         # Do not release texture here as it is cached
 
     def draw_light(self, cmd: LightCommand) -> None:
+        # Frustum Culling: Check if light is within screen bounds
+        # Expand bounds by radius
+        light_rect = pygame.Rect(
+            cmd.position[0] - cmd.radius,
+            cmd.position[1] - cmd.radius,
+            cmd.radius * 2,
+            cmd.radius * 2
+        )
+
+        if not self.screen_rect.colliderect(light_rect):
+            # Light is off-screen, ignore it.
+            # It will be cleaned up in end_frame if it was previously active.
+            return
+
         self.updated_lights.add(cmd.entity_id)
 
         # Snap position to int to match sprite rendering (avoid jitter)
@@ -180,18 +203,35 @@ class Light2DBackend(RenderBackend):
             self.active_lights[cmd.entity_id] = l
 
     def draw_occluder(self, cmd: OccluderCommand) -> None:
+        # Frustum Culling: Check if occluder is visible
+        min_x = min(v[0] for v in cmd.vertices)
+        max_x = max(v[0] for v in cmd.vertices)
+        min_y = min(v[1] for v in cmd.vertices)
+        max_y = max(v[1] for v in cmd.vertices)
+
+        occluder_rect = pygame.Rect(min_x, min_y, max_x - min_x, max_y - min_y)
+        if not self.screen_rect.colliderect(occluder_rect):
+            return
+
         self.updated_hulls.add(cmd.entity_id)
 
-        # Only update internal dict. Engine list update is deferred to end_frame.
+        # Static Optimization
+        if cmd.static:
+            vertices_tuple = tuple(tuple(v) for v in cmd.vertices)
+            if cmd.entity_id in self.static_hull_vertices:
+                # Check if changed (shouldn't for static, but maybe camera moved so screen coords changed?)
+                # Wait, screen coordinates WILL change if camera moves.
+                # So "static" refers to world space. But we receive screen space vertices.
+                # Thus, we must recreate the hull if screen coordinates changed.
+                # However, recalculating if vertices changed is still good.
+                if self.static_hull_vertices[cmd.entity_id] == vertices_tuple:
+                    # No change, reuse existing hull
+                    return
+
+            self.static_hull_vertices[cmd.entity_id] = vertices_tuple
 
         # Snap vertices to int to match sprite rendering
         vertices = [(int(x), int(y)) for x, y in cmd.vertices]
-
-        # Optimization: If hull exists, we might need to recreate it if vertices changed.
-        # But we don't have easy check here without storing prev vertices.
-        # For now, just recreate hull object.
-        # Since we rebuild engine.hulls list every frame in end_frame,
-        # replacing the object in active_hulls is cheap (just dict update).
 
         h = pl2d.Hull(vertices)
         self.active_hulls[cmd.entity_id] = h

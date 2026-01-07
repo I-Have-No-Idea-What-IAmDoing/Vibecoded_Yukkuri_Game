@@ -339,7 +339,11 @@ class NewRenderSystem(System):
 
         self.renderer.submit(
             OccluderCommand(
-                layer=LAYER_BACKGROUND, z_index=0, entity_id=ent, vertices=screen_verts
+                layer=LAYER_BACKGROUND,
+                z_index=0,
+                entity_id=ent,
+                vertices=screen_verts,
+                static=occluder.static,
             )
         )
 
