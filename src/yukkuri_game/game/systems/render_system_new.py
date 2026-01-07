@@ -28,7 +28,7 @@ from ..surface_cache import SurfaceCache
 from ..renderer_new.renderer import Renderer
 from ..renderer_new.backend import RenderBackend
 from ..renderer_new.pygame_backend import PygameBackend
-from ..renderer_new.light2d_backend import Light2DBackend
+from ..renderer_new.native_light_backend import NativeLightBackend
 from ..renderer_new.geometry_utils import GeometryUtils
 from ..renderer_new.commands import (
     SpriteCommand,
@@ -64,13 +64,17 @@ class NewRenderSystem(System):
         self.surface_cache = SurfaceCache(self.rm)
 
         backend: RenderBackend
-        if lights_engine:
-            backend = Light2DBackend(screen, lights_engine)
+        # Use NativeLightBackend if lights are requested (or even if not, to unify?)
+        # For now, if lights_engine is passed (implying we want lights), use NativeLightBackend.
+        # We ignore the actual lights_engine object as we are replacing it.
+        if lights_engine is not None:
+             backend = NativeLightBackend(screen)
+             self.lights_enabled = True
         else:
-            backend = PygameBackend(screen)
+             backend = PygameBackend(screen)
+             self.lights_enabled = False
 
         self.renderer = Renderer(backend)
-        self.lights_enabled = lights_engine is not None
 
     def update(self, world: World, alpha: float) -> None:
         """
@@ -83,20 +87,22 @@ class NewRenderSystem(System):
         # If using lighting engine with scaling, use native resolution for camera calculations
         if self.lights_enabled:
             # Try to get native resolution from engine (internal attribute)
-            engine = self.renderer.backend.engine
-            if hasattr(engine, "_native_res"):
-                nw, nh = engine._native_res
-                current_w, current_h = self.screen.get_size()
+            # Safe check if engine attribute exists
+            if hasattr(self.renderer.backend, "engine"):
+                engine = self.renderer.backend.engine
+                if hasattr(engine, "_native_res"):
+                    nw, nh = engine._native_res
+                    current_w, current_h = self.screen.get_size()
 
-                # Calculate stretch factors to fix aspect ratio distortion
-                if nw > 0 and nh > 0 and current_w > 0 and current_h > 0:
-                    stretch_x = current_w / nw
-                    stretch_y = current_h / nh
+                    # Calculate stretch factors to fix aspect ratio distortion
+                    if nw > 0 and nh > 0 and current_w > 0 and current_h > 0:
+                        stretch_x = current_w / nw
+                        stretch_y = current_h / nh
 
-                    # Pre-squash X to compensate for excessive horizontal stretching (widescreen)
-                    correction_x = stretch_y / stretch_x
+                        # Pre-squash X to compensate for excessive horizontal stretching (widescreen)
+                        correction_x = stretch_y / stretch_x
 
-                sw, sh = nw, nh
+                    sw, sh = nw, nh
 
         self.camera.set_aspect_correction(correction_x, correction_y)
         self.camera.update_matrices(sw, sh, alpha)
