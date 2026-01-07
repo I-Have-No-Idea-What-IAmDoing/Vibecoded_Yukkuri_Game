@@ -20,10 +20,13 @@ class NativeLightBackend(RenderBackend):
         self.screen = screen
 
         # State
-        self.ambient_color = (20, 20, 20, 255)  # Default ambient
+        self.ambient_color = (20, 20, 20, 255)
         self.commands: List[Any] = []
         self.lights: List[LightCommand] = []
-        self.occluders: List[OccluderCommand] = []
+
+        # Occluders stored as: (aabb_tuple, vertices_list)
+        # aabb_tuple: (min_x, max_x, min_y, max_y)
+        self.occluders: List[Tuple[Tuple[float, float, float, float], List[Tuple[float, float]]]] = []
 
         self.shadow_caster = ShadowCaster()
 
@@ -33,7 +36,6 @@ class NativeLightBackend(RenderBackend):
 
         # Surfaces
         self.lightmap_surface: Optional[pygame.Surface] = None
-        self.occlusion_mask: Optional[pygame.Surface] = None
 
     def clear(self, color: Tuple[int, int, int]) -> None:
         self.screen.fill(color)
@@ -43,18 +45,14 @@ class NativeLightBackend(RenderBackend):
         self.lights.clear()
         self.occluders.clear()
 
-        # Ensure surfaces match screen size
         w, h = self.screen.get_size()
         if self.lightmap_surface is None or self.lightmap_surface.get_size() != (w, h):
             self.lightmap_surface = pygame.Surface((w, h))
 
-        # We don't necessarily clear here as we redraw everything
-
     def end_frame(self) -> None:
         w, h = self.screen.get_size()
 
-        # 1. Render all non-light commands (Sprites, Shadows, Text)
-        # Sort by layer and z-index
+        # 1. Render all non-light commands
         self.commands.sort(key=lambda cmd: (cmd.layer, cmd.z_index))
 
         for cmd in self.commands:
@@ -67,20 +65,13 @@ class NativeLightBackend(RenderBackend):
 
         # 2. Render Lighting
         if self.lightmap_surface:
-            # Fill with ambient
             self.lightmap_surface.fill(self.ambient_color)
 
-            # Prepare occluders (list of polygons)
-            occluder_polys = []
-            for occ in self.occluders:
-                occluder_polys.append(occ.vertices)
-
             # Render each light
+            # Pass the optimized occluder list directly
             for light in self.lights:
-                self._render_light(light, occluder_polys)
+                self._render_light(light, self.occluders)
 
-            # Blend lightmap onto screen
-            # MULTIPLY mode: Result = Screen * Lightmap / 255
             self.screen.blit(self.lightmap_surface, (0, 0), special_flags=pygame.BLEND_MULT)
 
     def draw_sprite(self, cmd: SpriteCommand) -> None:
@@ -96,7 +87,15 @@ class NativeLightBackend(RenderBackend):
         self.lights.append(cmd)
 
     def draw_occluder(self, cmd: OccluderCommand) -> None:
-        self.occluders.append(cmd)
+        # Calculate AABB immediately
+        if not cmd.vertices:
+            return
+
+        xs = [v[0] for v in cmd.vertices]
+        ys = [v[1] for v in cmd.vertices]
+        aabb = (min(xs), max(xs), min(ys), max(ys))
+
+        self.occluders.append((aabb, cmd.vertices))
 
     def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
         self.ambient_color = color
@@ -117,7 +116,6 @@ class NativeLightBackend(RenderBackend):
         dest_rect.center = (int(cmd.position[0]), int(cmd.position[1]))
 
         if cmd.selected:
-            # Draw selection outline
             pygame.draw.rect(self.screen, (255, 255, 0), dest_rect.inflate(4, 4), 2)
 
         self.screen.blit(cmd.image, dest_rect)
@@ -132,7 +130,6 @@ class NativeLightBackend(RenderBackend):
         self.screen.blit(surf, dest_rect)
 
     def _render_shadow(self, cmd: ShadowCommand) -> None:
-        # Simple ellipse shadow
         rx, ry = int(cmd.radius[0]), int(cmd.radius[1])
         if rx <= 0 or ry <= 0:
             return
@@ -143,7 +140,7 @@ class NativeLightBackend(RenderBackend):
         dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
         self.screen.blit(s, dest_rect)
 
-    def _render_light(self, light: LightCommand, occluders: List[List[Tuple[float, float]]]) -> None:
+    def _render_light(self, light: LightCommand, occluders: List[Tuple[Tuple[float, float, float, float], List[Tuple[float, float]]]]) -> None:
         # 1. Calculate Visibility Polygon
         poly_points = self.shadow_caster.calculate_visibility_polygon(
             light.position, light.radius, occluders
@@ -152,97 +149,40 @@ class NativeLightBackend(RenderBackend):
         if not poly_points:
             return
 
-        # 2. Prepare Light Texture (Gradient)
-        # Create or fetch cached light texture
-        key = (int(light.radius), light.color, light.intensity)
-        # TODO: handle intensity scaling
-
-        # We need a surface that covers the light area
+        # 2. Prepare Light Texture
         r = int(light.radius)
         if r <= 0: return
 
         light_surf = self._get_light_texture(r, light.color, light.intensity)
 
-        # 3. Mask the texture with the polygon
-        # Create a mask surface
+        # 3. Mask the texture
         mask = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-        # mask.fill((0, 0, 0, 0)) # Transparent
 
-        # Draw polygon on mask (white, opaque)
-        # The polygon points are in screen space. We need them local to the light surface.
         lx, ly = light.position
         local_poly = [(px - (lx - r), py - (ly - r)) for px, py in poly_points]
 
         if len(local_poly) > 2:
             pygame.draw.polygon(mask, (255, 255, 255, 255), local_poly)
 
-        # 4. Apply mask to light texture
-        # We want: Output = LightTexture * Mask
-        # Pygame 2.0+ supports BLEND_RGBA_MULT
-
         final_light = light_surf.copy()
         final_light.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
-        # 5. Add to Lightmap
-        # Position on lightmap
+        # 4. Add to Lightmap
         dest_pos = (lx - r, ly - r)
         self.lightmap_surface.blit(final_light, dest_pos, special_flags=pygame.BLEND_ADD)
 
 
     def _get_light_texture(self, radius: int, color: Tuple[int, int, int, int], intensity: float) -> pygame.Surface:
-        # Cache key
-        # Truncate color to int
         c = (int(color[0]), int(color[1]), int(color[2]))
         key = (radius, c, int(intensity * 100))
 
         if key in self.light_texture_cache:
             return self.light_texture_cache[key]
 
-        # Create radial gradient
         surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-
-        # Simple radial gradient: Center is Color * Intensity, Edge is Transparent
-        # We can simulate this by drawing multiple circles or per-pixel.
-        # Per-pixel is slow in Python.
-        # Use a pre-generated gradient image or draw concentric circles?
-        # Better: create a grayscale radial gradient and tint it.
-
-        # For now, let's just draw a simple fuzzy circle using `pygame.draw.circle` with alpha?
-        # Pygame primitives don't support gradients.
-        # But we can hack it with multiple alpha circles.
-
-        # Center color
-        center_alpha = min(255, int(255 * intensity))
-
-        # Draw ~10 circles
-        steps = 20
-        for i in range(steps):
-            frac = i / steps
-            r = int(radius * (1 - frac))
-            if r <= 0: continue
-            # Quadratic falloff looks better
-            alpha = int(center_alpha * (frac ** 2)) / steps
-            # This is additive logic, hard to do with alpha circles.
-
-        # Alternate: blit a specialized radial gradient image asset.
-        # Or: Use numpy/surfarray (fast).
-        # Fallback: Just a solid circle with alpha falloff?
-
-        # Let's use a simple approach: 3-step gradient
-        # Inner: Bright
-        # Middle: Dim
-        # Outer: Faint
-
-        # To make it look decent without slow generation, let's iterate
-        # But `pygame.draw.circle` with alpha doesn't blend well on empty surface unless we handle it right.
-
-        # Optimized approach: create one large white radial gradient once, scale and tint it.
-        # But for now, let's implement a simple generator.
-
         center = (radius, radius)
 
-        # Very simple "soft" light:
-        # Draw a few circles with low alpha
+        # Simple Gradient
         current_alpha = max(10, int(30 * intensity))
         pygame.draw.circle(surf, c + (current_alpha,), center, radius)
         pygame.draw.circle(surf, c + (current_alpha,), center, int(radius * 0.7))

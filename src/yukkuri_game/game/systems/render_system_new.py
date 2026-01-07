@@ -87,20 +87,22 @@ class NewRenderSystem(System):
         # If using lighting engine with scaling, use native resolution for camera calculations
         if self.lights_enabled:
             # Try to get native resolution from engine (internal attribute)
-            engine = self.renderer.backend.engine
-            if hasattr(engine, "_native_res"):
-                nw, nh = engine._native_res
-                current_w, current_h = self.screen.get_size()
+            # Safe check if engine attribute exists
+            if hasattr(self.renderer.backend, "engine"):
+                engine = self.renderer.backend.engine
+                if hasattr(engine, "_native_res"):
+                    nw, nh = engine._native_res
+                    current_w, current_h = self.screen.get_size()
 
-                # Calculate stretch factors to fix aspect ratio distortion
-                if nw > 0 and nh > 0 and current_w > 0 and current_h > 0:
-                    stretch_x = current_w / nw
-                    stretch_y = current_h / nh
+                    # Calculate stretch factors to fix aspect ratio distortion
+                    if nw > 0 and nh > 0 and current_w > 0 and current_h > 0:
+                        stretch_x = current_w / nw
+                        stretch_y = current_h / nh
 
-                    # Pre-squash X to compensate for excessive horizontal stretching (widescreen)
-                    correction_x = stretch_y / stretch_x
+                        # Pre-squash X to compensate for excessive horizontal stretching (widescreen)
+                        correction_x = stretch_y / stretch_x
 
-                sw, sh = nw, nh
+                    sw, sh = nw, nh
 
         self.camera.set_aspect_correction(correction_x, correction_y)
         self.camera.update_matrices(sw, sh, alpha)
