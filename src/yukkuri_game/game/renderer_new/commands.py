@@ -67,3 +67,4 @@ class OccluderCommand(RenderCommand):
 
     entity_id: int
     vertices: List[Tuple[float, float]]  # Screen coordinates
+    static: bool = False

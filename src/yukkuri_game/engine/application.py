@@ -93,6 +93,10 @@ class Application:
                 native_w = int(width * self.render_scale)
                 native_h = int(height * self.render_scale)
 
+                # Downsample lightmap resolution for performance (e.g. 0.5x native)
+                lightmap_w = int(native_w * 0.5)
+                lightmap_h = int(native_h * 0.5)
+
                 # Initialize LightingEngine instead of standard display
                 # We match native_res to screen_res for now to keep pixel density same as before
                 # unless we want pixel art style (which yukkuri usually is).
@@ -101,9 +105,11 @@ class Application:
                 self.lights_engine = LightingEngine(
                     screen_res=(width, height),
                     native_res=(native_w, native_h),
-                    lightmap_res=(native_w // 2, native_h // 2),
+                    lightmap_res=(lightmap_w, lightmap_h),
                     fullscreen=fullscreen,
                 )
+                # Store native resolution for aspect correction in NewRenderSystem
+                self.lights_engine._native_res = (native_w, native_h)
                 # LightingEngine creates the window, so we can get the surface if needed,
                 # but usually we render via engine.
                 # Some parts of code expect self.screen to be the display surface.
