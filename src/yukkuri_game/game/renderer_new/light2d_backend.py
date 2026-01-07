@@ -1,4 +1,4 @@
-from typing import Tuple, Any, List
+from typing import Tuple, Any
 from collections import OrderedDict
 import pygame
 import pygame_light2d as pl2d
@@ -177,7 +177,7 @@ class Light2DBackend(RenderBackend):
             cmd.position[0] - cmd.radius,
             cmd.position[1] - cmd.radius,
             cmd.radius * 2,
-            cmd.radius * 2
+            cmd.radius * 2,
         )
 
         if not self.screen_rect.colliderect(light_rect):
