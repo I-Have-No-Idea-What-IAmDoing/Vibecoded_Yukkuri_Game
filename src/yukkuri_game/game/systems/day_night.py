@@ -17,14 +17,14 @@ class DayNightSystem(System):
     # Color Ramp (Time of Day -> Ambient Color)
     # Time is 0.0 to 24.0 (hours)
     AMBIENT_COLORS = [
-        (0.0, (20, 20, 50)),  # Midnight
-        (5.0, (20, 20, 50)),  # Early Morning (Dark)
+        (0.0, (40, 40, 70)),  # Midnight (Brightened from 20,20,50 to be visible)
+        (5.0, (40, 40, 70)),  # Early Morning (Dark)
         (6.0, (100, 100, 120)),  # Dawn
         (8.0, (255, 255, 255)),  # Morning
         (17.0, (255, 255, 255)),  # Late Afternoon
         (19.0, (150, 100, 100)),  # Dusk
-        (21.0, (50, 40, 60)),  # Evening
-        (24.0, (20, 20, 50)),  # Midnight Loop
+        (21.0, (60, 50, 80)),  # Evening
+        (24.0, (40, 40, 70)),  # Midnight Loop
     ]
 
     def __init__(self, world: World, renderer: NewRenderSystem) -> None:
