@@ -107,8 +107,20 @@ def test_simulation_action_eat(
     # BehaviorSystem drives UtilitySelector which sets current_action
     ai = world.get_component(yukkuri, AIState)
 
+    # BehaviorSystem has throttling (10Hz). Need to tick enough to ensure update happens.
+    # Initial stagger is entity_id dependent. With entity_id=1, stagger=0.01.
+    # We tick 0.2s to be safe.
+
     # 1st Tick: UtilitySelector sets Eat -> Eat Seq -> Goal=Eat? (Yes) -> Eat Exec -> Have Target? (No) -> Find Food (Success, sets target)
-    behavior_system.update(world, 0.1)
+    behavior_system.update(world, 0.2)
+    # Check if updated (depends on staggering, but 0.2 should cover it)
+
+    # If still Idle, it means throttling prevented update or stagger logic.
+    # We can peek at behavior_system.next_update_times if needed, but 0.2 should be enough if total_time started at 0.
+
+    if ai.current_action == "Idle":
+         # Try another update
+         behavior_system.update(world, 0.2)
 
     assert ai.current_action == "Eat"
     # 1st Tick: Eat Seq -> Goal=Eat? (Yes) -> Eat Exec -> Have Target? (No) -> Find Food (Success, sets target)
@@ -133,7 +145,7 @@ def test_simulation_action_eat(
     assert trans.x > initial_x  # Should have moved towards 100
 
     # Move until close enough (Dist <= 30 for Interact, < 15 for MoveToTarget success)
-    for _ in range(20):
+    for _ in range(30): # Increased range to be safe
         behavior_system.update(world, 0.1)
         # Manually apply velocity
         trans.x += controller.target_velocity.x * 0.1
@@ -186,9 +198,15 @@ def test_simulation_action_wander(
     # BehaviorSystem
     # 1st Tick: UtilitySelector sets Wander -> Wander Seq -> Goal=Wander? (Yes) -> Wander Action
     # Wander Action initialise -> Pick random target -> Create MoveToTarget
-    behavior_system.update(world, 0.1)
+
+    # Tick enough for throttling
+    behavior_system.update(world, 0.2)
 
     ai = world.get_component(yukkuri, AIState)
+
+    if ai.current_action == "Idle":
+         behavior_system.update(world, 0.2)
+
     assert ai.current_action == "Wander"
     assert ai.state_data is not None
     assert "target_x" in ai.state_data

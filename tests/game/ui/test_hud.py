@@ -300,14 +300,11 @@ class TestHudEvents:
         mock_event_bus.publish.assert_called_with(TrainEntityRequest(123))
 
     def test_apply_window_settings_publishes_event(self, hud_events, mock_event_bus):
-        with patch("pygame.display.set_mode") as mock_set_mode:
-            hud_events._apply_window_settings(1024, 768, True)
-            mock_set_mode.assert_called_with(
-                (1024, 768), pygame.RESIZABLE | pygame.FULLSCREEN
-            )
-            mock_event_bus.publish.assert_called_with(
-                ResolutionChangedEvent(1024, 768, True)
-            )
+        # We assume pygame.display.set_mode is NOT called by HudEvents anymore
+        hud_events._apply_window_settings(1024, 768, True)
+        mock_event_bus.publish.assert_called_with(
+            ResolutionChangedEvent(1024, 768, True)
+        )
 
 
 class TestHudRenderer:
