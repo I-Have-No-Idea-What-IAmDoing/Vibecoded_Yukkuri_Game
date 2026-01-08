@@ -498,5 +498,6 @@ class GameplayScene(Scene):
             self.render_system = RenderSystem(
                 self.application.screen,
                 self.world,
-                lights_engine=None,  # Force Pygame backend
+                lights_engine=getattr(self.application, "lights_engine", None),
+                force_lighting=True,
             )

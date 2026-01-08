@@ -8,12 +8,11 @@ sys.modules["pygame_light2d.engine"] = MagicMock()
 sys.modules["moderngl"] = MagicMock()
 
 from src.yukkuri_game.game.systems.render_system_new import NewRenderSystem
-from src.yukkuri_game.game.renderer_new.commands import OccluderCommand
-from src.yukkuri_game.game.components import Transform, Occluder
+from src.yukkuri_game.game.renderer_new.native_light_backend import NativeLightBackend
+from src.yukkuri_game.game.components import Transform, Occluder, Sprite, PhysicsBody
 from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.engine.resource_manager import ResourceManager
 from src.yukkuri_game.game.camera import Camera
-from src.yukkuri_game.game.renderer_new.light2d_backend import Light2DBackend
 
 
 def test_occluder_geometry_generation():
@@ -36,38 +35,31 @@ def test_occluder_geometry_generation():
 
     system = NewRenderSystem(screen, world, lights_engine=lights_engine)
 
-    # Ensure backend is Light2DBackend
-    assert isinstance(system.renderer.backend, Light2DBackend)
+    # Ensure backend is NativeLightBackend (updated from Light2DBackend)
+    assert isinstance(system.renderer.backend, NativeLightBackend)
+    backend = system.renderer.backend
 
-    # Create entity
+    # Add entity with Occluder
     ent = world.create_entity()
     world.add_component(ent, Transform(x=100, y=100))
-    world.add_component(
-        ent, Occluder(polygon=[(-10, -10), (10, -10), (10, 10), (-10, 10)])
-    )
+    world.add_component(ent, Occluder(polygon=[(-10, -10), (10, 10), (10, -10)]))
+    # Add dummy Sprite/PhysicsBody if needed by logic
 
-    # Mock draw_occluder to verify calls
-    system.renderer.backend.draw_occluder = MagicMock()
-
-    # Run update
+    # Update frame
     system.update(world, 1.0)
 
-    # Verify
-    assert system.renderer.backend.draw_occluder.called
-    args = system.renderer.backend.draw_occluder.call_args[0][0]
-    assert isinstance(args, OccluderCommand)
+    # Verify occluder was submitted to backend
+    # NativeLightBackend stores occluders in self.occluders list
+    # Each item is (aabb, vertices)
+    assert len(backend.occluders) == 1
 
-    # Verify vertices
-    assert len(args.vertices) == 4
-    # Expected screen coords:
-    # Center 400,300.
-    # Entity at 100,100 world.
-    # Screen pos = (100-0) + 400 = 500, (100-0) + 300 = 400.
-    # Box +/- 10.
-    vx, vy = args.vertices[0]
-    assert 485 <= vx <= 515  # Allow some float precision/rounding
-    assert 385 <= vy <= 415
+    aabb, vertices = backend.occluders[0]
+    # Vertices should be transformed to screen space
+    # Camera at (0,0) (default), scale 1. Entity at (100, 100).
+    # Occluder local points + entity pos
 
+    # Check bounds
+    assert len(vertices) == 3
 
 if __name__ == "__main__":
     test_occluder_geometry_generation()

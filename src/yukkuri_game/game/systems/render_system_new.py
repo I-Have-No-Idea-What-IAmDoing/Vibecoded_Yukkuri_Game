@@ -57,6 +57,7 @@ class NewRenderSystem(System):
         screen: pygame.Surface,
         world: World,
         lights_engine: Optional[LightingEngine] = None,
+        force_lighting: bool = False,
     ):
         self.screen = screen
         self.rm = world.services.get(ResourceManager)
@@ -67,7 +68,7 @@ class NewRenderSystem(System):
         # Use NativeLightBackend if lights are requested (or even if not, to unify?)
         # For now, if lights_engine is passed (implying we want lights), use NativeLightBackend.
         # We ignore the actual lights_engine object as we are replacing it.
-        if lights_engine is not None:
+        if lights_engine is not None or force_lighting:
              backend = NativeLightBackend(screen)
              self.lights_enabled = True
         else:
