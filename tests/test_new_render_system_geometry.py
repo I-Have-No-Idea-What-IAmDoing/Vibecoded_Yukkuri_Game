@@ -50,10 +50,10 @@ def test_occluder_geometry_generation():
 
     # Verify occluder was submitted to backend
     # NativeLightBackend stores occluders in self.occluders list
-    # Each item is (aabb, vertices)
+    # Each item is (aabb, vertices, entity_id, static)
     assert len(backend.occluders) == 1
 
-    aabb, vertices = backend.occluders[0]
+    aabb, vertices, eid, static = backend.occluders[0]
     # Vertices should be transformed to screen space
     # Camera at (0,0) (default), scale 1. Entity at (100, 100).
     # Occluder local points + entity pos

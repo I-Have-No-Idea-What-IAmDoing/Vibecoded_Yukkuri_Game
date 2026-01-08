@@ -1,4 +1,4 @@
-from typing import Tuple, Any, List, Optional
+from typing import Tuple, Any, List, Optional, Dict
 import pygame
 import math
 from .backend import RenderBackend
@@ -24,15 +24,18 @@ class NativeLightBackend(RenderBackend):
         self.commands: List[Any] = []
         self.lights: List[LightCommand] = []
 
-        # Occluders stored as: (aabb_tuple, vertices_list)
-        # aabb_tuple: (min_x, max_x, min_y, max_y)
-        self.occluders: List[Tuple[Tuple[float, float, float, float], List[Tuple[float, float]]]] = []
+        # Occluders stored as: (aabb_tuple, vertices_list, entity_id, static_flag)
+        self.occluders: List[Tuple[Tuple[float, float, float, float], List[Tuple[float, float]], int, bool]] = []
 
         self.shadow_caster = ShadowCaster()
 
         # Caches
         self.font_cache = {}
         self.light_texture_cache = {} # (radius, color) -> Surface
+
+        # Shadow Cache: entity_id -> (signature, polygon_points)
+        # signature = (x, y, radius, tuple(sorted_static_ids))
+        self.shadow_cache: Dict[int, Tuple[Tuple, List[Tuple[float, float]]]] = {}
 
         # Surfaces
         self.lightmap_surface: Optional[pygame.Surface] = None
@@ -68,9 +71,8 @@ class NativeLightBackend(RenderBackend):
             self.lightmap_surface.fill(self.ambient_color)
 
             # Render each light
-            # Pass the optimized occluder list directly
             for light in self.lights:
-                self._render_light(light, self.occluders)
+                self._render_light(light)
 
             self.screen.blit(self.lightmap_surface, (0, 0), special_flags=pygame.BLEND_MULT)
 
@@ -95,7 +97,7 @@ class NativeLightBackend(RenderBackend):
         ys = [v[1] for v in cmd.vertices]
         aabb = (min(xs), max(xs), min(ys), max(ys))
 
-        self.occluders.append((aabb, cmd.vertices))
+        self.occluders.append((aabb, cmd.vertices, cmd.entity_id, cmd.static))
 
     def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
         self.ambient_color = color
@@ -140,25 +142,76 @@ class NativeLightBackend(RenderBackend):
         dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
         self.screen.blit(s, dest_rect)
 
-    def _render_light(self, light: LightCommand, occluders: List[Tuple[Tuple[float, float, float, float], List[Tuple[float, float]]]]) -> None:
-        # 1. Calculate Visibility Polygon
-        poly_points = self.shadow_caster.calculate_visibility_polygon(
-            light.position, light.radius, occluders
-        )
+    def _render_light(self, light: LightCommand) -> None:
+        # 1. Identify relevant occluders and check cache
+        lx, ly = light.position
+        r = light.radius
+
+        # AABB for light
+        min_x, max_x = lx - r, lx + r
+        min_y, max_y = ly - r, ly + r
+
+        relevant_static_ids = []
+        has_dynamic = False
+        active_occluders = []
+
+        for (aabb, poly, eid, static) in self.occluders:
+            omin_x, omax_x, omin_y, omax_y = aabb
+
+            # AABB Overlap Check
+            if (omax_x < min_x or omin_x > max_x or
+                omax_y < min_y or omin_y > max_y):
+                continue
+
+            active_occluders.append((aabb, poly))
+
+            if static:
+                relevant_static_ids.append(eid)
+            else:
+                has_dynamic = True
+
+        poly_points = None
+
+        # Try Cache
+        if not has_dynamic:
+            relevant_static_ids.sort()
+            # Quantize position/radius to improve cache hit rate for floating point jitters
+            # 0.01 precision
+            qx = round(lx, 2)
+            qy = round(ly, 2)
+            qr = round(r, 2)
+
+            signature = (qx, qy, qr, tuple(relevant_static_ids))
+
+            if light.entity_id in self.shadow_cache:
+                cached_sig, cached_poly = self.shadow_cache[light.entity_id]
+                if cached_sig == signature:
+                    poly_points = cached_poly
+
+            if poly_points is None:
+                # Recalculate
+                poly_points = self.shadow_caster.calculate_visibility_polygon(
+                    light.position, light.radius, active_occluders
+                )
+                self.shadow_cache[light.entity_id] = (signature, poly_points)
+        else:
+            # Dynamic objects present, always recalculate (and don't cache, or don't use cache)
+            poly_points = self.shadow_caster.calculate_visibility_polygon(
+                light.position, light.radius, active_occluders
+            )
 
         if not poly_points:
             return
 
         # 2. Prepare Light Texture
-        r = int(light.radius)
-        if r <= 0: return
+        ri = int(r)
+        if ri <= 0: return
 
-        light_surf = self._get_light_texture(r, light.color, light.intensity)
+        light_surf = self._get_light_texture(ri, light.color, light.intensity)
 
         # 3. Mask the texture
-        mask = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+        mask = pygame.Surface((ri * 2, ri * 2), pygame.SRCALPHA)
 
-        lx, ly = light.position
         local_poly = [(px - (lx - r), py - (ly - r)) for px, py in poly_points]
 
         if len(local_poly) > 2:

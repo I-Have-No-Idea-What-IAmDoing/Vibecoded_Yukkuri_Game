@@ -15,10 +15,11 @@ def benchmark_lighting(num_lights: int, num_occluders: int, iterations: int = 10
     import random
     random.seed(42)
 
-    backend.begin_frame()
-
     # Create Occluders
     occluder_vertices_list = []
+
+    # We must call begin_frame to reset lists
+    backend.begin_frame()
 
     for i in range(num_occluders):
         x = random.randint(0, 1900)
@@ -32,7 +33,8 @@ def benchmark_lighting(num_lights: int, num_occluders: int, iterations: int = 10
             vertices=verts,
             static=True
         ))
-        # Calculate AABB for the benchmark list manually to match backend structure
+
+        # Keep track for direct caster comparison
         xs = [v[0] for v in verts]
         ys = [v[1] for v in verts]
         aabb = (min(xs), max(xs), min(ys), max(ys))
@@ -41,51 +43,77 @@ def benchmark_lighting(num_lights: int, num_occluders: int, iterations: int = 10
     # Create Lights
     lights = []
     for i in range(num_lights):
-        lights.append(LightCommand(
+        l = LightCommand(
             layer=1, z_index=0, entity_id=i + 1000,
             position=(random.randint(0, 1920), random.randint(0, 1080)),
             radius=300,
             color=(255, 200, 150, 255),
             intensity=1.0
-        ))
-        backend.draw_light(lights[-1])
-
-    # Measure
-    caster = ShadowCaster()
-
-    # We want to measure the time taken for the "lighting pass" specifically,
-    # which is mostly calculate_visibility_polygon calls inside end_frame (or internal logic).
-    # Since NativeLightBackend does everything in end_frame, let's measure that.
-    # Note: drawing sprites is fast, we care about the light loop.
-
-    start_time = time.perf_counter()
-
-    for _ in range(iterations):
-        # We need to simulate the loop in NativeLightBackend._render_light mostly
-        for light in lights:
-             caster.calculate_visibility_polygon(light.position, light.radius, occluder_vertices_list)
-
-    end_time = time.perf_counter()
-
-    total_time = end_time - start_time
-    avg_time_per_frame = (total_time / iterations) * 1000 # ms
+        )
+        lights.append(l)
+        backend.draw_light(l)
 
     print(f"Benchmark Results:")
     print(f"Lights: {num_lights}, Occluders: {num_occluders}")
-    print(f"Total Time ({iterations} iters): {total_time:.4f} s")
-    print(f"Avg Time per Frame (Shadow Calculation Only): {avg_time_per_frame:.2f} ms")
 
-    # Also estimate full backend overhead
+    # Measure Uncached (Direct Call to ShadowCaster)
+    caster = ShadowCaster()
     start_time = time.perf_counter()
     for _ in range(iterations):
-        backend.end_frame()
-        # Note: end_frame accumulates draws to screen, so it might get slower or fill surface.
-        # But we are drawing to an offscreen surface.
+        for light in lights:
+             caster.calculate_visibility_polygon(light.position, light.radius, occluder_vertices_list)
     end_time = time.perf_counter()
-    total_time_full = end_time - start_time
-    avg_time_per_frame_full = (total_time_full / iterations) * 1000
+    avg_uncached = ((end_time - start_time) / iterations) * 1000
+    print(f"Avg Time per Frame (Uncached Direct): {avg_uncached:.2f} ms")
 
-    print(f"Avg Time per Frame (Full Render Pipeline): {avg_time_per_frame_full:.2f} ms")
+    # Measure Cached (Backend)
+    # The first frame will populate the cache, subsequent frames should be fast.
+
+    # Warmup (Populate Cache)
+    backend.end_frame()
+
+    # Now run benchmark using backend
+    # Note: We need to re-submit commands every frame because begin_frame clears them.
+    # But checking cache happens inside end_frame using entity_id.
+
+    start_time = time.perf_counter()
+    for _ in range(iterations):
+        backend.begin_frame()
+        # Re-submit occluders (simulating game loop)
+        for i in range(num_occluders):
+             # We need to recreate commands or reuse them.
+             # In game loop, systems create new commands usually.
+             # But backend relies on ID match.
+             # We must ensure we pass the SAME IDs.
+             pass
+             # Wait, draw_occluder clears occluders list.
+             # We need to re-add them.
+
+        # Optimization for benchmark: just manually re-add internal lists if possible,
+        # or call draw_occluder.
+
+        for i in range(num_occluders):
+            # Using same seed/logic implies same geometry, so static cache should hold.
+            # But here we used random earlier.
+            # Let's just use the verts we stored.
+            (aabb, verts) = occluder_vertices_list[i]
+            backend.draw_occluder(OccluderCommand(
+                layer=0, z_index=0, entity_id=i,
+                vertices=verts,
+                static=True
+            ))
+
+        for l in lights:
+            backend.draw_light(l)
+
+        backend.end_frame()
+
+    end_time = time.perf_counter()
+    avg_cached = ((end_time - start_time) / iterations) * 1000
+    print(f"Avg Time per Frame (Cached Backend): {avg_cached:.2f} ms")
+
+    speedup = avg_uncached / avg_cached if avg_cached > 0 else 0
+    print(f"Speedup: {speedup:.2f}x")
 
 if __name__ == "__main__":
     # Test cases
