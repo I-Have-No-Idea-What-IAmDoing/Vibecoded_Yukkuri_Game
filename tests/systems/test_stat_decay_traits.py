@@ -5,6 +5,7 @@ from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, Personalit
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.game.trait_service import TraitService
+from yukkuri_game.engine.data_models import TraitDefinition
 
 
 @pytest.fixture
@@ -35,9 +36,13 @@ def test_stat_decay_with_trait_modifier(decay_settings, mock_trait_service):
 
     # Setup trait data
     # GLUTTON: hunger_decay = 1.5
-    glutton_data = {"stat_modifiers": {"hunger_decay": 1.5}}
+    glutton_trait = TraitDefinition(
+        name="Glutton",
+        description="Eats a lot",
+        stat_modifiers={"hunger_decay": 1.5}
+    )
     mock_trait_service.get_trait.side_effect = (
-        lambda t: glutton_data if t == "GLUTTON" else None
+        lambda t: glutton_trait if t == "GLUTTON" else None
     )
 
     # Create entity
@@ -87,11 +92,22 @@ def test_stat_decay_multiple_modifiers(decay_settings, mock_trait_service):
     # Setup trait data
     # GLUTTON: hunger_decay = 1.5
     # FAST_HUNGER: hunger_decay = 2.0
+    glutton_trait = TraitDefinition(
+        name="Glutton",
+        description="Eats a lot",
+        stat_modifiers={"hunger_decay": 1.5}
+    )
+    fast_hunger_trait = TraitDefinition(
+        name="Fast Hunger",
+        description="Gets hungry fast",
+        stat_modifiers={"hunger_decay": 2.0}
+    )
+
     def get_trait(t):
         if t == "GLUTTON":
-            return {"stat_modifiers": {"hunger_decay": 1.5}}
+            return glutton_trait
         if t == "FAST_HUNGER":
-            return {"stat_modifiers": {"hunger_decay": 2.0}}
+            return fast_hunger_trait
         return None
 
     mock_trait_service.get_trait.side_effect = get_trait

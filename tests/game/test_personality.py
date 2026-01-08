@@ -14,6 +14,7 @@ from yukkuri_game.game.yukkuri_components import (
 )
 from yukkuri_game.game.ai.utility import UtilityAIEngine
 from yukkuri_game.game.systems.social_system import SocialSystem
+from yukkuri_game.engine.data_models import TraitDefinition
 
 
 # Mock ResourceManager
@@ -41,8 +42,13 @@ def test_trait_service_loading():
 
     world = World()
     rm = MagicMock(spec=ResourceManager)
-    rm.traits = {"GESU": {"name": "Gesu"}, "NICE": {}}
-    rm.interactions = {"Hit": {}}
+    # TraitService loads traits as TraitDefinition objects
+    t1 = TraitDefinition(name="Gesu", description="Gesu trait")
+    t2 = TraitDefinition(name="Nice", description="Nice trait")
+    rm.traits = {"GESU": t1, "NICE": t2}
+
+    # Interactions are InteractionDefinition (or dicts as per current codebase flexibility)
+    rm.interactions = {"Hit": {"base_impact": -10}} # Assuming dict for simplicity or mock struct
     world.services.register(rm, ResourceManager)
 
     service = TraitService(world)
@@ -50,7 +56,8 @@ def test_trait_service_loading():
     assert "NICE" in service.traits
 
     gesu = service.get_trait("GESU")
-    assert gesu["name"] == "Gesu"
+    # Updated: Access attributes, not dict keys
+    assert gesu.name == "Gesu"
 
     assert "Hit" in service.interactions
 
@@ -70,9 +77,14 @@ def test_utility_engine_overrides():
     # We mock the trait service and personality
 
     mock_trait_service = MagicMock()
-    mock_trait_service.get_trait.return_value = {
-        "ai_modifiers": {"HungerCheck": {"curve": "linear", "params": {"m": 0.0}}}
-    }
+    # Return TraitDefinition object
+    trait_def = TraitDefinition(
+        name="Anorexic",
+        description="Fake trait",
+        ai_modifiers={"HungerCheck": {"curve": "linear", "params": {"m": 0.0}}}
+    )
+
+    mock_trait_service.get_trait.return_value = trait_def
 
     personality = Personality(traits={"ANOREXIC"})  # Fake trait
 

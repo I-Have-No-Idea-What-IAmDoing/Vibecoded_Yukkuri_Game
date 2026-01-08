@@ -2,16 +2,22 @@
 Module defining core game services.
 """
 
-from typing import Set, TYPE_CHECKING
+from typing import Set, TYPE_CHECKING, Dict
+import os
+import json
 
 from ..engine.ecs import World
 from .components import Transform
+from .components_persistence import StableIDComponent
 from .yukkuri_components import (
     ItemStats,
     Skills,
+    YukkuriStats,
+    AIState
 )
 from .skill_constants import SkillId
 from .systems.sector_system import SectorMap
+from . import components, components_persistence, yukkuri_components
 
 if TYPE_CHECKING:
     pass
@@ -326,3 +332,174 @@ class GameService:
                     best_item = item
 
         return best_item
+
+
+class PersistenceService:
+    def __init__(self, world: World, save_dir: str = "saves"):
+        self.world = world
+        self.save_dir = save_dir
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
+    def _serialize_object(self, obj):
+        if isinstance(obj, (set, tuple)):
+            return list(obj)
+        if isinstance(obj, dict):
+            return {k: self._serialize_object(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._serialize_object(v) for v in obj]
+        return obj
+
+    def save_game(self, filename: str) -> None:
+        filepath = os.path.join(self.save_dir, filename)
+
+        data = {
+            "money": 0,
+            "time": 0.0,
+            "entities": []
+        }
+
+        # Save Economy
+        economy = self.world.services.try_get(EconomyService)
+        if economy:
+            data["money"] = economy.get_money()
+
+        # Save Time
+        time_svc = self.world.services.try_get(TimeService)
+        if time_svc:
+            data["time"] = time_svc.time_elapsed
+
+        # Save Entities
+        entities = self.world.get_all_entities()
+        serialized_entities = []
+
+        for ent in entities:
+             components_data = {}
+
+             all_comps = self.world.get_all_components(ent)
+             for comp in all_comps:
+                 comp_type_name = type(comp).__name__
+
+                 import msgspec
+                 import dataclasses
+
+                 comp_dict = {}
+                 try:
+                     if isinstance(comp, msgspec.Struct):
+                         comp_dict = msgspec.to_builtins(comp)
+                     elif hasattr(comp, "__dataclass_fields__"):
+                          comp_dict = dataclasses.asdict(comp)
+                     elif hasattr(comp, "__dict__"):
+                         comp_dict = comp.__dict__
+
+                     # Recursively handle sets/tuples in the dictionary
+                     comp_dict = self._serialize_object(comp_dict)
+                     components_data[comp_type_name] = comp_dict
+                 except Exception:
+                     # Skip un-serializable
+                     pass
+
+             if components_data:
+                 ent_data = {
+                     "entity_id": ent,
+                     "components": components_data
+                 }
+                 # Handle StableID
+                 stable_id = self.world.try_get_component(ent, StableIDComponent)
+                 if stable_id:
+                     ent_data["stable_id"] = stable_id.id
+
+                 serialized_entities.append(ent_data)
+
+        data["entities"] = serialized_entities
+
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=4)
+
+    def load_game(self, filename: str) -> bool:
+        filepath = os.path.join(self.save_dir, filename)
+        if not os.path.exists(filepath):
+            return False
+
+        with open(filepath, "r") as f:
+            data = json.load(f)
+
+        # Restore Economy
+        economy = self.world.services.try_get(EconomyService)
+        if economy:
+            economy.set_money(data.get("money", 0))
+
+        # Restore Time
+        time_svc = self.world.services.try_get(TimeService)
+        if time_svc:
+            time_svc.time_elapsed = data.get("time", 0.0)
+
+        # Restore Entities
+        entities_data = data.get("entities", [])
+
+        import msgspec
+
+        # Mapping from OLD (saved) entity ID to NEW (loaded) entity ID
+        id_map: Dict[int, int] = {}
+
+        # Pass 1: Create entities and build ID Map
+        # We need to store component data to process later
+        loaded_entities = []
+
+        for ent_data in entities_data:
+            old_id = ent_data.get("entity_id")
+            new_ent = self.world.create_entity()
+
+            if old_id is not None:
+                id_map[old_id] = new_ent
+
+            # Add StableID if present (restore it directly)
+            if "stable_id" in ent_data:
+                self.world.add_component(new_ent, StableIDComponent(id=ent_data["stable_id"]))
+
+            loaded_entities.append((new_ent, ent_data.get("components", {})))
+
+        # Pass 2: Restore Components and Remap IDs
+        for new_ent, components_data in loaded_entities:
+            for comp_name, comp_vals in components_data.items():
+                comp_class = self._resolve_component_class(comp_name)
+                if comp_class:
+                    try:
+                        # Instantiate component
+                        if hasattr(comp_class, "__dataclass_fields__") or issubclass(comp_class, msgspec.Struct):
+                            if issubclass(comp_class, msgspec.Struct):
+                                comp_inst = msgspec.convert(comp_vals, comp_class)
+                            else:
+                                comp_inst = comp_class(**comp_vals)
+                        else:
+                            comp_inst = comp_class(**comp_vals)
+
+                        # ID Remapping Logic for known components
+                        if isinstance(comp_inst, AIState):
+                            # Remap current_target_id
+                            if comp_inst.current_target_id in id_map:
+                                comp_inst.current_target_id = id_map[comp_inst.current_target_id]
+
+                            # Remap failed_targets
+                            new_failed = set()
+                            for tid in comp_inst.failed_targets:
+                                if tid in id_map:
+                                    new_failed.add(id_map[tid])
+                                else:
+                                    new_failed.add(tid) # Keep old if not mapped? Or discard? Keeping ensures stability if ID wasn't in save (e.g. system entity)
+                            comp_inst.failed_targets = new_failed
+
+                        # Add other components remapping here (e.g. RelationshipRegistry)
+
+                        self.world.add_component(new_ent, comp_inst)
+                    except Exception as e:
+                        # print(f"Failed to load component {comp_name}: {e}")
+                        pass
+
+        return True
+
+    def _resolve_component_class(self, name: str):
+        for module in [components, components_persistence, yukkuri_components]:
+             if hasattr(module, name):
+                 return getattr(module, name)
+        return None
