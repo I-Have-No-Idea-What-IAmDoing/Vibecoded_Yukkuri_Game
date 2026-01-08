@@ -6,7 +6,7 @@ class ShadowCaster:
     Calculates 2D visibility polygons for point lights.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     def calculate_visibility_polygon(
@@ -34,6 +34,7 @@ class ShadowCaster:
         min_y, max_y = ly - r, ly + r
 
         # 1. Collect segments from relevant occluders
+        # We also collect unique points for ray casting
         segments = []
         unique_points = []
 
@@ -45,6 +46,7 @@ class ShadowCaster:
             (lx - r, ly + r)
         ]
 
+        # Add bounds segments
         for i in range(4):
             p1 = bounds_poly[i]
             p2 = bounds_poly[(i + 1) % 4]
@@ -66,13 +68,15 @@ class ShadowCaster:
                 unique_points.append(p1)
                 unique_points.append(p2)
 
+        # Optimization: Only add unique points (corners)
+        points_set = set(unique_points)
+
         # 2. Generate rays/angles
         # Optimization: Only cast 2 rays per vertex (epsilon offset)
-        # Using a small epsilon for angle offset
         angles = []
         epsilon = 0.0001
 
-        for p in unique_points:
+        for p in points_set:
             dx = p[0] - lx
             dy = p[1] - ly
             angle = math.atan2(dy, dx)
@@ -81,54 +85,64 @@ class ShadowCaster:
 
         angles.sort()
 
-        # 3. Cast rays
-        polygon_points = []
-        max_dist = r * 2.0  # Safe max distance
-
-        # Pre-calculate segment data to avoid re-accessing tuples in tight loop
-        # layout: (x1, y1, dx, dy) where dx, dy is vector P2-P1
-        # This helps _get_intersection avoid subtractions
+        # 3. Pre-process segments relative to light to avoid re-calculation in inner loop
+        # We store: (rel_x1, rel_y1, sdx, sdy)
         optimized_segments = []
         for (sx1, sy1), (sx2, sy2) in segments:
-            optimized_segments.append((sx1, sy1, sx2 - sx1, sy2 - sy1))
+            optimized_segments.append((sx1 - lx, sy1 - ly, sx2 - sx1, sy2 - sy1))
 
+        # 4. Cast rays
+        polygon_points = []
         prev_pt = None
+
+        # Safe max distance
+        max_dist = r * 2.0
 
         for angle in angles:
             dx = math.cos(angle)
             dy = math.sin(angle)
 
-            closest_t = max_dist # t is distance here since direction is normalized
+            # We want smallest positive t.
+            closest_t = max_dist
 
             # Intersection Check
-            # Inline the intersection logic for speed
-            for sx1, sy1, sdx, sdy in optimized_segments:
+            # We avoid division where possible.
+            # Using Cramer's rule adaptation and checking inequalities before division.
 
-                # Cross product of ray dir (dx, dy) and seg dir (sdx, sdy)
+            for rx, ry, sdx, sdy in optimized_segments:
                 det = dx * sdy - dy * sdx
 
-                if abs(det) < 0.000001:
+                # Check 1: Parallel
+                if -1e-6 < det < 1e-6:
                     continue
 
-                diff_x = sx1 - lx
-                diff_y = sy1 - ly
+                # Check 2: u must be in [0, 1]
+                # u = u_num / det
+                u_num = rx * dy - ry * dx
 
-                # u = ((S1 - L) x D) / det
-                u = (diff_x * dy - diff_y * dx) / det
+                # If det > 0: 0 <= u_num <= det
+                # If det < 0: det <= u_num <= 0
+                if det > 0:
+                    if u_num < 0 or u_num > det: continue
+                else:
+                    if u_num > 0 or u_num < det: continue
 
-                if u < 0 or u > 1:
-                    continue
+                # Check 3: t must be > 0 and < closest_t
+                # t = t_num / det
+                t_num = rx * sdy - ry * sdx
 
-                # t = ((S1 - L) x (S2 - S1)) / det
-                t = (diff_x * sdy - diff_y * sdx) / det
+                if det > 0:
+                     if t_num <= 0 or t_num >= closest_t * det: continue
+                else:
+                     if t_num >= 0 or t_num <= closest_t * det: continue
 
-                if t > 0 and t < closest_t:
-                    closest_t = t
+                # If we passed checks, this is the new closest
+                closest_t = t_num / det
 
             # Reconstruct point
             closest_pt = (lx + dx * closest_t, ly + dy * closest_t)
 
-            # Filter close points
+            # Filter close points to simplify polygon
             if prev_pt and abs(prev_pt[0] - closest_pt[0]) < 0.1 and abs(prev_pt[1] - closest_pt[1]) < 0.1:
                 continue
 

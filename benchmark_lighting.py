@@ -32,7 +32,11 @@ def benchmark_lighting(num_lights: int, num_occluders: int, iterations: int = 10
             vertices=verts,
             static=True
         ))
-        occluder_vertices_list.append(verts)
+        # Calculate AABB for the benchmark list manually to match backend structure
+        xs = [v[0] for v in verts]
+        ys = [v[1] for v in verts]
+        aabb = (min(xs), max(xs), min(ys), max(ys))
+        occluder_vertices_list.append((aabb, verts))
 
     # Create Lights
     lights = []
