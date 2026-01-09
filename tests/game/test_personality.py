@@ -48,7 +48,9 @@ def test_trait_service_loading():
     rm.traits = {"GESU": t1, "NICE": t2}
 
     # Interactions are InteractionDefinition (or dicts as per current codebase flexibility)
-    rm.interactions = {"Hit": {"base_impact": -10}} # Assuming dict for simplicity or mock struct
+    rm.interactions = {
+        "Hit": {"base_impact": -10}
+    }  # Assuming dict for simplicity or mock struct
     world.services.register(rm, ResourceManager)
 
     service = TraitService(world)
@@ -81,7 +83,7 @@ def test_utility_engine_overrides():
     trait_def = TraitDefinition(
         name="Anorexic",
         description="Fake trait",
-        ai_modifiers={"HungerCheck": {"curve": "linear", "params": {"m": 0.0}}}
+        ai_modifiers={"HungerCheck": {"curve": "linear", "params": {"m": 0.0}}},
     )
 
     mock_trait_service.get_trait.return_value = trait_def

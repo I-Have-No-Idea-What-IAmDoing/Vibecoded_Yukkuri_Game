@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import MagicMock, patch
-import pygame
 import pygame_gui
 from pygame_gui.core.interfaces import IContainerLikeInterface
 from yukkuri_game.game.ui.hud_events import HudEvents

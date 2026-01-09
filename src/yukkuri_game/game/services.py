@@ -9,12 +9,7 @@ import json
 from ..engine.ecs import World
 from .components import Transform
 from .components_persistence import StableIDComponent
-from .yukkuri_components import (
-    ItemStats,
-    Skills,
-    YukkuriStats,
-    AIState
-)
+from .yukkuri_components import ItemStats, Skills, AIState
 from .skill_constants import SkillId
 from .systems.sector_system import SectorMap
 from . import components, components_persistence, yukkuri_components
@@ -353,11 +348,7 @@ class PersistenceService:
     def save_game(self, filename: str) -> None:
         filepath = os.path.join(self.save_dir, filename)
 
-        data = {
-            "money": 0,
-            "time": 0.0,
-            "entities": []
-        }
+        data = {"money": 0, "time": 0.0, "entities": []}
 
         # Save Economy
         economy = self.world.services.try_get(EconomyService)
@@ -374,42 +365,39 @@ class PersistenceService:
         serialized_entities = []
 
         for ent in entities:
-             components_data = {}
+            components_data = {}
 
-             all_comps = self.world.get_all_components(ent)
-             for comp in all_comps:
-                 comp_type_name = type(comp).__name__
+            all_comps = self.world.get_all_components(ent)
+            for comp in all_comps:
+                comp_type_name = type(comp).__name__
 
-                 import msgspec
-                 import dataclasses
+                import msgspec
+                import dataclasses
 
-                 comp_dict = {}
-                 try:
-                     if isinstance(comp, msgspec.Struct):
-                         comp_dict = msgspec.to_builtins(comp)
-                     elif hasattr(comp, "__dataclass_fields__"):
-                          comp_dict = dataclasses.asdict(comp)
-                     elif hasattr(comp, "__dict__"):
-                         comp_dict = comp.__dict__
+                comp_dict = {}
+                try:
+                    if isinstance(comp, msgspec.Struct):
+                        comp_dict = msgspec.to_builtins(comp)
+                    elif hasattr(comp, "__dataclass_fields__"):
+                        comp_dict = dataclasses.asdict(comp)
+                    elif hasattr(comp, "__dict__"):
+                        comp_dict = comp.__dict__
 
-                     # Recursively handle sets/tuples in the dictionary
-                     comp_dict = self._serialize_object(comp_dict)
-                     components_data[comp_type_name] = comp_dict
-                 except Exception:
-                     # Skip un-serializable
-                     pass
+                    # Recursively handle sets/tuples in the dictionary
+                    comp_dict = self._serialize_object(comp_dict)
+                    components_data[comp_type_name] = comp_dict
+                except Exception:
+                    # Skip un-serializable
+                    pass
 
-             if components_data:
-                 ent_data = {
-                     "entity_id": ent,
-                     "components": components_data
-                 }
-                 # Handle StableID
-                 stable_id = self.world.try_get_component(ent, StableIDComponent)
-                 if stable_id:
-                     ent_data["stable_id"] = stable_id.id
+            if components_data:
+                ent_data = {"entity_id": ent, "components": components_data}
+                # Handle StableID
+                stable_id = self.world.try_get_component(ent, StableIDComponent)
+                if stable_id:
+                    ent_data["stable_id"] = stable_id.id
 
-                 serialized_entities.append(ent_data)
+                serialized_entities.append(ent_data)
 
         data["entities"] = serialized_entities
 
@@ -455,7 +443,9 @@ class PersistenceService:
 
             # Add StableID if present (restore it directly)
             if "stable_id" in ent_data:
-                self.world.add_component(new_ent, StableIDComponent(id=ent_data["stable_id"]))
+                self.world.add_component(
+                    new_ent, StableIDComponent(id=ent_data["stable_id"])
+                )
 
             loaded_entities.append((new_ent, ent_data.get("components", {})))
 
@@ -466,7 +456,9 @@ class PersistenceService:
                 if comp_class:
                     try:
                         # Instantiate component
-                        if hasattr(comp_class, "__dataclass_fields__") or issubclass(comp_class, msgspec.Struct):
+                        if hasattr(comp_class, "__dataclass_fields__") or issubclass(
+                            comp_class, msgspec.Struct
+                        ):
                             if issubclass(comp_class, msgspec.Struct):
                                 comp_inst = msgspec.convert(comp_vals, comp_class)
                             else:
@@ -478,7 +470,9 @@ class PersistenceService:
                         if isinstance(comp_inst, AIState):
                             # Remap current_target_id
                             if comp_inst.current_target_id in id_map:
-                                comp_inst.current_target_id = id_map[comp_inst.current_target_id]
+                                comp_inst.current_target_id = id_map[
+                                    comp_inst.current_target_id
+                                ]
 
                             # Remap failed_targets
                             new_failed = set()
@@ -486,13 +480,15 @@ class PersistenceService:
                                 if tid in id_map:
                                     new_failed.add(id_map[tid])
                                 else:
-                                    new_failed.add(tid) # Keep old if not mapped? Or discard? Keeping ensures stability if ID wasn't in save (e.g. system entity)
+                                    new_failed.add(
+                                        tid
+                                    )  # Keep old if not mapped? Or discard? Keeping ensures stability if ID wasn't in save (e.g. system entity)
                             comp_inst.failed_targets = new_failed
 
                         # Add other components remapping here (e.g. RelationshipRegistry)
 
                         self.world.add_component(new_ent, comp_inst)
-                    except Exception as e:
+                    except Exception:
                         # print(f"Failed to load component {comp_name}: {e}")
                         pass
 
@@ -500,6 +496,6 @@ class PersistenceService:
 
     def _resolve_component_class(self, name: str):
         for module in [components, components_persistence, yukkuri_components]:
-             if hasattr(module, name):
-                 return getattr(module, name)
+            if hasattr(module, name):
+                return getattr(module, name)
         return None

@@ -1,6 +1,5 @@
 from typing import Tuple, Any, List, Optional, Dict
 import pygame
-import math
 from .backend import RenderBackend
 from .commands import (
     SpriteCommand,
@@ -10,6 +9,7 @@ from .commands import (
     OccluderCommand,
 )
 from .shadow_caster import ShadowCaster
+
 
 class PygameBackend(RenderBackend):
     """
@@ -25,14 +25,18 @@ class PygameBackend(RenderBackend):
         self.lights: List[LightCommand] = []
 
         # Occluders stored as: (aabb_tuple, vertices_list, entity_id, static_flag)
-        self.occluders: List[Tuple[Tuple[float, float, float, float], List[Tuple[float, float]], int, bool]] = []
+        self.occluders: List[
+            Tuple[
+                Tuple[float, float, float, float], List[Tuple[float, float]], int, bool
+            ]
+        ] = []
 
         self.shadow_caster = ShadowCaster()
 
         # Caches
         self.font_cache = {}
-        self.light_texture_cache = {} # (radius, color) -> Surface
-        self.shadow_surface_cache = {} # (rx, ry, color) -> Surface
+        self.light_texture_cache = {}  # (radius, color) -> Surface
+        self.shadow_surface_cache = {}  # (rx, ry, color) -> Surface
 
         # Shadow Cache: entity_id -> (signature, polygon_points)
         # signature = (x, y, radius, tuple(sorted_static_ids))
@@ -75,7 +79,9 @@ class PygameBackend(RenderBackend):
             for light in self.lights:
                 self._render_light(light)
 
-            self.screen.blit(self.lightmap_surface, (0, 0), special_flags=pygame.BLEND_MULT)
+            self.screen.blit(
+                self.lightmap_surface, (0, 0), special_flags=pygame.BLEND_MULT
+            )
 
     def draw_sprite(self, cmd: SpriteCommand) -> None:
         self.commands.append(cmd)
@@ -127,7 +133,6 @@ class PygameBackend(RenderBackend):
         if cmd.selected:
             pygame.draw.rect(self.screen, (255, 255, 0), dest_rect.inflate(4, 4), 2)
 
-
     def _render_text(self, cmd: TextCommand) -> None:
         font = self._get_font(cmd.size, cmd.font_name)
         surf = font.render(cmd.text, True, cmd.color)
@@ -165,12 +170,11 @@ class PygameBackend(RenderBackend):
         has_dynamic = False
         active_occluders = []
 
-        for (aabb, poly, eid, static) in self.occluders:
+        for aabb, poly, eid, static in self.occluders:
             omin_x, omax_x, omin_y, omax_y = aabb
 
             # AABB Overlap Check
-            if (omax_x < min_x or omin_x > max_x or
-                omax_y < min_y or omin_y > max_y):
+            if omax_x < min_x or omin_x > max_x or omax_y < min_y or omin_y > max_y:
                 continue
 
             active_occluders.append((aabb, poly))
@@ -215,7 +219,8 @@ class PygameBackend(RenderBackend):
 
         # 2. Prepare Light Texture
         ri = int(r)
-        if ri <= 0: return
+        if ri <= 0:
+            return
 
         light_surf = self._get_light_texture(ri, light.color, light.intensity)
 
@@ -232,10 +237,13 @@ class PygameBackend(RenderBackend):
 
         # 4. Add to Lightmap
         dest_pos = (lx - r, ly - r)
-        self.lightmap_surface.blit(final_light, dest_pos, special_flags=pygame.BLEND_ADD)
+        self.lightmap_surface.blit(
+            final_light, dest_pos, special_flags=pygame.BLEND_ADD
+        )
 
-
-    def _get_light_texture(self, radius: int, color: Tuple[int, int, int, int], intensity: float) -> pygame.Surface:
+    def _get_light_texture(
+        self, radius: int, color: Tuple[int, int, int, int], intensity: float
+    ) -> pygame.Surface:
         c = (int(color[0]), int(color[1]), int(color[2]))
         key = (radius, c, int(intensity * 100))
 

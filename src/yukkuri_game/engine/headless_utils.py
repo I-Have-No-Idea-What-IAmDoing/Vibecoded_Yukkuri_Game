@@ -1,7 +1,7 @@
 import contextlib
 import pygame
 import moderngl
-from loguru import logger
+
 
 @contextlib.contextmanager
 def patch_headless_lighting():

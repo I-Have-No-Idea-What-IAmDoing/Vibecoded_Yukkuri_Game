@@ -9,7 +9,7 @@ sys.modules["moderngl"] = MagicMock()
 
 from src.yukkuri_game.game.systems.render_system_new import NewRenderSystem
 from src.yukkuri_game.game.renderer_new.opengl_backend import OpenGLBackend
-from src.yukkuri_game.game.components import Transform, Occluder, Sprite, PhysicsBody
+from src.yukkuri_game.game.components import Transform, Occluder
 from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.engine.resource_manager import ResourceManager
 from src.yukkuri_game.game.camera import Camera
@@ -35,7 +35,6 @@ def test_occluder_geometry_generation():
 
     system = NewRenderSystem(screen, world, lights_engine=lights_engine)
 
-
     # Mock Hull constructor to store vertices
     def mock_hull_init(vertices):
         m = MagicMock()
@@ -43,6 +42,7 @@ def test_occluder_geometry_generation():
         return m
 
     import pygame_light2d
+
     pygame_light2d.Hull.side_effect = mock_hull_init
 
     # Ensure backend is OpenGLBackend
@@ -70,6 +70,7 @@ def test_occluder_geometry_generation():
 
     # Check bounds
     assert len(vertices) == 3
+
 
 if __name__ == "__main__":
     test_occluder_geometry_generation()

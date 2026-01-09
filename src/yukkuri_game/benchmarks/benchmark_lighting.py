@@ -3,14 +3,13 @@ Lighting subsystem benchmark.
 """
 
 import time
-import sys
 import argparse
 import json
 import statistics
 import random
 import pygame
 import csv
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 import logging
 
 from ..game.renderer_new.pygame_backend import PygameBackend
@@ -18,7 +17,6 @@ from ..game.renderer_new.commands import LightCommand, OccluderCommand
 from ..game.renderer_new.shadow_caster import ShadowCaster
 
 # Reuse utils from the main benchmark module
-from .benchmark import export_csv, compare_results
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -66,13 +64,13 @@ class LightingBenchmarkRunner:
             y = random.randint(0, 1060)
             w = random.randint(20, 50)
             h = random.randint(20, 50)
-            verts = [(x, y), (x+w, y), (x+w, y+h), (x, y+h)]
+            verts = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
 
-            backend.draw_occluder(OccluderCommand(
-                layer=0, z_index=0, entity_id=i,
-                vertices=verts,
-                static=True
-            ))
+            backend.draw_occluder(
+                OccluderCommand(
+                    layer=0, z_index=0, entity_id=i, vertices=verts, static=True
+                )
+            )
 
             # Keep track for direct caster comparison
             xs = [v[0] for v in verts]
@@ -84,11 +82,13 @@ class LightingBenchmarkRunner:
         lights = []
         for i in range(self.num_lights):
             l = LightCommand(
-                layer=1, z_index=0, entity_id=i + 1000,
+                layer=1,
+                z_index=0,
+                entity_id=i + 1000,
                 position=(random.randint(0, 1920), random.randint(0, 1080)),
                 radius=300,
                 color=(255, 200, 150, 255),
-                intensity=1.0
+                intensity=1.0,
             )
             lights.append(l)
             backend.draw_light(l)
@@ -99,14 +99,18 @@ class LightingBenchmarkRunner:
 
         # Warmup
         for _ in range(5):
-             for light in lights:
-                 caster.calculate_visibility_polygon(light.position, light.radius, occluder_vertices_list)
+            for light in lights:
+                caster.calculate_visibility_polygon(
+                    light.position, light.radius, occluder_vertices_list
+                )
 
         start_time = time.perf_counter()
         for _ in range(self.iterations):
             frame_start = time.perf_counter()
             for light in lights:
-                 caster.calculate_visibility_polygon(light.position, light.radius, occluder_vertices_list)
+                caster.calculate_visibility_polygon(
+                    light.position, light.radius, occluder_vertices_list
+                )
             frame_end = time.perf_counter()
             uncached_times.append((frame_end - frame_start) * 1000)
 
@@ -124,11 +128,11 @@ class LightingBenchmarkRunner:
             # Re-submit occluders
             for i in range(self.num_occluders):
                 (aabb, verts) = occluder_vertices_list[i]
-                backend.draw_occluder(OccluderCommand(
-                    layer=0, z_index=0, entity_id=i,
-                    vertices=verts,
-                    static=True
-                ))
+                backend.draw_occluder(
+                    OccluderCommand(
+                        layer=0, z_index=0, entity_id=i, vertices=verts, static=True
+                    )
+                )
 
             for l in lights:
                 backend.draw_light(l)
@@ -156,15 +160,16 @@ class LightingBenchmarkRunner:
                     "min": min(cached_times),
                     "max": max(cached_times),
                 },
-                "speedup": statistics.mean(uncached_times) / statistics.mean(cached_times) if statistics.mean(cached_times) > 0 else 0
+                "speedup": statistics.mean(uncached_times)
+                / statistics.mean(cached_times)
+                if statistics.mean(cached_times) > 0
+                else 0,
             },
-            "raw_times": {
-                "uncached": uncached_times,
-                "cached": cached_times
-            }
+            "raw_times": {"uncached": uncached_times, "cached": cached_times},
         }
 
         return results
+
 
 def main():
     logging.basicConfig(
@@ -174,7 +179,9 @@ def main():
     parser = argparse.ArgumentParser(description="Lighting Subsystem Benchmark")
     parser.add_argument("--lights", type=int, default=20, help="Number of lights")
     parser.add_argument("--occluders", type=int, default=50, help="Number of occluders")
-    parser.add_argument("--iterations", type=int, default=20, help="Number of iterations")
+    parser.add_argument(
+        "--iterations", type=int, default=20, help="Number of iterations"
+    )
     parser.add_argument("--json", type=str, help="Output results to JSON file")
     parser.add_argument("--csv", type=str, help="Output raw times to CSV file")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
@@ -185,13 +192,15 @@ def main():
         num_lights=args.lights,
         num_occluders=args.occluders,
         iterations=args.iterations,
-        seed=args.seed
+        seed=args.seed,
     )
 
     results = runner.run()
 
     print("\n--- Benchmark Results ---")
-    print(f"Lights: {results['config']['num_lights']}, Occluders: {results['config']['num_occluders']}")
+    print(
+        f"Lights: {results['config']['num_lights']}, Occluders: {results['config']['num_occluders']}"
+    )
     print(f"Uncached Time (Mean): {results['results']['uncached_ms']['mean']:.2f} ms")
     print(f"Cached Time (Mean): {results['results']['cached_ms']['mean']:.2f} ms")
     print(f"Speedup: {results['results']['speedup']:.2f}x")
@@ -211,14 +220,17 @@ def main():
                 writer = csv.writer(f)
                 writer.writerow(["iteration", "uncached_ms", "cached_ms"])
                 for i in range(len(results["raw_times"]["uncached"])):
-                     writer.writerow([
-                         i + 1,
-                         results["raw_times"]["uncached"][i],
-                         results["raw_times"]["cached"][i]
-                     ])
+                    writer.writerow(
+                        [
+                            i + 1,
+                            results["raw_times"]["uncached"][i],
+                            results["raw_times"]["cached"][i],
+                        ]
+                    )
             print(f"Raw data exported to {args.csv}")
         except IOError as e:
             logger.error(f"Failed to write CSV: {e}")
+
 
 if __name__ == "__main__":
     main()

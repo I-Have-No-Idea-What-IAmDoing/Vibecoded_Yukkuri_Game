@@ -6,6 +6,7 @@ from src.yukkuri_game.game.renderer_new.native_light_backend import NativeLightB
 import os
 import pygame
 
+
 def test_headless_lighting_regression():
     """
     Regression test: Validates that the lighting system works in headless mode.
@@ -28,6 +29,7 @@ def test_headless_lighting_regression():
 
         # Center camera at (0,0) explicitly
         from src.yukkuri_game.game.camera import Camera
+
         camera = world.services.get(Camera)
         camera.camera_x = 0
         camera.camera_y = 0
@@ -35,23 +37,29 @@ def test_headless_lighting_regression():
         # 2. Add Light at (0,0)
         # Note: MouseLightSystem might exist (Entity 1, White, Intensity 0).
         light_ent = world.create_entity()
-        world.add_component(light_ent, LightSource(
-            radius=300,
-            color=(255, 0, 0), # Red
-            intensity=2.0
-        ))
+        world.add_component(
+            light_ent,
+            LightSource(
+                radius=300,
+                color=(255, 0, 0),  # Red
+                intensity=2.0,
+            ),
+        )
         world.add_component(light_ent, Transform(x=0, y=0))
 
         # 3. Add Floating Text at (0,0) (White)
         text_ent = world.create_entity()
-        world.add_component(text_ent, FloatingText(
-            text="########",
-            size=100,
-            color=(255, 255, 255),
-            lifetime=100.0,
-            max_lifetime=100.0,
-            velocity_y=0.0
-        ))
+        world.add_component(
+            text_ent,
+            FloatingText(
+                text="########",
+                size=100,
+                color=(255, 255, 255),
+                lifetime=100.0,
+                max_lifetime=100.0,
+                velocity_y=0.0,
+            ),
+        )
         world.add_component(text_ent, Transform(x=0, y=0))
 
         # 4. Advance simulation to ensure SectorMap is updated
@@ -63,7 +71,9 @@ def test_headless_lighting_regression():
         # 6. Verify Backend
         scene = game.scene_manager.current_scene
         assert scene.render_system.lights_enabled is True, "Lights should be enabled"
-        assert isinstance(scene.render_system.renderer.backend, NativeLightBackend), "Backend should be NativeLightBackend"
+        assert isinstance(scene.render_system.renderer.backend, NativeLightBackend), (
+            "Backend should be NativeLightBackend"
+        )
 
         # 7. Verify Image Content
         assert os.path.exists(screenshot_path)

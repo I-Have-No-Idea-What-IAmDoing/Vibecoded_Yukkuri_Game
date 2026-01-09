@@ -119,8 +119,8 @@ def test_simulation_action_eat(
     # We can peek at behavior_system.next_update_times if needed, but 0.2 should be enough if total_time started at 0.
 
     if ai.current_action == "Idle":
-         # Try another update
-         behavior_system.update(world, 0.2)
+        # Try another update
+        behavior_system.update(world, 0.2)
 
     assert ai.current_action == "Eat"
     # 1st Tick: Eat Seq -> Goal=Eat? (Yes) -> Eat Exec -> Have Target? (No) -> Find Food (Success, sets target)
@@ -145,7 +145,7 @@ def test_simulation_action_eat(
     assert trans.x > initial_x  # Should have moved towards 100
 
     # Move until close enough (Dist <= 30 for Interact, < 15 for MoveToTarget success)
-    for _ in range(30): # Increased range to be safe
+    for _ in range(30):  # Increased range to be safe
         behavior_system.update(world, 0.1)
         # Manually apply velocity
         trans.x += controller.target_velocity.x * 0.1
@@ -205,7 +205,7 @@ def test_simulation_action_wander(
     ai = world.get_component(yukkuri, AIState)
 
     if ai.current_action == "Idle":
-         behavior_system.update(world, 0.2)
+        behavior_system.update(world, 0.2)
 
     assert ai.current_action == "Wander"
     assert ai.state_data is not None

@@ -54,9 +54,11 @@ class TestBehaviorSystem(unittest.TestCase):
 
         # Initial: Entity 1 exists
         mock_world.get_components_tuple.return_value = [(1, (AIState(),))]
+
         # Entity 1 exists check
         def entity_exists(eid):
             return eid == 1
+
         mock_world.entity_exists.side_effect = entity_exists
         mock_world.has_component.return_value = True
 
@@ -64,22 +66,24 @@ class TestBehaviorSystem(unittest.TestCase):
 
         # Tick to create tree
         # Need to patch create_tree to return a proper mock with spec
-        with patch("yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree") as mock_create:
-             mock_root = MagicMock(spec=py_trees.behaviour.Behaviour)
-             mock_root.status = Status.RUNNING
-             mock_create.return_value = mock_root
+        with patch(
+            "yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree"
+        ) as mock_create:
+            mock_root = MagicMock(spec=py_trees.behaviour.Behaviour)
+            mock_root.status = Status.RUNNING
+            mock_create.return_value = mock_root
 
-             system.update(mock_world, 0.1)
-             self.assertIn(1, system.trees)
+            system.update(mock_world, 0.1)
+            self.assertIn(1, system.trees)
 
-             # Now destroy entity 1
-             mock_world.entity_exists.side_effect = lambda eid: False
+            # Now destroy entity 1
+            mock_world.entity_exists.side_effect = lambda eid: False
 
-             # Need to ensure get_components_tuple returns empty or we just rely on cleanup loop
-             # Cleanup loop iterates system.trees.keys()
+            # Need to ensure get_components_tuple returns empty or we just rely on cleanup loop
+            # Cleanup loop iterates system.trees.keys()
 
-             system.update(mock_world, 0.1)
-             self.assertNotIn(1, system.trees)
+            system.update(mock_world, 0.1)
+            self.assertNotIn(1, system.trees)
 
     def test_blackboard_dt(self):
         mock_world = MagicMock()
@@ -92,9 +96,12 @@ class TestBehaviorSystem(unittest.TestCase):
         mock_world.get_components_tuple.return_value = [(1, (ai,))]
 
         # Patch create_tree
-        with patch("yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree") as mock_create, \
-             patch("py_trees.trees.BehaviourTree") as mock_bt_cls:
-
+        with (
+            patch(
+                "yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree"
+            ) as mock_create,
+            patch("py_trees.trees.BehaviourTree") as mock_bt_cls,
+        ):
             mock_root = MagicMock(spec=py_trees.behaviour.Behaviour)
             mock_root.status = Status.RUNNING
             mock_create.return_value = mock_root
@@ -116,4 +123,4 @@ class TestBehaviorSystem(unittest.TestCase):
             dt = bb.get("dt")
             self.assertIsNotNone(dt)
             self.assertGreater(dt, 0.0)
-            self.assertLess(dt, 1.0) # Reasonable range
+            self.assertLess(dt, 1.0)  # Reasonable range

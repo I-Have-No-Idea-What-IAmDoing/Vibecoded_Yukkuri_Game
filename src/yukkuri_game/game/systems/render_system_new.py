@@ -67,12 +67,12 @@ class NewRenderSystem(System):
         backend: RenderBackend
         # Select backend: OpenGLBackend if lights_engine is available, else PygameBackend.
         if lights_engine is not None:
-             backend = OpenGLBackend(screen, lights_engine)
-             self.lights_enabled = True
+            backend = OpenGLBackend(screen, lights_engine)
+            self.lights_enabled = True
         else:
-             # PygameBackend now supports lighting natively via software
-             backend = PygameBackend(screen)
-             self.lights_enabled = True
+            # PygameBackend now supports lighting natively via software
+            backend = PygameBackend(screen)
+            self.lights_enabled = True
 
         self.renderer = Renderer(backend)
 

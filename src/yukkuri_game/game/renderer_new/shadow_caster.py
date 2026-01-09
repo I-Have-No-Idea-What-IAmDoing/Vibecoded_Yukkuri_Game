@@ -1,5 +1,6 @@
 import math
-from typing import List, Tuple, Optional
+from typing import List, Tuple
+
 
 class ShadowCaster:
     """
@@ -13,7 +14,9 @@ class ShadowCaster:
         self,
         light_pos: Tuple[float, float],
         radius: float,
-        occluders: List[Tuple[Tuple[float, float, float, float], List[Tuple[float, float]]]]
+        occluders: List[
+            Tuple[Tuple[float, float, float, float], List[Tuple[float, float]]]
+        ],
     ) -> List[Tuple[float, float]]:
         """
         Calculates the visibility polygon for a light source.
@@ -43,7 +46,7 @@ class ShadowCaster:
             (lx - r, ly - r),
             (lx + r, ly - r),
             (lx + r, ly + r),
-            (lx - r, ly + r)
+            (lx - r, ly + r),
         ]
 
         # Add bounds segments
@@ -56,8 +59,7 @@ class ShadowCaster:
         # Filter occluders using pre-calculated AABB
         for (omin_x, omax_x, omin_y, omax_y), poly in occluders:
             # AABB Overlap Check
-            if (omax_x < min_x or omin_x > max_x or
-                omax_y < min_y or omin_y > max_y):
+            if omax_x < min_x or omin_x > max_x or omax_y < min_y or omin_y > max_y:
                 continue
 
             p_len = len(poly)
@@ -123,18 +125,22 @@ class ShadowCaster:
                 # If det > 0: 0 <= u_num <= det
                 # If det < 0: det <= u_num <= 0
                 if det > 0:
-                    if u_num < 0 or u_num > det: continue
+                    if u_num < 0 or u_num > det:
+                        continue
                 else:
-                    if u_num > 0 or u_num < det: continue
+                    if u_num > 0 or u_num < det:
+                        continue
 
                 # Check 3: t must be > 0 and < closest_t
                 # t = t_num / det
                 t_num = rx * sdy - ry * sdx
 
                 if det > 0:
-                     if t_num <= 0 or t_num >= closest_t * det: continue
+                    if t_num <= 0 or t_num >= closest_t * det:
+                        continue
                 else:
-                     if t_num >= 0 or t_num <= closest_t * det: continue
+                    if t_num >= 0 or t_num <= closest_t * det:
+                        continue
 
                 # If we passed checks, this is the new closest
                 closest_t = t_num / det
@@ -143,7 +149,11 @@ class ShadowCaster:
             closest_pt = (lx + dx * closest_t, ly + dy * closest_t)
 
             # Filter close points to simplify polygon
-            if prev_pt and abs(prev_pt[0] - closest_pt[0]) < 0.1 and abs(prev_pt[1] - closest_pt[1]) < 0.1:
+            if (
+                prev_pt
+                and abs(prev_pt[0] - closest_pt[0]) < 0.1
+                and abs(prev_pt[1] - closest_pt[1]) < 0.1
+            ):
                 continue
 
             polygon_points.append(closest_pt)
