@@ -4,7 +4,8 @@ Module defining the HUD layout and UI element creation.
 
 import pygame
 import pygame_gui
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
+from ...engine.data_models import UserSettings
 from pygame_gui.elements import (
     UIPanel,
     UILabel,
@@ -356,12 +357,14 @@ class HudLayout:
             self.debug_window = None
             self.debug_text_box = None
 
-    def create_settings_window(self, current_settings: Dict[str, Any]) -> None:
+    def create_settings_window(
+        self, current_settings: Union[Dict[str, Any], UserSettings]
+    ) -> None:
         """
         Creates the settings window.
 
         Args:
-            current_settings (dict): Current settings values.
+            current_settings (Union[Dict[str, Any], UserSettings]): Current settings values.
         """
         # Close existing window if any
         if self.settings_window:
@@ -379,10 +382,24 @@ class HudLayout:
             resizable=False,
         )
 
-        audio_settings = current_settings.get("audio", {})
-        master_vol = audio_settings.get("master_volume", 1.0) * 100
-        bgm_vol = audio_settings.get("bgm_volume", 1.0) * 100
-        sfx_vol = audio_settings.get("sfx_volume", 1.0) * 100
+        if isinstance(current_settings, UserSettings):
+            master_vol = current_settings.audio.master_volume * 100
+            bgm_vol = current_settings.audio.bgm_volume * 100
+            sfx_vol = current_settings.audio.sfx_volume * 100
+
+            width = current_settings.window.width
+            height = current_settings.window.height
+            fullscreen = current_settings.window.fullscreen
+        else:
+            audio_settings = current_settings.get("audio", {})
+            master_vol = audio_settings.get("master_volume", 1.0) * 100
+            bgm_vol = audio_settings.get("bgm_volume", 1.0) * 100
+            sfx_vol = audio_settings.get("sfx_volume", 1.0) * 100
+
+            window_settings = current_settings.get("window", {})
+            width = window_settings.get("width", 1280)
+            height = window_settings.get("height", 720)
+            fullscreen = window_settings.get("fullscreen", False)
 
         # Master Volume
         UILabel(
@@ -430,10 +447,6 @@ class HudLayout:
         )
 
         # Window Settings
-        window_settings = current_settings.get("window", {})
-        width = window_settings.get("width", 1280)
-        height = window_settings.get("height", 720)
-        fullscreen = window_settings.get("fullscreen", False)
 
         current_res = f"{width}x{height}"
         resolution_options = ["1280x720", "1920x1080", "800x600"]
