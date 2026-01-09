@@ -2,7 +2,7 @@ from src.yukkuri_game.engine.application import Application
 from src.yukkuri_game.testing.driver import GameDriver
 from src.yukkuri_game.testing.environment import TestEnvironment
 from src.yukkuri_game.game.components import LightSource, Transform, FloatingText
-from src.yukkuri_game.game.renderer_new.native_light_backend import NativeLightBackend
+from src.yukkuri_game.game.renderer_new.pygame_backend import PygameBackend
 import os
 import pygame
 
@@ -71,8 +71,8 @@ def test_headless_lighting_regression():
         # 6. Verify Backend
         scene = game.scene_manager.current_scene
         assert scene.render_system.lights_enabled is True, "Lights should be enabled"
-        assert isinstance(scene.render_system.renderer.backend, NativeLightBackend), (
-            "Backend should be NativeLightBackend"
+        assert isinstance(scene.render_system.renderer.backend, PygameBackend), (
+            "Backend should be PygameBackend"
         )
 
         # 7. Verify Image Content

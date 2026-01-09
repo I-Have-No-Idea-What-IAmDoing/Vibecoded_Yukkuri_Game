@@ -88,35 +88,10 @@ class Application:
             # Initialize the dummy surface first
             self.screen = pygame.display.set_mode((width, height))
 
-            # Attempt to initialize headless lighting engine
-            try:
-                # Use our headless utils to patch the environment for EGL
-                from .headless_utils import patch_headless_lighting
-
-                with patch_headless_lighting():
-                    # Calculate native resolution based on render scale
-                    native_w = int(width * self.render_scale)
-                    native_h = int(height * self.render_scale)
-                    lightmap_w = int(native_w * 0.5)
-                    lightmap_h = int(native_h * 0.5)
-
-                    self.lights_engine = LightingEngine(
-                        screen_res=(width, height),
-                        native_res=(native_w, native_h),
-                        lightmap_res=(lightmap_w, lightmap_h),
-                        fullscreen=fullscreen,
-                    )
-                    self.lights_engine._native_res = (native_w, native_h)
-                    # self.screen is already set
-                    self.lights_engine.set_ambient(128, 128, 128, 255)
-                    logger.info("LightingEngine initialized in headless mode (EGL).")
-
-            except Exception as e:
-                logger.warning(
-                    f"Headless lighting initialization failed: {e}. Falling back to standard rendering."
-                )
-                # self.screen is already set
-                self.lights_engine = None
+            # In headless mode, we force software rendering to avoid EGL/OpenGL dependency issues in sandboxes/CI.
+            # We explicitly set lights_engine to None so that RenderSystem falls back to PygameBackend (software).
+            self.lights_engine = None
+            logger.info("Headless mode: forced software rendering (PygameBackend).")
 
         else:
             try:
