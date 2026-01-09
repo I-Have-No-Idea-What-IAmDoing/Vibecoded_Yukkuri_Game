@@ -10,7 +10,8 @@ def patch_headless_lighting():
     This allows pygame-light2d (and pygame-render) to work with a standalone EGL context
     instead of failing to create a context from a dummy SDL window.
     """
-    original_create_context = moderngl.create_context
+    # Capture the original function
+    _original_create_context = moderngl.create_context
 
     # Check if we are already patched to avoid recursion or double patching
     if hasattr(pygame.display.set_mode, "_is_mock"):
@@ -18,9 +19,10 @@ def patch_headless_lighting():
     else:
         _real_pygame_set_mode = pygame.display.set_mode
 
-    def mocked_create_context(*args, **kwargs):
+    # Use default argument to bind the variable, avoiding UnboundLocalError
+    def mocked_create_context(*args, real_ctx=_original_create_context, **kwargs):
         # Force standalone EGL context
-        return original_create_context(standalone=True, backend="egl")
+        return real_ctx(standalone=True, backend="egl")
 
     def mocked_set_mode(size, flags=0, depth=0, display=0, vsync=0):
         # Remove OPENGL and DOUBLEBUF flags to prevent SDL error with dummy driver
@@ -40,5 +42,5 @@ def patch_headless_lighting():
         yield
     finally:
         # Restore originals
-        moderngl.create_context = original_create_context
+        moderngl.create_context = _original_create_context
         pygame.display.set_mode = _real_pygame_set_mode

@@ -29,7 +29,7 @@ class Light2DBackend(RenderBackend):
         self.texture_cache_max_size = texture_cache_max_size
 
         self.font_cache = {}
-        self.shadow_surface_cache = {}  # Cache for Pygame Surfaces for shadows (not Textures, to avoid recreation)
+        self.shadow_surface_cache = {}  # Cache for Pygame Surfaces for shadows
         self.shadow_texture_cache = OrderedDict()  # Cache for Shadow Textures
 
         # State tracking for lights and occluders
@@ -46,6 +46,9 @@ class Light2DBackend(RenderBackend):
 
         self._clear_color = (0, 0, 0)
         self.screen_rect = self.screen.get_rect()
+
+        # Transient textures to release at end of frame
+        self.transient_textures = []
 
     def clear(self, color: Tuple[int, int, int]) -> None:
         self._clear_color = color
@@ -80,11 +83,14 @@ class Light2DBackend(RenderBackend):
             del self.active_hulls[eid]
 
         # Rebuild engine hull list (O(M))
-        # Note: If hulls didn't change, we could skip this, but detecting that is harder.
-        # Given user feedback, rebuilding is better than removing individually in loop.
         self.engine.hulls[:] = list(self.active_hulls.values())
 
         self.engine.render()
+
+        # Release transient textures
+        for tex in self.transient_textures:
+            tex.release()
+        self.transient_textures.clear()
 
     def _get_texture(self, surface: pygame.Surface, cache_key: Any) -> Any:
         if cache_key in self.texture_cache:
@@ -133,6 +139,7 @@ class Light2DBackend(RenderBackend):
             surf.set_alpha(cmd.alpha)
 
         tex = self.engine.surface_to_texture(surf)  # One-off texture
+
         dest_rect = surf.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
 
         self.engine.render_texture(
@@ -141,7 +148,9 @@ class Light2DBackend(RenderBackend):
             dest_rect,
             pygame.Rect(0, 0, tex.width, tex.height),
         )
-        tex.release()  # Release immediately as text changes often
+
+        # Add to transient list to be released after render
+        self.transient_textures.append(tex)
 
     def draw_shadow(self, cmd: ShadowCommand) -> None:
         # Use cache for shadow textures based on radius and color
@@ -190,15 +199,23 @@ class Light2DBackend(RenderBackend):
         # Snap position to int to match sprite rendering (avoid jitter)
         pos = (int(cmd.position[0]), int(cmd.position[1]))
 
+        # Normalize color (0-255 -> 0.0-1.0) for point lights
+        normalized_color = (
+            cmd.color[0] / 255.0,
+            cmd.color[1] / 255.0,
+            cmd.color[2] / 255.0,
+            1.0 # Alpha
+        )
+
         if cmd.entity_id in self.active_lights:
             l = self.active_lights[cmd.entity_id]
             l.position = pos
             l.radius = cmd.radius
             l.power = cmd.intensity
-            l.set_color(*cmd.color)
+            l.set_color(*normalized_color)
         else:
             l = pl2d.PointLight(pos, cmd.intensity, cmd.radius)
-            l.set_color(*cmd.color)
+            l.set_color(*normalized_color)
             self.engine.lights.append(l)
             self.active_lights[cmd.entity_id] = l
 
@@ -219,11 +236,6 @@ class Light2DBackend(RenderBackend):
         if cmd.static:
             vertices_tuple = tuple(tuple(v) for v in cmd.vertices)
             if cmd.entity_id in self.static_hull_vertices:
-                # Check if changed (shouldn't for static, but maybe camera moved so screen coords changed?)
-                # Wait, screen coordinates WILL change if camera moves.
-                # So "static" refers to world space. But we receive screen space vertices.
-                # Thus, we must recreate the hull if screen coordinates changed.
-                # However, recalculating if vertices changed is still good.
                 if self.static_hull_vertices[cmd.entity_id] == vertices_tuple:
                     # No change, reuse existing hull
                     return
@@ -237,7 +249,14 @@ class Light2DBackend(RenderBackend):
         self.active_hulls[cmd.entity_id] = h
 
     def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
-        self.engine.set_ambient(*color)
+        # Normalize ambient light color
+        normalized_ambient = (
+            color[0] / 255.0,
+            color[1] / 255.0,
+            color[2] / 255.0,
+            color[3] / 255.0
+        )
+        self.engine.set_ambient(*normalized_ambient)
 
     def draw_line(
         self,
