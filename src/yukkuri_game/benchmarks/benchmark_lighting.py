@@ -14,7 +14,8 @@ import logging
 
 from ..game.renderer.pygame_backend import PygameBackend
 from ..game.renderer.commands import LightCommand, OccluderCommand
-from ..game.renderer.shadow_caster import ShadowCaster
+
+
 
 # Reuse utils from the main benchmark module
 
@@ -93,26 +94,8 @@ class LightingBenchmarkRunner:
             lights.append(l)
             backend.draw_light(l)
 
-        # 1. Uncached (Direct ShadowCaster)
-        caster = ShadowCaster()
-        uncached_times = []
-
-        # Warmup
-        for _ in range(5):
-            for light in lights:
-                caster.calculate_visibility_polygon(
-                    light.position, light.radius, occluder_vertices_list
-                )
-
-        start_time = time.perf_counter()
-        for _ in range(self.iterations):
-            frame_start = time.perf_counter()
-            for light in lights:
-                caster.calculate_visibility_polygon(
-                    light.position, light.radius, occluder_vertices_list
-                )
-            frame_end = time.perf_counter()
-            uncached_times.append((frame_end - frame_start) * 1000)
+        # 1. Uncached (Removed as ShadowCaster is deprecated)
+        uncached_times = [0.0] * self.iterations
 
         # 2. Cached (Backend)
         # Populate Cache

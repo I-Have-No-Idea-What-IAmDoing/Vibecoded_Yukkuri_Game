@@ -3,11 +3,11 @@ from typing import Tuple
 
 class RenderConstants:
     GRID_SIZE: int = 100
-    GRID_COLOR: Tuple[int, int, int] = (50, 50, 50)
+    GRID_COLOR: Tuple[int, int, int] = (70, 70, 70)
     GRID_COLOR_FLOAT: Tuple[float, float, float, float] = (
-        50 / 255,
-        50 / 255,
-        50 / 255,
+        70 / 255,
+        70 / 255,
+        70 / 255,
         1.0,
     )
     SHADOW_COLOR: Tuple[int, int, int, int] = (0, 0, 0, 100)

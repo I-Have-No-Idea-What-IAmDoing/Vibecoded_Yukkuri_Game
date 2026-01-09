@@ -59,9 +59,9 @@ class GameLoader:
         money = context.data.get("money", 1000)
         # Default start time to Morning (08:00) if not specified or 0
         # 08:00 = 8/24 * 600 = 200.0
-        time_elapsed = context.data.get("time", 200.0)
+        time_elapsed = context.data.get("time", 600.0)
         if time_elapsed == 0.0:
-            time_elapsed = 200.0
+            time_elapsed = 600.0
 
         economy_service = EconomyService(initial_money=money)
         self.world.services.register(economy_service, EconomyService)
