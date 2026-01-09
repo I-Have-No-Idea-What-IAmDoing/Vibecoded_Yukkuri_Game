@@ -8,7 +8,7 @@ sys.modules["pygame_light2d.engine"] = MagicMock()
 sys.modules["moderngl"] = MagicMock()
 
 from src.yukkuri_game.game.systems.render_system_new import NewRenderSystem
-from src.yukkuri_game.game.renderer_new.native_light_backend import NativeLightBackend
+from src.yukkuri_game.game.renderer_new.opengl_backend import OpenGLBackend
 from src.yukkuri_game.game.components import Transform, Occluder, Sprite, PhysicsBody
 from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.engine.resource_manager import ResourceManager
@@ -35,8 +35,18 @@ def test_occluder_geometry_generation():
 
     system = NewRenderSystem(screen, world, lights_engine=lights_engine)
 
-    # Ensure backend is NativeLightBackend (updated from Light2DBackend)
-    assert isinstance(system.renderer.backend, NativeLightBackend)
+
+    # Mock Hull constructor to store vertices
+    def mock_hull_init(vertices):
+        m = MagicMock()
+        m.vertices = vertices
+        return m
+
+    import pygame_light2d
+    pygame_light2d.Hull.side_effect = mock_hull_init
+
+    # Ensure backend is OpenGLBackend
+    assert isinstance(system.renderer.backend, OpenGLBackend)
     backend = system.renderer.backend
 
     # Add entity with Occluder
@@ -49,11 +59,11 @@ def test_occluder_geometry_generation():
     system.update(world, 1.0)
 
     # Verify occluder was submitted to backend
-    # NativeLightBackend stores occluders in self.occluders list
-    # Each item is (aabb, vertices, entity_id, static)
-    assert len(backend.occluders) == 1
+    # OpenGLBackend stores hulls in active_hulls
+    assert len(backend.active_hulls) == 1
 
-    aabb, vertices, eid, static = backend.occluders[0]
+    hull = backend.active_hulls[ent]
+    vertices = hull.vertices
     # Vertices should be transformed to screen space
     # Camera at (0,0) (default), scale 1. Entity at (100, 100).
     # Occluder local points + entity pos
