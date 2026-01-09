@@ -9,8 +9,8 @@ The rendering pipeline is split into three main layers:
 1.  **Render System (`game/systems/render_system.py`)**: An ECS system that queries the world for visible entities, interpolates their positions, and submits "Render Commands" to the Renderer.
 2.  **Renderer (`game/renderer/renderer.py`)**: A command aggregator that collects, sorts (by layer and Z-index), and dispatches commands to a Backend.
 3.  **Backends (`game/renderer/backend.py`)**: Low-level implementations that perform the actual drawing.
-    *   `PygameBackend`: Uses standard Pygame surface operations. Supports software lighting.
-    *   `OpenGLBackend`: Uses `pygame_light2d` for hardware-accelerated rendering and advanced lighting/shadows.
+    *   `PygameBackend`: Uses standard Pygame surface operations. Supports software lighting. (Default)
+    *   `OpenGLBackend`: Uses `pygame_light2d` for hardware-accelerated rendering. **(DEPRECATED/BROKEN)**
 
 ## Render Commands
 

@@ -66,9 +66,14 @@ class RenderSystem(System):
 
         backend: RenderBackend
         # Select backend: OpenGLBackend if lights_engine is available, else PygameBackend.
+        # TEMPORARY: Force PygameBackend as OpenGL backend is currently broken.
         if lights_engine is not None:
-            backend = OpenGLBackend(screen, lights_engine)
-            self.lights_enabled = True
+             # backend = OpenGLBackend(screen, lights_engine)
+             # self.lights_enabled = True
+             
+             # Fallback to software renderer even if lights engine is provided
+             backend = PygameBackend(screen)
+             self.lights_enabled = True # PygameBackend supports software lighting
         else:
             # PygameBackend now supports lighting natively via software
             backend = PygameBackend(screen)
@@ -107,7 +112,7 @@ class RenderSystem(System):
         self.camera.set_aspect_correction(correction_x, correction_y)
         self.camera.update_matrices(sw, sh, alpha)
 
-        self.renderer.clear_screen((30, 30, 30))  # Dark background
+        self.renderer.clear_screen((50, 50, 50))  # Dark background, but not pitch black
 
         # 1. Grid (Optional, maybe make it a command or specialized draw)
         self._draw_grid(sw, sh)
