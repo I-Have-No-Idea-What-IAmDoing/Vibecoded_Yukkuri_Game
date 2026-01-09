@@ -89,8 +89,8 @@ def test_image_comparison_failure(driver, tmp_path):
     # We need diff > 1%.
     # Let's spawn many entities in different spots.
 
-    for i in range(20):
-        driver.create_yukkuri("reimu", 100 + i * 30, 100 + i * 20)
+    for i in range(100):
+        driver.create_yukkuri("reimu", 100 + (i % 20) * 30, 100 + (i // 20) * 30)
 
     driver.run_for(0.5)
 
