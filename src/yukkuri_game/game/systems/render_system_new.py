@@ -28,7 +28,7 @@ from ..surface_cache import SurfaceCache
 from ..renderer_new.renderer import Renderer
 from ..renderer_new.backend import RenderBackend
 from ..renderer_new.pygame_backend import PygameBackend
-from ..renderer_new.native_light_backend import NativeLightBackend
+from ..renderer_new.opengl_backend import OpenGLBackend
 from ..renderer_new.geometry_utils import GeometryUtils
 from ..renderer_new.commands import (
     SpriteCommand,
@@ -65,15 +65,14 @@ class NewRenderSystem(System):
         self.surface_cache = SurfaceCache(self.rm)
 
         backend: RenderBackend
-        # Use NativeLightBackend if lights are requested (or even if not, to unify?)
-        # For now, if lights_engine is passed (implying we want lights), use NativeLightBackend.
-        # We ignore the actual lights_engine object as we are replacing it.
-        if lights_engine is not None or force_lighting:
-             backend = NativeLightBackend(screen)
+        # Select backend: OpenGLBackend if lights_engine is available, else PygameBackend.
+        if lights_engine is not None:
+             backend = OpenGLBackend(screen, lights_engine)
              self.lights_enabled = True
         else:
+             # PygameBackend now supports lighting natively via software
              backend = PygameBackend(screen)
-             self.lights_enabled = False
+             self.lights_enabled = True
 
         self.renderer = Renderer(backend)
 
@@ -239,7 +238,7 @@ class NewRenderSystem(System):
                 # Apply vertical offset
                 sprite_sy = screen_pos[1] - (visual.vertical_offset * self.camera.zoom)
 
-                # Construct cache key for texture cache in Light2DBackend
+                # Construct cache key for texture cache in OpenGLBackend
                 # Must match what uniquely identifies the visual appearance
                 cache_key = (
                     sprite.image_name,

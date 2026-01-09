@@ -13,7 +13,7 @@ import csv
 from typing import Dict, Any, List, Optional
 import logging
 
-from ..game.renderer_new.native_light_backend import NativeLightBackend
+from ..game.renderer_new.pygame_backend import PygameBackend
 from ..game.renderer_new.commands import LightCommand, OccluderCommand
 from ..game.renderer_new.shadow_caster import ShadowCaster
 
@@ -53,7 +53,7 @@ class LightingBenchmarkRunner:
         pygame.init()
         # Dummy screen
         screen = pygame.Surface((1920, 1080))
-        backend = NativeLightBackend(screen)
+        backend = PygameBackend(screen)
 
         random.seed(self.seed)
 

@@ -12,8 +12,8 @@ from .commands import (
 )
 
 
-class Light2DBackend(RenderBackend):
-    """Backend using pygame-light2d."""
+class OpenGLBackend(RenderBackend):
+    """Backend using pygame-light2d (OpenGL)."""
 
     def __init__(
         self,
