@@ -12,9 +12,9 @@ import csv
 from typing import Dict, Any
 import logging
 
-from ..game.renderer_new.pygame_backend import PygameBackend
-from ..game.renderer_new.commands import LightCommand, OccluderCommand
-from ..game.renderer_new.shadow_caster import ShadowCaster
+from ..game.renderer.pygame_backend import PygameBackend
+from ..game.renderer.commands import LightCommand, OccluderCommand
+from ..game.renderer.shadow_caster import ShadowCaster
 
 # Reuse utils from the main benchmark module
 

@@ -2,7 +2,7 @@ from src.yukkuri_game.engine.application import Application
 from src.yukkuri_game.testing.driver import GameDriver
 from src.yukkuri_game.testing.environment import TestEnvironment
 from src.yukkuri_game.game.components import LightSource, Transform, FloatingText
-from src.yukkuri_game.game.renderer_new.pygame_backend import PygameBackend
+from src.yukkuri_game.game.renderer.pygame_backend import PygameBackend
 import os
 import pygame
 

@@ -7,8 +7,8 @@ sys.modules["pygame_light2d"] = MagicMock()
 sys.modules["pygame_light2d.engine"] = MagicMock()
 sys.modules["moderngl"] = MagicMock()
 
-from src.yukkuri_game.game.systems.render_system_new import NewRenderSystem
-from src.yukkuri_game.game.renderer_new.opengl_backend import OpenGLBackend
+from src.yukkuri_game.game.systems.render_system import RenderSystem
+from src.yukkuri_game.game.renderer.opengl_backend import OpenGLBackend
 from src.yukkuri_game.game.components import Transform, Occluder
 from src.yukkuri_game.engine.ecs import World
 from src.yukkuri_game.engine.resource_manager import ResourceManager
@@ -33,7 +33,7 @@ def test_occluder_geometry_generation():
     # Set _native_res to screen size for test
     lights_engine._native_res = (800, 600)
 
-    system = NewRenderSystem(screen, world, lights_engine=lights_engine)
+    system = RenderSystem(screen, world, lights_engine=lights_engine)
 
     # Mock Hull constructor to store vertices
     def mock_hull_init(vertices):

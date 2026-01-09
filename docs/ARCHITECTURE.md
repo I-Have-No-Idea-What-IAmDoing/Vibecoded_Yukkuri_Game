@@ -49,6 +49,7 @@ This document outlines the architecture of the Yukkuri Game Engine, focusing on 
 
 - `engine/`: Core engine systems (Application, ECS, Input, Events, Audio, Serializer).
 - `game/`: Game-specific logic (Components, Systems, Prefabs).
+- `game/renderer/`: Command-based renderer implementation (Pygame and OpenGL backends).
 - `scenes/`: Scene implementations.
 - `assets/`: Game assets.
 

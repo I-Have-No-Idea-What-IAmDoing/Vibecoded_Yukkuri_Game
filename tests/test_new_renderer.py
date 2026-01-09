@@ -1,7 +1,7 @@
 import pygame
-from src.yukkuri_game.game.renderer_new.commands import TextCommand
-from src.yukkuri_game.game.renderer_new.renderer import Renderer
-from src.yukkuri_game.game.renderer_new.pygame_backend import PygameBackend
+from src.yukkuri_game.game.renderer.commands import TextCommand
+from src.yukkuri_game.game.renderer.renderer import Renderer
+from src.yukkuri_game.game.renderer.pygame_backend import PygameBackend
 
 
 def test_renderer_initialization():
