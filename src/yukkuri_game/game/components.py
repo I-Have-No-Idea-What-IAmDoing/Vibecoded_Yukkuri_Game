@@ -257,6 +257,10 @@ class LightSource:
     color: Tuple[int, int, int] = (255, 255, 220)
     intensity: float = 1.0
     flicker_style: FlickerStyle = FlickerStyle.NONE
+    # If True, enables soft shadow rendering (blurred edges)
+    soft_shadows: bool = True
+    # If True, the light and its shadows are cached (for static lights)
+    static: bool = False
     # Internal state for flickering
     _flicker_offset: float = 0.0
 

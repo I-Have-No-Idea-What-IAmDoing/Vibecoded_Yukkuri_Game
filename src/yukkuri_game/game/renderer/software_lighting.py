@@ -69,6 +69,10 @@ class SoftwareLightingEngine:
         # Caches
         self.light_texture_cache: Dict[tuple, pygame.Surface] = {}
         
+        # Static light cache: entity_id -> (light_surface, cache_key)
+        # Cache key includes params that would invalidate the cache
+        self.static_light_cache: Dict[int, Tuple[pygame.Surface, tuple]] = {}
+        
         # Surface pool for light rendering surfaces
         self.surface_pool = SurfacePool()
         
@@ -104,9 +108,19 @@ class SoftwareLightingEngine:
                     self.grid[cell] = []
                 self.grid[cell].append((aabb, vertices))
 
-    def render_light(self, position: Tuple[float, float], radius: float, color: Tuple[int, int, int], intensity: float):
+    def render_light(self, position: Tuple[float, float], radius: float, color: Tuple[int, int, int], intensity: float,
+                      soft_shadows: bool = True, static: bool = False, entity_id: int = -1):
         """
         Renders a single light with shadows onto the lightmap.
+        
+        Args:
+            position: Light position in screen space.
+            radius: Light radius.
+            color: Light color (RGB).
+            intensity: Light intensity multiplier.
+            soft_shadows: If True, blur shadow edges for a softer look.
+            static: If True, cache the light+shadow surface for reuse.
+            entity_id: Unique ID for caching static lights.
         """
         lx, ly = position
         
@@ -115,16 +129,38 @@ class SoftwareLightingEngine:
         sx = int(lx * self.scale)
         sy = int(ly * self.scale)
         sr = radius * self.scale
+        sr_key = int(max(1, sr))
+        surf_size = sr_key * 2
+        
+        # Static light caching: check if we have a valid cached surface
+        if static and entity_id >= 0:
+            cache_key = (sr_key, color, int(intensity * 100), soft_shadows)
+            if entity_id in self.static_light_cache:
+                cached_surf, cached_key = self.static_light_cache[entity_id]
+                if cached_key == cache_key:
+                    # Cache hit! Just blit the cached surface at current position
+                    dest_rect = cached_surf.get_rect(center=(sx, sy))
+                    self.lightmap.blit(cached_surf, dest_rect, special_flags=pygame.BLEND_ADD)
+                    return
         
         # Query Occluders
         relevant_occluders = self._query_grid(lx, ly, radius)
         
         # Render Light with Shadow Volumes
-        self._draw_light_shadow_volume(sx, sy, sr, lx, ly, radius, color, intensity, relevant_occluders)
+        light_surf = self._draw_light_shadow_volume(sx, sy, sr, lx, ly, radius, color, intensity, relevant_occluders, soft_shadows)
+        
+        # Cache the result for static lights
+        if static and entity_id >= 0 and light_surf is not None:
+            cache_key = (sr_key, color, int(intensity * 100), soft_shadows)
+            # Make a copy for the cache (the original goes back to the pool)
+            cached_copy = light_surf.copy()
+            self.static_light_cache[entity_id] = (cached_copy, cache_key)
 
-    def _draw_light_shadow_volume(self, sx: int, sy: int, sr: float, lx: float, ly: float, radius: float, color: Tuple[int, int, int], intensity: float, occluders: List):
+    def _draw_light_shadow_volume(self, sx: int, sy: int, sr: float, lx: float, ly: float, radius: float, color: Tuple[int, int, int], intensity: float, occluders: List, soft_shadows: bool = True) -> pygame.Surface:
         """
         Draws the light texture and applies subtractive shadow volumes.
+        Supports soft shadows via low-res blur.
+        Returns the rendered light surface for potential caching.
         """
         sr_key = int(max(1, sr))
         surf_size = sr_key * 2
@@ -144,7 +180,9 @@ class SoftwareLightingEngine:
         
         # Draw Shadow Volumes (Subtractive)
         if occluders:
-            if HAS_NUMPY:
+            if soft_shadows:
+                self._draw_soft_shadows(light_surf, sr_key, lx, ly, sx, sy, radius, occluders)
+            elif HAS_NUMPY:
                 self._draw_shadow_volumes_numpy(light_surf, sr_key, lx, ly, sx, sy, radius, occluders)
             else:
                 self._draw_shadow_volumes_optimized(light_surf, sr_key, lx, ly, sx, sy, radius, occluders)
@@ -153,8 +191,101 @@ class SoftwareLightingEngine:
         dest_rect = light_surf.get_rect(center=(sx, sy))
         self.lightmap.blit(light_surf, dest_rect, special_flags=pygame.BLEND_ADD)
         
+        # Return surface before releasing to pool (for caching)
+        result = light_surf
+        
         # Release surface back to pool
         self.surface_pool.release(light_surf)
+        
+        return result
+
+    def _draw_soft_shadows(self, light_surf: pygame.Surface, sr_key: int, lx: float, ly: float, sx: int, sy: int, radius: float, occluders: List):
+        """
+        Draws soft shadows by rendering hard shadows to a downscaled surface,
+        then scaling back up with bilinear filtering to create blur.
+        Uses multiplicative blending for proper shadow darkening.
+        """
+        surf_size = sr_key * 2
+        
+        # Mild downscale (3x reduction = smooth blur without pixelation)
+        downscale = 3
+        low_res_size = max(8, surf_size // downscale)
+        
+        # Create low-res shadow mask (white = lit, black = shadow)
+        shadow_mask = pygame.Surface((low_res_size, low_res_size))
+        shadow_mask.fill((255, 255, 255))  # Start fully lit (white)
+        
+        # Transform params for low-res space
+        low_res_scale = low_res_size / surf_size
+        hx = low_res_size / 2.0
+        hy = low_res_size / 2.0
+        extrude_dist = radius * 2.0
+        scale = self.scale * low_res_scale
+        sx_scaled = sx * low_res_scale
+        sy_scaled = sy * low_res_scale
+        
+        # Draw shadow quads to low-res surface (black = shadow)
+        for _, vertices in occluders:
+            n = len(vertices)
+            if n < 2:
+                continue
+            for i in range(n):
+                p1 = vertices[i]
+                p2 = vertices[(i + 1) % n]
+                
+                rel_x1 = p1[0] - lx
+                rel_y1 = p1[1] - ly
+                rel_x2 = p2[0] - lx
+                rel_y2 = p2[1] - ly
+                
+                dist1_sq = rel_x1 * rel_x1 + rel_y1 * rel_y1
+                dist2_sq = rel_x2 * rel_x2 + rel_y2 * rel_y2
+                
+                if dist1_sq < 0.000001:
+                    dist1_sq = 0.000001
+                if dist2_sq < 0.000001:
+                    dist2_sq = 0.000001
+                    
+                inv_dist1 = 1.0 / (dist1_sq ** 0.5)
+                inv_dist2 = 1.0 / (dist2_sq ** 0.5)
+                
+                ex1_x = rel_x1 * inv_dist1 * extrude_dist
+                ex1_y = rel_y1 * inv_dist1 * extrude_dist
+                ex2_x = rel_x2 * inv_dist2 * extrude_dist
+                ex2_y = rel_y2 * inv_dist2 * extrude_dist
+                
+                # Shadow bias: push shadow start points slightly away from occluder
+                # This prevents shadow acne (self-shadowing artifacts)
+                bias = 1.0  # pixels
+                bias1_x = rel_x1 * inv_dist1 * bias
+                bias1_y = rel_y1 * inv_dist1 * bias
+                bias2_x = rel_x2 * inv_dist2 * bias
+                bias2_y = rel_y2 * inv_dist2 * bias
+                
+                # Near points (with bias applied)
+                q0_x = ((p1[0] + bias1_x) * scale - sx_scaled) + hx
+                q0_y = ((p1[1] + bias1_y) * scale - sy_scaled) + hy
+                q1_x = ((p2[0] + bias2_x) * scale - sx_scaled) + hx
+                q1_y = ((p2[1] + bias2_y) * scale - sy_scaled) + hy
+                # Far points (extruded)
+                q2_x = ((p2[0] + ex2_x) * scale - sx_scaled) + hx
+                q2_y = ((p2[1] + ex2_y) * scale - sy_scaled) + hy
+                q3_x = ((p1[0] + ex1_x) * scale - sx_scaled) + hx
+                q3_y = ((p1[1] + ex1_y) * scale - sy_scaled) + hy
+                
+                # Draw BLACK shadow (will become dark after blur)
+                pygame.draw.polygon(shadow_mask, (0, 0, 0), [
+                    (q0_x, q0_y), (q1_x, q1_y), (q2_x, q2_y), (q3_x, q3_y)
+                ])
+        
+        # Single-pass blur via smoothscale
+        blurred_mask = pygame.transform.smoothscale(shadow_mask, (surf_size, surf_size))
+        
+        # Apply shadow mask via multiplicative blend
+        # White (255,255,255) * light = light (no shadow)
+        # Black (0,0,0) * light = black (full shadow)
+        # Gray values = partial shadow (soft edges)
+        light_surf.blit(blurred_mask, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
 
     def _draw_shadow_volumes_optimized(self, light_surf: pygame.Surface, sr_key: int, lx: float, ly: float, sx: int, sy: int, radius: float, occluders: List):
         """

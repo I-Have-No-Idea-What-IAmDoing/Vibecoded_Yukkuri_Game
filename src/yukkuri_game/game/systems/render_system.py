@@ -305,6 +305,8 @@ class RenderSystem(System):
                         color=color,
                         intensity=intensity,
                         flicker_style=light.flicker_style,
+                        soft_shadows=light.soft_shadows,
+                        static=light.static,
                     )
                 )
 

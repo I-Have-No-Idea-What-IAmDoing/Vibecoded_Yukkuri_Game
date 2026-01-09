@@ -82,7 +82,8 @@ class PygameBackend(RenderBackend):
     def draw_light(self, cmd: LightCommand) -> None:
         # Submit directly to engine
         self.lighting_engine.render_light(
-            cmd.position, cmd.radius, cmd.color, cmd.intensity
+            cmd.position, cmd.radius, cmd.color, cmd.intensity,
+            soft_shadows=cmd.soft_shadows, static=cmd.static, entity_id=cmd.entity_id
         )
 
     def draw_occluder(self, cmd: OccluderCommand) -> None:

@@ -50,6 +50,8 @@ class LightCommand(RenderCommand):
     color: Tuple[int, int, int, int]
     intensity: float
     flicker_style: Optional[FlickerStyle] = None
+    soft_shadows: bool = True
+    static: bool = False
 
 
 @dataclass
