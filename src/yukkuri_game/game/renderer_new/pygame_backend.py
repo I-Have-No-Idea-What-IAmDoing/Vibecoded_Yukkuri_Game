@@ -118,10 +118,11 @@ class PygameBackend(RenderBackend):
         dest_rect = cmd.image.get_rect()
         dest_rect.center = (int(cmd.position[0]), int(cmd.position[1]))
 
+        image_to_blit = cmd.image
         if cmd.alpha < 255:
-            cmd.image.set_alpha(cmd.alpha)
-
-        self.screen.blit(cmd.image, dest_rect)
+            image_to_blit = cmd.image.copy()
+            image_to_blit.set_alpha(cmd.alpha)
+        self.screen.blit(image_to_blit, dest_rect)
 
         if cmd.selected:
             pygame.draw.rect(self.screen, (255, 255, 0), dest_rect.inflate(4, 4), 2)
