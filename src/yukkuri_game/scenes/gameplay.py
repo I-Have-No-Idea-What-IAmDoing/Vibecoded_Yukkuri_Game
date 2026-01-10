@@ -389,7 +389,7 @@ class GameplayScene(Scene):
                     if hasattr(self, "hud_texture"):
                         try:
                             self.hud_texture.release()
-                        except:
+                        except Exception:
                             pass
                         del self.hud_texture
                 else:

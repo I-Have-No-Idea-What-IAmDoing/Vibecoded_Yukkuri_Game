@@ -67,8 +67,8 @@ class TestFamilySystem:
         self.system.check_interval = 0.0
         self.system.update(self.world, 1.0)
 
-        emo1 = self.world.get_component(e1, EmotionalState)
-        emo2 = self.world.get_component(e2, EmotionalState)
+        self.world.get_component(e1, EmotionalState)
+        self.world.get_component(e2, EmotionalState)
 
         # If FamilySystem modifies EmotionalState directly now (since YukkuriStats doesn't have it)
         # We assume FamilySystem was updated or needs to be checked.

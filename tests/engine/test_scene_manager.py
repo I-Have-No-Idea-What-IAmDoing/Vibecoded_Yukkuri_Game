@@ -45,7 +45,7 @@ class SceneWithStructInjection(MockScene):
     pass
 
 
-from typing import ClassVar
+from typing import ClassVar  # noqa: E402
 
 
 class MyStruct(msgspec.Struct):

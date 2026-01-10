@@ -5,14 +5,14 @@ from unittest.mock import MagicMock
 # Mock pygame_light2d before importing systems
 sys.modules["pygame_light2d"] = MagicMock()
 sys.modules["pygame_light2d.engine"] = MagicMock()
-sys.modules["moderngl"] = MagicMock()
+sys.modules["moderngl"] = MagicMock()  # noqa: E402
 
-from src.yukkuri_game.game.systems.render_system import RenderSystem
-from src.yukkuri_game.game.renderer.opengl_backend import OpenGLBackend
-from src.yukkuri_game.game.components import Transform, Occluder
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.engine.resource_manager import ResourceManager
-from src.yukkuri_game.game.camera import Camera
+from src.yukkuri_game.game.systems.render_system import RenderSystem  # noqa: E402
+from src.yukkuri_game.game.renderer.opengl_backend import OpenGLBackend  # noqa: E402
+from src.yukkuri_game.game.components import Transform, Occluder  # noqa: E402
+from src.yukkuri_game.engine.ecs import World  # noqa: E402
+from src.yukkuri_game.engine.resource_manager import ResourceManager  # noqa: E402
+from src.yukkuri_game.game.camera import Camera  # noqa: E402
 
 
 def test_occluder_geometry_generation():

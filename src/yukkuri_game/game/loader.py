@@ -4,6 +4,7 @@ Responsible for initializing and registering game services and systems.
 """
 
 import inspect
+import pygame_gui
 from typing import TYPE_CHECKING, Type
 
 from ..engine.ecs import World
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     from ..config import GameConfig
     from ..engine.application import Application
     from ..engine.scene import SceneContext
+    from ..game.input_system import InputSystem
 
 
 class GameLoader:

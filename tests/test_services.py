@@ -69,7 +69,6 @@ def persistence_world() -> MagicMock:
     """
     Creates a mock World for persistence tests.
     """
-    world = World()
     # Mock get_all_entities to return empty list initially
     # But we can't easily mock world methods unless we mock the world object
     # So let's use a mock world

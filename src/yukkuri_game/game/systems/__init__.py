@@ -5,4 +5,4 @@ This includes:
 - Simulation system (AI, stats)
 """
 
-from .sector_system import SectorMap
+from .sector_system import SectorMap as SectorMap

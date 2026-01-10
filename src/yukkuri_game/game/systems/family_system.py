@@ -15,6 +15,7 @@ from ..yukkuri_components import (
     EmotionalState,
 )
 from ..systems.sector_system import SectorMap
+from ..components import Transform
 
 
 class FamilySystem(System):

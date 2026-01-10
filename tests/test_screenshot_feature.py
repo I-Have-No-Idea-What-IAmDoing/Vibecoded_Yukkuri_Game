@@ -40,7 +40,7 @@ class TestScreenshot(unittest.TestCase):
             patch("yukkuri_game.engine.application.ResourceManager") as mock_res_mgr,
             patch(
                 "yukkuri_game.engine.application.LightingEngine"
-            ) as mock_lighting_engine,
+            ),
         ):
             # Setup ResourceManager mock to prevent loading real data
             mock_res_mgr.return_value.load_all_data.return_value = None
@@ -58,7 +58,7 @@ class TestScreenshot(unittest.TestCase):
                 patch("yukkuri_game.scenes.gameplay.AudioManager"),
                 patch("yukkuri_game.scenes.gameplay.PhysicsSystem"),
                 patch("yukkuri_game.scenes.gameplay.GameService"),
-                patch("yukkuri_game.scenes.gameplay.GameLoader") as mock_loader,
+                patch("yukkuri_game.scenes.gameplay.GameLoader"),
             ):
                 # We need to ensure loader instance returns mocked systems if needed
                 # But take_screenshot only uses pygame.image.save and os, which are patched at module level
@@ -109,7 +109,7 @@ class TestScreenshot(unittest.TestCase):
             patch("yukkuri_game.engine.application.ResourceManager") as mock_res_mgr,
             patch(
                 "yukkuri_game.engine.application.LightingEngine"
-            ) as mock_lighting_engine,
+            ),
         ):
             mock_res_mgr.return_value.load_all_data.return_value = None
 
@@ -124,7 +124,7 @@ class TestScreenshot(unittest.TestCase):
                 patch("yukkuri_game.scenes.gameplay.AudioManager"),
                 patch("yukkuri_game.scenes.gameplay.PhysicsSystem"),
                 patch("yukkuri_game.scenes.gameplay.GameService"),
-                patch("yukkuri_game.scenes.gameplay.GameLoader") as mock_loader,
+                patch("yukkuri_game.scenes.gameplay.GameLoader"),
             ):
                 scene = GameplayScene(game)
                 scene.take_screenshot()

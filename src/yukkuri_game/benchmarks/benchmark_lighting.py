@@ -81,7 +81,7 @@ class LightingBenchmarkRunner:
         # Create Lights
         lights = []
         for i in range(self.num_lights):
-            l = LightCommand(
+            light_cmd = LightCommand(
                 layer=1,
                 z_index=0,
                 entity_id=i + 1000,
@@ -90,8 +90,8 @@ class LightingBenchmarkRunner:
                 color=(255, 200, 150, 255),
                 intensity=1.0,
             )
-            lights.append(l)
-            backend.draw_light(l)
+            lights.append(light_cmd)
+            backend.draw_light(light_cmd)
 
         # 1. Uncached (Removed as ShadowCaster is deprecated)
         uncached_times = [0.0] * self.iterations
@@ -102,7 +102,7 @@ class LightingBenchmarkRunner:
 
         cached_times = []
 
-        start_time = time.perf_counter()
+
         for _ in range(self.iterations):
             frame_start = time.perf_counter()
 
@@ -116,8 +116,8 @@ class LightingBenchmarkRunner:
                     )
                 )
 
-            for l in lights:
-                backend.draw_light(l)
+            for light_cmd in lights:
+                backend.draw_light(light_cmd)
 
             backend.end_frame()
 

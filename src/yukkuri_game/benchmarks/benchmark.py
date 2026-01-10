@@ -352,8 +352,7 @@ def compare_results(current: Dict[str, Any], baseline: Dict[str, Any]) -> None:
             pct = (diff / base_val * 100) if base_val != 0 else 0.0
 
             # For frame time, lower is better. For FPS/Speed, higher is better.
-            is_good = pct > 0 if "FPS" in label or "Speed" in label else pct < 0
-            color_code = ""  # Could add ANSI codes if terminal supports it
+
 
             sign = "+" if pct > 0 else ""
             print(f"{label}: {base_val:.2f} -> {curr_val:.2f} ({sign}{pct:.2f}%)")

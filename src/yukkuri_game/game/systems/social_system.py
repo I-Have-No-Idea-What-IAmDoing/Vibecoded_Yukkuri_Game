@@ -324,7 +324,7 @@ class SocialSystem(System):
         self, world: World, entity_id: int, impact: Dict[str, float]
     ) -> None:
         """Helper to apply physical stat changes to an entity."""
-        stats = world.get_component(entity_id, YukkuriStats)
+        world.get_component(entity_id, YukkuriStats)
         needs = world.get_component(entity_id, Needs)
         emotional = world.get_component(entity_id, EmotionalState)
 

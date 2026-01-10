@@ -61,7 +61,7 @@ def create_yukkuri(
         ValueError: If the Yukkuri type is unknown.
     """
     rm = world.services.get(ResourceManager)
-    physics_system = world.services.try_get(PhysicsSystem)
+    world.services.try_get(PhysicsSystem)
     trait_service = world.services.try_get(TraitService)
     skill_service = world.services.try_get(SkillService)
 

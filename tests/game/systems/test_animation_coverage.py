@@ -107,24 +107,24 @@ def test_ping_pong_animation():
     # 0 -> 1
     system.update(world, 0.11)
     assert animator.current_frame_index == 1
-    assert animator.forward == True
+    assert animator.forward
 
     # 1 -> 2
     system.update(world, 0.11)
     assert animator.current_frame_index == 2
-    assert animator.forward == True
+    assert animator.forward
 
     # 2 -> 1 (Ping Pong back)
     system.update(world, 0.11)
     assert animator.current_frame_index == 1
-    assert animator.forward == False
+    assert not animator.forward
 
     # 1 -> 0
     system.update(world, 0.11)
     assert animator.current_frame_index == 0
-    assert animator.forward == False
+    assert not animator.forward
 
     # 0 -> 1 (Ping Pong forward again)
     system.update(world, 0.11)
     assert animator.current_frame_index == 1
-    assert animator.forward == True
+    assert animator.forward

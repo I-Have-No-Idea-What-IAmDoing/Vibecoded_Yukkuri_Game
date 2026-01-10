@@ -200,16 +200,16 @@ class OpenGLBackend(RenderBackend):
         pos = (int(cmd.position[0]), int(cmd.position[1]))
 
         if cmd.entity_id in self.active_lights:
-            l = self.active_lights[cmd.entity_id]
-            l.position = pos
-            l.radius = cmd.radius
-            l.power = cmd.intensity
-            l.set_color(*cmd.color)
+            light = self.active_lights[cmd.entity_id]
+            light.position = pos
+            light.radius = cmd.radius
+            light.power = cmd.intensity
+            light.set_color(*cmd.color)
         else:
-            l = pl2d.PointLight(pos, cmd.intensity, cmd.radius)
-            l.set_color(*cmd.color)
-            self.engine.lights.append(l)
-            self.active_lights[cmd.entity_id] = l
+            light = pl2d.PointLight(pos, cmd.intensity, cmd.radius)
+            light.set_color(*cmd.color)
+            self.engine.lights.append(light)
+            self.active_lights[cmd.entity_id] = light
 
     def draw_occluder(self, cmd: OccluderCommand) -> None:
         # Frustum Culling: Check if occluder is visible

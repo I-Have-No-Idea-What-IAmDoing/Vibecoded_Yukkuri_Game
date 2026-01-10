@@ -588,7 +588,7 @@ class GameDriver:
             return False
 
         width, height = current_img.get_size()
-        diff_pixels = 0
+
         total_pixels = width * height
 
         try:

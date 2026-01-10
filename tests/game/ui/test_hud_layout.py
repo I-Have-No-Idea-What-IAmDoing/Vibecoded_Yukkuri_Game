@@ -95,7 +95,7 @@ class TestHudLayout:
 
     def test_create_selection_window(self, layout):
         """Test creating selection window."""
-        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel") as MockPanel:
+        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel"):
             layout.create_selection_window(has_stats=True)
 
             assert layout.entity_info_panel is not None
@@ -104,7 +104,7 @@ class TestHudLayout:
         # Test item selection (no stats actions)
         # Reset panel to force creation or just clear state
         layout.entity_info_panel = None
-        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel") as MockPanel:
+        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel"):
             layout.create_selection_window(has_stats=False)
             assert layout.entity_info_panel is not None
             layout.entity_info_panel.show.assert_called_once()

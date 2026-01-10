@@ -476,7 +476,7 @@ class HudRenderer:
         # Accessing private _entities for debug
         try:
             entity_count = len(self.world.get_all_entities())
-        except:
+        except Exception:
             entity_count = 0
 
         economy = self.world.services.get(EconomyService)

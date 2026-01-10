@@ -77,8 +77,7 @@ class SoftwareLightingEngine:
 
     def resize(self, width: int, height: int):
         self.native_size = (width, height)
-        self.lightmap_size = (int(width * self.scale), int(height * self.scale))
-        self.lightmap = pygame.Surface(self.lightmap_size)
+        self.lightmap = pygame.Surface((int(width * self.scale), int(height * self.scale)))
 
     def clear(self, ambient_color: Tuple[int, int, int]):
         # Fill lightmap with ambient
@@ -141,7 +140,7 @@ class SoftwareLightingEngine:
         sy = int(ly * self.scale)
         sr = radius * self.scale
         sr_key = int(max(1, sr))
-        surf_size = sr_key * 2
+
 
         # Static light caching: check if we have a valid cached surface
         if static and entity_id >= 0:

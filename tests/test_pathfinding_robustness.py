@@ -53,7 +53,7 @@ class TestPathfindingRobustness(unittest.TestCase):
         status = action.update()
         self.assertEqual(status, py_trees.common.Status.RUNNING)
 
-        trans = self.world.get_component(self.entity_id, Transform)
+        self.world.get_component(self.entity_id, Transform)
         # Should have moved towards 50, 0 (or 100, 0 if string pulling worked)
         # Since physics is mocked but not stepped, we check if velocity was set in MovementController
         controller = self.world.get_component(self.entity_id, MovementController)

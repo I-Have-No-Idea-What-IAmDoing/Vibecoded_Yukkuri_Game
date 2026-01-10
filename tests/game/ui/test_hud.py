@@ -114,10 +114,10 @@ class TestHudLayout:
         with (
             patch(
                 "yukkuri_game.game.ui.hud_layout.UIPanel", return_value=MockPanel
-            ) as MockPanelCls,
-            patch("yukkuri_game.game.ui.hud_layout.UILabel") as MockLabel,
-            patch("yukkuri_game.game.ui.hud_layout.UIButton") as MockButton,
-            patch("yukkuri_game.game.ui.hud_layout.UITextBox") as MockTextBox,
+            ),
+            patch("yukkuri_game.game.ui.hud_layout.UILabel"),
+            patch("yukkuri_game.game.ui.hud_layout.UIButton"),
+            patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
         ):
             layout = HudLayout(mock_ui_manager, 800, 600)
 
@@ -133,14 +133,14 @@ class TestHudLayout:
 
     def test_create_selection_window(self, hud_layout, mock_ui_manager):
         # We need to mock EntityInfoPanel and its show method to avoid Pygame GUI internals
-        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel") as MockPanel:
+        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel"):
             hud_layout.create_selection_window(has_stats=True)
 
             assert hud_layout.entity_info_panel is not None
             hud_layout.entity_info_panel.show.assert_called_once()
 
     def test_create_selection_window_no_stats(self, hud_layout, mock_ui_manager):
-        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel") as MockPanel:
+        with patch("yukkuri_game.game.ui.hud_layout.EntityInfoPanel"):
             hud_layout.create_selection_window(has_stats=False)
 
             assert hud_layout.entity_info_panel is not None
@@ -158,8 +158,8 @@ class TestHudLayout:
 
     def test_create_debug_window(self, hud_layout, mock_ui_manager):
         with (
-            patch("yukkuri_game.game.ui.hud_layout.UIWindow") as MockWindow,
-            patch("yukkuri_game.game.ui.hud_layout.UITextBox") as MockTextBox,
+            patch("yukkuri_game.game.ui.hud_layout.UIWindow"),
+            patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
         ):
             hud_layout.create_debug_window()
 

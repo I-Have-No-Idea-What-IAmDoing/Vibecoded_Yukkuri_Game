@@ -79,7 +79,7 @@ def test_msgpack_persistence():
     assert transform.x == 10.0
 
     selectable = new_world.get_component(new_entity, Selectable)
-    assert selectable.selected == True
+    assert selectable.selected
 
     # Cleanup
     if os.path.exists(filepath):

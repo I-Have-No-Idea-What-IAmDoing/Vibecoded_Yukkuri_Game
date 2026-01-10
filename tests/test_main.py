@@ -70,7 +70,7 @@ def test_main_headless():
 
     with (
         patch("yukkuri_game.main.Application") as MockApp,
-        patch("yukkuri_game.scenes.main_menu.pygame_gui") as mock_gui,
+        patch("yukkuri_game.scenes.main_menu.pygame_gui"),
     ):  # Patch GUI in MainMenu
         mock_instance = MockApp.return_value
 

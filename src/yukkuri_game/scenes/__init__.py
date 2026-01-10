@@ -2,5 +2,5 @@
 Scenes package.
 """
 
-from .main_menu import MainMenuScene
-from .gameplay import GameplayScene
+from .main_menu import MainMenuScene as MainMenuScene
+from .gameplay import GameplayScene as GameplayScene

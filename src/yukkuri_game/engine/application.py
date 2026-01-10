@@ -95,12 +95,7 @@ class Application:
         else:
             try:
                 # Calculate native resolution based on render scale
-                native_w = int(width * self.render_scale)
-                native_h = int(height * self.render_scale)
 
-                # Downsample lightmap resolution for performance (e.g. 0.5x native)
-                lightmap_w = int(native_w * 0.5)
-                lightmap_h = int(native_h * 0.5)
 
                 # Initialize LightingEngine instead of standard display
                 # We match native_res to screen_res for now to keep pixel density same as before
