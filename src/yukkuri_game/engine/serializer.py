@@ -208,6 +208,9 @@ class WorldSerializer:
                         logger.warning(
                             f"Failed to deserialize component {comp_name}: {e}"
                         )
+                        print(f"DEBUG ERROR: Failed to deserialize {comp_name}: {e}")
+                        import traceback
+                        traceback.print_exc()
                 else:
                     logger.warning(f"Unknown component type: {comp_name}")
 

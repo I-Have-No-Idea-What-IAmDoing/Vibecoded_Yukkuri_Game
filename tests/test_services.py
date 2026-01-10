@@ -3,6 +3,7 @@ Tests for Game Services (Economy, Time, Persistence).
 """
 
 import pytest
+import os
 from unittest.mock import MagicMock, patch, mock_open
 from yukkuri_game.game.services import PersistenceService, EconomyService, TimeService
 from yukkuri_game.engine.ecs import World
@@ -126,7 +127,7 @@ def test_save_game(persistence_world: MagicMock) -> None:
     # Since json.dump writes to file, we can inspect calls
     # But mock_open is a bit tricky with json.dump
     # Just verify open was called correctly
-    mock_file.assert_called_with("test_saves/test.json", "w")
+    mock_file.assert_called_with(os.path.join("test_saves", "test.json"), "wb")
 
 
 def test_load_game(persistence_world: MagicMock) -> None:
@@ -162,7 +163,8 @@ def test_load_game(persistence_world: MagicMock) -> None:
     service = PersistenceService(world, save_dir="test_saves")
 
     # Mock file content
-    import json
+    import msgspec
+
 
     save_data = {
         "money": 999,
@@ -184,9 +186,9 @@ def test_load_game(persistence_world: MagicMock) -> None:
             }
         ],
     }
-    json_str = json.dumps(save_data)
+    msgpack_bytes = msgspec.msgpack.encode(save_data)
 
-    with patch("builtins.open", mock_open(read_data=json_str)):
+    with patch("builtins.open", mock_open(read_data=msgpack_bytes)):
         with patch("os.path.exists", return_value=True):
             success = service.load_game("test.json")
 

@@ -231,6 +231,36 @@ class GameDriver:
         elif hasattr(self.game, "setup"):
             self.game.setup()
 
+    def reload_scene(self, scene_type: Optional[Type] = None) -> None:
+        """
+        Reloads the current scene or switches to a new scene type.
+        Ensures a clean state for the scene.
+
+        Args:
+            scene_type (Optional[Type]): The scene class to load. If None, reloads current.
+        """
+        if not isinstance(self.game, Application):
+            return
+
+        if scene_type is None:
+            if self.game.scene_manager.current_scene:
+                scene_type = type(self.game.scene_manager.current_scene)
+            else:
+                from ..scenes.gameplay import GameplayScene
+                scene_type = GameplayScene
+
+        # Clear existing scene
+        if self.game.scene_manager.current_scene:
+            self.game.scene_manager.pop()
+
+        # Create and push new scene
+        # We assume scene constructor takes 'game' as first arg
+        new_scene = scene_type(self.game)
+        self.game.scene_manager.push(new_scene)
+
+        # Ensure we are ready
+        self.setup()
+
     def create_yukkuri(self, type_id: str, x: float, y: float) -> int:
         """
         Creates a Yukkuri entity in the current world.

@@ -5,6 +5,8 @@ Module defining core game services.
 from typing import Set, TYPE_CHECKING, Dict
 import os
 import json
+import msgspec
+import dataclasses
 
 from ..engine.ecs import World
 from .components import Transform
@@ -435,8 +437,6 @@ class PersistenceService:
             for comp in all_comps:
                 comp_type_name = type(comp).__name__
 
-                import msgspec
-                import dataclasses
 
                 comp_dict = {}
                 try:
@@ -465,16 +465,18 @@ class PersistenceService:
 
         data["entities"] = serialized_entities
 
-        with open(filepath, "w") as f:
-            json.dump(data, f, indent=4)
+        with open(filepath, "wb") as f:
+            f.write(msgspec.msgpack.encode(data))
+
+
 
     def load_game(self, filename: str) -> bool:
         filepath = os.path.join(self.save_dir, filename)
         if not os.path.exists(filepath):
             return False
 
-        with open(filepath, "r") as f:
-            data = json.load(f)
+        with open(filepath, "rb") as f:
+            data = msgspec.msgpack.decode(f.read())
 
         # Restore Economy
         economy = self.world.services.try_get(EconomyService)
@@ -489,77 +491,21 @@ class PersistenceService:
         # Restore Entities
         entities_data = data.get("entities", [])
 
-        import msgspec
+        # Use WorldSerializer for robust loading and reference remapping
+        from ..engine.serializer import WorldSerializer
+        import inspect
 
-        # Mapping from OLD (saved) entity ID to NEW (loaded) entity ID
-        id_map: Dict[int, int] = {}
+        # Gather all component types
+        component_types = []
+        for module in [components, components_persistence, yukkuri_components]:
+            for name, obj in inspect.getmembers(module):
+                if inspect.isclass(obj) and (
+                    hasattr(obj, "__dataclass_fields__")
+                    or issubclass(obj, msgspec.Struct)
+                ):
+                    component_types.append(obj)
 
-        # Pass 1: Create entities and build ID Map
-        # We need to store component data to process later
-        loaded_entities = []
-
-        for ent_data in entities_data:
-            old_id = ent_data.get("entity_id")
-            new_ent = self.world.create_entity()
-
-            if old_id is not None:
-                id_map[old_id] = new_ent
-
-            # Add StableID if present (restore it directly)
-            if "stable_id" in ent_data:
-                self.world.add_component(
-                    new_ent, StableIDComponent(id=ent_data["stable_id"])
-                )
-
-            loaded_entities.append((new_ent, ent_data.get("components", {})))
-
-        # Pass 2: Restore Components and Remap IDs
-        for new_ent, components_data in loaded_entities:
-            for comp_name, comp_vals in components_data.items():
-                comp_class = self._resolve_component_class(comp_name)
-                if comp_class:
-                    try:
-                        # Instantiate component
-                        if hasattr(comp_class, "__dataclass_fields__") or issubclass(
-                            comp_class, msgspec.Struct
-                        ):
-                            if issubclass(comp_class, msgspec.Struct):
-                                comp_inst = msgspec.convert(comp_vals, comp_class)
-                            else:
-                                comp_inst = comp_class(**comp_vals)
-                        else:
-                            comp_inst = comp_class(**comp_vals)
-
-                        # ID Remapping Logic for known components
-                        if isinstance(comp_inst, AIState):
-                            # Remap current_target_id
-                            if comp_inst.current_target_id in id_map:
-                                comp_inst.current_target_id = id_map[
-                                    comp_inst.current_target_id
-                                ]
-
-                            # Remap failed_targets
-                            new_failed = set()
-                            for tid in comp_inst.failed_targets:
-                                if tid in id_map:
-                                    new_failed.add(id_map[tid])
-                                else:
-                                    new_failed.add(
-                                        tid
-                                    )  # Keep old if not mapped? Or discard? Keeping ensures stability if ID wasn't in save (e.g. system entity)
-                            comp_inst.failed_targets = new_failed
-
-                        # Add other components remapping here (e.g. RelationshipRegistry)
-
-                        self.world.add_component(new_ent, comp_inst)
-                    except Exception:
-                        # print(f"Failed to load component {comp_name}: {e}")
-                        pass
+        serializer = WorldSerializer(self.world, component_types)
+        serializer.load_from_data(entities_data)
 
         return True
-
-    def _resolve_component_class(self, name: str):
-        for module in [components, components_persistence, yukkuri_components]:
-            if hasattr(module, name):
-                return getattr(module, name)
-        return None
