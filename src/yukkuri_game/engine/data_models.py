@@ -83,6 +83,9 @@ class ItemType(msgspec.Struct):  # type: ignore[misc]
     nutrition: int | None = None
     comfort: int | None = None
     fun: int | None = None
+    stack_size: int = 1
+    description: str = ""
+    category: str = "misc"
     light_radius: float | None = None
     light_color: list[int] | None = None
     light_intensity: float | None = None

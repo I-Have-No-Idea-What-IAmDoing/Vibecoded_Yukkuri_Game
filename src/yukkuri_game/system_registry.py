@@ -26,6 +26,7 @@ from .game.systems.social_system import SocialSystem
 from .game.systems.gossip_system import GossipSystem
 from .game.systems.family_system import FamilySystem
 from .game.systems.game_rules_system import GameRulesSystem
+from .game.systems.inventory_system import InventorySystem
 from .game.input_system import InputSystem
 from .game.systems.time_system import TimeSystem
 from .game.systems.mouse_light_system import MouseLightSystem
@@ -103,6 +104,7 @@ class SystemRegistry:
         world.add_system(GossipSystem(event_bus))
         world.add_system(FamilySystem())
         world.add_system(GameRulesSystem(event_bus))
+        world.add_system(InventorySystem())
 
         # Mouse Light System (disabled by default)
         mouse_light_system = MouseLightSystem(world, camera)

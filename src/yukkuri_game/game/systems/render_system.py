@@ -203,8 +203,12 @@ class RenderSystem(System):
 
             # Shadow
             # Calculate shadow position
+            # Calculate feet offset (half height) to place shadow at the base
+            feet_offset_y = (sprite.height * transform.scale * 0.5)
+
             shadow_x, shadow_y = self.camera.world_to_screen_fast(
-                ix + visual.shadow_position.x, iy + visual.shadow_position.y
+                ix + visual.shadow_position.x,
+                iy + visual.shadow_position.y + feet_offset_y,
             )
 
             shadow_radius_x = sprite.width * scale * RenderConstants.SHADOW_SCALE_X

@@ -64,3 +64,11 @@ class PhysicsFixedUpdateEvent(Event):
 @dataclass(frozen=True)
 class WorldClearedEvent(Event):
     pass
+
+
+@dataclass(frozen=True)
+class InventoryChangedEvent(Event):
+    entity_id: int
+    item_type_id: str
+    delta: int
+

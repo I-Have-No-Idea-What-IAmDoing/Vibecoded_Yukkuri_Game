@@ -18,6 +18,8 @@ from ..yukkuri_components import (
 )
 from ..services import InputService, EconomyService, TimeService
 from ..skill_service import SkillService
+from ..inventory_component import InventoryComponent
+from ...engine.resource_manager import ResourceManager
 from ...config import GameConfig
 from pygame_gui.windows import UIMessageWindow
 
@@ -395,6 +397,23 @@ class HudRenderer:
                 istats = self.world.get_component(selected_entity, ItemStats)
                 if istats:
                     text = f"<b>Item:</b> {istats.name}<br><b>Val:</b> {istats.cost}"
+
+            # --- Inventory Display (Debug) ---
+            inventory = self.world.get_component(selected_entity, InventoryComponent)
+            if inventory and inventory.items:
+                text += "<br><br><b>Inventory:</b>"
+                rm = self.world.services.try_get(ResourceManager)
+                
+                for item in inventory.items:
+                    item_name = item.item_type_id
+                    if rm:
+                        item_type = rm.item_types.get(item.item_type_id)
+                        if item_type:
+                            item_name = item_type.name
+                    
+                    text += f"<br> {item_name} x{item.quantity}"
+            elif inventory:
+                text += "<br><br><b>Inventory:</b> Empty"
 
         if self.layout.entity_info_panel:
             self.layout.entity_info_panel.update_stats(text)

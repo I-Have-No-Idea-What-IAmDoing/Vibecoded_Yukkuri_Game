@@ -76,6 +76,7 @@ class VisualMovementSystem(System):
             )
             visual.vertical_offset = bob_offset
 
-            # 4. Ensure the shadow's position is locked to the entity's ground position
-            # This is purely visual; the shadow indicates the actual position on the 2D plane.
-            visual.shadow_position = phys.body.position
+            # 4. Shadow position is an offset, usually (0,0) or (0, height/2)
+            # RenderSystem adds this to the entity's world position.
+            # Leaving it as (0,0) (default) keeps the shadow at the entity's ground center.
+            pass
