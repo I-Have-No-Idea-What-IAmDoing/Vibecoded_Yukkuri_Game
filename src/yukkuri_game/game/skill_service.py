@@ -2,7 +2,7 @@
 Service for managing Skill mechanics: XP gain, Leveling, and Decay.
 """
 
-from typing import Dict, Any, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -28,10 +28,10 @@ class SkillService:
     Manages skills for entities.
     """
 
-    def __init__(self, world: World, settings: Optional[SkillsSettings] = None):
+    def __init__(self, world: World, settings: SkillsSettings | None = None):
         self.world = world
         self.settings = settings if settings else SkillsSettings()
-        self.skill_definitions: Dict[str, Any] = {}
+        self.skill_definitions: dict[str, Any] = {}
         self.load_skill_definitions()
 
     def load_skill_definitions(self):

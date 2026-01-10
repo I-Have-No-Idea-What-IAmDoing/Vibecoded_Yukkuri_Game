@@ -2,7 +2,6 @@
 Module defining the GossipSystem.
 """
 
-from typing import Optional
 import pymunk
 from ...engine.ecs import System, World
 from ..yukkuri_components import (
@@ -44,9 +43,9 @@ class GossipSystem(System):
         super().__init__()
         self.event_bus = event_bus
         self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
-        self.physics_system: Optional[PhysicsSystem] = None
-        self.sector_map: Optional[SectorMap] = None
-        self.trait_service: Optional[TraitService] = None
+        self.physics_system: PhysicsSystem | None = None
+        self.sector_map: SectorMap | None = None
+        self.trait_service: TraitService | None = None
 
     def update(self, world: World, dt: float) -> None:
         """

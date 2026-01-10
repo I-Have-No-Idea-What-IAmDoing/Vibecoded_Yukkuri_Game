@@ -2,7 +2,6 @@
 Module defining the EmotionSystem logic (formerly StatDecaySystem).
 """
 
-from typing import Optional
 from ...engine.ecs import System, World
 from ..yukkuri_components import (
     YukkuriStats,
@@ -42,7 +41,7 @@ class EmotionSystem(System):
             settings (StatDecaySettings): Stat decay settings configuration.
         """
         self.settings = settings
-        self.trait_service: Optional[TraitService] = None
+        self.trait_service: TraitService | None = None
         self.last_day_index = -1
 
     def update(self, world: World, dt: float) -> None:
@@ -172,7 +171,7 @@ class EmotionSystem(System):
         if personality and personality.base_axis:
             self._drift_personality(personality, dt)
 
-    def _calculate_multipliers(self, personality: Optional[Personality]) -> dict:
+    def _calculate_multipliers(self, personality: Personality | None) -> dict:
         """Calculates decay multipliers based on traits."""
         mults = {
             "hunger": 1.0,
@@ -199,7 +198,7 @@ class EmotionSystem(System):
     def _update_emotional_state(
         self,
         emotional_state: EmotionalState,
-        trans: Optional[Transform],
+        trans: Transform | None,
         dt: float,
         game_dt: float,
         is_night: bool,

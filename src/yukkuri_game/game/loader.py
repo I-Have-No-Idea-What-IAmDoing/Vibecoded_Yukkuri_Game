@@ -5,7 +5,7 @@ Responsible for initializing and registering game services and systems.
 
 import inspect
 import pygame_gui
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING
 
 from ..engine.ecs import World
 from ..engine.event_bus import EventBus
@@ -161,7 +161,7 @@ class GameLoader:
         input_system.set_ui_manager(ui_manager)
         return input_system
 
-    def collect_component_types(self) -> list[Type]:
+    def collect_component_types(self) -> list[type]:
         """Collects all component types for serialization."""
         comp_types = []
         for module in [components, yukkuri_components, components_persistence]:

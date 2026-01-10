@@ -4,7 +4,6 @@ Module for Entity Info Panel logic.
 
 import pygame
 import pygame_gui
-from typing import Optional
 from pygame_gui.elements import (
     UIWindow,
     UITextBox,
@@ -58,7 +57,7 @@ class EntityInfoPanel:
     """
 
     def __init__(
-        self, manager: pygame_gui.UIManager, root_container: Optional[UIPanel] = None
+        self, manager: pygame_gui.UIManager, root_container: UIPanel | None = None
     ):
         """
         Initializes the EntityInfoPanel.
@@ -68,21 +67,21 @@ class EntityInfoPanel:
             root_container (Optional[UIPanel]): Parent container, if any.
         """
         self.manager = manager
-        self.window: Optional[UIWindow] = None
-        self.tabbed_panel: Optional[TabbedPanel] = None
+        self.window: UIWindow | None = None
+        self.tabbed_panel: TabbedPanel | None = None
 
         # Stats Tab Elements
-        self.stats_text_box: Optional[UITextBox] = None
-        self.stats_scroll: Optional[UIScrollingContainer] = None
+        self.stats_text_box: UITextBox | None = None
+        self.stats_scroll: UIScrollingContainer | None = None
 
         # Skills Tab Elements
-        self.skills_text_box: Optional[UITextBox] = None
-        self.skills_scroll: Optional[UIScrollingContainer] = None
+        self.skills_text_box: UITextBox | None = None
+        self.skills_scroll: UIScrollingContainer | None = None
 
         # Buttons (shared or bottom area)
-        self.sell_btn: Optional[UIButton] = None
-        self.train_btn: Optional[UIButton] = None
-        self.punish_btn: Optional[UIButton] = None
+        self.sell_btn: UIButton | None = None
+        self.train_btn: UIButton | None = None
+        self.punish_btn: UIButton | None = None
 
         # Layout config
         self.width = 330

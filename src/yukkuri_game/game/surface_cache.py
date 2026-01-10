@@ -3,7 +3,6 @@ Module for caching transformed surfaces to optimize rendering.
 """
 
 from collections import OrderedDict
-from typing import Tuple, Optional
 import pygame
 from ..engine.resource_manager import ResourceManager
 
@@ -25,7 +24,7 @@ class SurfaceCache:
         self.rm = resource_manager
         self.max_size = max_size
         # Key: (image_name, frame, width, height, scale, rotation, flip_x, flip_y)
-        self._cache: OrderedDict[Tuple, pygame.Surface] = OrderedDict()
+        self._cache: OrderedDict[tuple, pygame.Surface] = OrderedDict()
 
     def get_surface(
         self,
@@ -38,7 +37,7 @@ class SurfaceCache:
         rotation: float,
         flip_x: bool,
         flip_y: bool,
-    ) -> Optional[pygame.Surface]:
+    ) -> pygame.Surface | None:
         """
         Retrieves a cached surface or creates a new one if not found.
 
@@ -103,7 +102,7 @@ class SurfaceCache:
         rotation: float,
         flip_x: bool,
         flip_y: bool,
-    ) -> Optional[pygame.Surface]:
+    ) -> pygame.Surface | None:
         """
         Creates the transformed surface.
         """

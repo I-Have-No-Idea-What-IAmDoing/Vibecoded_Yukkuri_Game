@@ -4,7 +4,6 @@ Module defining core game components.
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Dict, Optional, List, Tuple
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
 from ..engine.data_models import AnimationDefinition
@@ -24,7 +23,7 @@ class PhysicsBody:
 
     body: pymunk.Body
     shape: pymunk.Shape
-    base_radius: Optional[float] = None
+    base_radius: float | None = None
 
     def __post_init__(self):
         if self.base_radius is None and isinstance(self.shape, pymunk.Circle):
@@ -46,9 +45,9 @@ class Transform:
     y: float
     rotation: float = 0.0
     scale: float = 1.0
-    prev_x: Optional[float] = None
-    prev_y: Optional[float] = None
-    prev_rotation: Optional[float] = None
+    prev_x: float | None = None
+    prev_y: float | None = None
+    prev_rotation: float | None = None
 
     def __post_init__(self) -> None:
         """Initialize prev positions to current positions to avoid jumps."""
@@ -93,7 +92,8 @@ class Sprite:
     flip_x: bool = False
     flip_y: bool = False
 
-    # Animation support (Legacy / Simple)
+    # Simple/Direct animation fields (used when entity has no Animator component)
+    # Also used by Animator as the output frame index for rendering
     frame_count: int = 1
     frame_duration: float = 0.1
     current_frame: int = 0
@@ -115,13 +115,13 @@ class Animator:
         finished (bool): Whether the animation has finished (for non-looping).
     """
 
-    animations: Dict[str, AnimationDefinition]
+    animations: dict[str, AnimationDefinition]
     current_animation: str = "default"
     current_frame_index: int = 0
     timer: float = 0.0
     finished: bool = False
     speed: float = 1.0
-    next_animation: Optional[str] = None
+    next_animation: str | None = None
     forward: bool = True  # Direction for ping-pong loops
 
 
@@ -173,8 +173,6 @@ class InteractionRequest:
     consume: bool = True
     action: str = "DEFAULT"
 
-    # Metadata for serialization remapping
-    # _references: Set[str] = field(default_factory=lambda: {"target_id"}, repr=False, init=False)
 
 
 @dataclass
@@ -254,7 +252,7 @@ class LightSource:
     """
 
     radius: float = 300.0
-    color: Tuple[int, int, int] = (255, 255, 220)
+    color: tuple[int, int, int] = (255, 255, 220)
     intensity: float = 1.0
     flicker_style: FlickerStyle = FlickerStyle.NONE
     # If True, enables soft shadow rendering (blurred edges)
@@ -272,7 +270,7 @@ class Occluder:
     """
 
     # If None, defaults to the entity's PhysicsBody shape or Sprite rect
-    polygon: Optional[List[Tuple[float, float]]] = None
+    polygon: list[tuple[float, float]] | None = None
     # Optimization: If True, the occluder geometry is assumed to be static (e.g. walls)
     # and can be cached more aggressively.
     static: bool = False

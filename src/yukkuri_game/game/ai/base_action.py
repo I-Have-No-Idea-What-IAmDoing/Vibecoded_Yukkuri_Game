@@ -23,9 +23,9 @@ class Action(Behaviour):  # type: ignore[misc]
     def __init__(
         self,
         name: str = "Action",
-        entity_id: Optional[int] = None,
+        entity_id: int | None = None,
         world: Optional["World"] = None,
-        blackboard: Optional[Any] = None,
+        blackboard: Any | None = None,
     ):
         """
         Initializes the Action.

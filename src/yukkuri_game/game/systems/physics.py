@@ -4,7 +4,6 @@ Module defining the PhysicsSystem logic.
 
 import pymunk
 import math
-from typing import Optional
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus, Event
 from ...engine.events import (
@@ -40,7 +39,7 @@ class PhysicsSystem(System):
         self.accumulator = 0.0
         self.time_step = 1.0 / 60.0
         self.max_frame_time = 0.25
-        self.event_bus: Optional[EventBus] = None
+        self.event_bus: EventBus | None = None
 
     def on_entity_destroyed(self, event: Event) -> None:
         """

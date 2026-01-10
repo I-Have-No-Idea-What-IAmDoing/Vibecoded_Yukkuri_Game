@@ -3,7 +3,7 @@ Module defining the Utility AI engine and logic.
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 import math
 from loguru import logger
 
@@ -30,10 +30,10 @@ class Consideration:
     name: str
     input_key: str  # e.g., "hunger", "tiredness"
     curve_type: str  # "linear", "logit", "threshold"
-    params: Dict[str, float]
+    params: dict[str, float]
 
     def score(
-        self, context: Dict[str, Any], override_curve: Optional[Dict[str, Any]] = None
+        self, context: dict[str, Any], override_curve: dict[str, Any] | None = None
     ) -> float:
         """
         Calculates the score for this consideration based on the context.
@@ -60,8 +60,8 @@ class Consideration:
     def evaluate_curve(
         self,
         x: float,
-        curve_type: Optional[str] = None,
-        params: Optional[Dict[str, float]] = None,
+        curve_type: str | None = None,
+        params: dict[str, float] | None = None,
     ) -> float:
         """
         Evaluates the configured curve function for a given input value.
@@ -121,12 +121,12 @@ class Action:
     """
 
     name: str
-    considerations: List[Consideration]
+    considerations: list[Consideration]
     weight: float = 1.0
-    effects: Optional[Dict[str, Any]] = None
+    effects: dict[str, Any] | None = None
 
     def calculate_utility(
-        self, context: Dict[str, Any], trait_overrides: Optional[Dict[str, Any]] = None
+        self, context: dict[str, Any], trait_overrides: dict[str, Any] | None = None
     ) -> float:
         """
         Calculates the total utility score for this action.
@@ -180,7 +180,7 @@ class UtilityAIEngine:
             resource_manager (ResourceManager): The ResourceManager instance.
         """
         self.rm = resource_manager
-        self.actions: Dict[str, Action] = {}
+        self.actions: dict[str, Action] = {}
         self.load_actions()
 
     def load_actions(self) -> None:
@@ -250,7 +250,7 @@ class UtilityAIEngine:
 
     def select_action(
         self,
-        context: Dict[str, Any],
+        context: dict[str, Any],
         personality: Optional["Personality"] = None,
         trait_service: Optional["TraitService"] = None,
     ) -> str:

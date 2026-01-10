@@ -30,6 +30,8 @@ class TestEmotionSystem(unittest.TestCase):
         emotional.stress = 10.0
 
         # Setup mock return
+        mock_world.services.try_get.return_value = None
+
         def get_components_tuple(*args):
             if args == (Transform, LightSource):
                 return []
@@ -79,6 +81,8 @@ class TestEmotionSystem(unittest.TestCase):
         emotional.happiness = 50.0  # Baseline
         emotional.stress = 0.0
 
+        mock_world.services.try_get.return_value = None
+
         def get_components_tuple(*args):
             if args == (Transform, LightSource):
                 return []
@@ -111,6 +115,8 @@ class TestEmotionSystem(unittest.TestCase):
         stats = YukkuriStats(name="Test", type_id="test")
         needs = Needs()
         needs.cleanliness = 1.0
+
+        mock_world.services.try_get.return_value = None
 
         def get_components_tuple(*args):
             if args == (Transform, LightSource):

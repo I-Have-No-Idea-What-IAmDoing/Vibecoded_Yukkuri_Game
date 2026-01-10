@@ -4,7 +4,7 @@ Gameplay Scene.
 
 import os
 from datetime import datetime
-from typing import ClassVar, Dict, Type
+from typing import ClassVar
 
 import pygame
 import pygame_gui
@@ -44,7 +44,7 @@ class GameplayScene(Scene):
     Manages the game world, systems, and UI.
     """
 
-    INJECTIONS: ClassVar[Dict[str, Type]] = {"money": int, "time": float}
+    INJECTIONS: ClassVar[dict[str, type]] = {"money": int, "time": float}
 
     def __init__(self, application: Application):
         super().__init__(application)
@@ -300,7 +300,7 @@ class GameplayScene(Scene):
         # Load Global Data
         import json
 
-        with open(global_path, "r") as f:
+        with open(global_path) as f:
             global_data = json.load(f)
 
         self.economy_service.set_money(global_data.get("money", 0))

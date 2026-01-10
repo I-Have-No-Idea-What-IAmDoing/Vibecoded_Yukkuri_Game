@@ -4,7 +4,6 @@ Module defining the HUD logic.
 
 import pygame
 import pygame_gui
-from typing import List
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
 from ..events import EntitySelectedEvent, GamePausedEvent, LogMessageEvent
@@ -54,7 +53,7 @@ class HUD:
         self.renderer = HudRenderer(self.layout, self.world)
 
         # State
-        self.selected_entities: List[int] = []
+        self.selected_entities: list[int] = []
         self.show_debug = False
         self.fps = 0.0
         self.lighting_debug = False
@@ -113,7 +112,7 @@ class HUD:
         Returns:
             None
         """
-        self.selected_entities = event.entity_ids
+        self.selected_entities = list(event.entity_ids)
         self.events.set_selected_entities(self.selected_entities)
         self._update_selection_window_layout()
 

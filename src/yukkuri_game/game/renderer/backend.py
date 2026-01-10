@@ -1,4 +1,4 @@
-from typing import Protocol, Tuple
+from typing import Protocol
 from .commands import (
     SpriteCommand,
     TextCommand,
@@ -11,7 +11,7 @@ from .commands import (
 class RenderBackend(Protocol):
     """Interface for rendering backends."""
 
-    def clear(self, color: Tuple[int, int, int]) -> None:
+    def clear(self, color: tuple[int, int, int]) -> None:
         """Clears the screen."""
         ...
 
@@ -43,15 +43,15 @@ class RenderBackend(Protocol):
         """Process an occluder."""
         ...
 
-    def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
+    def set_ambient_light(self, color: tuple[int, int, int, int]) -> None:
         """Sets the ambient light color."""
         ...
 
     def draw_line(
         self,
-        start: Tuple[float, float],
-        end: Tuple[float, float],
-        color: Tuple[int, int, int],
+        start: tuple[float, float],
+        end: tuple[float, float],
+        color: tuple[int, int, int],
         width: int = 1,
     ) -> None:
         """Draws a line (mainly for debug/grid)."""

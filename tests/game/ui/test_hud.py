@@ -46,6 +46,10 @@ def mock_world():
 
     time_service = MagicMock(spec=TimeService)
     time_service.time_elapsed = 125  # 2 min 5 sec
+    time_service.time_of_day = 12.0  # Noon
+    time_service.hour_of_day = 12.0  # Noon (alias)
+    time_service.game_speed = 1.0  # Normal speed
+    time_service.day = 1  # Day 1
 
     persistence_service = MagicMock(spec=PersistenceService)
 
@@ -320,8 +324,8 @@ class TestHudRenderer:
             hud_renderer.update(0.1, [], False)
 
         hud_layout.money_label.set_text.assert_called_with("Money: $1000")
-        # 125 sec = 2 min 5 sec
-        hud_layout.time_label.set_text.assert_called_with("Time: 02:05")
+        # Day 1 at 12:00 (noon)
+        hud_layout.time_label.set_text.assert_called_with("Day 1 - 12:00")
 
     def test_update_selection_yukkuri(self, hud_renderer, hud_layout, mock_world):
         hud_layout.entity_info_panel = MagicMock()

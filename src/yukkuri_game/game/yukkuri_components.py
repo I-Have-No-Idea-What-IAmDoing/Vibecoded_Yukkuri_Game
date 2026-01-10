@@ -3,7 +3,7 @@ Yukkuri Components Module.
 """
 
 from dataclasses import dataclass, field
-from typing import Set, Dict, Any, Optional, List, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 from ..engine.ecs import Component
 from ..engine.types import EntityID
 
@@ -204,10 +204,10 @@ class Personality:
         cached_overrides (Optional[Dict]): Cached AI overrides from traits.
     """
 
-    traits: Set[str] = field(default_factory=set)
+    traits: set[str] = field(default_factory=set)
     axis: PersonalityAxis = field(default_factory=PersonalityAxis)
     base_axis: PersonalityAxis = field(default_factory=PersonalityAxis)
-    cached_overrides: Optional[Dict[str, Any]] = None
+    cached_overrides: dict[str, Any] | None = None
 
 
 @dataclass
@@ -245,8 +245,8 @@ class RelationshipData:
 
     # Memory Buffers
     # We use lists to manually manage size and update sums
-    trivial_buffer: List[MemoryHeadline] = field(default_factory=list)
-    core_buffer: List[MemoryHeadline] = field(default_factory=list)
+    trivial_buffer: list[MemoryHeadline] = field(default_factory=list)
+    core_buffer: list[MemoryHeadline] = field(default_factory=list)
 
     # Constants
     TRIVIAL_MAX_LEN: int = 25
@@ -266,7 +266,7 @@ class RelationshipData:
         else:
             self._add_trivial_memory(headline)
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         """
         Support for pickling: Ensure running sums are consistent when loading old data
         or data that wasn't saved with sums.
@@ -362,11 +362,11 @@ class RelationshipRegistry:
         mate_id (Optional[EntityID]): ID of the mate entity.
     """
 
-    relationships: Dict[EntityID, RelationshipData] = field(default_factory=dict)
-    biological_parents: List[EntityID] = field(default_factory=list)
-    biological_children: List[EntityID] = field(default_factory=list)
-    family_group_id: Optional[EntityID] = None
-    mate_id: Optional[EntityID] = None
+    relationships: dict[EntityID, RelationshipData] = field(default_factory=dict)
+    biological_parents: list[EntityID] = field(default_factory=list)
+    biological_children: list[EntityID] = field(default_factory=list)
+    family_group_id: EntityID | None = None
+    mate_id: EntityID | None = None
 
     # Metadata for serialization remapping
     # Fields that contain EntityIDs that need remapping
@@ -394,7 +394,7 @@ class GossipQueue(Component):
     Component managing a queue of gossip packets.
     """
 
-    priority_queue: List[GossipPacket] = field(default_factory=list)
+    priority_queue: list[GossipPacket] = field(default_factory=list)
 
     # Metadata for serialization remapping
     # Note: GossipPacket contains target_id, so we might need deep inspection or just clear it on load?
@@ -458,11 +458,11 @@ class AIState:
 
     current_action: str = "Idle"
     current_target_id: EntityID = EntityID(-1)
-    path: Optional[List[Any]] = None
+    path: list[Any] | None = None
     action_progress: float = 0.0
-    state_data: Optional[Dict[str, Any]] = None
-    failed_targets: Set[EntityID] = field(default_factory=set)
-    visible_entities: Set[EntityID] = field(default_factory=set)
+    state_data: dict[str, Any] | None = None
+    failed_targets: set[EntityID] = field(default_factory=set)
+    visible_entities: set[EntityID] = field(default_factory=set)
     manual_override: bool = False
 
     # Metadata for serialization remapping
@@ -520,7 +520,7 @@ class Skills(Component):
         states (Dict[str, SkillState]): Map of SkillId to SkillState.
     """
 
-    states: Dict[str, SkillState] = field(default_factory=dict)
+    states: dict[str, SkillState] = field(default_factory=dict)
 
 
 @dataclass

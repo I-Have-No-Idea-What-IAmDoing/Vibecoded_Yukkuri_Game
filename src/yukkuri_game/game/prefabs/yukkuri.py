@@ -2,7 +2,7 @@
 Prefab functions for Yukkuri entities.
 """
 
-from typing import Optional, List, Any
+from typing import Any
 import random
 import pymunk
 
@@ -41,7 +41,7 @@ def create_yukkuri(
     x: float,
     y: float,
     age: float = 0.0,
-    parents: Optional[List[int]] = None,
+    parents: list[int] | None = None,
 ) -> int:
     """
     Creates a Yukkuri entity.

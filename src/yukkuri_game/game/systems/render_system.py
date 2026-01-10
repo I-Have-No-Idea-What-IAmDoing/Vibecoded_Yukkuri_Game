@@ -4,7 +4,6 @@ Render System Module.
 
 import pygame
 import math
-from typing import Optional, List, Tuple
 from pygame_light2d import LightingEngine
 
 from ...engine.ecs import System, World
@@ -55,7 +54,7 @@ class RenderSystem(System):
         self,
         screen: pygame.Surface,
         world: World,
-        lights_engine: Optional[LightingEngine] = None,
+        lights_engine: LightingEngine | None = None,
         force_lighting: bool = False,
     ):
         self.screen = screen
@@ -129,7 +128,7 @@ class RenderSystem(System):
         # 5. Render
         self.renderer.render()
 
-    def _get_visible_entities(self, world: World, sw: int, sh: int) -> List[int]:
+    def _get_visible_entities(self, world: World, sw: int, sh: int) -> list[int]:
         sector_map = world.services.try_get(SectorMap)
         if sector_map:
             buffer = 500.0
@@ -359,7 +358,7 @@ class RenderSystem(System):
             )
         )
 
-    def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
+    def set_ambient_light(self, color: tuple[int, int, int, int]) -> None:
         self.renderer.set_ambient_light(color)
 
     def _process_floating_text(

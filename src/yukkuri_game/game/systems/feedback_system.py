@@ -17,7 +17,6 @@ from ..events import (
     LogMessageEvent,
 )
 from ..prefabs.effects import create_floating_text
-from typing import Optional
 
 
 class FeedbackSystem(System):
@@ -37,7 +36,7 @@ class FeedbackSystem(System):
         Args:
             world (World): The ECS World.
         """
-        self.event_bus: Optional[EventBus] = world.services.get(EventBus)
+        self.event_bus: EventBus | None = world.services.get(EventBus)
         self.world = world
 
         # Subscribe to events

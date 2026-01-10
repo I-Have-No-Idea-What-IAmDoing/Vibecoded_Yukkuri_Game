@@ -3,7 +3,7 @@ Module implementing the social system for Yukkuri interaction and relationship m
 """
 
 import time
-from typing import Optional, Dict, Any
+from typing import Any
 from loguru import logger
 import random
 
@@ -51,9 +51,9 @@ class SocialSystem(System):
             event_bus (EventBus): The event bus instance.
         """
         super().__init__()
-        self.trait_service: Optional[TraitService] = None
-        self.skill_service: Optional[SkillService] = None
-        self.audio: Optional[AudioManager] = None
+        self.trait_service: TraitService | None = None
+        self.skill_service: SkillService | None = None
+        self.audio: AudioManager | None = None
         self.cleanup_index = 0
         self.cleanup_batch_size = 10
         self.event_bus = event_bus
@@ -321,7 +321,7 @@ class SocialSystem(System):
                 self.skill_service.add_xp(actor_id, skill_id, xp_amount)
 
     def _apply_physical_impact(
-        self, world: World, entity_id: int, impact: Dict[str, float]
+        self, world: World, entity_id: int, impact: dict[str, float]
     ) -> None:
         """Helper to apply physical stat changes to an entity."""
         world.get_component(entity_id, YukkuriStats)
@@ -452,8 +452,8 @@ class SocialSystem(System):
         world: World,
         subject_id: int,
         other_id: int,
-        social_impact: Dict[str, float],
-        modifiers: Dict[str, Dict[str, float]],
+        social_impact: dict[str, float],
+        modifiers: dict[str, dict[str, float]],
         base_impact_score: float,
     ) -> tuple[float, float, float, float]:
         """Calculates impact deltas considering personality and traits."""

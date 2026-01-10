@@ -6,7 +6,6 @@ Uses Event Bus to maintain Entity Map incrementally.
 
 import pymunk
 import math
-from typing import Optional, Dict, Set
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import ComponentAddedEvent, ComponentRemovedEvent
@@ -30,11 +29,11 @@ class VisibilitySystem(System):
 
     def __init__(self) -> None:
         """Initializes the VisibilitySystem."""
-        self.space: Optional[pymunk.Space] = None
+        self.space: pymunk.Space | None = None
         self.update_index = 0
         self.batch_size = 0.2  # Process 20% of entities per frame
-        self.body_to_entity: Dict[pymunk.Body, int] = {}
-        self.event_bus: Optional[EventBus] = None
+        self.body_to_entity: dict[pymunk.Body, int] = {}
+        self.event_bus: EventBus | None = None
 
     def on_component_added(self, event: ComponentAddedEvent) -> None:
         """
@@ -129,7 +128,7 @@ class VisibilitySystem(System):
         Returns:
             None
         """
-        visible: Set[int] = set()
+        visible: set[int] = set()
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
         phys_comp = world.get_component(entity, PhysicsBody)

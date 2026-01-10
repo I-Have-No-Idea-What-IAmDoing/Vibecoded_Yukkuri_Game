@@ -111,8 +111,13 @@ class TestPersistenceService:
             yield mock
 
     @pytest.fixture
-    def mock_json(self):
-        with patch("yukkuri_game.game.services.json") as mock:
+    def mock_msgspec(self):
+        with patch("yukkuri_game.game.services.msgspec") as mock:
+            # Make msgspec.Struct return False for isinstance checks
+            mock.Struct = type("MockStruct", (), {})
+            # Make to_builtins and msgpack.encode work
+            mock.to_builtins = lambda x: x.__dict__ if hasattr(x, "__dict__") else x
+            mock.msgpack.encode = MagicMock(return_value=b"encoded_data")
             yield mock
 
     @pytest.fixture
@@ -120,7 +125,7 @@ class TestPersistenceService:
         with patch("builtins.open", new_callable=MagicMock) as mock:
             yield mock
 
-    def test_save_game(self, mock_world, mock_os, mock_json, mock_open):
+    def test_save_game(self, mock_world, mock_os, mock_msgspec, mock_open):
         service = PersistenceService(mock_world)
 
         # Mock EconomyService
@@ -183,13 +188,13 @@ class TestPersistenceService:
 
         service.save_game("test_save.json")
 
-        mock_json.dump.assert_called_once()
-        args, _ = mock_json.dump.call_args
+        # Verify msgspec.msgpack.encode was called
+        mock_msgspec.msgpack.encode.assert_called_once()
+        args = mock_msgspec.msgpack.encode.call_args[0]
         data = args[0]
 
         assert data["money"] == 500
         assert len(data["entities"]) == 1
-        # WorldSerializer uses ClassName as key (e.g. "Transform")
         # Check if Transform is present
         assert "Transform" in data["entities"][0]["components"]
         assert data["entities"][0]["components"]["Transform"]["x"] == 10

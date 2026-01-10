@@ -3,7 +3,6 @@ Module for handling navigation and pathfinding.
 """
 
 import math
-from typing import List, Tuple
 from pathfinding.core.grid import Grid
 from pathfinding.finder.a_star import AStarFinder
 from pathfinding.core.diagonal_movement import DiagonalMovement
@@ -75,8 +74,8 @@ class NavigationService:
                 self.grid.node(x, y).walkable = True
 
     def find_path(
-        self, start: Tuple[float, float], goal: Tuple[float, float]
-    ) -> List[Tuple[float, float]]:
+        self, start: tuple[float, float], goal: tuple[float, float]
+    ) -> list[tuple[float, float]]:
         """
         Finds a path from start to goal using the persistent grid.
 
@@ -115,7 +114,7 @@ class NavigationService:
 
         path_nodes, _ = self.finder.find_path(start_node, goal_node, self.grid)
 
-        path: List[Tuple[float, float]] = []
+        path: list[tuple[float, float]] = []
 
         for node in path_nodes:
             wx = float(node.x * self.grid_step_size)

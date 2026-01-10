@@ -2,7 +2,7 @@
 Module for managing personality traits and social interaction definitions.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Any
 from loguru import logger
 from ..engine.ecs import World
 from ..engine.resource_manager import ResourceManager
@@ -19,7 +19,7 @@ class TraitService:
         interactions (Dict[str, InteractionDefinition]): Loaded interaction data.
     """
 
-    def __init__(self, world: Optional[World] = None):
+    def __init__(self, world: World | None = None):
         """
         Initializes the TraitService.
 
@@ -27,8 +27,8 @@ class TraitService:
             world (Optional[World]): The ECS World instance.
         """
         self.world = world
-        self.traits: Dict[str, TraitDefinition] = {}
-        self.interactions: Dict[str, InteractionDefinition] = {}
+        self.traits: dict[str, TraitDefinition] = {}
+        self.interactions: dict[str, InteractionDefinition] = {}
 
         self.load_data()
 
@@ -54,7 +54,7 @@ class TraitService:
             f"Loaded {len(self.traits)} traits and {len(self.interactions)} interactions."
         )
 
-    def get_trait(self, trait_id: str) -> Optional[TraitDefinition]:
+    def get_trait(self, trait_id: str) -> TraitDefinition | None:
         """
         Returns the data for a specific trait.
 
@@ -66,7 +66,7 @@ class TraitService:
         """
         return self.traits.get(trait_id)
 
-    def get_interaction(self, interaction_id: str) -> Optional[InteractionDefinition]:
+    def get_interaction(self, interaction_id: str) -> InteractionDefinition | None:
         """
         Returns the data for a specific interaction.
 
@@ -78,7 +78,7 @@ class TraitService:
         """
         return self.interactions.get(interaction_id)
 
-    def get_all_trait_ids(self) -> List[str]:
+    def get_all_trait_ids(self) -> list[str]:
         """
         Returns a list of all available trait IDs.
 
@@ -87,7 +87,7 @@ class TraitService:
         """
         return list(self.traits.keys())
 
-    def calculate_overrides(self, traits: set[str]) -> Dict[str, Any]:
+    def calculate_overrides(self, traits: set[str]) -> dict[str, Any]:
         """
         Calculates the effective AI modifiers for a set of traits.
         Merges conflicting modifiers (last one wins currently).

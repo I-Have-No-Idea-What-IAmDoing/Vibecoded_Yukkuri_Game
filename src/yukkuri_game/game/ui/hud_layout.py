@@ -4,7 +4,7 @@ Module defining the HUD layout and UI element creation.
 
 import pygame
 import pygame_gui
-from typing import Optional, Dict, Any, Union
+from typing import Any
 from ...engine.data_models import UserSettings
 from pygame_gui.elements import (
     UIPanel,
@@ -29,8 +29,8 @@ class HudLayout:
         ui_manager: pygame_gui.UIManager,
         width: int,
         height: int,
-        yukkuri_types: Optional[Dict[str, Any]] = None,
-        item_types: Optional[Dict[str, Any]] = None,
+        yukkuri_types: dict[str, Any] | None = None,
+        item_types: dict[str, Any] | None = None,
     ):
         """
         Initializes the HudLayout.
@@ -49,37 +49,37 @@ class HudLayout:
         self.item_types = item_types if item_types is not None else {}
 
         # Elements
-        self.top_panel: Optional[UIPanel] = None
-        self.money_label: Optional[UILabel] = None
-        self.time_label: Optional[UILabel] = None
-        self.save_btn: Optional[UIButton] = None
-        self.load_btn: Optional[UIButton] = None
-        self.pause_btn: Optional[UIButton] = None
-        self.speed_btn: Optional[UIButton] = None
-        self.settings_btn: Optional[UIButton] = None
-        self.bottom_panel: Optional[UIPanel] = None
+        self.top_panel: UIPanel | None = None
+        self.money_label: UILabel | None = None
+        self.time_label: UILabel | None = None
+        self.save_btn: UIButton | None = None
+        self.load_btn: UIButton | None = None
+        self.pause_btn: UIButton | None = None
+        self.speed_btn: UIButton | None = None
+        self.settings_btn: UIButton | None = None
+        self.bottom_panel: UIPanel | None = None
 
         # Buy Buttons Map: {button: {"type_id": str, "category": str, "cost": int}}
-        self.buy_buttons: Dict[UIButton, Dict[str, Any]] = {}
+        self.buy_buttons: dict[UIButton, dict[str, Any]] = {}
 
         # Entity Info Panel
-        self.entity_info_panel: Optional[EntityInfoPanel] = None
+        self.entity_info_panel: EntityInfoPanel | None = None
 
-        self.clean_btn: Optional[UIButton] = None
+        self.clean_btn: UIButton | None = None
 
         # Log Box
-        self.log_box: Optional[UITextBox] = None
+        self.log_box: UITextBox | None = None
 
         # Debug Window Elements
-        self.debug_window: Optional[UIWindow] = None
-        self.debug_text_box: Optional[UITextBox] = None
+        self.debug_window: UIWindow | None = None
+        self.debug_text_box: UITextBox | None = None
 
         # Settings Window Elements
-        self.settings_window: Optional[UIWindow] = None
-        self.settings_controls: Dict[str, Any] = {}
+        self.settings_window: UIWindow | None = None
+        self.settings_controls: dict[str, Any] = {}
 
         # Hover Tooltip Elements
-        self.hover_tooltip_label: Optional[NonBlockingTextBox] = None
+        self.hover_tooltip_label: NonBlockingTextBox | None = None
 
         self._create_top_bar()
         self._create_bottom_bar()
@@ -358,7 +358,7 @@ class HudLayout:
             self.debug_text_box = None
 
     def create_settings_window(
-        self, current_settings: Union[Dict[str, Any], UserSettings]
+        self, current_settings: dict[str, Any] | UserSettings
     ) -> None:
         """
         Creates the settings window.

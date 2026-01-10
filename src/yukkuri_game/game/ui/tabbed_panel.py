@@ -1,5 +1,4 @@
 import pygame
-from typing import Union, Tuple, Optional, Dict
 
 from pygame_gui.core import ObjectID, UIElement
 from pygame_gui.core.interfaces import IContainerLikeInterface, IUIManagerInterface
@@ -14,15 +13,15 @@ class TabbedPanel(UITabContainer):
     def __init__(
         self,
         relative_rect: pygame.Rect,
-        manager: Optional[IUIManagerInterface] = None,
-        container: Optional[IContainerLikeInterface] = None,
+        manager: IUIManagerInterface | None = None,
+        container: IContainerLikeInterface | None = None,
         starting_height: int = 1,
-        parent_element: Optional[UIElement] = None,
-        object_id: Optional[Union[ObjectID, str]] = None,
-        anchors: Optional[Dict[str, str]] = None,
+        parent_element: UIElement | None = None,
+        object_id: ObjectID | str | None = None,
+        anchors: dict[str, str] | None = None,
         visible: int = 1,
         orientation: str = "horizontal",
-        tab_button_size: Tuple[int, int] = (150, 30),
+        tab_button_size: tuple[int, int] = (150, 30),
     ):
         """
         Initializes the TabbedPanel.
@@ -160,7 +159,7 @@ class TabbedPanel(UITabContainer):
 
         return tab_id
 
-    def rebuild(self, count: Optional[int] = None) -> None:
+    def rebuild(self, count: int | None = None) -> None:
         """
         Rebuilds the tab container.
 

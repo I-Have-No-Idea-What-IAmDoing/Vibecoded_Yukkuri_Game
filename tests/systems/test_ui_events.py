@@ -137,7 +137,7 @@ class TestUIEvents(unittest.TestCase):
         self.system.update(self.world, 0.1)
 
         self.assertIsNotNone(captured_event)
-        self.assertEqual(captured_event.entity_ids, [])
+        self.assertEqual(captured_event.entity_ids, ())
 
     def test_placement_requested_event(self):
         # Start placement mode

@@ -3,7 +3,6 @@ Module defining the HungerSystem for handling food consumption and metabolism.
 """
 
 import math
-from typing import Optional
 
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
@@ -25,8 +24,8 @@ class HungerSystem(System):
     def __init__(self) -> None:
         """Initializes the HungerSystem."""
         super().__init__()
-        self.audio: Optional[AudioManager] = None
-        self.skill_service: Optional[SkillService] = None
+        self.audio: AudioManager | None = None
+        self.skill_service: SkillService | None = None
 
     def update(self, world: World, dt: float) -> None:
         """

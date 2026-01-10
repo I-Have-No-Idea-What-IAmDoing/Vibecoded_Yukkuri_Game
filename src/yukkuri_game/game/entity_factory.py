@@ -2,7 +2,6 @@
 Entity Factory Module.
 """
 
-from typing import Optional, Tuple, List
 from ..engine.ecs import World
 from .prefabs.yukkuri import create_yukkuri
 from .prefabs.item import create_item, create_poop
@@ -33,7 +32,7 @@ class EntityFactory:
         x: float,
         y: float,
         age: float = 0.0,
-        parents: Optional[List[int]] = None,
+        parents: list[int] | None = None,
     ) -> int:
         """
         Creates a Yukkuri entity.
@@ -78,7 +77,7 @@ class EntityFactory:
         return create_poop(self.world, x, y)
 
     def create_floating_text(
-        self, x: float, y: float, text: str, color: Tuple[int, int, int], size: int = 20
+        self, x: float, y: float, text: str, color: tuple[int, int, int], size: int = 20
     ) -> int:
         """
         Creates a floating text effect entity.

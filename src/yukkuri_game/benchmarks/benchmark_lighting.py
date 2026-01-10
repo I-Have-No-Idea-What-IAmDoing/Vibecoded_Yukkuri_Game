@@ -9,7 +9,7 @@ import statistics
 import random
 import pygame
 import csv
-from typing import Dict, Any
+from typing import Any
 import logging
 
 from ..game.renderer.pygame_backend import PygameBackend
@@ -39,7 +39,7 @@ class LightingBenchmarkRunner:
         self.iterations = iterations
         self.seed = seed
 
-    def run(self) -> Dict[str, Any]:
+    def run(self) -> dict[str, Any]:
         """
         Runs the benchmark.
         """
@@ -192,7 +192,7 @@ def main():
             with open(args.json, "w") as f:
                 json.dump(results, f, indent=4)
             print(f"Results saved to {args.json}")
-        except IOError as e:
+        except OSError as e:
             logger.error(f"Failed to save JSON results: {e}")
 
     if args.csv:
@@ -210,7 +210,7 @@ def main():
                         ]
                     )
             print(f"Raw data exported to {args.csv}")
-        except IOError as e:
+        except OSError as e:
             logger.error(f"Failed to write CSV: {e}")
 
 

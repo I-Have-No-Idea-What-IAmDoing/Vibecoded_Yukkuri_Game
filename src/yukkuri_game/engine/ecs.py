@@ -7,17 +7,11 @@ structured and type-safe interface for managing entities and components.
 
 import uuid
 from typing import (
-    Type,
     TypeVar,
-    Dict,
     Any,
-    List,
-    Optional,
-    Tuple,
     TYPE_CHECKING,
-    Set,
-    Iterator,
 )
+from collections.abc import Iterator
 import esper
 from .service_locator import ServiceLocator
 from .events import (
@@ -59,7 +53,7 @@ class World:
         self.name = str(uuid.uuid4())
         self.services = ServiceLocator()
         self._next_stable_id = 1
-        self._active_entities: Set[int] = set()
+        self._active_entities: set[int] = set()
         # Create the world context in esper.
         # Esper uses a thread-local global context system, so we must switch to this world's name
         # before performing any operations if we want to support multiple worlds.
@@ -209,7 +203,7 @@ class World:
         if event_bus:
             event_bus.publish(ComponentAddedEvent(entity, type(component), component))
 
-    def remove_component(self, entity: int, component_type: Type[Any]) -> None:
+    def remove_component(self, entity: int, component_type: type[Any]) -> None:
         """
         Removes a component of a specific type from an entity.
 
@@ -233,7 +227,7 @@ class World:
         except KeyError:
             pass
 
-    def get_component(self, entity: int, component_type: Type[T]) -> Optional[T]:
+    def get_component(self, entity: int, component_type: type[T]) -> T | None:
         """
         Retrieves a component of a specific type from an entity.
 
@@ -250,7 +244,7 @@ class World:
         except KeyError:
             return None
 
-    def try_get_component(self, entity: int, component_type: Type[T]) -> Optional[T]:
+    def try_get_component(self, entity: int, component_type: type[T]) -> T | None:
         """
         Alias for get_component.
 
@@ -263,7 +257,7 @@ class World:
         """
         return self.get_component(entity, component_type)
 
-    def has_component(self, entity: int, component_type: Type[Any]) -> bool:
+    def has_component(self, entity: int, component_type: type[Any]) -> bool:
         """
         Checks if an entity has a specific component type.
 
@@ -280,7 +274,7 @@ class World:
         except KeyError:
             return False
 
-    def get_components(self, component_type: Type[T]) -> Dict[int, T]:
+    def get_components(self, component_type: type[T]) -> dict[int, T]:
         """
         Retrieves all components of a specific type.
 
@@ -296,7 +290,7 @@ class World:
             for entity, component in esper.get_component(component_type)
         }
 
-    def get_all_entities(self) -> List[int]:
+    def get_all_entities(self) -> list[int]:
         """
         Retrieves all entity IDs in the current world context.
 
@@ -306,7 +300,7 @@ class World:
         # We maintain a separate set of entities to avoid accessing private members of esper
         return list(self._active_entities)
 
-    def get_entities_with(self, *component_types: Type[Any]) -> List[int]:
+    def get_entities_with(self, *component_types: type[Any]) -> list[int]:
         """
         Retrieves a list of entity IDs that have all specified component types.
 
@@ -322,8 +316,8 @@ class World:
         return [entity for entity, _ in esper.get_components(*component_types)]
 
     def get_components_tuple(
-        self, *component_types: Type[Any]
-    ) -> List[Tuple[int, Tuple[Any, ...]]]:
+        self, *component_types: type[Any]
+    ) -> list[tuple[int, tuple[Any, ...]]]:
         """
         Retrieves entities and their components for the specified types.
 
@@ -338,7 +332,7 @@ class World:
         self._switch()
         return esper.get_components(*component_types)  # type: ignore[no-any-return]
 
-    def get_all_components(self, entity: int) -> Tuple[Any, ...]:
+    def get_all_components(self, entity: int) -> tuple[Any, ...]:
         """
         Retrieves all components for a specific entity.
 

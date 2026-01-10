@@ -1,44 +1,38 @@
 """
 Game Events Module.
+
+All game events inherit from the engine's Event base class for consistency.
+Events are frozen dataclasses to ensure immutability.
 """
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from ..engine.event_bus import Event
 
 
-@dataclass
-class EntityDestroyedEvent:
-    """
-    Event triggered when an entity is destroyed.
-    """
-
-    entity_id: int
-
-
-@dataclass
-class EntityDiedEvent:
+@dataclass(frozen=True)
+class EntityDiedEvent(Event):
     """
     Event triggered when an entity dies (gameplay logic).
     """
 
     entity_id: int
-    position: Tuple[float, float]
+    position: tuple[float, float]
     cause: str = "Unknown"
 
 
-@dataclass
-class EntityGrewEvent:
+@dataclass(frozen=True)
+class EntityGrewEvent(Event):
     """
     Event triggered when an entity grows to a new stage (e.g., Baby -> Child).
     """
 
     entity_id: int
     new_stage: str
-    position: Tuple[float, float]
+    position: tuple[float, float]
 
 
-@dataclass
-class AnimationEvent:
+@dataclass(frozen=True)
+class AnimationEvent(Event):
     """
     Event triggered by animation system (e.g. keyframes or completion).
     """
@@ -49,8 +43,8 @@ class AnimationEvent:
     frame_index: int = -1
 
 
-@dataclass
-class PlacementStartedEvent:
+@dataclass(frozen=True)
+class PlacementStartedEvent(Event):
     """
     Event triggered when the user starts the placement mode.
     """
@@ -60,8 +54,8 @@ class PlacementStartedEvent:
     entity_type: str  # "yukkuri" or "item"
 
 
-@dataclass
-class PlacementRequestedEvent:
+@dataclass(frozen=True)
+class PlacementRequestedEvent(Event):
     """
     Event triggered when the user clicks to place an entity.
     """
@@ -73,8 +67,8 @@ class PlacementRequestedEvent:
     entity_type: str
 
 
-@dataclass
-class PlacementCancelledEvent:
+@dataclass(frozen=True)
+class PlacementCancelledEvent(Event):
     """
     Event triggered when the user cancels placement mode.
     """
@@ -82,27 +76,27 @@ class PlacementCancelledEvent:
     pass
 
 
-@dataclass
-class EntitySelectedEvent:
+@dataclass(frozen=True)
+class EntitySelectedEvent(Event):
     """
     Event triggered when entities are selected.
     """
 
-    entity_ids: List[int]
+    entity_ids: tuple[int, ...]  # Changed from List to Tuple for frozen dataclass
 
 
-@dataclass
-class LogMessageEvent:
+@dataclass(frozen=True)
+class LogMessageEvent(Event):
     """
     Event to log a message to the in-game console/log.
     """
 
     message: str
-    color: Tuple[int, int, int] = (255, 255, 255)
+    color: tuple[int, int, int] = (255, 255, 255)
 
 
-@dataclass
-class TogglePauseRequest:
+@dataclass(frozen=True)
+class TogglePauseRequest(Event):
     """
     Request to toggle game pause state.
     """
@@ -110,8 +104,8 @@ class TogglePauseRequest:
     pass
 
 
-@dataclass
-class GamePausedEvent:
+@dataclass(frozen=True)
+class GamePausedEvent(Event):
     """
     Event indicating the game pause state has changed.
     """
@@ -119,8 +113,8 @@ class GamePausedEvent:
     paused: bool
 
 
-@dataclass
-class CycleSpeedRequest:
+@dataclass(frozen=True)
+class CycleSpeedRequest(Event):
     """
     Request to cycle through game speeds.
     """
@@ -128,8 +122,8 @@ class CycleSpeedRequest:
     pass
 
 
-@dataclass
-class ResolutionChangedEvent:
+@dataclass(frozen=True)
+class ResolutionChangedEvent(Event):
     """
     Event indicating the window resolution has changed.
     """
@@ -139,8 +133,8 @@ class ResolutionChangedEvent:
     fullscreen: bool
 
 
-@dataclass
-class TrainEntityRequest:
+@dataclass(frozen=True)
+class TrainEntityRequest(Event):
     """
     Request to train a specific entity.
     """
@@ -148,19 +142,19 @@ class TrainEntityRequest:
     entity_id: int
 
 
-@dataclass
-class EntityTrainedEvent:
+@dataclass(frozen=True)
+class EntityTrainedEvent(Event):
     """
     Event indicating an entity was trained.
     """
 
     entity_id: int
-    position: Tuple[float, float]
+    position: tuple[float, float]
     success: bool = True
 
 
-@dataclass
-class PunishEntityRequest:
+@dataclass(frozen=True)
+class PunishEntityRequest(Event):
     """
     Request to punish a specific entity.
     """
@@ -168,18 +162,18 @@ class PunishEntityRequest:
     entity_id: int
 
 
-@dataclass
-class EntityPunishedEvent:
+@dataclass(frozen=True)
+class EntityPunishedEvent(Event):
     """
     Event indicating an entity was punished.
     """
 
     entity_id: int
-    position: Tuple[float, float]
+    position: tuple[float, float]
 
 
-@dataclass
-class SellEntityRequest:
+@dataclass(frozen=True)
+class SellEntityRequest(Event):
     """
     Request to sell a specific entity.
     """
@@ -187,19 +181,19 @@ class SellEntityRequest:
     entity_id: int
 
 
-@dataclass
-class EntitySoldEvent:
+@dataclass(frozen=True)
+class EntitySoldEvent(Event):
     """
     Event indicating an entity was sold.
     """
 
     entity_id: int
     value: int
-    position: Tuple[float, float]
+    position: tuple[float, float]
 
 
-@dataclass
-class CleanToolRequestedEvent:
+@dataclass(frozen=True)
+class CleanToolRequestedEvent(Event):
     """
     Request to activate the cleaning tool.
     """
@@ -207,8 +201,8 @@ class CleanToolRequestedEvent:
     pass
 
 
-@dataclass
-class SocialInteractionEvent:
+@dataclass(frozen=True)
+class SocialInteractionEvent(Event):
     """
     Event indicating a social interaction occurred between two entities.
     """
@@ -218,8 +212,8 @@ class SocialInteractionEvent:
     interaction_type: str  # "Talk", "Fight", "Dance"
 
 
-@dataclass
-class SaveGameRequest:
+@dataclass(frozen=True)
+class SaveGameRequest(Event):
     """
     Request to save the game.
     """
@@ -227,8 +221,8 @@ class SaveGameRequest:
     filename: str = "savegame"
 
 
-@dataclass
-class LoadGameRequest:
+@dataclass(frozen=True)
+class LoadGameRequest(Event):
     """
     Request to load a game.
     """
@@ -236,8 +230,8 @@ class LoadGameRequest:
     filename: str = "savegame"
 
 
-@dataclass
-class LevelUpEvent:
+@dataclass(frozen=True)
+class LevelUpEvent(Event):
     """
     Event triggered when a Yukkuri levels up a skill.
     """

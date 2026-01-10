@@ -15,6 +15,8 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         needs.max_health = 100.0
         needs.health = 150.0  # Over limit
 
+        mock_world.services.try_get.return_value = None
+
         def get_components_tuple(*args):
             if args == (Transform, LightSource):
                 return []
@@ -42,6 +44,8 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         needs = Needs()
         needs.max_health = 100.0
         needs.health = -50.0  # Under limit
+
+        mock_world.services.try_get.return_value = None
 
         def get_components_tuple(*args):
             if args == (Transform, LightSource):

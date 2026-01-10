@@ -8,7 +8,6 @@ from ...engine.resource_manager import ResourceManager
 from ..components import Sprite, Animator
 from ..yukkuri_components import AIState, YukkuriStats
 from ..events import AnimationEvent
-from typing import Optional
 
 
 class AnimationSystem(System):
@@ -19,7 +18,7 @@ class AnimationSystem(System):
         event_bus (Optional[EventBus]): The event bus to publish animation events to.
     """
 
-    def __init__(self, event_bus: Optional[EventBus] = None):
+    def __init__(self, event_bus: EventBus | None = None):
         """
         Initializes the AnimationSystem.
 
@@ -225,7 +224,7 @@ class AnimationSystem(System):
             self._switch_animation(animator, target_anim)
 
     def _update_dynamic_sprite(
-        self, world: World, entity: int, sprite: Sprite, rm: Optional[ResourceManager]
+        self, world: World, entity: int, sprite: Sprite, rm: ResourceManager | None
     ) -> None:
         """
         Updates the sprite image based on AIState if no Animator is present.

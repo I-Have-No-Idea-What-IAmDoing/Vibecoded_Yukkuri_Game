@@ -4,7 +4,8 @@ Module defining the behavior tree logic for AI agents.
 
 import math
 import random
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 import py_trees
 import pymunk
@@ -43,9 +44,9 @@ class MoveToTarget(Action):
     def __init__(
         self,
         name: str = "Move To Target",
-        entity_id: Optional[int] = None,
+        entity_id: int | None = None,
         world: Optional["World"] = None,
-        blackboard: Optional[Any] = None,
+        blackboard: Any | None = None,
         speed: float = 100.0,
         acceptance_radius: float = 15.0,
     ):
@@ -176,9 +177,9 @@ class Wander(Action):
     def __init__(
         self,
         name: str = "Wander",
-        entity_id: Optional[int] = None,
+        entity_id: int | None = None,
         world: Optional["World"] = None,
-        blackboard: Optional[Any] = None,
+        blackboard: Any | None = None,
         width: int = 3000,
         height: int = 3000,
     ):
@@ -196,7 +197,7 @@ class Wander(Action):
         super().__init__(name, entity_id, world, blackboard)
         self.width = width
         self.height = height
-        self.move_action: Optional[MoveToTarget] = None
+        self.move_action: MoveToTarget | None = None
 
     def initialise(self) -> None:
         """
@@ -244,9 +245,9 @@ class Interact(Action):
     def __init__(
         self,
         name: str = "Interact",
-        entity_id: Optional[int] = None,
+        entity_id: int | None = None,
         world: Optional["World"] = None,
-        blackboard: Optional[Any] = None,
+        blackboard: Any | None = None,
         consume: bool = True,
     ):
         """
@@ -460,9 +461,9 @@ class Idle(Action):
     def __init__(
         self,
         name: str = "Idle",
-        entity_id: Optional[int] = None,
+        entity_id: int | None = None,
         world: Optional["World"] = None,
-        blackboard: Optional[Any] = None,
+        blackboard: Any | None = None,
     ):
         """
         Initializes the Idle action.
@@ -572,14 +573,14 @@ class BehaviorRegistry:
     Registry for behavior tree construction functions associated with high-level goals.
     """
 
-    _goals: Dict[
+    _goals: dict[
         str,
         Callable[
             [int, "World", int, int, Callable[[str], bool], Callable[[], bool]],
             Behaviour,
         ],
     ] = {}
-    _target_requirements: Dict[str, Type[Any]] = {}
+    _target_requirements: dict[str, type[Any]] = {}
 
     @classmethod
     def register_goal(
@@ -589,7 +590,7 @@ class BehaviorRegistry:
             [int, "World", int, int, Callable[[str], bool], Callable[[], bool]],
             Behaviour,
         ],
-        required_component: Optional[Type[Any]] = None,
+        required_component: type[Any] | None = None,
     ) -> None:
         """
         Registers a behavior builder function for a specific goal.
@@ -606,7 +607,7 @@ class BehaviorRegistry:
     @classmethod
     def get_goals(
         cls,
-    ) -> Dict[
+    ) -> dict[
         str,
         Callable[
             [int, "World", int, int, Callable[[str], bool], Callable[[], bool]],
@@ -622,7 +623,7 @@ class BehaviorRegistry:
         return cls._goals
 
     @classmethod
-    def get_target_requirement(cls, goal_name: str) -> Optional[Type[Any]]:
+    def get_target_requirement(cls, goal_name: str) -> type[Any] | None:
         """
         Retrieves the required component type for a goal's target.
 

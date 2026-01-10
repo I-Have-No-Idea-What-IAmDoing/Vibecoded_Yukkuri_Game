@@ -6,7 +6,7 @@ import os
 import sys
 import pygame
 from loguru import logger
-from typing import Dict, Optional, Any
+from typing import Any
 
 
 class AudioManager:
@@ -36,8 +36,8 @@ class AudioManager:
             logger.warning(f"Audio initialization failed (likely no device): {e}")
             self.enabled = False
 
-        self.sounds: Dict[str, pygame.mixer.Sound] = {}
-        self.music: Optional[Any] = None
+        self.sounds: dict[str, pygame.mixer.Sound] = {}
+        self.music: Any | None = None
         self.master_volume: float = 1.0
         self.bgm_volume: float = 1.0
         self.sfx_volume: float = 1.0

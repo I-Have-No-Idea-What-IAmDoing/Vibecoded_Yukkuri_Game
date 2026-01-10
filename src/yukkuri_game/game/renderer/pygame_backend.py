@@ -1,4 +1,4 @@
-from typing import Tuple, Any, List
+from typing import Any
 import pygame
 from .backend import RenderBackend
 from .commands import (
@@ -21,7 +21,7 @@ class PygameBackend(RenderBackend):
 
         # State
         self.ambient_color = (20, 20, 20, 255)
-        self.commands: List[Any] = []
+        self.commands: list[Any] = []
 
         # New Lighting Engine
         w, h = screen.get_size()
@@ -31,7 +31,7 @@ class PygameBackend(RenderBackend):
         self.font_cache = {}
         self.shadow_surface_cache = {}  # (rx, ry, color) -> Surface
 
-    def clear(self, color: Tuple[int, int, int]) -> None:
+    def clear(self, color: tuple[int, int, int]) -> None:
         self.screen.fill(color)
 
     def begin_frame(self) -> None:
@@ -108,14 +108,14 @@ class PygameBackend(RenderBackend):
 
         self.lighting_engine.add_occluder(aabb, snapped_vertices)
 
-    def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
+    def set_ambient_light(self, color: tuple[int, int, int, int]) -> None:
         self.ambient_color = color
 
     def draw_line(
         self,
-        start: Tuple[float, float],
-        end: Tuple[float, float],
-        color: Tuple[int, int, int],
+        start: tuple[float, float],
+        end: tuple[float, float],
+        color: tuple[int, int, int],
         width: int = 1,
     ) -> None:
         pygame.draw.line(self.screen, color, start, end, width)

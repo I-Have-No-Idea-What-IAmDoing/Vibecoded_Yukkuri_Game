@@ -4,7 +4,7 @@ Test Environment Module.
 
 import os
 import contextlib
-from typing import Generator
+from collections.abc import Generator
 
 
 @contextlib.contextmanager

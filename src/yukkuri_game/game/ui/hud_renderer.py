@@ -3,7 +3,7 @@ Module for rendering the HUD overlay.
 """
 
 import pygame
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 from ...engine.ecs import World
 from ..components import Transform
 from ..yukkuri_components import (
@@ -47,7 +47,7 @@ class HudRenderer:
         self.world = world
         self.fps = 0.0
 
-    def update(self, dt: float, selected_entities: List[int], show_debug: bool) -> None:
+    def update(self, dt: float, selected_entities: list[int], show_debug: bool) -> None:
         """
         Updates all HUD elements with current game data.
 
@@ -95,14 +95,14 @@ class HudRenderer:
                 f"Day {day} - {hours:02d}:{minutes:02d}{speed_str}"
             )
 
-    def _update_selection_info(self, selected_entities: List[int]) -> None:
+    def _update_selection_info(self, selected_entities: list[int]) -> None:
         """Updates the selection window info."""
         if self.layout.entity_info_panel and selected_entities:
             self._update_stats_display(selected_entities)
             self._update_skills_display(selected_entities)
 
     def _update_debug_info(
-        self, dt: float, selected_entities: List[int], show_debug: bool
+        self, dt: float, selected_entities: list[int], show_debug: bool
     ) -> None:
         """Updates debug window and lines."""
         if show_debug:
@@ -219,7 +219,7 @@ class HudRenderer:
 
         self.layout.update_hover_tooltip(text, input_service.hovered_entity_pos)
 
-    def _update_stats_display(self, selected_entities: List[int]) -> None:
+    def _update_stats_display(self, selected_entities: list[int]) -> None:
         """
         Updates the stats display for the selected entity.
 
@@ -399,7 +399,7 @@ class HudRenderer:
         if self.layout.entity_info_panel:
             self.layout.entity_info_panel.update_stats(text)
 
-    def _update_skills_display(self, selected_entities: List[int]) -> None:
+    def _update_skills_display(self, selected_entities: list[int]) -> None:
         """
         Updates the skills display for the selected entity.
 

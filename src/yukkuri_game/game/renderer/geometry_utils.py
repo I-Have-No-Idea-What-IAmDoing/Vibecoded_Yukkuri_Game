@@ -1,6 +1,5 @@
 import math
 import pymunk
-from typing import List, Tuple, Optional, Dict
 from ..components import Transform, Occluder, Sprite, PhysicsBody
 
 
@@ -8,15 +7,15 @@ class GeometryUtils:
     """Utilities for generating render geometry."""
 
     CIRCLE_OCCLUDER_SEGMENTS = 12
-    _CIRCLE_CACHE: Optional[List[Tuple[float, float]]] = None
+    _CIRCLE_CACHE: list[tuple[float, float]] | None = None
 
     # Cache for static vertices: entity_id -> vertices
-    _STATIC_CACHE: Dict[int, List[Tuple[float, float]]] = {}
+    _STATIC_CACHE: dict[int, list[tuple[float, float]]] = {}
     # Cache key to invalidate static cache if transform changes
-    _STATIC_CACHE_KEYS: Dict[int, Tuple[float, float, float, float]] = {}
+    _STATIC_CACHE_KEYS: dict[int, tuple[float, float, float, float]] = {}
 
     @classmethod
-    def get_circle_vertices(cls) -> List[Tuple[float, float]]:
+    def get_circle_vertices(cls) -> list[tuple[float, float]]:
         """Returns cached unit circle vertices."""
         if cls._CIRCLE_CACHE is None:
             cls._CIRCLE_CACHE = []
@@ -32,11 +31,11 @@ class GeometryUtils:
         entity_id: int,
         transform: Transform,
         occluder: Occluder,
-        sprite: Optional[Sprite] = None,
-        body: Optional[PhysicsBody] = None,
-        override_x: Optional[float] = None,
-        override_y: Optional[float] = None,
-    ) -> List[Tuple[float, float]]:
+        sprite: Sprite | None = None,
+        body: PhysicsBody | None = None,
+        override_x: float | None = None,
+        override_y: float | None = None,
+    ) -> list[tuple[float, float]]:
         """
         Calculates world-space vertices for an occluder.
         Args:
@@ -141,7 +140,7 @@ class GeometryUtils:
     @classmethod
     def _get_shape_vertices(
         cls, body: pymunk.Body, shape: pymunk.Shape
-    ) -> List[Tuple[float, float]]:
+    ) -> list[tuple[float, float]]:
         verts = []
         if hasattr(shape, "get_vertices"):
             # Poly

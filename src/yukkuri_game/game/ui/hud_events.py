@@ -4,7 +4,8 @@ Module for handling UI events from the HUD.
 
 import pygame
 import pygame_gui
-from typing import Optional, Callable, Dict, Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
+from collections.abc import Callable
 from ...engine.event_bus import EventBus
 from ...engine.audio import AudioManager
 from ..settings_service import SettingsService
@@ -41,7 +42,7 @@ class HudEvents:
         layout: "HudLayout",
         world: World,
         event_bus: EventBus,
-        on_error: Optional[Callable[[str], None]] = None,
+        on_error: Callable[[str], None] | None = None,
     ):
         """
         Initializes HudEvents.
@@ -58,11 +59,11 @@ class HudEvents:
         self.on_error = on_error
         self.selected_entities: list[int] = []
 
-        self.settings_service: Optional[SettingsService] = None
+        self.settings_service: SettingsService | None = None
         if hasattr(self.world.services, "try_get"):
             self.settings_service = self.world.services.try_get(SettingsService)
 
-        self.audio_manager: Optional[AudioManager] = None
+        self.audio_manager: AudioManager | None = None
         if hasattr(self.world.services, "try_get"):
             self.audio_manager = self.world.services.try_get(AudioManager)
 
@@ -70,7 +71,7 @@ class HudEvents:
         self.event_bus.subscribe(LevelUpEvent, self.on_level_up)
 
         # Map layout attribute names to handlers
-        self._static_handlers: Dict[str, Callable[[], None]] = {
+        self._static_handlers: dict[str, Callable[[], None]] = {
             "save_btn": self._save_game,
             "load_btn": self._load_game,
             "pause_btn": lambda: self.event_bus.publish(TogglePauseRequest()),

@@ -3,7 +3,7 @@ Typed Event Definitions.
 """
 
 from dataclasses import dataclass
-from typing import Type, Any
+from typing import Any
 from .event_bus import Event
 
 
@@ -34,14 +34,14 @@ class EntityDestroyedEvent(Event):
 @dataclass(frozen=True)
 class ComponentAddedEvent(Event):
     entity_id: int
-    component_type: Type[Any]
+    component_type: type[Any]
     component: Any
 
 
 @dataclass(frozen=True)
 class ComponentRemovedEvent(Event):
     entity_id: int
-    component_type: Type[Any]
+    component_type: type[Any]
     component: Any
 
 

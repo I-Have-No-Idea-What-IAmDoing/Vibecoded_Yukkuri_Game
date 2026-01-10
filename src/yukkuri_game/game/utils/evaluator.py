@@ -2,7 +2,7 @@
 Module defining the ConditionEvaluator for dynamic expression parsing.
 """
 
-from typing import Any, Dict, Type
+from typing import Any
 from simpleeval import SimpleEval
 from loguru import logger
 from ...engine.ecs import World
@@ -28,7 +28,7 @@ class ConditionEvaluator:
     def __init__(self) -> None:
         """Initializes the ConditionEvaluator."""
         self.evaluator = SimpleEval()
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
 
         def has_trait(trait: str) -> bool:
             """
@@ -49,7 +49,7 @@ class ConditionEvaluator:
         # Register custom safe functions if needed
         self.evaluator.functions = {"min": min, "max": max, "has_trait": has_trait}
 
-    def build_context(self, world: World, entity_id: int) -> Dict[str, Any]:
+    def build_context(self, world: World, entity_id: int) -> dict[str, Any]:
         """
         Builds a flat data context for an entity suitable for expression evaluation.
 
@@ -60,7 +60,7 @@ class ConditionEvaluator:
         Returns:
             Dict[str, Any]: The context dictionary containing stats, needs, etc.
         """
-        context: Dict[str, Any] = {}
+        context: dict[str, Any] = {}
 
         # Stats
         stats = world.get_component(entity_id, YukkuriStats)
@@ -104,7 +104,7 @@ class ConditionEvaluator:
 
         # Skills (Flattened for easy access: skills.athletics)
         skills = world.get_component(entity_id, Skills)
-        skill_map: Dict[str, int] = {}
+        skill_map: dict[str, int] = {}
         if skills:
             for s_id, s_state in skills.states.items():
                 skill_map[s_id] = s_state.level
@@ -113,7 +113,7 @@ class ConditionEvaluator:
         return context
 
     def evaluate(
-        self, expression: str, context: Dict[str, Any], expected_type: Type = bool
+        self, expression: str, context: dict[str, Any], expected_type: type = bool
     ) -> bool:
         """
         Evaluates a boolean expression string against a given context.
@@ -154,4 +154,4 @@ class ConditionEvaluator:
         except Exception as e:
             # Fallback for bad data/expressions to prevent crash
             logger.warning(f"Expression evaluation error: '{expression}' - {e}")
-            return bool(False)
+            return False

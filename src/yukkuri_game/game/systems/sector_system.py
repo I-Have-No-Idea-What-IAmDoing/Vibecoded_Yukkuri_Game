@@ -2,7 +2,6 @@
 Module defining the Sector System for efficient spatial partitioning and social propagation.
 """
 
-from typing import List, Set, Dict, Tuple, Optional
 from collections import defaultdict
 import math
 from ...engine.ecs import System, World
@@ -34,12 +33,12 @@ class SectorMap:
         self.rows = int(math.ceil(height / sector_size))
 
         # Stores set of entity IDs per sector index (col, row)
-        self.sectors: Dict[Tuple[int, int], Set[int]] = defaultdict(set)
+        self.sectors: dict[tuple[int, int], set[int]] = defaultdict(set)
 
         # Track entity positions to optimize updates
-        self.entity_sectors: Dict[int, Tuple[int, int]] = {}
+        self.entity_sectors: dict[int, tuple[int, int]] = {}
 
-    def get_sector_coords(self, x: float, y: float) -> Tuple[int, int]:
+    def get_sector_coords(self, x: float, y: float) -> tuple[int, int]:
         """
         Returns the (col, row) coordinates for a given world position.
         Clamps to map boundaries.
@@ -83,13 +82,13 @@ class SectorMap:
                 self.sectors[sector].remove(entity_id)
             del self.entity_sectors[entity_id]
 
-    def get_entities_in_sector(self, col: int, row: int) -> Set[int]:
+    def get_entities_in_sector(self, col: int, row: int) -> set[int]:
         """
         Returns all entities in a specific sector.
         """
         return self.sectors.get((col, row), set())
 
-    def get_adjacent_sectors(self, col: int, row: int) -> List[Tuple[int, int]]:
+    def get_adjacent_sectors(self, col: int, row: int) -> list[tuple[int, int]]:
         """
         Returns a list of valid (col, row) tuples for adjacent sectors (including diagonals).
         """
@@ -106,7 +105,7 @@ class SectorMap:
 
     def get_entities_in_range(
         self, x: float, y: float, range_type: str = "visual"
-    ) -> List[int]:
+    ) -> list[int]:
         """
         Returns entities based on propagation rules.
 
@@ -115,7 +114,7 @@ class SectorMap:
             range_type: "visual" (Same + Adjacent) or "auditory_loud" (Same + Adjacent) or "auditory" (Same).
         """
         col, row = self.get_sector_coords(x, y)
-        result: List[int] = []
+        result: list[int] = []
 
         # Always include current sector (the sector the entity is currently standing in)
         sector_entities = self.sectors.get((col, row))
@@ -131,7 +130,7 @@ class SectorMap:
 
         return result
 
-    def get_entities_in_radius(self, x: float, y: float, radius: float) -> List[int]:
+    def get_entities_in_radius(self, x: float, y: float, radius: float) -> list[int]:
         """
         Returns all entities in sectors overlapping the given radius.
         Note: This returns a superset of entities (all entities in touched sectors).
@@ -151,7 +150,7 @@ class SectorMap:
         start_col, start_row = self.get_sector_coords(min_x, min_y)
         end_col, end_row = self.get_sector_coords(max_x, max_y)
 
-        result: List[int] = []
+        result: list[int] = []
 
         # Iterate over rectangular range of sectors
         for c in range(start_col, end_col + 1):
@@ -164,7 +163,7 @@ class SectorMap:
 
     def get_entities_in_rect(
         self, x: float, y: float, width: float, height: float
-    ) -> List[int]:
+    ) -> list[int]:
         """
         Returns all entities in sectors overlapping the given rectangle.
         Note: This returns a superset of entities (all entities in touched sectors).
@@ -182,7 +181,7 @@ class SectorMap:
         start_col, start_row = self.get_sector_coords(min_x, min_y)
         end_col, end_row = self.get_sector_coords(max_x, max_y)
 
-        result: List[int] = []
+        result: list[int] = []
 
         # Iterate over rectangular range of sectors
         for c in range(start_col, end_col + 1):
@@ -210,7 +209,7 @@ class SectorSystem(System):
 
     def __init__(
         self,
-        event_bus: Optional[EventBus] = None,
+        event_bus: EventBus | None = None,
         width: float = 4000,
         height: float = 4000,
         sector_size: float = 500,

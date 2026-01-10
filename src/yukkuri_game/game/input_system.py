@@ -3,7 +3,7 @@ Module defining the InputSystem logic.
 """
 
 import pygame
-from typing import Optional, TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 from ..engine.ecs import System, World
 from ..engine.event_bus import EventBus, Event
 from ..engine.audio import AudioManager
@@ -50,15 +50,15 @@ class InputSystem(System):
             camera (Camera): The game world view manager.
         """
         self.camera = camera
-        self.event_bus: Optional[EventBus] = None
-        self.input_service: Optional[InputService] = None
-        self.input_manager: Optional[InputManager] = None
-        self.audio: Optional[AudioManager] = None
-        self.ui_manager: Optional["pygame_gui.UIManager"] = None
+        self.event_bus: EventBus | None = None
+        self.input_service: InputService | None = None
+        self.input_manager: InputManager | None = None
+        self.audio: AudioManager | None = None
+        self.ui_manager: pygame_gui.UIManager | None = None
 
-        self.drag_start_pos: Optional[Tuple[float, float]] = None
-        self.drag_end_pos: Optional[Tuple[float, float]] = None
-        self.drag_start_screen_pos: Optional[Tuple[int, int]] = None
+        self.drag_start_pos: tuple[float, float] | None = None
+        self.drag_end_pos: tuple[float, float] | None = None
+        self.drag_start_screen_pos: tuple[int, int] | None = None
 
     def set_ui_manager(self, ui_manager: "pygame_gui.UIManager") -> None:
         """
@@ -297,7 +297,7 @@ class InputSystem(System):
                 selectable.selected = ent in final_selection
 
         if self.event_bus:
-            self.event_bus.publish(EntitySelectedEvent(final_selection))
+            self.event_bus.publish(EntitySelectedEvent(tuple(final_selection)))
 
     def _handle_cleaning(self, world: World, wx: float, wy: float) -> None:
         """

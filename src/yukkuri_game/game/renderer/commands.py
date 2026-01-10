@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple, Optional, Any, List
+from typing import Any
 import pygame
 from ..components import FlickerStyle
 
@@ -17,15 +17,15 @@ class SpriteCommand(RenderCommand):
     """Command to draw a sprite."""
 
     image: pygame.Surface
-    position: Tuple[float, float]  # Screen coordinates
+    position: tuple[float, float]  # Screen coordinates
     rotation: float = 0.0
     scale: float = 1.0
     flip_x: bool = False
     flip_y: bool = False
-    color: Optional[Tuple[int, int, int]] = None  # Tint
+    color: tuple[int, int, int] | None = None  # Tint
     alpha: int = 255
     selected: bool = False
-    cache_key: Optional[Tuple[Any, ...]] = None
+    cache_key: tuple[Any, ...] | None = None
 
 
 @dataclass
@@ -33,11 +33,11 @@ class TextCommand(RenderCommand):
     """Command to draw text."""
 
     text: str
-    position: Tuple[float, float]  # Screen coordinates
+    position: tuple[float, float]  # Screen coordinates
     size: int
-    color: Tuple[int, int, int]
+    color: tuple[int, int, int]
     alpha: int = 255
-    font_name: Optional[str] = None
+    font_name: str | None = None
 
 
 @dataclass
@@ -45,11 +45,11 @@ class LightCommand(RenderCommand):
     """Command to update/draw a light source."""
 
     entity_id: int  # To track persistence/updates
-    position: Tuple[float, float]  # Screen coordinates
+    position: tuple[float, float]  # Screen coordinates
     radius: float
-    color: Tuple[int, int, int, int]
+    color: tuple[int, int, int, int]
     intensity: float
-    flicker_style: Optional[FlickerStyle] = None
+    flicker_style: FlickerStyle | None = None
     soft_shadows: bool = True
     static: bool = False
 
@@ -58,9 +58,9 @@ class LightCommand(RenderCommand):
 class ShadowCommand(RenderCommand):
     """Command to draw a simple blob shadow."""
 
-    position: Tuple[float, float]  # Screen coordinates
-    radius: Tuple[float, float]  # x, y radius
-    color: Tuple[int, int, int, int] = (0, 0, 0, 100)
+    position: tuple[float, float]  # Screen coordinates
+    radius: tuple[float, float]  # x, y radius
+    color: tuple[int, int, int, int] = (0, 0, 0, 100)
 
 
 @dataclass
@@ -68,5 +68,5 @@ class OccluderCommand(RenderCommand):
     """Command to define an occluder polygon."""
 
     entity_id: int
-    vertices: List[Tuple[float, float]]  # Screen coordinates
+    vertices: list[tuple[float, float]]  # Screen coordinates
     static: bool = False

@@ -2,16 +2,15 @@
 Module defining core game services.
 """
 
-from typing import Set, TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 import os
-import json
 import msgspec
 import dataclasses
 
 from ..engine.ecs import World
 from .components import Transform
 from .components_persistence import StableIDComponent
-from .yukkuri_components import ItemStats, Skills, AIState
+from .yukkuri_components import ItemStats, Skills
 from .skill_constants import SkillId
 from .systems.sector_system import SectorMap
 from . import components, components_persistence, yukkuri_components
@@ -316,7 +315,7 @@ class GameService:
         self,
         position: tuple[float, float],
         stat_criteria: str = "nutrition",
-        exclude_ids: Set[int] | None = None,
+        exclude_ids: set[int] | None = None,
         searcher_id: int = -1,
     ) -> int:
         """

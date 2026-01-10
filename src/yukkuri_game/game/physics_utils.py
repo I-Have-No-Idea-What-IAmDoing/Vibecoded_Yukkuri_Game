@@ -2,7 +2,7 @@
 Physics Utilities.
 """
 
-from typing import Any, Tuple
+from typing import Any
 import pymunk
 from ..engine.ecs import World
 from .components import PhysicsBody
@@ -14,7 +14,7 @@ def add_physics_body(
     entity: int,
     shape_type: str,
     mass: float,
-    position: Tuple[float, float],
+    position: tuple[float, float],
     radius_or_size: Any,
     collision_category: int,
     collision_mask: int,

@@ -38,9 +38,9 @@ class UtilitySelector(Action):
     def __init__(
         self,
         name: str = "Utility Selector",
-        entity_id: Optional[int] = None,
+        entity_id: int | None = None,
         world: Optional["World"] = None,
-        blackboard: Optional[Any] = None,
+        blackboard: Any | None = None,
     ):
         """
         Initializes the UtilitySelector node.
@@ -52,8 +52,8 @@ class UtilitySelector(Action):
             blackboard (Optional[Any]): The blackboard for data sharing.
         """
         super().__init__(name, entity_id, world, blackboard)
-        self.engine: Optional[UtilityAIEngine] = None
-        self.trait_service: Optional[TraitService] = None
+        self.engine: UtilityAIEngine | None = None
+        self.trait_service: TraitService | None = None
 
     def initialise(self) -> None:
         """

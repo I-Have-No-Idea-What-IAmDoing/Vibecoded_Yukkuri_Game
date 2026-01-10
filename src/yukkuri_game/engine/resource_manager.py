@@ -3,7 +3,7 @@ Module for managing game resources like images, sounds, and data files.
 """
 
 import os
-from typing import Any, Dict, Type, TypeVar, Optional
+from typing import Any, TypeVar
 from collections import OrderedDict
 
 import msgspec
@@ -66,22 +66,22 @@ class ResourceManager:
         self.assets_dir = assets_dir
         # Using OrderedDict for simple LRU if needed, though raw images are usually few
         self.images: OrderedDict[str, pygame.Surface] = OrderedDict()
-        self.sounds: Dict[str, pygame.mixer.Sound] = {}
-        self.configs: Dict[str, Any] = {}
+        self.sounds: dict[str, pygame.mixer.Sound] = {}
+        self.configs: dict[str, Any] = {}
 
         # Cache for loaded data
-        self.yukkuri_types: Dict[str, YukkuriType] = {}
-        self.item_types: Dict[str, ItemType] = {}
-        self.ai_actions: Dict[str, AIAction] = {}
-        self.tuning: Optional[GameTuning] = None
-        self.skills: Dict[str, SkillDefinition] = {}
-        self.traits: Dict[str, TraitDefinition] = {}
-        self.interactions: Dict[str, InteractionDefinition] = {}
+        self.yukkuri_types: dict[str, YukkuriType] = {}
+        self.item_types: dict[str, ItemType] = {}
+        self.ai_actions: dict[str, AIAction] = {}
+        self.tuning: GameTuning | None = None
+        self.skills: dict[str, SkillDefinition] = {}
+        self.traits: dict[str, TraitDefinition] = {}
+        self.interactions: dict[str, InteractionDefinition] = {}
 
         # Max number of images to keep in memory (usually base images are few, but good to have a limit)
         self.image_cache_limit = image_cache_limit
 
-    def load_toml_model(self, filepath: str, model: Type[T]) -> Optional[T]:
+    def load_toml_model(self, filepath: str, model: type[T]) -> T | None:
         """
         Loads a TOML file relative to the data directory and parses it into a msgspec Struct.
 

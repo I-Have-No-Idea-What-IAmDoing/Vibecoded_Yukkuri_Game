@@ -2,7 +2,7 @@
 Module defining the SettingsService.
 """
 
-from typing import Any, Optional
+from typing import Any
 from loguru import logger
 
 from ..engine.data_models import UserSettings
@@ -21,7 +21,7 @@ class SettingsService:
 
     def __init__(
         self,
-        resource_manager: Optional[ResourceManager] = None,
+        resource_manager: ResourceManager | None = None,
         settings_file: str = "user_settings.toml",
     ):
         """

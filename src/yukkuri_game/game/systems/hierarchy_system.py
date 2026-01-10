@@ -7,7 +7,6 @@ Optimized to handle dismounts and structure updates more efficiently.
 import pymunk
 import math
 import random
-from typing import Optional
 from loguru import logger
 from ...engine.ecs import System, World
 from ..components import (
@@ -332,7 +331,7 @@ class HierarchySystem(System):
 
     def find_free_spot(
         self, space: pymunk.Space, start_pos: pymunk.Vec2d, shape: pymunk.Shape
-    ) -> Optional[pymunk.Vec2d]:
+    ) -> pymunk.Vec2d | None:
         """
         Searches for a free spot using a spiral pattern.
         Uses point_query (or reusing the same temp shape if possible) to ensure the full volume fits.

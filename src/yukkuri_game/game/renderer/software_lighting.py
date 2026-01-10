@@ -1,5 +1,4 @@
 import pygame
-from typing import List, Tuple, Dict
 
 # Try to import numpy for fast gradient generation
 try:
@@ -17,7 +16,7 @@ class SurfacePool:
     """
 
     def __init__(self, max_pool_size: int = 32):
-        self._pool: Dict[Tuple[int, int], List[pygame.Surface]] = {}
+        self._pool: dict[tuple[int, int], list[pygame.Surface]] = {}
         self._max_pool_size = max_pool_size
 
     def acquire(self, width: int, height: int) -> pygame.Surface:
@@ -52,7 +51,7 @@ class SoftwareLightingEngine:
     - Fast path for 1.0 scale (no transform needed)
     """
 
-    def __init__(self, screen_size: Tuple[int, int], scale: float = 1.0):
+    def __init__(self, screen_size: tuple[int, int], scale: float = 1.0):
         self.scale = scale
         self.native_size = screen_size
         self.lightmap_size = (int(screen_size[0] * scale), int(screen_size[1] * scale))
@@ -62,15 +61,15 @@ class SoftwareLightingEngine:
 
         # Spatial Grid
         self.cell_size = 100  # World units
-        self.grid: Dict[Tuple[int, int], List[Tuple[tuple, list]]] = {}
+        self.grid: dict[tuple[int, int], list[tuple[tuple, list]]] = {}
         self.occluders = []
 
         # Caches
-        self.light_texture_cache: Dict[tuple, pygame.Surface] = {}
+        self.light_texture_cache: dict[tuple, pygame.Surface] = {}
 
         # Static light cache: entity_id -> (light_surface, cache_key)
         # Cache key includes params that would invalidate the cache
-        self.static_light_cache: Dict[int, Tuple[pygame.Surface, tuple]] = {}
+        self.static_light_cache: dict[int, tuple[pygame.Surface, tuple]] = {}
 
         # Surface pool for light rendering surfaces
         self.surface_pool = SurfacePool()
@@ -79,7 +78,7 @@ class SoftwareLightingEngine:
         self.native_size = (width, height)
         self.lightmap = pygame.Surface((int(width * self.scale), int(height * self.scale)))
 
-    def clear(self, ambient_color: Tuple[int, int, int]):
+    def clear(self, ambient_color: tuple[int, int, int]):
         # Fill lightmap with ambient
         self.lightmap.fill(ambient_color)
         self.occluders.clear()
@@ -87,8 +86,8 @@ class SoftwareLightingEngine:
 
     def add_occluder(
         self,
-        aabb: Tuple[float, float, float, float],
-        vertices: List[Tuple[float, float]],
+        aabb: tuple[float, float, float, float],
+        vertices: list[tuple[float, float]],
     ):
         """
         Registers an occluder and adds it to the spatial grid.
@@ -112,9 +111,9 @@ class SoftwareLightingEngine:
 
     def render_light(
         self,
-        position: Tuple[float, float],
+        position: tuple[float, float],
         radius: float,
-        color: Tuple[int, int, int],
+        color: tuple[int, int, int],
         intensity: float,
         soft_shadows: bool = True,
         static: bool = False,
@@ -187,9 +186,9 @@ class SoftwareLightingEngine:
         lx: float,
         ly: float,
         radius: float,
-        color: Tuple[int, int, int],
+        color: tuple[int, int, int],
         intensity: float,
-        occluders: List,
+        occluders: list,
         soft_shadows: bool = True,
     ) -> pygame.Surface:
         """
@@ -249,7 +248,7 @@ class SoftwareLightingEngine:
         sx: int,
         sy: int,
         radius: float,
-        occluders: List,
+        occluders: list,
     ):
         """
         Draws soft shadows efficiently using a downscale-upscale blur technique.
@@ -354,7 +353,7 @@ class SoftwareLightingEngine:
         sx: int,
         sy: int,
         radius: float,
-        occluders: List,
+        occluders: list,
     ):
         """
         Optimized shadow volume drawing with reduced Python overhead.
@@ -434,7 +433,7 @@ class SoftwareLightingEngine:
         sx: int,
         sy: int,
         radius: float,
-        occluders: List,
+        occluders: list,
     ):
         """
         NumPy-accelerated shadow volume drawing.
@@ -504,7 +503,7 @@ class SoftwareLightingEngine:
                 )
 
     def _get_gradient_surface(
-        self, radius: int, color: Tuple[int, int, int], intensity: float
+        self, radius: int, color: tuple[int, int, int], intensity: float
     ) -> pygame.Surface:
         """
         Generates (or retrieves) a high-quality radial gradient surface.
@@ -525,7 +524,7 @@ class SoftwareLightingEngine:
         return surf
 
     def _generate_gradient_numpy(
-        self, radius: int, color: Tuple[int, int, int], intensity: float
+        self, radius: int, color: tuple[int, int, int], intensity: float
     ) -> pygame.Surface:
         """
         Fast NumPy-based gradient generation.
@@ -572,7 +571,7 @@ class SoftwareLightingEngine:
         return surf
 
     def _generate_gradient_pygame(
-        self, radius: int, color: Tuple[int, int, int], intensity: float
+        self, radius: int, color: tuple[int, int, int], intensity: float
     ) -> pygame.Surface:
         """
         Fallback gradient generation using pygame.draw.circle.
@@ -618,7 +617,7 @@ class SoftwareLightingEngine:
 
     def _query_grid(
         self, lx: float, ly: float, radius: float
-    ) -> List[Tuple[tuple, list]]:
+    ) -> list[tuple[tuple, list]]:
         """
         Returns a list of occluders (aabb, vertices) that overlap the light's bounding box.
         """

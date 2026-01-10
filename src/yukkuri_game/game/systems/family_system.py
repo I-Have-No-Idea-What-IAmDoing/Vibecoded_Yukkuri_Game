@@ -2,7 +2,6 @@
 Module defining the FamilySystem logic.
 """
 
-from typing import Optional
 import random
 from loguru import logger
 
@@ -295,8 +294,8 @@ class FamilySystem(System):
         other_trans: "Transform",
         ai: AIState,
         other_ai: AIState,
-        emotional: Optional[EmotionalState],
-        other_emotional: Optional[EmotionalState],
+        emotional: EmotionalState | None,
+        other_emotional: EmotionalState | None,
     ) -> None:
         """
         Helper to apply benefits between two entities if they are close enough.

@@ -2,7 +2,7 @@
 Module defining the ServiceLocator pattern.
 """
 
-from typing import Type, TypeVar, Dict, Any, Optional
+from typing import TypeVar, Any
 
 T = TypeVar("T")
 
@@ -24,12 +24,12 @@ class ServiceLocator:
 
     def __init__(self) -> None:
         """Initializes the ServiceLocator."""
-        self._services: Dict[Type[Any], Any] = {}
+        self._services: dict[type[Any], Any] = {}
 
     def register(
         self,
         instance: Any,
-        service_type: Optional[Type[Any]] = None,
+        service_type: type[Any] | None = None,
         replace: bool = False,
     ) -> None:
         """
@@ -53,7 +53,7 @@ class ServiceLocator:
 
         self._services[key] = instance
 
-    def get(self, service_type: Type[T]) -> T:
+    def get(self, service_type: type[T]) -> T:
         """
         Retrieves a service instance by its type.
 
@@ -73,7 +73,7 @@ class ServiceLocator:
             )
         return service  # type: ignore[no-any-return]
 
-    def try_get(self, service_type: Type[T]) -> Optional[T]:
+    def try_get(self, service_type: type[T]) -> T | None:
         """
         Tries to retrieve a service instance by its type.
 

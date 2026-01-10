@@ -3,7 +3,7 @@ Scene Management Module.
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Dict, Any, Type, ClassVar, Set
+from typing import TYPE_CHECKING, Any, ClassVar
 from dataclasses import dataclass, field
 import pygame
 from .ecs import World
@@ -23,7 +23,7 @@ class SceneContext:
     Holds data injected into a scene from the global state.
     """
 
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
 
 class Scene(ABC):
@@ -34,7 +34,7 @@ class Scene(ABC):
 
     # Declarative injections mapping keys to expected types/classes
     # e.g. { "player_inventory": InventoryComponent }
-    INJECTIONS: ClassVar[Dict[str, Type]] = {}
+    INJECTIONS: ClassVar[dict[str, type]] = {}
 
     def __init__(self, application: "Application"):
         """
@@ -45,7 +45,7 @@ class Scene(ABC):
         """
         self.application = application
         self.world = World()
-        self.registered_components: Set[Type] = {Persistable, StableIDComponent}
+        self.registered_components: set[type] = {Persistable, StableIDComponent}
 
         # Register global services
         # Note: application.resources is instance of ResourceManager
@@ -56,7 +56,7 @@ class Scene(ABC):
         if hasattr(application, "event_manager"):
             self.world.services.register(application.event_manager, EventManager)
 
-    def register_component(self, component_type: Type) -> None:
+    def register_component(self, component_type: type) -> None:
         """
         Register a component type for serialization support.
         Must be called during setup/init for any component that might be saved/loaded.
@@ -158,7 +158,7 @@ class Scene(ABC):
             serializer.save_to_file(filepath)
         except Exception as e:
             # Re-raise to let the caller (SceneManager or UI) handle the failure
-            raise IOError(f"Failed to save scene to {filepath}") from e
+            raise OSError(f"Failed to save scene to {filepath}") from e
 
     def load(self, filepath: str) -> None:
         """
@@ -183,4 +183,4 @@ class Scene(ABC):
         try:
             serializer.load_from_file(filepath)
         except Exception as e:
-            raise IOError(f"Failed to load scene from {filepath}") from e
+            raise OSError(f"Failed to load scene from {filepath}") from e

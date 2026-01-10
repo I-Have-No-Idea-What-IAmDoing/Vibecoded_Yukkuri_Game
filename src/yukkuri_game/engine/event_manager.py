@@ -2,7 +2,8 @@
 Event Manager Module for Phase-Based Event System.
 """
 
-from typing import Dict, List, Callable, Any, Type
+from typing import Any
+from collections.abc import Callable
 from enum import Enum, auto
 from .event_bus import EventBus, Event
 
@@ -31,10 +32,10 @@ class EventManager:
     def __init__(self) -> None:
         """Initializes the EventManager."""
         self.bus = EventBus()
-        self._queues: Dict[GamePhase, List[Event]] = {phase: [] for phase in GamePhase}
+        self._queues: dict[GamePhase, list[Event]] = {phase: [] for phase in GamePhase}
 
     def subscribe(
-        self, event_type: Type[Event], handler: Callable[[Any], None]
+        self, event_type: type[Event], handler: Callable[[Any], None]
     ) -> None:
         """
         Subscribe to an event type (immediate dispatch).

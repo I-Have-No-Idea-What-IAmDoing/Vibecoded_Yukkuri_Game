@@ -2,7 +2,7 @@
 Module defining the ConstructionSystem logic.
 """
 
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus, Event
 from ..events import PlacementRequestedEvent
@@ -26,10 +26,10 @@ class ConstructionSystem(System):
 
     def __init__(self) -> None:
         """Initializes the ConstructionSystem."""
-        self.world: Optional[World] = None
-        self.event_bus: Optional[EventBus] = None
-        self.economy_service: Optional[EconomyService] = None
-        self.factory: Optional["EntityFactory"] = None
+        self.world: World | None = None
+        self.event_bus: EventBus | None = None
+        self.economy_service: EconomyService | None = None
+        self.factory: EntityFactory | None = None
 
     def update(self, world: World, dt: float) -> None:
         """

@@ -1,4 +1,3 @@
-from typing import List, Tuple
 from .backend import RenderBackend
 from .commands import (
     RenderCommand,
@@ -17,7 +16,7 @@ class Renderer:
 
     def __init__(self, backend: RenderBackend):
         self.backend = backend
-        self._commands: List[RenderCommand] = []
+        self._commands: list[RenderCommand] = []
 
     def submit(self, cmd: RenderCommand) -> None:
         """Add a command to the queue."""
@@ -49,8 +48,8 @@ class Renderer:
 
         self.backend.end_frame()
 
-    def clear_screen(self, color: Tuple[int, int, int]) -> None:
+    def clear_screen(self, color: tuple[int, int, int]) -> None:
         self.backend.clear(color)
 
-    def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:
+    def set_ambient_light(self, color: tuple[int, int, int, int]) -> None:
         self.backend.set_ambient_light(color)

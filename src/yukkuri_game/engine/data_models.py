@@ -2,7 +2,7 @@
 Module defining data models for game configuration (TOML schema).
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Any
 import msgspec
 
 
@@ -23,14 +23,14 @@ class AnimationDefinition(msgspec.Struct):  # type: ignore[misc]
     """
 
     name: str
-    frames: List[int]
+    frames: list[int]
     frame_duration: float
     loop: bool = True
     ping_pong: bool = False
-    events: Dict[int, str] = msgspec.field(default_factory=dict)
-    image: Optional[str] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
+    events: dict[int, str] = msgspec.field(default_factory=dict)
+    image: str | None = None
+    width: int | None = None
+    height: int | None = None
 
 
 class YukkuriType(msgspec.Struct):  # type: ignore[misc]
@@ -55,7 +55,7 @@ class YukkuriType(msgspec.Struct):  # type: ignore[misc]
     max_health: int
     base_happiness: int
     cost: int = 100
-    animations: Dict[str, AnimationDefinition] = {}
+    animations: dict[str, AnimationDefinition] = {}
 
 
 class ItemType(msgspec.Struct):  # type: ignore[misc]
@@ -80,13 +80,13 @@ class ItemType(msgspec.Struct):  # type: ignore[misc]
     height: int
     cost: int
     is_portable: bool
-    nutrition: Optional[int] = None
-    comfort: Optional[int] = None
-    fun: Optional[int] = None
-    light_radius: Optional[float] = None
-    light_color: Optional[List[int]] = None
-    light_intensity: Optional[float] = None
-    light_flicker: Optional[str] = None
+    nutrition: int | None = None
+    comfort: int | None = None
+    fun: int | None = None
+    light_radius: float | None = None
+    light_color: list[int] | None = None
+    light_intensity: float | None = None
+    light_flicker: str | None = None
     occluder: bool = False
     static_occluder: bool = True
 
@@ -103,9 +103,9 @@ class ActionEffect(msgspec.Struct):  # type: ignore[misc]
     """
 
     type: str
-    target_stat: Optional[str] = None
+    target_stat: str | None = None
     consume: bool = False
-    stat_changes: Dict[str, float] = {}
+    stat_changes: dict[str, float] = {}
 
 
 class ActionConsideration(msgspec.Struct):  # type: ignore[misc]
@@ -122,7 +122,7 @@ class ActionConsideration(msgspec.Struct):  # type: ignore[misc]
     name: str
     input: str
     curve: str
-    params: Dict[str, float] = {}
+    params: dict[str, float] = {}
 
 
 class AIAction(msgspec.Struct):  # type: ignore[misc]
@@ -136,8 +136,8 @@ class AIAction(msgspec.Struct):  # type: ignore[misc]
     """
 
     weight: float
-    effects: Optional[ActionEffect] = None
-    considerations: List[ActionConsideration] = []
+    effects: ActionEffect | None = None
+    considerations: list[ActionConsideration] = []
 
 
 class SkillDefinition(msgspec.Struct):  # type: ignore[misc]
@@ -166,14 +166,14 @@ class TraitDefinition(msgspec.Struct):  # type: ignore[misc]
 
     name: str
     description: str
-    conflicts: List[str] = []
-    axis_shift: Dict[str, int] = {}
-    stat_modifiers: Dict[str, float] = {}
-    ai_modifiers: Dict[
+    conflicts: list[str] = []
+    axis_shift: dict[str, int] = {}
+    stat_modifiers: dict[str, float] = {}
+    ai_modifiers: dict[
         str, Any
     ] = {}  # Complex structure, can be boolean flags or dicts
-    skill_modifiers: Dict[str, Dict[str, float]] = {}
-    social_modifiers: Dict[str, Dict[str, float]] = {}
+    skill_modifiers: dict[str, dict[str, float]] = {}
+    social_modifiers: dict[str, dict[str, float]] = {}
 
 
 # Interaction definitions are complex because they have conditions and modifiers.
@@ -184,10 +184,10 @@ class InteractionDefinition(msgspec.Struct):  # type: ignore[misc]
     """
 
     base_impact: float = 0.0
-    social_impact: Dict[str, float] = {}
+    social_impact: dict[str, float] = {}
     range_type: str = "touch"
-    conditions: List[Dict[str, Any]] = []  # e.g. [{type="skill_check", ...}]
-    modifiers: Dict[str, Dict[str, float]] = {}
+    conditions: list[dict[str, Any]] = []  # e.g. [{type="skill_check", ...}]
+    modifiers: dict[str, dict[str, float]] = {}
 
 
 # --- Game Tuning Data Models (from yukkuri_tuning.json) ---
@@ -237,7 +237,7 @@ class YukkuriData(msgspec.Struct):  # type: ignore[misc]
         yukkuris (Dict[str, YukkuriType]): A dictionary mapping Yukkuri type names to their definitions.
     """
 
-    yukkuris: Dict[str, YukkuriType]
+    yukkuris: dict[str, YukkuriType]
 
 
 class ItemData(msgspec.Struct):  # type: ignore[misc]
@@ -248,7 +248,7 @@ class ItemData(msgspec.Struct):  # type: ignore[misc]
         items (Dict[str, ItemType]): A dictionary mapping item type names to their definitions.
     """
 
-    items: Dict[str, ItemType]
+    items: dict[str, ItemType]
 
 
 class AIData(msgspec.Struct):  # type: ignore[misc]
@@ -259,7 +259,7 @@ class AIData(msgspec.Struct):  # type: ignore[misc]
         actions (Dict[str, AIAction]): A dictionary mapping action names to their definitions.
     """
 
-    actions: Dict[str, AIAction]
+    actions: dict[str, AIAction]
 
 
 class SkillData(msgspec.Struct):  # type: ignore[misc]
@@ -267,7 +267,7 @@ class SkillData(msgspec.Struct):  # type: ignore[misc]
     Root container for Skill definitions.
     """
 
-    skills: Dict[str, SkillDefinition]
+    skills: dict[str, SkillDefinition]
 
 
 class TraitData(msgspec.Struct):  # type: ignore[misc]
@@ -275,7 +275,7 @@ class TraitData(msgspec.Struct):  # type: ignore[misc]
     Root container for Trait definitions.
     """
 
-    traits: Dict[str, TraitDefinition]
+    traits: dict[str, TraitDefinition]
 
 
 class InteractionData(msgspec.Struct):  # type: ignore[misc]
@@ -283,7 +283,7 @@ class InteractionData(msgspec.Struct):  # type: ignore[misc]
     Root container for Interaction definitions.
     """
 
-    interaction: Dict[str, InteractionDefinition]
+    interaction: dict[str, InteractionDefinition]
 
 
 class AudioSettings(msgspec.Struct):

@@ -2,7 +2,6 @@
 Module defining the BehaviorSystem logic.
 """
 
-from typing import Dict
 import py_trees
 from py_trees.common import Status
 from ...engine.ecs import System, World
@@ -30,11 +29,11 @@ class BehaviorSystem(System):
         """
         self.world_w = world_width
         self.world_h = world_height
-        self.trees: Dict[int, py_trees.trees.BehaviourTree] = {}
+        self.trees: dict[int, py_trees.trees.BehaviourTree] = {}
         # Map entity_id -> next update time (seconds)
-        self.next_update_times: Dict[int, float] = {}
+        self.next_update_times: dict[int, float] = {}
         # Map entity_id -> last update time (seconds) to calculate correct dt
-        self.last_update_times: Dict[int, float] = {}
+        self.last_update_times: dict[int, float] = {}
         self.total_time: float = 0.0
 
     def update(self, world: World, dt: float) -> None:

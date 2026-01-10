@@ -6,7 +6,8 @@ import random
 import pygame
 import os
 import io
-from typing import Generator, Any, Callable, List, Optional, Type
+from typing import Any
+from collections.abc import Generator, Callable
 from dataclasses import dataclass
 from collections import deque
 from loguru import logger
@@ -55,7 +56,7 @@ class InjectInput:
         events (List[pygame.event.Event]): List of events to inject.
     """
 
-    events: List[pygame.event.Event]
+    events: list[pygame.event.Event]
 
 
 @dataclass
@@ -80,7 +81,7 @@ class WaitUntilScene:
         timeout (float): Max wait time in seconds. Defaults to 10.0.
     """
 
-    scene_type: Type
+    scene_type: type
     timeout: float = 10.0
 
 
@@ -184,7 +185,7 @@ class GameDriver:
         self.fixed_dt = fixed_dt
         self.simulated_time = 0.0
         self.frame_count = 0
-        self._scenario_deadline: Optional[float] = None
+        self._scenario_deadline: float | None = None
         self.event_history: deque = deque(maxlen=100)
 
     def seed_rng(self, seed: int = 42) -> None:
@@ -231,7 +232,7 @@ class GameDriver:
         elif hasattr(self.game, "setup"):
             self.game.setup()
 
-    def reload_scene(self, scene_type: Optional[Type] = None) -> None:
+    def reload_scene(self, scene_type: type | None = None) -> None:
         """
         Reloads the current scene or switches to a new scene type.
         Ensures a clean state for the scene.
@@ -350,7 +351,7 @@ class GameDriver:
         """Cleans up the game instance."""
         self.game.quit()
 
-    def wait_until_scene(self, scene_type: Type, timeout: float = 10.0) -> None:
+    def wait_until_scene(self, scene_type: type, timeout: float = 10.0) -> None:
         """
         Waits until the current scene is of the specified type.
 
@@ -368,7 +369,7 @@ class GameDriver:
             WaitUntil(predicate, timeout, f"Scene is {scene_type.__name__}")
         )
 
-    def get_entities_with(self, *components: Type) -> List[int]:
+    def get_entities_with(self, *components: type) -> list[int]:
         """
         Returns a list of entity IDs that have all specified components.
 
@@ -382,7 +383,7 @@ class GameDriver:
             return self.world.get_entities_with(*components)
         return []
 
-    def assert_entity_count(self, count: int, *components: Type) -> None:
+    def assert_entity_count(self, count: int, *components: type) -> None:
         """
         Asserts that a specific number of entities exist with the given components.
 
@@ -522,7 +523,7 @@ class GameDriver:
         while self.simulated_time < target_time:
             self._tick()
 
-    def get_transform(self, entity_id: int) -> Optional[Any]:
+    def get_transform(self, entity_id: int) -> Any | None:
         """
         Retrieves the Transform component for an entity.
 

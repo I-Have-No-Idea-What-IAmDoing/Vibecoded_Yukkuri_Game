@@ -2,7 +2,7 @@
 Scene Manager Module.
 """
 
-from typing import Optional, List, TYPE_CHECKING, Dict, Any
+from typing import Optional, TYPE_CHECKING, Any
 import pygame
 import msgspec
 from loguru import logger
@@ -20,8 +20,8 @@ class SceneManager:
 
     def __init__(self) -> None:
         """Initializes the SceneManager."""
-        self._scenes: List["Scene"] = []
-        self.persistent_data: Dict[str, Any] = {}
+        self._scenes: list[Scene] = []
+        self.persistent_data: dict[str, Any] = {}
 
     @property
     def current_scene(self) -> Optional["Scene"]:

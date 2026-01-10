@@ -4,13 +4,10 @@ Serialization Module.
 
 from typing import (
     Any,
-    Dict,
-    Type,
-    Optional,
-    Iterable,
     get_origin,
     get_args,
 )
+from collections.abc import Iterable
 import typing
 import msgspec
 from loguru import logger
@@ -24,7 +21,7 @@ class WorldSerializer:
     Handles serialization and deserialization of the game world.
     """
 
-    def __init__(self, world: World, component_types: Iterable[Type[Any]]):
+    def __init__(self, world: World, component_types: Iterable[type[Any]]):
         """
         Initializes the WorldSerializer.
 
@@ -37,7 +34,7 @@ class WorldSerializer:
         self._persistable_type = self.component_map.get("Persistable")
         self._stable_id_type = self.component_map.get("StableIDComponent")
 
-    def serialize_entity(self, entity: int) -> Optional[Dict[str, Any]]:
+    def serialize_entity(self, entity: int) -> dict[str, Any] | None:
         """
         Serializes a single entity.
 
@@ -96,7 +93,7 @@ class WorldSerializer:
             "components": components_data,
         }
 
-    def get_persistable_entities_data(self) -> list[Dict[str, Any]]:
+    def get_persistable_entities_data(self) -> list[dict[str, Any]]:
         """
         Returns a list of serialized data for all persistable entities.
 
@@ -149,7 +146,7 @@ class WorldSerializer:
 
         self.load_from_data(entities_data)
 
-    def load_from_data(self, entities_data: list[Dict[str, Any]]) -> None:
+    def load_from_data(self, entities_data: list[dict[str, Any]]) -> None:
         """
         Loads entities from a list of entity data dicts with two-pass reference resolution.
 
@@ -170,7 +167,7 @@ class WorldSerializer:
         # We instantiate the entities so they have valid IDs in the current world.
         # We also deserialize components but leave EntityID references pointing to old IDs for now.
         # This allows us to handle circular references where Entity A needs Entity B's ID before B is created.
-        id_map: Dict[int, int] = {}  # old_id -> new_id
+        id_map: dict[int, int] = {}  # old_id -> new_id
         max_stable_id = 0
 
         for entity_data in entities_data:
@@ -294,7 +291,7 @@ class WorldSerializer:
 
         logger.info(f"Loaded {len(entities_data)} entities from data")
 
-    def _is_entity_ref(self, tp: Type) -> bool:
+    def _is_entity_ref(self, tp: type) -> bool:
         """
         Check if type is EntityID or Optional[EntityID].
 
@@ -313,7 +310,7 @@ class WorldSerializer:
             return EntityID in args
         return False
 
-    def _is_container_of_entity_ref(self, tp: Type) -> bool:
+    def _is_container_of_entity_ref(self, tp: type) -> bool:
         """
         Check if type is List[EntityID] or Set[EntityID].
 
@@ -324,13 +321,13 @@ class WorldSerializer:
             bool: True if it is a container of EntityID.
         """
         origin = get_origin(tp)
-        if origin in (list, set, typing.List, typing.Set):
+        if origin in (list, set, list, set):
             args = get_args(tp)
             if args and self._is_entity_ref(args[0]):
                 return True
         return False
 
-    def _is_dict_key_entity_ref(self, tp: Type) -> bool:
+    def _is_dict_key_entity_ref(self, tp: type) -> bool:
         """
         Check if type is Dict[EntityID, Any].
 
@@ -341,7 +338,7 @@ class WorldSerializer:
             bool: True if the key type is EntityID.
         """
         origin = get_origin(tp)
-        if origin in (dict, typing.Dict):
+        if origin in (dict, dict):
             args = get_args(tp)
             if args and self._is_entity_ref(args[0]):
                 return True

@@ -10,7 +10,7 @@ import statistics
 import platform
 import gc
 import csv
-from typing import Dict, Any, List, Optional
+from typing import Any
 import random
 import logging
 
@@ -46,7 +46,7 @@ class BenchmarkRunner:
         duration_seconds: float = 10.0,
         iterations: int = 3,
         warmup_seconds: float = 2.0,
-        seed: Optional[int] = None,
+        seed: int | None = None,
     ):
         """
         Initializes the BenchmarkRunner.
@@ -78,7 +78,7 @@ class BenchmarkRunner:
             return process.cpu_percent(interval=None)
         return 0.0
 
-    def _get_system_info(self) -> Dict[str, str]:
+    def _get_system_info(self) -> dict[str, str]:
         """Returns system information."""
         info = {
             "system": platform.system(),
@@ -99,7 +99,7 @@ class BenchmarkRunner:
 
     def run(
         self, profile: bool = False, profile_output: str = "benchmark_profile.stats"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Runs the benchmark.
 
@@ -110,19 +110,19 @@ class BenchmarkRunner:
         Returns:
             Dict[str, Any]: The benchmark results.
         """
-        fps_results: List[float] = []
-        speed_ratio_results: List[float] = []
-        frame_time_stats: Dict[str, List[float]] = {
+        fps_results: list[float] = []
+        speed_ratio_results: list[float] = []
+        frame_time_stats: dict[str, list[float]] = {
             "p50": [],
             "p95": [],
             "p99": [],
             "jitter": [],
         }
-        memory_usage: List[float] = []
-        cpu_usage: List[float] = []
+        memory_usage: list[float] = []
+        cpu_usage: list[float] = []
 
         # Store all raw frame times for CSV export [iteration][frame_index] -> ms
-        all_raw_frame_times: List[List[float]] = []
+        all_raw_frame_times: list[list[float]] = []
 
         logger.info(
             f"Running benchmark with {self.num_entities} entities for {self.duration_seconds}s game time "
@@ -328,7 +328,7 @@ class BenchmarkRunner:
         return results
 
 
-def compare_results(current: Dict[str, Any], baseline: Dict[str, Any]) -> None:
+def compare_results(current: dict[str, Any], baseline: dict[str, Any]) -> None:
     """
     Compares current results with baseline and prints difference.
     """
@@ -361,7 +361,7 @@ def compare_results(current: Dict[str, Any], baseline: Dict[str, Any]) -> None:
             print(f"{label}: Could not find metric in one of the results.")
 
 
-def export_csv(results: Dict[str, Any], filepath: str):
+def export_csv(results: dict[str, Any], filepath: str):
     """
     Exports raw frame times to CSV.
     Format: iteration, frame_index, frame_time_ms
@@ -377,7 +377,7 @@ def export_csv(results: Dict[str, Any], filepath: str):
                     writer.writerow([i + 1, j + 1, frame_time])
 
         logger.info(f"Raw data exported to {filepath}")
-    except IOError as e:
+    except OSError as e:
         logger.error(f"Failed to write CSV: {e}")
 
 
@@ -444,10 +444,10 @@ def main():
 
     if args.baseline:
         try:
-            with open(args.baseline, "r") as f:
+            with open(args.baseline) as f:
                 baseline_results = json.load(f)
             compare_results(results, baseline_results)
-        except (IOError, json.JSONDecodeError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Failed to load baseline: {e}")
 
     if args.json:
@@ -458,7 +458,7 @@ def main():
             with open(args.json, "w") as f:
                 json.dump(results, f, indent=4)
             print(f"Results saved to {args.json}")
-        except IOError as e:
+        except OSError as e:
             logger.error(f"Failed to save JSON results: {e}")
 
     if args.csv:

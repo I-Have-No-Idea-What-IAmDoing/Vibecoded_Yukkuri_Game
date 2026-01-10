@@ -2,10 +2,11 @@
 Migration Registry Module.
 """
 
-from typing import Dict, Any, Callable, Type, List, Tuple
+from typing import Any
+from collections.abc import Callable
 from loguru import logger
 
-MigrationFunc = Callable[[Dict[str, Any]], Dict[str, Any]]
+MigrationFunc = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 class MigrationRegistry:
@@ -14,12 +15,12 @@ class MigrationRegistry:
     Handles upgrading component data from older versions to newer ones.
     """
 
-    _migrations: Dict[str, List[Tuple[int, int, MigrationFunc]]] = {}
+    _migrations: dict[str, list[tuple[int, int, MigrationFunc]]] = {}
 
     @classmethod
     def register(
         cls,
-        component_class: Type,
+        component_class: type,
         from_version: int,
         to_version: int,
         func: MigrationFunc,
@@ -47,10 +48,10 @@ class MigrationRegistry:
     def migrate(
         cls,
         component_name: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         current_version: int,
         target_version: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Applies migrations to bring data from current_version to target_version.
 
