@@ -340,12 +340,13 @@ class GameplayScene(Scene):
 
         if not self.paused:
             sim_dt = dt * self.time_scale
-            if hasattr(self, "time_service"):
-                self.time_service.time_elapsed += sim_dt
+            # Note: TimeSystem handles time_elapsed updates via TimeService.update()
+            # We only pass sim_dt to world systems for simulation
 
             self.event_manager.process_phase(GamePhase.UPDATE)
             self.world.update(sim_dt)
-            self.camera.update(sim_dt)
+            # Camera should use raw dt (not scaled) so panning/zoom feels consistent
+            self.camera.update(dt)
 
         self.event_manager.process_phase(GamePhase.POST_UPDATE)
 

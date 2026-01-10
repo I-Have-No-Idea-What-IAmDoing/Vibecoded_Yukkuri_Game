@@ -1,12 +1,15 @@
 [stat_decay]
-hunger = 2.0
-happiness = 0.5
-stress = 5.0
-energy = 0.5
-cleanliness = 0.2
-age = 1.0
-starvation_damage = 5.0
-personality_drift_rate = 0.1
+# Decay rates are per GAME SECOND (not physics second)
+# With 60x time scale: 1 physics second = 60 game seconds
+# Target: 3 meals/day = 100 hunger over ~8 hours (28800 game seconds)
+hunger = 0.0035          # ~100 over 8 hours (was 2.0)
+happiness = 0.002        # Slower decay (was 0.5)
+stress = 0.1             # Fast decay back to 0 (was 5.0)
+energy = 0.002           # ~100 over ~14 hours (was 0.5)
+cleanliness = 0.001      # Slow decay (was 0.2)
+age = 0.001              # 1 age unit per 1000 game seconds (was 1.0)
+starvation_damage = 0.02 # Slow health loss when starving (was 5.0)
+personality_drift_rate = 0.0001  # Very slow drift (was 0.1)
 
 [lifecycle]
 baby_age_threshold = 100.0

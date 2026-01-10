@@ -61,6 +61,8 @@ class InputManager:
                 "screenshot": pygame.K_F12,
                 "quicksave": pygame.K_F5,
                 "quickload": pygame.K_F9,
+                "time_speed_up": pygame.K_EQUALS,    # + key
+                "time_speed_down": pygame.K_MINUS,   # - key
             },
             InputContext.MENU: {
                 "confirm": pygame.K_RETURN,

@@ -66,11 +66,21 @@ class HudRenderer:
         if self.layout.money_label:
             self.layout.money_label.set_text(f"Money: ${economy.get_money()}")
 
-        time_elapsed = time_service.time_elapsed if time_service else 0.0
-        minutes = int(time_elapsed / 60)
-        seconds = int(time_elapsed % 60)
+        # Show day and time of day (Day X - HH:MM) with speed indicator
+        if time_service:
+            day = time_service.day
+            hour_of_day = time_service.hour_of_day
+            hours = int(hour_of_day)
+            minutes = int((hour_of_day % 1) * 60)
+            speed = time_service.game_speed
+        else:
+            day = 1
+            hours = 0
+            minutes = 0
+            speed = 1.0
         if self.layout.time_label:
-            self.layout.time_label.set_text(f"Time: {minutes:02d}:{seconds:02d}")
+            speed_str = f" ({speed:.1f}x)" if speed != 1.0 else ""
+            self.layout.time_label.set_text(f"Day {day} - {hours:02d}:{minutes:02d}{speed_str}")
 
         # Update Selection Window
         if self.layout.entity_info_panel and selected_entities:
@@ -456,12 +466,17 @@ class HudRenderer:
             entity_count = 0
 
         economy = self.world.services.get(EconomyService)
+        time_service = self.world.services.try_get(TimeService)
+
+        time_scale_str = "N/A"
+        if time_service:
+            time_scale_str = f"{time_service.scale}x @ {time_service.game_speed}x speed"
 
         debug_text = (
             f"<b>FPS:</b> {self.fps:.2f}<br>"
             f"<b>Entities:</b> {entity_count}<br>"
             f"<b>Money:</b> {economy.get_money()}<br>"
-            f"<b>Time Scale:</b> N/A<br>"
+            f"<b>Time Scale:</b> {time_scale_str}<br>"
         )
 
         self.layout.debug_text_box.set_text(debug_text)

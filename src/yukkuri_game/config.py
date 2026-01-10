@@ -10,6 +10,21 @@ import msgspec
 from pathlib import Path
 
 
+class TimeSettings(msgspec.Struct):  # type: ignore[misc]
+    """
+    Configuration settings for the game time system.
+
+    Attributes:
+        scale (float): Game seconds per physics second (default 60x = 1 min/sec).
+        day_start_hour (float): Hour when day begins (0-24).
+        night_start_hour (float): Hour when night begins (0-24).
+    """
+
+    scale: float = 60.0
+    day_start_hour: float = 6.0
+    night_start_hour: float = 20.0
+
+
 class WorldSettings(msgspec.Struct):  # type: ignore[misc]
     """
     Configuration settings for the game world.
@@ -33,9 +48,11 @@ class ConfigFile(msgspec.Struct):  # type: ignore[misc]
 
     Attributes:
         world (WorldSettings): The world configuration settings.
+        time (TimeSettings): The time system configuration settings.
     """
 
     world: WorldSettings = msgspec.field(default_factory=WorldSettings)
+    time: TimeSettings = msgspec.field(default_factory=TimeSettings)
 
 
 class StatDecaySettings(msgspec.Struct):  # type: ignore[misc]
@@ -156,10 +173,12 @@ class GameConfig(msgspec.Struct):  # type: ignore[misc]
 
     Attributes:
         world (WorldSettings): World settings loaded from config.toml.
+        time (TimeSettings): Time settings loaded from config.toml.
         rules (RulesFile): Game rules loaded from rules.toml.
     """
 
     world: WorldSettings
+    time: TimeSettings
     rules: RulesFile
 
 
@@ -195,4 +214,4 @@ def load_config(data_dir: Path = Path("data")) -> GameConfig:
     else:
         rules_file = RulesFile()
 
-    return GameConfig(world=config_file.world, rules=rules_file)
+    return GameConfig(world=config_file.world, time=config_file.time, rules=rules_file)

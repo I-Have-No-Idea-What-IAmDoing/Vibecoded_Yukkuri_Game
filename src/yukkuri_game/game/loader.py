@@ -66,7 +66,12 @@ class GameLoader:
         economy_service = EconomyService(initial_money=money)
         self.world.services.register(economy_service, EconomyService)
 
-        time_service = TimeService(time_elapsed=time_elapsed)
+        time_service = TimeService(
+            time_elapsed=time_elapsed,
+            scale=self.game_config.time.scale,
+            day_start_hour=self.game_config.time.day_start_hour,
+            night_start_hour=self.game_config.time.night_start_hour,
+        )
         self.world.services.register(time_service, TimeService)
 
         input_service = InputService()

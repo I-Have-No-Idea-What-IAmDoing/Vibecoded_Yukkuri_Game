@@ -2,3 +2,8 @@
 width = 3000
 height = 3000
 sector_size = 500.0
+
+[time]
+scale = 60.0          # Game seconds per physics second (1 real sec = 1 game min)
+day_start_hour = 6    # Hour sun rises (0-24)
+night_start_hour = 20 # Hour sun sets (0-24)

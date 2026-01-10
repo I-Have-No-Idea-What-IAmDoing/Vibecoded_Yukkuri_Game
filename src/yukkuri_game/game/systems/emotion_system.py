@@ -51,7 +51,7 @@ class EmotionSystem(System):
 
         Args:
             world (World): The ECS World.
-            dt (float): Delta time.
+            dt (float): Delta time (physics time).
         """
         if self.trait_service is None:
             self.trait_service = world.services.try_get(TraitService)
@@ -62,8 +62,11 @@ class EmotionSystem(System):
 
         # Calculate darkness
         is_night = False
+        game_dt = dt  # Default to physics delta
         if time_service:
             is_night = time_service.is_night
+            # Use game time for decay calculations
+            game_dt = dt * time_service.game_delta_multiplier
 
         # Gather lights for darkness stress
         light_sources = []
@@ -129,20 +132,20 @@ class EmotionSystem(System):
                         mult_happiness *= mods.get("happiness_decay", 1.0)
                         mult_stress *= mods.get("stress_decay", 1.0)
 
-            # Decay physical stats
-            needs.hunger += self.settings.hunger * mult_hunger * dt
-            needs.energy -= self.settings.energy * mult_energy * dt
-            stats.age += self.settings.age * dt
-            needs.cleanliness -= self.settings.cleanliness * mult_cleanliness * dt
+            # Decay physical stats (using game time)
+            needs.hunger += self.settings.hunger * mult_hunger * game_dt
+            needs.energy -= self.settings.energy * mult_energy * game_dt
+            stats.age += self.settings.age * game_dt
+            needs.cleanliness -= self.settings.cleanliness * mult_cleanliness * game_dt
 
             if hasattr(self.settings, "social"):
-                needs.social -= self.settings.social * mult_social * dt
+                needs.social -= self.settings.social * mult_social * game_dt
             else:
-                needs.social -= 1.0 * mult_social * dt
+                needs.social -= 1.0 * mult_social * game_dt
 
-            # Health decay due to starvation
+            # Health decay due to starvation (game time)
             if needs.hunger >= 100.0:
-                needs.health -= self.settings.starvation_damage * dt
+                needs.health -= self.settings.starvation_damage * game_dt
 
             # Clamp physical stats
             needs.hunger = min(100, max(0, needs.hunger))
@@ -169,10 +172,10 @@ class EmotionSystem(System):
                         # Increase stress
                         emotional_state.stress += self.DARKNESS_STRESS_RATE * dt
 
-                # Stress decays fast to 0
+                # Stress decays fast to 0 (game time)
                 stress_decay_rate = getattr(self.settings, "stress", 5.0)
                 if emotional_state.stress > 0:
-                    emotional_state.stress -= stress_decay_rate * mult_stress * dt
+                    emotional_state.stress -= stress_decay_rate * mult_stress * game_dt
                     emotional_state.stress = max(0.0, emotional_state.stress)
 
                 # Happiness decays slow to 0 (Neutral)
@@ -181,12 +184,12 @@ class EmotionSystem(System):
 
                 if emotional_state.happiness > baseline:
                     emotional_state.happiness -= (
-                        happiness_decay_rate * mult_happiness * dt
+                        happiness_decay_rate * mult_happiness * game_dt
                     )
                     emotional_state.happiness = max(baseline, emotional_state.happiness)
                 elif emotional_state.happiness < baseline:
                     emotional_state.happiness += (
-                        happiness_decay_rate * mult_happiness * dt
+                        happiness_decay_rate * mult_happiness * game_dt
                     )
                     emotional_state.happiness = min(baseline, emotional_state.happiness)
 

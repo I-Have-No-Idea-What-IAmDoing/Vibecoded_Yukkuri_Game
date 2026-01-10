@@ -18,6 +18,7 @@ from .events import (
 from .components import Transform, Selectable
 from .yukkuri_components import Poop
 from .services import InputService
+from .systems.time_system import TimeSystem
 
 if TYPE_CHECKING:
     from .camera import Camera
@@ -59,6 +60,7 @@ class InputSystem(System):
         self.drag_start_pos: Optional[Tuple[float, float]] = None
         self.drag_end_pos: Optional[Tuple[float, float]] = None
         self.drag_start_screen_pos: Optional[Tuple[int, int]] = None
+        self._time_system: Optional[TimeSystem] = None
 
     def set_ui_manager(self, ui_manager: "pygame_gui.UIManager") -> None:
         """
@@ -215,6 +217,9 @@ class InputSystem(System):
                     self.audio.play_sound("cancel")
                 self.input_service.stop_cleaning()
 
+        # Handle Time Speed Controls
+        self._handle_time_controls(world)
+
     def _handle_selection(
         self,
         world: World,
@@ -358,3 +363,44 @@ class InputSystem(System):
         if self.input_service:
             self.input_service.hovered_entity_id = hovered_id
             self.input_service.hovered_entity_pos = (mx, my)
+
+    def _handle_time_controls(self, world: World) -> None:
+        """
+        Handles time speed control inputs.
+
+        Args:
+            world (World): The ECS World.
+        """
+        if not self.input_manager:
+            return
+
+        # Lazy get TimeSystem
+        if self._time_system is None:
+            for system in getattr(world, '_processors', []):
+                if isinstance(system, TimeSystem):
+                    self._time_system = system
+                    break
+            # Fallback: try to find in world systems list if esper uses different attr
+            if self._time_system is None:
+                try:
+                    import esper
+                    for proc in esper.get_processors():
+                        if isinstance(proc, TimeSystem):
+                            self._time_system = proc
+                            break
+                except Exception:
+                    pass
+
+        if self._time_system is None:
+            return
+
+        # Speed Up (+)
+        if self.input_manager.is_action_just_pressed("time_speed_up"):
+            new_speed = min(5.0, self._time_system.game_speed * 2.0)
+            self._time_system.game_speed = new_speed
+
+        # Speed Down (-)
+        if self.input_manager.is_action_just_pressed("time_speed_down"):
+            new_speed = max(0.5, self._time_system.game_speed / 2.0)
+            self._time_system.game_speed = new_speed
+
