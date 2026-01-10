@@ -84,7 +84,7 @@ python -m src.yukkuri_game.main --headless
 -   **Top Bar**:
     -   **Money**: Your current funds.
     -   **Time**: Elapsed game time.
-    -   **Time Controls**: Pause/Resume and cycle Speed (1x, 2x, 5x, 0.5x).
+    -   **Time Controls**: Pause/Resume and Speed Up/Down (+/- to double/halve speed).
     -   **Save/Load**: Persist your game state.
     -   **Settings**: Adjust volume and window settings.
 -   **Bottom Bar**:
@@ -213,4 +213,7 @@ For more detailed information, please refer to the documents in the `docs/` fold
 -   [AI System](docs/ai_system.md)
 -   [Animation System](docs/animation.md)
 -   [Headless Testing](docs/headless_testing.md)
+-   [Input System](docs/INPUT_SYSTEM.md)
+-   [Systems Overview](docs/SYSTEMS_OVERVIEW.md)
+-   [ECS Guide](docs/ECS_GUIDE.md)
 -   [FAQ](docs/FAQ.md)

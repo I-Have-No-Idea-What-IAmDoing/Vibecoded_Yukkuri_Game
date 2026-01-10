@@ -59,14 +59,24 @@ class HudRenderer:
         Returns:
             None
         """
-        economy = self.world.services.get(EconomyService)
-        time_service = self.world.services.try_get(TimeService)
+        self._update_top_bar()
+        self._update_time_display()
+        self._update_selection_info(selected_entities)
+        self._update_debug_info(dt, selected_entities, show_debug)
+        self._update_hover_tooltip()
 
-        # Update Top Bar
+    def _update_top_bar(self) -> None:
+        """Updates the top bar (Money)."""
+        economy = self.world.services.get(EconomyService)
         if self.layout.money_label:
             self.layout.money_label.set_text(f"Money: ${economy.get_money()}")
 
-        # Show day and time of day (Day X - HH:MM) with speed indicator
+    def _update_time_display(self) -> None:
+        """
+        Updates the time display with day, time, and current game speed.
+        Formats time as HH:MM and adds a speed multiplier suffix if not 1.0x.
+        """
+        time_service = self.world.services.try_get(TimeService)
         if time_service:
             day = time_service.day
             hour_of_day = time_service.hour_of_day
@@ -78,23 +88,23 @@ class HudRenderer:
             hours = 0
             minutes = 0
             speed = 1.0
+
         if self.layout.time_label:
             speed_str = f" ({speed:.1f}x)" if speed != 1.0 else ""
             self.layout.time_label.set_text(f"Day {day} - {hours:02d}:{minutes:02d}{speed_str}")
 
-        # Update Selection Window
+    def _update_selection_info(self, selected_entities: List[int]) -> None:
+        """Updates the selection window info."""
         if self.layout.entity_info_panel and selected_entities:
             self._update_stats_display(selected_entities)
             self._update_skills_display(selected_entities)
 
-        # Update Debug Window
+    def _update_debug_info(self, dt: float, selected_entities: List[int], show_debug: bool) -> None:
+        """Updates debug window and lines."""
         if show_debug:
             self._update_debug_window(dt)
             if selected_entities and len(selected_entities) == 1:
                 self._draw_relationship_lines(selected_entities[0])
-
-        # Update Hover Tooltip
-        self._update_hover_tooltip()
 
     def draw(self, screen: pygame.Surface) -> None:
         """

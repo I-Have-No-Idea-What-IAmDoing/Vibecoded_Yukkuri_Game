@@ -73,6 +73,8 @@ class SystemRegistry:
         input_system = InputSystem(camera)
         world.add_system(input_system)
 
+        # Systems are processed in the order they are added.
+        # 1. Time & Physics (Simulation Core)
         world.add_system(TimeSystem())
         world.add_system(physics_system)
 

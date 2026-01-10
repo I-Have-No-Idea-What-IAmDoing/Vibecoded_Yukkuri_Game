@@ -164,6 +164,10 @@ class InputManager:
     ) -> bool:
         """
         Check if a key/button is consumed by a higher priority context.
+        
+        The input system uses a strict priority hierarchy (STACK).
+        If a higher priority context (e.g., MENU currently active) maps the same key,
+        it "consumes" the event, preventing lower priority contexts (e.g., GAMEPLAY) from seeing it.
 
         Args:
             key_or_btn (int): The key code or mouse button ID.
@@ -203,7 +207,8 @@ class InputManager:
         Returns:
             bool: True if the action is triggered, False otherwise.
         """
-        # Sort contexts high to low.
+        # Sort contexts high to low (Priority descending).
+        # We iterate from highest priority to lowest.
         # If a higher context consumes the input, lower contexts are blocked.
         sorted_contexts = sorted(
             self._active_contexts, key=lambda c: c.value, reverse=True

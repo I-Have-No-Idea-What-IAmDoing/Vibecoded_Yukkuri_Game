@@ -17,8 +17,7 @@ from .events import (
 )
 from .components import Transform, Selectable
 from .yukkuri_components import Poop
-from .services import InputService
-from .systems.time_system import TimeSystem
+from .services import InputService, TimeService
 
 if TYPE_CHECKING:
     from .camera import Camera
@@ -60,7 +59,6 @@ class InputSystem(System):
         self.drag_start_pos: Optional[Tuple[float, float]] = None
         self.drag_end_pos: Optional[Tuple[float, float]] = None
         self.drag_start_screen_pos: Optional[Tuple[int, int]] = None
-        self._time_system: Optional[TimeSystem] = None
 
     def set_ui_manager(self, ui_manager: "pygame_gui.UIManager") -> None:
         """
@@ -368,39 +366,26 @@ class InputSystem(System):
         """
         Handles time speed control inputs.
 
+        Checks for speed up/down actions and modifies the TimeService.game_speed accordingly.
+
         Args:
             world (World): The ECS World.
         """
         if not self.input_manager:
             return
 
-        # Lazy get TimeSystem
-        if self._time_system is None:
-            for system in getattr(world, '_processors', []):
-                if isinstance(system, TimeSystem):
-                    self._time_system = system
-                    break
-            # Fallback: try to find in world systems list if esper uses different attr
-            if self._time_system is None:
-                try:
-                    import esper
-                    for proc in esper.get_processors():
-                        if isinstance(proc, TimeSystem):
-                            self._time_system = proc
-                            break
-                except Exception:
-                    pass
-
-        if self._time_system is None:
+        # Lazy get TimeService
+        time_service = world.services.try_get(TimeService)
+        if time_service is None:
             return
 
         # Speed Up (+)
         if self.input_manager.is_action_just_pressed("time_speed_up"):
-            new_speed = min(5.0, self._time_system.game_speed * 2.0)
-            self._time_system.game_speed = new_speed
+            new_speed = min(5.0, time_service.game_speed * 2.0)
+            time_service.game_speed = new_speed
 
         # Speed Down (-)
         if self.input_manager.is_action_just_pressed("time_speed_down"):
-            new_speed = max(0.5, self._time_system.game_speed / 2.0)
-            self._time_system.game_speed = new_speed
+            new_speed = max(0.5, time_service.game_speed / 2.0)
+            time_service.game_speed = new_speed
 

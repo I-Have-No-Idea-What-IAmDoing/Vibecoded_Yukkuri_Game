@@ -98,6 +98,8 @@ class SceneManager:
             RuntimeError: If data corruption or incompatible versions are detected.
         """
         context_data = {}
+        # Iterate over the dependencies declared by the Scene class (via INJECTIONS ClassVar).
+        # This allows declarative dependency injection.
         for key, expected_type in scene.INJECTIONS.items():
             if key in self.persistent_data:
                 data = self.persistent_data[key]
@@ -132,7 +134,8 @@ class SceneManager:
                         obj = msgspec.convert(hydration_data, expected_type)
 
                         # 4. Update memory with the hydrated object
-                        # This ensures subsequent access uses the live object
+                        # This ensures subsequent access uses the live object, preventing re-hydration overhead
+                        # and maintaining object identity within the session.
                         context_data[key] = obj
                         self.persistent_data[key] = obj
 

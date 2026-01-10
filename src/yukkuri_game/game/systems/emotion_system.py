@@ -49,159 +49,196 @@ class EmotionSystem(System):
         """
         Decays stats and emotional state for all entities with YukkuriStats.
 
+        Also handles:
+        - Global skill decay (daily).
+        - Game time vs Physics time scaling.
+        - Night-time stress modifiers.
+
         Args:
             world (World): The ECS World.
             dt (float): Delta time (physics time).
         """
+        # Lazy initialization
         if self.trait_service is None:
             self.trait_service = world.services.try_get(TraitService)
 
-        # --- Skill Decay Automation ---
         time_service = world.services.try_get(TimeService)
         skill_service = world.services.try_get(SkillService)
 
-        # Calculate darkness
+        # Game time calculations
+        game_dt = dt
         is_night = False
-        game_dt = dt  # Default to physics delta
         if time_service:
-            is_night = time_service.is_night
-            # Use game time for decay calculations
             game_dt = dt * time_service.game_delta_multiplier
+            is_night = time_service.is_night
 
-        # Gather lights for darkness stress
+        # Handle skill decay (once per game day)
+        if time_service and skill_service:
+            self._handle_skill_decay(world, time_service, skill_service)
+
+        # Pre-calculate active light sources for night stress
         light_sources = []
         if is_night:
-            for ent, (trans, light) in world.get_components_tuple(
-                Transform, LightSource
-            ):
-                # Only consider lights that are actually on
-                if light.intensity > 0.0:
-                    light_sources.append((trans, light))
+            light_sources = self._get_active_lights(world)
 
-        if time_service and skill_service:
-            current_day_index = int(time_service.time_elapsed / SECONDS_PER_DAY)
-
-            if self.last_day_index == -1:
-                # Initialize
-                self.last_day_index = current_day_index
-
-            elif current_day_index > self.last_day_index:
-                # One or more days passed
-                days_passed = current_day_index - self.last_day_index
-
-                # Iterate all entities with Skills
-                for entity, (skills,) in world.get_components_tuple(Skills):
-                    # Apply decay for each day passed
-                    for _ in range(days_passed):
-                        skill_service.apply_decay(entity)
-
-                self.last_day_index = current_day_index
-
-        # Iterate over entities with YukkuriStats and Needs
+        # Process entities
         for entity, (stats, needs) in world.get_components_tuple(YukkuriStats, Needs):
             if world.has_component(entity, Dead):
                 continue
 
-            # Get EmotionalState if present
-            emotional_state = world.get_component(entity, EmotionalState)
-            personality = world.get_component(entity, Personality)
-            trans = world.get_component(entity, Transform)
+            self._process_entity_decay(
+                world, entity, stats, needs, game_dt, dt, is_night, light_sources
+            )
 
-            # Default multipliers
-            mult_hunger = 1.0
-            mult_energy = 1.0
-            mult_social = 1.0
-            mult_cleanliness = 1.0
+    def _get_active_lights(self, world: World) -> list:
+        """Returns a list of active light sources (transform, light)."""
+        lights = []
+        for ent, (trans, light) in world.get_components_tuple(Transform, LightSource):
+            if light.intensity > 0.0:
+                lights.append((trans, light))
+        return lights
 
-            # Emotional decay multipliers
-            mult_stress = 1.0
-            mult_happiness = 1.0
+    def _handle_skill_decay(self, world: World, time_service: TimeService, skill_service: SkillService) -> None:
+        """Checks if a day has passed and triggers skill decay."""
+        current_day_index = int(time_service.time_elapsed / SECONDS_PER_DAY)
 
-            # Apply Trait Modifiers
-            if self.trait_service and personality:
-                for trait_id in personality.traits:
-                    trait_data = self.trait_service.get_trait(trait_id)
-                    if trait_data and trait_data.stat_modifiers:
-                        mods = trait_data.stat_modifiers
-                        mult_hunger *= mods.get("hunger_decay", 1.0)
-                        mult_energy *= mods.get("energy_decay", 1.0)
-                        mult_social *= mods.get("social_decay", 1.0)
-                        mult_cleanliness *= mods.get("cleanliness_decay", 1.0)
+        if self.last_day_index == -1:
+            self.last_day_index = current_day_index
+        elif current_day_index > self.last_day_index:
+            days_passed = current_day_index - self.last_day_index
+            for entity, (skills,) in world.get_components_tuple(Skills):
+                for _ in range(days_passed):
+                    skill_service.apply_decay(entity)
+            self.last_day_index = current_day_index
 
-                        # Assuming traits.toml will be updated to use "stress_decay" etc.
-                        mult_happiness *= mods.get("happiness_decay", 1.0)
-                        mult_stress *= mods.get("stress_decay", 1.0)
+    def _process_entity_decay(
+        self,
+        world: World,
+        entity: int,
+        stats: YukkuriStats,
+        needs: Needs,
+        game_dt: float,
+        dt: float,
+        is_night: bool,
+        light_sources: list,
+    ) -> None:
+        """Applies decay for a single entity."""
+        emotional_state = world.get_component(entity, EmotionalState)
+        personality = world.get_component(entity, Personality)
+        trans = world.get_component(entity, Transform)
 
-            # Decay physical stats (using game time)
-            needs.hunger += self.settings.hunger * mult_hunger * game_dt
-            needs.energy -= self.settings.energy * mult_energy * game_dt
-            stats.age += self.settings.age * game_dt
-            needs.cleanliness -= self.settings.cleanliness * mult_cleanliness * game_dt
+        # 1. Determine multipliers
+        multipliers = self._calculate_multipliers(personality)
 
-            if hasattr(self.settings, "social"):
-                needs.social -= self.settings.social * mult_social * game_dt
-            else:
-                needs.social -= 1.0 * mult_social * game_dt
+        # 2. Decay physical stats
+        needs.hunger += self.settings.hunger * multipliers["hunger"] * game_dt
+        needs.energy -= self.settings.energy * multipliers["energy"] * game_dt
+        stats.age += self.settings.age * game_dt
+        needs.cleanliness -= self.settings.cleanliness * multipliers["cleanliness"] * game_dt
 
-            # Health decay due to starvation (game time)
-            if needs.hunger >= 100.0:
-                needs.health -= self.settings.starvation_damage * game_dt
+        if hasattr(self.settings, "social"):
+            needs.social -= self.settings.social * multipliers["social"] * game_dt
+        else:
+            needs.social -= 1.0 * multipliers["social"] * game_dt
 
-            # Clamp physical stats
-            needs.hunger = min(100, max(0, needs.hunger))
-            needs.energy = min(100, max(0, needs.energy))
-            needs.cleanliness = min(100, max(0, needs.cleanliness))
-            needs.social = min(100, max(0, needs.social))
-            needs.health = min(needs.max_health, max(0, needs.health))
+        # Starvation
+        if needs.hunger >= 100.0:
+            needs.health -= self.settings.starvation_damage * game_dt
 
-            # Update Emotional State
-            if emotional_state:
-                # Darkness Stress
-                if is_night and trans:
-                    in_light = False
-                    for l_trans, l_src in light_sources:
-                        dist_sq = (trans.x - l_trans.x) ** 2 + (
-                            trans.y - l_trans.y
-                        ) ** 2
-                        # Use light radius
-                        if dist_sq < l_src.radius**2:
-                            in_light = True
-                            break
+        # Clamp physical
+        needs.hunger = min(100, max(0, needs.hunger))
+        needs.energy = min(100, max(0, needs.energy))
+        needs.cleanliness = min(100, max(0, needs.cleanliness))
+        needs.social = min(100, max(0, needs.social))
+        needs.health = min(needs.max_health, max(0, needs.health))
 
-                    if not in_light:
-                        # Increase stress
-                        emotional_state.stress += self.DARKNESS_STRESS_RATE * dt
+        # 3. Update Emotional State
+        if emotional_state:
+            self._update_emotional_state(
+                emotional_state,
+                trans,
+                dt,
+                game_dt,
+                is_night,
+                light_sources,
+                multipliers,
+            )
 
-                # Stress decays fast to 0 (game time)
-                stress_decay_rate = getattr(self.settings, "stress", 5.0)
-                if emotional_state.stress > 0:
-                    emotional_state.stress -= stress_decay_rate * mult_stress * game_dt
-                    emotional_state.stress = max(0.0, emotional_state.stress)
+        # 4. Personality Drift
+        if personality and personality.base_axis:
+            self._drift_personality(personality, dt)
 
-                # Happiness decays slow to 0 (Neutral)
-                happiness_decay_rate = self.settings.happiness
-                baseline = 0.0
+    def _calculate_multipliers(self, personality: Optional[Personality]) -> dict:
+        """Calculates decay multipliers based on traits."""
+        mults = {
+            "hunger": 1.0,
+            "energy": 1.0,
+            "social": 1.0,
+            "cleanliness": 1.0,
+            "stress": 1.0,
+            "happiness": 1.0,
+        }
 
-                if emotional_state.happiness > baseline:
-                    emotional_state.happiness -= (
-                        happiness_decay_rate * mult_happiness * game_dt
-                    )
-                    emotional_state.happiness = max(baseline, emotional_state.happiness)
-                elif emotional_state.happiness < baseline:
-                    emotional_state.happiness += (
-                        happiness_decay_rate * mult_happiness * game_dt
-                    )
-                    emotional_state.happiness = min(baseline, emotional_state.happiness)
+        if self.trait_service and personality:
+            for trait_id in personality.traits:
+                trait_data = self.trait_service.get_trait(trait_id)
+                if trait_data and trait_data.stat_modifiers:
+                    mods = trait_data.stat_modifiers
+                    mults["hunger"] *= mods.get("hunger_decay", 1.0)
+                    mults["energy"] *= mods.get("energy_decay", 1.0)
+                    mults["social"] *= mods.get("social_decay", 1.0)
+                    mults["cleanliness"] *= mods.get("cleanliness_decay", 1.0)
+                    mults["happiness"] *= mods.get("happiness_decay", 1.0)
+                    mults["stress"] *= mods.get("stress_decay", 1.0)
+        return mults
 
-                # Clamp
-                emotional_state.happiness = max(
-                    -100.0, min(100.0, emotional_state.happiness)
-                )
-                emotional_state.stress = max(0.0, min(100.0, emotional_state.stress))
+    def _update_emotional_state(
+        self,
+        emotional_state: EmotionalState,
+        trans: Optional[Transform],
+        dt: float,
+        game_dt: float,
+        is_night: bool,
+        light_sources: list,
+        multipliers: dict,
+    ) -> None:
+        """Updates stress and happiness."""
+        # Darkness Stress
+        if is_night and trans:
+            in_light = False
+            for l_trans, l_src in light_sources:
+                dist_sq = (trans.x - l_trans.x) ** 2 + (trans.y - l_trans.y) ** 2
+                if dist_sq < l_src.radius**2:
+                    in_light = True
+                    break
 
-            # Personality Drift
-            if personality and personality.base_axis:
-                self._drift_personality(personality, dt)
+            if not in_light:
+                emotional_state.stress += self.DARKNESS_STRESS_RATE * dt
+
+        # Stress Decay
+        stress_decay_rate = getattr(self.settings, "stress", 5.0)
+        if emotional_state.stress > 0:
+            emotional_state.stress -= stress_decay_rate * multipliers["stress"] * game_dt
+            emotional_state.stress = max(0.0, emotional_state.stress)
+
+        # Happiness Decay (Return to Neutral)
+        happiness_decay_rate = self.settings.happiness
+        baseline = 0.0
+
+        if emotional_state.happiness > baseline:
+            emotional_state.happiness -= (
+                happiness_decay_rate * multipliers["happiness"] * game_dt
+            )
+            emotional_state.happiness = max(baseline, emotional_state.happiness)
+        elif emotional_state.happiness < baseline:
+            emotional_state.happiness += (
+                happiness_decay_rate * multipliers["happiness"] * game_dt
+            )
+            emotional_state.happiness = min(baseline, emotional_state.happiness)
+
+        # Clamp
+        emotional_state.happiness = max(-100.0, min(100.0, emotional_state.happiness))
+        emotional_state.stress = max(0.0, min(100.0, emotional_state.stress))
 
     def _drift_personality(self, personality: Personality, dt: float) -> None:
         """

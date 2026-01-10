@@ -138,6 +138,7 @@ class GameplayScene(Scene):
         self.audio.set_sfx_volume(audio_settings.sfx_volume)
 
     def _setup_event_handlers(self) -> None:
+        # If running headlessly (tests), we skip rendering systems to avoid opening a window.
         if not self.application.headless:
             self.render_system = RenderSystem(
                 self.application.screen,
@@ -338,15 +339,19 @@ class GameplayScene(Scene):
 
         self.event_manager.process_phase(GamePhase.PRE_UPDATE)
 
+        # Calculate simulation delta time
         if not self.paused:
             sim_dt = dt * self.time_scale
-            # Note: TimeSystem handles time_elapsed updates via TimeService.update()
-            # We only pass sim_dt to world systems for simulation
-
             self.event_manager.process_phase(GamePhase.UPDATE)
-            self.world.update(sim_dt)
-            # Camera should use raw dt (not scaled) so panning/zoom feels consistent
-            self.camera.update(dt)
+        else:
+            sim_dt = 0.0
+
+        # Run world update with calculated sim_dt (0 if paused, allowing systems to run without advancing simulation)
+        # This effectively pauses gameplay logic (movement, physics) while allowing engine updates (input, UI) to continue.
+        self.world.update(sim_dt)
+
+        # Camera should always update with real dt so panning/zoom works while paused
+        self.camera.update(dt)
 
         self.event_manager.process_phase(GamePhase.POST_UPDATE)
 

@@ -97,6 +97,8 @@ class SocialSystem(System):
             if registry:
                 self._cleanup_registry(world, eid, registry, now)
 
+        # Update the index for the next frame.
+        # This ensures we cycle through all entities over time without stalling the frame.
         self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(
             1, count
         )
@@ -182,6 +184,10 @@ class SocialSystem(System):
             diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
 
             total_diff = diff_kind + diff_ener + diff_brav + diff_gree
+            total_diff = diff_kind + diff_ener + diff_brav + diff_gree
+            # Base compatibility starts at 100 and subtracts the average difference on 4 axes.
+            # If personalities are identical, compatibility is 100.
+            # If completely opposite, it drops significantly.
             base_compatibility += 100.0 - (total_diff / 4.0)
 
         if self.trait_service:

@@ -169,6 +169,7 @@ class WorldSerializer:
         # Pass 1: Create Entities and Mapping
         # We instantiate the entities so they have valid IDs in the current world.
         # We also deserialize components but leave EntityID references pointing to old IDs for now.
+        # This allows us to handle circular references where Entity A needs Entity B's ID before B is created.
         id_map: Dict[int, int] = {}  # old_id -> new_id
         max_stable_id = 0
 
@@ -217,6 +218,7 @@ class WorldSerializer:
         # Pass 2: Resolve References
         # Now that all entities exist, we scan components for EntityID fields
         # and update them using the id_map.
+        # This "Fix-up" phase patches the loaded components to point to the correct runtime EntityIDs.
         for new_entity in id_map.values():
             all_components = self.world.get_all_components(new_entity)
             for component in all_components:

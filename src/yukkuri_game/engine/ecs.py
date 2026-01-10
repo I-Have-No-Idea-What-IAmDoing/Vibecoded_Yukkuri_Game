@@ -60,7 +60,9 @@ class World:
         self.services = ServiceLocator()
         self._next_stable_id = 1
         self._active_entities: Set[int] = set()
-        # Create the world context in esper
+        # Create the world context in esper.
+        # Esper uses a thread-local global context system, so we must switch to this world's name
+        # before performing any operations if we want to support multiple worlds.
         esper.switch_world(self.name)
 
     def get_next_stable_id(self) -> int:
@@ -97,7 +99,8 @@ class World:
             None
         """
         # esper uses a global dictionary to store worlds, accessed by name.
-        # We ensure the global state points to this world instance.
+        # We ensure the global component database points to this world instance's data.
+        # This is critical for supporting multiple simultaneous simulations (e.g., active game + paused menu world).
         if esper.current_world != self.name:
             esper.switch_world(self.name)
 
@@ -124,7 +127,8 @@ class World:
                 try:
                     esper.switch_world(previous_world)
                 except KeyError:
-                    # Previous world might have been deleted
+                    # Previous world might have been deleted during the block's execution.
+                    # This is safe to ignore as we just want to restore state if possible.
                     pass
 
     def create_entity(self, *components: Any) -> int:

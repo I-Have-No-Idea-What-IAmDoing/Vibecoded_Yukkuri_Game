@@ -145,6 +145,7 @@ class KinematicMovementSystem(System):
                             # If we want to push QueryShape (A) away from SpaceShape (B), we need to push in direction -Normal.
                             # Since distance is negative (penetration), "Normal * Distance" is "-Normal * Positive".
                             # This pushes A away from B.
+                            # We accumulate the push vector to resolve multiple overlaps simultaneously.
 
                             push = contact_set.normal * (point.distance)
 
@@ -210,8 +211,10 @@ class KinematicMovementSystem(System):
 
         if input_vector.length_squared < 0.000001:
             friction = controller.friction
+            # Apply damping to simulate friction when no input is given.
             damping = max(0.0, 1.0 - friction * dt)
             velocity = velocity * damping
+            # Snap to zero if velocity is very low to prevent micro-sliding.
             if velocity.length_squared < 0.0001:
                 velocity = pymunk.Vec2d(0, 0)
         else:
@@ -347,13 +350,16 @@ class KinematicMovementSystem(System):
                 current_pos += step_move
 
                 # Slide Logic
+                # Calculate the remaining movement after the collision.
                 remainder = move_delta * (1.0 - safe_alpha)
 
+                # Project the remainder onto the slide plane (remove component along the normal).
                 dot = remainder.dot(best_hit.normal)
                 remainder = remainder - best_hit.normal * dot
 
                 move_delta = remainder
 
+                # Also project velocity so subsequent frames don't push into the wall.
                 v_dot = velocity.dot(best_hit.normal)
                 velocity = velocity - best_hit.normal * v_dot
 

@@ -33,6 +33,7 @@ class TimeService:
         _scale (float): Game seconds per physics second.
         _day_start_hour (float): Hour when day begins.
         _night_start_hour (float): Hour when night begins.
+        _game_speed (float): User-adjustable multiplier for game time progression.
     """
 
     GAME_DAY_LENGTH: float = 86400.0  # 24 hours in game seconds
@@ -72,7 +73,7 @@ class TimeService:
     @property
     def game_delta_multiplier(self) -> float:
         """float: Multiplier to convert physics dt to game dt."""
-        return self._scale
+        return self._scale * self._game_speed
 
     def update(self, physics_dt: float) -> float:
         """
@@ -84,7 +85,7 @@ class TimeService:
         Returns:
             float: The game time delta.
         """
-        game_dt = physics_dt * self._scale
+        game_dt = physics_dt * self.game_delta_multiplier
         self._time_elapsed += game_dt
         return game_dt
 

@@ -25,18 +25,18 @@ Contains simulation rules and constants.
 
 ```toml
 [stat_decay]
-hunger = 2.0
-happiness = 0.5
-energy = 0.5
-cleanliness = 0.2
-age = 1.0
+hunger = 0.0035
+happiness = 0.002
+energy = 0.002
+cleanliness = 0.001
+age = 0.001
 ```
 
-- `hunger`: Rate at which hunger increases per second (default: 2.0).
-- `happiness`: Rate at which happiness decreases per second (default: 0.5).
-- `energy`: Rate at which energy decreases per second (default: 0.5).
-- `cleanliness`: Rate at which cleanliness decreases per second (default: 0.2).
-- `age`: Rate at which age increases per second (default: 1.0).
+- `hunger`: Rate at which hunger increases per second (default: 0.0035).
+- `happiness`: Rate at which happiness decreases per second (default: 0.002).
+- `energy`: Rate at which energy decreases per second (default: 0.002).
+- `cleanliness`: Rate at which cleanliness decreases per second (default: 0.001).
+- `age`: Rate at which age increases per second (default: 0.001).
 
 ## Loading
 

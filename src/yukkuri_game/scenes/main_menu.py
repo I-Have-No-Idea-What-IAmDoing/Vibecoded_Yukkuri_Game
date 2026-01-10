@@ -103,7 +103,9 @@ class MainMenuScene(Scene):
             # Draw UI to the surface
             self.ui_manager.draw_ui(self.ui_surface)
 
-            # Convert surface to texture and render via lights engine
+            # Convert surface to texture and render via lights engine.
+            # We must use the lights engine's render_texture method to ensure correct composition with the scene.
+            # Using pl2d.FOREGROUND places it on top of the lighting layer.
             tex = self.application.lights_engine.surface_to_texture(self.ui_surface)
             self.application.lights_engine.render_texture(
                 tex,

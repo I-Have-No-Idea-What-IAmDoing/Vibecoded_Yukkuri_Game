@@ -201,9 +201,14 @@ class SoftwareLightingEngine:
 
     def _draw_soft_shadows(self, light_surf: pygame.Surface, sr_key: int, lx: float, ly: float, sx: int, sy: int, radius: float, occluders: List):
         """
-        Draws soft shadows by rendering hard shadows to a downscaled surface,
-        then scaling back up with bilinear filtering to create blur.
-        Uses multiplicative blending for proper shadow darkening.
+        Draws soft shadows efficiently using a downscale-upscale blur technique.
+        
+        Technique:
+        1. Render hard shadows to a low-resolution surface (1/3 scale).
+        2. Upscale the shadow mask back to full resolution using bilinear interpolation (smoothscale).
+        3. Multiply the light surface by this blurred shadow mask.
+        
+        This aproximates a gaussian blur without the high cost of per-pixel convolution.
         """
         surf_size = sr_key * 2
         
@@ -358,7 +363,9 @@ class SoftwareLightingEngine:
     def _draw_shadow_volumes_numpy(self, light_surf: pygame.Surface, sr_key: int, lx: float, ly: float, sx: int, sy: int, radius: float, occluders: List):
         """
         NumPy-accelerated shadow volume drawing.
-        Processes all edges of each occluder using vectorized operations.
+        
+        Uses vectorized operations to calculate all shadow quad vertices for an occluder in parallel.
+        This provides a significant speedup over standard Python loops for geometry processing.
         """
         hx = sr_key
         hy = sr_key

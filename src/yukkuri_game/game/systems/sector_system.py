@@ -44,6 +44,8 @@ class SectorMap:
         Returns the (col, row) coordinates for a given world position.
         Clamps to map boundaries.
         """
+        # Convert world coordinates to grid indices.
+        # This is a simple spatial hash where each bucket is a "sector".
         col = int(x / self.sector_size)
         row = int(y / self.sector_size)
 
@@ -115,7 +117,7 @@ class SectorMap:
         col, row = self.get_sector_coords(x, y)
         result: List[int] = []
 
-        # Always include current sector
+        # Always include current sector (the sector the entity is currently standing in)
         sector_entities = self.sectors.get((col, row))
         if sector_entities:
             result.extend(sector_entities)

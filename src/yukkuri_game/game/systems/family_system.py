@@ -125,7 +125,8 @@ class FamilySystem(System):
             # Optimization: Use SectorMap if available
             self._process_benefits_with_sectors(world, sector_map)
         else:
-            # Fallback to O(N^2)
+            # Fallback to O(N^2) checks if SectorMap isn't available.
+            # This compares every entity against every other entity, which is slow for large populations.
             self._process_benefits_fallback(world)
 
     def _process_benefits_with_sectors(
@@ -166,6 +167,7 @@ class FamilySystem(System):
 
             # Get neighbors (Visual range includes adjacent sectors which is usually enough for 150px)
             # Sector size is 500, so "Same + Adjacent" covers 1500x1500 area centered on sector.
+            # This drastically reduces the number of checks compared to O(N^2).
             neighbors = sector_map.get_entities_in_range(trans.x, trans.y, "visual")
 
             for other_eid in neighbors:

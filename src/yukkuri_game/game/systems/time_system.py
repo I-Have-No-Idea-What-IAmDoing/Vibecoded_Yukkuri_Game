@@ -10,14 +10,15 @@ class TimeSystem(System):
     """
     System that tracks game time using TimeService.
 
+    Delegates actual time tracking and speed control to the TimeService.
+    This system is responsible for calling TimeService.update() each frame.
+
     Attributes:
-        game_speed (float): The user-adjustable speed multiplier (0.5x - 5.0x).
         _time_service (TimeService): Reference to the time service.
     """
 
     def __init__(self) -> None:
         """Initializes the TimeSystem."""
-        self.game_speed = 1.0
         self._time_service: TimeService | None = None
 
     def update(self, world: World, dt: float) -> None:
@@ -35,10 +36,7 @@ class TimeSystem(System):
         if self._time_service is None:
             return
 
-        # Apply user speed and update time
-        physics_dt = dt * self.game_speed
-        self._time_service.update(physics_dt)
-        # Sync speed for HUD access
-        self._time_service.game_speed = self.game_speed
+        # TimeService now handles speed multiplication internally
+        self._time_service.update(dt)
 
 
