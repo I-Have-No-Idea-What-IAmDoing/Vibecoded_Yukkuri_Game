@@ -234,6 +234,7 @@ class VisualTransform:
     vertical_offset: float = 0.0
     # Safety Fix: Use default_factory for mutable Vector2
     shadow_position: Vector2 = field(default_factory=lambda: Vector2(0, 0))
+    has_drop_shadow: bool = False
 
 
 class FlickerStyle(Enum):

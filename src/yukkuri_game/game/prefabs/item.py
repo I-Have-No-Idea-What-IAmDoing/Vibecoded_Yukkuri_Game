@@ -73,7 +73,8 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         ),
     )
     world.add_component(entity, Selectable())
-    world.add_component(entity, VisualTransform())
+    has_shadow = type_id == "ball"
+    world.add_component(entity, VisualTransform(has_drop_shadow=has_shadow))
     world.add_component(entity, StableIDComponent(id=world.get_next_stable_id()))
     world.add_component(entity, Persistable())
 

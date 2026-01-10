@@ -127,7 +127,9 @@ def create_yukkuri(
         movement_controller.bob_height = visuals.bob_height
         movement_controller.bob_speed = visuals.bob_speed
     world.add_component(entity, movement_controller)
-    world.add_component(entity, VisualTransform())
+    # Shadow logic: Only Reimu and Marisa have shadows
+    has_shadow = type_id in ("reimu", "marisa")
+    world.add_component(entity, VisualTransform(has_drop_shadow=has_shadow))
 
     # Yukkuri Stats and Needs
     stats = YukkuriStats(

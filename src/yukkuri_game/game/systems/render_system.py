@@ -214,7 +214,7 @@ class RenderSystem(System):
             shadow_radius_x = sprite.width * scale * RenderConstants.SHADOW_SCALE_X
             shadow_radius_y = shadow_radius_x * RenderConstants.SHADOW_SCALE_Y
 
-            if shadow_radius_x > 0:
+            if shadow_radius_x > 0 and visual.has_drop_shadow:
                 self.renderer.submit(
                     ShadowCommand(
                         layer=LAYER_SHADOWS,
