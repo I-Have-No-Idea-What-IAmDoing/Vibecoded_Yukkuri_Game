@@ -98,7 +98,9 @@ class EmotionSystem(System):
                 lights.append((trans, light))
         return lights
 
-    def _handle_skill_decay(self, world: World, time_service: TimeService, skill_service: SkillService) -> None:
+    def _handle_skill_decay(
+        self, world: World, time_service: TimeService, skill_service: SkillService
+    ) -> None:
         """Checks if a day has passed and triggers skill decay."""
         current_day_index = int(time_service.time_elapsed / SECONDS_PER_DAY)
 
@@ -134,7 +136,9 @@ class EmotionSystem(System):
         needs.hunger += self.settings.hunger * multipliers["hunger"] * game_dt
         needs.energy -= self.settings.energy * multipliers["energy"] * game_dt
         stats.age += self.settings.age * game_dt
-        needs.cleanliness -= self.settings.cleanliness * multipliers["cleanliness"] * game_dt
+        needs.cleanliness -= (
+            self.settings.cleanliness * multipliers["cleanliness"] * game_dt
+        )
 
         if hasattr(self.settings, "social"):
             needs.social -= self.settings.social * multipliers["social"] * game_dt
@@ -218,7 +222,9 @@ class EmotionSystem(System):
         # Stress Decay
         stress_decay_rate = getattr(self.settings, "stress", 5.0)
         if emotional_state.stress > 0:
-            emotional_state.stress -= stress_decay_rate * multipliers["stress"] * game_dt
+            emotional_state.stress -= (
+                stress_decay_rate * multipliers["stress"] * game_dt
+            )
             emotional_state.stress = max(0.0, emotional_state.stress)
 
         # Happiness Decay (Return to Neutral)

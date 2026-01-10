@@ -38,5 +38,3 @@ class TimeSystem(System):
 
         # TimeService now handles speed multiplication internally
         self._time_service.update(dt)
-
-

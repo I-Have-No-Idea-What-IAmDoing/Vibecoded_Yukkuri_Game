@@ -16,25 +16,26 @@ class OpenGLBackend(RenderBackend):
     """
     Hardware-accelerated renderer backend using pygame_light2d.
     Manages convertion of Pygame surfaces to OpenGL textures and batch rendering.
-    
+
     DEPRECATED: This backend is currently broken and should not be used.
     Use PygameBackend (Software Renderer) instead.
     """
 
     def __init__(self, screen: pygame.Surface, engine: pl2d.LightingEngine):
         import warnings
+
         warnings.warn(
             "OpenGLBackend is deprecated and currently broken. Use PygameBackend instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
-        
+
         self.screen = screen
         self.engine = engine
 
         # Cache for textures: cache_key (hashable) -> pl2d.Texture
         self.texture_cache: OrderedDict[Any, Any] = OrderedDict()
-        self.texture_cache_max_size = 500 # Hardcoded as parameter was removed
+        self.texture_cache_max_size = 500  # Hardcoded as parameter was removed
 
         self.font_cache = {}
         self.shadow_surface_cache = {}  # Cache for Pygame Surfaces for shadows (not Textures, to avoid recreation)

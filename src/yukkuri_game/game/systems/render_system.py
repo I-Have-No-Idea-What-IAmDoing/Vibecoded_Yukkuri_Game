@@ -28,7 +28,6 @@ from ..surface_cache import SurfaceCache
 from ..renderer.renderer import Renderer
 from ..renderer.backend import RenderBackend
 from ..renderer.pygame_backend import PygameBackend
-from ..renderer.opengl_backend import OpenGLBackend
 from ..renderer.geometry_utils import GeometryUtils
 from ..renderer.commands import (
     SpriteCommand,
@@ -68,12 +67,12 @@ class RenderSystem(System):
         # Select backend: OpenGLBackend if lights_engine is available, else PygameBackend.
         # TEMPORARY: Force PygameBackend as OpenGL backend is currently broken.
         if lights_engine is not None:
-             # backend = OpenGLBackend(screen, lights_engine)
-             # self.lights_enabled = True
-             
-             # Fallback to software renderer even if lights engine is provided
-             backend = PygameBackend(screen)
-             self.lights_enabled = True # PygameBackend supports software lighting
+            # backend = OpenGLBackend(screen, lights_engine)
+            # self.lights_enabled = True
+
+            # Fallback to software renderer even if lights engine is provided
+            backend = PygameBackend(screen)
+            self.lights_enabled = True  # PygameBackend supports software lighting
         else:
             # PygameBackend now supports lighting natively via software
             backend = PygameBackend(screen)

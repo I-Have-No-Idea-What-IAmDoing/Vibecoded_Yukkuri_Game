@@ -388,4 +388,3 @@ class InputSystem(System):
         if self.input_manager.is_action_just_pressed("time_speed_down"):
             new_speed = max(0.5, time_service.game_speed / 2.0)
             time_service.game_speed = new_speed
-

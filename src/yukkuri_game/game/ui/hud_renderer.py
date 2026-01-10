@@ -91,7 +91,9 @@ class HudRenderer:
 
         if self.layout.time_label:
             speed_str = f" ({speed:.1f}x)" if speed != 1.0 else ""
-            self.layout.time_label.set_text(f"Day {day} - {hours:02d}:{minutes:02d}{speed_str}")
+            self.layout.time_label.set_text(
+                f"Day {day} - {hours:02d}:{minutes:02d}{speed_str}"
+            )
 
     def _update_selection_info(self, selected_entities: List[int]) -> None:
         """Updates the selection window info."""
@@ -99,7 +101,9 @@ class HudRenderer:
             self._update_stats_display(selected_entities)
             self._update_skills_display(selected_entities)
 
-    def _update_debug_info(self, dt: float, selected_entities: List[int], show_debug: bool) -> None:
+    def _update_debug_info(
+        self, dt: float, selected_entities: List[int], show_debug: bool
+    ) -> None:
         """Updates debug window and lines."""
         if show_debug:
             self._update_debug_window(dt)

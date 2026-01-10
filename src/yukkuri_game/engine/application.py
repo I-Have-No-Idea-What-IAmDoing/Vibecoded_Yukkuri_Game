@@ -6,7 +6,6 @@ import pygame
 import pygame_gui
 import os
 import pygame_light2d as pl2d
-from pygame_light2d import LightingEngine
 from loguru import logger
 from .resource_manager import ResourceManager
 from .scene_manager import SceneManager
@@ -107,7 +106,7 @@ class Application:
                 # We match native_res to screen_res for now to keep pixel density same as before
                 # unless we want pixel art style (which yukkuri usually is).
                 # If we want scaling, we can adjust native_res.
-                
+
                 # CRITICAL FIX: Force Disable OpenGL/LightingEngine to use Software Renderer (PygameBackend)
                 # The OpenGL backend is broken and overwrites the screen with black.
                 # self.lights_engine = LightingEngine(
@@ -117,7 +116,7 @@ class Application:
                 #     fullscreen=fullscreen,
                 # )
                 self.lights_engine = None
-                
+
                 # Initialize standard display for Software Renderer
                 flags = pygame.FULLSCREEN if fullscreen else 0
                 self.screen = pygame.display.set_mode((width, height), flags)

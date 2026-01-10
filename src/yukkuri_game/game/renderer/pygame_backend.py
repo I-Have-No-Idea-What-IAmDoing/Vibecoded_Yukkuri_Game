@@ -1,4 +1,4 @@
-from typing import Tuple, Any, List, Optional, Dict
+from typing import Tuple, Any, List
 import pygame
 from .backend import RenderBackend
 from .commands import (
@@ -22,7 +22,7 @@ class PygameBackend(RenderBackend):
         # State
         self.ambient_color = (20, 20, 20, 255)
         self.commands: List[Any] = []
-        
+
         # New Lighting Engine
         w, h = screen.get_size()
         self.lighting_engine = SoftwareLightingEngine((w, h))
@@ -36,12 +36,12 @@ class PygameBackend(RenderBackend):
 
     def begin_frame(self) -> None:
         self.commands.clear()
-        
+
         # Sync size if changed
         w, h = self.screen.get_size()
         if self.lighting_engine.native_size != (w, h):
             self.lighting_engine.resize(w, h)
-            
+
         self.lighting_engine.clear(self.ambient_color)
 
     def end_frame(self) -> None:
@@ -59,14 +59,14 @@ class PygameBackend(RenderBackend):
         # 2. Render Lighting Overlay
         # (Lights have already been processed into the engine via draw_light)
         # We just get the final surface and blit it.
-        
+
         # We assume the engine has processed all lights submitted via draw_light
-        # BUT wait, draw_light calculates shadows immediately in the engine? 
+        # BUT wait, draw_light calculates shadows immediately in the engine?
         # Or does it queue?
         # The engine.render_light does immediate work.
         # But draw_light is called during the frame.
         # So we don't need to loop here unless we deferred it.
-        
+
         lightmap = self.lighting_engine.get_surface()
         self.screen.blit(lightmap, (0, 0), special_flags=pygame.BLEND_MULT)
 
@@ -82,8 +82,13 @@ class PygameBackend(RenderBackend):
     def draw_light(self, cmd: LightCommand) -> None:
         # Submit directly to engine
         self.lighting_engine.render_light(
-            cmd.position, cmd.radius, cmd.color, cmd.intensity,
-            soft_shadows=cmd.soft_shadows, static=cmd.static, entity_id=cmd.entity_id
+            cmd.position,
+            cmd.radius,
+            cmd.color,
+            cmd.intensity,
+            soft_shadows=cmd.soft_shadows,
+            static=cmd.static,
+            entity_id=cmd.entity_id,
         )
 
     def draw_occluder(self, cmd: OccluderCommand) -> None:
@@ -100,7 +105,7 @@ class PygameBackend(RenderBackend):
         xs = [v[0] for v in snapped_vertices]
         ys = [v[1] for v in snapped_vertices]
         aabb = (min(xs), max(xs), min(ys), max(ys))
-        
+
         self.lighting_engine.add_occluder(aabb, snapped_vertices)
 
     def set_ambient_light(self, color: Tuple[int, int, int, int]) -> None:

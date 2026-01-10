@@ -16,7 +16,6 @@ from ..game.renderer.pygame_backend import PygameBackend
 from ..game.renderer.commands import LightCommand, OccluderCommand
 
 
-
 # Reuse utils from the main benchmark module
 
 # Configure logging

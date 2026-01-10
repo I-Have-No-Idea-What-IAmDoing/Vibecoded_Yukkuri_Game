@@ -61,8 +61,8 @@ class InputManager:
                 "screenshot": pygame.K_F12,
                 "quicksave": pygame.K_F5,
                 "quickload": pygame.K_F9,
-                "time_speed_up": pygame.K_EQUALS,    # + key
-                "time_speed_down": pygame.K_MINUS,   # - key
+                "time_speed_up": pygame.K_EQUALS,  # + key
+                "time_speed_down": pygame.K_MINUS,  # - key
             },
             InputContext.MENU: {
                 "confirm": pygame.K_RETURN,
@@ -164,7 +164,7 @@ class InputManager:
     ) -> bool:
         """
         Check if a key/button is consumed by a higher priority context.
-        
+
         The input system uses a strict priority hierarchy (STACK).
         If a higher priority context (e.g., MENU currently active) maps the same key,
         it "consumes" the event, preventing lower priority contexts (e.g., GAMEPLAY) from seeing it.
