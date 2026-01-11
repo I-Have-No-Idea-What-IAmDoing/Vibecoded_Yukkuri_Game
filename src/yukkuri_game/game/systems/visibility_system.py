@@ -105,7 +105,14 @@ class VisibilitySystem(System):
 
         for idx in batch_indices:
             ent, (vision, trans, ai) = observers_list[idx]
-            self.update_visibility(ent, vision, trans, ai, world)
+            
+            # Optimization: Try to get body from our map (reverse lookup is slow? No we only have Body->Entity)
+            # We need Entity -> Body. 
+            # Let's fallback to ECS for Observer Body, it's only 1 call per observer.
+            # But we can optimize if we cache it? 
+            # For now, just passing the body if found avoids logic inside.
+            phys_comp = world.try_get_component(ent, PhysicsBody)
+            self.update_visibility(ent, vision, trans, ai, world, phys_comp)
 
     def update_visibility(
         self,
@@ -114,6 +121,7 @@ class VisibilitySystem(System):
         trans: Transform,
         ai: AIState,
         world: World,
+        phys_comp: PhysicsBody | None,
     ) -> None:
         """
         Calculates visible entities for a single observer.
@@ -131,7 +139,7 @@ class VisibilitySystem(System):
         visible: set[int] = set()
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
-        phys_comp = world.get_component(entity, PhysicsBody)
+        # phys_comp passed as argument
         obs_angle = phys_comp.body.angle if phys_comp else 0.0
         # obs_shape is unused in the loop, logic relies on body
         # obs_shape = phys_comp.shape if phys_comp else None
@@ -188,31 +196,51 @@ class VisibilitySystem(System):
 
             # 3. Narrowphase: Raycast
             # We cast to the target's center.
-            # Improvement: Cast to the specific shape point?
-            # Pymunk raycast goes to a point. `target_pos` is center of body.
-            hits = self.space.segment_query(obs_pos, target_pos, 1.0, vision_ray_filter)
-            hits.sort(key=lambda x: x.alpha)
-
-            blocked = False
-
-            for hit in hits:
-                if hit.shape in obs_shapes:  # Use list check for composite support
-                    continue
-
-                # Treat sensors as transparent (unless they are Opaque sensors?)
-                # Assuming all sensors are transparent for now (Hitboxes)
-                if hit.shape.sensor:
-                    continue
-
+            
+            # Using same group filter allows us to ignore our own shapes automatically
+            vision_ray_filter = pymunk.ShapeFilter(mask=vision_mask, group=entity)
+            
+            # Optimization: Use segment_query_first to stops at the first hit.
+            # This avoids sorting and iterating through multiple hits.
+            hit = self.space.segment_query_first(obs_pos, target_pos, 1.0, vision_ray_filter)
+            
+            if hit:
+                # If we hit something, check if it's the target body
                 if hit.shape.body == body:
-                    # Hit target!
-                    break
-                else:
-                    # Hit something else
-                    blocked = True
-                    break
+                    visible.add(target_ent)
+            else:
+                 # If no hit (shouldn't happen if target is there, but maybe floating point issues?)
+                 # Actually, if we hit nothing, it means line of sight is clear? 
+                 # No, segment_query hits EVERYTHING on the line.
+                 # If we hit nothing, it means we didn't even hit the target itself?
+                 # Wait, segment_query_first returns the first shape it hits.
+                 # If it hits the target, it's visible.
+                 # If it hits a wall first, it's blocked.
+                 pass
 
-            if not blocked:
-                visible.add(target_ent)
+            # --- OLD LOGIC (Preserved for reference) ---
+            # hits = self.space.segment_query(obs_pos, target_pos, 1.0, vision_ray_filter)
+            # hits.sort(key=lambda x: x.alpha)
+            #
+            # blocked = False
+            #
+            # for hit in hits:
+            #     if hit.shape in obs_shapes:
+            #         continue
+            #
+            #     if hit.shape.sensor:
+            #         continue
+            #
+            #     if hit.shape.body == body:
+            #         # Hit target!
+            #         break
+            #     else:
+            #         # Hit something else
+            #         blocked = True
+            #         break
+            #
+            # if not blocked:
+            #    visible.add(target_ent)
+            # -------------------------------------------
 
         ai.visible_entities = visible

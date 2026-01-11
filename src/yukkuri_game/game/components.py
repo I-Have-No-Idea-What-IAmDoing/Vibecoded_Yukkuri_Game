@@ -10,7 +10,7 @@ from ..engine.data_models import AnimationDefinition
 from ..engine.types import EntityID
 
 
-@dataclass
+@dataclass(slots=True)
 class PhysicsBody:
     """
     Component representing the physical body of an entity in the pymunk space.
@@ -30,7 +30,7 @@ class PhysicsBody:
             self.base_radius = self.shape.radius
 
 
-@dataclass
+@dataclass(slots=True)
 class Transform:
     """
     Component representing the position and scale of an entity in the world.
@@ -59,7 +59,7 @@ class Transform:
             self.prev_rotation = self.rotation
 
 
-@dataclass
+@dataclass(slots=True)
 class Velocity:
     """
     Component representing the velocity of an entity.
@@ -73,7 +73,7 @@ class Velocity:
     dy: float
 
 
-@dataclass
+@dataclass(slots=True)
 class Sprite:
     """
     Component representing the graphical sprite of an entity.
@@ -102,7 +102,7 @@ class Sprite:
     is_animating: bool = True
 
 
-@dataclass
+@dataclass(slots=True)
 class Animator:
     """
     Component for handling advanced animations.
@@ -125,7 +125,7 @@ class Animator:
     forward: bool = True  # Direction for ping-pong loops
 
 
-@dataclass
+@dataclass(slots=True)
 class Selectable:
     """
     Component indicating that an entity can be selected by the user.
@@ -137,7 +137,7 @@ class Selectable:
     selected: bool = False
 
 
-@dataclass
+@dataclass(slots=True)
 class FloatingText:
     """
     Component representing floating text for visual feedback.
@@ -158,7 +158,7 @@ class FloatingText:
     size: int = 20
 
 
-@dataclass
+@dataclass(slots=True)
 class InteractionRequest:
     """
     Component requesting an interaction with another entity.
@@ -175,7 +175,7 @@ class InteractionRequest:
 
 
 
-@dataclass
+@dataclass(slots=True)
 class MovementController:
     """A simple component that holds movement commands and visual state."""
 
@@ -193,7 +193,7 @@ class MovementController:
     bob_speed: float = 5.0
 
 
-@dataclass
+@dataclass(slots=True)
 class Mount:
     """
     Component for handling parent-child relationships in the hierarchy.
@@ -207,7 +207,7 @@ class Mount:
     structure_dirty: bool = True
 
 
-@dataclass
+@dataclass(slots=True)
 class PendingDismount:
     """
     Component for entities that are in the process of dismounting (Ghost Mode).
@@ -217,7 +217,7 @@ class PendingDismount:
     time_in_pending: float = 0.0
 
 
-@dataclass
+@dataclass(slots=True)
 class Vision:
     """
     Component for visibility calculation.
@@ -227,7 +227,7 @@ class Vision:
     fov: float = 360.0  # in degrees
 
 
-@dataclass
+@dataclass(slots=True)
 class VisualTransform:
     """Holds visual-only transform data, decoupling rendering from physics."""
 
@@ -246,7 +246,7 @@ class FlickerStyle(Enum):
 # --- Lighting Components ---
 
 
-@dataclass
+@dataclass(slots=True)
 class LightSource:
     """
     Component defining a point light source.
@@ -264,7 +264,7 @@ class LightSource:
     _flicker_offset: float = 0.0
 
 
-@dataclass
+@dataclass(slots=True)
 class Occluder:
     """
     Component defining a light-blocking shape (Hull).

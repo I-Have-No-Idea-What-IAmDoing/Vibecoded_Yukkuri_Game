@@ -51,7 +51,7 @@ def add_physics_body(
     shape.elasticity = elasticity
     shape.friction = friction
     shape.filter = pymunk.ShapeFilter(
-        categories=collision_category, mask=collision_mask
+        categories=collision_category, mask=collision_mask, group=entity
     )
 
     if set_userdata:

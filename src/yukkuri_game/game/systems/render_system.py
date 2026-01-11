@@ -79,6 +79,11 @@ class RenderSystem(System):
 
         self.renderer = Renderer(backend)
 
+        # --- Background Layer Caching ---
+        self._background_cache: pygame.Surface | None = None
+        self._background_cache_valid: bool = False
+        self._last_camera_state: tuple | None = None  # (x, y, zoom)
+
     def update(self, world: World, alpha: float) -> None:
         """
         Main render loop.
@@ -112,13 +117,33 @@ class RenderSystem(System):
 
         self.renderer.clear_screen((50, 50, 50))  # Dark background, but not pitch black
 
-        # 1. Grid (Optional, maybe make it a command or specialized draw)
-        self._draw_grid(sw, sh)
+        # --- Background Layer Caching ---
+        # Check if camera state changed (using integer precision to avoid churn)
+        current_camera_state = (
+            int(self.camera.camera_x),
+            int(self.camera.camera_y),
+            round(self.camera.zoom, 2),
+        )
+        if current_camera_state != self._last_camera_state:
+            self._background_cache_valid = False
+            self._last_camera_state = current_camera_state
+
+        # Rebuild cache if invalid or size mismatch
+        if (
+            not self._background_cache_valid
+            or self._background_cache is None
+            or self._background_cache.get_size() != (sw, sh)
+        ):
+            self._rebuild_background_cache(world, sw, sh)
+
+        # Blit cached background (grid, static occluders)
+        if self._background_cache:
+            self.screen.blit(self._background_cache, (0, 0))
 
         # 2. Query Visible Entities
         visible_entities = self._get_visible_entities(world, sw, sh)
 
-        # 3. Process Entities
+        # 3. Process Entities (skip static occluders as they are cached)
         for ent in visible_entities:
             self._process_entity(world, ent, alpha, sw, sh)
 
@@ -127,6 +152,44 @@ class RenderSystem(System):
 
         # 5. Render
         self.renderer.render()
+
+    def _rebuild_background_cache(self, world: World, sw: int, sh: int) -> None:
+        """
+        Rebuilds the background cache surface with grid and static occluders.
+        """
+        # Create or resize cache surface
+        if self._background_cache is None or self._background_cache.get_size() != (sw, sh):
+            self._background_cache = pygame.Surface((sw, sh))
+
+        # Fill with background color
+        self._background_cache.fill((50, 50, 50))
+
+        # Draw grid to cache
+        self._draw_grid_to_surface(self._background_cache, sw, sh)
+
+        # Draw static occluders to cache
+        # (Future: iterate Occluder.static == True and draw them here)
+
+        self._background_cache_valid = True
+
+    def _draw_grid_to_surface(self, surface: pygame.Surface, sw: int, sh: int) -> None:
+        """Draws the grid to a given surface."""
+        grid_size = RenderConstants.GRID_SIZE
+        color = RenderConstants.GRID_COLOR
+
+        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(
+            sw, sh, grid_size
+        )
+
+        for col in range(start_col, end_col):
+            x = col * grid_size
+            sx, _ = self.camera.world_to_screen_fast(x, 0)
+            pygame.draw.line(surface, color, (sx, 0), (sx, sh))
+
+        for row in range(start_row, end_row):
+            y = row * grid_size
+            _, sy = self.camera.world_to_screen_fast(0, y)
+            pygame.draw.line(surface, color, (0, sy), (sw, sy))
 
     def _get_visible_entities(self, world: World, sw: int, sh: int) -> list[int]:
         sector_map = world.services.try_get(SectorMap)

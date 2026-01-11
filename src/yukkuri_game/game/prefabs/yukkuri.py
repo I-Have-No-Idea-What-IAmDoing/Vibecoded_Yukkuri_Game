@@ -33,6 +33,7 @@ from ..trait_service import TraitService
 from ..skill_service import SkillService
 from ..systems.physics import PhysicsSystem
 from ..physics_utils import add_physics_body, get_yukkuri_radius
+from ..inventory_component import InventoryComponent
 
 
 def create_yukkuri(
@@ -234,6 +235,10 @@ def create_yukkuri(
 
     # Mount (Hierarchy Root)
     world.add_component(entity, Mount())
+
+    # Inventory (Reimu and Marisa only)
+    if type_id in ("reimu", "marisa"):
+        world.add_component(entity, InventoryComponent())
 
     # Physics
     add_physics_body(
