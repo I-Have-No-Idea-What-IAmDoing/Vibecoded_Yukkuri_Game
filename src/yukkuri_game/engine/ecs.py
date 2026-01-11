@@ -88,6 +88,8 @@ class World:
     def _switch(self) -> None:
         """
         Switches to this world's context.
+        
+        Performance: Uses identity comparison for fast-path when already in correct context.
 
         Returns:
             None
@@ -95,7 +97,8 @@ class World:
         # esper uses a global dictionary to store worlds, accessed by name.
         # We ensure the global component database points to this world instance's data.
         # This is critical for supporting multiple simultaneous simulations (e.g., active game + paused menu world).
-        if esper.current_world != self.name:
+        # Fast path: identity comparison is faster than string equality for cached strings
+        if esper.current_world is not self.name and esper.current_world != self.name:
             esper.switch_world(self.name)
 
     @contextlib.contextmanager

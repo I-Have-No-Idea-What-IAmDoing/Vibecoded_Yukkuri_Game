@@ -85,6 +85,19 @@ class KinematicMovementSystem(System):
 
             # 0. Sync Transform to Body
             start_pos = phys.body.position
+            
+            # --- Performance Optimization: Skip stationary entities ---
+            # If both target velocity and current velocity are near-zero,
+            # skip the expensive sweep logic entirely.
+            target_vel_sq = controller.target_velocity.length_squared
+            current_vel_sq = controller.current_velocity.length_squared
+            if target_vel_sq < 0.0001 and current_vel_sq < 0.0001:
+                # Entity is stationary, just sync transform and skip
+                trans.prev_x = start_pos.x
+                trans.prev_y = start_pos.y
+                trans.x = start_pos.x
+                trans.y = start_pos.y
+                continue
 
             # 1. Depenetration (Fallback)
             clean_pos = self.resolve_penetration(phys, start_pos)

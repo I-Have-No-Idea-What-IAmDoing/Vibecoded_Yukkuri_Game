@@ -37,6 +37,15 @@ class BehaviorSystem(System):
 
         self.last_update_times: dict[int, float] = {}
         self.total_time: float = 0.0
+        
+        # --- Performance Optimization: Tick Throttling ---
+        # Minimum time (seconds) between ticks for the same entity.
+        # Reduces CPU load by preventing excessively frequent AI updates.
+        self.min_tick_interval: float = 0.1  # 100ms = 10 ticks/sec max per entity
+        
+        # Entities in stable states (SUCCESS) are ticked less frequently.
+        self.stable_tick_multiplier: float = 3.0  # 3x slower for stable entities
+        self.stable_entities: set[int] = set()  # Track entities in stable states
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -79,12 +88,15 @@ class BehaviorSystem(System):
             del self.trees[entity]
             if entity in self.last_update_times:
                 del self.last_update_times[entity]
+            # Also clean up stable entities tracking
+            self.stable_entities.discard(entity)
             # Removing from deque is O(N), so we just skip them during update loop if encountered
             # Or we can rebuild deque if many die. Lazy removal is better usually.
 
-        # 3. Process Batch
+        # 3. Process Batch with Tick Throttling
         updates_count = 0
         iterations = 0
+        skipped_count = 0
         max_queue_checks = len(self.update_queue)
 
         while updates_count < self.max_updates_per_frame and iterations < max_queue_checks:
@@ -98,20 +110,50 @@ class BehaviorSystem(System):
             if entity not in self.trees:
                 continue
 
-            # Calculate dt for this entity
+            # --- Tick Throttling ---
+            # Calculate time since last tick for this entity
             last_time = self.last_update_times.get(entity, self.total_time - 0.1)
-            entity_dt = self.total_time - last_time
+            time_since_last_tick = self.total_time - last_time
+            
+            # Determine required interval based on stability
+            required_interval = self.min_tick_interval
+            if entity in self.stable_entities:
+                # Stable entities tick less frequently
+                required_interval *= self.stable_tick_multiplier
+            
+            # Skip if not enough time has passed
+            if time_since_last_tick < required_interval:
+                # Re-queue immediately without counting as an update
+                self.update_queue.append(entity)
+                skipped_count += 1
+                # Prevent infinite loop if all entities are throttled
+                if skipped_count >= max_queue_checks:
+                    break
+                continue
+
+            # Calculate dt for this entity (actual time since last tick)
+            entity_dt = time_since_last_tick
             if entity_dt <= 0:
                 entity_dt = 0.1
 
-            # Tick
+            # Tick the behavior tree
             py_trees.blackboard.Blackboard().set("dt", entity_dt)
             tree = self.trees[entity]
             tree.tick()
 
-            # Post-tick logic
+            # Post-tick logic and stable state tracking
             ai = world.try_get_component(entity, AIState)
-            if ai and (tree.root.status == Status.SUCCESS or tree.root.status == Status.FAILURE):
+            root_status = tree.root.status
+            
+            if root_status == Status.SUCCESS:
+                # Mark as stable - will tick less frequently
+                self.stable_entities.add(entity)
+            elif root_status == Status.RUNNING:
+                # Active behavior - remove from stable set
+                self.stable_entities.discard(entity)
+            # FAILURE stays at normal rate to retry quickly
+            
+            if ai and (root_status == Status.SUCCESS or root_status == Status.FAILURE):
                 if getattr(ai, "manual_override", False):
                     ai.manual_override = False
 
@@ -119,3 +161,4 @@ class BehaviorSystem(System):
             self.last_update_times[entity] = self.total_time
             self.update_queue.append(entity)
             updates_count += 1
+

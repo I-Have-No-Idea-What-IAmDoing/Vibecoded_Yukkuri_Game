@@ -77,10 +77,10 @@ class TestBehaviorSystem(unittest.TestCase):
             self.assertIn(1, system.trees)
 
             # Now destroy entity 1
+            # BehaviorSystem detects dead entities via get_components_tuple returning
+            # an empty set when the entity no longer has AIState component.
+            mock_world.get_components_tuple.return_value = []
             mock_world.entity_exists.side_effect = lambda eid: False
-
-            # Need to ensure get_components_tuple returns empty or we just rely on cleanup loop
-            # Cleanup loop iterates system.trees.keys()
 
             system.update(mock_world, 0.1)
             self.assertNotIn(1, system.trees)

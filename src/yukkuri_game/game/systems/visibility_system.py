@@ -34,6 +34,13 @@ class VisibilitySystem(System):
         self.batch_size = 0.2  # Process 20% of entities per frame
         self.body_to_entity: dict[pymunk.Body, int] = {}
         self.event_bus: EventBus | None = None
+        
+        # --- Performance Optimization: Visibility Caching ---
+        # Cache visibility results per observer.
+        # Key: entity_id -> (visible_set, cached_x, cached_y)
+        # Invalidate cache if observer moves more than cache_threshold pixels.
+        self.visibility_cache: dict[int, tuple[set[int], float, float]] = {}
+        self.cache_threshold: float = 10.0  # Invalidate if moved > 10 pixels
 
     def on_component_added(self, event: ComponentAddedEvent) -> None:
         """
@@ -125,6 +132,7 @@ class VisibilitySystem(System):
     ) -> None:
         """
         Calculates visible entities for a single observer.
+        Uses caching with temporal coherence - reuses results if observer hasn't moved.
 
         Args:
             entity (int): The observer entity ID.
@@ -136,6 +144,18 @@ class VisibilitySystem(System):
         Returns:
             None
         """
+        # --- Cache Check: Temporal Coherence ---
+        # If observer hasn't moved significantly, reuse cached visibility.
+        if entity in self.visibility_cache:
+            cached_visible, cached_x, cached_y = self.visibility_cache[entity]
+            dx = trans.x - cached_x
+            dy = trans.y - cached_y
+            dist_sq = dx * dx + dy * dy
+            if dist_sq < self.cache_threshold * self.cache_threshold:
+                # Cache hit! Reuse previous visibility result.
+                ai.visible_entities = cached_visible
+                return
+        
         visible: set[int] = set()
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
@@ -197,26 +217,34 @@ class VisibilitySystem(System):
             # 3. Narrowphase: Raycast
             # We cast to the target's center.
             
-            # Using same group filter allows us to ignore our own shapes automatically
+            # Note: group filter only works if shapes are configured with the same group ID.
+            # Since we can't guarantee that, we still need to check for self-hits.
             vision_ray_filter = pymunk.ShapeFilter(mask=vision_mask, group=entity)
             
-            # Optimization: Use segment_query_first to stops at the first hit.
+            # Optimization: Use segment_query_first to stop at the first hit.
             # This avoids sorting and iterating through multiple hits.
             hit = self.space.segment_query_first(obs_pos, target_pos, 1.0, vision_ray_filter)
             
             if hit:
-                # If we hit something, check if it's the target body
-                if hit.shape.body == body:
+                # Skip if we hit our own body (can happen if ray originates inside our shape)
+                if phys_comp and hit.shape.body == phys_comp.body:
+                    # We hit ourselves first - need to check if target is visible beyond us
+                    # Fall back to full segment query to find actual first non-self hit
+                    hits = self.space.segment_query(obs_pos, target_pos, 1.0, vision_ray_filter)
+                    for h in sorted(hits, key=lambda x: x.alpha):
+                        if phys_comp and h.shape.body == phys_comp.body:
+                            continue  # Skip our own shapes
+                        if h.shape.sensor:
+                            continue  # Skip sensors
+                        if h.shape.body == body:
+                            visible.add(target_ent)  # Target is visible!
+                        # Hit something else first - blocked
+                        break
+                elif hit.shape.body == body:
+                    # First hit is the target - visible!
                     visible.add(target_ent)
-            else:
-                 # If no hit (shouldn't happen if target is there, but maybe floating point issues?)
-                 # Actually, if we hit nothing, it means line of sight is clear? 
-                 # No, segment_query hits EVERYTHING on the line.
-                 # If we hit nothing, it means we didn't even hit the target itself?
-                 # Wait, segment_query_first returns the first shape it hits.
-                 # If it hits the target, it's visible.
-                 # If it hits a wall first, it's blocked.
-                 pass
+                # else: First hit is something else (wall, other entity) - blocked
+            # else: No hit at all - shouldn't happen but target is not visible
 
             # --- OLD LOGIC (Preserved for reference) ---
             # hits = self.space.segment_query(obs_pos, target_pos, 1.0, vision_ray_filter)
@@ -243,4 +271,6 @@ class VisibilitySystem(System):
             #    visible.add(target_ent)
             # -------------------------------------------
 
+        # Store result in cache for temporal coherence
+        self.visibility_cache[entity] = (visible, trans.x, trans.y)
         ai.visible_entities = visible
