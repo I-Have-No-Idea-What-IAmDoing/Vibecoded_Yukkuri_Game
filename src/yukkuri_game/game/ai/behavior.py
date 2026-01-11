@@ -109,19 +109,41 @@ class MoveToTarget(Action):
             return Status.FAILURE
 
         # Pathfinding (simplified)
-        if ai.path is None or len(ai.path) == 0:
+        # If path is not set, try to find one.
+        if ai.path is None:
+            # Default to empty list which implies direct movement if pathfinding not available/fails
+            ai.path = []
+            
             nav_service = self.world.services.try_get(NavigationService)
             if nav_service:
-                ai.path = nav_service.find_path((trans.x, trans.y), target_pos)
+                found_path = nav_service.find_path((trans.x, trans.y), target_pos)
+                if found_path:
+                    ai.path = found_path
+                
+        # Fallback to Direct Movement if no path (Navigation missing or pathfinding failed/unnecessary)
+        if not ai.path:
+             # Calculate vector to target directly
+             vector_to_target = target_pos - pymunk.Vec2d(trans.x, trans.y)
+             dist = vector_to_target.length
+             
+             if dist < self.acceptance_radius:
+                 controller.target_velocity = pymunk.Vec2d(0, 0)
+                 return Status.SUCCESS
+                 
+             # Simple speed modifier
+             speed_modifier = 1.0
+             if needs.energy < 30:
+                 speed_modifier = 0.5
+                 
+             final_speed = self.speed * speed_modifier
+             if dist > 0.001:
+                 controller.target_velocity = vector_to_target.normalized() * final_speed
+             else:
+                 controller.target_velocity = pymunk.Vec2d(0, 0)
+                 
+             return Status.RUNNING
 
-            if not ai.path:
-                # Pathfinding failed. Mark target as failed to avoid loop.
-                if ai.current_target_id != -1:
-                    ai.failed_targets.add(ai.current_target_id)
-                    ai.current_target_id = -1
-
-                controller.target_velocity = pymunk.Vec2d(0, 0)
-                return Status.FAILURE
+        # Path Follower Logic (Only if we have a path)
 
         # Path Follower Logic
         next_point = pymunk.Vec2d(ai.path[0][0], ai.path[0][1])
