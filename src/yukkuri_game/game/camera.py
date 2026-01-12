@@ -2,8 +2,12 @@
 Module handling the game camera.
 """
 
+from typing import TYPE_CHECKING
 import pygame
 from ..config import WorldSettings
+
+if TYPE_CHECKING:
+    from ..engine.input_manager import InputManager
 
 
 class Camera:
@@ -201,6 +205,8 @@ class Camera:
     def update(self, dt: float) -> None:
         """
         Updates the camera state (e.g., smooth zoom).
+        This method now only handles smooth zoom interpolation.
+        Keyboard/mouse movement is handled by process_input().
 
         Args:
             dt (float): Delta time.
@@ -208,26 +214,46 @@ class Camera:
         Returns:
             None
         """
-        # Save previous state
+        # Save previous state for interpolation
         self.prev_camera_x = self.camera_x
         self.prev_camera_y = self.camera_y
         self.prev_zoom = self.zoom
 
-        # Handle continuous camera movement via keyboard
-        keys = pygame.key.get_pressed()
-        speed = (
-            500.0 * dt / self.zoom
-        )  # Adjust speed based on zoom so movement is consistent relative to screen
-
-        if keys[pygame.K_w] or keys[pygame.K_UP]:
-            self.camera_y -= speed
-        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            self.camera_y += speed
-        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            self.camera_x -= speed
-        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            self.camera_x += speed
-
         # Smooth zoom interpolation
         # Using linear interpolation (Lerp) with a factor of 5.0 for smooth transition
         self.zoom += (self.target_zoom - self.zoom) * 5.0 * dt
+
+    def process_input(self, input_manager: "InputManager", dt: float) -> None:
+        """
+        Processes camera input using the InputManager.
+        Should be called every frame.
+
+        Args:
+            input_manager (InputManager): The input manager instance.
+            dt (float): Delta time.
+        """
+        # Keyboard Movement
+        speed = 500.0 * dt / self.zoom  # Adjust by zoom for consistent feel
+
+        if input_manager.is_action_pressed("up"):
+            self.camera_y -= speed
+        if input_manager.is_action_pressed("down"):
+            self.camera_y += speed
+        if input_manager.is_action_pressed("left"):
+            self.camera_x -= speed
+        if input_manager.is_action_pressed("right"):
+            self.camera_x += speed
+
+        # Keyboard Zoom (Ctrl + +/-)
+        # Uses time_speed_up/down actions since +/- are mapped there; Ctrl differentiates zoom from speed.
+        if input_manager.is_action_pressed("ctrl"):
+            if input_manager.is_action_pressed("time_speed_up"):
+                self.target_zoom = min(self.max_zoom, self.target_zoom + 0.1 * dt * 10)
+            if input_manager.is_action_pressed("time_speed_down"):
+                self.target_zoom = max(self.min_zoom, self.target_zoom - 0.1 * dt * 10)
+
+        # Mouse Wheel Zoom (handled via get_mouse_wheel)
+        wheel = input_manager.get_mouse_wheel()
+        if wheel != 0.0:
+            self.target_zoom += wheel * 0.1
+            self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))

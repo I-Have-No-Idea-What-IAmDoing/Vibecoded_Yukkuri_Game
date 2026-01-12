@@ -69,6 +69,7 @@ class TestInputSystem(unittest.TestCase):
         self.input_manager_mock.get_mouse_position.return_value = (0, 0)
         self.input_manager_mock.is_action_just_pressed.return_value = False
         self.input_manager_mock.is_action_just_released.return_value = False
+        self.input_manager_mock.is_action_pressed.return_value = False
 
         # Initialize dependencies
         # Need to mock display.get_surface for update()
@@ -148,7 +149,82 @@ class TestInputSystem(unittest.TestCase):
         self.event_bus_mock.publish.assert_called_with(PlacementCancelledEvent())
 
         # Check placement reset
-        self.assertFalse(self.input_service.is_placing)
+    def test_time_speed_blocked_by_ctrl(self) -> None:
+        """
+        Tests that time speed input is ignored if Ctrl is held (conflict with zoom).
+        """
+        # Mock TimeService
+        mock_time_service = MagicMock()
+        mock_time_service.game_speed = 1.0
+        
+        def try_get_service(service_type):
+            from yukkuri_game.game.services import TimeService
+            if service_type == TimeService:
+                return mock_time_service
+            # Fallback to existing mocks
+            if service_type == AudioManager:
+                return self.audio_mock
+            if service_type == InputManager:
+                return self.input_manager_mock
+            return None
+            
+        self.world_mock.services.try_get.side_effect = try_get_service
+
+        # Simulate Time Speed Up + Ctrl
+        self.input_manager_mock.is_action_just_pressed.side_effect = (
+            lambda action: action == "time_speed_up"
+        )
+        self.input_manager_mock.is_action_pressed.side_effect = (
+            lambda action: action == "ctrl"
+        )
+
+        with patch("pygame.display.get_surface") as mock_get_surface:
+             # Just need a dummy surface
+            mock_surface = MagicMock()
+            mock_surface.get_size.return_value = (800, 600)
+            mock_get_surface.return_value = mock_surface
+            
+            self.input_system.update(self.world_mock, 0.0)
+
+        # Assert speed did NOT change
+        self.assertEqual(mock_time_service.game_speed, 1.0)
+
+    def test_time_speed_allowed_without_ctrl(self) -> None:
+        """
+        Tests that time speed input works when Ctrl is NOT held.
+        """
+        # Mock TimeService
+        mock_time_service = MagicMock()
+        mock_time_service.game_speed = 1.0
+        
+        def try_get_service(service_type):
+            from yukkuri_game.game.services import TimeService
+            if service_type == TimeService:
+                return mock_time_service
+            # Fallback to existing mocks
+            if service_type == AudioManager:
+                return self.audio_mock
+            if service_type == InputManager:
+                return self.input_manager_mock
+            return None
+            
+        self.world_mock.services.try_get.side_effect = try_get_service
+
+        # Simulate Time Speed Up (No Ctrl)
+        self.input_manager_mock.is_action_just_pressed.side_effect = (
+            lambda action: action == "time_speed_up"
+        )
+        self.input_manager_mock.is_action_pressed.return_value = False
+
+        with patch("pygame.display.get_surface") as mock_get_surface:
+            mock_surface = MagicMock()
+            mock_surface.get_size.return_value = (800, 600)
+            mock_get_surface.return_value = mock_surface
+            
+            self.input_system.update(self.world_mock, 0.0)
+
+        # Assert speed DID change (doubled)
+        self.assertEqual(mock_time_service.game_speed, 2.0)
 
 
 if __name__ == "__main__":

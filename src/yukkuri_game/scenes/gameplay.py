@@ -449,11 +449,7 @@ class GameplayScene(Scene):
         """
         self.ui_manager.process_events(event)
         # InputManager processing is handled by Application
-
-        if hasattr(self, "camera"):
-            self.camera.handle_input(
-                event, self.application.width, self.application.height
-            )
+        # Camera input is now handled by InputSystem via process_input()
 
         if self.input_manager.is_action_just_pressed("pause"):
             # Update global state before leaving
@@ -471,13 +467,13 @@ class GameplayScene(Scene):
 
         if not self.application.headless:
             if self.input_manager.is_action_just_pressed("debug_toggle"):
-                if pygame.key.get_mods() & pygame.KMOD_SHIFT:
+                if self.input_manager.is_action_pressed("shift"):
                     # Shift+F3 -> Toggle Lighting Debug
                     self.hud.toggle_lighting_debug()
                     self.render_system.renderer.toggle_lighting_debug(
                         self.hud.lighting_debug
                     )
-                elif pygame.key.get_mods() & pygame.KMOD_CTRL:
+                elif self.input_manager.is_action_pressed("ctrl"):
                     # Ctrl+F3 -> Toggle Mouse Light
                     mouse_light = self.world.services.try_get(MouseLightSystem)
                     if mouse_light:

@@ -47,27 +47,30 @@ class InputManager:
         self._mouse_pos: tuple[int, int] = (0, 0)
         self._mouse_wheel: float = 0.0
 
-        # Mappings: Context -> Action -> Key
-        self._key_mappings: dict[InputContext, dict[str, int]] = {
+        # Mappings: Context -> Action -> List of Keys
+        # Using lists allows multiple keys to trigger the same action.
+        self._key_mappings: dict[InputContext, dict[str, list[int]]] = {
             InputContext.GAMEPLAY: {
-                "up": pygame.K_UP,
-                "down": pygame.K_DOWN,
-                "left": pygame.K_LEFT,
-                "right": pygame.K_RIGHT,
-                "pause": pygame.K_ESCAPE,
-                "interact": pygame.K_z,
-                "debug_toggle": pygame.K_F3,
-                "screenshot": pygame.K_F12,
-                "quicksave": pygame.K_F5,
-                "quickload": pygame.K_F9,
-                "time_speed_up": pygame.K_EQUALS,  # + key
-                "time_speed_down": pygame.K_MINUS,  # - key
+                "up": [pygame.K_UP, pygame.K_w],
+                "down": [pygame.K_DOWN, pygame.K_s],
+                "left": [pygame.K_LEFT, pygame.K_a],
+                "right": [pygame.K_RIGHT, pygame.K_d],
+                "pause": [pygame.K_ESCAPE],
+                "interact": [pygame.K_z],
+                "debug_toggle": [pygame.K_F3],
+                "screenshot": [pygame.K_F12],
+                "quicksave": [pygame.K_F5],
+                "quickload": [pygame.K_F9],
+                "time_speed_up": [pygame.K_EQUALS, pygame.K_PLUS],
+                "time_speed_down": [pygame.K_MINUS],
+                "shift": [pygame.K_LSHIFT, pygame.K_RSHIFT],
+                "ctrl": [pygame.K_LCTRL, pygame.K_RCTRL],
             },
             InputContext.MENU: {
-                "confirm": pygame.K_RETURN,
-                "cancel": pygame.K_ESCAPE,
-                "up": pygame.K_UP,
-                "down": pygame.K_DOWN,
+                "confirm": [pygame.K_RETURN],
+                "cancel": [pygame.K_ESCAPE],
+                "up": [pygame.K_UP],
+                "down": [pygame.K_DOWN],
             },
         }
 
@@ -185,11 +188,11 @@ class InputManager:
                     ):
                         return True
                 else:
-                    if (
-                        context in self._key_mappings
-                        and key_or_btn in self._key_mappings[context].values()
-                    ):
-                        return True
+                    # Key mappings now use lists; check if the key is in any action's list.
+                    if context in self._key_mappings:
+                        for keys_list in self._key_mappings[context].values():
+                            if key_or_btn in keys_list:
+                                return True
         return False
 
     def _check_action_in_collection(
@@ -214,12 +217,14 @@ class InputManager:
         )
 
         for context in sorted_contexts:
-            # Check Keys
+            # Check Keys (mappings are now lists)
             if context in self._key_mappings:
-                key = self._key_mappings[context].get(action)
-                if key and key in key_collection:
-                    if not self._is_consumed(key, context, is_mouse=False):
-                        return True
+                keys_list = self._key_mappings[context].get(action)
+                if keys_list:
+                    for key in keys_list:
+                        if key in key_collection:
+                            if not self._is_consumed(key, context, is_mouse=False):
+                                return True
 
             # Check Mouse
             if context in self._mouse_mappings:

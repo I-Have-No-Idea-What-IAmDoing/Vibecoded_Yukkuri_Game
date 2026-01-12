@@ -130,6 +130,9 @@ class InputSystem(System):
             return
         screen_w, screen_h = surface.get_size()
 
+        # Process camera input (movement, zoom)
+        self.camera.process_input(self.input_manager, dt)
+
         # Check UI Hover
         if self.ui_manager and self.ui_manager.get_hovering_any_element():
             return
@@ -143,11 +146,8 @@ class InputSystem(System):
 
         # Update Placement Preview Logic
         if self.input_service and self.input_service.is_placing:
-            # Check for Grid Snapping (Control Key)
-            is_ctrl_pressed = (
-                pygame.key.get_pressed()[pygame.K_LCTRL]
-                or pygame.key.get_pressed()[pygame.K_RCTRL]
-            )
+            # Check for Grid Snapping (Control Key) using InputManager
+            is_ctrl_pressed = self.input_manager.is_action_pressed("ctrl")
 
             if is_ctrl_pressed:
                 # Snap to grid (32x32)
@@ -177,11 +177,8 @@ class InputSystem(System):
                 if self.audio:
                     self.audio.play_sound("place")
                 
-                # Check for Shift Key (Multiple Placement)
-                is_shift_pressed = (
-                    pygame.key.get_pressed()[pygame.K_LSHIFT]
-                    or pygame.key.get_pressed()[pygame.K_RSHIFT]
-                )
+                # Check for Shift Key (Multiple Placement) using InputManager
+                is_shift_pressed = self.input_manager.is_action_pressed("shift")
 
                 if not is_shift_pressed:
                     self.input_service.cancel_placement()
@@ -271,7 +268,9 @@ class InputSystem(System):
         entities = world.get_entities_with(Transform, Selectable)
         clicked_something = False
 
-        is_shift_pressed = pygame.key.get_pressed()[pygame.K_LSHIFT]
+        is_shift_pressed = (
+            self.input_manager.is_action_pressed("shift") if self.input_manager else False
+        )
 
         current_selection = []
         for ent in entities:
@@ -403,6 +402,10 @@ class InputSystem(System):
         # Lazy get TimeService
         time_service = world.services.try_get(TimeService)
         if time_service is None:
+            return
+
+        # Prevent conflict with Zoom (Ctrl + +/-)
+        if self.input_manager.is_action_pressed("ctrl"):
             return
 
         # Speed Up (+)
