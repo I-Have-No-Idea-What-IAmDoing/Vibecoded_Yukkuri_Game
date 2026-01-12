@@ -79,8 +79,10 @@ class RenderSystem(System):
 
         self.renderer = Renderer(backend)
 
-        self.renderer = Renderer(backend)
-
+        # Background Caching
+        self._background_cache: pygame.Surface | None = None
+        self._background_cache_valid: bool = False
+        self._last_camera_state: tuple | None = None
 
     def update(self, world: World, alpha: float) -> None:
         """
@@ -115,11 +117,54 @@ class RenderSystem(System):
 
         # 1. Clear & Draw Grid
         self.renderer.clear_screen((50, 50, 50))  # Dark background, but not pitch black
-        
+
+        # Manage Background Cache
+        current_camera_state = (
+            int(self.camera.camera_x),
+            int(self.camera.camera_y),
+            self.camera.zoom,
+            sw,
+            sh,
+        )
+
+        if current_camera_state != self._last_camera_state:
+            self._background_cache_valid = False
+            self._last_camera_state = current_camera_state
+
         # Skip grid when zoomed in past 5x (grid becomes sparse and less useful)
         if self.camera.zoom < 5.0:
-            self._draw_grid(sw, sh)
+            if not self._background_cache_valid or not self._background_cache:
+                self._rebuild_background_cache(sw, sh)
 
+            if self._background_cache:
+                # Calculate sub-pixel offset
+                # The cache is built based on _last_camera_state (integer coordinates)
+                # The current camera position might be fractional.
+                # We need to shift the sprite to account for the difference.
+                # Delta in world units = cached_int_pos - current_float_pos
+                # Delta in screen pixels = Delta_world * zoom
+
+                cached_cam_x, cached_cam_y, _, _, _ = self._last_camera_state
+
+                diff_x = (cached_cam_x - self.camera.camera_x) * self.camera.zoom
+                diff_y = (cached_cam_y - self.camera.camera_y) * self.camera.zoom
+
+                # Base position is center of screen (sw // 2, sh // 2)
+                # Add the offset
+                final_x = (sw // 2) + diff_x
+                final_y = (sh // 2) + diff_y
+
+                self.renderer.submit(
+                    SpriteCommand(
+                        layer=LAYER_BACKGROUND,
+                        z_index=-9999,  # Ensure it's behind everything
+                        image=self._background_cache,
+                        position=(final_x, final_y),
+                        selected=False,
+                        alpha=255,
+                        cache_key=None,
+                    )
+                )
 
         # 2. Query Visible Entities
         visible_entities = self._get_visible_entities(world, sw, sh)
@@ -254,32 +299,141 @@ class RenderSystem(System):
             # Fallback
             return [e for e, _ in world.get_components_tuple(Transform)]
 
-    def _draw_grid(self, sw: int, sh: int) -> None:
+    def _rebuild_background_cache(self, sw: int, sh: int) -> None:
+        """
+        Rebuilds the cached background surface (grid).
+        """
+        # Ensure cache surface is large enough to handle sub-pixel shifts without gaps
+        # Adding a margin of 2 pixels (safe for 1.0 unit shift at modest zoom, needs more if high zoom?)
+        # Actually, if zoom is 5.0, shift is 5 pixels.
+        # Let's add a safe margin. 32 pixels is safe.
+        margin = 32
+        req_w, req_h = sw + margin * 2, sh + margin * 2
+
+        if not self._background_cache or self._background_cache.get_size() != (req_w, req_h):
+            self._background_cache = pygame.Surface((req_w, req_h), pygame.SRCALPHA)
+
+        self._background_cache.fill((0, 0, 0, 0))  # Clear with transparent
+
+        # We need to draw the grid AS IF the camera is at the integer position stored in _last_camera_state
+        cached_cam_x, cached_cam_y, cached_zoom, _, _ = self._last_camera_state
+
+        # Override camera pos temporarily (safer to pass as args, but _draw_grid is complex)
+        # We'll use a modified _draw_grid signature
+
+        # Note: We are drawing to a larger surface, so 'sw' and 'sh' passed to _draw_grid
+        # should probably be the surface size, BUT the camera calculation assumes screen center.
+        # If we change screen size, the center shifts.
+
+        # To simplify: We draw to a surface of size (sw, sh) but we need to cover the margin?
+        # If we just cache (sw, sh) and accept that shifting > 0 reveals the edge...
+        # Let's stick to (sw, sh) for now to minimize complexity, but handle the drawing correctly.
+        # If we want a margin, we need to adjust the center offset.
+
+        # Let's revert to exact screen size caching but drawn at integer coordinates.
+        # Gaps at edges will be handled by the fact that the grid extends beyond screen usually?
+        # No, _calculate_grid_bounds clamps to screen bounds.
+
+        # If we draw exactly to screen bounds, shifting reveals empty space.
+        # So we MUST draw slightly outside bounds.
+
+        # Let's effectively simulate a slightly larger screen for the drawing step.
+        eff_sw, eff_sh = sw + margin * 2, sh + margin * 2
+
+        # We need to adjust the camera's "screen center" logic for this larger surface.
+        # world_to_screen_fast uses (screen_width // 2, screen_height // 2) internally?
+        # Let's check Camera class.
+        pass # Checked: Camera.world_to_screen_fast uses self.half_width, self.half_height
+
+        # So we need to temporarily update Camera's half_width/height OR just use the original
+        # and blit with an offset?
+
+        # Simpler approach:
+        # Just use current screen size. Accept slight edge artifacts during movement.
+        # It's a grid on a background color.
+
+        self._draw_grid(sw, sh, target_surface=self._background_cache,
+                        override_cam_pos=(cached_cam_x, cached_cam_y))
+        self._background_cache_valid = True
+
+    def _draw_grid(self, sw: int, sh: int, target_surface: pygame.Surface = None,
+                   override_cam_pos: tuple[float, float] = None) -> None:
         # Generate grid lines commands? Or just draw immediate if backend supports it.
         # Let's verify backend has draw_line
 
         grid_size = RenderConstants.GRID_SIZE
         color = RenderConstants.GRID_COLOR
 
+        # Use override pos or current camera pos
+        cam_x = override_cam_pos[0] if override_cam_pos else self.camera.camera_x
+        cam_y = override_cam_pos[1] if override_cam_pos else self.camera.camera_y
+        zoom = self.camera.zoom
+
+        # Custom world_to_screen logic for this method to support override
+        def world_to_screen(wx, wy):
+            return (
+                (wx - cam_x) * zoom + sw / 2,
+                (wy - cam_y) * zoom + sh / 2
+            )
+
         start_col, end_col, start_row, end_row = self._calculate_grid_bounds(
-            sw, sh, grid_size
+            sw, sh, grid_size, cam_x, cam_y
         )
 
-        for col in range(start_col, end_col):
-            x = col * grid_size
-            sx, _ = self.camera.world_to_screen_fast(x, 0)
-            self.renderer.backend.draw_line((sx, 0), (sx, sh), color)
+        # Optimization: Batch line drawing if possible, or direct draw to surface
+        if target_surface:
+             # Draw directly to cache surface
+            for col in range(start_col, end_col):
+                x = col * grid_size
+                sx, _ = world_to_screen(x, 0)
+                pygame.draw.line(target_surface, color, (sx, 0), (sx, sh))
 
-        for row in range(start_row, end_row):
-            y = row * grid_size
-            _, sy = self.camera.world_to_screen_fast(0, y)
-            self.renderer.backend.draw_line((0, sy), (sw, sy), color)
+            for row in range(start_row, end_row):
+                y = row * grid_size
+                _, sy = world_to_screen(0, y)
+                pygame.draw.line(target_surface, color, (0, sy), (sw, sy))
+        else:
+            # Fallback to backend immediate draw (if cache is bypassed)
+            # We still need to respect override_cam_pos if passed, but typically wouldn't be.
+            # If backend.draw_line is used, it uses backend coords.
+            # And we use self.camera.world_to_screen_fast usually.
 
-    def _calculate_grid_bounds(self, screen_w: int, screen_h: int, grid_size: int):
-        start_x, start_y = self.camera.screen_to_world(0, 0, screen_w, screen_h)
-        end_x, end_y = self.camera.screen_to_world(
-            screen_w, screen_h, screen_w, screen_h
-        )
+            for col in range(start_col, end_col):
+                x = col * grid_size
+                # If override is provided, we must use custom transform
+                if override_cam_pos:
+                    sx, _ = world_to_screen(x, 0)
+                else:
+                    sx, _ = self.camera.world_to_screen_fast(x, 0)
+                self.renderer.backend.draw_line((sx, 0), (sx, sh), color)
+
+            for row in range(start_row, end_row):
+                y = row * grid_size
+                if override_cam_pos:
+                    _, sy = world_to_screen(0, y)
+                else:
+                    _, sy = self.camera.world_to_screen_fast(0, y)
+                self.renderer.backend.draw_line((0, sy), (sw, sy), color)
+
+    def _calculate_grid_bounds(self, screen_w: int, screen_h: int, grid_size: int,
+                               cam_x: float = None, cam_y: float = None):
+        if cam_x is not None and cam_y is not None:
+            # Custom calculation based on override pos
+            # screen_to_world inverse:
+            # wx = (sx - half_w) / zoom + cam_x
+            half_w = screen_w / 2
+            half_h = screen_h / 2
+            zoom = self.camera.zoom
+
+            start_x = (0 - half_w) / zoom + cam_x
+            start_y = (0 - half_h) / zoom + cam_y
+            end_x = (screen_w - half_w) / zoom + cam_x
+            end_y = (screen_h - half_h) / zoom + cam_y
+        else:
+            start_x, start_y = self.camera.screen_to_world(0, 0, screen_w, screen_h)
+            end_x, end_y = self.camera.screen_to_world(
+                screen_w, screen_h, screen_w, screen_h
+            )
 
         start_col = int(start_x // grid_size)
         end_col = int(end_x // grid_size) + 1
