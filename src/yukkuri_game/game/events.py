@@ -52,6 +52,7 @@ class PlacementStartedEvent(Event):
     type_id: str
     cost: int
     entity_type: str  # "yukkuri" or "item"
+    image_name: str = ""
 
 
 @dataclass(frozen=True)

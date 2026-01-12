@@ -79,10 +79,8 @@ class RenderSystem(System):
 
         self.renderer = Renderer(backend)
 
-        # --- Background Layer Caching ---
-        self._background_cache: pygame.Surface | None = None
-        self._background_cache_valid: bool = False
-        self._last_camera_state: tuple | None = None  # (x, y, zoom)
+        self.renderer = Renderer(backend)
+
 
     def update(self, world: World, alpha: float) -> None:
         """
@@ -115,30 +113,13 @@ class RenderSystem(System):
         self.camera.set_aspect_correction(correction_x, correction_y)
         self.camera.update_matrices(sw, sh, alpha)
 
+        # 1. Clear & Draw Grid
         self.renderer.clear_screen((50, 50, 50))  # Dark background, but not pitch black
+        
+        # Skip grid when zoomed in past 5x (grid becomes sparse and less useful)
+        if self.camera.zoom < 5.0:
+            self._draw_grid(sw, sh)
 
-        # --- Background Layer Caching ---
-        # Check if camera state changed (using integer precision to avoid churn)
-        current_camera_state = (
-            int(self.camera.camera_x),
-            int(self.camera.camera_y),
-            round(self.camera.zoom, 2),
-        )
-        if current_camera_state != self._last_camera_state:
-            self._background_cache_valid = False
-            self._last_camera_state = current_camera_state
-
-        # Rebuild cache if invalid or size mismatch
-        if (
-            not self._background_cache_valid
-            or self._background_cache is None
-            or self._background_cache.get_size() != (sw, sh)
-        ):
-            self._rebuild_background_cache(world, sw, sh)
-
-        # Blit cached background (grid, static occluders)
-        if self._background_cache:
-            self.screen.blit(self._background_cache, (0, 0))
 
         # 2. Query Visible Entities
         visible_entities = self._get_visible_entities(world, sw, sh)
@@ -150,46 +131,111 @@ class RenderSystem(System):
         # 4. Floating Text
         self._process_floating_text(world, sw, sh, alpha)
 
-        # 5. Render
+        # 5. Placement Preview (Submit before render)
+        self._process_placement_preview(world, sw, sh)
+
+        # 6. Render
         self.renderer.render()
 
-    def _rebuild_background_cache(self, world: World, sw: int, sh: int) -> None:
+    def _process_placement_preview(self, world: World, sw: int, sh: int) -> None:
         """
-        Rebuilds the background cache surface with grid and static occluders.
+        Renders the placement preview (ghost sprite).
+
+        Args:
+            world (World): The ECS World.
+            sw (int): Screen width.
+            sh (int): Screen height.
         """
-        # Create or resize cache surface
-        if self._background_cache is None or self._background_cache.get_size() != (sw, sh):
-            self._background_cache = pygame.Surface((sw, sh))
+        # Lazy import to avoid circular dependency
+        from ..services import InputService
+        
+        input_service = world.services.try_get(InputService)
+        
+        if not input_service or not input_service.is_placing:
+            return
 
-        # Fill with background color
-        self._background_cache.fill((50, 50, 50))
-
-        # Draw grid to cache
-        self._draw_grid_to_surface(self._background_cache, sw, sh)
-
-        # Draw static occluders to cache
-        # (Future: iterate Occluder.static == True and draw them here)
-
-        self._background_cache_valid = True
-
-    def _draw_grid_to_surface(self, surface: pygame.Surface, sw: int, sh: int) -> None:
-        """Draws the grid to a given surface."""
-        grid_size = RenderConstants.GRID_SIZE
-        color = RenderConstants.GRID_COLOR
-
-        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(
-            sw, sh, grid_size
-        )
-
-        for col in range(start_col, end_col):
-            x = col * grid_size
-            sx, _ = self.camera.world_to_screen_fast(x, 0)
-            pygame.draw.line(surface, color, (sx, 0), (sx, sh))
-
-        for row in range(start_row, end_row):
-            y = row * grid_size
-            _, sy = self.camera.world_to_screen_fast(0, y)
-            pygame.draw.line(surface, color, (0, sy), (sw, sy))
+        image_name = input_service.place_image_name
+        wx, wy = input_service.current_placement_pos
+        
+        sx, sy = self.camera.world_to_screen_fast(wx, wy)
+        
+        # Basic Fallback logic
+        img = None
+        if image_name:
+            raw_surf = self.rm.load_image(image_name)
+            if raw_surf:
+                # Try to get correct width/height from item/yukkuri data
+                place_type = input_service.place_type
+                entity_type = input_service.place_entity_type
+                
+                sprite_width = 64  # Default
+                sprite_height = 64
+                
+                if entity_type == "item" and place_type in self.rm.item_types:
+                    item_data = self.rm.item_types[place_type]
+                    sprite_width = getattr(item_data, "width", 32)
+                    sprite_height = getattr(item_data, "height", 32)
+                elif entity_type == "yukkuri" and place_type in self.rm.yukkuri_types:
+                    yuk_data = self.rm.yukkuri_types[place_type]
+                    sprite_width = getattr(yuk_data, "width", 64)
+                    sprite_height = getattr(yuk_data, "height", 64)
+                    # New Yukkuri start as babies - use shared constant
+                    from ..yukkuri_constants import get_initial_scale
+                    initial_scale = get_initial_scale()
+                    sprite_width = int(sprite_width * initial_scale)
+                    sprite_height = int(sprite_height * initial_scale)
+                
+                # Apply camera zoom scaling to sprite dimensions
+                # Quantize scale to prevent cache thrashing
+                raw_scale = self.camera.zoom
+                scale = round(raw_scale * 20.0) / 20.0
+                
+                final_w = int(sprite_width * scale)
+                final_h = int(sprite_height * scale)
+                
+                if final_w > 0 and final_h > 0:
+                    # Scale the entire loaded image to target size
+                    img = pygame.transform.scale(raw_surf, (final_w, final_h))
+        
+        # Fallback if image load failed or no name provided
+        if not img:
+            # Create a generic colored rect (e.g. green box)
+            size = int(32 * self.camera.zoom)
+            img = pygame.Surface((size, size), pygame.SRCALPHA)
+            img.fill((0, 255, 0, 128))  # Semi-transparent green
+        
+        # Render the ghost
+        if img:
+            # We need to render this immediately to the screen or submit a command
+            # Since render() was called, we might need to blit directly or submit to a layer that is processed.
+            # The renderer.render() clears commands after drawing?
+            # Wait, self.renderer.render() executes and clears the queue.
+            # So if we submit now, it won't be drawn until NEXT frame's render() call?
+            # Or we can draw directly to screen since we are "Last to be on top".
+            
+            # Better architecture: Submit it before renderer.render()
+            
+            # Apply Transparency to the cached surface if possible, or use alpha in SpriteCommand if supported.
+            # SpriteCommand has alpha=255. 
+            # If we used a fallback rect with alpha, it works.
+            # For the real sprite, we might need to set alpha.
+            
+            # For now, let's assume SpriteCommand alpha works (it's in the args).
+            
+            self.renderer.submit(
+                SpriteCommand(
+                    layer=LAYER_UI, # UI Layer is usually top
+                    z_index=99999,
+                    image=img,
+                    position=(sx, sy), # Center/TopLeft? usually center in this engine?
+                    # RenderSystem usually centers sprites if they are entities.
+                    # InputSystem gives us 'wx, wy' which is the center of selection/click.
+                    # So center is correct.
+                    selected=False,
+                    alpha=128, # Half Transparent
+                    cache_key=None
+                )
+            )
 
     def _get_visible_entities(self, world: World, sw: int, sh: int) -> list[int]:
         sector_map = world.services.try_get(SectorMap)
@@ -262,7 +308,12 @@ class RenderSystem(System):
         visual = world.try_get_component(ent, VisualTransform)
 
         if sprite and visual:
-            scale = transform.scale * self.camera.zoom
+            # Quantize scale to 0.05 steps to prevent cache thrashing
+            # round(scale * 20) / 20 gives 0.05 increments
+            # e.g. 1.001 -> 20.02 -> 20 -> 1.0
+            # e.g. 1.026 -> 20.52 -> 21 -> 1.05
+            raw_scale = transform.scale * self.camera.zoom
+            scale = round(raw_scale * 20.0) / 20.0
 
             # Shadow
             # Calculate shadow position

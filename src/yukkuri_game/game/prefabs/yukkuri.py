@@ -82,19 +82,12 @@ def create_yukkuri(
     height = _get_attr(data, "height", 64)
     max_health = _get_attr(data, "max_health", 100)
 
-    # Determine growth stage and scale based on age
-    scale = 1.0
-    growth_stage = "Baby"
-
-    if age >= 300:
-        growth_stage = "Adult"
-        scale = 1.0
-    elif age >= 100:
-        growth_stage = "Child"
-        scale = 0.75
-    else:
-        growth_stage = "Baby"
-        scale = 0.5
+    # Determine growth stage and scale based on age using shared constants
+    from ..yukkuri_constants import get_growth_stage_and_scale, STAGE_BABY
+    
+    growth_stage, scale = get_growth_stage_and_scale(age)
+    
+    if growth_stage == STAGE_BABY:
         max_health *= 0.5
 
     radius = get_yukkuri_radius(growth_stage)

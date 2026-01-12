@@ -242,11 +242,14 @@ class HudLayout:
                 container=self.bottom_panel,
                 tool_tip_text=f"Buy {name} for ${cost}. Click to place.",
             )
+            # Try to get image from data, else default to type_id/name
+            image_name = getattr(data, "image", f"{type_id}.png")
             self.buy_buttons[btn] = {
                 "type_id": type_id,
                 "category": "yukkuri",
                 "cost": cost,
                 "name": name,
+                "image": image_name,
             }
             x_offset += btn_width + spacing
 
@@ -263,11 +266,13 @@ class HudLayout:
                 container=self.bottom_panel,
                 tool_tip_text=f"Buy {name} for ${cost}. {description}",
             )
+            image_name = getattr(data, "image", f"{type_id}.png")
             self.buy_buttons[btn] = {
                 "type_id": type_id,
                 "category": "item",
                 "cost": cost,
                 "name": name,
+                "image": image_name,
             }
             x_offset += btn_width + spacing
 

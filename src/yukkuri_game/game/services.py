@@ -228,9 +228,13 @@ class InputService:
         self._place_type: str = ""
         self._place_cost: int = 0
         self._place_entity_type: str = ""  # "yukkuri" or "item"
+        self._place_image_name: str = ""
         self._cleaning_mode = False
         self.hovered_entity_id: int = -1
         self.hovered_entity_pos: tuple[int, int] = (0, 0)
+        
+        # Current placement position in world coordinates (for preview)
+        self.current_placement_pos: tuple[float, float] = (0.0, 0.0)
 
         # New selection/drag state
         self.drag_start_pos: tuple[int, int] = (0, 0)
@@ -262,7 +266,14 @@ class InputService:
         """str: Type category of the entity being placed."""
         return self._place_entity_type
 
-    def start_placement(self, type_id: str, cost: int, entity_type: str) -> None:
+    @property
+    def place_image_name(self) -> str:
+        """str: Image name for the preview entity."""
+        return self._place_image_name
+
+    def start_placement(
+        self, type_id: str, cost: int, entity_type: str, image_name: str = ""
+    ) -> None:
         """
         Enters placement mode.
 
@@ -270,12 +281,14 @@ class InputService:
             type_id (str): The type ID of the entity to place.
             cost (int): The cost of the entity.
             entity_type (str): "yukkuri" or "item".
+            image_name (str): Image name for preview.
         """
         self._placing_mode = True
         self._cleaning_mode = False
         self._place_type = type_id
         self._place_cost = cost
         self._place_entity_type = entity_type
+        self._place_image_name = image_name
 
     def cancel_placement(self) -> None:
         """Cancels placement mode."""
@@ -283,6 +296,7 @@ class InputService:
         self._place_type = ""
         self._place_cost = 0
         self._place_entity_type = ""
+        self._place_image_name = ""
 
     def start_cleaning(self) -> None:
         """Enters cleaning mode."""

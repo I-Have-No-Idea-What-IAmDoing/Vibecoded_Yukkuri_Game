@@ -182,10 +182,13 @@ class HudEvents:
             cost = data["cost"]
             category = data["category"]
             name = data["name"]
+            image_name = data.get("image", "")
 
             economy = self.world.services.get(EconomyService)
             if economy.get_money() >= cost:
-                self.event_bus.publish(PlacementStartedEvent(type_id, cost, category))
+                self.event_bus.publish(
+                    PlacementStartedEvent(type_id, cost, category, image_name)
+                )
             elif self.on_error:
                 self.on_error(f"Not enough money to buy {name}! Needed: ${cost}")
             return True

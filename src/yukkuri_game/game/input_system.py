@@ -81,7 +81,7 @@ class InputSystem(System):
 
         if self.input_service:
             self.input_service.start_placement(
-                event.type_id, event.cost, event.entity_type
+                event.type_id, event.cost, event.entity_type, event.image_name
             )
 
     def on_clean_tool_requested(self, event: Event) -> None:
@@ -141,16 +141,34 @@ class InputSystem(System):
 
         wx, wy = self.camera.screen_to_world(mx, my, screen_w, screen_h)
 
+        # Update Placement Preview Logic
+        if self.input_service and self.input_service.is_placing:
+            # Check for Grid Snapping (Control Key)
+            is_ctrl_pressed = (
+                pygame.key.get_pressed()[pygame.K_LCTRL]
+                or pygame.key.get_pressed()[pygame.K_RCTRL]
+            )
+
+            if is_ctrl_pressed:
+                # Snap to grid (32x32)
+                grid_size = 32
+                wx = round(wx / grid_size) * grid_size
+                wy = round(wy / grid_size) * grid_size
+
+            self.input_service.current_placement_pos = (wx, wy)
+
         self._check_hover(world, wx, wy, mx, my)
 
         # Handle Left Click (Select / Place / Clean / Start Drag)
         if is_select_pressed:
             if self.input_service and self.input_service.is_placing:
+                # Use the potentially snapped position
+                place_x, place_y = self.input_service.current_placement_pos
                 if self.event_bus:
                     self.event_bus.publish(
                         PlacementRequestedEvent(
-                            wx,
-                            wy,
+                            place_x,
+                            place_y,
                             self.input_service.place_type,
                             self.input_service.place_cost,
                             self.input_service.place_entity_type,
@@ -158,7 +176,15 @@ class InputSystem(System):
                     )
                 if self.audio:
                     self.audio.play_sound("place")
-                self.input_service.cancel_placement()
+                
+                # Check for Shift Key (Multiple Placement)
+                is_shift_pressed = (
+                    pygame.key.get_pressed()[pygame.K_LSHIFT]
+                    or pygame.key.get_pressed()[pygame.K_RSHIFT]
+                )
+
+                if not is_shift_pressed:
+                    self.input_service.cancel_placement()
                 return
 
             if self.input_service and self.input_service.is_cleaning:

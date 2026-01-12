@@ -149,15 +149,36 @@ class PygameBackend(RenderBackend):
         if rx <= 0 or ry <= 0:
             return
 
-        key = (rx, ry, cmd.color)
-        if key not in self.shadow_surface_cache:
-            s = pygame.Surface((rx * 2, ry * 2), pygame.SRCALPHA)
-            pygame.draw.ellipse(s, cmd.color, s.get_rect())
-            self.shadow_surface_cache[key] = s
+        # Optimization: Don't cache large shadows (e.g. valid during zoom)
+        # Use surface pool instead to prevent cache thrashing/bloat.
+        is_large = rx > 50
 
-        s = self.shadow_surface_cache[key]
-        dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
-        self.screen.blit(s, dest_rect)
+        if is_large:
+             # Use Pool
+            w, h = rx * 2, ry * 2
+            s = self.lighting_engine.surface_pool.acquire(w, h)
+            # Ensure clean surface (acquire cleans it?)
+            # surface_pool.acquire() clears it with (0,0,0,0)
+            
+            pygame.draw.ellipse(s, cmd.color, pygame.Rect(0, 0, w, h))
+            
+            dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
+            self.screen.blit(s, dest_rect)
+            
+            # Release immediately
+            self.lighting_engine.surface_pool.release(s)
+            
+        else:
+            # Small shadows: Cache them
+            key = (rx, ry, cmd.color)
+            if key not in self.shadow_surface_cache:
+                s = pygame.Surface((rx * 2, ry * 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(s, cmd.color, s.get_rect())
+                self.shadow_surface_cache[key] = s
+
+            s = self.shadow_surface_cache[key]
+            dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
+            self.screen.blit(s, dest_rect)
 
     def _get_font(self, size: int, name: str = None) -> pygame.font.Font:
         key = (size, name)
