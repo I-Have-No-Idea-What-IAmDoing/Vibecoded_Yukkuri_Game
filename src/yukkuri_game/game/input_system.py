@@ -14,6 +14,7 @@ from .events import (
     PlacementRequestedEvent,
     PlacementCancelledEvent,
     CleanToolRequestedEvent,
+    ContextMenuRequestedEvent,
 )
 from .components import Transform, Selectable
 from .yukkuri_components import Poop
@@ -224,22 +225,61 @@ class InputSystem(System):
             if self.input_service:
                 self.input_service.is_dragging = False
 
-        # Handle Right Click (Cancel)
+        # Handle Right Click (Cancel or Context Menu)
         if is_cancel_pressed:
+            handled = False
+
+            # Cancel Placement
             if self.input_service and self.input_service.is_placing:
                 if self.audio:
                     self.audio.play_sound("cancel")
                 self.input_service.cancel_placement()
                 if self.event_bus:
                     self.event_bus.publish(PlacementCancelledEvent())
+                handled = True
 
-            if self.input_service and self.input_service.is_cleaning:
+            # Cancel Cleaning
+            if not handled and self.input_service and self.input_service.is_cleaning:
                 if self.audio:
                     self.audio.play_sound("cancel")
                 self.input_service.stop_cleaning()
+                handled = True
+
+            # Context Menu (if not cancelling something)
+            if not handled:
+                # Use the hovered entity logic but for context menu
+                self._handle_context_menu_request(world, wx, wy, mx, my)
 
         # Handle Time Speed Controls
         self._handle_time_controls(world)
+
+    def _handle_context_menu_request(self, world: World, wx: float, wy: float, mx: int, my: int) -> None:
+        """
+        Checks for an entity at the right-click position and requests a context menu.
+        """
+        # Re-use hover logic to find top-most entity
+        hover_radius = 32.0
+        entities = world.get_entities_with(Transform, Selectable)
+        entity_list = list(entities)
+
+        target_id = -1
+        for ent in reversed(entity_list):
+            if isinstance(ent, tuple):
+                entity_id = ent[0]
+            else:
+                entity_id = ent
+
+            trans = world.get_component(entity_id, Transform)
+            if trans is None:
+                continue
+
+            dist = ((trans.x - wx) ** 2 + (trans.y - wy) ** 2) ** 0.5
+            if dist < hover_radius:
+                target_id = entity_id
+                break
+
+        if target_id != -1 and self.event_bus:
+             self.event_bus.publish(ContextMenuRequestedEvent(target_id, (mx, my)))
 
     def _handle_selection(
         self,

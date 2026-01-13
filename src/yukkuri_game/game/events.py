@@ -240,3 +240,13 @@ class LevelUpEvent(Event):
     entity_id: int
     skill_id: str
     new_level: int
+
+
+@dataclass(frozen=True)
+class ContextMenuRequestedEvent(Event):
+    """
+    Event triggered when a user requests a context menu on an entity.
+    """
+
+    entity_id: int
+    position: tuple[int, int]

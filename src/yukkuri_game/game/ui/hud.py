@@ -6,7 +6,7 @@ import pygame
 import pygame_gui
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
-from ..events import EntitySelectedEvent, GamePausedEvent, LogMessageEvent
+from ..events import EntitySelectedEvent, GamePausedEvent, LogMessageEvent, ContextMenuRequestedEvent
 from ..yukkuri_components import YukkuriStats
 from ...engine.resource_manager import ResourceManager
 
@@ -14,6 +14,8 @@ from ...engine.resource_manager import ResourceManager
 from .hud_layout import HudLayout
 from .hud_events import HudEvents
 from .hud_renderer import HudRenderer
+from .context_menu import ContextMenu
+from .inventory_panel import InventoryPanel
 
 
 class HUD:
@@ -52,6 +54,12 @@ class HUD:
 
         self.renderer = HudRenderer(self.layout, self.world)
 
+        # Context Menu
+        self.context_menu = ContextMenu(self.manager)
+
+        # Inventory Panel
+        self.inventory_panel = InventoryPanel(self.manager, self.world)
+
         # State
         self.selected_entities: list[int] = []
         self.show_debug = False
@@ -62,6 +70,7 @@ class HUD:
         self.event_bus.subscribe(EntitySelectedEvent, self.on_entity_selected)
         self.event_bus.subscribe(GamePausedEvent, self.on_game_paused)
         self.event_bus.subscribe(LogMessageEvent, self.on_log_message)
+        self.event_bus.subscribe(ContextMenuRequestedEvent, self.on_context_menu_requested)
 
     def resize(self, width: int, height: int) -> None:
         """
@@ -128,6 +137,38 @@ class HUD:
         """
         if self.layout.pause_btn:
             self.layout.pause_btn.set_text("Resume" if event.paused else "Pause")
+
+    def on_context_menu_requested(self, event: ContextMenuRequestedEvent) -> None:
+        """
+        Handles ContextMenuRequestedEvent.
+        """
+        options = []
+
+        # Check entity capabilities to determine options
+        # E.g., if it has inventory, allow "View Inventory"
+        from ..inventory_component import InventoryComponent
+        if self.world.has_component(event.entity_id, InventoryComponent):
+            options.append(("Inventory", "view_inventory"))
+
+        # Standard options
+        options.append(("Inspect", "inspect"))
+        # options.append(("Cancel", "cancel")) # Clicking outside cancels anyway
+
+        if options:
+            self.context_menu.show(
+                event.position,
+                options,
+                self.on_context_menu_action,
+                event.entity_id
+            )
+
+    def on_context_menu_action(self, action_id: str, entity_id: int) -> None:
+        """Callback for context menu actions."""
+        if action_id == "view_inventory":
+            self.inventory_panel.show(entity_id)
+        elif action_id == "inspect":
+            # Select the entity
+            self.event_bus.publish(EntitySelectedEvent((entity_id,)))
 
     def update(self, dt: float) -> None:
         """
@@ -222,6 +263,14 @@ class HUD:
         Returns:
             None
         """
+        # Handle Context Menu Events
+        if self.context_menu.process_event(event):
+            return
+
+        # Handle Inventory Panel Events
+        if self.inventory_panel.process_event(event):
+            return
+
         _ = self.events.process_event(event)
 
         # Check if event processing resulted in state changes we need to react to immediately
