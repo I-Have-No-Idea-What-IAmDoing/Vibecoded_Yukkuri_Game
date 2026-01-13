@@ -46,24 +46,19 @@ class TestInputSystem:
         # ent1 at 100, 100
         ent1 = 1
         t1 = Transform(100, 100)
+        s1 = Selectable()
 
         # ent2 at 200, 200
         ent2 = 2
         t2 = Transform(200, 200)
+        s2 = Selectable()
 
-        # Mock get_entities_with to return list of IDs (as implied by current codebase usage)
-        # But robust implementation handles tuples too. Let's test robustness.
-        world.get_entities_with.return_value = [ent1, ent2]
-
-        def get_component_side_effect(ent, comp_type):
-            if comp_type == Transform:
-                if ent == ent1:
-                    return t1
-                if ent == ent2:
-                    return t2
-            return None
-
-        world.get_component.side_effect = get_component_side_effect
+        # Mock get_components_tuple to return list of (ent, (components...))
+        # Expected format: [(ent1, (t1, s1)), (ent2, (t2, s2))]
+        world.get_components_tuple.return_value = [
+            (ent1, (t1, s1)),
+            (ent2, (t2, s2)),
+        ]
 
         # Initialize dependencies
         input_system.update(world, 0.1)
@@ -81,20 +76,12 @@ class TestInputSystem:
         assert input_system.input_service.hovered_entity_id == -1
 
     def test_check_hover_robustness_tuples(self, input_system, world):
-        # Test if get_entities_with returns tuples (esper style)
+        # Test compatibility with get_components_tuple
         ent1 = 1
         t1 = Transform(100, 100)
         s1 = Selectable()
 
-        world.get_entities_with.return_value = [(ent1, t1, s1)]
-
-        def get_component_side_effect(ent, comp_type):
-            if comp_type == Transform:
-                if ent == ent1:
-                    return t1
-            return None
-
-        world.get_component.side_effect = get_component_side_effect
+        world.get_components_tuple.return_value = [(ent1, (t1, s1))]
 
         input_system.update(world, 0.1)
 
