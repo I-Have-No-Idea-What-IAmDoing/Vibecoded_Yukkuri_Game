@@ -265,29 +265,23 @@ class InputSystem(System):
         is_click = drag_dist < 5.0
         click_radius = 32.0
 
-        entities = world.get_entities_with(Transform, Selectable)
+        # Optimization: Use get_components_tuple to avoid O(N) get_component calls
+        # components is a list of (entity_id, (Transform, Selectable))
+        components = world.get_components_tuple(Transform, Selectable)
         clicked_something = False
 
         is_shift_pressed = (
-            self.input_manager.is_action_pressed("shift") if self.input_manager else False
+            self.input_manager.is_action_pressed("shift")
+            if self.input_manager
+            else False
         )
 
         current_selection = []
-        for ent in entities:
-            selectable = world.get_component(ent, Selectable)
-            if selectable and selectable.selected:
-                current_selection.append(ent)
-
         new_selection = []
 
-        for ent in entities:
-            trans = world.get_component(ent, Transform)
-            if trans is None:
-                continue
-
-            selectable = world.get_component(ent, Selectable)
-            if not selectable:
-                continue
+        for ent, (trans, selectable) in components:
+            if selectable.selected:
+                current_selection.append(ent)
 
             in_selection = False
             if is_click:
@@ -316,10 +310,10 @@ class InputSystem(System):
             else:
                 final_selection = []
 
-        for ent in entities:
-            selectable = world.get_component(ent, Selectable)
-            if selectable:
-                selectable.selected = ent in final_selection
+        # Update selection state
+        # We need to iterate all components to update 'selected' status
+        for ent, (_, selectable) in components:
+            selectable.selected = ent in final_selection
 
         if self.event_bus:
             self.event_bus.publish(EntitySelectedEvent(tuple(final_selection)))
@@ -334,13 +328,11 @@ class InputSystem(System):
             wy (float): World y-coordinate.
         """
         click_radius = 32.0
-        poop_entities = world.get_entities_with(Poop, Transform)
+        # Optimization: Use get_components_tuple
+        components = world.get_components_tuple(Poop, Transform)
 
         found = False
-        for entity in poop_entities:
-            transform = world.get_component(entity, Transform)
-            if transform is None:
-                continue
+        for entity, (_, transform) in components:
             dist = ((transform.x - wx) ** 2 + (transform.y - wy) ** 2) ** 0.5
             if dist < click_radius:
                 world.destroy_entity(entity)
@@ -364,20 +356,13 @@ class InputSystem(System):
             my (int): Screen y-coordinate.
         """
         hover_radius = 32.0
-        entities = world.get_entities_with(Transform, Selectable)
-        entity_list = list(entities)
+        # Optimization: Use get_components_tuple to iterate efficiently
+        components = world.get_components_tuple(Transform, Selectable)
 
         hovered_id = -1
-        for ent in reversed(entity_list):
-            if isinstance(ent, tuple):
-                entity_id = ent[0]
-            else:
-                entity_id = ent
-
-            trans = world.get_component(entity_id, Transform)
-            if trans is None:
-                continue
-
+        # Reversed to match Z-order (assuming order in list follows creation/render order)
+        # Note: esper.get_components returns a list, order depends on insertion but usually consistent.
+        for entity_id, (trans, selectable) in reversed(components):
             dist = ((trans.x - wx) ** 2 + (trans.y - wy) ** 2) ** 0.5
             if dist < hover_radius:
                 hovered_id = entity_id
