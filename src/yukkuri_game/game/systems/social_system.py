@@ -35,8 +35,8 @@ class SocialSystem(System):
     Implements "Headline System" for memory and Opinion Calculation.
 
     Attributes:
-        trait_service (Optional[TraitService]): The trait service.
-        skill_service (Optional[SkillService]): The skill service.
+        trait_service (TraitService | None): The trait service.
+        skill_service (SkillService | None): The skill service.
         cleanup_index (int): Index for partial update loop.
         cleanup_batch_size (int): Number of entities to process per frame.
         event_bus (EventBus): The event bus.

@@ -149,7 +149,7 @@ def test_decay(world):
     e = world.create_entity()
     skills = Skills()
     # Set up a skill that hasn't been used in a long time
-    # Decay starts after 1 day (3600s in our assumption)
+    # Decay starts after 1 day (86400s)
     # Let's say it's been 2 days. Decay rate for athletics is 10.0/day (from our skills.toml creation)
 
     state = SkillState(level=1, current_xp=50.0, last_used_gametime=0.0)
@@ -157,8 +157,8 @@ def test_decay(world):
     world.add_component(e, skills)
 
     time_service = world.services.get(TimeService)
-    # Advance time to 2.5 days (2.5 * 3600 = 9000)
-    time_service.time_elapsed = 9000.0
+    # Advance time to 2.5 days (2.5 * 86400)
+    time_service.time_elapsed = 86400.0 * 2.5
 
     skill_service = world.services.get(SkillService)
     skill_service.apply_decay(e)
@@ -179,8 +179,8 @@ def test_decay_floor(world):
     world.add_component(e, skills)
 
     time_service = world.services.get(TimeService)
-    # Advance time a lot
-    time_service.time_elapsed = 3600.0 * 10
+    # Advance time a lot (10 days)
+    time_service.time_elapsed = 86400.0 * 10
 
     skill_service = world.services.get(SkillService)
     skill_service.apply_decay(e)

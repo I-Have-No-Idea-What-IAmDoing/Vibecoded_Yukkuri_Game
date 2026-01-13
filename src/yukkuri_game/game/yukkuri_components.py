@@ -3,7 +3,7 @@ Yukkuri Components Module.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 from ..engine.ecs import Component
 from ..engine.types import EntityID
 
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from ..config import StatsSettings
 
 
-@dataclass
+@dataclass(slots=True)
 class PersonalityAxis:
     """
     The 4-Axis integer system (-100 to +100) for personality.
@@ -29,7 +29,7 @@ class PersonalityAxis:
     greed: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class EmotionalState(Component):
     """
     Component for the 2D Stress-Happiness Graph and derived emotions.
@@ -70,7 +70,7 @@ class EmotionalState(Component):
                 return "Depressed/Sulking"
 
 
-@dataclass
+@dataclass(slots=True)
 class Needs(Component):
     """
     Component containing the physiological needs of a Yukkuri.
@@ -96,7 +96,7 @@ class Needs(Component):
     easiness: float = 50.0
 
 
-@dataclass
+@dataclass(slots=True)
 class YukkuriStats(Component):
     """
     Component containing the statistics of a Yukkuri.
@@ -121,28 +121,28 @@ class YukkuriStats(Component):
     discipline: float = 0.0
     intelligence: float = 1.0
 
-    def get_intelligence(self, stats_config: Optional["StatsSettings"] = None) -> float:
+    def get_intelligence(self, stats_config: "StatsSettings | None" = None) -> float:
         """
         Returns the intelligence stat.
 
         Args:
-            stats_config (Optional[StatsSettings]): Config for stats (unused now, kept for compatibility).
+            stats_config (StatsSettings | None): Config for stats (unused now, kept for compatibility).
         """
         return self.intelligence
 
     def calculate_value(
         self,
-        needs: Optional["Needs"] = None,
-        emotional_state: Optional["EmotionalState"] = None,
-        stats_config: Optional["StatsSettings"] = None,
+        needs: "Needs | None" = None,
+        emotional_state: "EmotionalState | None" = None,
+        stats_config: "StatsSettings | None" = None,
     ) -> int:
         """
         Calculates the value of the Yukkuri based on stats and emotional state.
 
         Args:
-            needs (Optional[Needs]): The needs component.
-            emotional_state (Optional[EmotionalState]): The emotional state component.
-            stats_config (Optional[StatsSettings]): Config for stats value calculation.
+            needs (Needs | None): The needs component.
+            emotional_state (EmotionalState | None): The emotional state component.
+            stats_config (StatsSettings | None): Config for stats value calculation.
 
         Returns:
             int: The calculated monetary value.
@@ -168,7 +168,7 @@ class YukkuriStats(Component):
         return int(score)
 
 
-@dataclass
+@dataclass(slots=True)
 class MemoryHeadline:
     """
     Represents a significant memory/event.
@@ -192,7 +192,7 @@ class MemoryHeadline:
     is_locked: bool = False
 
 
-@dataclass
+@dataclass(slots=True)
 class Personality:
     """
     Component defining the personality of a Yukkuri.
@@ -201,7 +201,7 @@ class Personality:
         traits (Set[str]): A set of trait IDs referencing TOML data.
         axis (PersonalityAxis): The current 4-Axis personality values.
         base_axis (PersonalityAxis): The natural resting point of the personality (Genetic + Traits).
-        cached_overrides (Optional[Dict]): Cached AI overrides from traits.
+        cached_overrides (dict[str, Any] | None): Cached AI overrides from traits.
     """
 
     traits: set[str] = field(default_factory=set)
@@ -210,7 +210,7 @@ class Personality:
     cached_overrides: dict[str, Any] | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class RelationshipData:
     """
     Stores data about a relationship with another entity.
@@ -274,7 +274,8 @@ class RelationshipData:
         Args:
             state (Dict[str, Any]): The pickled state dictionary.
         """
-        self.__dict__.update(state)
+        for k, v in state.items():
+            setattr(self, k, v)
         # Recalculate sums on load to ensure data integrity
         self.trivial_sentiment_sum = sum(m.sentiment for m in self.trivial_buffer)
         self.core_sentiment_sum = sum(m.sentiment for m in self.core_buffer)
@@ -349,7 +350,7 @@ class RelationshipData:
                 self.core_sentiment_sum += headline.sentiment
 
 
-@dataclass
+@dataclass(slots=True)
 class RelationshipRegistry:
     """
     Component tracking social relationships and family ties.
@@ -358,8 +359,8 @@ class RelationshipRegistry:
         relationships (Dict[EntityID, RelationshipData]): Map of EntityID to RelationshipData.
         biological_parents (List[EntityID]): List of parent entity IDs.
         biological_children (List[EntityID]): List of children entity IDs.
-        family_group_id (Optional[EntityID]): ID of the family group they belong to.
-        mate_id (Optional[EntityID]): ID of the mate entity.
+        family_group_id (EntityID | None): ID of the family group they belong to.
+        mate_id (EntityID | None): ID of the mate entity.
     """
 
     relationships: dict[EntityID, RelationshipData] = field(default_factory=dict)
@@ -373,7 +374,7 @@ class RelationshipRegistry:
     # _references: Set[str] = field(default_factory=lambda: {"relationships", "biological_parents", "biological_children", "family_group_id", "mate_id"}, repr=False, init=False)
 
 
-@dataclass
+@dataclass(slots=True)
 class GossipPacket:
     """
     Represents a single piece of gossip or social information.
@@ -388,7 +389,7 @@ class GossipPacket:
         return self.value < other.value
 
 
-@dataclass
+@dataclass(slots=True)
 class GossipQueue(Component):
     """
     Component managing a queue of gossip packets.
@@ -441,7 +442,7 @@ class GossipQueue(Component):
                 self.priority_queue.sort(key=lambda x: x.value, reverse=True)
 
 
-@dataclass
+@dataclass(slots=True)
 class AIState:
     """
     Component maintaining the AI state of an entity.
@@ -449,9 +450,9 @@ class AIState:
     Attributes:
         current_action (str): The name of the current action.
         current_target_id (EntityID): The ID of the current target entity.
-        path (Optional[List[Any]]): The current navigation path.
+        path (list[Any] | None): The current navigation path.
         action_progress (float): Progress of the current action (0.0 to 1.0).
-        state_data (Optional[Dict[str, Any]]): Arbitrary data for the current state.
+        state_data (dict[str, Any] | None): Arbitrary data for the current state.
         failed_targets (Set[EntityID]): Set of target IDs that failed recently.
         manual_override (bool): Whether AI is overridden by manual control.
     """
@@ -469,7 +470,7 @@ class AIState:
     # _references: Set[str] = field(default_factory=lambda: {"current_target_id", "failed_targets"}, repr=False, init=False)
 
 
-@dataclass
+@dataclass(slots=True)
 class ItemStats:
     """
     Component containing statistics for an Item.
@@ -493,7 +494,7 @@ class ItemStats:
     is_portable: bool = False
 
 
-@dataclass
+@dataclass(slots=True)
 class SkillState:
     """
     Tracks the state of a single skill.
@@ -511,7 +512,7 @@ class SkillState:
     last_used_gametime: float = 0.0
 
 
-@dataclass
+@dataclass(slots=True)
 class Skills(Component):
     """
     Component holding all skills for an entity.
@@ -523,7 +524,7 @@ class Skills(Component):
     states: dict[str, SkillState] = field(default_factory=dict)
 
 
-@dataclass
+@dataclass(slots=True)
 class Poop:
     """
     Tag component identifying an entity as Poop.
@@ -532,7 +533,7 @@ class Poop:
     pass
 
 
-@dataclass
+@dataclass(slots=True)
 class Dead:
     """
     Tag component for dead entities.

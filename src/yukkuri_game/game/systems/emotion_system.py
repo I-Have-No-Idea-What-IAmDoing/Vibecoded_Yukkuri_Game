@@ -18,7 +18,7 @@ from ..skill_service import SkillService
 from ...config import StatDecaySettings
 import random
 
-SECONDS_PER_DAY = 3600.0
+SECONDS_PER_DAY = TimeService.GAME_DAY_LENGTH
 
 
 class EmotionSystem(System):

@@ -94,14 +94,18 @@ def test_movetotarget_slows_down_when_low_energy(world_and_entity):
     assert controller.target_velocity.length == pytest.approx(50.0)
 
 
-def test_movetotarget_fails_gracefully_if_no_path(world_and_entity):
-    """Test that the action fails if the navigation service can't find a path."""
+def test_movetotarget_falls_back_to_direct_movement_if_no_path(world_and_entity):
+    """Test that the action falls back to direct movement if pathfinding fails.
+    
+    When the NavigationService returns an empty path, MoveToTarget should
+    not fail but instead attempt direct movement towards the target.
+    """
     world, entity_id = world_and_entity
 
     ai_state = world.get_component(entity_id, AIState)
     ai_state.state_data = {"target_x": 100, "target_y": 0}
 
-    # Mock failing navigation service
+    # Mock failing navigation service that returns empty path
     class MockFailingNavService(NavigationService):
         def __init__(self, world_width: int, world_height: int):
             pass
@@ -113,9 +117,11 @@ def test_movetotarget_fails_gracefully_if_no_path(world_and_entity):
         MockFailingNavService(1000, 1000), NavigationService, replace=True
     )
 
-    action = MoveToTarget(entity_id=entity_id, world=world)
+    action = MoveToTarget(entity_id=entity_id, world=world, speed=100.0)
     status = action.update()
 
-    assert status == Status.FAILURE
+    # Should be RUNNING (attempting direct movement), not FAILURE
+    assert status == Status.RUNNING
     controller = world.get_component(entity_id, MovementController)
-    assert controller.target_velocity == pymunk.Vec2d(0, 0)
+    # Should have set a velocity towards the target (positive x direction)
+    assert controller.target_velocity.x > 0

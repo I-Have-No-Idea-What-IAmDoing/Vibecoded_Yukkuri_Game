@@ -2,6 +2,7 @@
 Inventory Components Module.
 """
 
+import math
 from typing import Any
 from dataclasses import dataclass, field
 import msgspec
@@ -44,10 +45,11 @@ class InventoryComponent:
                     return True
 
         # Need new slots/stacks for remainder
-        # In a robust system, we'd calculate exactly how many new slots are needed.
-        # For this MVP, if we have remaining count and have space for at least one new stack
         if remaining > 0:
-            return len(self.items) < self.capacity
+            # Calculate how many new stacks are needed
+            new_stacks_needed = math.ceil(remaining / stack_limit)
+            available_slots = self.capacity - len(self.items)
+            return new_stacks_needed <= available_slots
             
         return True
 

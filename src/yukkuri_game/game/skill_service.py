@@ -200,7 +200,7 @@ class SkillService:
             return
 
         current_time = time_service.time_elapsed
-        SECONDS_PER_DAY = 3600.0  # 1 hour = 1 day
+        SECONDS_PER_DAY = TimeService.GAME_DAY_LENGTH
 
         for skill_id, state in skills.states.items():
             definition = self.skill_definitions.get(skill_id)

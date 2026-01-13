@@ -94,6 +94,29 @@ def test_inventory_capacity(inventory):
     assert added == 0
     assert len(inventory.items) == 5
 
+def test_can_add_multiple_stacks_capacity(inventory):
+    """Test can_add correctly handles multiple new stacks requirement.
+    
+    This test verifies the bug fix for can_add() which previously
+    only checked for one free slot regardless of how many stacks were needed.
+    """
+    # inventory has capacity=5
+    # Fill 4 slots with different item types
+    for i in range(4):
+        inventory.add(f"unique_item_{i}", 1, 99)
+    
+    assert len(inventory.items) == 4
+    
+    # 1 slot remaining, but we need 2 stacks for 150 items at stack_limit=99
+    # BUG: This would incorrectly return True before the fix
+    assert not inventory.can_add("new_item", 150, 99)
+    
+    # But 99 items (1 stack) should be fine
+    assert inventory.can_add("new_item", 99, 99)
+    
+    # And 100 items (2 stacks needed) should fail
+    assert not inventory.can_add("new_item", 100, 99)
+
 def test_inventory_remove(inventory):
     """Test removing items."""
     inventory.add("test_item", 10, 10)

@@ -93,10 +93,11 @@ class LightingBenchmarkRunner:
             lights.append(light_cmd)
             backend.draw_light(light_cmd)
 
-        # 1. Uncached (Removed as ShadowCaster is deprecated)
+        # Note: Uncached benchmarking was removed when the legacy shadow caster was deprecated.
+        # This benchmark now measures only the cached lighting path.
         uncached_times = [0.0] * self.iterations
 
-        # 2. Cached (Backend)
+        # Cached (Backend)
         # Populate Cache
         backend.end_frame()
 
