@@ -1,3 +1,4 @@
+from typing import Any
 import pygame
 
 from pygame_gui.core import ObjectID, UIElement
@@ -18,7 +19,7 @@ class TabbedPanel(UITabContainer):
         starting_height: int = 1,
         parent_element: UIElement | None = None,
         object_id: ObjectID | str | None = None,
-        anchors: dict[str, str] | None = None,
+        anchors: dict[str, Any] | None = None,
         visible: int = 1,
         orientation: str = "horizontal",
         tab_button_size: tuple[int, int] = (150, 30),

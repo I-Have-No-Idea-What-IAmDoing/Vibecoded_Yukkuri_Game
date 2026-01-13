@@ -4,7 +4,7 @@ Module defining the HUD layout and UI element creation.
 
 import pygame
 import pygame_gui
-from typing import Any
+from typing import Any, cast
 from ...engine.data_models import UserSettings
 from pygame_gui.elements import (
     UIPanel,
@@ -591,8 +591,10 @@ class HudLayout:
                 self.hover_tooltip_label.set_position((x, y))
 
                 # Bring to front
+                # Cast to Any to bypass strict type check for move_window_to_front which expects UIWindow/UIPanel
+                # but works for UIElements in the stack generally or we assume it's fine for this valid element
                 self.manager.ui_window_stack.move_window_to_front(
-                    self.hover_tooltip_label
+                    cast(Any, self.hover_tooltip_label)
                 )
 
         else:

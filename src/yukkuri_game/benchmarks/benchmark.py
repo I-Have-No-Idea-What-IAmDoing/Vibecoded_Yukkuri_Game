@@ -10,19 +10,23 @@ import statistics
 import platform
 import gc
 import csv
-from typing import Any
+from typing import Any, cast
 import random
 import logging
+from types import ModuleType
 
+# Use Any for optional modules to avoid assignment errors with None
+psutil: Any = None
 try:
     import psutil
 except ImportError:
-    psutil = None
+    pass
 
+np: Any = None
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 
 import cProfile
 
@@ -278,7 +282,7 @@ class BenchmarkRunner:
             logger.error("All iterations failed.")
             return {}
 
-        results = {
+        results: dict[str, Any] = {
             "config": {
                 "num_entities": self.num_entities,
                 "duration_seconds": self.duration_seconds,
@@ -341,15 +345,19 @@ def compare_results(current: dict[str, Any], baseline: dict[str, Any]) -> None:
     ]
 
     for label, path in metrics:
-        curr_val = current
-        base_val = baseline
+        curr_val: Any = current
+        base_val: Any = baseline
         try:
             for key in path:
                 curr_val = curr_val[key]
                 base_val = base_val[key]
 
-            diff = curr_val - base_val
-            pct = (diff / base_val * 100) if base_val != 0 else 0.0
+            # Ensure values are numbers for subtraction
+            if isinstance(curr_val, (int, float)) and isinstance(base_val, (int, float)):
+                diff = curr_val - base_val
+                pct = (diff / base_val * 100) if base_val != 0 else 0.0
+            else:
+                 continue
 
             # For frame time, lower is better. For FPS/Speed, higher is better.
 

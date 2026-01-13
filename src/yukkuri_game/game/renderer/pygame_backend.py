@@ -85,7 +85,7 @@ class PygameBackend(RenderBackend):
         self.lighting_engine.render_light(
             cmd.position,
             cmd.radius,
-            cmd.color[:3],  # type: ignore[arg-type] # Ensure 3-tuple
+            cmd.color[:3],  # Ensure 3-tuple
             cmd.intensity,
             soft_shadows=cmd.soft_shadows,
             static=cmd.static,

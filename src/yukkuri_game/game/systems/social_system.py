@@ -3,7 +3,7 @@ Module implementing the social system for Yukkuri interaction and relationship m
 """
 
 import time
-from typing import Any
+from typing import Any, cast
 from loguru import logger
 import random
 
@@ -197,7 +197,9 @@ class SocialSystem(System):
                     continue
 
                 if isinstance(trait_data, dict):
-                    social_mods = trait_data.get("social_modifiers", {})
+                    # Explicit cast to help mypy resolve overload
+                    td_dict = cast(dict[str, Any], trait_data)
+                    social_mods = td_dict.get("social_modifiers", {})
                 else:
                     social_mods = getattr(trait_data, "social_modifiers", {})
 
@@ -416,8 +418,8 @@ class SocialSystem(System):
         # and RelationshipRegistry expects EntityID (int) keys.
         oid = int(other_id)
         if oid not in registry.relationships:
-            registry.relationships[oid] = RelationshipData(last_update=now)
-        rel = registry.relationships[oid]
+            registry.relationships[cast(Any, oid)] = RelationshipData(last_update=now)
+        rel = registry.relationships[cast(Any, oid)]
         rel.last_update = now
 
         social_impact = self._get_attr(data, "social_impact", {})

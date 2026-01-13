@@ -64,6 +64,7 @@ class HUD:
         self.selected_entities: list[int] = []
         self.show_debug = False
         self.fps = 0.0
+        self.fps_timer = 0.0
         self.lighting_debug = False
 
         # Subscribe to events

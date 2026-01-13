@@ -54,7 +54,8 @@ class DayNightSystem(System):
                 factor = (t - t1) / (t2 - t1)
                 return self._interpolate_color(c1, c2, factor)
 
-        return (*self.AMBIENT_COLORS[0][1], 255)  # Fallback
+        c_def = self.AMBIENT_COLORS[0][1]
+        return (c_def[0], c_def[1], c_def[2], 255)  # Fallback
 
     def update(self, world: World, dt: float) -> None:
         time_of_day = self.time_service.time_of_day

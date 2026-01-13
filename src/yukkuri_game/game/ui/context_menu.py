@@ -71,7 +71,7 @@ class ContextMenu:
 
         self.panel = UIPanel(
             relative_rect=rect,
-            starting_layer_height=100, # Ensure it's on top
+            starting_height=100, # Ensure it's on top
             manager=self.manager,
             object_id="context_menu_panel"
         )

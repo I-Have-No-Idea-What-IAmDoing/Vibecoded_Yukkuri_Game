@@ -42,7 +42,7 @@ class ConditionEvaluator:
             """
             # Access traits from the current evaluation context
             traits = self.evaluator.names.get("traits", [])
-            if traits is None:
+            if traits is None or isinstance(traits, bool):
                 return False
             return trait in traits
 

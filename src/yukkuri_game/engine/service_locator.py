@@ -71,7 +71,7 @@ class ServiceLocator:
             raise ServiceNotFoundError(
                 f"Service of type {service_type.__name__} not found."
             )
-        return service  # type: ignore[no-any-return]
+        return service
 
     def try_get(self, service_type: type[T]) -> T | None:
         """

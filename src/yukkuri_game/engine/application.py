@@ -255,6 +255,10 @@ class Application:
         Returns:
             None
         """
+        # Ensure screen is available (mypy check)
+        if self.screen is None:
+            return
+
         if self.headless or not self.lights_engine:
             self.screen.fill((0, 0, 0))
             self.scene_manager.render()
@@ -295,7 +299,11 @@ class Application:
         if self.scene_manager.current_scene and hasattr(
             self.scene_manager.current_scene, "init_render_system_headless"
         ):
-            self.scene_manager.current_scene.init_render_system_headless()
+            # Dynamic dispatch requires Any or explicit cast
+            from typing import Any
+            from typing import cast
+            scene = cast(Any, self.scene_manager.current_scene)
+            scene.init_render_system_headless()
 
     def quit(self) -> None:
         """

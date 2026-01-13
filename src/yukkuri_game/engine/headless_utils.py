@@ -38,10 +38,12 @@ def patch_headless_lighting() -> Iterator[None]:
         return _real_pygame_set_mode(size, flags, depth, display, vsync)
 
     # Apply patches
-    moderngl.create_context = mocked_create_context
+    # Dynamic patching
+    from typing import cast
+    moderngl.create_context = cast(Any, mocked_create_context)
 
     # Store original reference to prevent recursion in mock
-    mocked_set_mode_any: Any = mocked_set_mode
+    mocked_set_mode_any: Any = cast(Any, mocked_set_mode)
     mocked_set_mode_any._is_mock = True
     mocked_set_mode_any._original = _real_pygame_set_mode
     pygame.display.set_mode = mocked_set_mode_any

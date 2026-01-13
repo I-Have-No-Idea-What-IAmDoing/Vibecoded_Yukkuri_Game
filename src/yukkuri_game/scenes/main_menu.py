@@ -126,7 +126,8 @@ class MainMenuScene(Scene):
             )
             tex.release()
         else:
-            self.ui_manager.draw_ui(self.application.screen)
+            if self.application.screen:
+                self.ui_manager.draw_ui(self.application.screen)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         """

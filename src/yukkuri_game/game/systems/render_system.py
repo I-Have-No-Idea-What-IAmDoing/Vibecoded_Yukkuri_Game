@@ -84,10 +84,12 @@ class RenderSystem(System):
         self._background_cache_valid: bool = False
         self._last_camera_state: tuple[int, int, float, int, int] | None = None
 
-    def update(self, world: World, alpha: float) -> None:
+    def update(self, world: World, dt: float) -> None:
         """
         Main render loop.
         """
+        # Rename dt to alpha for clarity in this context (it is interpolation alpha)
+        alpha = dt
         sw, sh = self.screen.get_size()
         correction_x = 1.0
         correction_y = 1.0
@@ -97,9 +99,11 @@ class RenderSystem(System):
             # Try to get native resolution from engine (internal attribute)
             # Safe check if engine attribute exists
             if hasattr(self.renderer.backend, "engine"):
-                engine = self.renderer.backend.engine
-                if hasattr(engine, "_native_res"):
-                    nw, nh = engine._native_res
+                # Use getattr/Any to avoid mypy errors with private attributes on unknown types
+                engine = getattr(self.renderer.backend, "engine", None)
+                if engine and hasattr(engine, "_native_res"):
+                    native_res: tuple[int, int] = getattr(engine, "_native_res")
+                    nw, nh = native_res
                     current_w, current_h = self.screen.get_size()
 
                     # Calculate stretch factors to fix aspect ratio distortion
@@ -136,7 +140,7 @@ class RenderSystem(System):
             if not self._background_cache_valid or not self._background_cache:
                 self._rebuild_background_cache(sw, sh)
 
-            if self._background_cache:
+            if self._background_cache and self._last_camera_state is not None:
                 # Calculate sub-pixel offset
                 # The cache is built based on _last_camera_state (integer coordinates)
                 # The current camera position might be fractional.
@@ -181,6 +185,7 @@ class RenderSystem(System):
 
         # 6. Render
         self.renderer.render()
+
 
     def _process_placement_preview(self, world: World, sw: int, sh: int) -> None:
         """
@@ -563,7 +568,7 @@ class RenderSystem(System):
                 # Ensure color is RGBA
                 color = light.color
                 if len(color) == 3:
-                    color = (color[0], color[1], color[2], 255)  # type: ignore[assignment]
+                    color = (color[0], color[1], color[2], 255)
 
                 self.renderer.submit(
                     LightCommand(

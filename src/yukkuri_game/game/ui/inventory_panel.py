@@ -103,7 +103,7 @@ class InventoryPanel:
                 relative_rect=pygame.Rect(5, y_pos, 250, item_height),
                 manager=self.manager,
                 container=self.scroll_container,
-                starting_layer_height=1
+                starting_height=1
             )
 
             UILabel(

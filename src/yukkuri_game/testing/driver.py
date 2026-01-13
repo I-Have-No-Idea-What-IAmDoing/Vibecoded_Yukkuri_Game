@@ -6,7 +6,7 @@ import random
 import pygame
 import os
 import io
-from typing import Any
+from typing import Any, cast
 from collections.abc import Generator, Callable
 from dataclasses import dataclass
 from collections import deque
@@ -210,7 +210,8 @@ class GameDriver:
         """
         self.seed_rng()
         if hasattr(self.game, "set_headless") and not self.game.headless:
-            self.game.set_headless(True)
+            # Cast to Any to allow calling method detected via hasattr
+            cast(Any, self.game).set_headless(True)
 
         # Hook event bus for logging
         if isinstance(self.game, Application) and hasattr(self.game, "event_manager"):
@@ -221,7 +222,7 @@ class GameDriver:
                 self.event_history.append(event)
                 original_publish(event)
 
-            self.game.event_manager.bus.publish = intercepted_publish
+            self.game.event_manager.bus.publish = cast(Any, intercepted_publish)
 
         # Application initializes on creation. Ensure GameplayScene is active.
         if isinstance(self.game, Application):
@@ -463,13 +464,13 @@ class GameDriver:
             return
 
         # 1. Handle Events
-        # Check if handle_events or process_events exists on self.game
-        if hasattr(self.game, "handle_events"):
-            self.game.handle_events()
-        elif hasattr(self.game, "process_events"):
-            self.game.process_events()
-        else:
-            pygame.event.pump()
+            # Cast to Any first for dynamic dispatch
+            if hasattr(self.game, "handle_events"):
+                cast(Any, self.game).handle_events()
+            elif hasattr(self.game, "process_events"):
+                cast(Any, self.game).process_events()
+            else:
+                pygame.event.pump()
 
         # Check again if game stopped running after event processing
         if hasattr(self.game, "running") and not self.game.running:
@@ -585,7 +586,8 @@ class GameDriver:
         if hasattr(self.game, "render"):
             self.game.render()
 
-        pygame.image.save(self.game.screen, filename)
+        if self.game.screen:
+            pygame.image.save(self.game.screen, filename)
 
     def compare_screenshot(
         self, filename: str, reference_filename: str, tolerance: float = 0.01
@@ -646,7 +648,7 @@ class GameDriver:
 
             logger.info(f"Image comparison diff ratio: {diff_ratio:.4f}")
 
-            return diff_ratio <= tolerance
+            return bool(diff_ratio <= tolerance)
 
         except ImportError:
             logger.warning(

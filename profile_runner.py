@@ -41,7 +41,8 @@ class ProfiledApplication(Application):
             if self.scene_manager.current_scene:
                 self.scene_manager.render()
 
-            self.ui_manager.draw_ui(self.screen)
+            if self.screen:
+                self.ui_manager.draw_ui(self.screen)
             pygame.display.flip()
 
         print("Profiling finished.")
