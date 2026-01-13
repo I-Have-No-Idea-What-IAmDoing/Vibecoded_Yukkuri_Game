@@ -3,6 +3,7 @@ Gameplay Scene.
 """
 
 import os
+from pathlib import Path
 from datetime import datetime
 from typing import ClassVar
 
@@ -51,8 +52,16 @@ class GameplayScene(Scene):
         self.is_setup = False
         self.paused = False
         self.time_scale = 1.0
+        # Compute absolute path for theme file (relative to project root)
+        _theme_path = Path(__file__).parent.parent.parent.parent / "data" / "ui_theme.json"
+        print(f"DEBUG: Calculated theme path: {_theme_path}")
+        print(f"DEBUG: Theme path exists: {_theme_path.exists()}")
+        if not _theme_path.exists():
+             print(f"DEBUG: CWD is {os.getcwd()}")
+             
         self.ui_manager = pygame_gui.UIManager(
-            (self.application.width, self.application.height)
+            (self.application.width, self.application.height),
+            theme_path=str(_theme_path) if _theme_path.exists() else None
         )
         self.dt = 0.0
 

@@ -246,6 +246,7 @@ class EntityInfoPanel:
                 manager=self.manager,
                 container=self.window,
                 tool_tip_text="Sell selected entities",
+                object_id="sell_button",
             )
             self.train_btn = UIButton(
                 relative_rect=pygame.Rect(10, y_pos + 50, 290, 40),
@@ -253,6 +254,7 @@ class EntityInfoPanel:
                 manager=self.manager,
                 container=self.window,
                 tool_tip_text="Train selected entities",
+                object_id="train_button",
             )
             self.punish_btn = UIButton(
                 relative_rect=pygame.Rect(10, y_pos + 100, 290, 40),
@@ -260,6 +262,7 @@ class EntityInfoPanel:
                 manager=self.manager,
                 container=self.window,
                 tool_tip_text="Punish selected entities",
+                object_id="punish_button",
             )
         else:
             # Just Sell for items
@@ -268,6 +271,7 @@ class EntityInfoPanel:
                 text=f"Sell All ({selection_count})",
                 manager=self.manager,
                 container=self.window,
+                object_id="sell_button",
             )
 
     def update_stats(self, text: str) -> None:

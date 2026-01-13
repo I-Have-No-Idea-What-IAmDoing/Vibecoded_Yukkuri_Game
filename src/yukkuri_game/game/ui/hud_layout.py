@@ -14,7 +14,9 @@ from pygame_gui.elements import (
     UITextBox,
     UIHorizontalSlider,
     UIDropDownMenu,
+    UIScrollingContainer,
 )
+from pygame_gui.core import ObjectID
 from .custom_elements import NonBlockingTextBox
 from .entity_info_panel import EntityInfoPanel
 
@@ -170,6 +172,7 @@ class HudLayout:
             manager=self.manager,
             container=self.top_panel,
             tool_tip_text="Pause/Resume the game",
+            object_id=ObjectID(class_id="control_button"),
         )
 
         self.speed_btn = UIButton(
@@ -178,6 +181,7 @@ class HudLayout:
             manager=self.manager,
             container=self.top_panel,
             tool_tip_text="Change game speed",
+            object_id=ObjectID(class_id="control_button"),
         )
 
         self.save_btn = UIButton(
@@ -186,6 +190,7 @@ class HudLayout:
             manager=self.manager,
             container=self.top_panel,
             tool_tip_text="Save current game state",
+            object_id=ObjectID(class_id="menu_button"),
         )
 
         self.load_btn = UIButton(
@@ -194,6 +199,7 @@ class HudLayout:
             manager=self.manager,
             container=self.top_panel,
             tool_tip_text="Load saved game",
+            object_id=ObjectID(class_id="menu_button"),
         )
 
         self.settings_btn = UIButton(
@@ -202,6 +208,7 @@ class HudLayout:
             manager=self.manager,
             container=self.top_panel,
             tool_tip_text="Open Settings Menu",
+            object_id=ObjectID(class_id="menu_button"),
         )
 
     def _create_bottom_bar(self) -> None:
@@ -224,10 +231,26 @@ class HudLayout:
             container=self.bottom_panel,
         )
 
-        x_offset = 320
-        y_offset = 10
-        btn_width = 120
-        btn_height = 40
+        # --- Scrolling Container for Buy Buttons ---
+        # Reserve space for log box (320px) and clean button (160px from right)
+        scroll_container_x = 320
+        scroll_container_width = self.width - scroll_container_x - 160
+        scroll_container_height = 80
+
+        self.scrolling_container = UIScrollingContainer(
+            relative_rect=pygame.Rect(
+                scroll_container_x, 5, scroll_container_width, scroll_container_height
+            ),
+            manager=self.manager,
+            container=self.bottom_panel,
+            allow_scroll_x=True,
+            allow_scroll_y=False,
+        )
+
+        x_offset = 5
+        y_offset = 5
+        button_width = 200
+        button_height = 40
         spacing = 10
 
         # Create buttons for Yukkuris
@@ -236,11 +259,12 @@ class HudLayout:
             name = getattr(data, "name", type_id.capitalize())
 
             btn = UIButton(
-                relative_rect=pygame.Rect(x_offset, y_offset, btn_width, btn_height),
+                relative_rect=pygame.Rect(x_offset, y_offset, button_width, button_height),
                 text=f"Buy {name} (${cost})",
                 manager=self.manager,
-                container=self.bottom_panel,
+                container=self.scrolling_container,
                 tool_tip_text=f"Buy {name} for ${cost}. Click to place.",
+                object_id=ObjectID(class_id="buy_button"),
             )
             # Try to get image from data, else default to type_id/name
             image_name = getattr(data, "image", f"{type_id}.png")
@@ -251,7 +275,7 @@ class HudLayout:
                 "name": name,
                 "image": image_name,
             }
-            x_offset += btn_width + spacing
+            x_offset += button_width + spacing
 
         # Create buttons for Items
         for type_id, data in self.item_types.items():
@@ -260,11 +284,12 @@ class HudLayout:
             description = getattr(data, "description", f"A nice {name}")
 
             btn = UIButton(
-                relative_rect=pygame.Rect(x_offset, y_offset, btn_width, btn_height),
+                relative_rect=pygame.Rect(x_offset, y_offset, button_width, button_height),
                 text=f"Buy {name} (${cost})",
                 manager=self.manager,
-                container=self.bottom_panel,
+                container=self.scrolling_container,
                 tool_tip_text=f"Buy {name} for ${cost}. {description}",
+                object_id=ObjectID(class_id="buy_button"),
             )
             image_name = getattr(data, "image", f"{type_id}.png")
             self.buy_buttons[btn] = {
@@ -274,17 +299,22 @@ class HudLayout:
                 "name": name,
                 "image": image_name,
             }
-            x_offset += btn_width + spacing
+            x_offset += button_width + spacing
 
-        # Create Clean Button
+        # Set the scrollable area size based on total button width
+        total_content_width = x_offset
+        self.scrolling_container.set_scrollable_area_dimensions(
+            (total_content_width, button_height + 10)
+        )
+
+        # Create Clean Button (outside the scroll container, fixed position)
         self.clean_btn = UIButton(
-            relative_rect=pygame.Rect(
-                self.width - 150, y_offset, btn_width, btn_height
-            ),
+            relative_rect=pygame.Rect(self.width - 150, 30, button_width, button_height),
             text="Clean Tool",
             manager=self.manager,
             container=self.bottom_panel,
             tool_tip_text="Click to clean poop",
+            object_id="clean_button",
         )
 
     def create_selection_window(

@@ -66,6 +66,7 @@ class HudRenderer:
         self._update_selection_info(selected_entities)
         self._update_debug_info(dt, selected_entities, show_debug)
         self._update_hover_tooltip()
+        self._update_buy_button_highlights()
 
     def _update_top_bar(self) -> None:
         """Updates the top bar (Money)."""
@@ -535,3 +536,33 @@ class HudRenderer:
             manager=self.layout.manager,
             window_title="Error",
         )
+
+    def _update_buy_button_highlights(self) -> None:
+        """
+        Updates buy button visual states based on current placement mode.
+
+        Highlights the active buy button when in placement mode, and
+        clears selection when not placing.
+        """
+        input_service = self.world.services.try_get(InputService)
+        if not input_service:
+            return
+
+        is_placing = input_service.is_placing
+        current_type = input_service.place_type
+        is_cleaning = input_service.is_cleaning
+
+        # Update buy buttons
+        for btn, data in self.layout.buy_buttons.items():
+            if is_placing and data["type_id"] == current_type:
+                btn.select()
+            else:
+                btn.unselect()
+
+        # Update clean button
+        if self.layout.clean_btn:
+            if is_cleaning:
+                self.layout.clean_btn.select()
+            else:
+                self.layout.clean_btn.unselect()
+
