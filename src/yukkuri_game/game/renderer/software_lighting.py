@@ -61,24 +61,33 @@ class SoftwareLightingEngine:
 
         # Spatial Grid
         self.cell_size = 100  # World units
-        self.grid: dict[tuple[int, int], list[tuple[tuple, list]]] = {}
-        self.occluders = []
+        self.grid: dict[
+            tuple[int, int],
+            list[tuple[tuple[float, float, float, float], list[tuple[float, float]]]],
+        ] = {}
+        self.occluders: list[
+            tuple[tuple[float, float, float, float], list[tuple[float, float]]]
+        ] = []
 
         # Caches
-        self.light_texture_cache: dict[tuple, pygame.Surface] = {}
+        self.light_texture_cache: dict[
+            tuple[int, tuple[int, int, int], int], pygame.Surface
+        ] = {}
 
         # Static light cache: entity_id -> (light_surface, cache_key)
         # Cache key includes params that would invalidate the cache
-        self.static_light_cache: dict[int, tuple[pygame.Surface, tuple]] = {}
+        self.static_light_cache: dict[
+            int, tuple[pygame.Surface, tuple[int, tuple[int, int, int], int, bool]]
+        ] = {}
 
         # Surface pool for light rendering surfaces
         self.surface_pool = SurfacePool()
 
-    def resize(self, width: int, height: int):
+    def resize(self, width: int, height: int) -> None:
         self.native_size = (width, height)
         self.lightmap = pygame.Surface((int(width * self.scale), int(height * self.scale)))
 
-    def clear(self, ambient_color: tuple[int, int, int]):
+    def clear(self, ambient_color: tuple[int, int, int]) -> None:
         # Fill lightmap with ambient
         self.lightmap.fill(ambient_color)
         self.occluders.clear()
@@ -88,7 +97,7 @@ class SoftwareLightingEngine:
         self,
         aabb: tuple[float, float, float, float],
         vertices: list[tuple[float, float]],
-    ):
+    ) -> None:
         """
         Registers an occluder and adds it to the spatial grid.
         aabb: (min_x, max_x, min_y, max_y)
@@ -118,7 +127,7 @@ class SoftwareLightingEngine:
         soft_shadows: bool = True,
         static: bool = False,
         entity_id: int = -1,
-    ):
+    ) -> None:
         """
         Renders a single light with shadows onto the lightmap.
 
@@ -206,7 +215,9 @@ class SoftwareLightingEngine:
         radius: float,
         color: tuple[int, int, int],
         intensity: float,
-        occluders: list,
+        occluders: list[
+            tuple[tuple[float, float, float, float], list[tuple[float, float]]]
+        ],
         soft_shadows: bool = True,
     ) -> pygame.Surface:
         """
@@ -317,8 +328,10 @@ class SoftwareLightingEngine:
         offset_x: int,
         offset_y: int,
         radius: float,
-        occluders: list,
-    ):
+        occluders: list[
+            tuple[tuple[float, float, float, float], list[tuple[float, float]]]
+        ],
+    ) -> None:
         """
         Draws soft shadows efficiently using a downscale-upscale blur technique.
 
@@ -424,8 +437,10 @@ class SoftwareLightingEngine:
         offset_x: int,
         offset_y: int,
         radius: float,
-        occluders: list,
-    ):
+        occluders: list[
+            tuple[tuple[float, float, float, float], list[tuple[float, float]]]
+        ],
+    ) -> None:
         """
         Optimized shadow volume drawing with reduced Python overhead.
         Pre-computes common values and minimizes per-vertex calculations.
@@ -502,8 +517,10 @@ class SoftwareLightingEngine:
         offset_x: int,
         offset_y: int,
         radius: float,
-        occluders: list,
-    ):
+        occluders: list[
+            tuple[tuple[float, float, float, float], list[tuple[float, float]]]
+        ],
+    ) -> None:
         """
         NumPy-accelerated shadow volume drawing.
 
@@ -676,7 +693,7 @@ class SoftwareLightingEngine:
         radius: float,
         color: tuple[int, int, int],
         intensity: float,
-    ):
+    ) -> None:
         """
         Renders a gradient directly onto the target surface centered at (cx, cy).
         Used for large lights to avoid allocating huge cached textures.
@@ -698,7 +715,7 @@ class SoftwareLightingEngine:
         radius: float,
         color: tuple[int, int, int],
         intensity: float,
-    ):
+    ) -> None:
         w, h = target_surf.get_size()
         sr = radius * self.scale
         
@@ -734,7 +751,7 @@ class SoftwareLightingEngine:
         radius: float,
         color: tuple[int, int, int],
         intensity: float,
-    ):
+    ) -> None:
         """
         Fallback direct rendering using concentric circles.
         Since Pygame clips drawing, we can just draw huge circles.
@@ -774,7 +791,7 @@ class SoftwareLightingEngine:
 
     def _query_grid(
         self, lx: float, ly: float, radius: float
-    ) -> list[tuple[tuple, list]]:
+    ) -> list[tuple[tuple[float, float, float, float], list[tuple[float, float]]]]:
         """
         Returns a list of occluders (aabb, vertices) that overlap the light's bounding box.
         """

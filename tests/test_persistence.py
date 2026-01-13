@@ -4,11 +4,11 @@ import msgspec
 import dataclasses
 from dataclasses import dataclass, field
 from typing import Dict
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.engine.serializer import WorldSerializer
-from src.yukkuri_game.game.components_persistence import StableIDComponent, Persistable
-from src.yukkuri_game.game.components import Transform, Selectable
-from src.yukkuri_game.engine.types import EntityID
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.serializer import WorldSerializer
+from yukkuri_game.game.components_persistence import StableIDComponent, Persistable
+from yukkuri_game.game.components import Transform, Selectable
+from yukkuri_game.engine.types import EntityID
 
 
 @dataclasses.dataclass
@@ -118,7 +118,7 @@ class TestSerializerFix:
         if os.path.exists(self.filepath):
             os.remove(self.filepath)
 
-    def test_safe_ref_remapping(self):
+    def test_safe_ref_remapping(self) -> None:
         target = self.world.create_entity()
         self.world.add_component(target, StableIDComponent(id=100))
         self.world.add_component(target, Persistable())
@@ -151,7 +151,7 @@ class TestSerializerFix:
         assert loaded_comp.entity_id == new_source
         assert loaded_comp.sprite_id == original_target_id
 
-    def test_dict_remapping(self):
+    def test_dict_remapping(self) -> None:
         e1 = self.world.create_entity()
         self.world.add_component(e1, StableIDComponent(id=10))
         self.world.add_component(e1, Persistable())

@@ -103,7 +103,7 @@ class TestSocialInteractions(unittest.TestCase):
         self.world.add_component(self.yukkuri2, RelationshipRegistry())
         self.world.add_component(self.yukkuri2, Personality())
 
-    def test_talk_interaction(self):
+    def test_talk_interaction(self) -> None:
         # Initial state
         self.emo1.happiness = 50.0
         self.emo2.happiness = 50.0
@@ -120,7 +120,7 @@ class TestSocialInteractions(unittest.TestCase):
         self.assertAlmostEqual(self.emo1.happiness, 55.0)
         self.assertAlmostEqual(self.emo2.happiness, 55.0)
 
-    def test_fight_interaction(self):
+    def test_fight_interaction(self) -> None:
         # Setup incompatible yukkuri for fight logic
         self.world.add_component(
             self.yukkuri2, self.stats3
@@ -142,7 +142,7 @@ class TestSocialInteractions(unittest.TestCase):
         self.assertLess(self.needs1.health, 100.0)
         self.assertLess(self.needs3.health, 100.0)
 
-    def test_dance_interaction(self):
+    def test_dance_interaction(self) -> None:
         self.world.add_component(
             self.yukkuri1, InteractionRequest(target_id=self.yukkuri2, action="Dance")
         )

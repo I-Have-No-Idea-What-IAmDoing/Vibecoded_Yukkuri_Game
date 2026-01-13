@@ -54,7 +54,7 @@ class AudioManager:
         """
         if os.path.exists(config_path):
             if sys.version_info >= (3, 11):
-                import tomllib  # type: ignore
+                import tomllib
             else:
                 try:
                     import tomli as tomllib  # type: ignore

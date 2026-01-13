@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock, patch
 from loguru import logger
-from src.yukkuri_game.game.utils.evaluator import ConditionEvaluator
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.utils.evaluator import ConditionEvaluator
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.yukkuri_components import (
     YukkuriStats,
     Needs,
     EmotionalState,

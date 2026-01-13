@@ -21,7 +21,7 @@ from yukkuri_game.game.skill_constants import SkillId
 
 
 class TestTimeService:
-    def test_time_elapsed(self):
+    def test_time_elapsed(self) -> None:
         service = TimeService()
         assert service.time_elapsed == 0.0
 
@@ -33,11 +33,11 @@ class TestTimeService:
 
 
 class TestEconomyService:
-    def test_initial_money(self):
+    def test_initial_money(self) -> None:
         service = EconomyService(initial_money=500)
         assert service.get_money() == 500
 
-    def test_add_money(self):
+    def test_add_money(self) -> None:
         service = EconomyService(100)
         service.add_money(50)
         assert service.get_money() == 150
@@ -45,7 +45,7 @@ class TestEconomyService:
         with pytest.raises(ValueError):
             service.add_money(-10)
 
-    def test_remove_money(self):
+    def test_remove_money(self) -> None:
         service = EconomyService(100)
         assert service.remove_money(50) is True
         assert service.get_money() == 50
@@ -56,7 +56,7 @@ class TestEconomyService:
         with pytest.raises(ValueError):
             service.remove_money(-10)
 
-    def test_set_money(self):
+    def test_set_money(self) -> None:
         service = EconomyService(100)
         service.set_money(200)
         assert service.get_money() == 200
@@ -66,7 +66,7 @@ class TestEconomyService:
 
 
 class TestInputService:
-    def test_placement_mode(self):
+    def test_placement_mode(self) -> None:
         service = InputService()
         assert service.is_placing is False
 
@@ -81,7 +81,7 @@ class TestInputService:
         assert service.is_placing is False
         assert service.place_type == ""
 
-    def test_cleaning_mode(self):
+    def test_cleaning_mode(self) -> None:
         service = InputService()
         service.start_cleaning()
         assert service.is_cleaning is True
@@ -90,7 +90,7 @@ class TestInputService:
         service.stop_cleaning()
         assert service.is_cleaning is False
 
-    def test_cleaning_interrupts_placement(self):
+    def test_cleaning_interrupts_placement(self) -> None:
         service = InputService()
         service.start_placement("t", 10, "i")
         service.start_cleaning()

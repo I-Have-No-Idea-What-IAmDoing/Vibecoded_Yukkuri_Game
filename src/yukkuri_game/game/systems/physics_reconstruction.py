@@ -77,8 +77,8 @@ def reconstruct_physics(world: World) -> None:
         if rm:
             data = rm.item_types.get(stats.type_id)
             if data:
-                width = data.get("width", 32)
-                height = data.get("height", 32)
+                width = getattr(data, "width", 32)
+                height = getattr(data, "height", 32)
 
         add_physics_body(
             world=world,

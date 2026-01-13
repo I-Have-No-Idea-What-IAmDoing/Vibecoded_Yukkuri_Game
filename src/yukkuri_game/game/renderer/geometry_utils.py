@@ -183,7 +183,7 @@ class GeometryUtils:
         return verts
 
     @classmethod
-    def clear_cache(cls, entity_id: int):
+    def clear_cache(cls, entity_id: int) -> None:
         if entity_id in cls._STATIC_CACHE:
             del cls._STATIC_CACHE[entity_id]
         if entity_id in cls._STATIC_CACHE_KEYS:

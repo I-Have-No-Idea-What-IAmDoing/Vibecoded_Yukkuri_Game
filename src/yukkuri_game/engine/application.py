@@ -41,6 +41,9 @@ class Application:
         self.title = title
         self.headless = headless
         self.render_scale = render_scale
+        
+        self.lights_engine: pl2d.LightingEngine | None = None
+        self.screen: pygame.Surface | None = None
 
         if self.headless:
             # Set dummy driver for headless mode
@@ -136,7 +139,7 @@ class Application:
                 pygame.display.set_caption(self.title)
 
     def change_resolution(
-        self, width: int, height: int, fullscreen: bool, render_scale: float = None
+        self, width: int, height: int, fullscreen: bool, render_scale: float | None = None
     ) -> None:
         """
         Changes the resolution and fullscreen state.
@@ -145,7 +148,7 @@ class Application:
             width (int): New width.
             height (int): New height.
             fullscreen (bool): Fullscreen flag.
-            render_scale (float, optional): New render scale. If None, keeps current scale.
+            render_scale (float | None): New render scale. If None, keeps current scale.
         """
         if render_scale is not None:
             self.render_scale = render_scale

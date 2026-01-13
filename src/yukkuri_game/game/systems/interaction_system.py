@@ -173,7 +173,9 @@ class InteractionSystem(System):
                 world.destroy_entity(target_id)
                 ai = world.get_component(entity, AIState)
                 if ai and ai.current_target_id == target_id:
-                    ai.current_target_id = -1
+                    from typing import cast
+                    from ...engine.types import EntityID
+                    ai.current_target_id = cast(EntityID, -1)
                 logger.info(f"Entity {entity} ate Yukkuri {target_id} (Predation).")
             else:
                 logger.debug(

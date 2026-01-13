@@ -49,7 +49,7 @@ class TestBehaviorSystem(unittest.TestCase):
             # Should have ticked at least once
             assert mock_bt.tick.called
 
-    def test_cleanup_destroyed_entities(self):
+    def test_cleanup_destroyed_entities(self) -> None:
         mock_world = MagicMock()
 
         # Initial: Entity 1 exists
@@ -85,7 +85,7 @@ class TestBehaviorSystem(unittest.TestCase):
             system.update(mock_world, 0.1)
             self.assertNotIn(1, system.trees)
 
-    def test_blackboard_dt(self):
+    def test_blackboard_dt(self) -> None:
         mock_world = MagicMock()
         mock_world.get_components_tuple.return_value = []
 

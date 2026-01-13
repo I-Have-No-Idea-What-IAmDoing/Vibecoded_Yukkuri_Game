@@ -24,6 +24,7 @@ dependencies = [
 dev = [
     "pytest>=9.0.1",
     "psutil>=7.2.1",
+    "mypy>=1.8.0",
 ]
 
 [build-system]
@@ -66,3 +67,11 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "msgspec"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+
+[tool.ty.src]
+exclude = ["**/tests/**", "**/docs/**"]

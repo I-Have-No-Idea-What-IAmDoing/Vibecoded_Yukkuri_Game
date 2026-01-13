@@ -102,7 +102,7 @@ class ResourceManager:
             # noinspection PyTypeChecker
             decoded = msgspec.toml.decode(data, type=model)
             logger.info(f"Loaded TOML: {filepath}")
-            return decoded  # type: ignore[no-any-return]
+            return decoded
         except Exception as e:
             logger.error(f"Failed to load TOML {filepath}: {e}")
             return None

@@ -15,6 +15,8 @@ from ..yukkuri_components import (
 )
 from ..systems.sector_system import SectorMap
 from ..components import Transform
+from ...engine.types import EntityID
+from typing import cast
 
 
 class FamilySystem(System):
@@ -85,7 +87,8 @@ class FamilySystem(System):
                         and other_registry.family_group_id is None
                     ):
                         # Use deterministic random bits
-                        new_family_id = random.getrandbits(32)
+                        new_family_id_int = random.getrandbits(32)
+                        new_family_id = cast(EntityID, new_family_id_int)
                         registry.family_group_id = new_family_id
                         other_registry.family_group_id = new_family_id
                         logger.info(

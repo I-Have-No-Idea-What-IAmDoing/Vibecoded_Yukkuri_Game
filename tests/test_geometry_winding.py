@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 # We don't need to mock pygame here as GeometryUtils doesn't use it directly,
 # but it uses pymunk.
 
-from src.yukkuri_game.game.renderer.geometry_utils import GeometryUtils
-from src.yukkuri_game.game.components import Occluder
+from yukkuri_game.game.renderer.geometry_utils import GeometryUtils
+from yukkuri_game.game.components import Occluder
 
 
 def calculate_signed_area(vertices):

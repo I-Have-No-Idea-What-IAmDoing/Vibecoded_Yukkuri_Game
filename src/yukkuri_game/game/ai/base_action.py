@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
 
 
-class Action(Behaviour):  # type: ignore[misc]
+class Action(Behaviour):
     """
     Base class for AI actions in the Behavior Tree.
 

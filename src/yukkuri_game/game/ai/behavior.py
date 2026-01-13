@@ -4,7 +4,7 @@ Module defining the behavior tree logic for AI agents.
 
 import math
 import random
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 from collections.abc import Callable
 
 import py_trees
@@ -24,6 +24,8 @@ from ..yukkuri_components import AIState, ItemStats, YukkuriStats, Needs, Emotio
 from .base_action import Action
 from .navigation_service import NavigationService
 from .utility_selector import UtilitySelector
+
+from ...engine.types import EntityID
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -92,7 +94,7 @@ class MoveToTarget(Action):
             if target_trans:
                 target_pos = pymunk.Vec2d(target_trans.x, target_trans.y)
             else:
-                ai.current_target_id = -1
+                ai.current_target_id = cast(EntityID, -1)
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 return Status.FAILURE
         elif (
@@ -468,7 +470,7 @@ class FindSocialTarget(Action):
 
         if best_target != -1:
             if ai.current_target_id != best_target:
-                ai.current_target_id = best_target
+                ai.current_target_id = cast(EntityID, best_target)
                 ai.path = None
             return Status.SUCCESS
 
@@ -755,14 +757,14 @@ class FindItem(Action):
             best_item = game_service.find_best_item(
                 (trans.x, trans.y),
                 self.stat_criteria,
-                exclude_ids=ai.failed_targets,
+                exclude_ids={int(x) for x in ai.failed_targets},
                 searcher_id=self.entity_id,
             )
 
         if best_item != -1:
             # Only update and clear path if the target actually changed
             if ai.current_target_id != best_item:
-                ai.current_target_id = best_item
+                ai.current_target_id = cast(EntityID, best_item)
                 ai.path = None  # Force re-pathing
 
             return Status.SUCCESS
@@ -817,7 +819,7 @@ class FindLightSource(Action):
 
         if best_light != -1:
             if ai.current_target_id != best_light:
-                ai.current_target_id = best_light
+                ai.current_target_id = cast(EntityID, best_light)
                 ai.path = None
             return Status.SUCCESS
 

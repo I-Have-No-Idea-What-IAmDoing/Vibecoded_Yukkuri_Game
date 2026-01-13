@@ -10,7 +10,7 @@ import msgspec
 from pathlib import Path
 
 
-class TimeSettings(msgspec.Struct):  # type: ignore[misc]
+class TimeSettings(msgspec.Struct):
     """
     Configuration settings for the game time system.
 
@@ -25,7 +25,8 @@ class TimeSettings(msgspec.Struct):  # type: ignore[misc]
     night_start_hour: float = 20.0
 
 
-class WorldSettings(msgspec.Struct):  # type: ignore[misc]
+class WorldSettings(msgspec.Struct):
+
     """
     Configuration settings for the game world.
 
@@ -42,7 +43,7 @@ class WorldSettings(msgspec.Struct):  # type: ignore[misc]
     sector_size: float = 500.0
 
 
-class ConfigFile(msgspec.Struct):  # type: ignore[misc]
+class ConfigFile(msgspec.Struct):
     """
     Represents the structure of the main config.toml file.
 
@@ -55,7 +56,7 @@ class ConfigFile(msgspec.Struct):  # type: ignore[misc]
     time: TimeSettings = msgspec.field(default_factory=TimeSettings)
 
 
-class StatDecaySettings(msgspec.Struct):  # type: ignore[misc]
+class StatDecaySettings(msgspec.Struct):
     """
     Configuration settings for stat decay rates.
 
@@ -82,7 +83,7 @@ class StatDecaySettings(msgspec.Struct):  # type: ignore[misc]
     personality_drift_rate: float = 0.1
 
 
-class LifecycleSettings(msgspec.Struct):  # type: ignore[misc]
+class LifecycleSettings(msgspec.Struct):
     """
     Configuration settings for lifecycle events (birth, growth, death).
 
@@ -103,7 +104,7 @@ class LifecycleSettings(msgspec.Struct):  # type: ignore[misc]
     breeding_chance: float = 0.001
 
 
-class SocialSettings(msgspec.Struct):  # type: ignore[misc]
+class SocialSettings(msgspec.Struct):
     """
     Configuration for the social system.
 
@@ -118,7 +119,7 @@ class SocialSettings(msgspec.Struct):  # type: ignore[misc]
     witness_threshold: float = 5.0
 
 
-class SkillsSettings(msgspec.Struct):  # type: ignore[misc]
+class SkillsSettings(msgspec.Struct):
     """
     Configuration for the skill system.
 
@@ -131,7 +132,7 @@ class SkillsSettings(msgspec.Struct):  # type: ignore[misc]
     xp_exponent: float = 1.5
 
 
-class StatsSettings(msgspec.Struct):  # type: ignore[misc]
+class StatsSettings(msgspec.Struct):
     """
     Configuration for calculating yukkuri stats and value.
 
@@ -148,7 +149,7 @@ class StatsSettings(msgspec.Struct):  # type: ignore[misc]
     intelligence_base: float = 0.5
 
 
-class RulesFile(msgspec.Struct):  # type: ignore[misc]
+class RulesFile(msgspec.Struct):
     """
     Represents the structure of the rules.toml file.
 
@@ -167,7 +168,7 @@ class RulesFile(msgspec.Struct):  # type: ignore[misc]
     stats: StatsSettings = msgspec.field(default_factory=StatsSettings)
 
 
-class GameConfig(msgspec.Struct):  # type: ignore[misc]
+class GameConfig(msgspec.Struct):
     """
     Combined configuration for the game.
 

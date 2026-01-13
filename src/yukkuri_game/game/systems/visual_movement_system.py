@@ -25,7 +25,7 @@ class VisualMovementSystem(System):
     def __init__(self) -> None:
         """Initializes the VisualMovementSystem."""
         super().__init__()
-        self.skill_service = None
+        self.skill_service: SkillService | None = None
 
     def update(self, world: World, dt: float) -> None:
         """

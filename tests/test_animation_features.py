@@ -18,7 +18,7 @@ class TestAnimationFeatures(unittest.TestCase):
         self.event_handler = MagicMock()
         self.event_bus.subscribe(AnimationEvent, self.event_handler)
 
-    def test_speed_multiplier(self):
+    def test_speed_multiplier(self) -> None:
         """Test that speed multiplier affects animation timing."""
         anim_def = AnimationDefinition(
             name="walk", frames=[0, 1, 2], frame_duration=1.0, loop=True
@@ -42,7 +42,7 @@ class TestAnimationFeatures(unittest.TestCase):
         self.assertEqual(animator.current_frame_index, 1)
         self.assertEqual(sprite.current_frame, 1)
 
-    def test_ping_pong_loop(self):
+    def test_ping_pong_loop(self) -> None:
         """Test ping-pong looping behavior."""
         anim_def = AnimationDefinition(
             name="sway", frames=[0, 1, 2], frame_duration=0.1, loop=True, ping_pong=True
@@ -82,7 +82,7 @@ class TestAnimationFeatures(unittest.TestCase):
         self.assertEqual(animator.current_frame_index, 1)
         self.assertTrue(animator.forward)
 
-    def test_animation_events(self):
+    def test_animation_events(self) -> None:
         """Test that events are triggered at specific frames."""
         anim_def = AnimationDefinition(
             name="attack",
@@ -110,7 +110,7 @@ class TestAnimationFeatures(unittest.TestCase):
         self.assertEqual(event.event_type, "hit")
         self.assertEqual(event.frame_index, 1)
 
-    def test_auto_transition(self):
+    def test_auto_transition(self) -> None:
         """Test automatic transition to next animation."""
         idle_def = AnimationDefinition(
             name="idle", frames=[0], frame_duration=1.0, loop=True

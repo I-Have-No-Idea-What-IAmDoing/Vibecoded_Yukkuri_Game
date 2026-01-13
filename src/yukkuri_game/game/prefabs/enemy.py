@@ -2,11 +2,13 @@
 Prefab for Enemy entities.
 """
 
+from typing import Any
+
 from ...engine.ecs import World
 from .yukkuri import create_yukkuri
 
 
-def create_enemy(world: World, type_id: str, x: float, y: float, **kwargs) -> int:
+def create_enemy(world: World, type_id: str, x: float, y: float, **kwargs: Any) -> int:
     """
     Creates an Enemy entity.
     Currently wraps create_yukkuri as Yukkuris are the primary agents.

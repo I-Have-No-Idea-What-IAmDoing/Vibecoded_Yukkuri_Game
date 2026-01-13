@@ -415,7 +415,7 @@ class PersistenceService:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
-    def _serialize_object(self, obj):
+    def _serialize_object(self, obj: object) -> object:
         if isinstance(obj, (set, tuple)):
             return list(obj)
         if isinstance(obj, dict):

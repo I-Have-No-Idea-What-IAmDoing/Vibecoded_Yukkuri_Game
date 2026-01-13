@@ -62,7 +62,7 @@ class HierarchySystem(System):
         self.process_dismounts(world, dt)
 
     def process_structure_update(
-        self, world: World, root_entity: int, mounts: dict
+        self, world: World, root_entity: int, mounts: dict[int, Mount]
     ) -> None:
         """
         Updates the Root's physics body shapes to represent the stack ("The Totem Pole").
@@ -151,7 +151,7 @@ class HierarchySystem(System):
 
         mount.structure_dirty = False
 
-    def process_entity(self, world: World, root_entity: int, mounts: dict) -> None:
+    def process_entity(self, world: World, root_entity: int, mounts: dict[int, Mount]) -> None:
         """
         Iteratively update children of this entity using a stack.
 
@@ -181,8 +181,8 @@ class HierarchySystem(System):
         trans = world.get_component(root_entity, Transform)
         if trans:
             root_prev_pos = (
-                pymunk.Vec2d(trans.prev_x, trans.prev_y)
-                if trans.prev_x is not None
+                pymunk.Vec2d(trans.prev_x if trans.prev_x is not None else 0.0, trans.prev_y if trans.prev_y is not None else 0.0)
+                if trans.prev_x is not None and trans.prev_y is not None
                 else root_pos
             )
             root_prev_rot = (

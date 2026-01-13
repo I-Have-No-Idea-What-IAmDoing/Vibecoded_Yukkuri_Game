@@ -44,11 +44,11 @@ class HudLayout:
             yukkuri_types (dict): Dictionary of available Yukkuri types.
             item_types (dict): Dictionary of available Item types.
         """
-        self.manager = ui_manager
-        self.width = width
-        self.height = height
-        self.yukkuri_types = yukkuri_types if yukkuri_types is not None else {}
-        self.item_types = item_types if item_types is not None else {}
+        self.manager: pygame_gui.UIManager = ui_manager
+        self.width: int = width
+        self.height: int = height
+        self.yukkuri_types: dict[str, Any] = yukkuri_types if yukkuri_types is not None else {}
+        self.item_types: dict[str, Any] = item_types if item_types is not None else {}
 
         # Elements
         self.top_panel: UIPanel | None = None
@@ -60,6 +60,7 @@ class HudLayout:
         self.speed_btn: UIButton | None = None
         self.settings_btn: UIButton | None = None
         self.bottom_panel: UIPanel | None = None
+        self.scrolling_container: UIScrollingContainer | None = None
 
         # Buy Buttons Map: {button: {"type_id": str, "category": str, "cost": int}}
         self.buy_buttons: dict[UIButton, dict[str, Any]] = {}
@@ -134,6 +135,7 @@ class HudLayout:
         self.speed_btn = None
         self.settings_btn = None
         self.log_box = None
+        self.scrolling_container = None
         self.clean_btn = None
 
         # Ensure info panel is closed on clear

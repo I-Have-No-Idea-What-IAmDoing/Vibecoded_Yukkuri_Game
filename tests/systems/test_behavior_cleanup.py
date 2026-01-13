@@ -26,7 +26,7 @@ class TestBehaviorSystemCleanup(unittest.TestCase):
     def tearDown(self):
         self.patcher.stop()
 
-    def test_behavior_cleanup(self):
+    def test_behavior_cleanup(self) -> None:
         # Create an entity with AIState
         entity_id = self.world.create_entity()
         self.world.add_component(entity_id, AIState())

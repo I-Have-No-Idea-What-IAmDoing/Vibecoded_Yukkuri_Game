@@ -7,7 +7,7 @@ from yukkuri_game.config import StatDecaySettings
 
 
 class TestEmotionSystemHealthClamp(unittest.TestCase):
-    def test_health_clamping(self):
+    def test_health_clamping(self) -> None:
         mock_world = MagicMock()
         mock_world.has_component.return_value = False  # Not dead
         stats = YukkuriStats(name="Test", type_id="test")
@@ -37,7 +37,7 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         # Health should be clamped to max_health
         self.assertEqual(needs.health, 100.0)
 
-    def test_health_clamping_low(self):
+    def test_health_clamping_low(self) -> None:
         mock_world = MagicMock()
         mock_world.has_component.return_value = False  # Not dead
         stats = YukkuriStats(name="Test", type_id="test")

@@ -6,10 +6,10 @@ import pytest
 import pygame
 from unittest.mock import MagicMock, patch
 
-from src.yukkuri_game.game.systems.render_system import RenderSystem
-from src.yukkuri_game.game.camera import Camera
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.engine.resource_manager import ResourceManager
+from yukkuri_game.game.systems.render_system import RenderSystem
+from yukkuri_game.game.camera import Camera
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.resource_manager import ResourceManager
 
 
 @pytest.fixture

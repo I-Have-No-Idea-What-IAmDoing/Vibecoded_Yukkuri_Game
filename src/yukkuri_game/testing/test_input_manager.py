@@ -3,17 +3,17 @@ import unittest
 # Use real pygame if available (uv should provide it)
 import pygame
 
-from src.yukkuri_game.engine.input_manager import InputManager, InputContext
+from yukkuri_game.engine.input_manager import InputManager, InputContext
 
 
 class TestInputManager(unittest.TestCase):
     def setUp(self):
         self.input_manager = InputManager()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         self.assertIn(InputContext.MENU, self.input_manager._active_contexts)
 
-    def test_context_switching(self):
+    def test_context_switching(self) -> None:
         self.input_manager.switch_context(InputContext.GAMEPLAY)
         self.assertIn(InputContext.GAMEPLAY, self.input_manager._active_contexts)
         self.assertNotIn(InputContext.MENU, self.input_manager._active_contexts)
@@ -22,7 +22,7 @@ class TestInputManager(unittest.TestCase):
         self.assertIn(InputContext.GAMEPLAY, self.input_manager._active_contexts)
         self.assertIn(InputContext.MENU, self.input_manager._active_contexts)
 
-    def test_input_consumption(self):
+    def test_input_consumption(self) -> None:
         # Menu has higher priority (10) than Gameplay (1)
         self.input_manager._active_contexts = {InputContext.MENU, InputContext.GAMEPLAY}
 

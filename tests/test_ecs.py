@@ -126,10 +126,12 @@ def test_system_update() -> None:
     world.update(dt)
 
     pos1 = world.get_component(e1, Position)
+    assert pos1 is not None
     assert pos1.x == 5.0  # 0 + 10 * 0.5
     assert pos1.y == 2.5  # 0 + 5 * 0.5
 
     pos2 = world.get_component(e2, Position)
+    assert pos2 is not None
     assert pos2.x == 10
     assert pos2.y == 10
 

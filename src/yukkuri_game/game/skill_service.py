@@ -34,7 +34,7 @@ class SkillService:
         self.skill_definitions: dict[str, Any] = {}
         self.load_skill_definitions()
 
-    def load_skill_definitions(self):
+    def load_skill_definitions(self) -> None:
         """Loads skill definitions from ResourceManager."""
         rm = self.world.services.try_get(ResourceManager)
         if rm:
@@ -44,7 +44,7 @@ class SkillService:
         else:
             logger.warning("ResourceManager not found in World.")
 
-    def initialize_skills(self, entity_id: int):
+    def initialize_skills(self, entity_id: int) -> None:
         """
         Initializes the Skills component for an entity if it doesn't exist,
         and ensures all defined skills are present.
@@ -71,7 +71,7 @@ class SkillService:
         # Apply passion from traits
         self.recalculate_passions(entity_id)
 
-    def recalculate_passions(self, entity_id: int):
+    def recalculate_passions(self, entity_id: int) -> None:
         """
         Recalculates passion levels for all skills based on traits.
         """
@@ -103,7 +103,7 @@ class SkillService:
                     passion_mult = mods.get("passion_multiplier", 1.0)
                     skills.states[skill_id_str].passion *= passion_mult
 
-    def add_xp(self, entity_id: int, skill_id: str, amount: float):
+    def add_xp(self, entity_id: int, skill_id: str, amount: float) -> None:
         """
         Adds XP to a skill.
         Formula: XP_gain = Base * Passion * IntelligenceFactor * SoftCapMultiplier
@@ -165,7 +165,7 @@ class SkillService:
 
         self._check_level_up(entity_id, skill_id, state)
 
-    def _check_level_up(self, entity_id: int, skill_id: str, state: SkillState):
+    def _check_level_up(self, entity_id: int, skill_id: str, state: SkillState) -> None:
         """Checks if the skill should level up."""
         required = self.get_required_xp(state.level)
         while state.current_xp >= required:
@@ -184,7 +184,7 @@ class SkillService:
         """Formula: Base * (Exponent)^L"""
         return self.settings.xp_base * (self.settings.xp_exponent**level)
 
-    def apply_decay(self, entity_id: int):
+    def apply_decay(self, entity_id: int) -> None:
         """
         Applies decay to all skills for an entity based on time since last use.
         This calculates accumulated decay since last use.

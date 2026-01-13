@@ -6,7 +6,7 @@ from typing import Any
 import msgspec
 
 
-class AnimationDefinition(msgspec.Struct):  # type: ignore[misc]
+class AnimationDefinition(msgspec.Struct):
     """
     Data model representing an animation sequence.
 
@@ -33,7 +33,7 @@ class AnimationDefinition(msgspec.Struct):  # type: ignore[misc]
     height: int | None = None
 
 
-class YukkuriType(msgspec.Struct):  # type: ignore[misc]
+class YukkuriType(msgspec.Struct):
     """
     Data model representing a type of Yukkuri.
 
@@ -58,7 +58,7 @@ class YukkuriType(msgspec.Struct):  # type: ignore[misc]
     animations: dict[str, AnimationDefinition] = {}
 
 
-class ItemType(msgspec.Struct):  # type: ignore[misc]
+class ItemType(msgspec.Struct):
     """
     Data model representing a type of Item.
 
@@ -94,7 +94,7 @@ class ItemType(msgspec.Struct):  # type: ignore[misc]
     static_occluder: bool = True
 
 
-class ActionEffect(msgspec.Struct):  # type: ignore[misc]
+class ActionEffect(msgspec.Struct):
     """
     Data model representing the effects of an AI action.
 
@@ -111,7 +111,7 @@ class ActionEffect(msgspec.Struct):  # type: ignore[misc]
     stat_changes: dict[str, float] = {}
 
 
-class ActionConsideration(msgspec.Struct):  # type: ignore[misc]
+class ActionConsideration(msgspec.Struct):
     """
     Data model representing a consideration (input factor) for an AI action.
 
@@ -128,7 +128,7 @@ class ActionConsideration(msgspec.Struct):  # type: ignore[misc]
     params: dict[str, float] = {}
 
 
-class AIAction(msgspec.Struct):  # type: ignore[misc]
+class AIAction(msgspec.Struct):
     """
     Data model representing an AI action definition.
 
@@ -143,7 +143,7 @@ class AIAction(msgspec.Struct):  # type: ignore[misc]
     considerations: list[ActionConsideration] = []
 
 
-class SkillDefinition(msgspec.Struct):  # type: ignore[misc]
+class SkillDefinition(msgspec.Struct):
     """
     Data model representing a Skill definition.
 
@@ -162,7 +162,7 @@ class SkillDefinition(msgspec.Struct):  # type: ignore[misc]
     soft_cap_base_level: int = 10
 
 
-class TraitDefinition(msgspec.Struct):  # type: ignore[misc]
+class TraitDefinition(msgspec.Struct):
     """
     Data model for a Personality Trait.
     """
@@ -181,7 +181,7 @@ class TraitDefinition(msgspec.Struct):  # type: ignore[misc]
 
 # Interaction definitions are complex because they have conditions and modifiers.
 # For now we use Dict[str, Any] for flexibility or define a loose struct.
-class InteractionDefinition(msgspec.Struct):  # type: ignore[misc]
+class InteractionDefinition(msgspec.Struct):
     """
     Data model for a Social Interaction.
     """
@@ -196,7 +196,7 @@ class InteractionDefinition(msgspec.Struct):  # type: ignore[misc]
 # --- Game Tuning Data Models (from yukkuri_tuning.json) ---
 
 
-class MovementVisuals(msgspec.Struct):  # type: ignore[misc]
+class MovementVisuals(msgspec.Struct):
     """
     Tuning for movement visual effects.
 
@@ -209,7 +209,7 @@ class MovementVisuals(msgspec.Struct):  # type: ignore[misc]
     bob_speed: float = 5.0
 
 
-class VisualTuning(msgspec.Struct):  # type: ignore[misc]
+class VisualTuning(msgspec.Struct):
     """
     Container for all visual-related tuning.
 
@@ -220,7 +220,7 @@ class VisualTuning(msgspec.Struct):  # type: ignore[misc]
     movement: MovementVisuals
 
 
-class GameTuning(msgspec.Struct):  # type: ignore[misc]
+class GameTuning(msgspec.Struct):
     """
     Root container for the main JSON tuning file.
 
@@ -232,7 +232,7 @@ class GameTuning(msgspec.Struct):  # type: ignore[misc]
 
 
 # --- Root containers for the TOML structure ---
-class YukkuriData(msgspec.Struct):  # type: ignore[misc]
+class YukkuriData(msgspec.Struct):
     """
     Root container for Yukkuri type definitions loaded from TOML.
 
@@ -243,7 +243,7 @@ class YukkuriData(msgspec.Struct):  # type: ignore[misc]
     yukkuris: dict[str, YukkuriType]
 
 
-class ItemData(msgspec.Struct):  # type: ignore[misc]
+class ItemData(msgspec.Struct):
     """
     Root container for Item type definitions loaded from TOML.
 
@@ -254,7 +254,7 @@ class ItemData(msgspec.Struct):  # type: ignore[misc]
     items: dict[str, ItemType]
 
 
-class AIData(msgspec.Struct):  # type: ignore[misc]
+class AIData(msgspec.Struct):
     """
     Root container for AI action definitions loaded from TOML.
 
@@ -265,7 +265,7 @@ class AIData(msgspec.Struct):  # type: ignore[misc]
     actions: dict[str, AIAction]
 
 
-class SkillData(msgspec.Struct):  # type: ignore[misc]
+class SkillData(msgspec.Struct):
     """
     Root container for Skill definitions.
     """
@@ -273,7 +273,7 @@ class SkillData(msgspec.Struct):  # type: ignore[misc]
     skills: dict[str, SkillDefinition]
 
 
-class TraitData(msgspec.Struct):  # type: ignore[misc]
+class TraitData(msgspec.Struct):
     """
     Root container for Trait definitions.
     """
@@ -281,7 +281,7 @@ class TraitData(msgspec.Struct):  # type: ignore[misc]
     traits: dict[str, TraitDefinition]
 
 
-class InteractionData(msgspec.Struct):  # type: ignore[misc]
+class InteractionData(msgspec.Struct):
     """
     Root container for Interaction definitions.
     """

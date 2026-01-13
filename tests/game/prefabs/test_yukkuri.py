@@ -9,7 +9,7 @@ from yukkuri_game.game.trait_service import TraitService
 
 
 class TestYukkuriPrefab(unittest.TestCase):
-    def test_create_yukkuri(self):
+    def test_create_yukkuri(self) -> None:
         world = World()
         # Mock ResourceManager
         rm = MagicMock(spec=ResourceManager)

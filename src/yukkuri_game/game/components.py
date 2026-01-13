@@ -25,7 +25,7 @@ class PhysicsBody:
     shape: pymunk.Shape
     base_radius: float | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.base_radius is None and isinstance(self.shape, pymunk.Circle):
             self.base_radius = self.shape.radius
 

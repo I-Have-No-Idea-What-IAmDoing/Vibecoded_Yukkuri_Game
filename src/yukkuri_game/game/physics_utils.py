@@ -38,7 +38,7 @@ def add_physics_body(
         radius = float(radius_or_size)
         inertia = pymunk.moment_for_circle(mass, 0, radius)
         body = pymunk.Body(mass, inertia, body_type=body_type)
-        shape = pymunk.Circle(body, radius)
+        shape: pymunk.Shape = pymunk.Circle(body, radius)
     elif shape_type == "box":
         width, height = radius_or_size
         inertia = pymunk.moment_for_box(mass, (width, height))

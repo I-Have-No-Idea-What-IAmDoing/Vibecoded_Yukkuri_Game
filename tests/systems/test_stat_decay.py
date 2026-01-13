@@ -12,7 +12,7 @@ from yukkuri_game.config import StatDecaySettings
 
 
 class TestEmotionSystem(unittest.TestCase):
-    def test_stat_decay(self):
+    def test_stat_decay(self) -> None:
         # Mock World and Component
         mock_world = MagicMock()
         mock_world.has_component.return_value = False  # Not dead
@@ -69,7 +69,7 @@ class TestEmotionSystem(unittest.TestCase):
         self.assertAlmostEqual(stats.age, 101.0)
         self.assertAlmostEqual(needs.cleanliness, 99.8)
 
-    def test_clamping(self):
+    def test_clamping(self) -> None:
         mock_world = MagicMock()
         mock_world.has_component.return_value = False  # Not dead
         stats = YukkuriStats(name="Test", type_id="test")
@@ -109,7 +109,7 @@ class TestEmotionSystem(unittest.TestCase):
         self.assertEqual(needs.hunger, 100.0)
         self.assertEqual(needs.energy, 0.0)
 
-    def test_cleanliness_clamping(self):
+    def test_cleanliness_clamping(self) -> None:
         mock_world = MagicMock()
         mock_world.has_component.return_value = False  # Not dead
         stats = YukkuriStats(name="Test", type_id="test")

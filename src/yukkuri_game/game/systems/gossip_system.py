@@ -3,7 +3,9 @@ Module defining the GossipSystem.
 """
 
 import pymunk
+from typing import cast
 from ...engine.ecs import System, World
+from ...engine.types import EntityID
 from ..yukkuri_components import (
     GossipQueue,
     GossipPacket,
@@ -122,8 +124,8 @@ class GossipSystem(System):
             interaction_data = self.trait_service.get_interaction(
                 event.interaction_type
             )
-            if interaction_data and "range_type" in interaction_data:
-                range_type = interaction_data["range_type"]
+            if interaction_data:
+                range_type = interaction_data.range_type
             elif event.interaction_type in ["Scream", "Shout"]:
                 # Fallback if not defined in TOML yet (though we updated it)
                 range_type = (
@@ -326,7 +328,7 @@ class GossipSystem(System):
             max_length = config.rules.social.max_gossip_length
 
         packet = GossipPacket(
-            target_id=event.initiator_id,
+            target_id=cast(EntityID, event.initiator_id),
             event_type=event.interaction_type,
             value=value,
             timestamp=now,

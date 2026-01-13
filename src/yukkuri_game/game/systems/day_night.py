@@ -32,7 +32,7 @@ class DayNightSystem(System):
         self.render_system = renderer
         self.time_service = world.services.get(TimeService)
 
-    def _interpolate_color(self, c1, c2, t) -> tuple:
+    def _interpolate_color(self, c1: tuple[int, int, int], c2: tuple[int, int, int], t: float) -> tuple[int, int, int, int]:
         return (
             int(c1[0] + (c2[0] - c1[0]) * t),
             int(c1[1] + (c2[1] - c1[1]) * t),
@@ -40,7 +40,7 @@ class DayNightSystem(System):
             255,
         )
 
-    def _get_ambient_color(self, time_of_day: float) -> tuple:
+    def _get_ambient_color(self, time_of_day: float) -> tuple[int, int, int, int]:
         """Calculates ambient color based on time."""
         # Wrap time to 24h
         t = time_of_day % 24.0
@@ -54,7 +54,7 @@ class DayNightSystem(System):
                 factor = (t - t1) / (t2 - t1)
                 return self._interpolate_color(c1, c2, factor)
 
-        return self.AMBIENT_COLORS[0][1]  # Fallback
+        return (*self.AMBIENT_COLORS[0][1], 255)  # Fallback
 
     def update(self, world: World, dt: float) -> None:
         time_of_day = self.time_service.time_of_day

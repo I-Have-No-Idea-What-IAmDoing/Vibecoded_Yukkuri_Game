@@ -13,7 +13,7 @@ from yukkuri_game.config import WorldSettings
 class TestCameraInitialization:
     """Tests for Camera initialization."""
 
-    def test_default_initialization(self):
+    def test_default_initialization(self) -> None:
         """Camera initializes with default WorldSettings when none provided."""
         camera = Camera()
         assert camera.camera_x == 0.0
@@ -23,14 +23,14 @@ class TestCameraInitialization:
         assert camera.min_zoom == 0.5
         assert camera.max_zoom == 2.0
 
-    def test_initialization_with_settings(self):
+    def test_initialization_with_settings(self) -> None:
         """Camera initializes with provided WorldSettings."""
         settings = WorldSettings(width=2000, height=1500)
         camera = Camera(settings)
         assert camera.width == 2000
         assert camera.height == 1500
 
-    def test_initial_cached_values_are_none(self):
+    def test_initial_cached_values_are_none(self) -> None:
         """Cached transformation values start as None."""
         camera = Camera()
         assert camera._cached_zoom_x is None
@@ -38,7 +38,7 @@ class TestCameraInitialization:
         assert camera._cached_offset_x is None
         assert camera._cached_offset_y is None
 
-    def test_initial_correction_factors(self):
+    def test_initial_correction_factors(self) -> None:
         """Correction factors default to 1.0."""
         camera = Camera()
         assert camera.correction_x == 1.0
@@ -48,14 +48,14 @@ class TestCameraInitialization:
 class TestCoordinateConversion:
     """Tests for world-to-screen and screen-to-world conversion."""
 
-    def test_world_to_screen_at_origin(self):
+    def test_world_to_screen_at_origin(self) -> None:
         """World (0,0) maps to screen center."""
         camera = Camera()
         sx, sy = camera.world_to_screen(0, 0, 800, 600)
         assert sx == 400.0
         assert sy == 300.0
 
-    def test_world_to_screen_with_camera_offset(self):
+    def test_world_to_screen_with_camera_offset(self) -> None:
         """World to screen accounts for camera position."""
         camera = Camera()
         camera.camera_x = 100
@@ -65,7 +65,7 @@ class TestCoordinateConversion:
         assert sx == 400.0
         assert sy == 300.0
 
-    def test_world_to_screen_with_zoom(self):
+    def test_world_to_screen_with_zoom(self) -> None:
         """Zoom affects coordinate conversion."""
         camera = Camera()
         camera.zoom = 2.0
@@ -75,7 +75,7 @@ class TestCoordinateConversion:
         assert sx == 500.0
         assert sy == 350.0
 
-    def test_screen_to_world_at_center(self):
+    def test_screen_to_world_at_center(self) -> None:
         """Screen center maps to camera position."""
         camera = Camera()
         camera.camera_x = 100
@@ -84,7 +84,7 @@ class TestCoordinateConversion:
         assert wx == 100.0
         assert wy == 50.0
 
-    def test_screen_to_world_with_zoom(self):
+    def test_screen_to_world_with_zoom(self) -> None:
         """Screen to world accounts for zoom."""
         camera = Camera()
         camera.zoom = 2.0
@@ -94,7 +94,7 @@ class TestCoordinateConversion:
         assert wx == 50.0
         assert wy == 25.0
 
-    def test_round_trip_conversion(self):
+    def test_round_trip_conversion(self) -> None:
         """Converting world->screen->world returns original coordinates."""
         camera = Camera()
         camera.camera_x = 150
@@ -112,13 +112,13 @@ class TestCoordinateConversion:
 class TestFastConversion:
     """Tests for optimized world_to_screen_fast method."""
 
-    def test_fast_conversion_requires_update_matrices(self):
+    def test_fast_conversion_requires_update_matrices(self) -> None:
         """world_to_screen_fast raises error if update_matrices not called."""
         camera = Camera()
         with pytest.raises(RuntimeError, match="update_matrices"):
             camera.world_to_screen_fast(0, 0)
 
-    def test_fast_conversion_after_update_matrices(self):
+    def test_fast_conversion_after_update_matrices(self) -> None:
         """world_to_screen_fast works after update_matrices is called."""
         camera = Camera()
         camera.update_matrices(800, 600, 1.0)
@@ -126,7 +126,7 @@ class TestFastConversion:
         assert sx == 400.0
         assert sy == 300.0
 
-    def test_fast_conversion_matches_slow(self):
+    def test_fast_conversion_matches_slow(self) -> None:
         """Fast and slow conversion produce same results."""
         camera = Camera()
         camera.camera_x = 100
@@ -144,14 +144,14 @@ class TestFastConversion:
 class TestAspectCorrection:
     """Tests for aspect ratio correction."""
 
-    def test_set_aspect_correction(self):
+    def test_set_aspect_correction(self) -> None:
         """set_aspect_correction updates correction factors."""
         camera = Camera()
         camera.set_aspect_correction(1.2, 0.9)
         assert camera.correction_x == 1.2
         assert camera.correction_y == 0.9
 
-    def test_aspect_correction_affects_conversion(self):
+    def test_aspect_correction_affects_conversion(self) -> None:
         """Aspect correction modifies coordinate conversion."""
         camera = Camera()
         camera.set_aspect_correction(2.0, 1.0)
@@ -165,7 +165,7 @@ class TestAspectCorrection:
 class TestCameraUpdate:
     """Tests for camera update logic."""
 
-    def test_update_stores_previous_state(self):
+    def test_update_stores_previous_state(self) -> None:
         """update() stores previous position for interpolation."""
         camera = Camera()
         camera.camera_x = 100
@@ -178,7 +178,7 @@ class TestCameraUpdate:
         assert camera.prev_camera_y == 50
         assert camera.prev_zoom == 1.5
 
-    def test_update_interpolates_zoom(self):
+    def test_update_interpolates_zoom(self) -> None:
         """update() smoothly interpolates zoom toward target."""
         camera = Camera()
         camera.target_zoom = 2.0
@@ -190,7 +190,7 @@ class TestCameraUpdate:
         assert camera.zoom > 1.0
         assert camera.zoom < 2.0
 
-    def test_clear_resets_state(self):
+    def test_clear_resets_state(self) -> None:
         """clear() resets camera to default state."""
         camera = Camera()
         camera.camera_x = 100
@@ -213,7 +213,7 @@ class TestCameraUpdate:
 class TestUpdateMatrices:
     """Tests for update_matrices interpolation."""
 
-    def test_update_matrices_with_full_alpha(self):
+    def test_update_matrices_with_full_alpha(self) -> None:
         """update_matrices at alpha=1.0 uses current values."""
         camera = Camera()
         camera.camera_x = 100
@@ -229,7 +229,7 @@ class TestUpdateMatrices:
         assert camera._cached_zoom_x == 2.0
         assert camera._cached_zoom_y == 2.0
 
-    def test_update_matrices_with_zero_alpha(self):
+    def test_update_matrices_with_zero_alpha(self) -> None:
         """update_matrices at alpha=0.0 uses previous values."""
         camera = Camera()
         camera.camera_x = 100
@@ -302,7 +302,7 @@ class TestHandleInput:
 class TestProcessInput:
     """Tests for process_input with InputManager."""
 
-    def test_keyboard_movement_up(self):
+    def test_keyboard_movement_up(self) -> None:
         """Arrow keys move camera."""
         camera = Camera()
         input_manager = MagicMock()
@@ -314,7 +314,7 @@ class TestProcessInput:
         # At zoom 1.0, speed = 500 * 0.1 / 1.0 = 50
         assert camera.camera_y < 0  # Moved up
 
-    def test_keyboard_movement_down(self):
+    def test_keyboard_movement_down(self) -> None:
         """Down key moves camera down."""
         camera = Camera()
         input_manager = MagicMock()
@@ -325,7 +325,7 @@ class TestProcessInput:
 
         assert camera.camera_y > 0  # Moved down
 
-    def test_keyboard_movement_left(self):
+    def test_keyboard_movement_left(self) -> None:
         """Left key moves camera left."""
         camera = Camera()
         input_manager = MagicMock()
@@ -336,7 +336,7 @@ class TestProcessInput:
 
         assert camera.camera_x < 0  # Moved left
 
-    def test_keyboard_movement_right(self):
+    def test_keyboard_movement_right(self) -> None:
         """Right key moves camera right."""
         camera = Camera()
         input_manager = MagicMock()
@@ -347,7 +347,7 @@ class TestProcessInput:
 
         assert camera.camera_x > 0  # Moved right
 
-    def test_ctrl_plus_zooms_in(self):
+    def test_ctrl_plus_zooms_in(self) -> None:
         """Ctrl + time_speed_up zooms in."""
         camera = Camera()
         camera.target_zoom = 1.0
@@ -362,7 +362,7 @@ class TestProcessInput:
 
         assert camera.target_zoom > 1.0
 
-    def test_ctrl_minus_zooms_out(self):
+    def test_ctrl_minus_zooms_out(self) -> None:
         """Ctrl + time_speed_down zooms out."""
         camera = Camera()
         camera.target_zoom = 1.0
@@ -377,7 +377,7 @@ class TestProcessInput:
 
         assert camera.target_zoom < 1.0
 
-    def test_mouse_wheel_via_input_manager(self):
+    def test_mouse_wheel_via_input_manager(self) -> None:
         """Mouse wheel input via InputManager zooms."""
         camera = Camera()
         camera.target_zoom = 1.0
@@ -390,7 +390,7 @@ class TestProcessInput:
         # 1.0 + 2.0 * 0.1 = 1.2
         assert camera.target_zoom == 1.2
 
-    def test_zoom_speed_affected_by_current_zoom(self):
+    def test_zoom_speed_affected_by_current_zoom(self) -> None:
         """Camera movement speed is faster when zoomed out."""
         camera_zoomed_in = Camera()
         camera_zoomed_in.zoom = 2.0

@@ -1,22 +1,22 @@
 
 import pytest
 import msgspec
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.game.inventory_component import (
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.inventory_component import (
     InventoryComponent,
     ItemStack,
     InventoryPickupRequest,
     InventoryDropRequest,
 )
-from src.yukkuri_game.game.systems.inventory_system import InventorySystem
-from src.yukkuri_game.game.components import Transform
-from src.yukkuri_game.game.yukkuri_components import ItemStats
-from src.yukkuri_game.engine.resource_manager import ResourceManager
-from src.yukkuri_game.engine.data_models import ItemType
-from src.yukkuri_game.engine.event_bus import EventBus
-from src.yukkuri_game.engine.events import InventoryChangedEvent
-from src.yukkuri_game.engine.serializer import WorldSerializer
-from src.yukkuri_game.game.entity_factory import EntityFactory
+from yukkuri_game.game.systems.inventory_system import InventorySystem
+from yukkuri_game.game.components import Transform
+from yukkuri_game.game.yukkuri_components import ItemStats
+from yukkuri_game.engine.resource_manager import ResourceManager
+from yukkuri_game.engine.data_models import ItemType
+from yukkuri_game.engine.event_bus import EventBus
+from yukkuri_game.engine.events import InventoryChangedEvent
+from yukkuri_game.engine.serializer import WorldSerializer
+from yukkuri_game.game.entity_factory import EntityFactory
 
 class MockResourceManager:
     def __init__(self):
@@ -212,7 +212,7 @@ def test_inventory_system_drop(world):
     assert len(events) == 1
     assert events[0].delta == -1
 
-from src.yukkuri_game.game.components_persistence import StableIDComponent, Persistable
+from yukkuri_game.game.components_persistence import StableIDComponent, Persistable
 
 # ... (imports)
 

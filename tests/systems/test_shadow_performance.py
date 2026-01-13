@@ -2,8 +2,8 @@
 import pygame
 import time
 import pytest
-from src.yukkuri_game.game.renderer.pygame_backend import PygameBackend
-from src.yukkuri_game.game.renderer.commands import ShadowCommand
+from yukkuri_game.game.renderer.pygame_backend import PygameBackend
+from yukkuri_game.game.renderer.commands import ShadowCommand
 
 def test_shadow_performance_zooming():
     pygame.init()

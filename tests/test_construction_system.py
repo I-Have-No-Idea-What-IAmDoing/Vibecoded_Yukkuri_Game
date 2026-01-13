@@ -31,7 +31,7 @@ class TestConstructionSystem(unittest.TestCase):
             return self.factory_mock
         return None
 
-    def test_placement_requested_success(self):
+    def test_placement_requested_success(self) -> None:
         # Setup adequate funds
         self.economy_service_mock.get_money.return_value = 200
 
@@ -44,7 +44,7 @@ class TestConstructionSystem(unittest.TestCase):
         # Verify entity created
         self.factory_mock.create_yukkuri.assert_called_with("reimu", 100.0, 100.0)
 
-    def test_placement_requested_insufficient_funds(self):
+    def test_placement_requested_insufficient_funds(self) -> None:
         # Setup inadequate funds
         self.economy_service_mock.get_money.return_value = 50
 
@@ -57,7 +57,7 @@ class TestConstructionSystem(unittest.TestCase):
         # Verify entity NOT created
         self.factory_mock.create_yukkuri.assert_not_called()
 
-    def test_placement_requested_item(self):
+    def test_placement_requested_item(self) -> None:
         self.economy_service_mock.get_money.return_value = 200
 
         event = PlacementRequestedEvent(100.0, 100.0, "cookie", 10, "item")

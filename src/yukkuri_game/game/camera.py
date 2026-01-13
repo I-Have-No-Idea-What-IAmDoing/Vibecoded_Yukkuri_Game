@@ -51,10 +51,10 @@ class Camera:
         self.max_zoom = 2.0
 
         # Optimization: Cached values for fast coordinate conversion
-        self._cached_zoom_x = None
-        self._cached_zoom_y = None
-        self._cached_offset_x = None
-        self._cached_offset_y = None
+        self._cached_zoom_x: float | None = None
+        self._cached_zoom_y: float | None = None
+        self._cached_offset_x: float | None = None
+        self._cached_offset_y: float | None = None
 
         self.correction_x = 1.0
         self.correction_y = 1.0

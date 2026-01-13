@@ -41,7 +41,7 @@ class TestPathfindingRobustness(unittest.TestCase):
         # Mock Blackboard
         py_trees.blackboard.Blackboard().set("dt", 0.1)
 
-    def test_move_to_target_straight_line(self):
+    def test_move_to_target_straight_line(self) -> None:
         """Test that entity moves towards target in a straight line when path is clear"""
         action = MoveToTarget(entity_id=self.entity_id, world=self.world)
         ai = self.world.get_component(self.entity_id, AIState)

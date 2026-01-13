@@ -82,7 +82,7 @@ class RenderSystem(System):
         # Background Caching
         self._background_cache: pygame.Surface | None = None
         self._background_cache_valid: bool = False
-        self._last_camera_state: tuple | None = None
+        self._last_camera_state: tuple[int, int, float, int, int] | None = None
 
     def update(self, world: World, alpha: float) -> None:
         """
@@ -316,7 +316,7 @@ class RenderSystem(System):
         self._background_cache.fill((0, 0, 0, 0))  # Clear with transparent
 
         # We need to draw the grid AS IF the camera is at the integer position stored in _last_camera_state
-        cached_cam_x, cached_cam_y, cached_zoom, _, _ = self._last_camera_state
+        cached_cam_x, cached_cam_y, cached_zoom, _, _ = self._last_camera_state  # type: ignore[misc]
 
         # Override camera pos temporarily (safer to pass as args, but _draw_grid is complex)
         # We'll use a modified _draw_grid signature
@@ -356,8 +356,8 @@ class RenderSystem(System):
                         override_cam_pos=(cached_cam_x, cached_cam_y))
         self._background_cache_valid = True
 
-    def _draw_grid(self, sw: int, sh: int, target_surface: pygame.Surface = None,
-                   override_cam_pos: tuple[float, float] = None) -> None:
+    def _draw_grid(self, sw: int, sh: int, target_surface: pygame.Surface | None = None,
+                   override_cam_pos: tuple[float, float] | None = None) -> None:
         # Generate grid lines commands? Or just draw immediate if backend supports it.
         # Let's verify backend has draw_line
 
@@ -416,7 +416,7 @@ class RenderSystem(System):
                 self.renderer.backend.draw_line((0, sy), (sw, sy), color)
 
     def _calculate_grid_bounds(self, screen_w: int, screen_h: int, grid_size: int,
-                               cam_x: float = None, cam_y: float = None):
+                               cam_x: float | None = None, cam_y: float | None = None) -> tuple[int, int, int, int]:
         if cam_x is not None and cam_y is not None:
             # Custom calculation based on override pos
             # screen_to_world inverse:
@@ -563,7 +563,7 @@ class RenderSystem(System):
                 # Ensure color is RGBA
                 color = light.color
                 if len(color) == 3:
-                    color = (color[0], color[1], color[2], 255)
+                    color = (color[0], color[1], color[2], 255)  # type: ignore[assignment]
 
                 self.renderer.submit(
                     LightCommand(
@@ -597,7 +597,7 @@ class RenderSystem(System):
         occluder: Occluder,
         ix: float,
         iy: float,
-    ):
+    ) -> None:
         sprite = world.try_get_component(ent, Sprite)
         body = world.try_get_component(ent, PhysicsBody)
 

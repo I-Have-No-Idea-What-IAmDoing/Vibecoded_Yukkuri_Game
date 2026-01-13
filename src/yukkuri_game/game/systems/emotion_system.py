@@ -89,7 +89,7 @@ class EmotionSystem(System):
                 world, entity, stats, needs, game_dt, dt, is_night, light_sources
             )
 
-    def _get_active_lights(self, world: World) -> list:
+    def _get_active_lights(self, world: World) -> list[tuple[Transform, LightSource]]:
         """Returns a list of active light sources (transform, light)."""
         lights = []
         for ent, (trans, light) in world.get_components_tuple(Transform, LightSource):
@@ -121,7 +121,7 @@ class EmotionSystem(System):
         game_dt: float,
         dt: float,
         is_night: bool,
-        light_sources: list,
+        light_sources: list[tuple[Transform, LightSource]],
     ) -> None:
         """Applies decay for a single entity."""
         emotional_state = world.get_component(entity, EmotionalState)
@@ -171,7 +171,7 @@ class EmotionSystem(System):
         if personality and personality.base_axis:
             self._drift_personality(personality, dt)
 
-    def _calculate_multipliers(self, personality: Personality | None) -> dict:
+    def _calculate_multipliers(self, personality: Personality | None) -> dict[str, float]:
         """Calculates decay multipliers based on traits."""
         mults = {
             "hunger": 1.0,
@@ -202,8 +202,8 @@ class EmotionSystem(System):
         dt: float,
         game_dt: float,
         is_night: bool,
-        light_sources: list,
-        multipliers: dict,
+        light_sources: list[tuple[Transform, LightSource]],
+        multipliers: dict[str, float],
     ) -> None:
         """Updates stress and happiness."""
         # Darkness Stress

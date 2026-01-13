@@ -65,6 +65,13 @@ class GameplayScene(Scene):
         )
         self.dt = 0.0
 
+        # Runtime attributes
+        self.render_system: "RenderSystem | None" = None
+        self.day_night_system: "DayNightSystem | None" = None
+        self.hud: "HUD | None" = None
+        self.hud_surface: pygame.Surface | None = None
+        self.hud_texture: "pl2d.Texture | None" = None
+
     def on_enter(self) -> None:
         """
         Called when the scene becomes active.

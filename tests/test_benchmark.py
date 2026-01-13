@@ -3,7 +3,7 @@ import os
 import tempfile
 import logging
 from unittest.mock import patch
-from src.yukkuri_game.benchmarks.benchmark import (
+from yukkuri_game.benchmarks.benchmark import (
     BenchmarkRunner,
     compare_results,
     export_csv,
@@ -15,16 +15,16 @@ class TestBenchmark(unittest.TestCase):
         # Create a temporary directory for output files
         self.test_dir = tempfile.TemporaryDirectory()
         # Configure logging to capture output if needed, or suppress it
-        logging.getLogger("src.yukkuri_game.benchmarks.benchmark").setLevel(
+        logging.getLogger("yukkuri_game.benchmarks.benchmark").setLevel(
             logging.CRITICAL
         )
 
     def tearDown(self):
         self.test_dir.cleanup()
 
-    @patch("src.yukkuri_game.benchmarks.benchmark.Application")
-    @patch("src.yukkuri_game.benchmarks.benchmark.GameplayScene")
-    @patch("src.yukkuri_game.benchmarks.benchmark.GameDriver")
+    @patch("yukkuri_game.benchmarks.benchmark.Application")
+    @patch("yukkuri_game.benchmarks.benchmark.GameplayScene")
+    @patch("yukkuri_game.benchmarks.benchmark.GameDriver")
     def test_benchmark_run(self, mock_driver_cls, mock_scene_cls, mock_app_cls):
         # Setup mocks
         mock_driver = mock_driver_cls.return_value
@@ -62,7 +62,7 @@ class TestBenchmark(unittest.TestCase):
         self.assertEqual(mock_driver.setup.call_count, 2)
         self.assertEqual(mock_driver.cleanup.call_count, 2)
 
-    def test_export_csv(self):
+    def test_export_csv(self) -> None:
         results = {"raw_frame_times": [[16.6, 16.7, 16.6], [16.5, 16.6, 16.8]]}
         filepath = os.path.join(self.test_dir.name, "test.csv")
         export_csv(results, filepath)
@@ -75,7 +75,7 @@ class TestBenchmark(unittest.TestCase):
             self.assertEqual(lines[0].strip(), "iteration,frame_index,frame_time_ms")
             self.assertEqual(lines[1].strip(), "1,1,16.6")
 
-    def test_compare_results(self):
+    def test_compare_results(self) -> None:
         # This function prints to stdout, we won't capture it here but just ensure it runs without error
         current = {
             "results": {

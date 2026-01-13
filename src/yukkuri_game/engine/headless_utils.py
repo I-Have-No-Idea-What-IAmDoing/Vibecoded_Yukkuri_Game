@@ -1,10 +1,12 @@
+from typing import Any
+from collections.abc import Iterator
 import contextlib
 import pygame
 import moderngl
 
 
 @contextlib.contextmanager
-def patch_headless_lighting():
+def patch_headless_lighting() -> Iterator[None]:
     """
     Context manager to patch moderngl and pygame for headless lighting initialization.
     This allows pygame-light2d (and pygame-render) to work with a standalone EGL context
@@ -13,16 +15,23 @@ def patch_headless_lighting():
     original_create_context = moderngl.create_context
 
     # Check if we are already patched to avoid recursion or double patching
-    if hasattr(pygame.display.set_mode, "_is_mock"):
-        _real_pygame_set_mode = pygame.display.set_mode._original
+    set_mode_any: Any = pygame.display.set_mode
+    if hasattr(set_mode_any, "_is_mock"):
+        _real_pygame_set_mode = set_mode_any._original
     else:
         _real_pygame_set_mode = pygame.display.set_mode
 
-    def mocked_create_context(*args, **kwargs):
+    def mocked_create_context(*args: Any, **kwargs: Any) -> moderngl.Context:
         # Force standalone EGL context
-        return original_create_context(standalone=True, backend="egl")
+        return original_create_context(standalone=True, backend="egl")  # type: ignore[arg-type]
 
-    def mocked_set_mode(size, flags=0, depth=0, display=0, vsync=0):
+    def mocked_set_mode(
+        size: tuple[int, int],
+        flags: int = 0,
+        depth: int = 0,
+        display: int = 0,
+        vsync: int = 0,
+    ) -> pygame.Surface:
         # Remove OPENGL and DOUBLEBUF flags to prevent SDL error with dummy driver
         flags = flags & ~pygame.OPENGL
         flags = flags & ~pygame.DOUBLEBUF
@@ -32,9 +41,10 @@ def patch_headless_lighting():
     moderngl.create_context = mocked_create_context
 
     # Store original reference to prevent recursion in mock
-    mocked_set_mode._is_mock = True
-    mocked_set_mode._original = _real_pygame_set_mode
-    pygame.display.set_mode = mocked_set_mode
+    mocked_set_mode_any: Any = mocked_set_mode
+    mocked_set_mode_any._is_mock = True
+    mocked_set_mode_any._original = _real_pygame_set_mode
+    pygame.display.set_mode = mocked_set_mode_any
 
     try:
         yield

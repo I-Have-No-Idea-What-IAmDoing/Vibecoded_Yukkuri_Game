@@ -18,7 +18,7 @@ class TestHudEventsPropagation(unittest.TestCase):
         self.layout.pause_btn = MagicMock()
         self.layout.speed_btn = MagicMock()
 
-    def test_pause_event_propagation(self):
+    def test_pause_event_propagation(self) -> None:
         # Subscribe to verify
         captured_event = None
 
@@ -39,7 +39,7 @@ class TestHudEventsPropagation(unittest.TestCase):
         self.assertIsNotNone(captured_event)
         self.IsInstance(captured_event, TogglePauseRequest)
 
-    def test_speed_event_propagation(self):
+    def test_speed_event_propagation(self) -> None:
         captured_event = None
 
         def on_speed(e):

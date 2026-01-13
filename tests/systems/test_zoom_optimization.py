@@ -1,12 +1,12 @@
 
 import pygame
 from unittest.mock import MagicMock, ANY
-from src.yukkuri_game.game.systems.render_system import RenderSystem
-from src.yukkuri_game.game.components import Transform, Sprite, VisualTransform
-from src.yukkuri_game.game.camera import Camera
-from src.yukkuri_game.engine.ecs import World
-from src.yukkuri_game.engine.resource_manager import ResourceManager
-from src.yukkuri_game.game.surface_cache import SurfaceCache
+from yukkuri_game.game.systems.render_system import RenderSystem
+from yukkuri_game.game.components import Transform, Sprite, VisualTransform
+from yukkuri_game.game.camera import Camera
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.resource_manager import ResourceManager
+from yukkuri_game.game.surface_cache import SurfaceCache
 
 def test_render_system_quantizes_scale():
     pygame.init()

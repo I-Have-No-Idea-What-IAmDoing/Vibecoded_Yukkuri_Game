@@ -56,7 +56,7 @@ class LightingBenchmarkRunner:
         random.seed(self.seed)
 
         # Create Occluders
-        occluder_vertices_list = []
+        occluder_vertices_list: list[list[tuple[float, float]]] = []
         backend.begin_frame()
 
         for i in range(self.num_occluders):
@@ -66,9 +66,10 @@ class LightingBenchmarkRunner:
             h = random.randint(20, 50)
             verts = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
 
+            verts_float = [(float(v[0]), float(v[1])) for v in verts]
             backend.draw_occluder(
                 OccluderCommand(
-                    layer=0, z_index=0, entity_id=i, vertices=verts, static=True
+                    layer=0, z_index=0, entity_id=i, vertices=verts_float, static=True
                 )
             )
 
@@ -76,7 +77,7 @@ class LightingBenchmarkRunner:
             xs = [v[0] for v in verts]
             ys = [v[1] for v in verts]
             aabb = (min(xs), max(xs), min(ys), max(ys))
-            occluder_vertices_list.append((aabb, verts))
+            occluder_vertices_list.append(verts_float)
 
         # Create Lights
         lights = []
@@ -110,10 +111,10 @@ class LightingBenchmarkRunner:
             backend.begin_frame()
             # Re-submit occluders
             for i in range(self.num_occluders):
-                (aabb, verts) = occluder_vertices_list[i]
+                verts_f = occluder_vertices_list[i]
                 backend.draw_occluder(
                     OccluderCommand(
-                        layer=0, z_index=0, entity_id=i, vertices=verts, static=True
+                        layer=0, z_index=0, entity_id=i, vertices=verts_f, static=True
                     )
                 )
 
@@ -154,7 +155,7 @@ class LightingBenchmarkRunner:
         return results
 
 
-def main():
+def main() -> None:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
     )

@@ -242,7 +242,7 @@ class SocialSystem(System):
                 min_level = condition.get("min_level", 0)
                 skills = world.get_component(entity_id, Skills)
                 if skills and skill_id in skills.states:
-                    return skills.states[skill_id].level >= min_level
+                    return bool(skills.states[skill_id].level >= min_level)
                 return False
 
         return True
@@ -412,9 +412,12 @@ class SocialSystem(System):
     ) -> None:
         """Applies the social impact of an interaction to a subject."""
         registry = self._get_or_create_registry(world, subject_id)
-        if other_id not in registry.relationships:
-            registry.relationships[other_id] = RelationshipData(last_update=now)
-        rel = registry.relationships[other_id]
+        # Casting other_id to int because msgspec structs have strict typing
+        # and RelationshipRegistry expects EntityID (int) keys.
+        oid = int(other_id)
+        if oid not in registry.relationships:
+            registry.relationships[oid] = RelationshipData(last_update=now)
+        rel = registry.relationships[oid]
         rel.last_update = now
 
         social_impact = self._get_attr(data, "social_impact", {})

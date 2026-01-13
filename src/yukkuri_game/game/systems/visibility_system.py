@@ -12,7 +12,10 @@ from ...engine.events import ComponentAddedEvent, ComponentRemovedEvent
 from ..components import Vision, Transform, PhysicsBody
 from ..yukkuri_components import AIState
 from .physics import PhysicsSystem
+from .physics import PhysicsSystem
 from ..collision_constants import CollisionCategories
+from ...engine.types import EntityID
+from typing import cast
 
 
 class VisibilitySystem(System):
@@ -153,10 +156,10 @@ class VisibilitySystem(System):
             dist_sq = dx * dx + dy * dy
             if dist_sq < self.cache_threshold * self.cache_threshold:
                 # Cache hit! Reuse previous visibility result.
-                ai.visible_entities = cached_visible
+                ai.visible_entities = {cast(EntityID, x) for x in cached_visible}
                 return
         
-        visible: set[int] = set()
+        visible: set[EntityID] = set()
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
         # phys_comp passed as argument
@@ -196,6 +199,8 @@ class VisibilitySystem(System):
                 continue
 
             # Skip if we already saw this entity (Composite bodies have multiple shapes)
+            if body is None:
+                continue
             target_ent = self.body_to_entity.get(body)
             if target_ent is None:
                 continue
@@ -237,12 +242,12 @@ class VisibilitySystem(System):
                         if h.shape.sensor:
                             continue  # Skip sensors
                         if h.shape.body == body:
-                            visible.add(target_ent)  # Target is visible!
+                            visible.add(EntityID(target_ent))  # Target is visible!
                         # Hit something else first - blocked
                         break
                 elif hit.shape.body == body:
                     # First hit is the target - visible!
-                    visible.add(target_ent)
+                    visible.add(EntityID(target_ent))
                 # else: First hit is something else (wall, other entity) - blocked
             # else: No hit at all - shouldn't happen but target is not visible
 
@@ -272,5 +277,7 @@ class VisibilitySystem(System):
             # -------------------------------------------
 
         # Store result in cache for temporal coherence
-        self.visibility_cache[entity] = (visible, trans.x, trans.y)
+        # Cast visible to set[int] for storage in dict[int, ...], though EntityID is int
+        visible_ints: set[int] = {int(x) for x in visible}
+        self.visibility_cache[entity] = (visible_ints, trans.x, trans.y)
         ai.visible_entities = visible

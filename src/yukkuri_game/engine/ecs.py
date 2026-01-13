@@ -243,7 +243,8 @@ class World:
         """
         self._switch()
         try:
-            return esper.component_for_entity(entity, component_type)  # type: ignore[no-any-return]
+            return esper.component_for_entity(entity, component_type)
+
         except KeyError:
             return None
 
@@ -333,7 +334,8 @@ class World:
             List[Tuple[int, Tuple[Any, ...]]]: A list of (entity, (component1, component2, ...)).
         """
         self._switch()
-        return esper.get_components(*component_types)  # type: ignore[no-any-return]
+        return esper.get_components(*component_types)
+
 
     def get_all_components(self, entity: int) -> tuple[Any, ...]:
         """
@@ -365,7 +367,7 @@ class World:
         # Inject world reference into system
         system.ecs_world = self
         system.initialize()
-        esper.add_processor(system)
+        esper.add_processor(system)  # type: ignore[arg-type]
 
     def update(self, dt: float) -> None:
         """

@@ -139,7 +139,7 @@ class TestUIEvents(unittest.TestCase):
         self.assertIsNotNone(captured_event)
         self.assertEqual(captured_event.entity_ids, ())
 
-    def test_placement_requested_event(self):
+    def test_placement_requested_event(self) -> None:
         # Start placement mode
         self.input_service.start_placement("reimu", 100, "yukkuri")
 
@@ -167,7 +167,7 @@ class TestUIEvents(unittest.TestCase):
         self.assertEqual(captured_event.type_id, "reimu")
         self.assertFalse(self.input_service.is_placing)
 
-    def test_placement_cancellation_on_right_click(self):
+    def test_placement_cancellation_on_right_click(self) -> None:
         # Start placement mode
         self.input_service.start_placement("reimu", 100, "yukkuri")
 

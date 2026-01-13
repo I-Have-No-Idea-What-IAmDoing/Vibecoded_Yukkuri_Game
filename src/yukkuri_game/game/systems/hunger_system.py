@@ -6,6 +6,8 @@ import math
 
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
+from ...engine.types import EntityID
+from typing import cast
 from ..components import Transform, InteractionRequest
 from ..yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, EmotionalState
 from ..skill_service import SkillService
@@ -123,6 +125,6 @@ class HungerSystem(System):
 
             ai = world.get_component(consumer_id, AIState)
             if ai and ai.current_target_id == item_id:
-                ai.current_target_id = -1
+                ai.current_target_id = cast(EntityID, -1)
 
         return True

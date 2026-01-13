@@ -24,13 +24,13 @@ from yukkuri_game.game.skill_constants import SkillId
 class TestHungerSystemInitialization:
     """Tests for HungerSystem initialization."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """HungerSystem initializes with None services."""
         system = HungerSystem()
         assert system.audio is None
         assert system.skill_service is None
 
-    def test_update_loads_services(self):
+    def test_update_loads_services(self) -> None:
         """update() loads services from world."""
         world = World()
         audio = MagicMock(spec=AudioManager)

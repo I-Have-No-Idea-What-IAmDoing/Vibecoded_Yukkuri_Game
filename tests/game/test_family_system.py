@@ -18,7 +18,7 @@ class TestFamilySystem:
         self.system = FamilySystem()
         self.world.add_system(self.system)
 
-    def test_family_formation(self):
+    def test_family_formation(self) -> None:
         # Create two entities
         e1 = self.world.create_entity()
         self.world.add_component(e1, YukkuriStats(name="Y1", type_id="reimu"))
@@ -47,7 +47,7 @@ class TestFamilySystem:
         assert reg2.family_group_id is not None
         assert reg1.family_group_id == reg2.family_group_id
 
-    def test_family_benefits(self):
+    def test_family_benefits(self) -> None:
         e1 = self.world.create_entity()
         self.world.add_component(e1, YukkuriStats(name="Y1", type_id="reimu"))
         self.world.add_component(e1, EmotionalState(happiness=50.0, stress=10.0))

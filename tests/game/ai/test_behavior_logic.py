@@ -116,7 +116,7 @@ class TestMoveToTarget:
 
 
 class TestInteract:
-    def test_interact_success(self):
+    def test_interact_success(self) -> None:
         world = MagicMock(spec=World)
         action = Interact(entity_id=1, world=world)
 
@@ -142,7 +142,7 @@ class TestInteract:
         assert status == Status.SUCCESS
         world.add_component.assert_called()
 
-    def test_interact_too_far(self):
+    def test_interact_too_far(self) -> None:
         world = MagicMock(spec=World)
         action = Interact(entity_id=1, world=world)
 
@@ -221,7 +221,7 @@ class TestBehaviorBuilders:
 
 
 class TestFindItem:
-    def test_find_item_success(self):
+    def test_find_item_success(self) -> None:
         world = MagicMock(spec=World)
         action = FindItem(
             name="Find", entity_id=1, world=world, stat_criteria="nutrition"
@@ -251,7 +251,7 @@ class TestFindItem:
         assert ai.current_target_id == 2
         assert ai.path is None
 
-    def test_find_item_failure(self):
+    def test_find_item_failure(self) -> None:
         world = MagicMock(spec=World)
         action = FindItem(
             name="Find", entity_id=1, world=world, stat_criteria="nutrition"

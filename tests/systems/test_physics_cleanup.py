@@ -5,7 +5,7 @@ from yukkuri_game.game.systems.physics import PhysicsSystem
 from yukkuri_game.game.components import Transform, PhysicsBody
 
 
-def test_physics_body_cleanup():
+def test_physics_body_cleanup() -> None:
     world = World()
     event_bus = EventBus()
     world.services.register(event_bus)

@@ -13,12 +13,12 @@ class TestAudio(unittest.TestCase):
     def tearDown(self):
         self.mixer_init_patcher.stop()
 
-    def test_init_success(self):
+    def test_init_success(self) -> None:
         audio = AudioManager()
         self.assertTrue(audio.enabled)
         self.mock_mixer_init.assert_called_once()
 
-    def test_init_failure(self):
+    def test_init_failure(self) -> None:
         self.mock_mixer_init.side_effect = pygame.error("No device")
         audio = AudioManager()
         self.assertFalse(audio.enabled)
@@ -62,7 +62,7 @@ class TestAudio(unittest.TestCase):
 
         self.assertNotIn("test", audio.sounds)
 
-    def test_load_sound_disabled(self):
+    def test_load_sound_disabled(self) -> None:
         self.mock_mixer_init.side_effect = pygame.error("No device")
         audio = AudioManager()
 
@@ -86,7 +86,7 @@ class TestAudio(unittest.TestCase):
         audio.play_sound("missing")
         # Should not raise error
 
-    def test_play_sound_disabled(self):
+    def test_play_sound_disabled(self) -> None:
         self.mock_mixer_init.side_effect = pygame.error("No device")
         audio = AudioManager()
         # Manually inject sound to verify play logic is skipped
@@ -164,7 +164,7 @@ class TestAudio(unittest.TestCase):
         # Volume = master (1.0) * sfx (0.6) = 0.6
         mock_sound_instance.set_volume.assert_called_with(audio.master_volume * 0.6)
 
-    def test_set_sfx_volume_clamping(self):
+    def test_set_sfx_volume_clamping(self) -> None:
         audio = AudioManager()
 
         audio.set_sfx_volume(1.5)
@@ -224,7 +224,7 @@ class TestAudio(unittest.TestCase):
         # Music volume should be updated too
         mock_music_volume.assert_called_with(0.5 * audio.bgm_volume)
 
-    def test_update_all_volumes_disabled(self):
+    def test_update_all_volumes_disabled(self) -> None:
         self.mock_mixer_init.side_effect = pygame.error("No device")
         audio = AudioManager()
         mock_sound = MagicMock()

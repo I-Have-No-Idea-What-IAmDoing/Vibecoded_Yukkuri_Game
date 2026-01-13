@@ -14,7 +14,7 @@ class TestTraitService:
             "interaction": {"Greet": {"base_impact": 5.0, "type": "social"}},
         }
 
-    def test_load_data(self):
+    def test_load_data(self) -> None:
         # Update: TraitService now uses ResourceManager
         from yukkuri_game.engine.resource_manager import ResourceManager
         from yukkuri_game.engine.ecs import World
@@ -32,7 +32,7 @@ class TestTraitService:
         assert len(service.traits) == 1
         assert len(service.interactions) == 1
 
-    def test_load_data_file_not_found(self):
+    def test_load_data_file_not_found(self) -> None:
         # ResourceManager handles missing files, TraitService just sees empty dict
         from yukkuri_game.engine.resource_manager import ResourceManager
         from yukkuri_game.engine.ecs import World
@@ -47,7 +47,7 @@ class TestTraitService:
         assert service.traits == {}
         assert service.interactions == {}
 
-    def test_load_data_exception(self):
+    def test_load_data_exception(self) -> None:
         # ResourceManager handles exceptions. TraitService just gets whatever RM has.
         pass
 

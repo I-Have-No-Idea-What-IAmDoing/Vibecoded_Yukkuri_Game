@@ -28,8 +28,8 @@ class PygameBackend(RenderBackend):
         self.lighting_engine = SoftwareLightingEngine((w, h))
 
         # Caches
-        self.font_cache = {}
-        self.shadow_surface_cache = {}  # (rx, ry, color) -> Surface
+        self.font_cache: dict[tuple[int, str | None], pygame.font.Font] = {}
+        self.shadow_surface_cache: dict[tuple[int, int, tuple[int, int, int, int]], pygame.Surface] = {}  # (rx, ry, color) -> Surface
 
     def clear(self, color: tuple[int, int, int]) -> None:
         self.screen.fill(color)
@@ -42,7 +42,8 @@ class PygameBackend(RenderBackend):
         if self.lighting_engine.native_size != (w, h):
             self.lighting_engine.resize(w, h)
 
-        self.lighting_engine.clear(self.ambient_color)
+        c = self.ambient_color
+        self.lighting_engine.clear((c[0], c[1], c[2]))
 
     def end_frame(self) -> None:
         # 1. Render all non-light commands (Sprites, Text, Blobs)
@@ -84,7 +85,7 @@ class PygameBackend(RenderBackend):
         self.lighting_engine.render_light(
             cmd.position,
             cmd.radius,
-            cmd.color,
+            cmd.color[:3],  # type: ignore[arg-type] # Ensure 3-tuple
             cmd.intensity,
             soft_shadows=cmd.soft_shadows,
             static=cmd.static,
@@ -106,7 +107,7 @@ class PygameBackend(RenderBackend):
         ys = [v[1] for v in snapped_vertices]
         aabb = (min(xs), max(xs), min(ys), max(ys))
 
-        self.lighting_engine.add_occluder(aabb, snapped_vertices)
+        self.lighting_engine.add_occluder(aabb, [(float(v[0]), float(v[1])) for v in snapped_vertices])
 
     def set_ambient_light(self, color: tuple[int, int, int, int]) -> None:
         self.ambient_color = color
@@ -180,7 +181,7 @@ class PygameBackend(RenderBackend):
             dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
             self.screen.blit(s, dest_rect)
 
-    def _get_font(self, size: int, name: str = None) -> pygame.font.Font:
+    def _get_font(self, size: int, name: str | None = None) -> pygame.font.Font:
         key = (size, name)
         if key not in self.font_cache:
             self.font_cache[key] = pygame.font.SysFont(name, size)
