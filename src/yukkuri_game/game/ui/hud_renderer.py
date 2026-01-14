@@ -48,6 +48,8 @@ class HudRenderer:
         self.layout = layout
         self.world = world
         self.fps = 0.0
+        self.selection_update_timer = 0.0
+        self.SELECTION_UPDATE_INTERVAL = 0.1
 
     def update(self, dt: float, selected_entities: list[int], show_debug: bool) -> None:
         """
@@ -63,7 +65,10 @@ class HudRenderer:
         """
         self._update_top_bar()
         self._update_time_display()
-        self._update_selection_info(selected_entities)
+        self.selection_update_timer += dt
+        if self.selection_update_timer >= self.SELECTION_UPDATE_INTERVAL:
+            self._update_selection_info(selected_entities)
+            self.selection_update_timer = 0.0
         self._update_debug_info(dt, selected_entities, show_debug)
         self._update_hover_tooltip()
         self._update_buy_button_highlights()

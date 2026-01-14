@@ -1510,6 +1510,159 @@ class FleePredator(Action):
         return Status.FAILURE
 
 
+class FindPrey(Action):
+    """
+    Finds a suitable prey target for a predator.
+    """
+    def __init__(self, name="Find Prey", entity_id=None, world=None, blackboard=None):
+        super().__init__(name, entity_id, world, blackboard)
+
+    def update(self) -> Status:
+        super().update()
+        if not self.world or self.entity_id is None:
+            return Status.FAILURE
+
+        ai = self.world.get_component(self.entity_id, AIState)
+        predator = self.world.get_component(self.entity_id, Predator)
+        my_trans = self.world.get_component(self.entity_id, Transform)
+
+        if not ai or not predator or not my_trans:
+            return Status.FAILURE
+
+        # Find nearest valid prey
+        best_target = -1
+        min_dist = predator.prey_sense_radius
+        
+        # Iterate all needs-having entities (Candidate for optimization: Spatial Hash)
+        for uid, (needs, trans) in self.world.get_components_tuple(Needs, Transform):
+            if uid == self.entity_id:
+                continue
+            
+            # Check if alive
+            if needs.health <= 0:
+                continue
+
+            # Check tags/compatibility
+            # For now, simple check: is it a yukkuri?
+            # Ideally we check 'tags' component or type_id
+            target_stats = self.world.try_get_component(uid, YukkuriStats)
+            if not target_stats:
+                continue
+                
+            # Predator-Prey Logic:
+            # If I have 'prey_tags', check if target matches.
+            # Simplified: Predators eat non-predators or smaller ones.
+            # For this implementation, we assume any other yukkuri is prey 
+            # unless they are also a predator of same/higher level (?) through tags.
+            
+            # Use Predator component tags logic if implemented, else Fallback.
+            # Fallback: Eat Reimu/Marisa if I am Predator.
+            is_valid_prey = False
+            if predator.prey_tags:
+                # Todo: Check target tags. For now assume target type_id is a tag.
+                if target_stats.type_id in predator.prey_tags:
+                    is_valid_prey = True
+            else:
+                # Default behavior: Eat anyone who is NOT a predator
+                if not self.world.has_component(uid, Predator):
+                    is_valid_prey = True
+            
+            if is_valid_prey:
+                dist = math.hypot(trans.x - my_trans.x, trans.y - my_trans.y)
+                if dist < min_dist:
+                    min_dist = dist
+                    best_target = uid
+
+        if best_target != -1:
+            if ai.current_target_id != best_target:
+                ai.current_target_id = cast(EntityID, best_target)
+                ai.path = None
+            return Status.SUCCESS
+
+        return Status.FAILURE
+
+
+class EatPrey(Action):
+    """
+    Channeling action to eat prey.
+    """
+    def __init__(self, name="Eat Prey", entity_id=None, world=None, blackboard=None):
+        super().__init__(name, entity_id, world, blackboard)
+
+    def update(self) -> Status:
+        super().update()
+        if not self.world or self.entity_id is None:
+            return Status.FAILURE
+
+        ai = self.world.get_component(self.entity_id, AIState)
+        predator = self.world.get_component(self.entity_id, Predator)
+        trans = self.world.get_component(self.entity_id, Transform)
+        controller = self.world.get_component(self.entity_id, MovementController)
+        
+        if not ai or not predator or not trans:
+            return Status.FAILURE
+
+        if ai.current_target_id == -1:
+            return Status.FAILURE
+
+        target_trans = self.world.try_get_component(ai.current_target_id, Transform)
+        target_needs = self.world.try_get_component(ai.current_target_id, Needs)
+        target_controller = self.world.try_get_component(ai.current_target_id, MovementController)
+
+        if target_trans is None or target_needs is None:
+            return Status.FAILURE
+
+        # Check interaction distance
+        dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
+        if dist > 40.0:
+            # Too far to eat!
+            return Status.FAILURE
+            
+        # --- Social Defense (Rescue) Check ---
+        rescue_radius = 60.0
+        for defender_id, (d_stats, d_trans) in self.world.get_components_tuple(
+            YukkuriStats, Transform
+        ):
+            if defender_id == self.entity_id:
+                continue
+            if defender_id == ai.current_target_id:
+                continue
+            if self.world.has_component(defender_id, Predator):
+                continue
+            
+            defender_dist = math.hypot(d_trans.x - target_trans.x, d_trans.y - target_trans.y)
+            if defender_dist <= rescue_radius:
+                # Defender nearby! Interrupt predation
+                ai.current_target_id = cast(EntityID, -1)
+                return Status.FAILURE
+
+        # Lock movement
+        if controller:
+            controller.target_velocity = pymunk.Vec2d(0, 0)
+        if target_controller:
+            target_controller.target_velocity = pymunk.Vec2d(0, 0)
+
+        # Deal damage
+        dt = 0.016 # Approximated fixed delta
+        damage = predator.dps * dt
+        target_needs.health -= damage
+        
+        # Visual feedback (Todo: Particles)
+        
+        # Check if consumed
+        if target_needs.health <= 0:
+            self.world.destroy_entity(ai.current_target_id)
+            
+            my_needs = self.world.try_get_component(self.entity_id, Needs)
+            if my_needs:
+                my_needs.hunger = max(0.0, my_needs.hunger - 50.0)
+            
+            ai.current_target_id = cast(EntityID, -1)
+            return Status.SUCCESS
+
+        return Status.RUNNING
+
+
 class Swoop(Action):
     """
     Rapid descent to attack target.
@@ -1539,12 +1692,7 @@ class Swoop(Action):
 
         return Status.RUNNING
 
-class AerialAssault(py_trees.composites.Sequence):
-    """
-    Fly to target then swoop down.
-    """
-    def __init__(self, name="Aerial Assault", memory=True):
-        super().__init__(name, memory)
+
 
 def build_hunt_behavior(
     entity_id: int,

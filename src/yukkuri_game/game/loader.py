@@ -14,6 +14,7 @@ from ..game import components, components_persistence, yukkuri_components, inven
 from ..game.services import EconomyService, GameService, InputService, TimeService
 from ..game.settings_service import SettingsService
 from ..game.systems.physics import PhysicsSystem
+from ..game.systems.flight_system import FlightSystem
 from ..game.systems.sector_system import SectorMap, SectorSystem
 from ..game.trait_service import TraitService
 from ..game.skill_service import SkillService
@@ -158,6 +159,11 @@ class GameLoader:
             event_bus,
             physics_system,
         )
+        
+        # Register Flight System
+        flight_system = FlightSystem()
+        self.world.add_system(flight_system)
+        
         input_system.set_ui_manager(ui_manager)
         return input_system
 
