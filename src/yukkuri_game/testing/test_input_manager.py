@@ -7,7 +7,7 @@ from yukkuri_game.engine.input_manager import InputManager, InputContext
 
 
 class TestInputManager(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.input_manager = InputManager()
 
     def test_initialization(self) -> None:

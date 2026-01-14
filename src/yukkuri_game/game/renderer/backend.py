@@ -56,3 +56,7 @@ class RenderBackend(Protocol):
     ) -> None:
         """Draws a line (mainly for debug/grid)."""
         ...
+
+    def toggle_lighting_debug(self, enabled: bool) -> None:
+        """Toggles lighting debug mode."""
+        ...

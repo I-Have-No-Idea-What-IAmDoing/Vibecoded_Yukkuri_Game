@@ -53,3 +53,6 @@ class Renderer:
 
     def set_ambient_light(self, color: tuple[int, int, int, int]) -> None:
         self.backend.set_ambient_light(color)
+
+    def toggle_lighting_debug(self, enabled: bool) -> None:
+        self.backend.toggle_lighting_debug(enabled)

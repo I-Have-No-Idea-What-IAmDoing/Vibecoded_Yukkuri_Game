@@ -83,6 +83,12 @@ class SoftwareLightingEngine:
         # Surface pool for light rendering surfaces
         self.surface_pool = SurfacePool()
 
+        self.debug: bool = False
+
+    def toggle_debug(self, enabled: bool) -> None:
+        self.debug = enabled
+
+
     def resize(self, width: int, height: int) -> None:
         self.native_size = (width, height)
         self.lightmap = pygame.Surface((int(width * self.scale), int(height * self.scale)))

@@ -77,7 +77,7 @@ class ContextMenu:
         )
 
         # Extract just the labels for the selection list
-        item_list = [opt[0] for opt in options]
+        item_list: list[str | tuple[str, str]] = [opt[0] for opt in options]
 
         self.selection_list = UISelectionList(
             relative_rect=pygame.Rect(0, 0, width, height),
@@ -92,7 +92,7 @@ class ContextMenu:
     def hide(self) -> None:
         """Hides/Destroys the context menu."""
         if self.panel:
-            self.panel.kill()
+            self.panel.kill()  # type: ignore[no-untyped-call]
             self.panel = None
         self.selection_list = None
         self.active = False

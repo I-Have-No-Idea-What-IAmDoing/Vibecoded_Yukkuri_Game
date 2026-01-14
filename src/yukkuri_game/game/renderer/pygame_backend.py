@@ -121,6 +121,9 @@ class PygameBackend(RenderBackend):
     ) -> None:
         pygame.draw.line(self.screen, color, start, end, width)
 
+    def toggle_lighting_debug(self, enabled: bool) -> None:
+        self.lighting_engine.toggle_debug(enabled)
+
     # Internal Rendering Methods
 
     def _render_sprite(self, cmd: SpriteCommand) -> None:
