@@ -431,9 +431,18 @@ class GameDriver:
                 elif isinstance(step, WaitFrames):
                     self._wait_frames(step)
                 elif isinstance(step, InjectInput):
-                    for event in step.events:
-                        pygame.event.post(event)
+                    # Direct injection for robustness
+                    if isinstance(self.game, Application):
+                        for event in step.events:
+                            self.game.input_manager.process_event(event)
+                            self.game.ui_manager.process_events(event)
+                            self.game.scene_manager.handle_event(event)
+                    else:
+                        # Fallback for generic games
+                        for event in step.events:
+                            pygame.event.post(event)
                 elif isinstance(step, Screenshot):
+
                     self.save_screenshot(step.filename)
                 elif isinstance(step, WaitUntilScene):
                     self.wait_until_scene(step.scene_type, step.timeout)

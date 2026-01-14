@@ -6,23 +6,70 @@ import pygame
 import pygame_gui
 from pygame_gui.elements import UIWindow, UIButton, UIScrollingContainer, UILabel, UIPanel
 from typing import Optional, TYPE_CHECKING
-from ..inventory_component import InventoryComponent, InventoryDropRequest
+from loguru import logger
+from ..inventory_component import InventoryComponent
+from ..events import InventoryItemActionEvent
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
     from ...engine.resource_manager import ResourceManager
+    from ...engine.event_bus import EventBus
+
 
 class InventoryPanel:
     """
     UI Panel to display and manage an entity's inventory.
+    
+    Performance improvements:
+    - Caches ResourceManager reference
+    - Uses item name cache to avoid repeated lookups
+    - Supports event-driven updates (auto-refresh on InventoryChangedEvent)
     """
 
-    def __init__(self, manager: pygame_gui.UIManager, world: "World"):
+    def __init__(
+        self, 
+        manager: pygame_gui.UIManager, 
+        world: "World",
+        event_bus: Optional["EventBus"] = None
+    ):
         self.manager = manager
         self.world = world
+        self.event_bus = event_bus
         self.window: Optional[UIWindow] = None
         self.entity_id: Optional[int] = None
         self.scroll_container: Optional[UIScrollingContainer] = None
+        
+        # Performance: Cache ResourceManager reference
+        self._resource_manager: Optional["ResourceManager"] = None
+        # Performance: Cache item names to avoid repeated lookups
+        self._item_name_cache: dict[str, str] = {}
+
+    @property
+    def is_visible(self) -> bool:
+        """Returns True if the inventory panel is currently visible."""
+        return self.window is not None and self.entity_id is not None
+
+    def _get_resource_manager(self) -> Optional["ResourceManager"]:
+        """Lazy load and cache ResourceManager."""
+        if self._resource_manager is None:
+            from ...engine.resource_manager import ResourceManager
+            self._resource_manager = self.world.services.try_get(ResourceManager)
+        return self._resource_manager
+
+    def _get_item_name(self, item_type_id: str) -> str:
+        """Get item display name with caching."""
+        if item_type_id in self._item_name_cache:
+            return self._item_name_cache[item_type_id]
+        
+        name = item_type_id  # Default to type_id
+        rm = self._get_resource_manager()
+        if rm:
+            item_data = rm.item_types.get(item_type_id)
+            if item_data:
+                name = getattr(item_data, "name", name)
+        
+        self._item_name_cache[item_type_id] = name
+        return name
 
     def show(self, entity_id: int, position: tuple[int, int] = (100, 100)) -> None:
         """
@@ -61,19 +108,21 @@ class InventoryPanel:
             self.entity_id = None
 
     def refresh(self) -> None:
-        """Refreshes the item list."""
+        """Refreshes the item list with optimized lookups."""
         if not self.window or not self.scroll_container or self.entity_id is None:
             return
 
-        # Clear existing items (pygame_gui doesn't have a clear children method easily,
-        # so we rely on kill()ing children or recreating container.
-        # Recreating container is safer/cleaner here.)
+        # Clear existing items by recreating container
         self.scroll_container.kill()
         self.scroll_container = UIScrollingContainer(
-            relative_rect=pygame.Rect(0, 0, self.window.get_container().rect.width, self.window.get_container().rect.height),
+            relative_rect=pygame.Rect(
+                0, 0, 
+                self.window.get_container().rect.width, 
+                self.window.get_container().rect.height
+            ),
             manager=self.manager,
             container=self.window,
-             anchors={'top': 'top', 'bottom': 'bottom', 'left': 'left', 'right': 'right'}
+            anchors={'top': 'top', 'bottom': 'bottom', 'left': 'left', 'right': 'right'}
         )
 
         inventory = self.world.get_component(self.entity_id, InventoryComponent)
@@ -89,15 +138,9 @@ class InventoryPanel:
         y_pos = 5
         item_height = 40
 
-        from ...engine.resource_manager import ResourceManager
-        rm = self.world.services.try_get(ResourceManager)
-
         for item in inventory.items:
-            name = item.item_type_id
-            if rm:
-                item_data = rm.item_types.get(item.item_type_id)
-                if item_data:
-                    name = getattr(item_data, "name", name)
+            # Use cached name lookup
+            name = self._get_item_name(item.item_type_id)
 
             panel = UIPanel(
                 relative_rect=pygame.Rect(5, y_pos, 250, item_height),
@@ -113,32 +156,26 @@ class InventoryPanel:
                 container=panel
             )
 
-            drop_btn = UIButton(
+            UIButton(
                 relative_rect=pygame.Rect(160, 5, 80, 30),
                 text="Drop",
                 manager=self.manager,
                 container=panel,
                 object_id=f"drop_btn_{item.item_type_id}"
             )
-            # We need to map button to action. Since this class manages it, we can store it or bind generic event.
-            # Storing button->action map in this instance is easiest.
-            # However, for simplicity let's just use the object_id in the event handler if we wire it up.
-            # But the event handler is usually HudEvents.
-            # Ideally InventoryPanel should handle its own events or delegate.
-            # Let's attach metadata to the button if possible, or keep a dict.
-            # For now, we will handle events in `process_event` of this class if we add one,
-            # or rely on the main HUD event loop calling into this.
 
             y_pos += item_height + 5
 
         self.scroll_container.set_scrollable_area_dimensions((250, y_pos))
 
     def process_event(self, event: pygame.event.Event) -> bool:
+        """Process UI events and handle button clicks."""
         if not self.window or self.entity_id is None:
             return False
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
-            if hasattr(event.ui_element, "object_ids"): # PygameGUI 0.6.9+
+            # Check for drop button clicks
+            if hasattr(event.ui_element, "object_ids"):  # PygameGUI 0.6.9+
                 ids = event.ui_element.object_ids
                 if ids and ids[-1].startswith("drop_btn_"):
                     item_type_id = ids[-1].replace("drop_btn_", "")
@@ -146,23 +183,33 @@ class InventoryPanel:
                     return True
             # Fallback for older pygame_gui or simple object_id string
             elif isinstance(event.ui_element.object_id, str) and event.ui_element.object_id.startswith("drop_btn_"):
-                 item_type_id = event.ui_element.object_id.replace("drop_btn_", "")
-                 self._drop_item(item_type_id)
-                 return True
+                item_type_id = event.ui_element.object_id.replace("drop_btn_", "")
+                self._drop_item(item_type_id)
+                return True
 
         return False
 
     def _drop_item(self, item_type_id: str) -> None:
+        """Request to drop an item using event-driven approach."""
         if self.entity_id is None:
             return
 
-        # Add Drop Request
-        self.world.add_component(
-            self.entity_id,
-            InventoryDropRequest(item_type_id=item_type_id, quantity=1)
-        )
-        # Refresh UI next frame or immediately?
-        # The system processes it in update(). So UI might lag one frame.
-        # We can force refresh later or just wait.
-        # But for feedback, let's just print/log.
-        print(f"Requesting drop of {item_type_id} from {self.entity_id}")
+        if self.event_bus:
+            # Preferred: Use event-driven approach for loose coupling
+            self.event_bus.publish(
+                InventoryItemActionEvent(
+                    entity_id=self.entity_id,
+                    item_type_id=item_type_id,
+                    action="drop",
+                    quantity=1
+                )
+            )
+            logger.debug(f"Published drop request for {item_type_id} from entity {self.entity_id}")
+        else:
+            # Fallback: Direct component addition (for backwards compatibility)
+            from ..inventory_component import InventoryDropRequest
+            self.world.add_component(
+                self.entity_id,
+                InventoryDropRequest(item_type_id=item_type_id, quantity=1)
+            )
+            logger.debug(f"Added InventoryDropRequest for {item_type_id} from entity {self.entity_id}")

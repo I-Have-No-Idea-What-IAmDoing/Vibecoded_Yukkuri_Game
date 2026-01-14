@@ -250,3 +250,28 @@ class ContextMenuRequestedEvent(Event):
 
     entity_id: int
     position: tuple[int, int]
+
+
+@dataclass(frozen=True)
+class InventoryViewRequestedEvent(Event):
+    """
+    Event triggered when a user requests to view an entity's inventory.
+    Decouples the context menu from the inventory panel.
+    """
+
+    entity_id: int
+    position: tuple[int, int] | None = None  # Optional screen position for panel
+
+
+@dataclass(frozen=True)
+class InventoryItemActionEvent(Event):
+    """
+    Event triggered when a user requests an action on an inventory item.
+    Supports drop, use, transfer, and other item operations.
+    """
+
+    entity_id: int
+    item_type_id: str
+    action: str  # "drop", "use", "transfer"
+    quantity: int = 1
+

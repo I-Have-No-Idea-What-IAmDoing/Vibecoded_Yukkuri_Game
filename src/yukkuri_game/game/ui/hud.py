@@ -6,7 +6,15 @@ import pygame
 import pygame_gui
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
-from ..events import EntitySelectedEvent, GamePausedEvent, LogMessageEvent, ContextMenuRequestedEvent
+from ..events import (
+    EntitySelectedEvent,
+    GamePausedEvent,
+    LogMessageEvent,
+    ContextMenuRequestedEvent,
+    InventoryViewRequestedEvent,
+    InventoryItemActionEvent,
+)
+from ...engine.events import InventoryChangedEvent
 from ..yukkuri_components import YukkuriStats
 from ...engine.resource_manager import ResourceManager
 
@@ -57,8 +65,8 @@ class HUD:
         # Context Menu
         self.context_menu = ContextMenu(self.manager)
 
-        # Inventory Panel
-        self.inventory_panel = InventoryPanel(self.manager, self.world)
+        # Inventory Panel (with event_bus for event-driven actions)
+        self.inventory_panel = InventoryPanel(self.manager, self.world, self.event_bus)
 
         # State
         self.selected_entities: list[int] = []
@@ -72,6 +80,9 @@ class HUD:
         self.event_bus.subscribe(GamePausedEvent, self.on_game_paused)
         self.event_bus.subscribe(LogMessageEvent, self.on_log_message)
         self.event_bus.subscribe(ContextMenuRequestedEvent, self.on_context_menu_requested)
+        self.event_bus.subscribe(InventoryViewRequestedEvent, self.on_inventory_view_requested)
+        self.event_bus.subscribe(InventoryChangedEvent, self.on_inventory_changed)
+        self.event_bus.subscribe(InventoryItemActionEvent, self.on_inventory_item_action)
 
     def resize(self, width: int, height: int) -> None:
         """
@@ -146,30 +157,56 @@ class HUD:
         options = []
 
         # Check entity capabilities to determine options
-        # E.g., if it has inventory, allow "View Inventory"
         from ..inventory_component import InventoryComponent
-        if self.world.has_component(event.entity_id, InventoryComponent):
-            options.append(("Inventory", "view_inventory"))
+        inv = self.world.get_component(event.entity_id, InventoryComponent)
+        if inv:
+            item_count = len(inv.items)
+            label = f"Inventory ({item_count})" if item_count > 0 else "Inventory"
+            options.append((label, "view_inventory"))
 
         # Standard options
         options.append(("Inspect", "inspect"))
-        # options.append(("Cancel", "cancel")) # Clicking outside cancels anyway
 
         if options:
             self.context_menu.show(
                 event.position,
                 options,
                 self.on_context_menu_action,
-                event.entity_id
+                (event.entity_id, event.position)  # Pass position for inventory panel
             )
 
-    def on_context_menu_action(self, action_id: str, entity_id: int) -> None:
-        """Callback for context menu actions."""
+    def on_context_menu_action(self, action_id: str, target_data: tuple[int, tuple[int, int]]) -> None:
+        """Callback for context menu actions. Uses event-driven approach."""
+        entity_id, position = target_data
         if action_id == "view_inventory":
-            self.inventory_panel.show(entity_id)
+            # Publish event instead of direct method call for loose coupling
+            self.event_bus.publish(InventoryViewRequestedEvent(entity_id, position))
         elif action_id == "inspect":
-            # Select the entity
             self.event_bus.publish(EntitySelectedEvent((entity_id,)))
+
+    def on_inventory_view_requested(self, event: InventoryViewRequestedEvent) -> None:
+        """Handles InventoryViewRequestedEvent to show inventory panel."""
+        position = event.position if event.position else (100, 100)
+        self.inventory_panel.show(event.entity_id, position)
+
+    def on_inventory_changed(self, event: InventoryChangedEvent) -> None:
+        """Handles InventoryChangedEvent to auto-refresh inventory panel."""
+        # Only refresh if the changed entity is currently being viewed
+        if (self.inventory_panel.entity_id is not None and 
+            self.inventory_panel.entity_id == event.entity_id):
+            self.inventory_panel.refresh()
+
+    def on_inventory_item_action(self, event: InventoryItemActionEvent) -> None:
+        """Handles InventoryItemActionEvent for drop/use/transfer actions."""
+        from ..inventory_component import InventoryDropRequest
+        
+        if event.action == "drop":
+            # Add drop request component - will be processed by InventorySystem
+            self.world.add_component(
+                event.entity_id,
+                InventoryDropRequest(item_type_id=event.item_type_id, quantity=event.quantity)
+            )
+
 
     def update(self, dt: float) -> None:
         """

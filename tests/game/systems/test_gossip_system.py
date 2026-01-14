@@ -232,6 +232,9 @@ class TestGossipSystem:
 
         actor_trans = Transform(x=0, y=0)
         witness_trans = Transform(x=100, y=0)
+        
+        # Create persistent witness queue that we can check after the test
+        witness_queue = GossipQueue()
 
         def get_component(eid, comp_type):
             if eid == actor and comp_type == Transform:
@@ -240,7 +243,7 @@ class TestGossipSystem:
                 if comp_type == Transform:
                     return witness_trans
                 if comp_type == GossipQueue:
-                    return GossipQueue()
+                    return witness_queue  # Return the persistent queue
                 if comp_type == YukkuriStats:
                     return YukkuriStats(name="Reimu", type_id="reimu")
             return None
@@ -251,7 +254,12 @@ class TestGossipSystem:
         sector_map = mock_world.services.try_get(SectorMap)
         sector_map.get_entities_in_range.return_value = [witness]
 
-        # Physics raycast hits something
+        # Ensure trait_service returns None for unknown interactions
+        # so that range_type defaults to "visual" and LOS check is performed
+        trait_service = mock_world.services.try_get(TraitService)
+        trait_service.get_interaction.return_value = None
+
+        # Physics raycast hits something (line of sight blocked)
         physics = mock_world.services.try_get(PhysicsSystem)
         query_res = MagicMock()
         query_res.point = pymunk.Vec2d(50, 0)  # Hit halfway
@@ -264,18 +272,6 @@ class TestGossipSystem:
 
         system.on_social_interaction(event)
 
-        # Should not have witnessed (no gossip added)
-        # We need to capture the queue from get_component to check
-        # But since I created new GossipQueue in get_component, I can't check it easily unless I store it.
-        # Let's mock get_component better.
-
-        witness_queue = GossipQueue()
-        mock_world.get_component.side_effect = (
-            lambda eid, c: witness_queue
-            if c == GossipQueue and eid == witness
-            else get_component(eid, c)
-        )
-
-        system.on_social_interaction(event)
-
+        # Should not have witnessed (no gossip added) because line of sight is blocked
         assert len(witness_queue.priority_queue) == 0
+

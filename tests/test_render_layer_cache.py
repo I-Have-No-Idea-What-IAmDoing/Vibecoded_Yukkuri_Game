@@ -68,7 +68,7 @@ class TestLayerCaching:
         screen = pygame.Surface((800, 600))
         
         render_system = RenderSystem(screen, world)
-        render_system.update(world, alpha=1.0)
+        render_system.update(world, dt=0.016)
         
         assert render_system._background_cache is not None
         assert render_system._background_cache_valid is True
@@ -82,11 +82,11 @@ class TestLayerCaching:
         render_system = RenderSystem(screen, world)
         
         # First update builds cache
-        render_system.update(world, alpha=1.0)
+        render_system.update(world, dt=0.016)
         first_cache = render_system._background_cache
         
         # Second update should reuse cache
-        render_system.update(world, alpha=1.0)
+        render_system.update(world, dt=0.016)
         second_cache = render_system._background_cache
         
         # Same object reference means cache was NOT rebuilt
@@ -100,7 +100,7 @@ class TestLayerCaching:
         render_system = RenderSystem(screen, world)
         
         # First update builds cache
-        render_system.update(world, alpha=1.0)
+        render_system.update(world, dt=0.016)
         initial_state = render_system._last_camera_state
         
         # Move camera significantly (more than 1 pixel)
@@ -108,7 +108,7 @@ class TestLayerCaching:
         camera.camera_y = 100.0
         
         # Update should detect change and invalidate
-        render_system.update(world, alpha=1.0)
+        render_system.update(world, dt=0.016)
         new_state = render_system._last_camera_state
         
         # States should be different
@@ -123,14 +123,14 @@ class TestLayerCaching:
         render_system = RenderSystem(screen, world)
         
         # First update builds cache
-        render_system.update(world, alpha=1.0)
+        render_system.update(world, dt=0.016)
         initial_state = render_system._last_camera_state
         
         # Change zoom
         camera.zoom = 1.5
         
         # Update should detect change
-        render_system.update(world, alpha=1.0)
+        render_system.update(world, dt=0.016)
         new_state = render_system._last_camera_state
         
         # Zoom is part of state, so states should differ
@@ -144,7 +144,7 @@ class TestLayerCaching:
         render_system = RenderSystem(screen, world)
         
         # First update
-        render_system.update(world, alpha=1.0)
+        render_system.update(world, dt=0.016)
         initial_state = render_system._last_camera_state
         
         # Move camera by less than 1 pixel (sub-pixel)
@@ -152,7 +152,7 @@ class TestLayerCaching:
         camera.camera_y = 0.3
         
         # Update should NOT invalidate (int() rounds down to 0)
-        render_system.update(world, alpha=1.0)
+        render_system.update(world, dt=0.016)
         new_state = render_system._last_camera_state
         
         # State should be the same (both round to 0)
