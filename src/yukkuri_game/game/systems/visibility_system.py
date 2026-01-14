@@ -10,7 +10,7 @@ from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import ComponentAddedEvent, ComponentRemovedEvent
 from ..components import Vision, Transform, PhysicsBody
-from ..yukkuri_components import AIState
+from ..yukkuri_components import AIState, Flight
 from .physics import PhysicsSystem
 from .physics import PhysicsSystem
 from ..collision_constants import CollisionCategories
@@ -182,11 +182,19 @@ class VisibilitySystem(System):
         if not self.space:
             return
 
+        # Flight altitude vision bonus
+        flight = world.try_get_component(entity, Flight)
+        effective_range = vision.range
+        if flight and flight.altitude > 0 and flight.max_altitude > 0:
+            # +50% vision range at max altitude
+            altitude_factor = min(1.0, flight.altitude / flight.max_altitude)
+            effective_range = vision.range * (1.0 + 0.5 * altitude_factor)
+
         # Optimization: Use point_query only? Or shape_query with a Sensor Circle?
         # Creating a sensor circle is expensive per entity per frame.
         # point_query is fast but only finds shapes overlapping a point (useless for range).
         # point_query in pymunk finds shapes within `max_dist` of point. This is exactly what we need.
-        nearby_infos = self.space.point_query(obs_pos, vision.range, query_filter)
+        nearby_infos = self.space.point_query(obs_pos, effective_range, query_filter)
 
         vision_mask = CollisionCategories.WALL | CollisionCategories.YUKKURI
         vision_ray_filter = pymunk.ShapeFilter(mask=vision_mask)
@@ -210,7 +218,7 @@ class VisibilitySystem(System):
             target_pos = body.position
             diff = target_pos - obs_pos
 
-            if diff.length_squared > vision.range * vision.range:
+            if diff.length_squared > effective_range * effective_range:
                 continue
 
             # 2. Angle Check

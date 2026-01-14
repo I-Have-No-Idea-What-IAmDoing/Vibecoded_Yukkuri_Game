@@ -11,6 +11,8 @@ from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import PhysicsFixedUpdateEvent
 from ..components import PhysicsBody, MovementController, Transform
+from ..collision_constants import CollisionCategories
+from ..yukkuri_components import Flight, FlightState
 from .physics import PhysicsSystem
 
 
@@ -134,6 +136,11 @@ class KinematicMovementSystem(System):
 
             trans.prev_x = start_pos.x
             trans.prev_y = start_pos.y
+
+            # --- Flight Collision Filter Update ---
+            flight = world.try_get_component(entity, Flight)
+            if flight:
+                self._update_flight_collision_filter(phys, flight)
 
             # 2. Perform Movement
             self.move_and_slide(phys, controller, trans, dt)
@@ -429,3 +436,39 @@ class KinematicMovementSystem(System):
 
         body.position = current_pos
         controller.current_velocity = velocity
+
+    def _update_flight_collision_filter(
+        self, phys: PhysicsBody, flight: Flight
+    ) -> None:
+        """
+        Updates the collision filter on all shapes of the physics body based on flight state.
+
+        - GROUNDED/LANDING/TAKEOFF (low altitude): Collide with ground units, low obstacles, high obstacles, water.
+        - FLYING/HOVERING (high altitude): Only collide with flying units and high obstacles.
+        - SWOOPING (attack descent): Collide with ground units, low obstacles, high obstacles.
+        """
+        CC = CollisionCategories
+
+        if flight.state in (FlightState.FLYING, FlightState.HOVERING):
+            # High altitude: ignore ground units and low obstacles
+            new_categories = CC.FLYING_UNIT
+            new_mask = CC.FLYING_UNIT | CC.HIGH_OBSTACLE
+        elif flight.state == FlightState.SWOOPING:
+            # Swooping: can hit ground units but still ignores low obstacles for attack
+            new_categories = CC.FLYING_UNIT
+            new_mask = CC.GROUND_UNIT | CC.FLYING_UNIT | CC.HIGH_OBSTACLE | CC.LOW_OBSTACLE
+        else:
+            # GROUNDED, LANDING, TAKEOFF, FALLING: normal ground collision
+            new_categories = CC.GROUND_UNIT
+            new_mask = CC.GROUND_UNIT | CC.LOW_OBSTACLE | CC.HIGH_OBSTACLE | CC.WATER | CC.ITEM
+
+        for shape in phys.body.shapes:
+            if shape.sensor:
+                continue
+            # Preserve the group (for self-collision avoidance if used)
+            current_filter = shape.filter
+            shape.filter = pymunk.ShapeFilter(
+                group=current_filter.group,
+                categories=new_categories,
+                mask=new_mask,
+            )

@@ -12,6 +12,15 @@ input = "hunger"
 curve = "linear"
 params = { m = 1.0, b = 0.0 }
 
+# Predators prefer hunting over eating regular food
+# This returns 0.0 if predator with prey nearby, 1.0 otherwise
+[[actions.Eat.considerations]]
+name = "NotHunting"
+input = "is_predator"
+curve = "inverse_linear"
+# is_predator=1 -> 0.01 normalized -> score=0.99 (still allows eating if no prey)
+# But combined with HasPrey in Hunt, predators should prefer Hunt
+
 [actions.Sleep]
 weight = 1.5
 [actions.Sleep.effects]
@@ -30,7 +39,7 @@ params = { k = 10.0, x0 = 0.7 }
 name = "NightTime"
 input = "is_night"
 curve = "threshold"
-params = { threshold = 0.5 }
+params = { threshold = 0.005 }  # is_night = 1.0 -> 0.01 after normalization
 
 [actions.Play]
 weight = 1.0
@@ -44,6 +53,7 @@ stat_changes = { happiness = 10.0 }
 name = "Boredom"
 input = "happiness_inv"
 curve = "linear"
+params = { m = 1.0, b = 0.0 }
 
 [actions.Wander]
 weight = 0.5
@@ -54,6 +64,7 @@ type = "move_random"
 name = "Base"
 input = "constant_100"
 curve = "linear"
+params = { m = 1.0, b = 0.0 }
 
 [actions.Talk]
 weight = 1.2
@@ -73,7 +84,7 @@ params = { k = 10.0, x0 = 0.5 }
 name = "HasFriends"
 input = "nearby_friends"
 curve = "threshold"
-params = { threshold = 1.0 }
+params = { threshold = 0.01 }  # At least 1 friend (1/100 = 0.01 after normalization)
 
 [actions.SeekLight]
 weight = 3.0
@@ -87,7 +98,7 @@ stat_changes = { stress = -20.0 }
 name = "NightTime"
 input = "is_night"
 curve = "threshold"
-params = { threshold = 0.5 }
+params = { threshold = 0.005 }  # is_night = 1.0 -> 0.01 after normalization
 
 [[actions.SeekLight.considerations]]
 name = "Fear"
@@ -113,7 +124,7 @@ params = { k = 10.0, x0 = 0.7 }
 name = "HasEnemies"
 input = "nearby_enemies"
 curve = "threshold"
-params = { threshold = 1.0 }
+params = { threshold = 0.01 }  # At least 1 enemy
 
 [actions.Dance]
 weight = 0.8
@@ -133,4 +144,32 @@ params = { k = 10.0, x0 = 0.8 }
 name = "HasPartner"
 input = "nearby_friends"
 curve = "threshold"
-params = { threshold = 1.0 }
+params = { threshold = 0.01 }  # At least 1 partner
+
+# Predator-specific hunting action
+[actions.Hunt]
+weight = 3.0
+[actions.Hunt.effects]
+type = "hunt_prey"
+target_stat = "hunger"
+consume = false  # Prey entity is consumed via EatPrey action
+stat_changes = { hunger = -50.0, happiness = 10.0 }
+
+[[actions.Hunt.considerations]]
+name = "Hunger"
+input = "hunger"
+curve = "logit"
+params = { k = 10.0, x0 = 0.6 }  # Triggers strongly when hunger > 60
+
+[[actions.Hunt.considerations]]
+name = "HasPrey"
+input = "nearby_enemies"  # Prey are considered "enemies" to predators
+curve = "threshold"
+params = { threshold = 0.01 }  # At least 1 prey nearby
+
+[[actions.Hunt.considerations]]
+name = "IsPredator"
+input = "is_predator"  # Only predators can hunt
+curve = "threshold"
+params = { threshold = 0.005 }  # is_predator = 1.0 -> 0.01 after normalization
+

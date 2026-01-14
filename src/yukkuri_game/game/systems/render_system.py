@@ -20,6 +20,7 @@ from ..components import (
     PhysicsBody,
     FlickerStyle,
 )
+from ..yukkuri_components import Flight
 from ..systems.sector_system import SectorMap
 from ..services import TimeService
 from ..surface_cache import SurfaceCache
@@ -487,6 +488,17 @@ class RenderSystem(System):
             shadow_radius_x = sprite.width * scale * RenderConstants.SHADOW_SCALE_X
             shadow_radius_y = shadow_radius_x * RenderConstants.SHADOW_SCALE_Y
 
+            # Flight-aware shadow scaling
+            flight = world.try_get_component(ent, Flight)
+            shadow_alpha = 255
+            if flight and flight.max_altitude > 0:
+                height_factor = min(1.0, max(0.0, flight.altitude / flight.max_altitude))
+                # Scale: 100% -> 60% size as altitude increases
+                shadow_radius_x *= (1.0 - 0.4 * height_factor)
+                shadow_radius_y *= (1.0 - 0.4 * height_factor)
+                # Alpha: 255 -> 150 as altitude increases
+                shadow_alpha = int(255 * (1.0 - 0.4 * height_factor))
+
             if shadow_radius_x > 0 and visual.has_drop_shadow:
                 self.renderer.submit(
                     ShadowCommand(
@@ -515,8 +527,11 @@ class RenderSystem(System):
                 selectable = world.try_get_component(ent, Selectable)
                 is_selected = selectable.selected if selectable else False
 
-                # Apply vertical offset
-                sprite_sy = screen_pos[1] - (visual.vertical_offset * self.camera.zoom)
+                # Apply vertical offset (including flight altitude)
+                flight_offset = 0.0
+                if flight:
+                    flight_offset = flight.altitude
+                sprite_sy = screen_pos[1] - ((visual.vertical_offset + flight_offset) * self.camera.zoom)
 
                 # Construct cache key for texture cache in OpenGLBackend
                 # Must match what uniquely identifies the visual appearance

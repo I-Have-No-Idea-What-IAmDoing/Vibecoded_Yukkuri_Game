@@ -26,6 +26,9 @@ from ..yukkuri_components import (
     EmotionalState,
     PersonalityAxis,
     GossipQueue,
+    Flight,
+    FlightState,
+    Predator,
 )
 from ..components_persistence import StableIDComponent, Persistable
 from ..collision_constants import CollisionCategories
@@ -121,9 +124,8 @@ def create_yukkuri(
         movement_controller.bob_height = visuals.bob_height
         movement_controller.bob_speed = visuals.bob_speed
     world.add_component(entity, movement_controller)
-    # Shadow logic: Only Reimu and Marisa have shadows
-    has_shadow = type_id in ("reimu", "marisa")
-    world.add_component(entity, VisualTransform(has_drop_shadow=has_shadow))
+    # Shadow logic: All Yukkuris have shadows but Flandre has special handling via Flight
+    world.add_component(entity, VisualTransform(has_drop_shadow=True))
 
     # Yukkuri Stats and Needs
     stats = YukkuriStats(
@@ -250,5 +252,33 @@ def create_yukkuri(
         set_userdata=True,
         body_type=pymunk.Body.KINEMATIC,
     )
+
+    # Flight Component (for flying Yukkuris like Flandre)
+    can_fly = _get_attr(data, "can_fly", False)
+    if can_fly:
+        max_altitude = _get_attr(data, "max_altitude", 60.0)
+        fly_stamina = _get_attr(data, "fly_stamina", 100.0)
+        flight = Flight(
+            altitude=0.0,
+            max_altitude=max_altitude,
+            stamina=fly_stamina,
+            max_stamina=fly_stamina,
+            state=FlightState.GROUNDED,
+        )
+        world.add_component(entity, flight)
+
+    # Predator Component (for predator Yukkuris like Flandre)
+    is_predator = _get_attr(data, "is_predator", False)
+    if is_predator:
+        prey_tags_raw = _get_attr(data, "prey_tags", [])
+        prey_tags = set(prey_tags_raw) if prey_tags_raw else set()
+        predator = Predator(
+            prey_tags=prey_tags,
+            prey_sense_radius=_get_attr(data, "prey_sense_radius", 300.0),
+            hunger_threshold=_get_attr(data, "hunger_threshold", 60.0),
+            aggression=_get_attr(data, "aggression", 1.0),
+            dps=_get_attr(data, "dps", 20.0),
+        )
+        world.add_component(entity, predator)
 
     return entity

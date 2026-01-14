@@ -16,6 +16,8 @@ from ..yukkuri_components import (
     Personality,
     EmotionalState,
     Skills,
+    Predator,
+    RelationshipRegistry,
 )
 from ..components import Transform
 from ..trait_service import TraitService
@@ -148,10 +150,60 @@ class UtilitySelector(Action):
                         (my_trans.x - other_trans.x) ** 2
                         + (my_trans.y - other_trans.y) ** 2
                     ) ** 0.5
-                    if dist < 200.0:  # Detection range
-                        if other_stats.type_id == stats.type_id:
+                    
+                    # Determine detection range
+                    detection_range = 200.0
+                    predator = self.world.try_get_component(self.entity_id, Predator)
+                    if predator:
+                        detection_range = max(detection_range, predator.prey_sense_radius)
+
+                    if dist < detection_range:  # Detection range
+                        is_friend = False
+                        is_enemy = False
+                        
+                        # 1. Check Predator/Prey Status (Highest priority for "Enemies")
+                        # If I am prey and they are a predator targeting my type -> Enemy (Threat)
+                        other_predator = self.world.try_get_component(other_id, Predator)
+                        if other_predator and stats.type_id in other_predator.prey_tags:
+                            is_enemy = True
+                            
+                        # If I am a predator and they are my prey -> Enemy (Food/Target)
+                        # "HasPrey" consideration uses "nearby_enemies" input
+                        predator = self.world.try_get_component(self.entity_id, Predator)
+                        if predator and other_stats.type_id in predator.prey_tags:
+                            is_enemy = True
+                            
+                        # 2. Check Relationship Registry
+                        # Relationships can override species defaults (e.g. tamed predator?)
+                        # For now, we assume biological imperative (pred/prey) is strong, but let's check affinity.
+                        registry = self.world.try_get_component(self.entity_id, RelationshipRegistry)
+                        if registry:
+                            rel_data = registry.relationships.get(other_id)
+                            if rel_data:
+                                if rel_data.affinity > 20.0:
+                                    is_friend = True
+                                    # Friends shouldn't be enemies typically, but conflicting instincts exist.
+                                    # We'll let Friendship override Enmity if it's strong enough?
+                                    # For simple AI, if friend -> not enemy.
+                                    is_enemy = False
+                                elif rel_data.affinity < -20.0:
+                                    is_enemy = True
+                                    is_friend = False
+                                    
+                        # 3. Fallback: Type Matching
+                        # If neither friend nor enemy yet confirmed
+                        if not is_friend and not is_enemy:
+                            if other_stats.type_id == stats.type_id:
+                                is_friend = True
+                            else:
+                                # Different types are Neutral by default, unless aggression is high
+                                # (which we don't check here yet).
+                                # So count as neither friend nor enemy.
+                                pass
+
+                        if is_friend:
                             nearby_friends += 1
-                        else:
+                        if is_enemy:
                             nearby_enemies += 1
 
         # Extract emotional state
@@ -189,6 +241,7 @@ class UtilitySelector(Action):
             "is_night": is_night,
             "constant_100": 100.0,
             "constant_0": 0.0,
+            "is_predator": 1.0 if self.world.has_component(self.entity_id, Predator) else 0.0,
         }
 
         # Inject Skills into Context
@@ -227,8 +280,6 @@ class UtilitySelector(Action):
         best_action = self.engine.select_action(
             context, personality, self.trait_service
         )
-
-        # print(f"DEBUG: UtilitySelector selected {best_action}")
 
         # Update AI State
         if best_action != ai.current_action:

@@ -3,12 +3,27 @@ Yukkuri Components Module.
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, TYPE_CHECKING
 from ..engine.ecs import Component
 from ..engine.types import EntityID
 
 if TYPE_CHECKING:
     from ..config import StatsSettings
+
+
+class FlightState(Enum):
+    """
+    Enum representing the flight state of a flying Yukkuri.
+    """
+
+    GROUNDED = 0   # Walking/Idle on ground
+    TAKEOFF = 1    # Ascending (Altitude < Max)
+    FLYING = 2     # Cruising (Altitude ~= Max)
+    HOVERING = 3   # Stationary in air (Reduced Stamina Cost)
+    LANDING = 4    # Descending (Altitude > 0)
+    SWOOPING = 5   # Rapid attack descent (Altitude -> 0 temporarily)
+    FALLING = 6    # Out of stamina/Stunned. Gravity applies full force.
 
 
 @dataclass(slots=True)
@@ -540,3 +555,54 @@ class Dead:
     """
 
     pass
+
+
+@dataclass(slots=True)
+class Flight(Component):
+    """
+    Component for flying Yukkuris.
+
+    Attributes:
+        altitude (float): Current visual height (0.0 to max_altitude).
+        max_altitude (float): Target height for cruising.
+        vertical_speed (float): Units per second for ascent/descent.
+        stamina (float): Current flight stamina.
+        max_stamina (float): Maximum flight stamina.
+        fly_cost (float): Stamina drain/sec while moving in air.
+        hover_cost (float): Stamina drain/sec while stationary.
+        recovery_rate (float): Stamina gain/sec while GROUNDED.
+        state (FlightState): Current flight state.
+    """
+
+    altitude: float = 0.0
+    max_altitude: float = 60.0
+    vertical_speed: float = 20.0
+
+    stamina: float = 100.0
+    max_stamina: float = 100.0
+
+    fly_cost: float = 5.0
+    hover_cost: float = 1.0
+    recovery_rate: float = 10.0
+
+    state: FlightState = FlightState.GROUNDED
+
+
+@dataclass(slots=True)
+class Predator(Component):
+    """
+    Component for predator Yukkuris that hunt other entities.
+
+    Attributes:
+        prey_tags (set[str]): Tags that identify valid prey (e.g., {"Prey", "Weak"}).
+        prey_sense_radius (float): Detection range for prey.
+        hunger_threshold (float): Hunger level at which hunting starts.
+        aggression (float): Multiplier for attack decisions.
+        dps (float): Damage per second when eating prey.
+    """
+
+    prey_tags: set[str] = field(default_factory=set)
+    prey_sense_radius: float = 300.0
+    hunger_threshold: float = 60.0
+    aggression: float = 1.0
+    dps: float = 20.0

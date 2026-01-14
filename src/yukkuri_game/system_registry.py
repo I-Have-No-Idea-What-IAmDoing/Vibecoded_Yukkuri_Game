@@ -27,6 +27,7 @@ from .game.systems.gossip_system import GossipSystem
 from .game.systems.family_system import FamilySystem
 from .game.systems.game_rules_system import GameRulesSystem
 from .game.systems.inventory_system import InventorySystem
+from .game.systems.flight_system import FlightSystem
 from .game.input_system import InputSystem
 from .game.systems.time_system import TimeSystem
 from .game.systems.mouse_light_system import MouseLightSystem
@@ -83,6 +84,7 @@ class SystemRegistry:
         world.add_system(LifecycleSystem(settings=game_config.rules.lifecycle))
         world.add_system(BehaviorSystem(float(camera.width), float(camera.height)))
         world.add_system(KinematicMovementSystem())
+        world.add_system(FlightSystem())  # Handles flight stamina/altitude logic
         world.add_system(HierarchySystem())
         world.add_system(VisualMovementSystem())
         world.add_system(ConstructionSystem())

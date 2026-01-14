@@ -46,6 +46,18 @@ class YukkuriType(msgspec.Struct):
         base_happiness (int): The starting happiness level.
         cost (int): The purchase cost of the Yukkuri. Defaults to 100.
         animations (Dict[str, AnimationDefinition]): A dictionary of animation definitions.
+        # Flight capabilities
+        can_fly (bool): Whether this Yukkuri can fly.
+        max_altitude (float): Maximum flight altitude.
+        fly_stamina (float): Maximum flight stamina.
+        # Predator capabilities
+        is_predator (bool): Whether this Yukkuri is a predator.
+        prey_tags (list[str]): List of type_ids that this predator can hunt.
+        prey_sense_radius (float): Detection range for prey.
+        aggression (float): Aggression multiplier.
+        dps (float): Damage per second when eating prey.
+        # Prey flag
+        is_prey (bool): Whether this Yukkuri can be hunted by predators.
     """
 
     name: str
@@ -56,6 +68,18 @@ class YukkuriType(msgspec.Struct):
     base_happiness: int
     cost: int = 100
     animations: dict[str, AnimationDefinition] = {}
+    # Flight capabilities
+    can_fly: bool = False
+    max_altitude: float = 60.0
+    fly_stamina: float = 100.0
+    # Predator capabilities
+    is_predator: bool = False
+    prey_tags: list[str] = []
+    prey_sense_radius: float = 300.0
+    aggression: float = 1.0
+    dps: float = 20.0
+    # Prey flag
+    is_prey: bool = False
 
 
 class ItemType(msgspec.Struct):

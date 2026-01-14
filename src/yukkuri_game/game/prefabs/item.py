@@ -20,6 +20,7 @@ from ..yukkuri_components import ItemStats, Poop
 from ..components_persistence import StableIDComponent, Persistable
 from ..collision_constants import CollisionCategories
 from ..systems.physics import PhysicsSystem
+from ..ai.navigation_service import NavigationService, ObstacleType
 
 
 def create_item(world: World, type_id: str, x: float, y: float) -> int:
@@ -135,6 +136,22 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         )
         physics_system.space.add(body, shape)
         world.add_component(entity, PhysicsBody(body=body, shape=shape))
+
+    # Navigation Obstacle Registration
+    # Check if this item should block navigation
+    obstacle_str = _get_attr(data, "obstacle_type", None)
+    if obstacle_str:
+        nav_service = world.services.try_get(NavigationService)
+        if nav_service:
+            obs_type = ObstacleType.HIGH
+            if obstacle_str.upper() == "LOW":
+                obs_type = ObstacleType.LOW
+            
+            # Use rect-based registration for better coverage
+            nav_service.update_obstacle_rect(
+                x, y, float(width), float(height),
+                walkable=False, obstacle_type=obs_type
+            )
 
     return entity
 

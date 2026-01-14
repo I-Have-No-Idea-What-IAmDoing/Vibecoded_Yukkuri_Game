@@ -86,6 +86,7 @@ class TestMoveToTarget:
         nav_service.find_path.return_value = [(50, 50), (100, 100)]
         mock_world.services = MagicMock()
         mock_world.services.try_get.return_value = nav_service
+        mock_world.try_get_component.return_value = None  # No Flight component
 
         def get_component(e, c):
             if e == 1:
@@ -201,14 +202,18 @@ class TestBehaviorBuilders:
         # Verify root is a Selector (due to Stress Break update)
         assert isinstance(tree, py_trees.composites.Selector)
 
-        # Structure: Root Selector -> Stress Break Sequence -> Normal Behavior Sequence
-        assert len(tree.children) == 2
+        # Structure: Root Selector -> Stress Break Sequence -> Self Preservation -> Normal Behavior Sequence
+        assert len(tree.children) == 3
 
         stress_break = tree.children[0]
         assert isinstance(stress_break, py_trees.composites.Sequence)
         assert stress_break.name == "Stress Break"
 
-        normal_behavior = tree.children[1]
+        self_preservation = tree.children[1]
+        assert isinstance(self_preservation, py_trees.composites.Sequence)
+        assert self_preservation.name == "Self Preservation"
+
+        normal_behavior = tree.children[2]
         assert isinstance(normal_behavior, py_trees.composites.Sequence)
         assert normal_behavior.name == "Normal Behavior"
 

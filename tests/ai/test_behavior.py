@@ -26,7 +26,7 @@ def world_and_entity():
         def __init__(self, world_width: int, world_height: int):
             pass
 
-        def find_path(self, start, end):
+        def find_path(self, start, end, can_fly=False):
             return [end]  # Simple straight path
 
     world.services.register(MockNavService(1000, 1000), NavigationService)
@@ -110,7 +110,7 @@ def test_movetotarget_falls_back_to_direct_movement_if_no_path(world_and_entity)
         def __init__(self, world_width: int, world_height: int):
             pass
 
-        def find_path(self, start, end):
+        def find_path(self, start, end, can_fly=False):
             return []
 
     world.services.register(

@@ -6,6 +6,7 @@ height = 64
 max_health = 100
 base_happiness = 50
 cost = 100
+is_prey = true  # Can be hunted by predators
 
 [yukkuris.marisa]
 name = "Marisa"
@@ -15,3 +16,23 @@ height = 64
 max_health = 120
 base_happiness = 40
 cost = 100
+is_prey = true  # Can be hunted by predators
+
+[yukkuris.flandre]
+name = "Flandre"
+image = "flandre.png"
+width = 64
+height = 64
+max_health = 150
+base_happiness = 30
+cost = 500
+# Flight capabilities
+can_fly = true
+max_altitude = 80.0
+fly_stamina = 120.0
+# Predator capabilities
+is_predator = true
+prey_tags = ["reimu", "marisa"]
+prey_sense_radius = 350.0
+aggression = 1.5
+dps = 25.0
