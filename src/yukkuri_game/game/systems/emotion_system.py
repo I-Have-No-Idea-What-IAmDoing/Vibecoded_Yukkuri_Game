@@ -171,7 +171,9 @@ class EmotionSystem(System):
         if personality and personality.base_axis:
             self._drift_personality(personality, dt)
 
-    def _calculate_multipliers(self, personality: Personality | None) -> dict[str, float]:
+    def _calculate_multipliers(
+        self, personality: Personality | None
+    ) -> dict[str, float]:
         """Calculates decay multipliers based on traits."""
         mults = {
             "hunger": 1.0,

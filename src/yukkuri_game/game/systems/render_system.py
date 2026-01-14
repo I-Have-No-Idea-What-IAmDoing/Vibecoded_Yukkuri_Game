@@ -187,7 +187,6 @@ class RenderSystem(System):
         # 6. Render
         self.renderer.render()
 
-
     def _process_placement_preview(self, world: World, sw: int, sh: int) -> None:
         """
         Renders the placement preview (ghost sprite).
@@ -199,17 +198,17 @@ class RenderSystem(System):
         """
         # Lazy import to avoid circular dependency
         from ..services import InputService
-        
+
         input_service = world.services.try_get(InputService)
-        
+
         if not input_service or not input_service.is_placing:
             return
 
         image_name = input_service.place_image_name
         wx, wy = input_service.current_placement_pos
-        
+
         sx, sy = self.camera.world_to_screen_fast(wx, wy)
-        
+
         # Basic Fallback logic
         img = None
         if image_name:
@@ -218,10 +217,10 @@ class RenderSystem(System):
                 # Try to get correct width/height from item/yukkuri data
                 place_type = input_service.place_type
                 entity_type = input_service.place_entity_type
-                
+
                 sprite_width = 64  # Default
                 sprite_height = 64
-                
+
                 if entity_type == "item" and place_type in self.rm.item_types:
                     item_data = self.rm.item_types[place_type]
                     sprite_width = getattr(item_data, "width", 32)
@@ -232,29 +231,30 @@ class RenderSystem(System):
                     sprite_height = getattr(yuk_data, "height", 64)
                     # New Yukkuri start as babies - use shared constant
                     from ..yukkuri_constants import get_initial_scale
+
                     initial_scale = get_initial_scale()
                     sprite_width = int(sprite_width * initial_scale)
                     sprite_height = int(sprite_height * initial_scale)
-                
+
                 # Apply camera zoom scaling to sprite dimensions
                 # Quantize scale to prevent cache thrashing
                 raw_scale = self.camera.zoom
                 scale = round(raw_scale * 20.0) / 20.0
-                
+
                 final_w = int(sprite_width * scale)
                 final_h = int(sprite_height * scale)
-                
+
                 if final_w > 0 and final_h > 0:
                     # Scale the entire loaded image to target size
                     img = pygame.transform.scale(raw_surf, (final_w, final_h))
-        
+
         # Fallback if image load failed or no name provided
         if not img:
             # Create a generic colored rect (e.g. green box)
             size = int(32 * self.camera.zoom)
             img = pygame.Surface((size, size), pygame.SRCALPHA)
             img.fill((0, 255, 0, 128))  # Semi-transparent green
-        
+
         # Render the ghost
         if img:
             # We need to render this immediately to the screen or submit a command
@@ -263,28 +263,28 @@ class RenderSystem(System):
             # Wait, self.renderer.render() executes and clears the queue.
             # So if we submit now, it won't be drawn until NEXT frame's render() call?
             # Or we can draw directly to screen since we are "Last to be on top".
-            
+
             # Better architecture: Submit it before renderer.render()
-            
+
             # Apply Transparency to the cached surface if possible, or use alpha in SpriteCommand if supported.
-            # SpriteCommand has alpha=255. 
+            # SpriteCommand has alpha=255.
             # If we used a fallback rect with alpha, it works.
             # For the real sprite, we might need to set alpha.
-            
+
             # For now, let's assume SpriteCommand alpha works (it's in the args).
-            
+
             self.renderer.submit(
                 SpriteCommand(
-                    layer=LAYER_UI, # UI Layer is usually top
+                    layer=LAYER_UI,  # UI Layer is usually top
                     z_index=99999,
                     image=img,
-                    position=(sx, sy), # Center/TopLeft? usually center in this engine?
+                    position=(sx, sy),  # Center/TopLeft? usually center in this engine?
                     # RenderSystem usually centers sprites if they are entities.
                     # InputSystem gives us 'wx, wy' which is the center of selection/click.
                     # So center is correct.
                     selected=False,
-                    alpha=128, # Half Transparent
-                    cache_key=None
+                    alpha=128,  # Half Transparent
+                    cache_key=None,
                 )
             )
 
@@ -316,7 +316,10 @@ class RenderSystem(System):
         margin = 32
         req_w, req_h = sw + margin * 2, sh + margin * 2
 
-        if not self._background_cache or self._background_cache.get_size() != (req_w, req_h):
+        if not self._background_cache or self._background_cache.get_size() != (
+            req_w,
+            req_h,
+        ):
             self._background_cache = pygame.Surface((req_w, req_h), pygame.SRCALPHA)
 
         self._background_cache.fill((0, 0, 0, 0))  # Clear with transparent
@@ -349,7 +352,7 @@ class RenderSystem(System):
         # We need to adjust the camera's "screen center" logic for this larger surface.
         # world_to_screen_fast uses (screen_width // 2, screen_height // 2) internally?
         # Let's check Camera class.
-        pass # Checked: Camera.world_to_screen_fast uses self.half_width, self.half_height
+        pass  # Checked: Camera.world_to_screen_fast uses self.half_width, self.half_height
 
         # So we need to temporarily update Camera's half_width/height OR just use the original
         # and blit with an offset?
@@ -358,12 +361,21 @@ class RenderSystem(System):
         # Just use current screen size. Accept slight edge artifacts during movement.
         # It's a grid on a background color.
 
-        self._draw_grid(sw, sh, target_surface=self._background_cache,
-                        override_cam_pos=(cached_cam_x, cached_cam_y))
+        self._draw_grid(
+            sw,
+            sh,
+            target_surface=self._background_cache,
+            override_cam_pos=(cached_cam_x, cached_cam_y),
+        )
         self._background_cache_valid = True
 
-    def _draw_grid(self, sw: int, sh: int, target_surface: pygame.Surface | None = None,
-                   override_cam_pos: tuple[float, float] | None = None) -> None:
+    def _draw_grid(
+        self,
+        sw: int,
+        sh: int,
+        target_surface: pygame.Surface | None = None,
+        override_cam_pos: tuple[float, float] | None = None,
+    ) -> None:
         # Generate grid lines commands? Or just draw immediate if backend supports it.
         # Let's verify backend has draw_line
 
@@ -377,10 +389,7 @@ class RenderSystem(System):
 
         # Custom world_to_screen logic for this method to support override
         def world_to_screen(wx, wy):
-            return (
-                (wx - cam_x) * zoom + sw / 2,
-                (wy - cam_y) * zoom + sh / 2
-            )
+            return ((wx - cam_x) * zoom + sw / 2, (wy - cam_y) * zoom + sh / 2)
 
         start_col, end_col, start_row, end_row = self._calculate_grid_bounds(
             sw, sh, grid_size, cam_x, cam_y
@@ -388,7 +397,7 @@ class RenderSystem(System):
 
         # Optimization: Batch line drawing if possible, or direct draw to surface
         if target_surface:
-             # Draw directly to cache surface
+            # Draw directly to cache surface
             for col in range(start_col, end_col):
                 x = col * grid_size
                 sx, _ = world_to_screen(x, 0)
@@ -421,8 +430,14 @@ class RenderSystem(System):
                     _, sy = self.camera.world_to_screen_fast(0, y)
                 self.renderer.backend.draw_line((0, sy), (sw, sy), color)
 
-    def _calculate_grid_bounds(self, screen_w: int, screen_h: int, grid_size: int,
-                               cam_x: float | None = None, cam_y: float | None = None) -> tuple[int, int, int, int]:
+    def _calculate_grid_bounds(
+        self,
+        screen_w: int,
+        screen_h: int,
+        grid_size: int,
+        cam_x: float | None = None,
+        cam_y: float | None = None,
+    ) -> tuple[int, int, int, int]:
         if cam_x is not None and cam_y is not None:
             # Custom calculation based on override pos
             # screen_to_world inverse:
@@ -478,7 +493,7 @@ class RenderSystem(System):
             # Shadow
             # Calculate shadow position
             # Calculate feet offset (half height) to place shadow at the base
-            feet_offset_y = (sprite.height * transform.scale * 0.5)
+            feet_offset_y = sprite.height * transform.scale * 0.5
 
             shadow_x, shadow_y = self.camera.world_to_screen_fast(
                 ix + visual.shadow_position.x,
@@ -492,10 +507,12 @@ class RenderSystem(System):
             flight = world.try_get_component(ent, Flight)
             shadow_alpha = 255
             if flight and flight.max_altitude > 0:
-                height_factor = min(1.0, max(0.0, flight.altitude / flight.max_altitude))
+                height_factor = min(
+                    1.0, max(0.0, flight.altitude / flight.max_altitude)
+                )
                 # Scale: 100% -> 60% size as altitude increases
-                shadow_radius_x *= (1.0 - 0.4 * height_factor)
-                shadow_radius_y *= (1.0 - 0.4 * height_factor)
+                shadow_radius_x *= 1.0 - 0.4 * height_factor
+                shadow_radius_y *= 1.0 - 0.4 * height_factor
                 # Alpha: 255 -> 150 as altitude increases
                 shadow_alpha = int(255 * (1.0 - 0.4 * height_factor))
 
@@ -531,7 +548,9 @@ class RenderSystem(System):
                 flight_offset = 0.0
                 if flight:
                     flight_offset = flight.altitude
-                sprite_sy = screen_pos[1] - ((visual.vertical_offset + flight_offset) * self.camera.zoom)
+                sprite_sy = screen_pos[1] - (
+                    (visual.vertical_offset + flight_offset) * self.camera.zoom
+                )
 
                 # Construct cache key for texture cache in OpenGLBackend
                 # Must match what uniquely identifies the visual appearance

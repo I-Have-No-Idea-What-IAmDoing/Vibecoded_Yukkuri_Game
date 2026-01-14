@@ -88,7 +88,7 @@ class World:
     def _switch(self) -> None:
         """
         Switches to this world's context.
-        
+
         Performance: Uses identity comparison for fast-path when already in correct context.
 
         Returns:
@@ -335,7 +335,6 @@ class World:
         """
         self._switch()
         return esper.get_components(*component_types)
-
 
     def get_all_components(self, entity: int) -> tuple[Any, ...]:
         """

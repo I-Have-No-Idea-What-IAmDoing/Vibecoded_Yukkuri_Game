@@ -48,10 +48,12 @@ class Consideration:
         val = context.get(self.input_key, None)
         if val is None:
             # Log warning only once per key to avoid spam
-            if not hasattr(self, '_warned_keys'):
+            if not hasattr(self, "_warned_keys"):
                 self._warned_keys = set()
             if self.input_key not in self._warned_keys:
-                logger.warning(f"Consideration '{self.name}': Missing context key '{self.input_key}', defaulting to 0.0")
+                logger.warning(
+                    f"Consideration '{self.name}': Missing context key '{self.input_key}', defaulting to 0.0"
+                )
                 self._warned_keys.add(self.input_key)
             val = 0.0
 
@@ -175,15 +177,15 @@ class Action:
     ) -> float:
         """
         Calculates utility with compensation factor to prevent score collapse.
-        
+
         Uses geometric mean compensation to address the issue where multiplying
         many small scores together results in a very low final score.
         The formula is: weight * (product of scores) ^ (1/n) where n is the number of considerations.
-        
+
         Args:
             context: Current world state context.
             trait_overrides: Optional trait modifier overrides.
-            
+
         Returns:
             float: Compensated utility score.
         """
@@ -197,12 +199,12 @@ class Action:
             if s <= 0.001:
                 return 0.0  # Early exit if any consideration fails
             scores.append(s)
-        
+
         # Geometric mean: (a * b * c) ^ (1/3)
         product = 1.0
         for s in scores:
             product *= s
-        
+
         compensated = product ** (1.0 / len(scores)) if scores else 0.0
         return self.weight * compensated
 
@@ -367,17 +369,17 @@ class UtilityAIEngine:
     def validate_config(self) -> list[str]:
         """
         Validates the loaded actions configuration for common issues.
-        
+
         Checks for:
         - Threshold values that may be incorrectly configured (e.g., 1.0 for booleans)
         - Missing weight values
         - Empty considerations
-        
+
         Returns:
             list[str]: List of warning messages for potential issues.
         """
         warnings = []
-        
+
         for action_name, action in self.actions.items():
             # Check for empty considerations
             if not action.considerations:
@@ -385,71 +387,77 @@ class UtilityAIEngine:
                     f"Action '{action_name}': No considerations defined. "
                     "Will always score 0 and never be selected."
                 )
-            
+
             for cons in action.considerations:
                 # Check for potentially incorrect threshold values
                 if cons.curve_type == "threshold":
                     threshold = cons.params.get("threshold", 0.5)
-                    
+
                     # Warn about thresholds that are too high for boolean inputs
-                    if cons.input_key in ("is_night", "is_predator") and threshold >= 0.5:
+                    if (
+                        cons.input_key in ("is_night", "is_predator")
+                        and threshold >= 0.5
+                    ):
                         warnings.append(
                             f"Action '{action_name}', Consideration '{cons.name}': "
                             f"Threshold {threshold} may be too high for boolean input "
                             f"'{cons.input_key}' (1.0 normalizes to 0.01). "
                             f"Consider using threshold=0.005."
                         )
-                    
+
                     # Warn about thresholds >= 1.0 for count inputs
-                    if cons.input_key in ("nearby_friends", "nearby_enemies") and threshold >= 1.0:
+                    if (
+                        cons.input_key in ("nearby_friends", "nearby_enemies")
+                        and threshold >= 1.0
+                    ):
                         warnings.append(
                             f"Action '{action_name}', Consideration '{cons.name}': "
                             f"Threshold {threshold} is too high for count input "
                             f"'{cons.input_key}' (count of 1 normalizes to 0.01). "
                             f"Consider using threshold=0.01."
                         )
-        
+
         # Log warnings
         for warning in warnings:
             logger.warning(f"Config Validation: {warning}")
-        
+
         return warnings
 
     def debug_score(self, context: dict[str, Any], action_name: str) -> dict[str, Any]:
         """
         Returns detailed scoring breakdown for a specific action.
-        
+
         Useful for debugging why an action was or wasn't selected.
-        
+
         Args:
             context: The current context dictionary.
             action_name: Name of the action to debug.
-            
+
         Returns:
             dict: Detailed breakdown including each consideration's score.
         """
         if action_name not in self.actions:
             return {"error": f"Action '{action_name}' not found"}
-        
+
         action = self.actions[action_name]
         result = {
             "action": action_name,
             "weight": action.weight,
             "considerations": [],
-            "final_score": 0.0
+            "final_score": 0.0,
         }
-        
+
         if not action.considerations:
             result["final_score"] = 0.0
             result["reason"] = "No considerations"
             return result
-        
+
         running_score = action.weight
         for cons in action.considerations:
             input_val = context.get(cons.input_key, 0.0)
             normalized_val = max(0, min(100, input_val)) / 100.0
             score = cons.score(context)
-            
+
             cons_detail = {
                 "name": cons.name,
                 "input_key": cons.input_key,
@@ -457,11 +465,10 @@ class UtilityAIEngine:
                 "normalized_value": round(normalized_val, 4),
                 "curve": cons.curve_type,
                 "params": cons.params,
-                "score": round(score, 4)
+                "score": round(score, 4),
             }
             result["considerations"].append(cons_detail)
             running_score *= score
-        
+
         result["final_score"] = round(running_score, 6)
         return result
-

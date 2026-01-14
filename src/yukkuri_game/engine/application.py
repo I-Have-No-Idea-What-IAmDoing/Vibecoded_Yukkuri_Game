@@ -41,7 +41,7 @@ class Application:
         self.title = title
         self.headless = headless
         self.render_scale = render_scale
-        
+
         self.lights_engine: pl2d.LightingEngine | None = None
         self.screen: pygame.Surface | None = None
 
@@ -99,7 +99,6 @@ class Application:
             try:
                 # Calculate native resolution based on render scale
 
-
                 # Initialize LightingEngine instead of standard display
                 # We match native_res to screen_res for now to keep pixel density same as before
                 # unless we want pixel art style (which yukkuri usually is).
@@ -139,7 +138,11 @@ class Application:
                 pygame.display.set_caption(self.title)
 
     def change_resolution(
-        self, width: int, height: int, fullscreen: bool, render_scale: float | None = None
+        self,
+        width: int,
+        height: int,
+        fullscreen: bool,
+        render_scale: float | None = None,
     ) -> None:
         """
         Changes the resolution and fullscreen state.
@@ -302,6 +305,7 @@ class Application:
             # Dynamic dispatch requires Any or explicit cast
             from typing import Any
             from typing import cast
+
             scene = cast(Any, self.scene_manager.current_scene)
             scene.init_render_system_headless()
 

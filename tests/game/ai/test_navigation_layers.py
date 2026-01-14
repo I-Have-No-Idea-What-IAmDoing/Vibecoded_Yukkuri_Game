@@ -2,7 +2,6 @@
 Unit tests for the Navigation Service dual-layer grids.
 """
 
-import pytest
 from yukkuri_game.game.ai.navigation_service import NavigationService, ObstacleType
 
 
@@ -22,7 +21,9 @@ class TestNavigationServiceDualGrids:
         nav = NavigationService(1000, 1000, grid_step_size=50)
 
         # Place a low obstacle
-        nav.update_obstacle(100.0, 100.0, walkable=False, obstacle_type=ObstacleType.LOW)
+        nav.update_obstacle(
+            100.0, 100.0, walkable=False, obstacle_type=ObstacleType.LOW
+        )
 
         gx, gy = 2, 2  # 100 / 50 = 2
         assert nav.ground_grid.node(gx, gy).walkable is False
@@ -32,7 +33,9 @@ class TestNavigationServiceDualGrids:
         """HIGH obstacles should block both ground and air grids."""
         nav = NavigationService(1000, 1000, grid_step_size=50)
 
-        nav.update_obstacle(200.0, 200.0, walkable=False, obstacle_type=ObstacleType.HIGH)
+        nav.update_obstacle(
+            200.0, 200.0, walkable=False, obstacle_type=ObstacleType.HIGH
+        )
 
         gx, gy = 4, 4
         assert nav.ground_grid.node(gx, gy).walkable is False
@@ -74,7 +77,9 @@ class TestNavigationServiceDualGrids:
         """Reset should clear both grids."""
         nav = NavigationService(500, 500, grid_step_size=50)
 
-        nav.update_obstacle(100.0, 100.0, walkable=False, obstacle_type=ObstacleType.HIGH)
+        nav.update_obstacle(
+            100.0, 100.0, walkable=False, obstacle_type=ObstacleType.HIGH
+        )
         nav.reset()
 
         gx, gy = 2, 2

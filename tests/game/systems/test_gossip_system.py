@@ -232,7 +232,7 @@ class TestGossipSystem:
 
         actor_trans = Transform(x=0, y=0)
         witness_trans = Transform(x=100, y=0)
-        
+
         # Create persistent witness queue that we can check after the test
         witness_queue = GossipQueue()
 
@@ -274,4 +274,3 @@ class TestGossipSystem:
 
         # Should not have witnessed (no gossip added) because line of sight is blocked
         assert len(witness_queue.priority_queue) == 0
-

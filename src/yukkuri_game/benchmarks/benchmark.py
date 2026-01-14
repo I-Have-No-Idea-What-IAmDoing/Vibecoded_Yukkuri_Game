@@ -10,10 +10,9 @@ import statistics
 import platform
 import gc
 import csv
-from typing import Any, cast
+from typing import Any
 import random
 import logging
-from types import ModuleType
 
 # Use Any for optional modules to avoid assignment errors with None
 psutil: Any = None
@@ -353,14 +352,15 @@ def compare_results(current: dict[str, Any], baseline: dict[str, Any]) -> None:
                 base_val = base_val[key]
 
             # Ensure values are numbers for subtraction
-            if isinstance(curr_val, (int, float)) and isinstance(base_val, (int, float)):
+            if isinstance(curr_val, (int, float)) and isinstance(
+                base_val, (int, float)
+            ):
                 diff = curr_val - base_val
                 pct = (diff / base_val * 100) if base_val != 0 else 0.0
             else:
-                 continue
+                continue
 
             # For frame time, lower is better. For FPS/Speed, higher is better.
-
 
             sign = "+" if pct > 0 else ""
             print(f"{label}: {base_val:.2f} -> {curr_val:.2f} ({sign}{pct:.2f}%)")

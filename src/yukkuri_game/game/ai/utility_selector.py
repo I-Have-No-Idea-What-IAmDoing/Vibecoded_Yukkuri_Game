@@ -150,33 +150,41 @@ class UtilitySelector(Action):
                         (my_trans.x - other_trans.x) ** 2
                         + (my_trans.y - other_trans.y) ** 2
                     ) ** 0.5
-                    
+
                     # Determine detection range
                     detection_range = 200.0
                     predator = self.world.try_get_component(self.entity_id, Predator)
                     if predator:
-                        detection_range = max(detection_range, predator.prey_sense_radius)
+                        detection_range = max(
+                            detection_range, predator.prey_sense_radius
+                        )
 
                     if dist < detection_range:  # Detection range
                         is_friend = False
                         is_enemy = False
-                        
+
                         # 1. Check Predator/Prey Status (Highest priority for "Enemies")
                         # If I am prey and they are a predator targeting my type -> Enemy (Threat)
-                        other_predator = self.world.try_get_component(other_id, Predator)
+                        other_predator = self.world.try_get_component(
+                            other_id, Predator
+                        )
                         if other_predator and stats.type_id in other_predator.prey_tags:
                             is_enemy = True
-                            
+
                         # If I am a predator and they are my prey -> Enemy (Food/Target)
                         # "HasPrey" consideration uses "nearby_enemies" input
-                        predator = self.world.try_get_component(self.entity_id, Predator)
+                        predator = self.world.try_get_component(
+                            self.entity_id, Predator
+                        )
                         if predator and other_stats.type_id in predator.prey_tags:
                             is_enemy = True
-                            
+
                         # 2. Check Relationship Registry
                         # Relationships can override species defaults (e.g. tamed predator?)
                         # For now, we assume biological imperative (pred/prey) is strong, but let's check affinity.
-                        registry = self.world.try_get_component(self.entity_id, RelationshipRegistry)
+                        registry = self.world.try_get_component(
+                            self.entity_id, RelationshipRegistry
+                        )
                         if registry:
                             rel_data = registry.relationships.get(other_id)
                             if rel_data:
@@ -189,7 +197,7 @@ class UtilitySelector(Action):
                                 elif rel_data.affinity < -20.0:
                                     is_enemy = True
                                     is_friend = False
-                                    
+
                         # 3. Fallback: Type Matching
                         # If neither friend nor enemy yet confirmed
                         if not is_friend and not is_enemy:
@@ -241,7 +249,9 @@ class UtilitySelector(Action):
             "is_night": is_night,
             "constant_100": 100.0,
             "constant_0": 0.0,
-            "is_predator": 1.0 if self.world.has_component(self.entity_id, Predator) else 0.0,
+            "is_predator": 1.0
+            if self.world.has_component(self.entity_id, Predator)
+            else 0.0,
         }
 
         # Inject Skills into Context

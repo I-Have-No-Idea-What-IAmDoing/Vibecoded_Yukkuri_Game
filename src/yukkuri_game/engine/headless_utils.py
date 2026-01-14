@@ -40,6 +40,7 @@ def patch_headless_lighting() -> Iterator[None]:
     # Apply patches
     # Dynamic patching
     from typing import cast
+
     moderngl.create_context = cast(Any, mocked_create_context)
 
     # Store original reference to prevent recursion in mock

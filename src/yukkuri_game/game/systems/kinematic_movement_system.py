@@ -46,7 +46,7 @@ class KinematicMovementSystem(System):
         # We should use a separate attribute or assume it's set before update.
         # But for now, we can use 'Any' or suppress, OR initialize it properly.
         # Let's use 'Any' for now to silence the incompatibility, or just type it as 'World' and initialize with cast(World, None) if we really have to.
-        # Better: use a separate attribute for local storage like `self._world` if we need to store it, 
+        # Better: use a separate attribute for local storage like `self._world` if we need to store it,
         # but `update` method receives it anyway.
         # The error "Incompatible types in assignment" is because `System` likely annotations `world` (if it does).
         # Checking `ecs.py`... System doesn't seem to annotate `self.world` in __init__.
@@ -55,7 +55,7 @@ class KinematicMovementSystem(System):
         # Let's fix by removing `self.ecs_world` line 42 and just using `self.world` from base class if available,
         # or defining logic to handle "not initialized".
         # But `fixed_update` needs it.
-        # Let's use `cast` to `World` when assigning `None` initially to satisfy mypy, 
+        # Let's use `cast` to `World` when assigning `None` initially to satisfy mypy,
         # or just type it as `self.ecs_world: World | None` and ignore the error if it conflicts with a base class attribute of same name.
         # But `ecs_world` is a new attribute name, so it shouldn't conflict unless `System` has `ecs_world`.
         # Wait, the error was: `src/yukkuri_game/game/systems/kinematic_movement_system.py:42: error: Incompatible types in assignment (expression has type "World | None", base class "System" defined the type as "World")`
@@ -63,7 +63,7 @@ class KinematicMovementSystem(System):
         # Maybe I renamed `world` to `ecs_world`?
         # Let's check `ecs.py` content I saw earlier. `System` class usually has `update(self, world, dt)`.
         # It doesn't usually store `world`.
-        # Wait, line 42 in `kinematic` is `self.ecs_world: World | None = None`. 
+        # Wait, line 42 in `kinematic` is `self.ecs_world: World | None = None`.
         # Maybe I added `ecs_world` to `System`?
         # Or maybe the error refers to `self.ecs_world = world` in `update`?
         # Let's just fix the assignment.
@@ -114,7 +114,7 @@ class KinematicMovementSystem(System):
 
             # 0. Sync Transform to Body
             start_pos = phys.body.position
-            
+
             # --- Performance Optimization: Skip stationary entities ---
             # If both target velocity and current velocity are near-zero,
             # skip the expensive sweep logic entirely.
@@ -169,7 +169,7 @@ class KinematicMovementSystem(System):
 
             if not self.space:
                 break
-            
+
             for shape in phys.body.shapes:
                 infos = self.space.shape_query(shape)
                 if not infos:
@@ -357,7 +357,7 @@ class KinematicMovementSystem(System):
                         continue
 
                     if not self.space:
-                         continue
+                        continue
                     infos = self.space.shape_query(shape)
                     for info in infos:
                         if info.shape.body == body or info.shape.sensor:
@@ -400,7 +400,9 @@ class KinematicMovementSystem(System):
                     best_alpha = 0.0
                     # Use typing.cast or similar if necessary, or ensure FakeHit matches protocol
                     # Assuming FakeHit is sufficient for duck typing if we ignore type checker here or make it comply
-                    best_hit = pymunk.SegmentQueryInfo(None, fallback_normal, pymunk.Vec2d(0, 0), 0.0) # type: ignore[arg-type]
+                    best_hit = pymunk.SegmentQueryInfo(
+                        None, fallback_normal, pymunk.Vec2d(0, 0), 0.0
+                    )  # type: ignore[arg-type]
 
             if best_hit:
                 # Move to hit
@@ -456,11 +458,15 @@ class KinematicMovementSystem(System):
         elif flight.state == FlightState.SWOOPING:
             # Swooping: can hit ground units but still ignores low obstacles for attack
             new_categories = CC.FLYING_UNIT
-            new_mask = CC.GROUND_UNIT | CC.FLYING_UNIT | CC.HIGH_OBSTACLE | CC.LOW_OBSTACLE
+            new_mask = (
+                CC.GROUND_UNIT | CC.FLYING_UNIT | CC.HIGH_OBSTACLE | CC.LOW_OBSTACLE
+            )
         else:
             # GROUNDED, LANDING, TAKEOFF, FALLING: normal ground collision
             new_categories = CC.GROUND_UNIT
-            new_mask = CC.GROUND_UNIT | CC.LOW_OBSTACLE | CC.HIGH_OBSTACLE | CC.WATER | CC.ITEM
+            new_mask = (
+                CC.GROUND_UNIT | CC.LOW_OBSTACLE | CC.HIGH_OBSTACLE | CC.WATER | CC.ITEM
+            )
 
         for shape in phys.body.shapes:
             if shape.sensor:

@@ -36,16 +36,19 @@ class MainMenuScene(Scene):
         """
         super().__init__(application)
         # Compute absolute path for theme file (relative to project root)
-        _theme_path = Path(__file__).parent.parent.parent.parent / "data" / "ui_theme.json"
+        _theme_path = (
+            Path(__file__).parent.parent.parent.parent / "data" / "ui_theme.json"
+        )
         print(f"DEBUG: MainMenu Calculated theme path: {_theme_path}")
         print(f"DEBUG: MainMenu Theme path exists: {_theme_path.exists()}")
         if not _theme_path.exists():
-             import os
-             print(f"DEBUG: MainMenu CWD is {os.getcwd()}")
-             
+            import os
+
+            print(f"DEBUG: MainMenu CWD is {os.getcwd()}")
+
         self.ui_manager = pygame_gui.UIManager(
             (self.application.width, self.application.height),
-            theme_path=str(_theme_path) if _theme_path.exists() else None
+            theme_path=str(_theme_path) if _theme_path.exists() else None,
         )
         self.input_manager = self.world.services.get(InputManager)
         self.input_manager.switch_context(InputContext.MENU)

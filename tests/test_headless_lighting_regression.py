@@ -15,7 +15,7 @@ def test_headless_lighting_regression(game_driver: GameDriver, tmp_path):
     can be tricky, so we verify illumination levels primarily.
     """
     screenshot_path = str(tmp_path / "test_lighting_regression.png")
-    
+
     driver = game_driver
     driver.wait_until_scene(GameplayScene)
     driver.reload_scene(GameplayScene)
@@ -90,4 +90,3 @@ def test_headless_lighting_regression(game_driver: GameDriver, tmp_path):
     # With lighting, it should be significantly brighter.
     is_lit = center_color.r > 100 or center_color.g > 100 or center_color.b > 100
     assert is_lit, f"Expected bright text (lit), got dark pixel {center_color}"
-

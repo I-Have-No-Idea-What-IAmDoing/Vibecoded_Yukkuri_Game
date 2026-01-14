@@ -1,5 +1,3 @@
-
-
 class RenderConstants:
     GRID_SIZE: int = 100
     GRID_COLOR: tuple[int, int, int] = (70, 70, 70)

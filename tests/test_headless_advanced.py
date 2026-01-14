@@ -1,10 +1,10 @@
-import pytest
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.scenes.gameplay import GameplayScene
 from yukkuri_game.game.yukkuri_components import YukkuriStats
 
 
 # Note: game_driver fixture comes from conftest.py
+
 
 def test_image_comparison(game_driver: GameDriver, tmp_path):
     """

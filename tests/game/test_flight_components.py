@@ -2,7 +2,6 @@
 Unit tests for Flight component and collision filtering.
 """
 
-import pytest
 from yukkuri_game.game.yukkuri_components import Flight, FlightState, Predator
 from yukkuri_game.game.collision_constants import CollisionCategories
 

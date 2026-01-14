@@ -177,7 +177,7 @@ class InputSystem(System):
                     )
                 if self.audio:
                     self.audio.play_sound("place")
-                
+
                 # Check for Shift Key (Multiple Placement) using InputManager
                 is_shift_pressed = self.input_manager.is_action_pressed("shift")
 
@@ -253,7 +253,9 @@ class InputSystem(System):
         # Handle Time Speed Controls
         self._handle_time_controls(world)
 
-    def _handle_context_menu_request(self, world: World, wx: float, wy: float, mx: int, my: int) -> None:
+    def _handle_context_menu_request(
+        self, world: World, wx: float, wy: float, mx: int, my: int
+    ) -> None:
         """
         Checks for an entity at the right-click position and requests a context menu.
         """
@@ -279,7 +281,7 @@ class InputSystem(System):
                 break
 
         if target_id != -1 and self.event_bus:
-             self.event_bus.publish(ContextMenuRequestedEvent(target_id, (mx, my)))
+            self.event_bus.publish(ContextMenuRequestedEvent(target_id, (mx, my)))
 
     def _handle_selection(
         self,

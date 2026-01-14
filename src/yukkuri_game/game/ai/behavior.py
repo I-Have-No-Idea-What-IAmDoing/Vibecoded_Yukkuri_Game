@@ -20,9 +20,19 @@ from ..components import (
     LightSource,
 )
 from ..services import GameService
-from ..yukkuri_components import AIState, ItemStats, YukkuriStats, Needs, EmotionalState, Predator, Flight, FlightState
+from ..yukkuri_components import (
+    AIState,
+    ItemStats,
+    YukkuriStats,
+    Needs,
+    EmotionalState,
+    Predator,
+    Flight,
+    FlightState,
+)
 from .base_action import Action
 from .navigation_service import NavigationService
+from .navigation_constants import TraversalCapability
 from .utility_selector import UtilitySelector
 
 from ...engine.types import EntityID
@@ -110,91 +120,87 @@ class MoveToTarget(Action):
             controller.target_velocity = pymunk.Vec2d(0, 0)
             return Status.FAILURE
 
-        # Pathfinding (simplified)
+        # Pathfinding (Async)
         # If path is not set, try to find one.
         if ai.path is None:
-            # Default to empty list which implies direct movement if pathfinding not available/fails
-            ai.path = []
-            
-            nav_service = self.world.services.try_get(NavigationService)
-            if nav_service:
-                # Check for flight capability
-                can_fly = False
-                flight_comp = self.world.try_get_component(self.entity_id, Flight)
-                if flight_comp and flight_comp.stamina > 20:
-                    can_fly = True
-                    # Trigger takeoff if needed for air pathing
-                    if flight_comp.state == FlightState.GROUNDED:
-                        flight_comp.state = FlightState.TAKEOFF
-                
-                found_path = nav_service.find_path(
-                    (trans.x, trans.y), target_pos, can_fly=can_fly
-                )
-                if found_path:
-                    ai.path = found_path
-                
+            # Check if we are already requesting/handling state
+            state_data = ai.state_data if ai.state_data else {}
+            is_requesting = state_data.get("path_requesting", False)
+            path_failed = state_data.get("path_failed", False)
+
+            if is_requesting:
+                # Check for failure or timeout (TODO: Timeout)
+                if path_failed:
+                    state_data["path_requesting"] = False
+                    if "path_failed" in state_data:
+                        del state_data["path_failed"]
+                    ai.state_data = state_data
+                    # Proceed to Fallback below
+                else:
+                    return Status.RUNNING  # Waiting for path
+            elif not path_failed:  # If we haven't just failed, request a path
+                nav_service = self.world.services.try_get(NavigationService)
+                if nav_service:
+                    # Check for flight capability
+                    capabilities = TraversalCapability.WALK
+                    flight_comp = self.world.try_get_component(self.entity_id, Flight)
+                    if flight_comp and flight_comp.stamina > 20:
+                        capabilities |= TraversalCapability.FLY
+                        # Trigger takeoff if needed for air pathing
+                        if flight_comp.state == FlightState.GROUNDED:
+                            flight_comp.state = FlightState.TAKEOFF
+
+                    nav_service.request_path(
+                        self.entity_id,
+                        (trans.x, trans.y),
+                        (target_pos.x, target_pos.y),
+                        capabilities=capabilities,
+                    )
+
+                    if ai.state_data is None:
+                        ai.state_data = {}
+                    ai.state_data["path_requesting"] = True
+                    # Clear failure flag if present
+                    if "path_failed" in ai.state_data:
+                        del ai.state_data["path_failed"]
+
+                    return Status.RUNNING
+
         # Fallback to Direct Movement if no path (Navigation missing or pathfinding failed/unnecessary)
-        if not ai.path:
-             # Calculate vector to target directly
-             vector_to_target = target_pos - pymunk.Vec2d(trans.x, trans.y)
-             dist = vector_to_target.length
-             
-             if dist < self.acceptance_radius:
-                 controller.target_velocity = pymunk.Vec2d(0, 0)
-                 return Status.SUCCESS
-                 
-             # Simple speed modifier
-             speed_modifier = 1.0
-             if needs.energy < 30:
-                 speed_modifier = 0.5
-                 
-             final_speed = self.speed * speed_modifier
-             if dist > 0.001:
-                 controller.target_velocity = vector_to_target.normalized() * final_speed
-             else:
-                 controller.target_velocity = pymunk.Vec2d(0, 0)
-                 
-             return Status.RUNNING
+        # Also handles clearing "path_requesting" flag if we fallback
+        if ai.path is None:
+            if ai.state_data and ai.state_data.get("path_requesting"):
+                ai.state_data["path_requesting"] = False
 
-        # Path Follower Logic (Only if we have a path)
+            # Calculate vector to target directly
+            vector_to_target = target_pos - pymunk.Vec2d(trans.x, trans.y)
+            dist = vector_to_target.length
 
-        # Path Follower Logic
-        next_point = pymunk.Vec2d(ai.path[0][0], ai.path[0][1])
+            if dist < self.acceptance_radius:
+                controller.target_velocity = pymunk.Vec2d(0, 0)
+                return Status.SUCCESS
+
+            # Simple speed modifier
+            speed_modifier = 1.0
+            if needs.energy < 30:
+                speed_modifier = 0.5
+
+            final_speed = self.speed * speed_modifier
+            if dist > 0.001:
+                controller.target_velocity = vector_to_target.normalized() * final_speed
+            else:
+                controller.target_velocity = pymunk.Vec2d(0, 0)
+
+            return Status.RUNNING
+
+        # Path Follower Logic (Delegated to SteeringSystem)
         current_pos = pymunk.Vec2d(trans.x, trans.y)
-        vector_to_next = next_point - current_pos
-        dist_to_next = vector_to_next.length
-
         dist_to_final = (target_pos - current_pos).length
+
         if dist_to_final < self.acceptance_radius:
             controller.target_velocity = pymunk.Vec2d(0, 0)
             ai.path = []
             return Status.SUCCESS
-
-        # Advance to next waypoint if close enough
-        if dist_to_next < 15.0:  # Waypoint acceptance can remain small
-            ai.path.pop(0)
-            if not ai.path:
-                # Path finished. Check if we are actually at the target.
-                if dist_to_final < self.acceptance_radius:
-                    controller.target_velocity = pymunk.Vec2d(0, 0)
-                    return Status.SUCCESS
-                else:
-                    # Not at target yet. Force path recalculation.
-                    ai.path = None
-                    controller.target_velocity = pymunk.Vec2d(0, 0)
-                    return Status.RUNNING
-
-            next_point = pymunk.Vec2d(ai.path[0][0], ai.path[0][1])
-            vector_to_next = next_point - current_pos
-
-        # Calculate final velocity
-        # Simple speed modifier based on energy
-        speed_modifier = 1.0
-        if needs.energy < 30:
-            speed_modifier = 0.5
-
-        final_speed = self.speed * speed_modifier
-        controller.target_velocity = vector_to_next.normalized() * final_speed
 
         return Status.RUNNING
 
@@ -778,6 +784,30 @@ class FindItem(Action):
                 ai.current_target_id = cast(EntityID, best_item)
                 ai.path = None  # Force re-pathing
 
+                # Anticipatory Caching: Request path immediately with LOW priority
+                nav_service = self.world.services.try_get(NavigationService)
+                target_trans = self.world.get_component(best_item, Transform)
+                if nav_service and target_trans:
+                    # Check capabilities (Duplicate logic from MoveToTarget, could be helper)
+                    capabilities = TraversalCapability.WALK
+                    flight_comp = self.world.try_get_component(self.entity_id, Flight)
+                    if flight_comp and flight_comp.stamina > 20:
+                        capabilities |= TraversalCapability.FLY
+
+                    nav_service.request_path(
+                        self.entity_id,
+                        (trans.x, trans.y),
+                        (target_trans.x, target_trans.y),
+                        capabilities=capabilities,
+                        priority=0,  # LOW priority
+                    )
+                    # Mark as requesting so MoveToTarget doesn't double request immediately
+                    if ai.state_data is None:
+                        ai.state_data = {}
+                    ai.state_data["path_requesting"] = True
+                    if "path_failed" in ai.state_data:
+                        del ai.state_data["path_failed"]
+
             return Status.SUCCESS
 
         # If no item found, but we have ignored some targets (failed previously),
@@ -1241,16 +1271,16 @@ def create_yukkuri_behavior_tree(
     # Ideally we use a sensor, but here we can just try the action which fails if no predator.
     flee_action = FleePredator(name="Flee Predator", entity_id=entity_id, world=world)
     flee_sequence.add_child(flee_action)
-    
+
     # Only flee if running
     # We wrap it in a condition or just let it fail?
     # FleePredator returns SUCCESS if safe, RUNNING if fleeing, FAILURE if error.
-    # If safe (SUCCESS), we don't want to stop checking other behaviors? 
+    # If safe (SUCCESS), we don't want to stop checking other behaviors?
     # Actually if Flee returns SUCCESS (Safe), we want to proceed to Normal Behavior.
     # But Selector picks the first SUCCESS/RUNNING.
     # So Flee should return FAILURE if safe, RUNNING if fleeing.
     # Let's adjust FleePredator to return FAILURE if "No Threat".
-    
+
     root_selector.add_child(flee_sequence)
 
     # Branch 3: Normal Behavior
@@ -1420,8 +1450,10 @@ class EatPrey(Action):
             # Check if defender is a predator (predators don't rescue)
             if self.world.has_component(defender_id, Predator):
                 continue
-            
-            defender_dist = math.hypot(d_trans.x - target_trans.x, d_trans.y - target_trans.y)
+
+            defender_dist = math.hypot(
+                d_trans.x - target_trans.x, d_trans.y - target_trans.y
+            )
             if defender_dist <= rescue_radius:
                 # Defender nearby! Interrupt predation
                 ai.current_target_id = cast(EntityID, -1)
@@ -1454,11 +1486,11 @@ class EatPrey(Action):
         return Status.RUNNING
 
 
-
 class FleePredator(Action):
     """
     Action to flee from nearby predators.
     """
+
     def __init__(
         self,
         name="Flee Predator",
@@ -1485,9 +1517,7 @@ class FleePredator(Action):
         min_dist = float("inf")
         flee_start_dist = 200.0  # Start fleeing if predator is this close
 
-        for uid, (pred, trans) in self.world.get_components_tuple(
-            Predator, Transform
-        ):
+        for uid, (pred, trans) in self.world.get_components_tuple(Predator, Transform):
             if uid == self.entity_id:
                 continue
 
@@ -1499,13 +1529,15 @@ class FleePredator(Action):
         if nearest_predator:
             # Run away!
             # Vector from predator to me
-            flee_vec = pymunk.Vec2d(my_trans.x - nearest_predator.x, my_trans.y - nearest_predator.y)
+            flee_vec = pymunk.Vec2d(
+                my_trans.x - nearest_predator.x, my_trans.y - nearest_predator.y
+            )
             if flee_vec.length > 0:
                 # Use self.speed instead of controller.max_speed
                 flee_vec = flee_vec.normalized() * self.speed
                 controller.target_velocity = flee_vec
                 return Status.RUNNING
-        
+
         # Safe - return FAILURE so Selector continues to Normal Behavior
         return Status.FAILURE
 
@@ -1514,6 +1546,7 @@ class FindPrey(Action):
     """
     Finds a suitable prey target for a predator.
     """
+
     def __init__(self, name="Find Prey", entity_id=None, world=None, blackboard=None):
         super().__init__(name, entity_id, world, blackboard)
 
@@ -1532,12 +1565,12 @@ class FindPrey(Action):
         # Find nearest valid prey
         best_target = -1
         min_dist = predator.prey_sense_radius
-        
+
         # Iterate all needs-having entities (Candidate for optimization: Spatial Hash)
         for uid, (needs, trans) in self.world.get_components_tuple(Needs, Transform):
             if uid == self.entity_id:
                 continue
-            
+
             # Check if alive
             if needs.health <= 0:
                 continue
@@ -1548,13 +1581,13 @@ class FindPrey(Action):
             target_stats = self.world.try_get_component(uid, YukkuriStats)
             if not target_stats:
                 continue
-                
+
             # Predator-Prey Logic:
             # If I have 'prey_tags', check if target matches.
             # Simplified: Predators eat non-predators or smaller ones.
-            # For this implementation, we assume any other yukkuri is prey 
+            # For this implementation, we assume any other yukkuri is prey
             # unless they are also a predator of same/higher level (?) through tags.
-            
+
             # Use Predator component tags logic if implemented, else Fallback.
             # Fallback: Eat Reimu/Marisa if I am Predator.
             is_valid_prey = False
@@ -1566,7 +1599,7 @@ class FindPrey(Action):
                 # Default behavior: Eat anyone who is NOT a predator
                 if not self.world.has_component(uid, Predator):
                     is_valid_prey = True
-            
+
             if is_valid_prey:
                 dist = math.hypot(trans.x - my_trans.x, trans.y - my_trans.y)
                 if dist < min_dist:
@@ -1586,6 +1619,7 @@ class EatPrey(Action):
     """
     Channeling action to eat prey.
     """
+
     def __init__(self, name="Eat Prey", entity_id=None, world=None, blackboard=None):
         super().__init__(name, entity_id, world, blackboard)
 
@@ -1598,7 +1632,7 @@ class EatPrey(Action):
         predator = self.world.get_component(self.entity_id, Predator)
         trans = self.world.get_component(self.entity_id, Transform)
         controller = self.world.get_component(self.entity_id, MovementController)
-        
+
         if not ai or not predator or not trans:
             return Status.FAILURE
 
@@ -1607,7 +1641,9 @@ class EatPrey(Action):
 
         target_trans = self.world.try_get_component(ai.current_target_id, Transform)
         target_needs = self.world.try_get_component(ai.current_target_id, Needs)
-        target_controller = self.world.try_get_component(ai.current_target_id, MovementController)
+        target_controller = self.world.try_get_component(
+            ai.current_target_id, MovementController
+        )
 
         if target_trans is None or target_needs is None:
             return Status.FAILURE
@@ -1617,7 +1653,7 @@ class EatPrey(Action):
         if dist > 40.0:
             # Too far to eat!
             return Status.FAILURE
-            
+
         # --- Social Defense (Rescue) Check ---
         rescue_radius = 60.0
         for defender_id, (d_stats, d_trans) in self.world.get_components_tuple(
@@ -1629,8 +1665,10 @@ class EatPrey(Action):
                 continue
             if self.world.has_component(defender_id, Predator):
                 continue
-            
-            defender_dist = math.hypot(d_trans.x - target_trans.x, d_trans.y - target_trans.y)
+
+            defender_dist = math.hypot(
+                d_trans.x - target_trans.x, d_trans.y - target_trans.y
+            )
             if defender_dist <= rescue_radius:
                 # Defender nearby! Interrupt predation
                 ai.current_target_id = cast(EntityID, -1)
@@ -1643,20 +1681,20 @@ class EatPrey(Action):
             target_controller.target_velocity = pymunk.Vec2d(0, 0)
 
         # Deal damage
-        dt = 0.016 # Approximated fixed delta
+        dt = 0.016  # Approximated fixed delta
         damage = predator.dps * dt
         target_needs.health -= damage
-        
+
         # Visual feedback (Todo: Particles)
-        
+
         # Check if consumed
         if target_needs.health <= 0:
             self.world.destroy_entity(ai.current_target_id)
-            
+
             my_needs = self.world.try_get_component(self.entity_id, Needs)
             if my_needs:
                 my_needs.hunger = max(0.0, my_needs.hunger - 50.0)
-            
+
             ai.current_target_id = cast(EntityID, -1)
             return Status.SUCCESS
 
@@ -1667,6 +1705,7 @@ class Swoop(Action):
     """
     Rapid descent to attack target.
     """
+
     def __init__(self, name="Swoop", entity_id=None, world=None, blackboard=None):
         super().__init__(name, entity_id, world, blackboard)
 
@@ -1691,7 +1730,6 @@ class Swoop(Action):
             return Status.SUCCESS
 
         return Status.RUNNING
-
 
 
 def build_hunt_behavior(
@@ -1733,8 +1771,10 @@ def build_hunt_behavior(
     root.add_child(find_prey)
 
     # 3. Approach and Strike (Selector: Aerial or Ground)
-    approach_selector = py_trees.composites.Selector(name="Approach Strategy", memory=False)
-    
+    approach_selector = py_trees.composites.Selector(
+        name="Approach Strategy", memory=False
+    )
+
     # 3a. Aerial Assault (if flying)
     # Check if we can fly
     def can_fly_check():
@@ -1742,17 +1782,19 @@ def build_hunt_behavior(
         return f is not None and f.stamina > 20.0
 
     aerial_assault = py_trees.composites.Sequence(name="Aerial Assault", memory=True)
-    aerial_assault.add_child(Check(
-        name="Can Fly Check", 
-        check_fn=can_fly_check
-    ))
+    aerial_assault.add_child(Check(name="Can Fly Check", check_fn=can_fly_check))
     # Fly to target (using air grid)
-    aerial_assault.add_child(MoveToTarget(
-        entity_id=entity_id, world=world, acceptance_radius=20.0, name="Fly To Target"
-    ))
+    aerial_assault.add_child(
+        MoveToTarget(
+            entity_id=entity_id,
+            world=world,
+            acceptance_radius=20.0,
+            name="Fly To Target",
+        )
+    )
     # Swoop down
     aerial_assault.add_child(Swoop(entity_id=entity_id, world=world))
-    
+
     approach_selector.add_child(aerial_assault)
 
     # 3b. Ground Assault (fallback)

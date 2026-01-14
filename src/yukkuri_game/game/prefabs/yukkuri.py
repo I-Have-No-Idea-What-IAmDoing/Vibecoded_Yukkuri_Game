@@ -16,6 +16,7 @@ from ..components import (
     VisualTransform,
     Vision,
     Mount,
+    SteeringComponent,
 )
 from ..yukkuri_components import (
     YukkuriStats,
@@ -87,9 +88,9 @@ def create_yukkuri(
 
     # Determine growth stage and scale based on age using shared constants
     from ..yukkuri_constants import get_growth_stage_and_scale, STAGE_BABY
-    
+
     growth_stage, scale = get_growth_stage_and_scale(age)
-    
+
     if growth_stage == STAGE_BABY:
         max_health *= 0.5
 
@@ -123,7 +124,9 @@ def create_yukkuri(
         visuals = rm.tuning.visuals.movement
         movement_controller.bob_height = visuals.bob_height
         movement_controller.bob_speed = visuals.bob_speed
+        movement_controller.bob_speed = visuals.bob_speed
     world.add_component(entity, movement_controller)
+    world.add_component(entity, SteeringComponent())
     # Shadow logic: All Yukkuris have shadows but Flandre has special handling via Flight
     world.add_component(entity, VisualTransform(has_drop_shadow=True))
 

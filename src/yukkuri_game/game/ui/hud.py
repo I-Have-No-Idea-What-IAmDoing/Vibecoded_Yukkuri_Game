@@ -4,6 +4,11 @@ Module defining the HUD logic.
 
 import pygame
 import pygame_gui
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..ai.navigation_service import NavigationService
+    from ..camera import Camera
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
 from ..events import (
@@ -24,6 +29,7 @@ from .hud_events import HudEvents
 from .hud_renderer import HudRenderer
 from .context_menu import ContextMenu
 from .inventory_panel import InventoryPanel
+from ..systems.navigation_debug_renderer import NavigationDebugRenderer
 
 
 class HUD:
@@ -74,15 +80,22 @@ class HUD:
         self.fps = 0.0
         self.fps_timer = 0.0
         self.lighting_debug = False
+        self.navigation_debug_renderer: NavigationDebugRenderer | None = None
 
         # Subscribe to events
         self.event_bus.subscribe(EntitySelectedEvent, self.on_entity_selected)
         self.event_bus.subscribe(GamePausedEvent, self.on_game_paused)
         self.event_bus.subscribe(LogMessageEvent, self.on_log_message)
-        self.event_bus.subscribe(ContextMenuRequestedEvent, self.on_context_menu_requested)
-        self.event_bus.subscribe(InventoryViewRequestedEvent, self.on_inventory_view_requested)
+        self.event_bus.subscribe(
+            ContextMenuRequestedEvent, self.on_context_menu_requested
+        )
+        self.event_bus.subscribe(
+            InventoryViewRequestedEvent, self.on_inventory_view_requested
+        )
         self.event_bus.subscribe(InventoryChangedEvent, self.on_inventory_changed)
-        self.event_bus.subscribe(InventoryItemActionEvent, self.on_inventory_item_action)
+        self.event_bus.subscribe(
+            InventoryItemActionEvent, self.on_inventory_item_action
+        )
 
     def resize(self, width: int, height: int) -> None:
         """
@@ -158,6 +171,7 @@ class HUD:
 
         # Check entity capabilities to determine options
         from ..inventory_component import InventoryComponent
+
         inv = self.world.get_component(event.entity_id, InventoryComponent)
         if inv:
             item_count = len(inv.items)
@@ -172,10 +186,12 @@ class HUD:
                 event.position,
                 options,
                 self.on_context_menu_action,
-                (event.entity_id, event.position)  # Pass position for inventory panel
+                (event.entity_id, event.position),  # Pass position for inventory panel
             )
 
-    def on_context_menu_action(self, action_id: str, target_data: tuple[int, tuple[int, int]]) -> None:
+    def on_context_menu_action(
+        self, action_id: str, target_data: tuple[int, tuple[int, int]]
+    ) -> None:
         """Callback for context menu actions. Uses event-driven approach."""
         entity_id, position = target_data
         if action_id == "view_inventory":
@@ -192,21 +208,24 @@ class HUD:
     def on_inventory_changed(self, event: InventoryChangedEvent) -> None:
         """Handles InventoryChangedEvent to auto-refresh inventory panel."""
         # Only refresh if the changed entity is currently being viewed
-        if (self.inventory_panel.entity_id is not None and 
-            self.inventory_panel.entity_id == event.entity_id):
+        if (
+            self.inventory_panel.entity_id is not None
+            and self.inventory_panel.entity_id == event.entity_id
+        ):
             self.inventory_panel.refresh()
 
     def on_inventory_item_action(self, event: InventoryItemActionEvent) -> None:
         """Handles InventoryItemActionEvent for drop/use/transfer actions."""
         from ..inventory_component import InventoryDropRequest
-        
+
         if event.action == "drop":
             # Add drop request component - will be processed by InventorySystem
             self.world.add_component(
                 event.entity_id,
-                InventoryDropRequest(item_type_id=event.item_type_id, quantity=event.quantity)
+                InventoryDropRequest(
+                    item_type_id=event.item_type_id, quantity=event.quantity
+                ),
             )
-
 
     def update(self, dt: float) -> None:
         """
@@ -235,6 +254,10 @@ class HUD:
             screen (pygame.Surface): The screen surface to draw on.
         """
         self.renderer.draw(screen)
+
+        # Draw navigation debug overlay
+        if self.navigation_debug_renderer and self.navigation_debug_renderer.enabled:
+            self.navigation_debug_renderer.render(screen, self.world)
 
     def _update_selection_window_layout(self) -> None:
         """
@@ -276,6 +299,18 @@ class HUD:
         self.lighting_debug = not self.lighting_debug
         # Access renderer via renderer property or other means if needed.
         # This will be used by the main loop or renderer.
+
+    def toggle_navigation_debug(self) -> None:
+        """Toggles navigation debug visuals (clusters, paths, steering)."""
+        if self.navigation_debug_renderer:
+            self.navigation_debug_renderer.toggle()
+
+    def init_navigation_debug(
+        self, nav_service: "NavigationService", camera: "Camera"
+    ) -> None:
+        """Initializes the navigation debug renderer."""
+
+        self.navigation_debug_renderer = NavigationDebugRenderer(nav_service, camera)
 
     def show_error(self, message: str) -> None:
         """

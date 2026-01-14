@@ -88,10 +88,11 @@ class SoftwareLightingEngine:
     def toggle_debug(self, enabled: bool) -> None:
         self.debug = enabled
 
-
     def resize(self, width: int, height: int) -> None:
         self.native_size = (width, height)
-        self.lightmap = pygame.Surface((int(width * self.scale), int(height * self.scale)))
+        self.lightmap = pygame.Surface(
+            (int(width * self.scale), int(height * self.scale))
+        )
 
     def clear(self, ambient_color: tuple[int, int, int]) -> None:
         # Fill lightmap with ambient
@@ -153,27 +154,25 @@ class SoftwareLightingEngine:
         sx = int(lx * self.scale)
         sy = int(ly * self.scale)
         sr = radius * self.scale
-        
+
         # Quantize radius for large lights to prevent cache thrashing
         if sr > 500:
             sr = round(sr / 50.0) * 50.0
         elif sr > 100:
             sr = round(sr / 10.0) * 10.0
-            
+
         sr_key = int(max(1, sr))
 
         # Viewport Culling / Clipping
         # Light bounds in screen space
         light_rect = pygame.Rect(sx - sr, sy - sr, sr * 2, sr * 2)
         screen_rect = self.lightmap.get_rect()
-        
+
         # Clipped visible rect
         clip_rect = light_rect.clip(screen_rect)
-        
+
         if clip_rect.width <= 0 or clip_rect.height <= 0:
             return
-
-
 
         # Static light caching: check if we have a valid cached surface
         if static and entity_id >= 0:
@@ -195,7 +194,6 @@ class SoftwareLightingEngine:
         light_surf = self._draw_light_shadow_volume(
             clip_rect,
             sr_key,
-
             lx,
             ly,
             radius,
@@ -233,44 +231,44 @@ class SoftwareLightingEngine:
         """
         # Surface size is determined by the clipped area
         surf_w, surf_h = clip_rect.size
-        
+
         # Calculate offsets for drawing relative to the clipped surface
         # clip_rect.x is the screen coordinate of the left edge of this surface.
         # We want to transform World -> Screen -> Surface
         # Screen = World * scale + camera_offset (already handled by lx, ly passed in?)
         # Wait, lx, ly are SCREEN coordinates of the light center.
-        
+
         # The light center in Screen coords is (int(lx * scale), int(ly * scale)) which is roughly passed sx, sy
         # Note: We calculated sx, sy before quantization. But we need accurate center for shadows.
         sx_center = lx * self.scale
         sy_center = ly * self.scale
-        
+
         # Surface Origin in Screen coords = clip_rect.topleft
         # So coordinate (x, y) on surface = Screen(x + clip_rect.x, y + clip_rect.y)
-        
+
         # To draw the gradient correctly:
         # The gradient is a (sr*2, sr*2) image centered at (sr, sr).
         # In screen space, it is centered at (sx, sy).
         # TopLeft of gradient in Screen Space = (sx - sr, sy - sr).
-        
+
         # We want to blit the part of the gradient that overlaps clip_rect.
         # Gradient Subsurface Rect (relative to gradient topleft):
         # x = clip_rect.x - (sx - sr)
         # y = clip_rect.y - (sy - sr)
         # w, h = clip_rect.size
-        
+
         gx = clip_rect.x - (int(sx_center) - sr_key)
         gy = clip_rect.y - (int(sy_center) - sr_key)
-        
+
         # Offset for shadow calculations
         # Shadow vertices calc: (World * scale - ScreenCenter) + HalfSize
         # Here we map directly to Surface.
         # Screen point P -> Surface point P' = P - clip_rect.topleft
-        
+
         # Pass offset to shadow functions
         offset_x = clip_rect.x
         offset_y = clip_rect.y
-        
+
         # Acquire surface from pool instead of creating new one
         light_surf = self.surface_pool.acquire(surf_w, surf_h)
 
@@ -284,20 +282,19 @@ class SoftwareLightingEngine:
         else:
             # Get Cached Gradient Texture
             grad_surf = self._get_gradient_surface(sr_key, color, intensity)
-            
+
             # Blit the relevant chunk of the gradient
             grad_rect = grad_surf.get_rect()
             sub_rect = pygame.Rect(gx, gy, surf_w, surf_h)
-            
-            light_surf.blit(grad_surf, (0, 0), area=sub_rect)
 
+            light_surf.blit(grad_surf, (0, 0), area=sub_rect)
 
         # Draw Shadow Volumes (Subtractive)
         if occluders:
             # Optimization: Skip soft shadows for huge lights (expensive blur)
             # Hard shadows are acceptable when zoomed in close
             use_soft = soft_shadows and sr_key <= 400
-            
+
             if use_soft:
                 self._draw_soft_shadows(
                     light_surf, sr_key, lx, ly, offset_x, offset_y, radius, occluders
@@ -311,11 +308,8 @@ class SoftwareLightingEngine:
                     light_surf, sr_key, lx, ly, offset_x, offset_y, radius, occluders
                 )
 
-
-
         # Composite (clipped)
         self.lightmap.blit(light_surf, clip_rect, special_flags=pygame.BLEND_ADD)
-
 
         # Return surface before releasing to pool (for caching)
         result = light_surf
@@ -364,7 +358,7 @@ class SoftwareLightingEngine:
         hy = low_res_size / 2.0
         extrude_dist = radius * 2.0
         scale = self.scale * low_res_scale
-        
+
         # Effective offset for low-res
         off_x_scaled = offset_x * low_res_scale
         off_y_scaled = offset_y * low_res_scale
@@ -408,15 +402,15 @@ class SoftwareLightingEngine:
                 bias2_y = rel_y2 * inv_dist2 * bias
 
                 # Near points (with bias applied)
-                q0_x = ((p1[0] + bias1_x) * scale - off_x_scaled)
-                q0_y = ((p1[1] + bias1_y) * scale - off_y_scaled)
-                q1_x = ((p2[0] + bias2_x) * scale - off_x_scaled)
-                q1_y = ((p2[1] + bias2_y) * scale - off_y_scaled)
+                q0_x = (p1[0] + bias1_x) * scale - off_x_scaled
+                q0_y = (p1[1] + bias1_y) * scale - off_y_scaled
+                q1_x = (p2[0] + bias2_x) * scale - off_x_scaled
+                q1_y = (p2[1] + bias2_y) * scale - off_y_scaled
                 # Far points (extruded)
-                q2_x = ((p2[0] + ex2_x) * scale - off_x_scaled)
-                q2_y = ((p2[1] + ex2_y) * scale - off_y_scaled)
-                q3_x = ((p1[0] + ex1_x) * scale - off_x_scaled)
-                q3_y = ((p1[1] + ex1_y) * scale - off_y_scaled)
+                q2_x = (p2[0] + ex2_x) * scale - off_x_scaled
+                q2_y = (p2[1] + ex2_y) * scale - off_y_scaled
+                q3_x = (p1[0] + ex1_x) * scale - off_x_scaled
+                q3_y = (p1[1] + ex1_y) * scale - off_y_scaled
 
                 # Draw BLACK shadow (will become dark after blur)
                 pygame.draw.polygon(
@@ -498,14 +492,14 @@ class SoftwareLightingEngine:
                 # Inline coordinate transform for speed
                 # ScreenPos = World * Scale
                 # SurfacePos = ScreenPos - Offset
-                q0_x = (p1[0] * scale - offset_x)
-                q0_y = (p1[1] * scale - offset_y)
-                q1_x = (p2[0] * scale - offset_x)
-                q1_y = (p2[1] * scale - offset_y)
-                q2_x = ((p2[0] + ex2_x) * scale - offset_x)
-                q2_y = ((p2[1] + ex2_y) * scale - offset_y)
-                q3_x = ((p1[0] + ex1_x) * scale - offset_x)
-                q3_y = ((p1[1] + ex1_y) * scale - offset_y)
+                q0_x = p1[0] * scale - offset_x
+                q0_y = p1[1] * scale - offset_y
+                q1_x = p2[0] * scale - offset_x
+                q1_y = p2[1] * scale - offset_y
+                q2_x = (p2[0] + ex2_x) * scale - offset_x
+                q2_y = (p2[1] + ex2_y) * scale - offset_y
+                q3_x = (p1[0] + ex1_x) * scale - offset_x
+                q3_y = (p1[1] + ex1_y) * scale - offset_y
 
                 # Draw opaque black to erase light
                 pygame.draw.polygon(
@@ -724,24 +718,24 @@ class SoftwareLightingEngine:
     ) -> None:
         w, h = target_surf.get_size()
         sr = radius * self.scale
-        
+
         # Coordinate grids
         x = np.arange(w, dtype=np.float32) - cx + 0.5
         y = np.arange(h, dtype=np.float32) - cy + 0.5
         xx, yy = np.meshgrid(x, y)
-        
+
         # Dist
         dist = np.sqrt(xx * xx + yy * yy) / max(sr, 1.0)
-        
+
         # Falloff
         falloff = np.clip(1.0 - dist, 0.0, 1.0) ** 2
         falloff = falloff * intensity
-        
+
         # Colors
         r = (falloff * color[0]).astype(np.uint8)
         g = (falloff * color[1]).astype(np.uint8)
         b = (falloff * color[2]).astype(np.uint8)
-        
+
         # Set pixels
         pixels = pygame.surfarray.pixels3d(target_surf)
         pixels[:, :, 0] = r.T
@@ -765,23 +759,23 @@ class SoftwareLightingEngine:
         sr = int(radius * self.scale)
         base_alpha = max(0, min(255, int(255 * intensity)))
         center = (int(cx), int(cy))
-        
+
         # Coarse steps for performance
         steps = max(1, sr // 4)
-        
+
         for i in range(steps):
             t = i / float(steps)
             r = int(sr * (1.0 - t))
             if r <= 0:
                 continue
-            
+
             fn = t
             alpha_val = int(base_alpha * (fn**2))
-            
+
             # Draw circle (Pygame clips automatically)
             # Use width=5 to fill gaps
             pygame.draw.circle(target_surf, color + (alpha_val,), center, r, width=5)
-            
+
         pygame.draw.circle(target_surf, color + (base_alpha,), center, 5)
 
     def get_surface(self) -> pygame.Surface:

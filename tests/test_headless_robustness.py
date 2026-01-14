@@ -1,10 +1,8 @@
-import pytest
 import os
 import pygame
 import random
 from yukkuri_game.testing.driver import (
     GameDriver,
-    WaitFrames,
     KeyPress,
     WaitUntilScene,
 )
@@ -72,26 +70,25 @@ def test_input_injection(game_driver: GameDriver):
     We'll inject an ESC key to see if the game pauses or goes to Main Menu.
     """
     from yukkuri_game.scenes.gameplay import GameplayScene
-    from yukkuri_game.scenes.main_menu import MainMenuScene
 
     driver = game_driver
     driver.wait_until_scene(GameplayScene)
     driver.reload_scene(GameplayScene)
-    
+
     # Inject ESC to pause/exit to menu
     # Use WaitUntilScene for robustness
     driver.run_scenario(
         (
-            step for step in [
+            step
+            for step in [
                 KeyPress(pygame.K_ESCAPE),
-                WaitUntilScene(MainMenuScene, timeout=2.0)
+                WaitUntilScene(MainMenuScene, timeout=2.0),
             ]
         )
     )
 
     # If we get here, pass
     assert isinstance(driver.game.scene_manager.current_scene, MainMenuScene)
-
 
 
 def test_stress_test(game_driver: GameDriver):
@@ -101,7 +98,7 @@ def test_stress_test(game_driver: GameDriver):
     driver = game_driver
     driver.wait_until_scene(GameplayScene)
 
-    # Use reset to ensure clean slate 
+    # Use reset to ensure clean slate
     driver.reload_scene(GameplayScene)
 
     # Spawn 50 Yukkuris
@@ -135,7 +132,7 @@ def test_audio_mock(game_driver: GameDriver):
     driver = game_driver
     driver.wait_until_scene(GameplayScene)
     driver.reload_scene(GameplayScene)
-    
+
     scene = driver.game.scene_manager.current_scene
 
     # Inject Mock
@@ -146,4 +143,3 @@ def test_audio_mock(game_driver: GameDriver):
     scene.audio.play_sound("test_sound")
 
     assert "test_sound" in mock_audio.played_sounds
-

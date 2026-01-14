@@ -149,6 +149,7 @@ class TestInputSystem(unittest.TestCase):
         self.event_bus_mock.publish.assert_called_with(PlacementCancelledEvent())
 
         # Check placement reset
+
     def test_time_speed_blocked_by_ctrl(self) -> None:
         """
         Tests that time speed input is ignored if Ctrl is held (conflict with zoom).
@@ -156,9 +157,10 @@ class TestInputSystem(unittest.TestCase):
         # Mock TimeService
         mock_time_service = MagicMock()
         mock_time_service.game_speed = 1.0
-        
+
         def try_get_service(service_type):
             from yukkuri_game.game.services import TimeService
+
             if service_type == TimeService:
                 return mock_time_service
             # Fallback to existing mocks
@@ -167,7 +169,7 @@ class TestInputSystem(unittest.TestCase):
             if service_type == InputManager:
                 return self.input_manager_mock
             return None
-            
+
         self.world_mock.services.try_get.side_effect = try_get_service
 
         # Simulate Time Speed Up + Ctrl
@@ -179,11 +181,11 @@ class TestInputSystem(unittest.TestCase):
         )
 
         with patch("pygame.display.get_surface") as mock_get_surface:
-             # Just need a dummy surface
+            # Just need a dummy surface
             mock_surface = MagicMock()
             mock_surface.get_size.return_value = (800, 600)
             mock_get_surface.return_value = mock_surface
-            
+
             self.input_system.update(self.world_mock, 0.0)
 
         # Assert speed did NOT change
@@ -196,9 +198,10 @@ class TestInputSystem(unittest.TestCase):
         # Mock TimeService
         mock_time_service = MagicMock()
         mock_time_service.game_speed = 1.0
-        
+
         def try_get_service(service_type):
             from yukkuri_game.game.services import TimeService
+
             if service_type == TimeService:
                 return mock_time_service
             # Fallback to existing mocks
@@ -207,7 +210,7 @@ class TestInputSystem(unittest.TestCase):
             if service_type == InputManager:
                 return self.input_manager_mock
             return None
-            
+
         self.world_mock.services.try_get.side_effect = try_get_service
 
         # Simulate Time Speed Up (No Ctrl)
@@ -220,7 +223,7 @@ class TestInputSystem(unittest.TestCase):
             mock_surface = MagicMock()
             mock_surface.get_size.return_value = (800, 600)
             mock_get_surface.return_value = mock_surface
-            
+
             self.input_system.update(self.world_mock, 0.0)
 
         # Assert speed DID change (doubled)

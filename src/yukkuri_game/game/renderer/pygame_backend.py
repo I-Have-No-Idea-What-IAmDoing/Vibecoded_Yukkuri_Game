@@ -29,7 +29,9 @@ class PygameBackend(RenderBackend):
 
         # Caches
         self.font_cache: dict[tuple[int, str | None], pygame.font.Font] = {}
-        self.shadow_surface_cache: dict[tuple[int, int, tuple[int, int, int, int]], pygame.Surface] = {}  # (rx, ry, color) -> Surface
+        self.shadow_surface_cache: dict[
+            tuple[int, int, tuple[int, int, int, int]], pygame.Surface
+        ] = {}  # (rx, ry, color) -> Surface
 
     def clear(self, color: tuple[int, int, int]) -> None:
         self.screen.fill(color)
@@ -107,7 +109,9 @@ class PygameBackend(RenderBackend):
         ys = [v[1] for v in snapped_vertices]
         aabb = (min(xs), max(xs), min(ys), max(ys))
 
-        self.lighting_engine.add_occluder(aabb, [(float(v[0]), float(v[1])) for v in snapped_vertices])
+        self.lighting_engine.add_occluder(
+            aabb, [(float(v[0]), float(v[1])) for v in snapped_vertices]
+        )
 
     def set_ambient_light(self, color: tuple[int, int, int, int]) -> None:
         self.ambient_color = color
@@ -158,20 +162,20 @@ class PygameBackend(RenderBackend):
         is_large = rx > 50
 
         if is_large:
-             # Use Pool
+            # Use Pool
             w, h = rx * 2, ry * 2
             s = self.lighting_engine.surface_pool.acquire(w, h)
             # Ensure clean surface (acquire cleans it?)
             # surface_pool.acquire() clears it with (0,0,0,0)
-            
+
             pygame.draw.ellipse(s, cmd.color, pygame.Rect(0, 0, w, h))
-            
+
             dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
             self.screen.blit(s, dest_rect)
-            
+
             # Release immediately
             self.lighting_engine.surface_pool.release(s)
-            
+
         else:
             # Small shadows: Cache them
             key = (rx, ry, cmd.color)

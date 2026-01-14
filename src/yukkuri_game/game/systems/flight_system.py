@@ -3,7 +3,6 @@ Flight System Module.
 """
 
 from ...engine.ecs import System, World
-from ...engine.event_bus import EventBus
 from ..components import Transform
 from ..yukkuri_components import Flight, FlightState
 
@@ -28,13 +27,19 @@ class FlightSystem(System):
         # Note: Transform is usually present but not strictly required for logic unless we modify it?
         # Actually we modify flight.altitude which RenderSystem uses.
         # But we do need DT.
-        
-        for entity, (flight, transform) in world.get_components_tuple(Flight, Transform):
+
+        for entity, (flight, transform) in world.get_components_tuple(
+            Flight, Transform
+        ):
             self._process_flight(flight, transform, dt)
 
     def _process_flight(self, flight: Flight, transform: Transform, dt: float) -> None:
         # 1. Stamina Management
-        if flight.state in (FlightState.FLYING, FlightState.TAKEOFF, FlightState.SWOOPING):
+        if flight.state in (
+            FlightState.FLYING,
+            FlightState.TAKEOFF,
+            FlightState.SWOOPING,
+        ):
             # Drain stamina (Fly cost)
             flight.stamina -= flight.fly_cost * dt
         elif flight.state == FlightState.HOVERING:

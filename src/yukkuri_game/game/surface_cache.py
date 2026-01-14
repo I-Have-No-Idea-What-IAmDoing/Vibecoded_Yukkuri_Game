@@ -24,7 +24,9 @@ class SurfaceCache:
         self.rm = resource_manager
         self.max_size = max_size
         # Key: (image_name, frame, width, height, scale, rotation, flip_x, flip_y)
-        self._cache: OrderedDict[tuple[str, int, int, int, float, float, bool, bool], pygame.Surface] = OrderedDict()
+        self._cache: OrderedDict[
+            tuple[str, int, int, int, float, float, bool, bool], pygame.Surface
+        ] = OrderedDict()
 
     def get_surface(
         self,

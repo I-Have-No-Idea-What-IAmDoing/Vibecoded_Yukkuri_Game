@@ -35,7 +35,7 @@ except ImportError:
     # Also mock pygame dependants that might fail import
     sys.modules["pygame_gui"] = MagicMock()
     sys.modules["pygame_light2d"] = MagicMock()
-    
+
     # We still need to import it to make it available as 'pygame' in this module scope if it wasn't already
     import pygame
 

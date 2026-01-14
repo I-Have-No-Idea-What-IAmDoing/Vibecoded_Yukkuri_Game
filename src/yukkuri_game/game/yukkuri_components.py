@@ -17,13 +17,13 @@ class FlightState(Enum):
     Enum representing the flight state of a flying Yukkuri.
     """
 
-    GROUNDED = 0   # Walking/Idle on ground
-    TAKEOFF = 1    # Ascending (Altitude < Max)
-    FLYING = 2     # Cruising (Altitude ~= Max)
-    HOVERING = 3   # Stationary in air (Reduced Stamina Cost)
-    LANDING = 4    # Descending (Altitude > 0)
-    SWOOPING = 5   # Rapid attack descent (Altitude -> 0 temporarily)
-    FALLING = 6    # Out of stamina/Stunned. Gravity applies full force.
+    GROUNDED = 0  # Walking/Idle on ground
+    TAKEOFF = 1  # Ascending (Altitude < Max)
+    FLYING = 2  # Cruising (Altitude ~= Max)
+    HOVERING = 3  # Stationary in air (Reduced Stamina Cost)
+    LANDING = 4  # Descending (Altitude > 0)
+    SWOOPING = 5  # Rapid attack descent (Altitude -> 0 temporarily)
+    FALLING = 6  # Out of stamina/Stunned. Gravity applies full force.
 
 
 @dataclass(slots=True)

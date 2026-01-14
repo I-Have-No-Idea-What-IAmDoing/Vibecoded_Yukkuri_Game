@@ -5,7 +5,7 @@ Gameplay Scene.
 import os
 from pathlib import Path
 from datetime import datetime
-from typing import ClassVar, Any, TYPE_CHECKING, cast
+from typing import ClassVar, Any, TYPE_CHECKING
 
 import pygame
 import pygame_gui
@@ -13,7 +13,6 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from ..game.systems.day_night import DayNightSystem
-    import pygame_light2d as pl2d
 
 from ..config import load_config
 from ..engine.application import Application
@@ -57,15 +56,17 @@ class GameplayScene(Scene):
         self.paused = False
         self.time_scale = 1.0
         # Compute absolute path for theme file (relative to project root)
-        _theme_path = Path(__file__).parent.parent.parent.parent / "data" / "ui_theme.json"
+        _theme_path = (
+            Path(__file__).parent.parent.parent.parent / "data" / "ui_theme.json"
+        )
         print(f"DEBUG: Calculated theme path: {_theme_path}")
         print(f"DEBUG: Theme path exists: {_theme_path.exists()}")
         if not _theme_path.exists():
-             print(f"DEBUG: CWD is {os.getcwd()}")
-             
+            print(f"DEBUG: CWD is {os.getcwd()}")
+
         self.ui_manager = pygame_gui.UIManager(
             (self.application.width, self.application.height),
-            theme_path=str(_theme_path) if _theme_path.exists() else None
+            theme_path=str(_theme_path) if _theme_path.exists() else None,
         )
         self.dt = 0.0
 
@@ -192,13 +193,16 @@ class GameplayScene(Scene):
                     DayNightSystem = None  # Should not happen in normal run
 
             if DayNightSystem:
-                self.day_night_system = DayNightSystem(
-                    self.world, self.render_system
-                )
+                self.day_night_system = DayNightSystem(self.world, self.render_system)
                 self.world.add_system(self.day_night_system)
 
             # HUD
             self.hud = HUD(self.ui_manager, self.world)
+
+            # Initialize navigation debug renderer
+            nav_service = self.world.services.try_get(NavigationService)
+            if nav_service:
+                self.hud.init_navigation_debug(nav_service, self.camera)
 
             self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
             self.event_bus.subscribe(CycleSpeedRequest, lambda e: self.cycle_speed())
@@ -224,6 +228,11 @@ class GameplayScene(Scene):
                 "time", self.time_service.time_elapsed
             )
 
+        # Shutdown Navigation Service
+        nav_service = self.world.services.try_get(NavigationService)
+        if nav_service:
+            nav_service.shutdown()
+
     def toggle_pause(self) -> None:
         """Toggles the pause state."""
         self.paused = not self.paused
@@ -237,7 +246,12 @@ class GameplayScene(Scene):
         except ValueError:
             next_idx = 0
         self.time_scale = speeds[next_idx]
-        if self.hud and hasattr(self.hud, "layout") and self.hud.layout and self.hud.layout.speed_btn:
+        if (
+            self.hud
+            and hasattr(self.hud, "layout")
+            and self.hud.layout
+            and self.hud.layout.speed_btn
+        ):
             self.hud.layout.speed_btn.set_text(f"{self.time_scale}x")
 
     def on_resolution_changed(self, event: ResolutionChangedEvent) -> None:
@@ -425,9 +439,14 @@ class GameplayScene(Scene):
 
                 # We need to render HUD to a surface, convert to texture, and render to FOREGROUND
                 # HUD draws to a surface passed to it.
-                if not hasattr(self, "hud_surface") or not self.hud_surface or self.hud_surface.get_size() != (
-                    self.application.width,
-                    self.application.height,
+                if (
+                    not hasattr(self, "hud_surface")
+                    or not self.hud_surface
+                    or self.hud_surface.get_size()
+                    != (
+                        self.application.width,
+                        self.application.height,
+                    )
                 ):
                     self.hud_surface = pygame.Surface(
                         (self.application.width, self.application.height),
@@ -452,16 +471,18 @@ class GameplayScene(Scene):
                 if hasattr(self, "hud_texture") and self.hud_texture:
                     self.hud_texture.release()
 
-                self.hud_texture = lighting_engine.surface_to_texture(
-                    self.hud_surface
-                )
+                self.hud_texture = lighting_engine.surface_to_texture(self.hud_surface)
 
                 if self.hud_texture:
                     lighting_engine.render_texture(
                         self.hud_texture,
                         pl2d.FOREGROUND,
-                        pygame.Rect(0, 0, self.hud_texture.width, self.hud_texture.height),
-                        pygame.Rect(0, 0, self.hud_texture.width, self.hud_texture.height),
+                        pygame.Rect(
+                            0, 0, self.hud_texture.width, self.hud_texture.height
+                        ),
+                        pygame.Rect(
+                            0, 0, self.hud_texture.width, self.hud_texture.height
+                        ),
                     )
 
                 # Note: We do NOT release self.hud_texture here, we keep it for next frame.
@@ -520,15 +541,21 @@ class GameplayScene(Scene):
                 if self.input_manager.is_action_pressed("shift"):
                     # Shift+F3 -> Toggle Lighting Debug
                     if self.hud:
-                         self.hud.toggle_lighting_debug()
-                         if self.render_system and hasattr(self.render_system, "renderer"):
-                             renderer: Any = self.render_system.renderer
-                             renderer.toggle_lighting_debug(self.hud.lighting_debug)
+                        self.hud.toggle_lighting_debug()
+                        if self.render_system and hasattr(
+                            self.render_system, "renderer"
+                        ):
+                            renderer: Any = self.render_system.renderer
+                            renderer.toggle_lighting_debug(self.hud.lighting_debug)
                 elif self.input_manager.is_action_pressed("ctrl"):
                     # Ctrl+F3 -> Toggle Mouse Light
                     mouse_light = self.world.services.try_get(MouseLightSystem)
                     if mouse_light:
                         mouse_light.toggle()
+                elif self.input_manager.is_action_pressed("alt"):
+                    # Alt+F3 -> Toggle Navigation Debug
+                    if self.hud:
+                        self.hud.toggle_navigation_debug()
                 else:
                     if self.hud:
                         self.hud.toggle_debug()
@@ -549,7 +576,9 @@ class GameplayScene(Scene):
         # Always re-initialize or create if missing to ensure fresh state for screenshot
         # But we must be careful not to destroy existing state if it's fine.
         # Actually, RenderSystem is stateless except for screen reference.
-        if (not hasattr(self, "render_system") or self.render_system is None) and self.application.screen:
+        if (
+            not hasattr(self, "render_system") or self.render_system is None
+        ) and self.application.screen:
             self.render_system = RenderSystem(
                 self.application.screen,
                 self.world,

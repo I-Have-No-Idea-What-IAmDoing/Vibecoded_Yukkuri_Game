@@ -174,7 +174,6 @@ class InteractionRequest:
     action: str = "DEFAULT"
 
 
-
 @dataclass(slots=True)
 class MovementController:
     """A simple component that holds movement commands and visual state."""
@@ -272,6 +271,29 @@ class Occluder:
 
     # If None, defaults to the entity's PhysicsBody shape or Sprite rect
     polygon: list[tuple[float, float]] | None = None
-    # Optimization: If True, the occluder geometry is assumed to be static (e.g. walls)
+    # optimization: If True, the occluder geometry is assumed to be static (e.g. walls)
     # and can be cached more aggressively.
     static: bool = False
+
+
+@dataclass(slots=True)
+class SteeringComponent:
+    """
+    Component for handling steering behaviors (Seek, Separation, etc.).
+    """
+
+    max_speed: float = 150.0
+    max_force: float = 300.0
+    mass: float = 1.0
+
+    # Current accumulated force
+    current_steering_force: Vector2 = field(default_factory=lambda: Vector2(0, 0))
+
+    # Tuning weights
+    seek_weight: float = 1.0
+    separation_weight: float = 1.5
+    avoidance_weight: float = 2.0
+    arrival_radius: float = 25.0
+
+    # Stuck detection
+    time_stuck: float = 0.0

@@ -4,10 +4,11 @@ Comprehensive tests for Phase 7: Flandre integration and predator hunting.
 
 import pytest
 import math
-from unittest.mock import Mock, MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import (
-    Flight, FlightState, Predator, AIState, YukkuriStats, Needs
+    Flight,
+    FlightState,
+    Predator,
 )
 from yukkuri_game.game.components import Transform, MovementController
 from yukkuri_game.game.ai.navigation_service import NavigationService, ObstacleType
@@ -52,10 +53,12 @@ class TestNavigationAreaCoverage:
     def test_update_obstacle_rect_covers_area(self):
         """Verify rect-based update covers multiple cells."""
         nav = NavigationService(500, 500, grid_step_size=25)
-        
+
         # Place a 50x50 obstacle centered at (100, 100)
-        nav.update_obstacle_rect(100.0, 100.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.HIGH)
-        
+        nav.update_obstacle_rect(
+            100.0, 100.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.HIGH
+        )
+
         # Should block cells in a 2x2 area (roughly)
         # Center at (100, 100) with half-size 25 -> covers 75-125 in each axis
         # Grid cells: 3, 4, 5 in each axis
@@ -68,9 +71,11 @@ class TestNavigationAreaCoverage:
     def test_update_obstacle_rect_low_only_blocks_ground(self):
         """LOW obstacle rect should only block ground grid."""
         nav = NavigationService(500, 500, grid_step_size=25)
-        
-        nav.update_obstacle_rect(100.0, 100.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.LOW)
-        
+
+        nav.update_obstacle_rect(
+            100.0, 100.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.LOW
+        )
+
         # Ground should be blocked at center
         gx, gy = 4, 4
         assert nav.ground_grid.node(gx, gy).walkable is False
@@ -79,18 +84,18 @@ class TestNavigationAreaCoverage:
 
 class TestRescueMechanic:
     """Tests for social defense (rescue) mechanic."""
-    
+
     def test_rescue_mechanic_concept(self):
         """Test that rescue mechanic logic is conceptually correct."""
         # The actual EatPrey action requires complex world setup.
         # We test the logic concept here.
-        
+
         rescue_radius = 60.0
         prey_pos = (100.0, 100.0)
         defender_pos = (120.0, 100.0)
-        
+
         dist = math.hypot(defender_pos[0] - prey_pos[0], defender_pos[1] - prey_pos[1])
-        
+
         assert dist <= rescue_radius, "Defender should be within rescue range"
 
 
@@ -102,11 +107,11 @@ class TestVisibilityBonus:
         base_range = 300.0
         altitude = 60.0
         max_altitude = 80.0
-        
+
         # Formula from visibility_system.py
         altitude_factor = min(1.0, altitude / max_altitude)
         effective_range = base_range * (1.0 + 0.5 * altitude_factor)
-        
+
         # At altitude 60/80 = 0.75, bonus = 0.375
         # Effective range = 300 * 1.375 = 412.5
         assert effective_range == pytest.approx(412.5, rel=0.01)
@@ -116,10 +121,10 @@ class TestVisibilityBonus:
         base_range = 300.0
         altitude = 0.0
         max_altitude = 80.0
-        
+
         altitude_factor = min(1.0, altitude / max_altitude) if max_altitude > 0 else 0
         effective_range = base_range * (1.0 + 0.5 * altitude_factor)
-        
+
         assert effective_range == base_range
 
 
@@ -129,14 +134,14 @@ class TestHuntUtilityContext:
     def test_is_predator_context_flag(self):
         """Test that is_predator flag is correctly set in context."""
         world = World()
-        
+
         # Create predator entity
         predator_entity = world.create_entity()
         world.add_component(predator_entity, Predator(prey_tags={"reimu"}))
-        
+
         # Create non-predator entity
         normal_entity = world.create_entity()
-        
+
         # Check has_component
         assert world.has_component(predator_entity, Predator) is True
         assert world.has_component(normal_entity, Predator) is False
@@ -148,52 +153,51 @@ class TestFleePredator:
     def test_prey_flees_when_predator_nearby(self):
         """Prey should move away from predator."""
         world = World()
-        
+
         # Prey
         prey = world.create_entity()
         world.add_component(prey, Transform(x=100, y=100))
         ctrl = MovementController()
         world.add_component(prey, ctrl)
-        
+
         # Predator
         pred = world.create_entity()
-        world.add_component(pred, Transform(x=120, y=100)) # 20 units right
+        world.add_component(pred, Transform(x=120, y=100))  # 20 units right
         world.add_component(pred, Predator())
-        
+
         # Setup mock blackboard
         action = FleePredator(entity_id=prey, world=world)
-        
+
         status = action.update()
-        
+
         assert status == Status.RUNNING
         # Should flee left (negative X)
         assert ctrl.target_velocity.x < 0
         assert ctrl.target_velocity.y == 0
-        
+
     def test_prey_safe_when_predator_far(self):
         """Prey should not flee if predator is far."""
         world = World()
-        
+
         prey = world.create_entity()
         world.add_component(prey, Transform(x=0, y=0))
         world.add_component(prey, MovementController())
-        
+
         pred = world.create_entity()
         world.add_component(pred, Transform(x=1000, y=1000))
         world.add_component(pred, Predator())
-        
+
         action = FleePredator(entity_id=prey, world=world)
         status = action.update()
-                # FleePredator returns FAILURE when safe so behavior tree continues to Normal Behavior
+        # FleePredator returns FAILURE when safe so behavior tree continues to Normal Behavior
         assert status == Status.FAILURE
 
 
 class TestAerialAssault:
     """Tests for Aerial Assault logic in behavior tree."""
-    
+
     def test_aerial_assault_structure(self):
         """Verify aerial assault sequence structure."""
-        # This is a bit abstract to test without a full tree run, 
+        # This is a bit abstract to test without a full tree run,
         # but we can verify component logic manually if needed.
         pass
-

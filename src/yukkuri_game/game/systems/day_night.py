@@ -32,7 +32,9 @@ class DayNightSystem(System):
         self.render_system = renderer
         self.time_service = world.services.get(TimeService)
 
-    def _interpolate_color(self, c1: tuple[int, int, int], c2: tuple[int, int, int], t: float) -> tuple[int, int, int, int]:
+    def _interpolate_color(
+        self, c1: tuple[int, int, int], c2: tuple[int, int, int], t: float
+    ) -> tuple[int, int, int, int]:
         return (
             int(c1[0] + (c2[0] - c1[0]) * t),
             int(c1[1] + (c2[1] - c1[1]) * t),

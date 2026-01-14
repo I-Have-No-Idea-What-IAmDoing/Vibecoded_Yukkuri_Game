@@ -4,8 +4,9 @@ Module for the Context Menu UI.
 
 import pygame
 import pygame_gui
-from pygame_gui.elements import UIPanel, UIButton, UISelectionList
+from pygame_gui.elements import UIPanel, UISelectionList
 from typing import Callable, Any, Optional
+
 
 class ContextMenu:
     """
@@ -32,10 +33,15 @@ class ContextMenu:
         self.on_action: Optional[Callable[[str, Any], None]] = None
         self.target_data: Any = None
         self.active = False
-        self.options: list[tuple[str, str]] = [] # (Label, ActionID)
+        self.options: list[tuple[str, str]] = []  # (Label, ActionID)
 
-    def show(self, position: tuple[int, int], options: list[tuple[str, str]],
-             on_action: Callable[[str, Any], None], target_data: Any) -> None:
+    def show(
+        self,
+        position: tuple[int, int],
+        options: list[tuple[str, str]],
+        on_action: Callable[[str, Any], None],
+        target_data: Any,
+    ) -> None:
         """
         Shows the context menu at the given position.
 
@@ -56,7 +62,7 @@ class ContextMenu:
 
         item_height = 25
         width = 150
-        height = len(options) * item_height + 10 # padding
+        height = len(options) * item_height + 10  # padding
 
         # Ensure menu doesn't go off-screen
         screen_w, screen_h = self.manager.window_resolution
@@ -71,9 +77,9 @@ class ContextMenu:
 
         self.panel = UIPanel(
             relative_rect=rect,
-            starting_height=100, # Ensure it's on top
+            starting_height=100,  # Ensure it's on top
             manager=self.manager,
-            object_id="context_menu_panel"
+            object_id="context_menu_panel",
         )
 
         # Extract just the labels for the selection list
@@ -84,7 +90,7 @@ class ContextMenu:
             item_list=item_list,
             manager=self.manager,
             container=self.panel,
-            object_id="context_menu_list"
+            object_id="context_menu_list",
         )
 
         self.active = True
@@ -117,7 +123,9 @@ class ContextMenu:
             if event.ui_element == self.selection_list:
                 selected_label = event.text
                 # Find corresponding action ID
-                action_id = next((opt[1] for opt in self.options if opt[0] == selected_label), None)
+                action_id = next(
+                    (opt[1] for opt in self.options if opt[0] == selected_label), None
+                )
 
                 if action_id and self.on_action:
                     self.on_action(action_id, self.target_data)

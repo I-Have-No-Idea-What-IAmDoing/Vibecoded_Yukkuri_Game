@@ -31,6 +31,9 @@ from .game.systems.flight_system import FlightSystem
 from .game.input_system import InputSystem
 from .game.systems.time_system import TimeSystem
 from .game.systems.mouse_light_system import MouseLightSystem
+from .game.systems.navigation_system import NavigationSystem
+from .game.systems.steering_system import SteeringSystem
+from .game.systems.navigation_update_system import NavigationUpdateSystem
 
 if TYPE_CHECKING:
     from .config import GameConfig
@@ -82,7 +85,14 @@ class SystemRegistry:
 
         world.add_system(EmotionSystem(settings=game_config.rules.stat_decay))
         world.add_system(LifecycleSystem(settings=game_config.rules.lifecycle))
+
+        # Navigation & AI
+        world.add_system(NavigationSystem())
+        world.add_system(NavigationUpdateSystem())
         world.add_system(BehaviorSystem(float(camera.width), float(camera.height)))
+
+        # Movement Pipeline
+        world.add_system(SteeringSystem())
         world.add_system(KinematicMovementSystem())
         world.add_system(FlightSystem())  # Handles flight stamina/altitude logic
         world.add_system(HierarchySystem())

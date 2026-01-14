@@ -2,8 +2,7 @@
 Unit tests for the DayNightSystem.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.day_night import DayNightSystem

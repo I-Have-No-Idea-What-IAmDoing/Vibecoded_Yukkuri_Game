@@ -10,7 +10,12 @@ from typing import TYPE_CHECKING
 from ..engine.ecs import World
 from ..engine.event_bus import EventBus
 from ..engine.audio import AudioManager
-from ..game import components, components_persistence, yukkuri_components, inventory_component
+from ..game import (
+    components,
+    components_persistence,
+    yukkuri_components,
+    inventory_component,
+)
 from ..game.services import EconomyService, GameService, InputService, TimeService
 from ..game.settings_service import SettingsService
 from ..game.systems.physics import PhysicsSystem
@@ -159,18 +164,23 @@ class GameLoader:
             event_bus,
             physics_system,
         )
-        
+
         # Register Flight System
         flight_system = FlightSystem()
         self.world.add_system(flight_system)
-        
+
         input_system.set_ui_manager(ui_manager)
         return input_system
 
     def collect_component_types(self) -> list[type]:
         """Collects all component types for serialization."""
         comp_types = []
-        for module in [components, yukkuri_components, components_persistence, inventory_component]:
+        for module in [
+            components,
+            yukkuri_components,
+            components_persistence,
+            inventory_component,
+        ]:
             for _, obj in inspect.getmembers(module):
                 if inspect.isclass(obj):
                     comp_types.append(obj)

@@ -12,7 +12,6 @@ from ...engine.events import ComponentAddedEvent, ComponentRemovedEvent
 from ..components import Vision, Transform, PhysicsBody
 from ..yukkuri_components import AIState, Flight
 from .physics import PhysicsSystem
-from .physics import PhysicsSystem
 from ..collision_constants import CollisionCategories
 from ...engine.types import EntityID
 from typing import cast
@@ -37,7 +36,7 @@ class VisibilitySystem(System):
         self.batch_size = 0.2  # Process 20% of entities per frame
         self.body_to_entity: dict[pymunk.Body, int] = {}
         self.event_bus: EventBus | None = None
-        
+
         # --- Performance Optimization: Visibility Caching ---
         # Cache visibility results per observer.
         # Key: entity_id -> (visible_set, cached_x, cached_y)
@@ -115,11 +114,11 @@ class VisibilitySystem(System):
 
         for idx in batch_indices:
             ent, (vision, trans, ai) = observers_list[idx]
-            
+
             # Optimization: Try to get body from our map (reverse lookup is slow? No we only have Body->Entity)
-            # We need Entity -> Body. 
+            # We need Entity -> Body.
             # Let's fallback to ECS for Observer Body, it's only 1 call per observer.
-            # But we can optimize if we cache it? 
+            # But we can optimize if we cache it?
             # For now, just passing the body if found avoids logic inside.
             phys_comp = world.try_get_component(ent, PhysicsBody)
             self.update_visibility(ent, vision, trans, ai, world, phys_comp)
@@ -158,7 +157,7 @@ class VisibilitySystem(System):
                 # Cache hit! Reuse previous visibility result.
                 ai.visible_entities = {cast(EntityID, x) for x in cached_visible}
                 return
-        
+
         visible: set[EntityID] = set()
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
@@ -229,21 +228,25 @@ class VisibilitySystem(System):
 
             # 3. Narrowphase: Raycast
             # We cast to the target's center.
-            
+
             # Note: group filter only works if shapes are configured with the same group ID.
             # Since we can't guarantee that, we still need to check for self-hits.
             vision_ray_filter = pymunk.ShapeFilter(mask=vision_mask, group=entity)
-            
+
             # Optimization: Use segment_query_first to stop at the first hit.
             # This avoids sorting and iterating through multiple hits.
-            hit = self.space.segment_query_first(obs_pos, target_pos, 1.0, vision_ray_filter)
-            
+            hit = self.space.segment_query_first(
+                obs_pos, target_pos, 1.0, vision_ray_filter
+            )
+
             if hit:
                 # Skip if we hit our own body (can happen if ray originates inside our shape)
                 if phys_comp and hit.shape.body == phys_comp.body:
                     # We hit ourselves first - need to check if target is visible beyond us
                     # Fall back to full segment query to find actual first non-self hit
-                    hits = self.space.segment_query(obs_pos, target_pos, 1.0, vision_ray_filter)
+                    hits = self.space.segment_query(
+                        obs_pos, target_pos, 1.0, vision_ray_filter
+                    )
                     for h in sorted(hits, key=lambda x: x.alpha):
                         if phys_comp and h.shape.body == phys_comp.body:
                             continue  # Skip our own shapes

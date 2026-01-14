@@ -232,7 +232,7 @@ class InputService:
         self._cleaning_mode = False
         self.hovered_entity_id: int = -1
         self.hovered_entity_pos: tuple[int, int] = (0, 0)
-        
+
         # Current placement position in world coordinates (for preview)
         self.current_placement_pos: tuple[float, float] = (0.0, 0.0)
 
@@ -450,7 +450,6 @@ class PersistenceService:
             for comp in all_comps:
                 comp_type_name = type(comp).__name__
 
-
                 comp_dict = {}
                 try:
                     if isinstance(comp, msgspec.Struct):
@@ -480,8 +479,6 @@ class PersistenceService:
 
         with open(filepath, "wb") as f:
             f.write(msgspec.msgpack.encode(data))
-
-
 
     def load_game(self, filename: str) -> bool:
         filepath = os.path.join(self.save_dir, filename)

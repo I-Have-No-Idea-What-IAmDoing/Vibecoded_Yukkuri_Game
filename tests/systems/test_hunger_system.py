@@ -3,8 +3,7 @@ Unit tests for the HungerSystem.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
-import math
+from unittest.mock import MagicMock
 
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.audio import AudioManager

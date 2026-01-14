@@ -274,4 +274,3 @@ class InventoryItemActionEvent(Event):
     item_type_id: str
     action: str  # "drop", "use", "transfer"
     quantity: int = 1
-

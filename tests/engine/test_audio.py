@@ -117,7 +117,6 @@ class TestAudio(unittest.TestCase):
         audio.set_volume(-0.5)
         self.assertEqual(audio.master_volume, 0.0)
 
-
     @patch("pygame.mixer.music.set_volume")
     @patch("pygame.mixer.get_init")
     @patch("pygame.mixer.Sound")

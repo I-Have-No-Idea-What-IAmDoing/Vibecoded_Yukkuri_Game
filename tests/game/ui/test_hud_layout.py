@@ -4,7 +4,6 @@ Tests for the HudLayout class.
 
 import pytest
 from unittest.mock import MagicMock, patch
-import pygame
 from pygame_gui import UIManager
 from pygame_gui.core.interfaces import IContainerLikeInterface
 from yukkuri_game.game.ui.hud_layout import HudLayout
@@ -14,7 +13,7 @@ class TestHudLayout:
     @pytest.fixture
     def mock_ui_manager(self):
         manager = MagicMock(spec=UIManager)
-        manager.ui_window_stack = MagicMock() # Needs this attr
+        manager.ui_window_stack = MagicMock()  # Needs this attr
         return manager
 
     @pytest.fixture
@@ -29,7 +28,9 @@ class TestHudLayout:
         # Ensure they have a kill method
         MockPanel = MagicMock(spec=IContainerLikeInterface)
         MockPanel.kill = MagicMock()
-        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIPanel", lambda *args, **kwargs: MockPanel)
+        monkeypatch.setattr(
+            "yukkuri_game.game.ui.hud_layout.UIPanel", lambda *args, **kwargs: MockPanel
+        )
 
         monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UILabel", MagicMock())
         # Ensure UIButton returns unique mocks so dictionary keys are unique
@@ -54,8 +55,8 @@ class TestHudLayout:
         MockScrollingContainer.set_scrollable_area_dimensions = MagicMock()
 
         monkeypatch.setattr(
-             "yukkuri_game.game.ui.hud_layout.UIScrollingContainer",
-             lambda *args, **kwargs: MockScrollingContainer
+            "yukkuri_game.game.ui.hud_layout.UIScrollingContainer",
+            lambda *args, **kwargs: MockScrollingContainer,
         )
 
         layout = HudLayout(mock_ui_manager, 800, 600, yukkuri_types, item_types)
@@ -113,6 +114,9 @@ class TestHudLayout:
         mock_label = MagicMock()
         mock_label.rect.size = (200, 60)
 
-        with patch("yukkuri_game.game.ui.hud_layout.NonBlockingTextBox", return_value=mock_label):
+        with patch(
+            "yukkuri_game.game.ui.hud_layout.NonBlockingTextBox",
+            return_value=mock_label,
+        ):
             layout.update_hover_tooltip("Test Tooltip", (100, 100))
             assert layout.hover_tooltip_label is not None

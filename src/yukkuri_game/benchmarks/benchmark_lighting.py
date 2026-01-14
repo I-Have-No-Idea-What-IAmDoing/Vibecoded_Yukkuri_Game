@@ -104,7 +104,6 @@ class LightingBenchmarkRunner:
 
         cached_times = []
 
-
         for _ in range(self.iterations):
             frame_start = time.perf_counter()
 

@@ -96,7 +96,7 @@ def test_movetotarget_slows_down_when_low_energy(world_and_entity):
 
 def test_movetotarget_falls_back_to_direct_movement_if_no_path(world_and_entity):
     """Test that the action falls back to direct movement if pathfinding fails.
-    
+
     When the NavigationService returns an empty path, MoveToTarget should
     not fail but instead attempt direct movement towards the target.
     """

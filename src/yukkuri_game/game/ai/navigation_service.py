@@ -1,100 +1,359 @@
-"""
-Module for handling navigation and pathfinding.
-"""
-
-import math
-from enum import Enum
-from pathfinding.core.grid import Grid
-from pathfinding.finder.a_star import AStarFinder
-from pathfinding.core.diagonal_movement import DiagonalMovement
+import threading
+import queue
+import time
+import traceback
+from dataclasses import dataclass, field
+from typing import List, Tuple, Optional
 from loguru import logger
 
+from .navigation_grid import NavigationGrid
+from .navigation_constants import TraversalCapability
+from .hpa import ClusterGraph, AStar, StringPuller
 
-class ObstacleType(Enum):
-    """Type of obstacle for navigation grid updates."""
 
-    LOW = 0  # Blocks ground units only (fences, small rocks)
-    HIGH = 1  # Blocks both ground and flying units (walls, buildings)
+@dataclass(order=True)
+class PathRequest:
+    priority: int
+    timestamp: float
+    entity_id: int
+    start: Tuple[int, int] = field(compare=False)
+    end: Tuple[int, int] = field(compare=False)
+    capabilities: int = field(compare=False)
+
+
+@dataclass
+class PathResult:
+    entity_id: int
+    path: List[Tuple[float, float]]  # World coordinates
+    success: bool
+    is_partial: bool = False
 
 
 class NavigationService:
     """
-    Service responsible for pathfinding and maintaining dual-layer navigation grids.
-
-    The service maintains two grids:
-    - ground_grid: For ground-based pathfinding (blocked by LOW and HIGH obstacles)
-    - air_grid: For flying pathfinding (blocked only by HIGH obstacles)
-
-    Attributes:
-        world_width (int): Width of the world in pixels.
-        world_height (int): Height of the world in pixels.
-        grid_step_size (int): Size of each grid cell in pixels.
-        matrix_w (int): Width of the grid in cells.
-        matrix_h (int): Height of the grid in cells.
-        ground_grid (Grid): The pathfinding grid for ground units.
-        air_grid (Grid): The pathfinding grid for flying units.
-        finder (AStarFinder): The A* pathfinder instance.
+    Asynchronous HPA* Navigation Service.
+    Manages the unified grid, cluster graph, and a background worker thread for pathfinding.
     """
 
     def __init__(self, world_width: int, world_height: int, grid_step_size: int = 25):
-        """
-        Initializes the NavigationService with dual persistent grids.
-
-        Args:
-            world_width (int): The width of the world.
-            world_height (int): The height of the world.
-            grid_step_size (int): The size of each grid cell.
-        """
         self.world_width = world_width
         self.world_height = world_height
         self.grid_step_size = grid_step_size
 
-        self.matrix_w = int(math.ceil(world_width / grid_step_size)) + 1
-        self.matrix_h = int(math.ceil(world_height / grid_step_size)) + 1
+        # 1. Unified Grid
+        self.grid = NavigationGrid(world_width, world_height, grid_step_size)
 
-        # Create dual persistent grids (all walkable by default)
-        self.ground_grid = Grid(width=self.matrix_w, height=self.matrix_h)
-        self.air_grid = Grid(width=self.matrix_w, height=self.matrix_h)
-        self.finder = AStarFinder(diagonal_movement=DiagonalMovement.always)
+        # 2. HPA* Cluster Graph
+        self.cluster_graph = ClusterGraph(self.grid)
+        # Note: We delay building the graph until the first update or explicitly?
+        # For now, let's build it immediately assuming empty grid.
+        self.cluster_graph.build_graph()
 
-        # Legacy alias for backwards compatibility
-        self.grid = self.ground_grid
+        # 3. Async Logic
+        self.request_queue = queue.PriorityQueue()
+        self.result_queue = queue.Queue()
+        self._running = True
+        self._thread = threading.Thread(
+            target=self._worker_loop, daemon=True, name="NavWorker"
+        )
+        self._thread.start()
+
+        # Cache: (start_cluster, end_cluster, capabilities) -> Abstract Path
+        # We need to invalidate this when grid changes.
+        self._path_cache = {}
+
+        # Multiprocessing Support (Stub)
+        self.use_multiprocessing = False
+
+        self._dirty = False
+        self._last_rebuild = 0.0
 
         logger.info(
-            f"NavigationService initialized with dual grids, size {self.matrix_w}x{self.matrix_h}"
+            f"NavigationService initialized. Grid: {self.grid.width}x{self.grid.height}"
         )
 
-    def update_obstacle(
+    def reset(self):
+        """Resets the grid and graph."""
+        self.grid = NavigationGrid(
+            self.world_width, self.world_height, self.grid_step_size
+        )
+        self.cluster_graph = ClusterGraph(self.grid)
+        self.cluster_graph.build_graph()
+        self._path_cache.clear()
+        self._dirty = False
+
+    def _start_multiprocessing_worker(self):
+        """
+        Stub for starting a multiprocessing worker.
+        TODO: Implement shared memory grid and request/result pipes.
+        """
+        if self.use_multiprocessing:
+            raise NotImplementedError("Multiprocessing not yet implemented.")
+
+    def shutdown(self):
+        """Stops the worker thread."""
+        self._running = False
+        if self._thread.is_alive():
+            self._thread.join(timeout=1.0)
+
+    def request_path(
         self,
-        x: float,
-        y: float,
-        walkable: bool,
-        obstacle_type: ObstacleType = ObstacleType.HIGH,
-    ) -> None:
-        """
-        Updates the walkability of a specific point in the appropriate grid(s).
+        entity_id: int,
+        start: Tuple[float, float],
+        end: Tuple[float, float],
+        capabilities: int = TraversalCapability.WALK,
+        priority: int = 2,
+    ):
+        """Async path request. Puts request into PriorityQueue."""
+        # Convert world to grid coords
+        gx1 = int(round(start[0] / self.grid_step_size))
+        gy1 = int(round(start[1] / self.grid_step_size))
+        gx2 = int(round(end[0] / self.grid_step_size))
+        gy2 = int(round(end[1] / self.grid_step_size))
 
-        Args:
-            x (float): World x coordinate.
-            y (float): World y coordinate.
-            walkable (bool): Whether the cell is walkable.
-            obstacle_type (ObstacleType): Type of obstacle.
-                - LOW: Only blocks ground units.
-                - HIGH: Blocks both ground and flying units.
+        # Clamp
+        gx1 = max(0, min(gx1, self.grid.width - 1))
+        gy1 = max(0, min(gy1, self.grid.height - 1))
+        gx2 = max(0, min(gx2, self.grid.width - 1))
+        gy2 = max(0, min(gy2, self.grid.height - 1))
 
-        Returns:
-            None
-        """
-        gx = int(round(x / self.grid_step_size))
-        gy = int(round(y / self.grid_step_size))
+        req = PathRequest(
+            priority=priority,
+            timestamp=time.time(),
+            entity_id=entity_id,
+            start=(gx1, gy1),
+            end=(gx2, gy2),
+            capabilities=capabilities,
+        )
+        self.request_queue.put(req)
 
-        if 0 <= gx < self.matrix_w and 0 <= gy < self.matrix_h:
-            # Ground grid is always updated
-            self.ground_grid.node(gx, gy).walkable = walkable
+    def get_results(self) -> List[PathResult]:
+        """Call this from Main Thread to process completed paths."""
+        results = []
+        try:
+            while True:
+                results.append(self.result_queue.get_nowait())
+        except queue.Empty:
+            pass
+        return results
 
-            # Air grid only blocked by HIGH obstacles
-            if obstacle_type == ObstacleType.HIGH:
-                self.air_grid.node(gx, gy).walkable = walkable
+    def _worker_loop(self):
+        while self._running:
+            try:
+                # Check dirty flag and rebuild graph if needed
+                # Throttle rebuilds to avoid spam (e.g. max once per second)
+                if self._dirty and (time.time() - self._last_rebuild > 1.0):
+                    logger.debug("Rebuilding Cluster Graph due to changes...")
+                    try:
+                        self.cluster_graph.build_graph()
+                        self._dirty = False
+                        self._last_rebuild = time.time()
+                        self._path_cache.clear()  # Invalidate cache
+                    except Exception as e:
+                        logger.error(f"Graph rebuild failed: {e}")
+                        traceback.print_exc()
+
+                try:
+                    # Wait for request (timeout to allow checking self._running)
+                    req: PathRequest = self.request_queue.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+
+                try:
+                    start_time = time.perf_counter()
+                    result = self._process_request(req)
+                    duration = time.perf_counter() - start_time
+
+                    # Profiler Hook
+                    if duration > 0.01:  # Log slow paths > 10ms
+                        logger.debug(
+                            f"Path calc took {duration * 1000:.2f}ms for Entity {req.entity_id}"
+                        )
+
+                    self.result_queue.put(result)
+                except Exception as e:
+                    logger.error(f"Error in navigation worker: {e}")
+                    traceback.print_exc()
+                    self.result_queue.put(PathResult(req.entity_id, [], False))
+
+                self.request_queue.task_done()
+            except Exception as outer_e:
+                print(f"FATAL ERROR in NavWorker: {outer_e}")
+                traceback.print_exc()
+                # Don't crash the thread, retry?
+                time.sleep(1.0)
+
+    def _process_request(self, req: PathRequest) -> PathResult:
+        start_pos = req.start
+        end_pos = req.end
+        capability = req.capabilities
+
+        # 1. Trivial Case
+        if start_pos == end_pos:
+            return PathResult(req.entity_id, [self._to_world(start_pos)], True)
+
+        # 2. Check Cache
+        start_cluster = self.cluster_graph.get_cluster_for_pos(start_pos)
+        end_cluster = self.cluster_graph.get_cluster_for_pos(end_pos)
+
+        if start_cluster and end_cluster:
+            cache_key = (
+                (start_cluster.cx, start_cluster.cy),
+                (end_cluster.cx, end_cluster.cy),
+                capability,
+            )
+            if cache_key in self._path_cache:
+                cached_abstract = self._path_cache[cache_key]
+                # Refine for this specific start/end
+                raw_path = self._refine_cached_path(
+                    cached_abstract, start_pos, end_pos, capability
+                )
+                if raw_path:
+                    smoothed = StringPuller.smooth_path(raw_path, self.grid, capability)
+                    return PathResult(
+                        req.entity_id, [self._to_world(p) for p in smoothed], True
+                    )
+
+        # 3. Full HPA* Workflow
+        # Check if start and end are in the same cluster (short path)
+        if start_cluster and end_cluster and start_cluster == end_cluster:
+            # Local A* within cluster
+            raw_path = AStar.search(
+                self.grid,
+                start_pos,
+                end_pos,
+                capability,
+                bounds=(
+                    start_cluster.min_x,
+                    start_cluster.min_y,
+                    start_cluster.max_x,
+                    start_cluster.max_y,
+                ),
+            )
+            if raw_path:
+                smoothed = StringPuller.smooth_path(raw_path, self.grid, capability)
+                return PathResult(
+                    req.entity_id, [self._to_world(p) for p in smoothed], True
+                )
+
+        # 4. Insert temporary nodes for start and goal
+        start_node = self.cluster_graph.insert_temporary_node(start_pos, capability)
+        end_node = self.cluster_graph.insert_temporary_node(end_pos, capability)
+
+        temp_nodes = []
+        if start_node and start_node.id.startswith("temp_"):
+            temp_nodes.append(start_node)
+        if end_node and end_node.id.startswith("temp_"):
+            temp_nodes.append(end_node)
+
+        raw_path = None
+
+        try:
+            if not start_node or not end_node:
+                # Fallback to direct grid A*
+                raw_path = AStar.search(self.grid, start_pos, end_pos, capability)
+            else:
+                # 5. Abstract Search (A* on cluster graph)
+                abstract_path = self.cluster_graph.abstract_search(start_node, end_node)
+
+                if abstract_path:
+                    # Cache the abstract path (without temp nodes)
+                    if start_cluster and end_cluster:
+                        cache_key = (
+                            (start_cluster.cx, start_cluster.cy),
+                            (end_cluster.cx, end_cluster.cy),
+                            capability,
+                        )
+                        # Store only permanent node IDs
+                        permanent_abstract = [
+                            nid for nid in abstract_path if not nid.startswith("temp_")
+                        ]
+                        if len(permanent_abstract) >= 2:
+                            self._path_cache[cache_key] = permanent_abstract
+
+                    # 6. Refinement (local A* for each segment)
+                    raw_path = self.cluster_graph.refine_abstract_path(
+                        abstract_path, capability
+                    )
+
+                if not raw_path:
+                    # Fallback to direct grid A*
+                    raw_path = AStar.search(self.grid, start_pos, end_pos, capability)
+        finally:
+            # Clean up temporary nodes
+            for temp_node in temp_nodes:
+                self.cluster_graph.remove_temporary_node(temp_node)
+
+        if not raw_path:
+            return PathResult(req.entity_id, [], False)
+
+        # 7. String Pulling (Smoothing)
+        smoothed_path = StringPuller.smooth_path(raw_path, self.grid, capability)
+
+        # 8. Convert to World Coords
+        world_path = [self._to_world(p) for p in smoothed_path]
+
+        return PathResult(req.entity_id, world_path, True)
+
+    def _refine_cached_path(
+        self,
+        cached_abstract: list,
+        start_pos: Tuple[int, int],
+        end_pos: Tuple[int, int],
+        capability: int,
+    ) -> Optional[List[Tuple[int, int]]]:
+        """Refines a cached abstract path for specific start/end positions."""
+        if not cached_abstract:
+            return None
+
+        # Build full abstract path: start -> cached -> end
+        full_path = []
+
+        # Connect start to first cached node
+        first_node = self.cluster_graph.graph_nodes.get(cached_abstract[0])
+        if not first_node:
+            return None
+
+        start_segment = AStar.search(
+            self.grid, start_pos, first_node.position, capability
+        )
+        if not start_segment:
+            return None
+        full_path.extend(start_segment)
+
+        # Refine the cached abstract path
+        if len(cached_abstract) > 1:
+            middle_path = self.cluster_graph.refine_abstract_path(
+                cached_abstract, capability
+            )
+            if middle_path:
+                # Avoid duplicate at junction
+                if full_path and middle_path and full_path[-1] == middle_path[0]:
+                    full_path.extend(middle_path[1:])
+                else:
+                    full_path.extend(middle_path)
+
+        # Connect last cached node to end
+        last_node = self.cluster_graph.graph_nodes.get(cached_abstract[-1])
+        if not last_node:
+            return None
+
+        end_segment = AStar.search(self.grid, last_node.position, end_pos, capability)
+        if not end_segment:
+            return None
+
+        if full_path and end_segment and full_path[-1] == end_segment[0]:
+            full_path.extend(end_segment[1:])
+        else:
+            full_path.extend(end_segment)
+
+        return full_path
+
+    def _to_world(self, grid_pos: Tuple[int, int]) -> Tuple[float, float]:
+        return (
+            float(grid_pos[0] * self.grid_step_size),
+            float(grid_pos[1] * self.grid_step_size),
+        )
 
     def update_obstacle_rect(
         self,
@@ -103,111 +362,61 @@ class NavigationService:
         width: float,
         height: float,
         walkable: bool,
-        obstacle_type: ObstacleType = ObstacleType.HIGH,
+        obstacle_type: int = 1,  # Legacy type, unused now? Or map to capability?
     ) -> None:
         """
-        Updates the walkability of a rectangular area in the appropriate grid(s).
-
-        Args:
-            x (float): World x coordinate of the center.
-            y (float): World y coordinate of the center.
-            width (float): Width of the obstacle in world units.
-            height (float): Height of the obstacle in world units.
-            walkable (bool): Whether the cells are walkable.
-            obstacle_type (ObstacleType): Type of obstacle.
-
-        Returns:
-            None
+        Updates the grid.
+        For now, ObstacleType.HIGH blocks everything.
+        ObstacleType.LOW blocks WALK but allows FLY.
         """
-        half_w = width / 2
-        half_h = height / 2
-        
-        # Calculate grid bounds
-        min_gx = int(round((x - half_w) / self.grid_step_size))
-        max_gx = int(round((x + half_w) / self.grid_step_size))
-        min_gy = int(round((y - half_h) / self.grid_step_size))
-        max_gy = int(round((y + half_h) / self.grid_step_size))
-        
-        for gx in range(min_gx, max_gx + 1):
-            for gy in range(min_gy, max_gy + 1):
-                if 0 <= gx < self.matrix_w and 0 <= gy < self.matrix_h:
-                    self.ground_grid.node(gx, gy).walkable = walkable
-                    if obstacle_type == ObstacleType.HIGH:
-                        self.air_grid.node(gx, gy).walkable = walkable
+        # Mapping legacy obstacle types to capabilities
+        # LOW (0) -> Blocks WALK.
+        # HIGH (1) -> Blocks WALK | FLY.
 
-    def reset(self) -> None:
-        """
-        Resets both grids' walkability to default (all walkable).
-        """
-        for x in range(self.matrix_w):
-            for y in range(self.matrix_h):
-                self.ground_grid.node(x, y).walkable = True
-                self.air_grid.node(x, y).walkable = True
+        # If 'walkable' is False, we are BLOCKING.
+        # If 'walkable' is True, we are CLEARING the block.
 
-    def find_path(
-        self,
-        start: tuple[float, float],
-        goal: tuple[float, float],
-        can_fly: bool = False,
-    ) -> list[tuple[float, float]]:
-        """
-        Finds a path from start to goal using the appropriate grid.
+        # We want to clear bits if blocking.
+        # But the function name is 'update_obstacle_rect' and arg is 'walkable'.
+        # Interpretation: walkable=False means ADD OBSTACLE.
 
-        Args:
-            start (tuple[float, float]): The starting coordinates (x, y).
-            goal (tuple[float, float]): The target coordinates (x, y).
-            can_fly (bool): If True, use the air grid (ignores low obstacles).
+        block_mask = 0
+        if obstacle_type == 0:  # LOW
+            block_mask = TraversalCapability.WALK
+        else:  # HIGH
+            block_mask = (
+                TraversalCapability.WALK
+                | TraversalCapability.FLY
+                | TraversalCapability.SWIM
+            )
 
-        Returns:
-            list[tuple[float, float]]: A list of points (x, y) representing the path.
-        """
-        # Select the appropriate grid
-        grid = self.air_grid if can_fly else self.ground_grid
+        # grid.update_obstacle_rect expects 'is_blocking' and 'block_mask'
+        is_blocking = not walkable
 
-        # Clean up the grid from previous runs
-        grid.cleanup()
+        self.grid.update_obstacle_rect(x, y, width, height, is_blocking, block_mask)
+        # Mark dirty to trigger eventual graph rebuild
+        self._dirty = True
 
-        # Convert world coordinates to grid indices
-        start_x_idx = int(round(start[0] / self.grid_step_size))
-        start_y_idx = int(round(start[1] / self.grid_step_size))
+    # Legacy Compatibility methods
+    def find_path(self, start, end, can_fly=False) -> List[Tuple[float, float]]:
+        """Blocking synchronous pathfinding for legacy code."""
+        # This is dangerous for performance but necessary for transition.
+        req = PathRequest(
+            priority=0,
+            timestamp=time.time(),
+            entity_id=-1,  # Dummy ID
+            start=self._to_grid(start),
+            end=self._to_grid(end),
+            capabilities=TraversalCapability.FLY
+            if can_fly
+            else TraversalCapability.WALK,
+        )
+        result = self._process_request(req)
+        return result.path if result.success else []
 
-        goal_x_idx = int(round(goal[0] / self.grid_step_size))
-        goal_y_idx = int(round(goal[1] / self.grid_step_size))
-
-        # Clamp indices
-        start_x_idx = max(0, min(start_x_idx, self.matrix_w - 1))
-        start_y_idx = max(0, min(start_y_idx, self.matrix_h - 1))
-
-        goal_x_idx = max(0, min(goal_x_idx, self.matrix_w - 1))
-        goal_y_idx = max(0, min(goal_y_idx, self.matrix_h - 1))
-
-        start_node = grid.node(start_x_idx, start_y_idx)
-        goal_node = grid.node(goal_x_idx, goal_y_idx)
-
-        path_nodes, _ = self.finder.find_path(start_node, goal_node, grid)
-
-        path: list[tuple[float, float]] = []
-
-        for node in path_nodes:
-            wx = float(node.x * self.grid_step_size)
-            wy = float(node.y * self.grid_step_size)
-            path.append((wx, wy))
-
-        if not path:
-            return []
-
-        # Ensure the exact start point is the first element
-        path[0] = start
-
-        # Ensure the exact goal point is added if needed
-        if path[-1] != goal:
-            if 0 <= goal[0] <= self.world_width and 0 <= goal[1] <= self.world_height:
-                path.append(goal)
-            else:
-                clamped_x = max(0, min(goal[0], self.world_width))
-                clamped_y = max(0, min(goal[1], self.world_height))
-                if (clamped_x, clamped_y) != path[-1]:
-                    path.append((clamped_x, clamped_y))
-
-        return path
-
+    def _to_grid(self, pos: Tuple[float, float]) -> Tuple[int, int]:
+        gx = int(round(pos[0] / self.grid_step_size))
+        gy = int(round(pos[1] / self.grid_step_size))
+        gx = max(0, min(gx, self.grid.width - 1))
+        gy = max(0, min(gy, self.grid.height - 1))
+        return (gx, gy)

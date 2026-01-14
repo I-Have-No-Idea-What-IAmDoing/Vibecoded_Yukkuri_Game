@@ -32,17 +32,18 @@ class BehaviorSystem(System):
         self.trees: dict[int, py_trees.trees.BehaviourTree] = {}
         # Round-robin queue for updates
         from collections import deque
+
         self.update_queue: deque[int] = deque()
         self.max_updates_per_frame = 10  # Tune this based on performance
 
         self.last_update_times: dict[int, float] = {}
         self.total_time: float = 0.0
-        
+
         # --- Performance Optimization: Tick Throttling ---
         # Minimum time (seconds) between ticks for the same entity.
         # Reduces CPU load by preventing excessively frequent AI updates.
         self.min_tick_interval: float = 0.1  # 100ms = 10 ticks/sec max per entity
-        
+
         # Entities in stable states (SUCCESS) are ticked less frequently.
         self.stable_tick_multiplier: float = 3.0  # 3x slower for stable entities
         self.stable_entities: set[int] = set()  # Track entities in stable states
@@ -55,15 +56,15 @@ class BehaviorSystem(System):
         self.total_time += dt
 
         # 1. Detect new entities and add to system
-        # Optimization: Instead of full iteration, we could use events, 
+        # Optimization: Instead of full iteration, we could use events,
         # but get_components_tuple is fast enough for checking existence if we optimized elsewhere.
-        # To avoid iterating ALL entities every frame just to find new ones, 
+        # To avoid iterating ALL entities every frame just to find new ones,
         # we can assume the queue covers existing ones.
-        # But we need to find *new* ones. 
+        # But we need to find *new* ones.
         # Let's rely on a set difference for correctness, or events.
         # For now, let's keep it simple: Iterate all AIState, if not in trees, add.
         # This iteration cost is small compared to ticking.
-        
+
         current_ai_entities = set()
         for entity, (ai,) in world.get_components_tuple(AIState):
             current_ai_entities.add(entity)
@@ -83,7 +84,7 @@ class BehaviorSystem(System):
         for entity in self.trees:
             if entity not in current_ai_entities:
                 dead_entities.append(entity)
-        
+
         for entity in dead_entities:
             del self.trees[entity]
             if entity in self.last_update_times:
@@ -99,13 +100,15 @@ class BehaviorSystem(System):
         skipped_count = 0
         max_queue_checks = len(self.update_queue)
 
-        while updates_count < self.max_updates_per_frame and iterations < max_queue_checks:
+        while (
+            updates_count < self.max_updates_per_frame and iterations < max_queue_checks
+        ):
             iterations += 1
             if not self.update_queue:
                 break
-                
+
             entity = self.update_queue.popleft()
-            
+
             # If entity is dead (removed from trees), skip and don't re-queue
             if entity not in self.trees:
                 continue
@@ -114,13 +117,13 @@ class BehaviorSystem(System):
             # Calculate time since last tick for this entity
             last_time = self.last_update_times.get(entity, self.total_time - 0.1)
             time_since_last_tick = self.total_time - last_time
-            
+
             # Determine required interval based on stability
             required_interval = self.min_tick_interval
             if entity in self.stable_entities:
                 # Stable entities tick less frequently
                 required_interval *= self.stable_tick_multiplier
-            
+
             # Skip if not enough time has passed
             if time_since_last_tick < required_interval:
                 # Re-queue immediately without counting as an update
@@ -144,7 +147,7 @@ class BehaviorSystem(System):
             # Post-tick logic and stable state tracking
             ai = world.try_get_component(entity, AIState)
             root_status = tree.root.status
-            
+
             if root_status == Status.SUCCESS:
                 # Mark as stable - will tick less frequently
                 self.stable_entities.add(entity)
@@ -152,7 +155,7 @@ class BehaviorSystem(System):
                 # Active behavior - remove from stable set
                 self.stable_entities.discard(entity)
             # FAILURE stays at normal rate to retry quickly
-            
+
             if ai and (root_status == Status.SUCCESS or root_status == Status.FAILURE):
                 if getattr(ai, "manual_override", False):
                     ai.manual_override = False
@@ -161,4 +164,3 @@ class BehaviorSystem(System):
             self.last_update_times[entity] = self.total_time
             self.update_queue.append(entity)
             updates_count += 1
-

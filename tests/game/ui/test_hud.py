@@ -89,7 +89,7 @@ def mock_event_bus():
 def hud_layout(mock_ui_manager):
     # Mock UIPanel to adhere to IContainerLikeInterface
     MockPanel = MagicMock(spec=IContainerLikeInterface)
-    MockPanel.kill = MagicMock() # Needs kill
+    MockPanel.kill = MagicMock()  # Needs kill
 
     # Mock UIScrollingContainer
     MockScrollingContainer = MagicMock(spec=IContainerLikeInterface)
@@ -98,9 +98,15 @@ def hud_layout(mock_ui_manager):
     with (
         patch("yukkuri_game.game.ui.hud_layout.UIPanel", return_value=MockPanel),
         patch("yukkuri_game.game.ui.hud_layout.UILabel"),
-        patch("yukkuri_game.game.ui.hud_layout.UIButton", side_effect=lambda *args, **kwargs: MagicMock()),
+        patch(
+            "yukkuri_game.game.ui.hud_layout.UIButton",
+            side_effect=lambda *args, **kwargs: MagicMock(),
+        ),
         patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
-        patch("yukkuri_game.game.ui.hud_layout.UIScrollingContainer", return_value=MockScrollingContainer)
+        patch(
+            "yukkuri_game.game.ui.hud_layout.UIScrollingContainer",
+            return_value=MockScrollingContainer,
+        ),
     ):
         layout = HudLayout(mock_ui_manager, 800, 600)
     return layout
@@ -125,13 +131,17 @@ class TestHudLayout:
         MockScrollingContainer.set_scrollable_area_dimensions = MagicMock()
 
         with (
-            patch(
-                "yukkuri_game.game.ui.hud_layout.UIPanel", return_value=MockPanel
-            ),
+            patch("yukkuri_game.game.ui.hud_layout.UIPanel", return_value=MockPanel),
             patch("yukkuri_game.game.ui.hud_layout.UILabel"),
-            patch("yukkuri_game.game.ui.hud_layout.UIButton", side_effect=lambda *args, **kwargs: MagicMock()),
+            patch(
+                "yukkuri_game.game.ui.hud_layout.UIButton",
+                side_effect=lambda *args, **kwargs: MagicMock(),
+            ),
             patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
-            patch("yukkuri_game.game.ui.hud_layout.UIScrollingContainer", return_value=MockScrollingContainer),
+            patch(
+                "yukkuri_game.game.ui.hud_layout.UIScrollingContainer",
+                return_value=MockScrollingContainer,
+            ),
         ):
             layout = HudLayout(mock_ui_manager, 800, 600)
 
@@ -330,7 +340,7 @@ class TestHudRenderer:
             patch("yukkuri_game.game.ui.hud_layout.UIPanel"),
             patch("yukkuri_game.game.ui.hud_layout.UILabel"),
             patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
-            patch("yukkuri_game.game.ui.hud_layout.NonBlockingTextBox"), # Added
+            patch("yukkuri_game.game.ui.hud_layout.NonBlockingTextBox"),  # Added
         ):
             hud_renderer.update(0.1, [], False)
 

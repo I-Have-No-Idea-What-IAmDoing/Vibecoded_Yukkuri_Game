@@ -57,7 +57,6 @@ class EventBus:
         # We need to cast handler to Callable[[Any], None] because Dict is invariant
         self._subscribers[event_type].append(handler)
 
-
     def unsubscribe(self, event_type: type[E], handler: EventHandler[E]) -> None:
         """
         Unsubscribes a handler from a specific event type.

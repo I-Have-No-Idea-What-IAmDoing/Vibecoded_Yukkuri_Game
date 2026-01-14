@@ -165,7 +165,6 @@ def test_load_game(persistence_world: MagicMock) -> None:
     # Mock file content
     import msgspec
 
-
     save_data = {
         "money": 999,
         "time": 60.0,

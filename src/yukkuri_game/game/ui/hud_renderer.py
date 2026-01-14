@@ -409,14 +409,14 @@ class HudRenderer:
             if inventory and inventory.items:
                 text += "<br><br><b>Inventory:</b>"
                 rm = self.world.services.try_get(ResourceManager)
-                
+
                 for item in inventory.items:
                     item_name = item.item_type_id
                     if rm:
                         item_type = rm.item_types.get(item.item_type_id)
                         if item_type:
                             item_name = item_type.name
-                    
+
                     text += f"<br> {item_name} x{item.quantity}"
             elif inventory:
                 text += "<br><br><b>Inventory:</b> Empty"
@@ -570,4 +570,3 @@ class HudRenderer:
                 self.layout.clean_btn.select()
             else:
                 self.layout.clean_btn.unselect()
-

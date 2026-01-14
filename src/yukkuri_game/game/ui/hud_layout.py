@@ -47,7 +47,9 @@ class HudLayout:
         self.manager: pygame_gui.UIManager = ui_manager
         self.width: int = width
         self.height: int = height
-        self.yukkuri_types: dict[str, Any] = yukkuri_types if yukkuri_types is not None else {}
+        self.yukkuri_types: dict[str, Any] = (
+            yukkuri_types if yukkuri_types is not None else {}
+        )
         self.item_types: dict[str, Any] = item_types if item_types is not None else {}
 
         # Elements
@@ -261,7 +263,9 @@ class HudLayout:
             name = getattr(data, "name", type_id.capitalize())
 
             btn = UIButton(
-                relative_rect=pygame.Rect(x_offset, y_offset, button_width, button_height),
+                relative_rect=pygame.Rect(
+                    x_offset, y_offset, button_width, button_height
+                ),
                 text=f"Buy {name} (${cost})",
                 manager=self.manager,
                 container=self.scrolling_container,
@@ -286,7 +290,9 @@ class HudLayout:
             description = getattr(data, "description", f"A nice {name}")
 
             btn = UIButton(
-                relative_rect=pygame.Rect(x_offset, y_offset, button_width, button_height),
+                relative_rect=pygame.Rect(
+                    x_offset, y_offset, button_width, button_height
+                ),
                 text=f"Buy {name} (${cost})",
                 manager=self.manager,
                 container=self.scrolling_container,
@@ -311,7 +317,9 @@ class HudLayout:
 
         # Create Clean Button (outside the scroll container, fixed position)
         self.clean_btn = UIButton(
-            relative_rect=pygame.Rect(self.width - 150, 30, button_width, button_height),
+            relative_rect=pygame.Rect(
+                self.width - 150, 30, button_width, button_height
+            ),
             text="Clean Tool",
             manager=self.manager,
             container=self.bottom_panel,

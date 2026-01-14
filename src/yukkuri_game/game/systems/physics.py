@@ -36,7 +36,7 @@ class PhysicsSystem(System):
         self.space = pymunk.Space()
         self.space.gravity = gravity
         self.space.damping = 0.9  # Add damping to simulate friction/air resistance
-        
+
         # Use Spatial Hash for faster collision detection with uniform entities.
         # dim: Average entity diameter (~50 pixels for Yukkuris).
         # count: Expected number of entities (use 4x for good bucket distribution).

@@ -249,6 +249,7 @@ class GameDriver:
                 scene_type = type(self.game.scene_manager.current_scene)
             else:
                 from ..scenes.gameplay import GameplayScene
+
                 scene_type = GameplayScene
 
         # Clear existing scene
@@ -442,7 +443,6 @@ class GameDriver:
                         for event in step.events:
                             pygame.event.post(event)
                 elif isinstance(step, Screenshot):
-
                     self.save_screenshot(step.filename)
                 elif isinstance(step, WaitUntilScene):
                     self.wait_until_scene(step.scene_type, step.timeout)
@@ -472,7 +472,7 @@ class GameDriver:
         if hasattr(self.game, "running") and not self.game.running:
             return
 
-        # 1. Handle Events
+            # 1. Handle Events
             # Cast to Any first for dynamic dispatch
             if hasattr(self.game, "handle_events"):
                 cast(Any, self.game).handle_events()

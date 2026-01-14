@@ -175,6 +175,7 @@ class InteractionSystem(System):
                 if ai and ai.current_target_id == target_id:
                     from typing import cast
                     from ...engine.types import EntityID
+
                     ai.current_target_id = cast(EntityID, -1)
                 logger.info(f"Entity {entity} ate Yukkuri {target_id} (Predation).")
             else:

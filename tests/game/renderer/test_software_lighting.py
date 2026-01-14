@@ -3,7 +3,6 @@ Unit tests for the SoftwareLightingEngine.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
 import pygame
 
 

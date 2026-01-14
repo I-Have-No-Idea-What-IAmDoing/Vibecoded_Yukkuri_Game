@@ -3,7 +3,7 @@ Unit tests for the Camera module.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import pygame
 
 from yukkuri_game.game.camera import Camera

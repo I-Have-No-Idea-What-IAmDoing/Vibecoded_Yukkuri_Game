@@ -26,7 +26,6 @@ class TimeSettings(msgspec.Struct):
 
 
 class WorldSettings(msgspec.Struct):
-
     """
     Configuration settings for the game world.
 
