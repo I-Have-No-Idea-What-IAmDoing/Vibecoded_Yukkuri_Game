@@ -35,13 +35,13 @@ class NavigationUpdateSystem(System):
     def on_component_added(self, event: ComponentAddedEvent) -> None:
         if event.component_type is PhysicsBody:
             self._handle_body_update(
-                event.entity, cast(PhysicsBody, event.component_instance), added=True
+                event.entity_id, cast(PhysicsBody, event.component), added=True
             )
 
     def on_component_removed(self, event: ComponentRemovedEvent) -> None:
         if event.component_type is PhysicsBody:
             self._handle_body_update(
-                event.entity, cast(PhysicsBody, event.component_instance), added=False
+                event.entity_id, cast(PhysicsBody, event.component), added=False
             )
 
     def on_world_cleared(self, event: WorldClearedEvent) -> None:

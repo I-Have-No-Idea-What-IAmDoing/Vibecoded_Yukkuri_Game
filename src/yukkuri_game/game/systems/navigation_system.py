@@ -1,5 +1,6 @@
 from ...engine.ecs import System, World
 from ..ai.navigation_service import NavigationService
+from ..yukkuri_components import AIState
 
 
 class NavigationSystem(System):
@@ -15,9 +16,7 @@ class NavigationSystem(System):
         results = nav_service.get_results()
         for result in results:
             # Update entity AIState
-            # We need to find the entity. If we don't have direct entity lookup by ID (ECS might support it),
-            # we iterate? Hopefully world.get_component(id) works.
-            # EntityID is just an int.
+            ai_state = world.try_get_component(result.entity_id, AIState)
 
             if ai_state:
                 # Clear requesting flag

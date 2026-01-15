@@ -297,3 +297,6 @@ class SteeringComponent:
 
     # Stuck detection
     time_stuck: float = 0.0
+    
+    # Pursuit Mode
+    pursuit_enabled: bool = False

@@ -9,6 +9,11 @@ from loguru import logger
 from .navigation_grid import NavigationGrid
 from .navigation_constants import TraversalCapability
 from .hpa import ClusterGraph, AStar, StringPuller
+from enum import IntEnum
+
+class ObstacleType(IntEnum):
+    LOW = 0   # Blocks WALK
+    HIGH = 1  # Blocks WALK | FLY
 
 
 @dataclass(order=True)
@@ -52,21 +57,23 @@ class NavigationService:
         # 3. Async Logic
         self.request_queue = queue.PriorityQueue()
         self.result_queue = queue.Queue()
+        
+        # Cache: (start_cluster, end_cluster, capabilities) -> Abstract Path
+        # We need to invalidate this when grid changes.
+        self._path_cache = {}
+        
+        # Dirty flag for graph updates
+        self._dirty = False
+        self._last_rebuild = 0.0
+
+        # Multiprocessing Support (Stub)
+        self.use_multiprocessing = False
+
         self._running = True
         self._thread = threading.Thread(
             target=self._worker_loop, daemon=True, name="NavWorker"
         )
         self._thread.start()
-
-        # Cache: (start_cluster, end_cluster, capabilities) -> Abstract Path
-        # We need to invalidate this when grid changes.
-        self._path_cache = {}
-
-        # Multiprocessing Support (Stub)
-        self.use_multiprocessing = False
-
-        self._dirty = False
-        self._last_rebuild = 0.0
 
         logger.info(
             f"NavigationService initialized. Grid: {self.grid.width}x{self.grid.height}"
@@ -105,6 +112,11 @@ class NavigationService:
         priority: int = 2,
     ):
         """Async path request. Puts request into PriorityQueue."""
+        
+        # Congestion Control: Drop low priority requests if queue is full
+        if self.request_queue.qsize() > 50 and priority > 2:
+            return
+
         # Convert world to grid coords
         gx1 = int(round(start[0] / self.grid_step_size))
         gy1 = int(round(start[1] / self.grid_step_size))

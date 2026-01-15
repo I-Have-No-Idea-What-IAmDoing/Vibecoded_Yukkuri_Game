@@ -4,6 +4,7 @@ Module defining the behavior tree logic for AI agents.
 
 import math
 import random
+import time
 from typing import TYPE_CHECKING, Any, Optional, cast
 from collections.abc import Callable
 
@@ -120,6 +121,62 @@ class MoveToTarget(Action):
             controller.target_velocity = pymunk.Vec2d(0, 0)
             return Status.FAILURE
 
+        current_pos = pymunk.Vec2d(trans.x, trans.y)
+
+        # Close-Range / Line-of-Sight Optimization (Direct Pursuit)
+        # Bypasses pathfinding if target is visible and either:
+        # 1. Within 150px (close-range), OR
+        # 2. Within 400px AND there's clear line-of-sight (no obstacles)
+        is_visible = ai.current_target_id == -1 or (ai.current_target_id in ai.visible_entities)
+        
+        if is_visible and target_pos:
+            dist_to_target = (target_pos - current_pos).length
+            
+            use_direct_steering = False
+            
+            if dist_to_target < 150.0:
+                # Close-range: always use direct steering
+                use_direct_steering = True
+            elif dist_to_target < 400.0:
+                # Medium range: check line-of-sight
+                from ..systems.physics import PhysicsSystem
+                physics_sys = self.world.services.try_get(PhysicsSystem)
+                if physics_sys and hasattr(physics_sys, 'space'):
+                    space = physics_sys.space
+                    # Raycast from current to target
+                    filter_ = pymunk.ShapeFilter(mask=pymunk.ShapeFilter.ALL_MASKS())
+                    hit = space.segment_query_first(current_pos, target_pos, 1.0, filter_)
+                    
+                    # Clear LOS if no hit, or hit is the target itself
+                    if hit is None:
+                        use_direct_steering = True
+                    elif hit.shape:
+                        # Check if hit shape belongs to target entity
+                        target_phys = self.world.try_get_component(ai.current_target_id, PhysicsBody)
+                        if target_phys and hit.shape.body == target_phys.body:
+                            use_direct_steering = True
+            
+            if use_direct_steering:
+                # Check if we are close enough to finish
+                if dist_to_target < self.acceptance_radius:
+                    controller.target_velocity = pymunk.Vec2d(0, 0)
+                    ai.path = None
+                    return Status.SUCCESS
+                 
+                # Direct Steering
+                speed_modifier = 1.0
+                if needs.energy < 30:
+                    speed_modifier = 0.5
+                 
+                final_speed = self.speed * speed_modifier
+                controller.target_velocity = (target_pos - current_pos).normalized() * final_speed
+                 
+                # Ensure path is cleared so we don't fall back to old path if we move out of range
+                if ai.path:
+                    ai.path = None
+                 
+                return Status.RUNNING
+
         # Pathfinding (Async)
         # If path is not set, try to find one.
         if ai.path is None:
@@ -129,8 +186,18 @@ class MoveToTarget(Action):
             path_failed = state_data.get("path_failed", False)
 
             if is_requesting:
-                # Check for failure or timeout (TODO: Timeout)
-                if path_failed:
+                # Check for failure or timeout
+                now = time.time()
+                request_timestamp = state_data.get("path_request_time", 0.0)
+                
+                # Timeout Control (0.5s)
+                if (now - request_timestamp) > 0.5:
+                     # Timed out waiting for path. Fallback to direct movement.
+                     state_data["path_requesting"] = False
+                     # We don't delete "path_failed" here, we just treat it as if we have no path yet.
+                     # Fall through to Fallback logic below (ai.path is None)
+                     pass
+                elif path_failed:
                     state_data["path_requesting"] = False
                     if "path_failed" in state_data:
                         del state_data["path_failed"]
@@ -149,22 +216,71 @@ class MoveToTarget(Action):
                         # Trigger takeoff if needed for air pathing
                         if flight_comp.state == FlightState.GROUNDED:
                             flight_comp.state = FlightState.TAKEOFF
+                    
+                    # Determining Priority
+                    priority = 2 # Normal
+                    if ai.state_data and ai.state_data.get("pursuit_repath", False):
+                        priority = 0 # High Priority for pursuit catch-up
+                        ai.state_data["pursuit_repath"] = False # Consume flag
 
                     nav_service.request_path(
                         self.entity_id,
                         (trans.x, trans.y),
                         (target_pos.x, target_pos.y),
                         capabilities=capabilities,
+                        priority=priority
                     )
 
                     if ai.state_data is None:
                         ai.state_data = {}
                     ai.state_data["path_requesting"] = True
+                    ai.state_data["path_request_time"] = time.time() # Stamp for timeout
+                    # Store destination to check for drift
+                    ai.state_data["path_destination"] = (target_pos.x, target_pos.y)
                     # Clear failure flag if present
                     if "path_failed" in ai.state_data:
                         del ai.state_data["path_failed"]
 
                     return Status.RUNNING
+
+        # Dynamic Path Invalidation (Drift Detection)
+        # Check if target has moved significantly from the path's destination
+        if ai.path and target_pos:
+            is_visible = ai.current_target_id == -1 or (ai.current_target_id in ai.visible_entities)
+            
+            # Update Last Known Position if visible
+            if is_visible:
+                 if ai.state_data is None: ai.state_data = {}
+                 ai.state_data["last_known_x"] = target_pos.x
+                 ai.state_data["last_known_y"] = target_pos.y
+
+                 # Check Drift with Adaptive Threshold
+                 path_dest = ai.state_data.get("path_destination")
+                 if path_dest:
+                     # Calculate Adaptive Threshold
+                     drift_threshold_sq = 2500.0 # Default 50px
+                     
+                     target_phys = self.world.try_get_component(ai.current_target_id, PhysicsBody)
+                     if target_phys and target_phys.body:
+                         # Faster target = Tighter threshold (repath sooner)
+                         # Simple curve: Speed 0 -> 50px. Speed 100 -> 30px.
+                         t_speed = target_phys.body.velocity.length
+                         # threshold = max(30, 50 - t_speed * 0.2)?
+                         # Let's map 0..100 to 50..20
+                         val = max(20.0, 50.0 - (t_speed * 0.3))
+                         drift_threshold_sq = val * val
+                     
+                     drift_sq = (target_pos - pymunk.Vec2d(*path_dest)).length_squared
+                     if drift_sq > drift_threshold_sq:
+                         now = time.time()
+                         last_repath_time = ai.state_data.get("last_repath_time", 0.0)
+                         # Cooldown can also be adaptive? 
+                         # Keep 0.5s for now to avoid spam.
+                         if now - last_repath_time > 0.5:
+                             ai.path = None
+                             ai.state_data["last_repath_time"] = now
+                             ai.state_data["pursuit_repath"] = True
+                             return Status.RUNNING
 
         # Fallback to Direct Movement if no path (Navigation missing or pathfinding failed/unnecessary)
         # Also handles clearing "path_requesting" flag if we fallback
