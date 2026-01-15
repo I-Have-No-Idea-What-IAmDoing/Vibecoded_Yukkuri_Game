@@ -5,7 +5,6 @@ Application Module.
 import pygame
 import pygame_gui
 import os
-import pygame_light2d as pl2d
 from loguru import logger
 from .resource_manager import ResourceManager
 from .scene_manager import SceneManager
@@ -42,7 +41,7 @@ class Application:
         self.headless = headless
         self.render_scale = render_scale
 
-        self.lights_engine: pl2d.LightingEngine | None = None
+        self.lights_engine: Any = None
         self.screen: pygame.Surface | None = None
 
         if self.headless:
@@ -262,37 +261,10 @@ class Application:
         if self.screen is None:
             return
 
-        if self.headless or not self.lights_engine:
-            self.screen.fill((0, 0, 0))
-            self.scene_manager.render()
-            self.ui_manager.draw_ui(self.screen)
-            pygame.display.flip()
-        else:
-            # Clear lights engine surfaces
-            self.lights_engine.clear(0, 0, 0, 255)
-
-            # Render scene (which should now use lights_engine)
-            # We need to make sure scene_manager passes lights_engine or scene has access to it.
-            # Since we haven't updated scene_manager yet, this might fail if we don't update it soon.
-            self.scene_manager.render()
-
-            # Render UI to separate surface
-            self.ui_surface.fill((0, 0, 0, 0))
-            self.ui_manager.draw_ui(self.ui_surface)
-
-            # Convert UI surface to texture and render to FOREGROUND
-            ui_tex = self.lights_engine.surface_to_texture(self.ui_surface)
-            self.lights_engine.render_texture(
-                ui_tex,
-                pl2d.FOREGROUND,
-                pygame.Rect(0, 0, self.width, self.height),
-                pygame.Rect(0, 0, self.width, self.height),
-            )
-            ui_tex.release()
-
-            # Render lighting and present
-            self.lights_engine.render()
-            pygame.display.flip()
+        self.screen.fill((0, 0, 0))
+        self.scene_manager.render()
+        self.ui_manager.draw_ui(self.screen)
+        pygame.display.flip()
 
     def init_render_system_headless(self) -> None:
         """

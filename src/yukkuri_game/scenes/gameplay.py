@@ -432,66 +432,8 @@ class GameplayScene(Scene):
         self.render_world()
 
         if not self.application.headless and self.hud and self.application.screen:
-            # HUD rendering
-            lighting_engine = getattr(self.application, "lights_engine", None)
-            if lighting_engine:
-                import pygame_light2d as pl2d
-
-                # We need to render HUD to a surface, convert to texture, and render to FOREGROUND
-                # HUD draws to a surface passed to it.
-                if (
-                    not hasattr(self, "hud_surface")
-                    or not self.hud_surface
-                    or self.hud_surface.get_size()
-                    != (
-                        self.application.width,
-                        self.application.height,
-                    )
-                ):
-                    self.hud_surface = pygame.Surface(
-                        (self.application.width, self.application.height),
-                        pygame.SRCALPHA,
-                    )
-                    # Invalidate texture if surface is recreated
-                    if hasattr(self, "hud_texture") and self.hud_texture:
-                        try:
-                            self.hud_texture.release()
-                        except Exception:
-                            pass
-                        self.hud_texture = None
-                else:
-                    self.hud_surface.fill((0, 0, 0, 0))
-
-                self.hud.draw(self.hud_surface)
-                # Also draw scene-specific UI manager
-                self.ui_manager.draw_ui(self.hud_surface)
-
-                # Always recreate texture to ensure correct orientation (flipped for OpenGL)
-                # surface_to_texture handles flipping, but direct write() does not.
-                if hasattr(self, "hud_texture") and self.hud_texture:
-                    self.hud_texture.release()
-
-                self.hud_texture = lighting_engine.surface_to_texture(self.hud_surface)
-
-                if self.hud_texture:
-                    lighting_engine.render_texture(
-                        self.hud_texture,
-                        pl2d.FOREGROUND,
-                        pygame.Rect(
-                            0, 0, self.hud_texture.width, self.hud_texture.height
-                        ),
-                        pygame.Rect(
-                            0, 0, self.hud_texture.width, self.hud_texture.height
-                        ),
-                    )
-
-                # Note: We do NOT release self.hud_texture here, we keep it for next frame.
-                # We should release it on exit or resize.
-
-                # Global UI Manager is rendered by Application
-            else:
-                self.hud.draw(self.application.screen)
-                self.ui_manager.draw_ui(self.application.screen)
+            self.hud.draw(self.application.screen)
+            self.ui_manager.draw_ui(self.application.screen)
 
     def render_world(self) -> None:
         """

@@ -4,7 +4,7 @@ Render System Module.
 
 import pygame
 import math
-from pygame_light2d import LightingEngine
+from typing import Any
 
 from ...engine.ecs import System, World
 from ...engine.resource_manager import ResourceManager
@@ -55,7 +55,7 @@ class RenderSystem(System):
         self,
         screen: pygame.Surface,
         world: World,
-        lights_engine: LightingEngine | None = None,
+        lights_engine: Any = None,
         force_lighting: bool = False,
     ):
         self.screen = screen
