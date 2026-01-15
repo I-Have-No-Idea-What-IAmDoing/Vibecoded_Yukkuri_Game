@@ -1,123 +1,295 @@
 """
-Tests for the Gossip System.
+Consolidated tests for the Gossip System.
+Merged from test_gossip_system.py, test_gossip_system_game.py, and test_gossip_service.py.
 """
 
 import pytest
 from unittest.mock import MagicMock
+import pymunk
 from yukkuri_game.game.systems.gossip_system import GossipSystem
-from yukkuri_game.game.events import SocialInteractionEvent
-from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats, GossipQueue
-from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
+from yukkuri_game.engine.ecs import World
+from yukkuri_game.game.events import SocialInteractionEvent
+from yukkuri_game.game.yukkuri_components import (
+    GossipQueue,
+    GossipPacket,
+    YukkuriStats,
+    RelationshipRegistry,
+    Needs,
+    EmotionalState,
+    Personality,
+)
+from yukkuri_game.game.components import Transform, InteractionRequest
+from yukkuri_game.game.systems.sector_system import SectorMap
+from yukkuri_game.game.systems.physics import PhysicsSystem
+from yukkuri_game.game.trait_service import TraitService
+from yukkuri_game.config import GameConfig
 
 
-@pytest.fixture  # type: ignore[misc]
-def world() -> World:
-    """
-    Creates a new ECS World for testing.
+class TestGossipSystem:
+    """Tests for GossipSystem logic."""
 
-    Returns:
-        World: A new ECS World instance.
-    """
-    return World()
+    @pytest.fixture
+    def event_bus(self):
+        return MagicMock(spec=EventBus)
+
+    @pytest.fixture
+    def system(self, event_bus):
+        sys = GossipSystem(event_bus)
+        sys.ecs_world = MagicMock(spec=World)
+        return sys
+
+    @pytest.fixture
+    def mock_world(self, system):
+        world = system.ecs_world
+        world.services = MagicMock()
+
+        physics = MagicMock(spec=PhysicsSystem)
+        physics.space = MagicMock(spec=pymunk.Space)
+        sector_map = MagicMock(spec=SectorMap)
+        trait_service = MagicMock(spec=TraitService)
+        game_config = MagicMock(spec=GameConfig)
+
+        game_config.rules = MagicMock()
+        game_config.rules.social = MagicMock()
+        game_config.rules.social.max_gossip_length = 10
+        game_config.rules.social.witness_threshold = 5.0
+
+        service_map = {
+            PhysicsSystem: physics,
+            SectorMap: sector_map,
+            TraitService: trait_service,
+            GameConfig: game_config,
+        }
+        world.services.try_get.side_effect = lambda t: service_map.get(t)
+        return world
+
+    # --- Initialization ---
+    def test_initialization(self, system, event_bus):
+        """Test system initialization and subscription."""
+        event_bus.subscribe.assert_called_with(
+            SocialInteractionEvent, system.on_social_interaction
+        )
+
+    # --- Gossip Exchange ---
+    def test_gossip_exchange_talk(self, system, mock_world):
+        """Test gossip exchange when talking."""
+        config = mock_world.services.try_get(GameConfig)
+        config.rules.social.max_gossip_length = 10
+
+        sender, receiver = 1, 2
+        sender_queue = GossipQueue()
+        packet = GossipPacket(target_id=3, event_type="TestEvent", value=10.0, timestamp=100.0)
+        sender_queue.add_packet(packet, max_length=10)
+        receiver_queue = GossipQueue()
+
+        def get_component(eid, comp_type):
+            if comp_type == GossipQueue:
+                return sender_queue if eid == sender else receiver_queue
+            if comp_type == RelationshipRegistry:
+                return RelationshipRegistry()
+            if comp_type == Transform:
+                return Transform(x=0, y=0)
+            return None
+
+        mock_world.get_component.side_effect = get_component
+        mock_world.entity_exists.return_value = True
+
+        sector_map = mock_world.services.try_get(SectorMap)
+        sector_map.get_entities_in_range.return_value = []
+
+        event = SocialInteractionEvent(initiator_id=sender, target_id=receiver, interaction_type="Talk")
+        system.on_social_interaction(event)
+
+        assert len(receiver_queue.priority_queue) == 1
+        received = receiver_queue.priority_queue[0]
+        assert received.target_id == 3
+        assert received.value < 10.0  # Decay applied
+
+    def test_gossip_exchange_same_group_bonus(self, system, mock_world):
+        """Test gossip exchange bonus for same family group."""
+        config = mock_world.services.try_get(GameConfig)
+        config.rules.social.max_gossip_length = 10
+
+        sender, receiver = 1, 2
+        sender_queue = GossipQueue()
+        packet = GossipPacket(target_id=3, event_type="Test", value=10.0, timestamp=100)
+        sender_queue.add_packet(packet, max_length=10)
+        receiver_queue = GossipQueue()
+
+        reg_a = RelationshipRegistry()
+        reg_a.family_group_id = 1
+        reg_b = RelationshipRegistry()
+        reg_b.family_group_id = 1
+
+        def get_component(eid, comp_type):
+            if comp_type == GossipQueue:
+                return sender_queue if eid == sender else receiver_queue
+            if comp_type == RelationshipRegistry:
+                return reg_a if eid == sender else reg_b
+            if comp_type == Transform:
+                return Transform(x=0, y=0)
+            return None
+
+        mock_world.get_component.side_effect = get_component
+        system.sector_map = MagicMock()
+        system.sector_map.get_entities_in_range.return_value = []
+
+        event = SocialInteractionEvent(initiator_id=sender, target_id=receiver, interaction_type="Chat")
+        system.on_social_interaction(event)
+
+        received = receiver_queue.priority_queue[0]
+        assert received.value == pytest.approx(10.0 * 0.9 * 1.2)  # Decay * family bonus
+
+    # --- Witnessing ---
+    def test_witnessing(self, system, mock_world):
+        """Test a third party witnessing an event."""
+        config = mock_world.services.try_get(GameConfig)
+        config.rules.social.witness_threshold = 5.0
+
+        actor, target, witness = 1, 2, 3
+        actor_trans = Transform(x=100, y=100)
+        witness_trans = Transform(x=150, y=100)
+        witness_queue = GossipQueue()
+        witness_stats = YukkuriStats(name="Reimu", type_id="reimu")
+
+        def get_component(eid, comp_type):
+            if eid == actor and comp_type == Transform:
+                return actor_trans
+            if eid == witness:
+                if comp_type == Transform:
+                    return witness_trans
+                if comp_type == GossipQueue:
+                    return witness_queue
+                if comp_type == YukkuriStats:
+                    return witness_stats
+                if comp_type == RelationshipRegistry:
+                    return RelationshipRegistry()
+            if eid == actor and comp_type == RelationshipRegistry:
+                return RelationshipRegistry()
+            return None
+
+        mock_world.get_component.side_effect = get_component
+        mock_world.has_component.return_value = True
+
+        sector_map = mock_world.services.try_get(SectorMap)
+        sector_map.get_entities_in_range.return_value = [witness]
+
+        physics = mock_world.services.try_get(PhysicsSystem)
+        physics.space.segment_query_first.return_value = None
+
+        event = SocialInteractionEvent(initiator_id=actor, target_id=target, interaction_type="Punch")
+        system.on_social_interaction(event)
+
+        assert len(witness_queue.priority_queue) == 1
+        packet = witness_queue.priority_queue[0]
+        assert packet.target_id == actor
+        assert packet.event_type == "Punch"
+
+    def test_line_of_sight_blocked(self, system, mock_world):
+        """Test witnessing blocked by obstacle."""
+        actor, witness = 1, 3
+        actor_trans = Transform(x=0, y=0)
+        witness_trans = Transform(x=100, y=0)
+        witness_queue = GossipQueue()
+
+        def get_component(eid, comp_type):
+            if eid == actor and comp_type == Transform:
+                return actor_trans
+            if eid == witness:
+                if comp_type == Transform:
+                    return witness_trans
+                if comp_type == GossipQueue:
+                    return witness_queue
+                if comp_type == YukkuriStats:
+                    return YukkuriStats(name="Reimu", type_id="reimu")
+            return None
+
+        mock_world.get_component.side_effect = get_component
+        mock_world.has_component.return_value = True
+
+        sector_map = mock_world.services.try_get(SectorMap)
+        sector_map.get_entities_in_range.return_value = [witness]
+
+        trait_service = mock_world.services.try_get(TraitService)
+        trait_service.get_interaction.return_value = None
+
+        physics = mock_world.services.try_get(PhysicsSystem)
+        query_res = MagicMock()
+        query_res.point = pymunk.Vec2d(50, 0)
+        query_res.shape.body.userdata = "Wall"
+        physics.space.segment_query_first.return_value = query_res
+
+        event = SocialInteractionEvent(initiator_id=actor, target_id=2, interaction_type="Wave")
+        system.on_social_interaction(event)
+
+        assert len(witness_queue.priority_queue) == 0
 
 
-@pytest.fixture  # type: ignore[misc]
-def event_bus() -> EventBus:
-    """
-    Creates a new EventBus for testing.
+class TestGossipExchangeIntegrity:
+    """Regression tests for gossip queue integrity (no duplicates)."""
 
-    Returns:
-        EventBus: A new EventBus instance.
-    """
-    return EventBus()
+    def test_gossip_exchange_no_duplicates(self):
+        """Ensure duplicate packets are not added when sharing gossip multiple times."""
+        from yukkuri_game.engine.audio import AudioManager
+        from yukkuri_game.game.systems.social_system import SocialSystem
+        from yukkuri_game.game.systems.interaction_system import InteractionSystem
+        from yukkuri_game.game.skill_service import SkillService
 
+        world = World()
+        event_bus = EventBus()
 
-@pytest.fixture  # type: ignore[misc]
-def gossip_system(event_bus: EventBus) -> GossipSystem:
-    """
-    Creates a GossipSystem for testing.
+        audio_manager = MagicMock(spec=AudioManager)
+        world.services.register(audio_manager, AudioManager)
 
-    Args:
-        event_bus (EventBus): The event bus to use.
+        trait_service = MagicMock(spec=TraitService)
+        trait_service.get_interaction.return_value = {"type": "SOCIAL", "base_impact": 10.0}
+        trait_service.get_trait.return_value = {}
+        trait_service.calculate_overrides.return_value = {}
+        world.services.register(trait_service, TraitService)
 
-    Returns:
-        GossipSystem: A new GossipSystem instance.
-    """
-    return GossipSystem(event_bus)
+        skill_service = MagicMock(spec=SkillService)
+        world.services.register(skill_service, SkillService)
 
+        social_system = SocialSystem(event_bus)
+        world.services.register(social_system, SocialSystem)
 
-def test_witness_gossip_spatial(
-    world: World, event_bus: EventBus, gossip_system: GossipSystem
-) -> None:
-    """
-    Tests that a witness entity correctly receives gossip when an interaction occurs nearby.
+        gossip_system = GossipSystem(event_bus)
+        gossip_system.ecs_world = world
 
-    Args:
-        world (World): The ECS World fixture.
-        event_bus (EventBus): The EventBus fixture.
-        gossip_system (GossipSystem): The GossipSystem fixture.
-    """
-    # Mock PhysicsSystem
-    physics_system = MagicMock()
-    from yukkuri_game.game.systems.physics import PhysicsSystem
+        interaction_system = InteractionSystem()
+        world.add_system(interaction_system)
 
-    world.services.register(physics_system, PhysicsSystem)
+        # Create two entities
+        entity_a = world.create_entity()
+        world.add_component(entity_a, YukkuriStats(name="A", type_id="reimu"))
+        world.add_component(entity_a, Needs())
+        world.add_component(entity_a, EmotionalState())
+        world.add_component(entity_a, GossipQueue())
+        world.add_component(entity_a, RelationshipRegistry())
+        world.add_component(entity_a, Transform(0, 0))
+        world.add_component(entity_a, Personality())
 
-    # Setup Actors
-    actor = world.create_entity()
-    world.add_component(actor, Transform(x=100, y=100))
-    world.add_component(actor, YukkuriStats(name="Actor", type_id="test"))
+        entity_b = world.create_entity()
+        world.add_component(entity_b, YukkuriStats(name="B", type_id="marisa"))
+        world.add_component(entity_b, Needs())
+        world.add_component(entity_b, EmotionalState())
+        world.add_component(entity_b, GossipQueue())
+        world.add_component(entity_b, RelationshipRegistry())
+        world.add_component(entity_b, Transform(0, 0))
+        world.add_component(entity_b, Personality())
 
-    target = world.create_entity()
-    world.add_component(target, Transform(x=110, y=100))
-    world.add_component(target, YukkuriStats(name="Target", type_id="test"))
+        # Add packet to A
+        packet = GossipPacket(target_id=999, event_type="Fight", value=10.0, timestamp=0.0)
+        queue_a = world.get_component(entity_a, GossipQueue)
+        queue_a.add_packet(packet)
 
-    witness = world.create_entity()
-    world.add_component(witness, Transform(x=150, y=100))  # Within 300 range
-    world.add_component(witness, YukkuriStats(name="Witness", type_id="test"))
-    world.add_component(witness, GossipQueue())
+        # Interact twice
+        world.add_component(entity_a, InteractionRequest(target_id=entity_b, action="Talk"))
+        interaction_system.update(world, 0.1)
 
-    # Mock Physics Query Result
-    mock_shape = MagicMock()
-    mock_shape.body.userdata = witness  # Entity ID stored in userdata
+        world.add_component(entity_a, InteractionRequest(target_id=entity_b, action="Talk"))
+        interaction_system.update(world, 0.1)
 
-    mock_info = MagicMock()
-    mock_info.shape = mock_shape
-
-    physics_system.space.point_query.return_value = [mock_info]
-    # Mock clear line of sight
-    physics_system.space.segment_query_first.return_value = None
-
-    # Register SectorMap
-    from yukkuri_game.game.systems.sector_system import SectorMap
-
-    sector_map = SectorMap(1000, 1000, 500)
-    world.services.register(sector_map, SectorMap)
-
-    # Update sector map
-    sector_map.update_entity(actor, 100, 100)
-    sector_map.update_entity(target, 110, 100)
-    sector_map.update_entity(witness, 150, 100)
-
-    # Trigger Event
-    event = SocialInteractionEvent(
-        initiator_id=actor, target_id=target, interaction_type="Fight"
-    )
-
-    # Inject world into system manually (usually done by game manager)
-    gossip_system.ecs_world = world
-    gossip_system.physics_system = physics_system
-    gossip_system.sector_map = sector_map  # Manually set for test
-
-    # Call handler
-    gossip_system.on_social_interaction(event)
-
-    # Verify Witness got gossip
-    queue = world.get_component(witness, GossipQueue)
-    assert queue is not None
-    assert len(queue.priority_queue) == 1
-    packet = queue.priority_queue[0]
-    assert packet.target_id == actor
-    assert packet.event_type == "Fight"
+        queue_b = world.get_component(entity_b, GossipQueue)
+        assert len(queue_b.priority_queue) == 1, "Queue grew unexpectedly (duplicates not handled)"

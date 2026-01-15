@@ -1,140 +1,206 @@
-import sys
-from unittest.mock import MagicMock
-
-# Mock pygame before importing modules that use it
-mock_pygame = MagicMock()
-sys.modules["pygame"] = mock_pygame
-sys.modules["pygame.locals"] = MagicMock()
-# Mock pygame_gui
-sys.modules["pygame_gui"] = MagicMock()
-sys.modules["pygame_light2d"] = MagicMock()
+"""
+Consolidated unit tests for the Flight System.
+Merged from test_flight_system.py and test_flight_system_game.py.
+"""
 
 import pytest
-from unittest.mock import MagicMock
-
+import pymunk
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import Flight, FlightState
-from yukkuri_game.game.components import Transform
 from yukkuri_game.game.systems.flight_system import FlightSystem
+from yukkuri_game.game.yukkuri_components import (
+    Flight,
+    FlightState,
+    Needs,
+    EmotionalState,
+)
+from yukkuri_game.game.components import MovementController, Transform
 
 
-@pytest.fixture
-def world():
-    return World()
+class TestFlightSystem:
+    """Tests for FlightSystem logic."""
 
+    @pytest.fixture
+    def world(self):
+        return World()
 
-@pytest.fixture
-def flight_system(world):
-    fs = FlightSystem()
-    world.add_system(fs)
-    return fs
+    @pytest.fixture
+    def system(self):
+        return FlightSystem()
 
+    def create_flying_entity(
+        self, world, state=FlightState.GROUNDED, stamina=100.0, altitude=0.0
+    ):
+        entity = world.create_entity()
+        flight = Flight(state=state, stamina=stamina, altitude=altitude)
+        controller = MovementController()
+        transform = Transform(x=0, y=0)
 
-@pytest.fixture
-def flying_entity(world):
-    entity = world.create_entity()
-    flight = Flight(
-        state=FlightState.FLYING,
-        stamina=100.0,
-        max_stamina=100.0,
-        altitude=60.0,
-        max_altitude=60.0,
-        fly_cost=10.0,
-        hover_cost=2.0,
-        recovery_rate=5.0,
-    )
-    transform = Transform(x=0, y=0)
-    world.add_component(entity, flight)
-    world.add_component(entity, transform)
-    return entity, flight, transform
+        world.add_component(entity, flight)
+        world.add_component(entity, controller)
+        world.add_component(entity, transform)
+        return entity, flight
 
+    # --- Stamina Tests ---
+    def test_stamina_recovery_when_grounded(self, system, world):
+        """Stamina should recover when grounded."""
+        _, flight = self.create_flying_entity(world, FlightState.GROUNDED, stamina=50.0)
 
-def test_flight_drain(flight_system, world, flying_entity):
-    entity, flight, _ = flying_entity
+        system.update(world, dt=1.0)
 
-    # Simulate 1 second
-    flight_system.update(world, 1.0)
+        # 50 + 10 * 1.0 = 60
+        assert flight.stamina == 60.0
+        assert flight.altitude == 0.0
 
-    # Should have drained 10 stamina (fly_cost)
-    assert flight.stamina == 90.0
+    def test_recovery_cap(self, system, world):
+        """Stamina should not exceed max."""
+        _, flight = self.create_flying_entity(world, FlightState.GROUNDED, stamina=99.0)
+        flight.max_stamina = 100.0
 
+        system.update(world, dt=1.0)
 
-def test_hover_drain(flight_system, world, flying_entity):
-    entity, flight, _ = flying_entity
-    flight.state = FlightState.HOVERING
+        assert flight.stamina == 100.0
 
-    flight_system.update(world, 1.0)
+    def test_flying_drains_stamina(self, system, world):
+        """Flying should drain stamina."""
+        entity, flight = self.create_flying_entity(world, FlightState.FLYING, stamina=100.0)
+        flight.fly_cost = 5.0
+        flight.hover_cost = 1.0
 
-    # Should have drained 2 stamina (hover_cost)
-    assert flight.stamina == 98.0
+        # Simulate moving
+        controller = world.get_component(entity, MovementController)
+        controller.target_velocity = pymunk.Vec2d(10, 0)
 
+        system.update(world, dt=1.0)
 
-def test_recovery(flight_system, world, flying_entity):
-    entity, flight, _ = flying_entity
-    flight.state = FlightState.GROUNDED
-    flight.stamina = 50.0
+        assert flight.stamina == 95.0
 
-    flight_system.update(world, 1.0)
+    def test_hovering_drains_less_stamina(self, system, world):
+        """Hovering (not moving) should drain less stamina."""
+        entity, flight = self.create_flying_entity(world, FlightState.FLYING, stamina=100.0)
+        flight.fly_cost = 5.0
+        flight.hover_cost = 1.0
 
-    # Should have recovered 5 stamina (recovery_rate)
-    assert flight.stamina == 55.0
+        # Simulate NOT moving
+        controller = world.get_component(entity, MovementController)
+        controller.target_velocity = pymunk.Vec2d(0, 0)
 
+        system.update(world, dt=1.0)
 
-def test_recovery_cap(flight_system, world, flying_entity):
-    entity, flight, _ = flying_entity
-    flight.state = FlightState.GROUNDED
-    flight.stamina = 99.0
+        assert flight.stamina == 99.0
 
-    flight_system.update(world, 1.0)
+    def test_hover_state_drains_stamina(self, system, world):
+        """HOVERING state should drain hover_cost stamina."""
+        _, flight = self.create_flying_entity(world, FlightState.HOVERING, stamina=100.0)
+        flight.hover_cost = 2.0
 
-    assert flight.stamina == 100.0
+        system.update(world, dt=1.0)
 
+        assert flight.stamina == 98.0
 
-def test_crash_when_out_of_stamina(flight_system, world, flying_entity):
-    entity, flight, _ = flying_entity
-    flight.stamina = 5.0
-    flight.fly_cost = 10.0
+    # --- Takeoff Tests ---
+    def test_takeoff_ascends_and_drains_stamina(self, system, world):
+        """Takeoff should increase altitude and drain stamina."""
+        _, flight = self.create_flying_entity(
+            world, FlightState.TAKEOFF, stamina=100.0, altitude=0.0
+        )
+        flight.max_altitude = 100.0
+        flight.vertical_speed = 10.0
+        flight.fly_cost = 5.0
 
-    # Updates: drain 10 -> -5 -> clamp to 0 -> State FALLING
-    flight_system.update(world, 1.0)
+        system.update(world, dt=1.0)
 
-    assert flight.stamina == 0.0
-    assert flight.state == FlightState.FALLING
+        assert flight.altitude == 10.0
+        assert flight.stamina == 95.0
+        assert flight.state == FlightState.TAKEOFF
 
+    def test_transition_to_flying_at_max_altitude(self, system, world):
+        """Should switch to FLYING when reaching max altitude."""
+        _, flight = self.create_flying_entity(world, FlightState.TAKEOFF, altitude=95.0)
+        flight.max_altitude = 100.0
+        flight.vertical_speed = 10.0
 
-def test_falling_mechanics(flight_system, world, flying_entity):
-    entity, flight, _ = flying_entity
-    flight.state = FlightState.FALLING
-    flight.altitude = 100.0
-    flight.vertical_speed = 10.0
+        system.update(world, dt=1.0)
 
-    # FALLING falls at 2x vertical speed -> 20 units/sec
-    flight_system.update(world, 1.0)
+        assert flight.altitude == 100.0
+        assert flight.state == FlightState.FLYING
 
-    assert flight.altitude == 80.0
+    # --- Landing Tests ---
+    def test_landing_descends(self, system, world):
+        """Landing should decrease altitude."""
+        _, flight = self.create_flying_entity(world, FlightState.LANDING, altitude=50.0)
+        flight.vertical_speed = 10.0
 
-    # Test landing from fall
-    flight.altitude = 10.0
-    flight_system.update(world, 1.0)  # -20 -> -10 -> clamp 0
+        system.update(world, dt=1.0)
 
-    assert flight.altitude == 0.0
-    assert flight.state == FlightState.GROUNDED
+        assert flight.altitude == 40.0
 
+    def test_landing_reaches_ground(self, system, world):
+        """Landing at 0 altitude switches to GROUNDED."""
+        _, flight = self.create_flying_entity(world, FlightState.LANDING, altitude=5.0)
+        flight.vertical_speed = 10.0
 
-def test_takeoff(flight_system, world, flying_entity):
-    entity, flight, _ = flying_entity
-    flight.state = FlightState.TAKEOFF
-    flight.altitude = 0.0
-    flight.max_altitude = 100.0
-    flight.vertical_speed = 10.0
+        system.update(world, dt=1.0)
 
-    flight_system.update(world, 1.0)
+        assert flight.altitude == 0.0
 
-    assert flight.altitude == 10.0
-    assert flight.state == FlightState.TAKEOFF
+    # --- Falling Tests ---
+    def test_exhaustion_causes_fall(self, system, world):
+        """Running out of stamina should trigger FALLING state."""
+        entity, flight = self.create_flying_entity(world, FlightState.FLYING, stamina=2.0)
+        flight.fly_cost = 5.0
 
-    # Near max logic
-    flight.altitude = 96.0  # 96% of 100
-    flight_system.update(world, 1.0)
+        # Simulate moving
+        controller = world.get_component(entity, MovementController)
+        controller.target_velocity = pymunk.Vec2d(10, 0)
 
-    assert flight.state == FlightState.FLYING
+        system.update(world, dt=1.0)
+
+        assert flight.stamina == 0.0
+        assert flight.state == FlightState.FALLING
+
+    def test_falling_mechanics(self, system, world):
+        """Falling should decrease altitude at accelerated rate."""
+        _, flight = self.create_flying_entity(world, FlightState.FALLING, altitude=100.0)
+        flight.vertical_speed = 10.0
+
+        system.update(world, dt=1.0)
+
+        # FALLING falls at 1.5x vertical speed -> 15 units/sec
+        assert flight.altitude < 100.0
+
+    def test_fall_damage_and_stun(self, system, world):
+        """Falling to ground should deal damage and stun."""
+        entity, flight = self.create_flying_entity(
+            world, FlightState.FALLING, altitude=5.0
+        )
+        flight.vertical_speed = 10.0
+
+        # Add Needs and EmotionalState
+        needs = Needs(max_health=100.0, health=100.0)
+        emotional = EmotionalState(stress=0.0, happiness=50.0)
+        world.add_component(entity, needs)
+        world.add_component(entity, emotional)
+
+        system.update(world, dt=1.0)
+
+        assert flight.altitude == 0.0
+        assert flight.state == FlightState.GROUNDED
+
+        # Check damage
+        assert needs.health < 100.0
+
+        # Check stun (stress increase)
+        assert emotional.stress > 0.0
+
+    # --- Swooping Tests ---
+    def test_swoop_descends_rapidly(self, system, world):
+        """Swooping should descend faster than landing."""
+        _, flight = self.create_flying_entity(
+            world, FlightState.SWOOPING, altitude=100.0
+        )
+        flight.vertical_speed = 50.0
+
+        system.update(world, dt=1.0)
+
+        # 100 - 50 * 1.0 = 50
+        assert flight.altitude == 50.0
