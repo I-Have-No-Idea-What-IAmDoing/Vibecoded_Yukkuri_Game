@@ -50,32 +50,32 @@ Implement a robust, scalable AI architecture that decouples decision-making (Bra
 
 ## 2. Implementation Steps
 
-### Phase 1: Core Types & Event Subsystem
+### Phase 1: Core Types & Event Subsystem (Completed)
 **Goal:** Establish the data structures and event flow.
 1.  **Refactor Components**:
-    *   Update `GoalComponent`, `Blackboard`, and `Memories`.
-    *   Create `ArchetypeConfig` data class for TOML loading.
+    *   [x] Update `GoalComponent`, `Blackboard`, and `Memories`.
+    *   [x] Create `ArchetypeConfig` data class for TOML loading.
 2.  **Event Schema**:
-    *   Define `AIEvent`, `DamageTakenEvent`, `GoalFailureEvent`, `StateChangeEvent` in `events.py`.
+    *   [x] Define `AIEvent`, `DamageTakenEvent`, `GoalFailureEvent`, `StateChangeEvent` in `events.py`.
 3.  **Global Event Bus**:
-    *   Ensure `EventBus` works for system-to-system communication (already verified in `loader.py`).
+    *   [x] Ensure `EventBus` works for system-to-system communication (already verified in `loader.py`).
 
-### Phase 2: The "Driver" (Steering & Physics)
+### Phase 2: The "Driver" (Steering & Physics) (Completed)
 **Goal:** Entities move fluidly without AI micro-management.
 1.  **Steering System Upgrade**:
-    *   Update `SteeringSystem` to handle `Flight` physics (altitude, stamina).
-    *   Implement `Arrive`, `Seek`, `Wander`, `Separation` as force providers.
+    *   [x] Update `SteeringSystem` to handle `Flight` physics (altitude, stamina).
+    *   [x] Implement `Arrive`, `Seek`, `Wander`, `Separation` as force providers.
 2.  **Navigation Integration**:
-    *   Modify `NavigationService` to output paths to `MovementController` / `SteeringComponent`.
-    *   Remove direct velocity setting from `MoveToTarget`. It should only set `SteeringComponent.target`.
+    *   [x] Modify `NavigationService` to output paths to `MovementController` / `SteeringComponent`.
+    *   [x] Remove direct velocity setting from `MoveToTarget`. It should only set `SteeringComponent.target`.
 
-### Phase 3: The "Senses" (Perception)
+### Phase 3: The "Senses" (Perception) (Completed)
 **Goal:** Agents know what is around them efficiently.
 1.  **PerceptionSystem**:
-    *   Implement spatial hashing (or use `pymunk` spatial query).
-    *   Populate `Blackboard.visible_targets` based on `Vision` component.
+    *   [x] Implement spatial hashing (or use `pymunk` spatial query).
+    *   [x] Populate `Blackboard.visible_targets` based on `Vision` component.
 2.  **Social Context**:
-    *   Implement the "Relation Table" logic (Predator/Prey/Friend/Enemy).
+    *   [x] Implement the "Relation Table" logic (Predator/Prey/Friend/Enemy).
 
 ### Phase 4: The "Brain" (Utility & Behavior)
 **Goal:** Agents make smart decisions.

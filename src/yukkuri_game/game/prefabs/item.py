@@ -133,6 +133,7 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
             mask=CollisionCategories.WALL
             | CollisionCategories.POOP
             | CollisionCategories.ITEM,
+            group=entity,
         )
         physics_system.space.add(body, shape)
         world.add_component(entity, PhysicsBody(body=body, shape=shape))

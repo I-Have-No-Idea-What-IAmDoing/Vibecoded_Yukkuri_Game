@@ -1,9 +1,10 @@
 import math
 import random
+import time
 import pymunk
 from loguru import logger
 from ...engine.ecs import System, World
-from ..components import Transform, MovementController, SteeringComponent, PhysicsBody
+from ..components import Transform, MovementController, SteeringComponent, PhysicsBody, MoveCommand
 from ..yukkuri_components import AIState
 from .physics import PhysicsSystem
 
@@ -11,23 +12,93 @@ from .physics import PhysicsSystem
 class SteeringSystem(System):
     """
     System that calculates steering forces and updates MovementController.target_velocity.
+    
+    Supports two modes:
+    1. MoveCommand-based: AI issues MoveCommand, SteeringSystem processes it.
+    2. Path-based (legacy): AI sets path in AIState, SteeringSystem follows it.
     """
 
     def update(self, world: World, dt: float) -> None:
+        physics_system = world.services.try_get(PhysicsSystem)
+        space = getattr(physics_system, "space", None) if physics_system else None
+        current_time = time.time()
+
+        # --- Phase A: Process MoveCommand-based steering ---
+        # This is the new decoupled architecture from Proposal 4
+        move_cmd_entities = world.get_components_tuple(
+            Transform, MovementController, SteeringComponent, PhysicsBody, MoveCommand
+        )
+        
+        for entity_id, (trans, movement, steering, phys, move_cmd) in move_cmd_entities:
+            # Check expiration
+            if move_cmd.expiration > 0 and current_time > move_cmd.expiration:
+                world.remove_component(entity_id, MoveCommand)
+                movement.target_velocity = pymunk.Vec2d(0, 0)
+                continue
+            
+            current_pos = pymunk.Vec2d(trans.x, trans.y)
+            target_pos = pymunk.Vec2d(move_cmd.target_pos.x, move_cmd.target_pos.y)
+            
+            # If tracking an entity, update target position
+            if move_cmd.target_entity_id is not None:
+                target_trans = world.try_get_component(move_cmd.target_entity_id, Transform)
+                if target_trans:
+                    target_pos = pymunk.Vec2d(target_trans.x, target_trans.y)
+                else:
+                    # Target lost, remove command
+                    world.remove_component(entity_id, MoveCommand)
+                    movement.target_velocity = pymunk.Vec2d(0, 0)
+                    continue
+            
+            # Calculate distance
+            to_target = target_pos - current_pos
+            dist = to_target.length
+            
+            # Arrival check
+            if dist < steering.arrival_radius:
+                world.remove_component(entity_id, MoveCommand)
+                movement.target_velocity = pymunk.Vec2d(0, 0)
+                continue
+            
+            # Calculate desired velocity with speed multiplier
+            max_speed = steering.max_speed * move_cmd.speed_multiplier
+            desired_velocity = to_target.normalized() * max_speed
+            
+            # Apply arrival slowdown
+            if dist < steering.arrival_radius * 2:
+                desired_velocity *= dist / (steering.arrival_radius * 2)
+            
+            # Resolve target body for exclusion (don't avoid what we want to touch)
+            target_body = None
+            if move_cmd.target_entity_id is not None:
+                t_phys = world.try_get_component(move_cmd.target_entity_id, PhysicsBody)
+                if t_phys:
+                    target_body = t_phys.body
+
+            # Apply separation and avoidance using shared helper
+            separation_force, avoidance_force = self._calculate_steering_forces(
+                space, current_pos, phys, movement, steering, target_body, move_cmd.target_entity_id
+            )
+            
+            total_force = (desired_velocity * steering.seek_weight) + \
+                          (separation_force * steering.separation_weight) + \
+                          (avoidance_force * steering.avoidance_weight)
+            
+            if total_force.length > max_speed:
+                total_force = total_force.normalized() * max_speed
+            
+            movement.target_velocity = total_force
+
+        # --- Phase B: Process Path-based steering (legacy) ---
         components = world.get_components_tuple(
             Transform, MovementController, SteeringComponent, AIState, PhysicsBody
         )
 
-        # Build spatial index for separation (or just use physics space query?)
-        # For simple separation, we can query the physics space for neighbors.
-        physics_system = world.services.try_get(PhysicsSystem)  # Or however we get it
-        space = getattr(physics_system, "space", None) if physics_system else None
-
-        # Or we can just iterate O(N^2) for now if N is small? 50 entities is small.
-        # But let's verify if we can access other entities easily.
-        # We will use Physics Space for neighbor query.
-
         for entity_id, (trans, movement, steering, ai_state, phys) in components:
+            # Skip if entity has MoveCommand (already processed above)
+            if world.has_component(entity_id, MoveCommand):
+                continue
+                
             if not ai_state.path:
                 # No path, no steering (unless other behaviors set target_velocity)
                 # If we rely solely on SteeringSystem for movement, we should zero it out,
@@ -56,7 +127,17 @@ class SteeringSystem(System):
             dist_sq = (target_pos - current_pos).length_squared
 
             # Waypoint reached threshold (e.g. 10px)
-            if dist_sq < 100.0:  # 10*10
+            # Waypoint reached threshold
+            # Use looser threshold for intermediate waypoints to ensure fluid movement
+            # and prevent getting stuck orbiting a specific pixel.
+            # Final waypoint needs to be stricter to ensure we actually arrive.
+            
+            # Default to 30px (900 sq) for intermediate, 10px (100 sq) for final
+            pop_threshold_sq = 900.0
+            if len(path) == 1:
+                pop_threshold_sq = 100.0
+            
+            if dist_sq < pop_threshold_sq:
                 path.pop(0)
                 if not path:
                     # Arrived at final destination
@@ -80,12 +161,21 @@ class SteeringSystem(System):
             # Seek / Pursuit
             desired_velocity = pymunk.Vec2d(0, 0)
             
-            # Check for Pursuit Mode (Intercept)
+            # Check for Pursuit Mode (Intercept) OR Live Tracking
             # Only apply if targeting the FINAL waypoint (actual target) to avoid cutting corners into walls
             is_final_waypoint = (len(path) == 1)
             
+            # If tracking an entity, update the final target position to its LIVE position
+            # This prevents arriving at a stale "phantom" location if the target moved while we were walking.
+            if is_final_waypoint and ai_state.current_target_id != -1:
+                target_phys = world.try_get_component(ai_state.current_target_id, PhysicsBody)
+                if target_phys and target_phys.body:
+                     target_pos = target_phys.body.position
+                     # Recalculate distance to new live target
+                     dist_sq = (target_pos - current_pos).length_squared
+            
             if steering.pursuit_enabled and is_final_waypoint and ai_state.current_target_id != -1:
-                # Try to predict intercept
+                # Try to predict intercept (overrides live tracking with prediction)
                 target_phys = world.try_get_component(ai_state.current_target_id, PhysicsBody)
                 if target_phys and target_phys.body:
                     t_vel = target_phys.body.velocity
@@ -116,69 +206,17 @@ class SteeringSystem(System):
                     else:
                         desired_velocity = pymunk.Vec2d(0, 0)
 
+            # Resolve target body for exclusion
+            target_body = None
+            if ai_state.current_target_id != -1:
+                t_phys = world.try_get_component(ai_state.current_target_id, PhysicsBody)
+                if t_phys:
+                    target_body = t_phys.body
+            
             # 2. Separation & Whisker Avoidance
-            separation_force = pymunk.Vec2d(0, 0)
-            avoidance_force = pymunk.Vec2d(0, 0)
-
-            if space:
-                # A. Neighbor Separation
-                neighbor_radius = 50.0
-                query_info = space.point_query(
-                    current_pos, neighbor_radius, pymunk.ShapeFilter()
-                )
-
-                count = 0
-                for info in query_info:
-                    if info.shape.body == phys.body:
-                        continue
-                    if info.shape.sensor:
-                        continue
-
-                    diff = current_pos - info.point
-                    dist_sep = diff.length
-                    if dist_sep > 0.001:
-                        separation_force += diff.normalized() / dist_sep
-                        count += 1
-
-                if count > 0:
-                    separation_force = (
-                        separation_force.normalized() * steering.max_speed
-                    )
-
-                # B. Whisker Avoidance (Raycasts)
-                # Cast rays in direction of movement
-                if movement.target_velocity.length > 10.0:
-                    look_dir = movement.target_velocity.normalized()
-                    whisker_len = 50.0
-                    
-                    # 3 Whiskers: Center, Left (30deg), Right (30deg)
-                    # We need to detect Obstacles (Static)
-                    # Assuming Obstacles are in a different group or we filter?
-                    # For now, collide with anything that is not me and not a sensor.
-                    
-                    filter_ = pymunk.ShapeFilter(mask=pymunk.ShapeFilter.ALL_MASKS()) 
-                    # Ideally mask out other characters to avoid avoidance jitter, but characters block path so maybe ok.
-                    # Best to filter for STATIC obstacles (Environment).
-                    # We don't have easy category access here, assuming default.
-                    
-                    rays = [
-                        look_dir,
-                        look_dir.rotated(math.radians(30)),
-                        look_dir.rotated(math.radians(-30))
-                    ]
-                    
-                    for ray_dir in rays:
-                        end = current_pos + ray_dir * whisker_len
-                        # segment_query_first to find closest hit
-                        hit = space.segment_query_first(current_pos, end, 1.0, filter_)
-                        
-                        if hit and hit.shape and hit.shape.body != phys.body and not hit.shape.sensor:
-                            # Avoid!
-                            # Force is perpendicular to normal? Or just away from hit?
-                            # Standard: Normal * Overlap?
-                            # Simple: Reflect velocity? 
-                            # Better: Steering force = Normal * MaxSpeed
-                            avoidance_force += hit.normal * steering.max_speed
+            separation_force, avoidance_force = self._calculate_steering_forces(
+                space, current_pos, phys, movement, steering, target_body, ai_state.current_target_id
+            )
             
             # Combine
             # Priority: Avoidance > Separation > Seek
@@ -231,3 +269,92 @@ class SteeringSystem(System):
                 )
                 ai_state.path = None
                 steering.time_stuck = 0.0
+
+    def _calculate_steering_forces(
+        self,
+        space: pymunk.Space | None,
+        current_pos: pymunk.Vec2d,
+        phys: PhysicsBody,
+        movement: MovementController,
+        steering: SteeringComponent,
+        target_body: pymunk.Body | None = None,
+        target_entity_id: int | None = None,
+    ) -> tuple[pymunk.Vec2d, pymunk.Vec2d]:
+        """
+        Calculate separation and obstacle avoidance forces.
+        
+        Returns:
+            Tuple of (separation_force, avoidance_force).
+        """
+        separation_force = pymunk.Vec2d(0, 0)
+        avoidance_force = pymunk.Vec2d(0, 0)
+
+        if not space:
+            return separation_force, avoidance_force
+
+        # A. Neighbor Separation
+        neighbor_radius = 50.0
+        query_info = space.point_query(
+            current_pos, neighbor_radius, pymunk.ShapeFilter()
+        )
+
+        count = 0
+        for info in query_info:
+            if info.shape.body == phys.body:
+                continue
+            
+            # Check Body exclusion
+            if target_body and info.shape.body == target_body:
+                continue
+            
+            # Check ID exclusion (via group)
+            if target_entity_id is not None and info.shape.filter.group == target_entity_id:
+                continue
+                
+            if info.shape.sensor:
+                continue
+
+            diff = current_pos - info.point
+            dist_sep = diff.length
+            if dist_sep > 0.001:
+                separation_force += diff.normalized() / dist_sep
+                count += 1
+
+        if count > 0:
+            separation_force = separation_force.normalized() * steering.max_speed
+
+        # B. Whisker Avoidance (Raycasts)
+        if movement.target_velocity.length > 10.0:
+            look_dir = movement.target_velocity.normalized()
+            whisker_len = 50.0
+            filter_ = pymunk.ShapeFilter(mask=pymunk.ShapeFilter.ALL_MASKS())
+
+            rays = [
+                look_dir,
+                look_dir.rotated(math.radians(30)),
+                look_dir.rotated(math.radians(-30)),
+            ]
+
+            for ray_dir in rays:
+                end = current_pos + ray_dir * whisker_len
+                hit = space.segment_query_first(current_pos, end, 1.0, filter_)
+
+                if (
+                    hit
+                    and hit.shape
+                    and hit.shape.body != phys.body
+                    and not hit.shape.sensor
+                ):
+                    # Also ignore target for avoidance? likely yes, we want to hit it (collide/interact)
+                    # Unless it's an obstacle we arepathing around... 
+                    # But MoveToTarget usually means we want to touch it.
+                    if target_body and hit.shape.body == target_body:
+                        continue
+                    
+                    if target_entity_id is not None and hit.shape.filter.group == target_entity_id:
+                        continue
+                        
+                    avoidance_force += hit.normal * steering.max_speed
+
+        return separation_force, avoidance_force
+

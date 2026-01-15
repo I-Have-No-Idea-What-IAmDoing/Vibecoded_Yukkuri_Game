@@ -102,18 +102,73 @@ def create_yukkuri(
 
     # Core Components
     world.add_component(entity, Transform(x=x, y=y, scale=scale))
-    world.add_component(
-        entity,
-        Sprite(
-            image_name=image,
-            width=width,
-            height=height,
-            frame_count=frame_count,
-            frame_duration=frame_duration,
-            loop=loop,
-            is_animating=(frame_count > 1),
-        ),
+    
+    # Sprite Creation
+    sprite = Sprite(
+        image_name=image,
+        width=width,
+        height=height,
+        frame_count=frame_count,
+        frame_duration=frame_duration,
+        loop=loop,
+        is_animating=(frame_count > 1),
     )
+    world.add_component(entity, sprite)
+
+    # Animator Creation (Enables Events and State logic)
+    from ..components import Animator, AnimationDefinition
+    
+    anims = {}
+    if hasattr(data, "animations") and data.animations:
+        # Load data-driven animations
+        for name, definition in data.animations.items():
+             # Convert msgspec struct or dict to Component definition
+             # Use dict unpacking if compatible or manual mapping
+             # Definition is msgspec Struct from data_models, Component likely expects similar or dict
+             # Let's map explicitly to be safe
+             anim_def = AnimationDefinition(
+                 name=definition.name,
+                 frames=definition.frames,
+                 frame_duration=definition.frame_duration,
+                 loop=definition.loop,
+                 ping_pong=definition.ping_pong,
+                 events=definition.events,
+                 image=definition.image,
+                 width=definition.width,
+                 height=definition.height
+             )
+             anims[name.lower()] = anim_def
+    
+    # Fallback: If no explicit animations but sprite has frames, create default "idle"
+    if not anims and frame_count > 1:
+        # Create a default "idle" or "walk" animation from all frames
+        anims["idle"] = AnimationDefinition(
+            name="idle",
+            frames=list(range(frame_count)),
+            frame_duration=frame_duration,
+            loop=loop
+        )
+        anims["walk"] = anims["idle"] # Alias
+
+    if anims:
+        initial_anim = "idle"
+        if "idle" not in anims:
+            initial_anim = next(iter(anims.keys()))
+            
+        animator = Animator(
+            animations=anims,
+            current_animation=initial_anim,
+            frame_index=0,
+            timer=0.0,
+            speed=1.0
+        )
+        world.add_component(entity, animator)
+        # Disable legacy sprite self-animation to avoid conflict?
+        # AnimationSystem prioritizes Animator, but Sprite.is_animating might cause double updates?
+        # AnimationSystem: if has Animator -> use it. else if Sprite -> use legacy.
+        # So it's safe. But best to set is_animating=False if Animator takes over.
+        sprite.is_animating = False
+
     world.add_component(entity, Selectable())
     world.add_component(entity, StableIDComponent(id=world.get_next_stable_id()))
     world.add_component(entity, Persistable())

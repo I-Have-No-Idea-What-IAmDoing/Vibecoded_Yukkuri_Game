@@ -15,6 +15,7 @@ from ..events import (
     EntityPunishedEvent,
     EntityDiedEvent,
     LogMessageEvent,
+    AnimationEvent,
 )
 from ..prefabs.effects import create_floating_text
 
@@ -45,7 +46,10 @@ class FeedbackSystem(System):
             self.event_bus.subscribe(EntityGrewEvent, self.on_growth)
             self.event_bus.subscribe(EntityDiedEvent, self.on_death)
             self.event_bus.subscribe(EntityTrainedEvent, self.on_trained)
+            self.event_bus.subscribe(EntityTrainedEvent, self.on_trained)
             self.event_bus.subscribe(EntityPunishedEvent, self.on_punished)
+            # Subscribe to Animation Events for audio/visuals
+            self.event_bus.subscribe(AnimationEvent, self.on_animation_event)
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -242,3 +246,23 @@ class FeedbackSystem(System):
             self.event_bus.publish(
                 LogMessageEvent(message=f"{name} was punished.", color=(255, 0, 0))
             )
+
+    def on_animation_event(self, event: AnimationEvent) -> None:
+        """
+        Handles AnimationEvent (duck-typed or imported).
+        """
+        audio = self.world.services.try_get(AudioManager)
+        if not audio:
+             return
+        
+        # event.event_type is the string key from animation frame (e.g. "step", "voice_hunt")
+        sound_name = event.event_type
+        
+        # Simple mapping or direct play
+        # We assume sound_name matches audio assets
+        if sound_name:
+             try:
+                 audio.play_sound(sound_name)
+             except Exception:
+                 pass # Squelch missing sounds
+

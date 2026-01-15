@@ -606,3 +606,125 @@ class Predator(Component):
     hunger_threshold: float = 60.0
     aggression: float = 1.0
     dps: float = 20.0
+
+
+# --- Proposal 4: Unified AI Architecture Components ---
+
+
+class GoalType(Enum):
+    """
+    High-level goals that the Utility AI system can select.
+    """
+
+    IDLE = 0
+    WANDER = 1
+    FORAGE = 2  # Find food
+    EAT = 3
+    FLEE = 4
+    HUNT = 5  # Predator-specific
+    SOCIALIZE = 6
+    SLEEP = 7
+    PATROL = 8
+
+
+@dataclass(slots=True)
+class GoalComponent(Component):
+    """
+    Represents the current high-level goal of an AI agent.
+    Set by the UtilitySystem, consumed by the BehaviorTreeSystem.
+
+    Attributes:
+        goal_type (GoalType): The selected goal.
+        priority (float): Score from Utility AI (0.0 to 1.0+).
+        target_id (EntityID | None): Optional target for goal (e.g., food item, prey).
+        stickiness (float): Hysteresis bonus to prevent rapid goal switching.
+        timestamp (float): When the goal was set (for timeout logic).
+    """
+
+    goal_type: GoalType = GoalType.IDLE
+    priority: float = 0.0
+    target_id: EntityID | None = None
+    stickiness: float = 10.0
+    timestamp: float = 0.0
+
+
+@dataclass(slots=True)
+class TargetInfo:
+    """
+    Information about a perceived entity stored in the Blackboard.
+
+    Attributes:
+        entity_id (EntityID): The entity's ID.
+        position (tuple[float, float]): Last known position.
+        distance (float): Distance from self.
+        relation (str): "Friend", "Enemy", "Neutral", "Prey", "Threat".
+        timestamp (float): When this info was last updated.
+    """
+
+    entity_id: EntityID
+    position: tuple[float, float]
+    distance: float
+    relation: str = "Neutral"
+    timestamp: float = 0.0
+
+
+@dataclass(slots=True)
+class LastKnownPosition:
+    """
+    Memory entry for an entity that left the visibility range.
+
+    Attributes:
+        position (tuple[float, float]): Last seen position.
+        timestamp (float): When the entity was last seen.
+    """
+
+    position: tuple[float, float]
+    timestamp: float = 0.0
+
+
+@dataclass(slots=True)
+class Blackboard(Component):
+    """
+    Per-agent data store populated by the PerceptionSystem.
+    Read by UtilitySystem and BehaviorTreeSystem.
+
+    Attributes:
+        visible_targets (dict[EntityID, TargetInfo]): Currently visible entities.
+        short_term_memory (dict[EntityID, LastKnownPosition]): Memory of entities that left view.
+        nearby_friends (int): Count of friends in perception range.
+        nearby_enemies (int): Count of enemies/threats in perception range.
+        closest_threat_id (EntityID | None): ID of the closest threat (for flee priority).
+        closest_food_id (EntityID | None): ID of the closest food source.
+    """
+
+    visible_targets: dict[EntityID, TargetInfo] = field(default_factory=dict)
+    short_term_memory: dict[EntityID, LastKnownPosition] = field(default_factory=dict)
+    nearby_friends: int = 0
+    nearby_enemies: int = 0
+    nearby_prey: int = 0  # Added for predator logic
+    closest_threat_id: EntityID | None = None
+    closest_food_id: EntityID | None = None
+
+
+@dataclass(slots=True)
+class ArchetypeConfig:
+    """
+    Data-driven configuration loaded from TOML for AI behavior.
+    Attached to entities to define their behavior profile.
+
+    Attributes:
+        archetype_id (str): Identifier (e.g., "predator", "prey", "scavenger").
+        priorities (list[GoalType]): Ordered list of goal preferences.
+        prey_tags (set[str]): Tags that identify valid prey (for predators).
+        predator_tags (set[str]): Tags that identify threats (for prey).
+        stamina_regen (float): Stamina regeneration rate.
+        personality_bias (dict[str, float]): Axis adjustments (e.g., {"arrogance": 0.5}).
+    """
+
+    archetype_id: str = "default"
+    priorities: list[GoalType] = field(default_factory=lambda: [GoalType.IDLE])
+    prey_tags: set[str] = field(default_factory=set)
+    predator_tags: set[str] = field(default_factory=set)
+    stamina_regen: float = 10.0
+    personality_bias: dict[str, float] = field(default_factory=dict)
+

@@ -203,6 +203,9 @@ class GameplayScene(Scene):
             nav_service = self.world.services.try_get(NavigationService)
             if nav_service:
                 self.hud.init_navigation_debug(nav_service, self.camera)
+            
+            # Initialize AI Debug
+            self.hud.init_ai_debug(self.camera)
 
             self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
             self.event_bus.subscribe(CycleSpeedRequest, lambda e: self.cycle_speed())
@@ -479,6 +482,10 @@ class GameplayScene(Scene):
             return
 
         if not self.application.headless:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_F4:
+                if self.hud:
+                    self.hud.toggle_ai_debug()
+
             if self.input_manager.is_action_just_pressed("debug_toggle"):
                 if self.input_manager.is_action_pressed("shift"):
                     # Shift+F3 -> Toggle Lighting Debug

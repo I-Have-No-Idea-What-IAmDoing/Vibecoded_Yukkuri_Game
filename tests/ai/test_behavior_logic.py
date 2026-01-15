@@ -74,16 +74,16 @@ class TestMoveToTarget:
         assert status == Status.SUCCESS
 
     def test_move_pathfinding_needed(self, mock_world, mock_blackboard):
+        """Test that MoveToTarget requests a path asynchronously when none exists."""
         action = MoveToTarget(entity_id=1, world=mock_world, blackboard=mock_blackboard)
 
-        ai = MagicMock(current_target_id=2, path=None, state_data={})
+        ai = MagicMock(current_target_id=2, path=None, state_data={}, visible_entities=set())
         trans = MagicMock(x=0, y=0)
         stats = MagicMock()
         needs = MagicMock(energy=100)  # Ensure energy comparison works
         controller = MagicMock()
 
         nav_service = MagicMock(spec=NavigationService)
-        nav_service.find_path.return_value = [(50, 50), (100, 100)]
         mock_world.services = MagicMock()
         mock_world.services.try_get.return_value = nav_service
         mock_world.try_get_component.return_value = None  # No Flight component
@@ -112,8 +112,10 @@ class TestMoveToTarget:
             status = action.update()
 
         assert status == Status.RUNNING
-        assert ai.path == [(50, 50), (100, 100)]
-        nav_service.find_path.assert_called_once()
+        # Async implementation: request_path is called, path will be set later by NavigationSystem
+        nav_service.request_path.assert_called_once()
+        # Verify state_data is set for async tracking
+        assert ai.state_data.get("path_requesting") is True
 
 
 class TestInteract:

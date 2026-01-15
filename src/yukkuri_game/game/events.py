@@ -274,3 +274,57 @@ class InventoryItemActionEvent(Event):
     item_type_id: str
     action: str  # "drop", "use", "transfer"
     quantity: int = 1
+
+
+# --- Proposal 4: Unified AI Architecture Events ---
+
+
+@dataclass(frozen=True)
+class DamageTakenEvent(Event):
+    """
+    Event triggered when an entity takes damage.
+    Used to interrupt channeling actions (e.g., eating) and trigger flee behaviors.
+    """
+
+    entity_id: int
+    amount: float
+    source_id: int | None = None
+    damage_type: str = "Physical"
+
+
+@dataclass(frozen=True)
+class GoalFailureEvent(Event):
+    """
+    Event triggered when an AI goal cannot be completed.
+    Used to trigger re-planning in the Utility AI system.
+    """
+
+    entity_id: int
+    goal_type: str
+    reason: str = "Unknown"
+
+
+@dataclass(frozen=True)
+class GoalChangedEvent(Event):
+    """
+    Event triggered when an AI agent's goal changes.
+    Useful for debugging and UI updates.
+    """
+
+    entity_id: int
+    old_goal: str
+    new_goal: str
+    priority: float = 0.0
+
+
+@dataclass(frozen=True)
+class ChannelInterruptedEvent(Event):
+    """
+    Event triggered when a channeling action (e.g., eating, resting) is interrupted.
+    """
+
+    entity_id: int
+    action_type: str
+    progress: float  # 0.0 to 1.0, how far along the action was
+    cause: str = "Damage"
+

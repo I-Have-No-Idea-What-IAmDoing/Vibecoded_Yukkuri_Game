@@ -217,6 +217,17 @@ class AnimationSystem(System):
         """
         target_anim = ai_state.current_action.lower()
 
+        # Flight Overrides
+        from ..yukkuri_components import Flight, FlightState
+        flight = world.try_get_component(entity, Flight)
+        if flight:
+             if flight.state == FlightState.SWOOPING:
+                  target_anim = "swoop"
+             elif flight.state in (FlightState.FLYING, FlightState.TAKEOFF, FlightState.HOVERING):
+                  target_anim = "fly"
+                  # Special case: If action is "Hunt" and we are flying -> "hunt_fly"? 
+                  # For now, "fly" takes precedence to show they are airborne.
+
         if (
             target_anim in animator.animations
             and target_anim != animator.current_animation

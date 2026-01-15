@@ -90,11 +90,16 @@ class InteractionSystem(System):
                     personality.traits
                 )
 
-            # Check for "can_eat_yukkuri" override
             if personality.cached_overrides and personality.cached_overrides.get(
                 "can_eat_yukkuri", False
             ):
                 return True
+        
+        # Check for Predator component (Implicit permission)
+        from ..yukkuri_components import Predator
+        if world.has_component(entity, Predator):
+            return True
+
         return False
 
     def _handle_interaction(
@@ -133,7 +138,7 @@ class InteractionSystem(System):
         dist = math.hypot(
             transform.x - target_transform.x, transform.y - target_transform.y
         )
-        if dist > 50.0:  # Slightly larger than action threshold to account for movement
+        if dist > 70.0:  # Slightly larger than action threshold to account for movement
             # Too far, but we don't remove request yet (maybe moving towards it)
             return False
 

@@ -1,0 +1,22 @@
+# Default Yukkuri Archetype
+archetype_id = "default"
+stamina_regen = 10.0
+
+[priorities]
+# Goals ordered by priority (highest first is checked first by Utility AI)
+list = ["EAT", "SLEEP", "SOCIALIZE", "WANDER", "IDLE"]
+
+[prey_tags]
+# What this archetype considers food/prey
+tags = ["Food", "BeanPaste"]
+
+[predator_tags]
+# What this archetype fears
+tags = ["Predator", "Human"]
+
+[personality_bias]
+# Adjustments to personality axis (-100 to 100)
+kindness = 0.0
+bravery = 0.0
+energy = 0.0
+greed = 0.0

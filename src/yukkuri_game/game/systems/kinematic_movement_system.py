@@ -13,6 +13,7 @@ from ...engine.events import PhysicsFixedUpdateEvent
 from ..components import PhysicsBody, MovementController, Transform
 from ..collision_constants import CollisionCategories
 from ..yukkuri_components import Flight, FlightState
+from ..skill_service import SkillService
 from .physics import PhysicsSystem
 
 
@@ -69,6 +70,7 @@ class KinematicMovementSystem(System):
         # Let's just fix the assignment.
         self._kinematic_world: World | None = None
         self._poly_radius_cache: dict[pymunk.Poly, float] = {}
+        self.skill_service: SkillService | None = None
 
     def on_fixed_update(self, event: PhysicsFixedUpdateEvent) -> None:
         if not self.space:
@@ -98,6 +100,7 @@ class KinematicMovementSystem(System):
                 self.event_bus.subscribe(PhysicsFixedUpdateEvent, self.on_fixed_update)
                 self._kinematic_world = world
 
+        self.skill_service = world.services.try_get(SkillService)
         self._kinematic_world = world
 
     def fixed_update(self, world: World, dt: float) -> None:
@@ -107,6 +110,9 @@ class KinematicMovementSystem(System):
         components = world.get_components_tuple(
             PhysicsBody, MovementController, Transform
         )
+
+        # Lazy import to avoid circular dependency if needed or just use imported SkillId
+        from ..skill_constants import SkillId
 
         for entity, (phys, controller, trans) in components:
             if phys.body.body_type != pymunk.Body.KINEMATIC:
@@ -143,9 +149,14 @@ class KinematicMovementSystem(System):
                 self._update_flight_collision_filter(phys, flight)
 
             # 2. Perform Movement
-            self.move_and_slide(phys, controller, trans, dt)
+            dist_moved = self.move_and_slide(phys, controller, trans, dt)
 
-            # 3. Sync Transform back
+            # 3. Award XP
+            if dist_moved > 0.1 and self.skill_service:
+                 # Award XP based on distance. Tuning: 0.01 XP per unit?
+                 self.skill_service.add_xp(entity, SkillId.ATHLETICS, dist_moved * 0.01)
+
+            # 4. Sync Transform back
             trans.x = phys.body.position.x
             trans.y = phys.body.position.y
 
@@ -255,8 +266,9 @@ class KinematicMovementSystem(System):
         controller: MovementController,
         trans: Transform,
         dt: float,
-    ) -> None:
+    ) -> float:
         body = phys.body
+        start_pos = body.position
 
         # 1. Virtual Physics Integration
         input_vector = controller.target_velocity
@@ -283,7 +295,7 @@ class KinematicMovementSystem(System):
         # 2. Sweep Movement
         move_delta = velocity * dt
         if move_delta.length_squared < 0.000001:
-            return
+            return 0.0
 
         current_pos = body.position
 
@@ -297,7 +309,7 @@ class KinematicMovementSystem(System):
             target_pos = current_pos + move_delta
 
             # Perform Sweep for ALL shapes in the body
-            best_hit = None
+            best_hit: pymunk.SegmentQueryInfo | FakeHit | None = None
             best_alpha = 1.0
 
             for shape in body.shapes:
@@ -318,7 +330,7 @@ class KinematicMovementSystem(System):
                 shape_dest = shape_center_world + move_delta
 
                 if not self.space:
-                    return
+                    return 0.0
 
                 results = self.space.segment_query(
                     shape_center_world, shape_dest, radius, shape.filter
@@ -395,14 +407,8 @@ class KinematicMovementSystem(System):
                     self.space.reindex_shapes_for_body(body)
 
                 if found_overlap:
-                    # Simulate a hit at alpha=0
-                    # Simulate a hit at alpha=0
                     best_alpha = 0.0
-                    # Use typing.cast or similar if necessary, or ensure FakeHit matches protocol
-                    # Assuming FakeHit is sufficient for duck typing if we ignore type checker here or make it comply
-                    best_hit = pymunk.SegmentQueryInfo(
-                        None, fallback_normal, pymunk.Vec2d(0, 0), 0.0
-                    )  # type: ignore[arg-type]
+                    best_hit = FakeHit(fallback_normal, 0.0)
 
             if best_hit:
                 # Move to hit
@@ -438,6 +444,8 @@ class KinematicMovementSystem(System):
 
         body.position = current_pos
         controller.current_velocity = velocity
+        
+        return (body.position - start_pos).length
 
     def _update_flight_collision_filter(
         self, phys: PhysicsBody, flight: Flight

@@ -163,7 +163,7 @@ params = { k = 10.0, x0 = 0.6 }  # Triggers strongly when hunger > 60
 
 [[actions.Hunt.considerations]]
 name = "HasPrey"
-input = "nearby_enemies"  # Prey are considered "enemies" to predators
+input = "nearby_prey"  # Checks specifically for prey count
 curve = "threshold"
 params = { threshold = 0.01 }  # At least 1 prey nearby
 
@@ -173,3 +173,23 @@ input = "is_predator"  # Only predators can hunt
 curve = "threshold"
 params = { threshold = 0.005 }  # is_predator = 1.0 -> 0.01 after normalization
 
+
+[actions.Flee]
+weight = 4.0
+[actions.Flee.effects]
+type = "flee"
+target_stat = "stress"
+consume = false
+stat_changes = { stress = -30.0 }
+
+[[actions.Flee.considerations]]
+name = "Safety"
+input = "nearby_enemies"
+curve = "threshold"
+params = { threshold = 0.01 }
+
+[[actions.Flee.considerations]]
+name = "Panic"
+input = "stress"
+curve = "logit"
+params = { k = 5.0, x0 = 0.7 }

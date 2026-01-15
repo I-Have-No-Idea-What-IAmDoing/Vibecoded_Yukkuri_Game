@@ -1,77 +1,77 @@
-# Utility-Based AI System
+# Unified AI Architecture
 
-The Yukkuri Game now uses a Utility-Based AI system to determine entity behaviors. This system replaces static decision logic with a dynamic, data-driven approach where actions are scored based on current world state and entity statistics. The Utility-Based AI selects high-level goals the entity can pursue which selects the correct behavior tree to execute the action.
+The Yukkuri Game uses a **Unified AI Architecture** that decouples decision-making (Brain), perception (Senses), and movement (Motor). This modular approach supports complex, data-driven behaviors while maintaining high performance.
 
-## Overview
+## Architecture Layers
 
-The core of the system involves:
-1.  **Actions**: High-level goals an entity can pursue (e.g., Eat, Sleep, Play, Wander).
-2.  **Considerations**: Factors that influence the desire to perform an action (e.g., Hunger level increases the desire to Eat).
-3.  **Utility Engine**: A system that calculates a score (0.0 to 1.0) for each action based on its considerations and selects the highest-scoring one.
-4.  **Behavior Tree Integration**: A specialized `UtilitySelector` node in the Behavior Tree executes the selected action.
+### 1. Perception Layer ("The Senses")
+*   **System**: `PerceptionSystem`
+*   **Data**: `Blackboard`
+*   **Function**:
+    *   Scans the environment using spatial hashing (via `VisibilitySystem`).
+    *   Populates the **Blackboard** with visible targets (`TargetInfo`).
+    *   Resolves **Social Context** (Friendly, Hostile, Neutral) based on:
+        *   **Species interactions**: Predator vs Prey tags.
+        *   **Family ties**: Parents/Children are friendly.
+        *   **Individual relationships**: Affinity scores in `RelationshipRegistry`.
+    *   Maintains **Short-Term Memory** of entities that leave the field of view.
 
-## Configuration: `actions.toml`
+### 2. Cognitive Layer ("The Brain")
+*   **System**: `BehaviorSystem`, `UtilitySelector`
+*   **Data**: `ArchetypeConfig`, `actions.toml`, `yukkuri.toml` (Archetypes)
+*   **Function**:
+    *   **Archetypes**: Defines personality bias, goals, and fears via TOML configuration (`data/archetypes/*.toml`).
+    *   **Utility AI**: `UtilitySelector` reads the `Blackboard` and entity stats (Hunger, Stress) to score potential actions.
+    *   **Behavior Tree**: Executes the chosen action (e.g., `MoveToTarget`, `Interact`) as a sequence of leaf nodes.
 
-AI actions are defined in `data/ai/actions.toml`. This allows game designers to tweak behavior without changing code.
+### 3. Motor Layer ("The Driver")
+*   **System**: `SteeringSystem`
+*   **Data**: `MoveCommand`, `SteeringComponent`
+*   **Function**:
+    *   **Decoupled Movement**: Cognitive layer issues high-level **MoveCommands** (e.g., "Go to (100, 200) with priority 2").
+    *   **Force-Based Steering**: Calculates physics forces for:
+        *   **Seek/Arrival**: Moving towards target.
+        *   **Separation**: Avoiding crowding with neighbors.
+        *   **Obstacle Avoidance**: Steering around static geometry.
+    *   **Physics Integration**: Applies final velocity to `PhysicsBody`.
 
-### Structure
+---
 
+## Key Components
+
+| Component | Description |
+| :--- | :--- |
+| `GoalComponent` | Stores the current high-level goal (e.g., EAT, SLEEP) and queue. |
+| `Blackboard` | Per-agent storage for perception results (visible targets, memory). |
+| `MoveCommand` | Transient component representing a movement request. Consumed by `SteeringSystem`. |
+| `ArchetypeConfig` | Static configuration loaded from TOML, defining personality and tags. |
+
+---
+
+## Configuration
+
+### 1. Actions (`data/ai/actions.toml`)
+Defines the available actions and their utility scoring curves.
 ```toml
 [actions.Eat]
-weight = 2.0  # Base multiplier for the score
-
-[actions.Eat.effects]
-type = "interact_item"
-target_stat = "nutrition"
-consume = true
-stat_changes = { hunger = -20.0, happiness = 5.0 }
-
+weight = 2.0
 [[actions.Eat.considerations]]
-name = "Hunger"
-input = "hunger"      # The stat to evaluate
-curve = "linear"      # The response curve type
-params = { m = 1.0, b = 0.0 }
+input = "hunger"
+curve = "linear"
 ```
 
-### Considerations
+### 2. Archetypes (`data/archetypes/*.toml`)
+Defines personality profiles for different Yukkuri types.
+```toml
+archetype_id = "predator"
+[priorities]
+list = ["HUNT", "EAT", "SLEEP"]
+[prey_tags]
+tags = ["Food", "PreyType"]
+```
 
-Considerations map an input value (usually a stat normalized to 0-100) to a score (0.0-1.0).
-
-*   **Inputs**:
-    *   `hunger`, `hunger_inv` (100 - hunger)
-    *   `energy`, `energy_inv` (100 - energy)
-    *   `happiness`, `happiness_inv` (100 - happiness)
-    *   `cleanliness`
-    *   `constant_100`, `constant_0`
-
-*   **Curves**:
-    *   `linear`: `m * x + b`
-    *   `inverse_linear`: `1.0 - x` (where x is normalized 0-1)
-    *   `logit`: S-curve, useful for thresholds. Params: `k` (steepness), `x0` (midpoint).
-    *   `threshold`: Returns 1.0 if x >= threshold, else 0.0.
-
-## Adding New Actions
-
-1.  **Define the Action** in `data/ai/actions.toml`.
-2.  **Implement the Behavior** in `src/yukkuri_game/game/ai/behavior.py` if it's a new type of behavior.
-    *   Register the behavior builder using `BehaviorRegistry.register_goal("ActionName", builder_function)`.
-    *   Ensure the `ActionName` matches the key in `actions.toml`.
-
-## Architecture
-
-*   **`UtilityAIEngine`** (`src/yukkuri_game/game/ai/utility.py`): Loads actions and calculates scores.
-*   **`UtilitySelector`** (`src/yukkuri_game/game/ai/utility_selector.py`): A Behavior Tree node that queries the engine and updates `AIState.current_action`.
-*   **`BehaviorSystem`** (`src/yukkuri_game/game/systems/behavior.py`): Manages the Behavior Trees for all entities.
-
-The Behavior Tree root is a `Sequence` that first runs the `UtilitySelector`, then runs an `ExecutionSelector` which executes the specific subtree for the chosen action.
-
-## Recent Changes (DecisionSystem Removal)
-
-The legacy `DecisionSystem`, which previously ran parallel to the `BehaviorSystem` on a 1-second interval, has been removed. All high-level decision making is now centralized in the `BehaviorSystem` via the `UtilitySelector`.
-
-This unification ensures that:
-1.  **Context Awareness**: Decisions are made with full access to social context (nearby friends/enemies) and personality traits, which `DecisionSystem` lacked.
-2.  **Consistency**: No more conflict between conflicting systems attempting to set the AI state.
-3.  **Responsiveness**: Decisions are evaluated as part of the behavior tree tick, allowing for immediate reaction to changing conditions if needed (though damping can be applied in `UtilitySelector`).
-
-Note: The ambient "crying" behavior for unhappy Yukkuris, which was part of `DecisionSystem`, has been moved to `FeedbackSystem`.
+## Adding New Behaviors
+1.  **Define Action**: Add entry to `actions.toml`.
+2.  **Define Logic**: Create Action class in `behavior.py`.
+3.  **Register**: Add to `BehaviorRegistry`.
+4.  **Movement**: Ensure implementation uses `MoveCommand` for movement, not direct velocity control.

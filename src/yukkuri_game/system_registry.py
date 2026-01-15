@@ -34,6 +34,7 @@ from .game.systems.mouse_light_system import MouseLightSystem
 from .game.systems.navigation_system import NavigationSystem
 from .game.systems.steering_system import SteeringSystem
 from .game.systems.navigation_update_system import NavigationUpdateSystem
+from .game.systems.perception_system import PerceptionSystem
 
 if TYPE_CHECKING:
     from .config import GameConfig
@@ -100,6 +101,7 @@ class SystemRegistry:
         world.add_system(ConstructionSystem())
         world.add_system(AnimationSystem())
         world.add_system(VisibilitySystem())
+        world.add_system(PerceptionSystem())  # Proposal 4: Populates Blackboard from visibility
         world.add_system(PoopSystem())
         world.add_system(FeedbackSystem(world))
 

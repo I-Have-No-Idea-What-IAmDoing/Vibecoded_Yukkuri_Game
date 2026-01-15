@@ -300,3 +300,30 @@ class SteeringComponent:
     
     # Pursuit Mode
     pursuit_enabled: bool = False
+
+
+@dataclass(slots=True)
+class MoveCommand:
+    """
+    Command component issued by AI behavior nodes to request movement.
+    Consumed by the SteeringSystem to calculate actual velocity.
+    This decouples AI decision-making from physics execution.
+
+    Attributes:
+        target_pos (Vector2): World position to move towards.
+        target_entity_id (int | None): Optional entity to track (for pursuit).
+        speed_multiplier (float): Modifier for max_speed (e.g., 0.5 for walk, 1.0 for run).
+        altitude (float): Target altitude for flying entities.
+        use_pathfinding (bool): Whether to request a path or use direct steering.
+        expiration (float): Timestamp when command expires (0 for indefinite).
+        priority (int): Navigation priority (0 = critical, 2 = normal).
+    """
+
+    target_pos: Vector2 = field(default_factory=lambda: Vector2(0, 0))
+    target_entity_id: int | None = None
+    speed_multiplier: float = 1.0
+    altitude: float = 0.0
+    use_pathfinding: bool = True
+    expiration: float = 0.0
+    priority: int = 2
+

@@ -30,6 +30,7 @@ from .hud_renderer import HudRenderer
 from .context_menu import ContextMenu
 from .inventory_panel import InventoryPanel
 from ..systems.navigation_debug_renderer import NavigationDebugRenderer
+from ..systems.ai_debug_renderer import AIDebugRenderer
 
 
 class HUD:
@@ -81,6 +82,7 @@ class HUD:
         self.fps_timer = 0.0
         self.lighting_debug = False
         self.navigation_debug_renderer: NavigationDebugRenderer | None = None
+        self.ai_debug_renderer: AIDebugRenderer | None = None
 
         # Subscribe to events
         self.event_bus.subscribe(EntitySelectedEvent, self.on_entity_selected)
@@ -258,6 +260,10 @@ class HUD:
         # Draw navigation debug overlay
         if self.navigation_debug_renderer and self.navigation_debug_renderer.enabled:
             self.navigation_debug_renderer.render(screen, self.world)
+            
+        # Draw AI debug overlay
+        if self.ai_debug_renderer and self.ai_debug_renderer.enabled:
+            self.ai_debug_renderer.render(screen, self.world)
 
     def _update_selection_window_layout(self) -> None:
         """
@@ -311,6 +317,15 @@ class HUD:
         """Initializes the navigation debug renderer."""
 
         self.navigation_debug_renderer = NavigationDebugRenderer(nav_service, camera)
+
+    def init_ai_debug(self, camera: "Camera") -> None:
+        """Initializes the AI debug renderer."""
+        self.ai_debug_renderer = AIDebugRenderer(camera)
+    
+    def toggle_ai_debug(self) -> None:
+        """Toggles AI debug visuals."""
+        if self.ai_debug_renderer:
+            self.ai_debug_renderer.toggle()
 
     def show_error(self, message: str) -> None:
         """

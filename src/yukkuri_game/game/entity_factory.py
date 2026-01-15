@@ -2,10 +2,14 @@
 Entity Factory Module.
 """
 
+import tomllib
+from pathlib import Path
+from loguru import logger
 from ..engine.ecs import World
 from .prefabs.yukkuri import create_yukkuri
 from .prefabs.item import create_item, create_poop
 from .prefabs.effects import create_floating_text
+from .yukkuri_components import ArchetypeConfig, GoalType, YukkuriStats
 
 
 class EntityFactory:
@@ -15,6 +19,7 @@ class EntityFactory:
 
     Attributes:
         world (World): The ECS world instance.
+        archetype_cache (dict[str, ArchetypeConfig]): Cache of loaded archetypes.
     """
 
     def __init__(self, world: World) -> None:
@@ -25,6 +30,57 @@ class EntityFactory:
             world (World): The ECS world instance.
         """
         self.world = world
+        self.archetype_cache: dict[str, ArchetypeConfig] = {}
+
+    def load_archetype(self, archetype_id: str) -> ArchetypeConfig | None:
+        """
+        Loads an archetype configuration from a TOML file.
+        
+        Args:
+            archetype_id (str): The name of the archetype (file name without extension).
+            
+        Returns:
+            ArchetypeConfig | None: The loaded config, or None if failed.
+        """
+        if archetype_id in self.archetype_cache:
+            return self.archetype_cache[archetype_id]
+
+        path = Path(f"data/archetypes/{archetype_id}.toml")
+        if not path.exists():
+            logger.warning(f"Archetype file not found: {path}")
+            return None
+
+        try:
+            with open(path, "rb") as f:
+                data = tomllib.load(f)
+
+            config = ArchetypeConfig()
+            config.archetype_id = data.get("archetype_id", archetype_id)
+            config.stamina_regen = float(data.get("stamina_regen", 10.0))
+            
+            # Parse Priorities
+            priorities_list = data.get("priorities", {}).get("list", [])
+            goal_types = []
+            for p_str in priorities_list:
+                try:
+                    goal_types.append(GoalType[p_str])
+                except KeyError:
+                    logger.warning(f"Invalid GoalType in archetype {archetype_id}: {p_str}")
+            config.priorities = goal_types
+
+            # Parse Tags
+            config.prey_tags = set(data.get("prey_tags", {}).get("tags", []))
+            config.predator_tags = set(data.get("predator_tags", {}).get("tags", []))
+
+            # Parse Personality Bias
+            config.personality_bias = data.get("personality_bias", {})
+
+            self.archetype_cache[archetype_id] = config
+            return config
+
+        except Exception as e:
+            logger.error(f"Failed to load archetype {archetype_id}: {e}")
+            return None
 
     def create_yukkuri(
         self,
