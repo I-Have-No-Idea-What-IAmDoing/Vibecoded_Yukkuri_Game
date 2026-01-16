@@ -27,6 +27,9 @@ graph TD
     
     H[BehaviorSystem] -->|Actions| I[UtilityAIEngine]
     H -->|Pathfinding| J[NavigationService]
+
+    K[FlightSystem] -->|Stamina & Altitude| C
+    K -->|Athletics XP| L[SkillService]
 ```
 
 ## Key Systems
@@ -40,13 +43,17 @@ graph TD
 - **PoopSystem**: Generates waste entities when the bladder is full.
 - **Lifecycle**: Handles aging and growth stages (Baby -> Child -> Adult).
 
-### 3. Physics & Movement (`PhysicsSystem`, `KinematicMovementSystem`)
+### 3. Physics & Movement (`PhysicsSystem`, `KinematicMovementSystem`, `FlightSystem`)
 - **PhysicsSystem**: Wraps `pymunk`. Handles collision detection and resolution.
 - **KinematicMovementSystem**: Applies forces to entities to move them towards targets.
+- **FlightSystem**: Manages flight mechanics for flying Yukkuris.
+  - Handles **Stamina** drain (Fly/Hover cost) and recovery (Grounded).
+  - Manages **Altitude** transitions (Takeoff, Flying, Landing).
+  - Integrates with **SkillService** to award Athletics XP.
 
 ### 4. AI & Behavior (`BehaviorSystem`)
 - **BehaviorSystem**: The "brain" of the entities.
-- Uses **Utility AI** to score interactions.
+- Uses **Utility AI** to score interactions based on `GoalComponent`.
 - Executes **Behavior Trees** for complex actions.
 
 ## Adding a New System

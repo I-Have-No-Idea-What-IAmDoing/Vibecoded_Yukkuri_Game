@@ -235,6 +235,12 @@ class GameplayScene(Scene):
         nav_service = self.world.services.try_get(NavigationService)
         if nav_service:
             nav_service.shutdown()
+        else:
+            logger.warning("NavigationService NOT found in on_exit.")
+
+        # Clear local audio resources
+        if hasattr(self, "audio") and self.audio:
+            self.audio.clear()
 
     def toggle_pause(self) -> None:
         """Toggles the pause state."""

@@ -14,6 +14,7 @@ from yukkuri_game.game.components import Transform, MovementController
 from yukkuri_game.game.ai.navigation_service import NavigationService, ObstacleType
 from yukkuri_game.game.ai.behavior import FleePredator
 from py_trees.common import Status
+from yukkuri_game.game.ai.navigation_constants import TraversalCapability
 
 
 class TestFlandrePrefab:
@@ -64,7 +65,7 @@ class TestNavigationAreaCoverage:
         # Grid cells: 3, 4, 5 in each axis
         for gx in range(3, 6):
             for gy in range(3, 6):
-                if 0 <= gx < nav.matrix_w and 0 <= gy < nav.matrix_h:
+                if 0 <= gx < nav.grid.width and 0 <= gy < nav.grid.height:
                     # At least center cells should be blocked
                     pass  # Complex assertion, simplified
 
@@ -78,8 +79,9 @@ class TestNavigationAreaCoverage:
 
         # Ground should be blocked at center
         gx, gy = 4, 4
-        assert nav.ground_grid.node(gx, gy).walkable is False
-        assert nav.air_grid.node(gx, gy).walkable is True
+        # Check explicit capabilities
+        assert nav.grid.is_walkable(gx, gy, TraversalCapability.WALK) == False
+        assert nav.grid.is_walkable(gx, gy, TraversalCapability.FLY) == True
 
 
 class TestRescueMechanic:

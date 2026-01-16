@@ -394,9 +394,22 @@ class World:
         esper.clear_database()
         self._active_entities.clear()
 
-        event_bus = self.services.try_get(EventBus)
-        if event_bus:
-            event_bus.publish(WorldClearedEvent())
+    def destroy(self) -> None:
+        """
+        Destroys the world and removes it from the esper registry.
+        Essential for preventing memory leaks when worlds are discarded.
+        """
+        self.clear_database()
+        self.services.clear()
+        try:
+            # Cannot delete the active world context.
+            if esper.current_world == self.name:
+                # Switch to a temporary context to allow deletion
+                esper.switch_world("__garbage_collector__")
+            
+            esper.delete_world(self.name)
+        except KeyError:
+            pass  # Already deleted or didn't exist
 
 
 if TYPE_CHECKING:

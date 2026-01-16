@@ -4,6 +4,7 @@ Pytest configuration and shared fixtures for the test suite.
 
 import sys
 import os
+import gc
 import pytest
 from unittest.mock import MagicMock
 
@@ -73,3 +74,4 @@ def game_driver() -> GameDriver:
         # Cleanup
         driver.cleanup()
         pygame.quit()
+        gc.collect()

@@ -13,7 +13,7 @@ class SurfaceCache:
     Uses an LRU (Least Recently Used) eviction policy.
     """
 
-    def __init__(self, resource_manager: ResourceManager, max_size: int = 1000):
+    def __init__(self, resource_manager: ResourceManager, max_size: int = 200):
         """
         Initializes the SurfaceCache.
 

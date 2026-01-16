@@ -5,6 +5,7 @@ Scene Manager Module.
 from typing import Optional, TYPE_CHECKING, Any
 import pygame
 import msgspec
+import gc
 from loguru import logger
 from .scene import Scene, SceneContext
 from .migration import MigrationRegistry
@@ -63,6 +64,9 @@ class SceneManager:
         if self._scenes:
             scene = self._scenes.pop()
             scene.on_exit()
+            scene.destroy()
+            # Force garbage collection to break cyclic references (Events -> Handlers -> Scene)
+            gc.collect()
 
     def replace(self, scene: "Scene") -> None:
         """

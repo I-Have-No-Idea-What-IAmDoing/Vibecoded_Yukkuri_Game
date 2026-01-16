@@ -235,3 +235,20 @@ class ResourceManager:
             self.interactions = {}
 
         logger.info("All data loaded.")
+
+    def clear(self) -> None:
+        """
+        Clears all loaded resources to free memory.
+        """
+        self.images.clear()
+        self.sounds.clear()
+        self.configs.clear()
+        self.yukkuri_types.clear()
+        self.item_types.clear()
+        self.ai_actions.clear()
+        self.skills.clear()
+        self.traits.clear()
+        self.interactions.clear()
+        self.tuning = None
+        logger.info("ResourceManager cleared.")
+

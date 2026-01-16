@@ -44,6 +44,9 @@ When multiple contexts are active:
 | `pan` | Middle Click | Pan camera |
 | `time_speed_up` | `+` (Equals) | Increase game speed |
 | `time_speed_down` | `-` (Minus) | Decrease game speed |
+| `screenshot` | `F12` | Take screenshot |
+| `quicksave` | `F5` | Quicksave game |
+| `quickload` | `F9` | Quickload game |
 
 ### Menu Context
 | Action | Key / Input | Description |

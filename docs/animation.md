@@ -46,6 +46,7 @@ The `Animator` component manages the playback of animations at runtime.
 -   **Speed Multiplier**: Animations can be sped up or slowed down dynamically (e.g., based on movement speed or game speed).
 -   **Auto-Transition**: The system supports automatic transitioning to a specific next animation upon completion (useful for chains like "Attack" -> "Idle"). *Note: Currently controlled via code logic.*
 -   **AI Integration**: The `AIState` component automatically syncs with the `Animator`. If the AI enters an action (e.g., "Eat"), the system looks for an animation named "eat" and plays it.
+-   **System Overrides**: Certain gameplay systems can override the AI animation. For example, the `FlightSystem` forces "fly" or "swoop" animations when a Yukkuri is airborne, regardless of its current AI action.
 
 ## Event Handling
 

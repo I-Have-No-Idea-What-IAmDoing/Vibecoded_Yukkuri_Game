@@ -184,3 +184,10 @@ class Scene(ABC):
             serializer.load_from_file(filepath)
         except Exception as e:
             raise OSError(f"Failed to load scene from {filepath}") from e
+
+    def destroy(self) -> None:
+        """
+        Cleans up the scene and destroys its ECS World.
+        """
+        if self.world:
+            self.world.destroy()

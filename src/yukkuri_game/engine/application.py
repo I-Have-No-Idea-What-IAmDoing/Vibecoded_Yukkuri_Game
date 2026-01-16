@@ -11,6 +11,8 @@ from .resource_manager import ResourceManager
 from .scene_manager import SceneManager
 from .input_manager import InputManager
 from .event_manager import EventManager, GamePhase
+from .audio import AudioManager
+import gc
 
 
 class Application:
@@ -292,6 +294,21 @@ class Application:
             None
         """
         logger.info("Application Ended")
+        # Explicit cleanup order
+        if self.scene_manager:
+            # Pop all scenes to trigger their on_exit and cleanup
+            while self.scene_manager.current_scene:
+                self.scene_manager.pop()
+
+        if hasattr(self, "audio") and isinstance(self.audio, AudioManager):
+             self.audio.clear()
+
+        if self.resources:
+            self.resources.clear()
+        
         if self.running:
             self.running = False
         pygame.quit()
+        
+        # Final GC
+        gc.collect()

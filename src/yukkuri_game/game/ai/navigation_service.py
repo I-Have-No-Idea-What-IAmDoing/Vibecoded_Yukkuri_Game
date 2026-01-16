@@ -100,9 +100,13 @@ class NavigationService:
 
     def shutdown(self):
         """Stops the worker thread."""
+        logger.info(f"NavigationService shutdown called. Thread alive: {self._thread.is_alive()}")
         self._running = False
         if self._thread.is_alive():
             self._thread.join(timeout=1.0)
+            logger.info("NavigationService thread joined.")
+        else:
+            logger.info("NavigationService thread was already dead.")
 
     def request_path(
         self,
@@ -156,7 +160,6 @@ class NavigationService:
                 # Check dirty flag and rebuild graph if needed
                 # Throttle rebuilds to avoid spam (e.g. max once per second)
                 if self._dirty and (time.time() - self._last_rebuild > 1.0):
-                    logger.debug("Rebuilding Cluster Graph due to changes...")
                     try:
                         self.cluster_graph.build_graph()
                         self._dirty = False
@@ -179,9 +182,7 @@ class NavigationService:
 
                     # Profiler Hook
                     if duration > 0.01:  # Log slow paths > 10ms
-                        logger.debug(
-                            f"Path calc took {duration * 1000:.2f}ms for Entity {req.entity_id}"
-                        )
+                        pass # Removed debug log
 
                     self.result_queue.put(result)
                 except Exception as e:
@@ -195,6 +196,8 @@ class NavigationService:
                 traceback.print_exc()
                 # Don't crash the thread, retry?
                 time.sleep(1.0)
+        logger.info("NavigationService worker loop exited.")
+        logger.info("NavigationService worker loop exited.")
 
     def _process_request(self, req: PathRequest) -> PathResult:
         start_pos = req.start
