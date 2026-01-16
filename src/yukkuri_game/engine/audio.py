@@ -11,6 +11,7 @@ from typing import Any
 
 from collections import OrderedDict
 
+
 class AudioManager:
     """
     Manages audio playback for the game, including sound effects and music.
@@ -49,7 +50,7 @@ class AudioManager:
         self.sounds: OrderedDict[str, pygame.mixer.Sound] = OrderedDict()
         self.sound_cache_limit = sound_cache_limit
         self.preloaded_sounds: set[str] = set()
-        
+
         self.music: Any | None = None
         self.master_volume: float = 1.0
         self.bgm_volume: float = 1.0
@@ -120,7 +121,7 @@ class AudioManager:
         """
         if not self.enabled:
             return
-            
+
         self.load_sound(name, filepath)
         self.preloaded_sounds.add(name)
 
@@ -148,7 +149,7 @@ class AudioManager:
             try:
                 # Enforce cache limit before loading new item
                 self._ensure_cache_space()
-                
+
                 sound = pygame.mixer.Sound(filepath)
                 self.sounds[name] = sound
                 self._update_sound_volume(sound)
@@ -166,13 +167,13 @@ class AudioManager:
             # We need to find the oldest item that is NOT in preloaded_sounds.
             # OrderedDict doesn't support easy "pop first item that matches condition".
             # So we iterate. Iterating a dictionary is roughly in insertion order (LRU at start).
-            
+
             evicted_key = None
             for key in self.sounds:
                 if key not in self.preloaded_sounds:
                     evicted_key = key
                     break
-            
+
             if evicted_key:
                 # logger.debug(f"Audio Cache Full. Evicting: {evicted_key}")
                 self.sounds.pop(evicted_key)
@@ -200,7 +201,7 @@ class AudioManager:
             self.sounds.move_to_end(name)
             self.sounds[name].play()
         else:
-            # Optional: try to auto-load if we know the path? 
+            # Optional: try to auto-load if we know the path?
             # For now, assuming explicit load/preload was done.
             # logger.warning(f"Sound '{name}' not found in cache.")
             pass
@@ -220,7 +221,7 @@ class AudioManager:
         if os.path.exists(filepath):
             try:
                 # Stop current music with fadeout? Default stop is abrupt.
-                # pygame.mixer.music.stop() 
+                # pygame.mixer.music.stop()
                 pygame.mixer.music.load(filepath)
                 pygame.mixer.music.set_volume(self.master_volume * self.bgm_volume)
                 pygame.mixer.music.play(loops=loops, fade_ms=fade_ms)
@@ -326,11 +327,11 @@ class AudioManager:
             return
 
         pygame.mixer.stop()
-        
+
         # Identify non-preloaded keys to remove
         # We modify the dict, so we can't iterate it directly while popping
         keys_to_remove = [k for k in self.sounds if k not in self.preloaded_sounds]
-        
+
         for k in keys_to_remove:
             self.sounds.pop(k)
 

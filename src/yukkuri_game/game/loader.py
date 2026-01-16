@@ -21,6 +21,7 @@ from ..game.settings_service import SettingsService
 from ..game.systems.physics import PhysicsSystem
 from ..game.systems.flight_system import FlightSystem
 from ..game.systems.sector_system import SectorMap, SectorSystem
+from ..game.systems.lod_system import LODSystem
 from ..game.trait_service import TraitService
 from ..game.skill_service import SkillService
 from ..game.camera import Camera
@@ -168,6 +169,10 @@ class GameLoader:
         # Register Flight System
         flight_system = FlightSystem()
         self.world.add_system(flight_system)
+
+        # Register LOD System
+        lod_system = LODSystem()
+        self.world.add_system(lod_system)
 
         input_system.set_ui_manager(ui_manager)
         return input_system

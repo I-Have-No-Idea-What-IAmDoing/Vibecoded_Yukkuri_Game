@@ -301,14 +301,14 @@ class Application:
                 self.scene_manager.pop()
 
         if hasattr(self, "audio") and isinstance(self.audio, AudioManager):
-             self.audio.clear()
+            self.audio.clear()
 
         if self.resources:
             self.resources.clear()
-        
+
         if self.running:
             self.running = False
         pygame.quit()
-        
+
         # Final GC
         gc.collect()

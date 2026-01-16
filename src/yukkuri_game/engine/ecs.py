@@ -18,7 +18,6 @@ from .events import (
     EntityDestroyedEvent,
     ComponentAddedEvent,
     ComponentRemovedEvent,
-    WorldClearedEvent,
 )
 from .event_bus import EventBus
 import contextlib
@@ -406,7 +405,7 @@ class World:
             if esper.current_world == self.name:
                 # Switch to a temporary context to allow deletion
                 esper.switch_world("__garbage_collector__")
-            
+
             esper.delete_world(self.name)
         except KeyError:
             pass  # Already deleted or didn't exist

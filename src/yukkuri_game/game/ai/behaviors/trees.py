@@ -218,6 +218,7 @@ def build_hunt_behavior(
     )
 
     from ...yukkuri_components import Flight
+
     def can_fly_check():
         f = world.try_get_component(entity_id, Flight)
         return f is not None and f.stamina > 20.0
@@ -299,8 +300,8 @@ def build_standard_interaction_behavior(goal_name: str):
         if goal_name == "Eat":
             find_selector.add_child(PickFood(entity_id=entity_id, world=world))
         elif goal_name in ("Talk", "Dance", "Fight"):
-             # TODO: Specialized Finders
-             pass
+            # TODO: Specialized Finders
+            pass
 
         root.add_child(find_selector)
 
@@ -341,6 +342,7 @@ def create_yukkuri_behavior_tree(
         if not ai or ai.current_target_id == -1:
             return False
         from ...components import Transform
+
         has_trans = world.has_component(ai.current_target_id, Transform)
         if not has_trans:
             return False
@@ -390,6 +392,7 @@ def create_yukkuri_behavior_tree(
     root_selector.add_child(normal_behavior)
 
     return root_selector
+
 
 # Registrations
 BehaviorRegistry.register_goal("Hunt", build_hunt_behavior, required_component=Predator)

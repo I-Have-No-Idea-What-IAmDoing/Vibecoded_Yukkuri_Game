@@ -100,7 +100,9 @@ class NavigationService:
 
     def shutdown(self):
         """Stops the worker thread."""
-        logger.info(f"NavigationService shutdown called. Thread alive: {self._thread.is_alive()}")
+        logger.info(
+            f"NavigationService shutdown called. Thread alive: {self._thread.is_alive()}"
+        )
         self._running = False
         if self._thread.is_alive():
             self._thread.join(timeout=1.0)
@@ -182,7 +184,7 @@ class NavigationService:
 
                     # Profiler Hook
                     if duration > 0.01:  # Log slow paths > 10ms
-                        pass # Removed debug log
+                        pass  # Removed debug log
 
                     self.result_queue.put(result)
                 except Exception as e:

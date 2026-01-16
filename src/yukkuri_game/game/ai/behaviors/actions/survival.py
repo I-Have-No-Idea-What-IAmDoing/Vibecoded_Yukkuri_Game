@@ -8,6 +8,7 @@ from ....yukkuri_components import Needs, EmotionalState
 if TYPE_CHECKING:
     pass
 
+
 class Sleep(Action):
     def __init__(self, name="Sleep", entity_id=None, world=None, blackboard=None):
         super().__init__(name, entity_id, world, blackboard)

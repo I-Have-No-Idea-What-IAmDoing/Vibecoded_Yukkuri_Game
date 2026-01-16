@@ -5,8 +5,8 @@ Module defining the AnimationSystem logic.
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
-from ..components import Sprite, Animator
-from ..yukkuri_components import AIState, YukkuriStats
+from ..components import Sprite, Animator, LODComponent
+from ..yukkuri_components import AIState, YukkuriStats, register_archetype
 from ..events import AnimationEvent
 
 
@@ -26,6 +26,7 @@ class AnimationSystem(System):
             event_bus (Optional[EventBus]): The event bus to publish animation events to.
         """
         self.event_bus = event_bus
+        self.frame_count: int = 0
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -39,14 +40,29 @@ class AnimationSystem(System):
             None
         """
 
+        self.frame_count += 1
+        
         # Handle Animator components (Advanced Animation)
-        for entity, (sprite, animator) in world.get_components_tuple(Sprite, Animator):
-            self._update_animator(entity, animator, sprite, dt)
+        for entity_id, (sprite, animator) in world.get_components_tuple(Sprite, Animator):
+            # Check LOD
+            lod = world.try_get_component(entity_id, LODComponent)
+            if lod:
+                # Level 1 (Med): Update every 2nd frame
+                if lod.level == 1 and self.frame_count % 2 != 0:
+                    continue
+                # Level 2 (Low): Update every 4th frame
+                elif lod.level == 2 and self.frame_count % 4 != 0:
+                    continue
+                # Level 3 (Culled): Skip animation updates
+                elif lod.level >= 3:
+                    continue
+                
+            self._update_animator(entity_id, animator, sprite, dt)
 
             # Sync with AI State if available
-            ai_state = world.get_component(entity, AIState)
+            ai_state = world.get_component(entity_id, AIState)
             if ai_state:
-                self._sync_ai_animation(world, entity, animator, ai_state)
+                self._sync_ai_animation(world, entity_id, animator, ai_state)
 
         # Handle Legacy Sprite Animation (if no Animator)
 
@@ -56,6 +72,16 @@ class AnimationSystem(System):
         for entity, sprite in world.get_components(Sprite).items():
             if world.has_component(entity, Animator):
                 continue
+
+            # Check LOD for basic sprites too
+            lod = world.try_get_component(entity, LODComponent)
+            if lod:
+                if lod.level == 1 and self.frame_count % 2 != 0:
+                    continue
+                elif lod.level == 2 and self.frame_count % 4 != 0:
+                    continue
+                elif lod.level >= 3:
+                     continue
 
             # Dynamic Sprite Switching based on AIState (if no Animator)
             self._update_dynamic_sprite(world, entity, sprite, rm)
@@ -271,13 +297,21 @@ class AnimationSystem(System):
             return
 
         # Determine base image name
-        # We need to look up the type definition
-        # rm.yukkuri_types is a dict of YukkuriType
-        yukkuri_type = rm.yukkuri_types.get(stats.type_id)
-        if not yukkuri_type:
-            return
-
-        base_image = yukkuri_type.image
+        base_image = None
+        
+        # 1. Try Archetype (Flyweight) - FAST
+        if stats.archetype and stats.archetype.type_data:
+            base_image = stats.archetype.type_data.image
+            
+        # 2. Fallback to ResourceManager - SLOW (Self-healing cache)
+        if not base_image:
+            yukkuri_type = rm.yukkuri_types.get(stats.type_id)
+            if not yukkuri_type:
+                return
+            
+            # Populate cache so next time it hits the fast path
+            register_archetype(stats.type_id, yukkuri_type)
+            base_image = yukkuri_type.image
 
         # Determine target image based on action
         action = ai_state.current_action

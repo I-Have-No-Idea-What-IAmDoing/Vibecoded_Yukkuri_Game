@@ -10,6 +10,24 @@ from ..engine.types import EntityID
 
 if TYPE_CHECKING:
     from ..config import StatsSettings
+    from ..engine.data_models import YukkuriType
+
+
+@dataclass(slots=True)
+class YukkuriArchetype:
+    """
+    Flyweight object holding static data shared by all Yukkuris of a specific type.
+    Wraps the read-only TOML configuration.
+    """
+    type_data: "YukkuriType | None" = None
+
+# Module-level cache for Flyweights
+_ARCHETYPE_CACHE: dict[str, YukkuriArchetype] = {}
+
+def register_archetype(type_id: str, type_data: "YukkuriType") -> None:
+    """Registers a type configuration into the Flyweight cache."""
+    if type_id not in _ARCHETYPE_CACHE:
+        _ARCHETYPE_CACHE[type_id] = YukkuriArchetype(type_data=type_data)
 
 
 class FlightState(Enum):
@@ -119,6 +137,7 @@ class YukkuriStats(Component):
     Attributes:
         name (str): Name of the Yukkuri.
         type_id (str): Type identifier.
+        archetype (YukkuriArchetype | None): Reference to the archetype data.
         age (float): Current age in seconds.
         growth_stage (str): Current growth stage (e.g., "Baby", "Adult").
         badges (int): Number of badges earned.
@@ -129,12 +148,21 @@ class YukkuriStats(Component):
 
     name: str
     type_id: str
+    # archetype field removed from slots to prevent serialization
     age: float = 0.0
     growth_stage: str = "Baby"
     badges: int = 0
     quality_score: float = 0.0
     discipline: float = 0.0
     intelligence: float = 1.0
+
+    @property
+    def archetype(self) -> "YukkuriArchetype | None":
+        """
+        Retrieves the archetype Flyweight from the global cache.
+        Returns None if not yet loaded/registered.
+        """
+        return _ARCHETYPE_CACHE.get(self.type_id)
 
     def get_intelligence(self, stats_config: "StatsSettings | None" = None) -> float:
         """

@@ -313,9 +313,8 @@ class PickFood(Action):
     """
     Selects the closest food from the blackboard.
     """
-    def __init__(
-        self, name="Pick Food", entity_id=None, world=None, blackboard=None
-    ):
+
+    def __init__(self, name="Pick Food", entity_id=None, world=None, blackboard=None):
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:

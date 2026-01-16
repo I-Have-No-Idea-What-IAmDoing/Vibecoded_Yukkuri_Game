@@ -30,6 +30,18 @@ from ..yukkuri_components import (
     Flight,
     FlightState,
     Predator,
+    YukkuriStats,
+    Needs,
+    AIState,
+    Personality,
+    RelationshipRegistry,
+    EmotionalState,
+    PersonalityAxis,
+    GossipQueue,
+    Flight,
+    FlightState,
+    Predator,
+    register_archetype,
 )
 from ..components_persistence import StableIDComponent, Persistable
 from ..collision_constants import CollisionCategories
@@ -38,6 +50,8 @@ from ..skill_service import SkillService
 from ..systems.physics import PhysicsSystem
 from ..physics_utils import add_physics_body, get_yukkuri_radius
 from ..inventory_component import InventoryComponent
+
+
 
 
 def create_yukkuri(
@@ -185,9 +199,15 @@ def create_yukkuri(
     # Shadow logic: All Yukkuris have shadows but Flandre has special handling via Flight
     world.add_component(entity, VisualTransform(has_drop_shadow=True))
 
+    # Archetype Registration (Flyweight)
+    register_archetype(type_id, data)
+
     # Yukkuri Stats and Needs
     stats = YukkuriStats(
-        name=f"{type_id}_{entity}", type_id=type_id, age=age, growth_stage=growth_stage
+        name=f"{type_id}_{entity}",
+        type_id=type_id,
+        age=age,
+        growth_stage=growth_stage
     )
     world.add_component(entity, stats)
 

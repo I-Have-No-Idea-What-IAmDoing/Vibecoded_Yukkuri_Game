@@ -11,6 +11,20 @@ from ..engine.types import EntityID
 
 
 @dataclass(slots=True)
+class LODComponent:
+    """
+    Component for Level of Detail (LOD) management.
+    
+    Levels:
+    0: High (Every frame update)
+    1: Medium (Every 2nd frame)
+    2: Low (Every 4th frame)
+    3: Culled (No updates usually, or minimal)
+    """
+    level: int = 2
+
+
+@dataclass(slots=True)
 class PhysicsBody:
     """
     Component representing the physical body of an entity in the pymunk space.

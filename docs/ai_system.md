@@ -23,6 +23,7 @@ The Yukkuri Game uses a **Unified AI Architecture** that decouples decision-maki
     *   **Archetypes**: Defines personality bias, goals, and fears via TOML configuration (`data/archetypes/*.toml`).
     *   **Utility AI**: `UtilitySelector` reads the `Blackboard` and entity stats (Hunger, Stress) to score potential actions.
     *   **Behavior Tree**: Executes the chosen action (e.g., `MoveToTarget`, `Interact`) as a sequence of leaf nodes.
+    *   **Traits**: Dynamic modifiers that override Utility AI curves and stat decay rates at runtime.
 
 ### 2a. Predator & Prey Dynamics
 *   **Predator Component**: Defines `prey_tags` (what it eats) and `hunger_threshold`.
@@ -52,6 +53,22 @@ The Yukkuri Game uses a **Unified AI Architecture** that decouples decision-maki
         *   **Separation**: Avoiding crowding with neighbors.
         *   **Obstacle Avoidance**: Steering around static geometry.
     *   **Physics Integration**: Applies final velocity to `PhysicsBody`.
+
+---
+
+## Performance & Scalability
+
+To support large populations, the AI system integrates with LOD & Spatial Partitioning.
+
+### Level of Detail (LOD) Throttling
+The `BehaviorSystem` adjusts the tick rate of AI agents based on their `LODComponent` level (assigned by `LODSystem` based on distance/visibility):
+*   **High (Level 0)**: Full update rate (e.g., 10 ticks/sec).
+*   **Medium (Level 1)**: Reduced rate (e.g., 2x slower).
+*   **Low (Level 2)**: Heavily throttled (e.g., 5x slower).
+*   **Culled (Level 3)**: Minimal updates (e.g., 10x slower) or paused.
+
+### Stable State Optimization
+Entities in a `SUCCESS` state (e.g., reached destination, finished eating) are marked as "Stable" and ticked less frequently until their state changes to `RUNNING` or `FAILURE`.
 
 ---
 
@@ -87,6 +104,32 @@ list = ["HUNT", "EAT", "SLEEP"]
 [prey_tags]
 tags = ["Food", "PreyType"]
 ```
+
+### 3. Traits (`data/traits/traits.toml`)
+Traits are modular personality modifiers that can be assigned to any Yukkuri. They integrate with the AI system in four ways:
+
+1.  **AI Modifiers**: Override utility scoring curves for specific considerations.
+2.  **Stat Modifiers**: Alter the decay or regeneration rates of stats (e.g., Hunger, Happiness).
+3.  **Social Modifiers**: Define compatibility with other traits (affecting `affinity` calculations).
+4.  **Skill Modifiers**: Boost learning speed or caps for specific skills.
+
+#### Example: "Glutton" Trait
+A "Glutton" yukkuri gets hungry faster and prioritizes eating even when not starving.
+
+```toml
+[traits.GLUTTON]
+name = "Glutton"
+
+# 1. Stat Modifier: Hunger decays 50% faster
+[traits.GLUTTON.stat_modifiers]
+hunger_decay = 1.5
+
+# 2. AI Modifier: Changes "Survival/Eat" consideration
+[traits.GLUTTON.ai_modifiers]
+"Survival/Eat" = { curve = "logit", params = { k = 2.0 } }
+```
+
+In the `UtilitySelector`, if an entity has the `GLUTTON` trait, the **"Survival/Eat"** consideration uses the **logit** curve defined here instead of the default curve from `actions.toml`. This makes the desire to eat ramp up much more aggressively.
 
 ## Adding New Behaviors
 

@@ -5,6 +5,7 @@ Module defining the BehaviorSystem logic.
 import py_trees
 from py_trees.common import Status
 from ...engine.ecs import System, World
+from ..components import LODComponent
 from ..yukkuri_components import AIState
 from ..ai.behavior import create_yukkuri_behavior_tree
 
@@ -118,8 +119,19 @@ class BehaviorSystem(System):
             last_time = self.last_update_times.get(entity, self.total_time - 0.1)
             time_since_last_tick = self.total_time - last_time
 
-            # Determine required interval based on stability
+            # Determine required interval based on stability and LOD
             required_interval = self.min_tick_interval
+            
+            # LOD Throttling
+            lod = world.try_get_component(entity, LODComponent)
+            if lod:
+                if lod.level == 1: # Medium
+                    required_interval *= 2.0
+                elif lod.level == 2: # Low
+                    required_interval *= 5.0
+                elif lod.level >= 3: # Culled
+                    required_interval *= 10.0
+
             if entity in self.stable_entities:
                 # Stable entities tick less frequently
                 required_interval *= self.stable_tick_multiplier

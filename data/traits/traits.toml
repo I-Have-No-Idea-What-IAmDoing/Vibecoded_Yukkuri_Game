@@ -1,23 +1,23 @@
-[traits.GESU]
-name = "Gesu"
+[traits.SCUM]
+name = "SCUM"
 description = "Selfish and cruel. Gains happiness from others' suffering."
 conflicts = ["NICE"]
 axis_shift = { kindness = -50, greed = 50 }
 
-[traits.GESU.stat_modifiers]
+[traits.SCUM.stat_modifiers]
 happiness_decay = 1.2
 stress_decay = 1.5
 
-[traits.GESU.ai_modifiers]
+[traits.SCUM.ai_modifiers]
 "Social/Empathy" = { curve = "linear", params = { m = -1.0 } }
 
-[traits.GESU.social_modifiers]
-compatibility = { NICE = -50.0, GESU = 10.0 }
+[traits.SCUM.social_modifiers]
+compatibility = { NICE = -50.0, SCUM = 10.0 }
 
 [traits.NICE]
 name = "Nice"
 description = "Kind and gentle. Enjoys helping others."
-conflicts = ["GESU"]
+conflicts = ["SCUM"]
 axis_shift = { kindness = 50, greed = -20 }
 
 [traits.NICE.stat_modifiers]
@@ -28,7 +28,7 @@ social_decay = 1.2
 "Social/Empathy" = { curve = "linear", params = { m = 1.0 } }
 
 [traits.NICE.social_modifiers]
-compatibility = { NICE = 20.0, GESU = -50.0 }
+compatibility = { NICE = 20.0, SCUM = -50.0 }
 
 [traits.GLUTTON]
 name = "Glutton"
@@ -63,11 +63,3 @@ axis_shift = { energy = 50 }
 
 [traits.ATHLETIC.skill_modifiers]
 athletics = { passion_multiplier = 1.5, soft_cap_offset = 5 }
-
-[traits.PREDATOR]
-name = "Predator"
-description = "Sees other Yukkuris as food."
-axis_shift = { bravery = 50, kindness = -50, greed = 20 }
-
-[traits.PREDATOR.ai_modifiers]
-can_eat_yukkuri = true

@@ -7,6 +7,7 @@ from ....components import PhysicsBody
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
 
+
 class Idle(Action):
     """
     Makes the entity idle (stop moving).
