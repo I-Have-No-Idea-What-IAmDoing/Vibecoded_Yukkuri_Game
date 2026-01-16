@@ -72,3 +72,6 @@ disallow_untyped_calls = false
 
 [tool.ty.src]
 exclude = ["**/tests/**", "**/docs/**"]
+
+[tool.ruff]
+exclude = [".venv", "**/tests/**", "**/docs/**"]

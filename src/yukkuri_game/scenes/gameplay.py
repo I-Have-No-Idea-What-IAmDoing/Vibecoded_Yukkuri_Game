@@ -203,7 +203,7 @@ class GameplayScene(Scene):
             nav_service = self.world.services.try_get(NavigationService)
             if nav_service:
                 self.hud.init_navigation_debug(nav_service, self.camera)
-            
+
             # Initialize AI Debug
             self.hud.init_ai_debug(self.camera)
 

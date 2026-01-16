@@ -35,9 +35,9 @@ def reconstruct_physics(world: World) -> None:
             mass=10.0,
             position=(transform.x, transform.y),
             radius_or_size=get_yukkuri_radius(stats.growth_stage),
-            collision_category=CollisionCategories.YUKKURI,
-            collision_mask=CollisionCategories.WALL
-            | CollisionCategories.YUKKURI
+            collision_category=CollisionCategories.GROUND_UNIT,
+            collision_mask=CollisionCategories.HIGH_OBSTACLE
+            | CollisionCategories.GROUND_UNIT
             | CollisionCategories.POOP,
             elasticity=0.5,
             friction=0.5,
@@ -88,7 +88,7 @@ def reconstruct_physics(world: World) -> None:
             position=(transform.x, transform.y),
             radius_or_size=(width, height),
             collision_category=CollisionCategories.ITEM,
-            collision_mask=CollisionCategories.WALL
+            collision_mask=CollisionCategories.HIGH_OBSTACLE
             | CollisionCategories.POOP
             | CollisionCategories.ITEM,
             elasticity=0.5,

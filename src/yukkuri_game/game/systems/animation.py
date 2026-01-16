@@ -46,7 +46,7 @@ class AnimationSystem(System):
             # Sync with AI State if available
             ai_state = world.get_component(entity, AIState)
             if ai_state:
-                self._sync_ai_animation(animator, ai_state)
+                self._sync_ai_animation(world, entity, animator, ai_state)
 
         # Handle Legacy Sprite Animation (if no Animator)
 
@@ -204,11 +204,15 @@ class AnimationSystem(System):
         animator.finished = False
         animator.forward = True
 
-    def _sync_ai_animation(self, animator: Animator, ai_state: AIState) -> None:
+    def _sync_ai_animation(
+        self, world: World, entity: int, animator: Animator, ai_state: AIState
+    ) -> None:
         """
         Syncs the current animation based on the AI state.
 
         Args:
+            world (World): The ECS World.
+            entity (int): The entity ID.
             animator (Animator): The animator component.
             ai_state (AIState): The AIState component.
 
@@ -219,14 +223,19 @@ class AnimationSystem(System):
 
         # Flight Overrides
         from ..yukkuri_components import Flight, FlightState
+
         flight = world.try_get_component(entity, Flight)
         if flight:
-             if flight.state == FlightState.SWOOPING:
-                  target_anim = "swoop"
-             elif flight.state in (FlightState.FLYING, FlightState.TAKEOFF, FlightState.HOVERING):
-                  target_anim = "fly"
-                  # Special case: If action is "Hunt" and we are flying -> "hunt_fly"? 
-                  # For now, "fly" takes precedence to show they are airborne.
+            if flight.state == FlightState.SWOOPING:
+                target_anim = "swoop"
+            elif flight.state in (
+                FlightState.FLYING,
+                FlightState.TAKEOFF,
+                FlightState.HOVERING,
+            ):
+                target_anim = "fly"
+                # Special case: If action is "Hunt" and we are flying -> "hunt_fly"?
+                # For now, "fly" takes precedence to show they are airborne.
 
         if (
             target_anim in animator.animations

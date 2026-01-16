@@ -17,11 +17,8 @@ from ..yukkuri_components import (
     EmotionalState,
     Skills,
     Predator,
-    Predator,
-    RelationshipRegistry,
     Blackboard,
 )
-from ..components import Transform
 from ..trait_service import TraitService
 from ..services import TimeService
 
@@ -126,11 +123,11 @@ class UtilitySelector(Action):
 
         # Build Context for Utility Evaluation
         blackboard_comp = self.world.try_get_component(self.entity_id, Blackboard)
-        
+
         nearby_friends = 0.0
         nearby_enemies = 0.0
         nearby_prey = 0.0
-        
+
         if blackboard_comp:
             nearby_friends = float(blackboard_comp.nearby_friends)
             nearby_enemies = float(blackboard_comp.nearby_enemies)
@@ -170,7 +167,6 @@ class UtilitySelector(Action):
             "cleanliness": needs.cleanliness,
             "bladder": needs.bladder,  # Added Bladder
             "easiness": needs.easiness,  # Added Easiness
-            "nearby_friends": float(nearby_friends),
             "nearby_friends": float(nearby_friends),
             "nearby_enemies": float(nearby_enemies),
             "nearby_prey": float(nearby_prey),

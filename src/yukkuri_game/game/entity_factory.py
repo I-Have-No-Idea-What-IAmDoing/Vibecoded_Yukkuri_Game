@@ -9,7 +9,7 @@ from ..engine.ecs import World
 from .prefabs.yukkuri import create_yukkuri
 from .prefabs.item import create_item, create_poop
 from .prefabs.effects import create_floating_text
-from .yukkuri_components import ArchetypeConfig, GoalType, YukkuriStats
+from .yukkuri_components import ArchetypeConfig, GoalType
 
 
 class EntityFactory:
@@ -35,10 +35,10 @@ class EntityFactory:
     def load_archetype(self, archetype_id: str) -> ArchetypeConfig | None:
         """
         Loads an archetype configuration from a TOML file.
-        
+
         Args:
             archetype_id (str): The name of the archetype (file name without extension).
-            
+
         Returns:
             ArchetypeConfig | None: The loaded config, or None if failed.
         """
@@ -57,7 +57,7 @@ class EntityFactory:
             config = ArchetypeConfig()
             config.archetype_id = data.get("archetype_id", archetype_id)
             config.stamina_regen = float(data.get("stamina_regen", 10.0))
-            
+
             # Parse Priorities
             priorities_list = data.get("priorities", {}).get("list", [])
             goal_types = []
@@ -65,7 +65,9 @@ class EntityFactory:
                 try:
                     goal_types.append(GoalType[p_str])
                 except KeyError:
-                    logger.warning(f"Invalid GoalType in archetype {archetype_id}: {p_str}")
+                    logger.warning(
+                        f"Invalid GoalType in archetype {archetype_id}: {p_str}"
+                    )
             config.priorities = goal_types
 
             # Parse Tags

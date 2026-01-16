@@ -5,6 +5,7 @@ Tests for Economy Service logic.
 import pytest
 from yukkuri_game.game.services import EconomyService
 
+
 @pytest.fixture
 def economy_service() -> EconomyService:
     """

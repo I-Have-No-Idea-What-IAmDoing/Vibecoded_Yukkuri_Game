@@ -376,7 +376,7 @@ class HierarchySystem(System):
 
         # Filter: Match what the entity would collide with (Walls, Other Yukkuris)
         query_filter = pymunk.ShapeFilter(
-            mask=CollisionCategories.WALL | CollisionCategories.YUKKURI
+            mask=CollisionCategories.HIGH_OBSTACLE | CollisionCategories.GROUND_UNIT
         )
 
         def is_spot_free(pos: pymunk.Vec2d) -> bool:

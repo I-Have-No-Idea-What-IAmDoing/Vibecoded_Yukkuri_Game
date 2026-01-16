@@ -130,7 +130,7 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         shape.friction = 0.5
         shape.filter = pymunk.ShapeFilter(
             categories=CollisionCategories.ITEM,
-            mask=CollisionCategories.WALL
+            mask=CollisionCategories.HIGH_OBSTACLE
             | CollisionCategories.POOP
             | CollisionCategories.ITEM,
             group=entity,

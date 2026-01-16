@@ -133,35 +133,42 @@ class MoveToTarget(Action):
         # Bypasses pathfinding if target is visible and either:
         # 1. Within 150px (close-range), OR
         # 2. Within 400px AND there's clear line-of-sight (no obstacles)
-        is_visible = ai.current_target_id == -1 or (ai.current_target_id in ai.visible_entities)
-        
+        is_visible = ai.current_target_id == -1 or (
+            ai.current_target_id in ai.visible_entities
+        )
+
         if is_visible and target_pos:
             dist_to_target = (target_pos - current_pos).length
-            
+
             use_direct_steering = False
-            
+
             if dist_to_target < 150.0:
                 # Close-range: always use direct steering
                 use_direct_steering = True
             elif dist_to_target < 400.0:
                 # Medium range: check line-of-sight
                 from ..systems.physics import PhysicsSystem
+
                 physics_sys = self.world.services.try_get(PhysicsSystem)
-                if physics_sys and hasattr(physics_sys, 'space'):
+                if physics_sys and hasattr(physics_sys, "space"):
                     space = physics_sys.space
                     # Raycast from current to target
                     filter_ = pymunk.ShapeFilter(mask=pymunk.ShapeFilter.ALL_MASKS())
-                    hit = space.segment_query_first(current_pos, target_pos, 1.0, filter_)
-                    
+                    hit = space.segment_query_first(
+                        current_pos, target_pos, 1.0, filter_
+                    )
+
                     # Clear LOS if no hit, or hit is the target itself
                     if hit is None:
                         use_direct_steering = True
                     elif hit.shape:
                         # Check if hit shape belongs to target entity
-                        target_phys = self.world.try_get_component(ai.current_target_id, PhysicsBody)
+                        target_phys = self.world.try_get_component(
+                            ai.current_target_id, PhysicsBody
+                        )
                         if target_phys and hit.shape.body == target_phys.body:
                             use_direct_steering = True
-            
+
             if use_direct_steering:
                 # Check if we are close enough to finish
                 if dist_to_target < self.acceptance_radius:
@@ -170,27 +177,29 @@ class MoveToTarget(Action):
                     if self.world.has_component(self.entity_id, MoveCommand):
                         self.world.remove_component(self.entity_id, MoveCommand)
                     return Status.SUCCESS
-                 
+
                 # Direct Steering via MoveCommand
                 speed_modifier = 1.0
                 if needs.energy < 30:
                     speed_modifier = 0.5
-                 
+
                 # Issue MoveCommand
                 self.world.add_component(
-                    self.entity_id, 
+                    self.entity_id,
                     MoveCommand(
-                        target_pos=target_pos, 
-                        target_entity_id=(ai.current_target_id if ai.current_target_id != -1 else None),
-                        speed_multiplier=speed_modifier, 
-                        priority=2
-                    )
+                        target_pos=target_pos,
+                        target_entity_id=(
+                            ai.current_target_id if ai.current_target_id != -1 else None
+                        ),
+                        speed_multiplier=speed_modifier,
+                        priority=2,
+                    ),
                 )
-                 
+
                 # Ensure path is cleared so we don't fall back to old path if we move out of range
                 if ai.path:
                     ai.path = None
-                 
+
                 return Status.RUNNING
 
         # Pathfinding (Async)
@@ -205,14 +214,14 @@ class MoveToTarget(Action):
                 # Check for failure or timeout
                 now = time.time()
                 request_timestamp = state_data.get("path_request_time", 0.0)
-                
+
                 # Timeout Control (2.0s)
                 if (now - request_timestamp) > 2.0:
-                     # Timed out waiting for path. Fallback to direct movement.
-                     state_data["path_requesting"] = False
-                     # We don't delete "path_failed" here, we just treat it as if we have no path yet.
-                     # Fall through to Fallback logic below (ai.path is None)
-                     pass
+                    # Timed out waiting for path. Fallback to direct movement.
+                    state_data["path_requesting"] = False
+                    # We don't delete "path_failed" here, we just treat it as if we have no path yet.
+                    # Fall through to Fallback logic below (ai.path is None)
+                    pass
                 elif path_failed:
                     state_data["path_requesting"] = False
                     if "path_failed" in state_data:
@@ -232,25 +241,27 @@ class MoveToTarget(Action):
                         # Trigger takeoff if needed for air pathing
                         if flight_comp.state == FlightState.GROUNDED:
                             flight_comp.state = FlightState.TAKEOFF
-                    
+
                     # Determining Priority
-                    priority = 2 # Normal
+                    priority = 2  # Normal
                     if ai.state_data and ai.state_data.get("pursuit_repath", False):
-                        priority = 0 # High Priority for pursuit catch-up
-                        ai.state_data["pursuit_repath"] = False # Consume flag
+                        priority = 0  # High Priority for pursuit catch-up
+                        ai.state_data["pursuit_repath"] = False  # Consume flag
 
                     nav_service.request_path(
                         self.entity_id,
                         (trans.x, trans.y),
                         (target_pos.x, target_pos.y),
                         capabilities=capabilities,
-                        priority=priority
+                        priority=priority,
                     )
 
                     if ai.state_data is None:
                         ai.state_data = {}
                     ai.state_data["path_requesting"] = True
-                    ai.state_data["path_request_time"] = time.time() # Stamp for timeout
+                    ai.state_data["path_request_time"] = (
+                        time.time()
+                    )  # Stamp for timeout
                     # Store destination to check for drift
                     ai.state_data["path_destination"] = (target_pos.x, target_pos.y)
                     # Clear failure flag if present
@@ -262,41 +273,46 @@ class MoveToTarget(Action):
         # Dynamic Path Invalidation (Drift Detection)
         # Check if target has moved significantly from the path's destination
         if ai.path and target_pos:
-            is_visible = ai.current_target_id == -1 or (ai.current_target_id in ai.visible_entities)
-            
+            is_visible = ai.current_target_id == -1 or (
+                ai.current_target_id in ai.visible_entities
+            )
+
             # Update Last Known Position if visible
             if is_visible:
-                 if ai.state_data is None: ai.state_data = {}
-                 ai.state_data["last_known_x"] = target_pos.x
-                 ai.state_data["last_known_y"] = target_pos.y
+                if ai.state_data is None:
+                    ai.state_data = {}
+                ai.state_data["last_known_x"] = target_pos.x
+                ai.state_data["last_known_y"] = target_pos.y
 
-                 # Check Drift with Adaptive Threshold
-                 path_dest = ai.state_data.get("path_destination")
-                 if path_dest:
-                     # Calculate Adaptive Threshold
-                     drift_threshold_sq = 2500.0 # Default 50px
-                     
-                     target_phys = self.world.try_get_component(ai.current_target_id, PhysicsBody)
-                     if target_phys and target_phys.body:
-                         # Faster target = Tighter threshold (repath sooner)
-                         # Simple curve: Speed 0 -> 50px. Speed 100 -> 30px.
-                         t_speed = target_phys.body.velocity.length
-                         # threshold = max(30, 50 - t_speed * 0.2)?
-                         # Let's map 0..100 to 50..20
-                         val = max(20.0, 50.0 - (t_speed * 0.3))
-                         drift_threshold_sq = val * val
-                     
-                     drift_sq = (target_pos - pymunk.Vec2d(*path_dest)).length_squared
-                     if drift_sq > drift_threshold_sq:
-                         now = time.time()
-                         last_repath_time = ai.state_data.get("last_repath_time", 0.0)
-                         # Cooldown can also be adaptive? 
-                         # Keep 0.5s for now to avoid spam.
-                         if now - last_repath_time > 0.5:
-                             ai.path = None
-                             ai.state_data["last_repath_time"] = now
-                             ai.state_data["pursuit_repath"] = True
-                             return Status.RUNNING
+                # Check Drift with Adaptive Threshold
+                path_dest = ai.state_data.get("path_destination")
+                if path_dest:
+                    # Calculate Adaptive Threshold
+                    drift_threshold_sq = 2500.0  # Default 50px
+
+                    target_phys = self.world.try_get_component(
+                        ai.current_target_id, PhysicsBody
+                    )
+                    if target_phys and target_phys.body:
+                        # Faster target = Tighter threshold (repath sooner)
+                        # Simple curve: Speed 0 -> 50px. Speed 100 -> 30px.
+                        t_speed = target_phys.body.velocity.length
+                        # threshold = max(30, 50 - t_speed * 0.2)?
+                        # Let's map 0..100 to 50..20
+                        val = max(20.0, 50.0 - (t_speed * 0.3))
+                        drift_threshold_sq = val * val
+
+                    drift_sq = (target_pos - pymunk.Vec2d(*path_dest)).length_squared
+                    if drift_sq > drift_threshold_sq:
+                        now = time.time()
+                        last_repath_time = ai.state_data.get("last_repath_time", 0.0)
+                        # Cooldown can also be adaptive?
+                        # Keep 0.5s for now to avoid spam.
+                        if now - last_repath_time > 0.5:
+                            ai.path = None
+                            ai.state_data["last_repath_time"] = now
+                            ai.state_data["pursuit_repath"] = True
+                            return Status.RUNNING
 
             # Fallback to Direct Movement via MoveCommand
             # Also handles clearing "path_requesting" flag if we fallback
@@ -323,10 +339,12 @@ class MoveToTarget(Action):
                     self.entity_id,
                     MoveCommand(
                         target_pos=target_pos,
-                        target_entity_id=(ai.current_target_id if ai.current_target_id != -1 else None),
+                        target_entity_id=(
+                            ai.current_target_id if ai.current_target_id != -1 else None
+                        ),
                         speed_multiplier=speed_modifier,
-                        priority=2
-                    )
+                        priority=2,
+                    ),
                 )
 
                 return Status.RUNNING
@@ -334,7 +352,7 @@ class MoveToTarget(Action):
         # Path Follower Logic (Delegated to SteeringSystem)
         # Ensure we don't have a MoveCommand interfering with path following
         if self.world.has_component(self.entity_id, MoveCommand):
-             self.world.remove_component(self.entity_id, MoveCommand)
+            self.world.remove_component(self.entity_id, MoveCommand)
 
         current_pos = pymunk.Vec2d(trans.x, trans.y)
         dist_to_final = (target_pos - current_pos).length
@@ -400,7 +418,10 @@ class Wander(Action):
             ai.state_data = {"target_x": tx, "target_y": ty}
             ai.path = None  # Reset path
             from ...engine.types import EntityID
-            ai.current_target_id = EntityID(-1)  # Clear stale target to ensure we move to coords
+
+            ai.current_target_id = EntityID(
+                -1
+            )  # Clear stale target to ensure we move to coords
 
         # Create a temporary MoveToTarget to handle the actual movement logic
         self.move_action = MoveToTarget(
@@ -1012,6 +1033,33 @@ class FindLightSource(Action):
         return Status.FAILURE
 
 
+class Sleep(Action):
+    def __init__(self, name="Sleep", entity_id=None, world=None, blackboard=None):
+        super().__init__(name, entity_id, world, blackboard)
+
+    def update(self) -> Status:
+        super().update()
+        if not self.world or self.entity_id is None:
+            return Status.FAILURE
+
+        controller = self.world.try_get_component(self.entity_id, MovementController)
+        if controller:
+            controller.target_velocity = pymunk.Vec2d(0, 0)
+
+        dt = 0.016
+        needs = self.world.try_get_component(self.entity_id, Needs)
+        if needs:
+            needs.energy += 10.0 * dt
+            if needs.energy >= 100.0:
+                return Status.SUCCESS
+            # Also restore happiness?
+            state = self.world.try_get_component(self.entity_id, EmotionalState)
+            if state:
+                state.happiness += 5.0 * dt
+
+        return Status.RUNNING
+
+
 def build_sleep_behavior(
     entity_id: int,
     world: "World",
@@ -1047,11 +1095,9 @@ def build_sleep_behavior(
     move_to_bed = MoveToTarget(
         name="Move To Bed", entity_id=entity_id, world=world, acceptance_radius=60.0
     )
-    interact_bed = Interact(
-        name="Sleep In Bed", entity_id=entity_id, world=world, consume=False
-    )
+    do_sleep = Sleep(name="Sleep In Bed", entity_id=entity_id, world=world)
 
-    sleep_execution.add_children([find_bed, move_to_bed, interact_bed])
+    sleep_execution.add_children([find_bed, move_to_bed, do_sleep])
     sleep_sequence.add_children([is_sleeping, sleep_execution])
     return sleep_sequence
 
@@ -1132,9 +1178,6 @@ def build_wander_behavior(
     return wander_sequence
 
 
-
-
-
 def build_seek_light_behavior(
     entity_id: int,
     world: "World",
@@ -1168,7 +1211,6 @@ def build_seek_light_behavior(
     seek_execution.add_children([find_light, move_to_light])
     seek_sequence.add_children([is_seeking, seek_execution])
     return seek_sequence
-
 
     return seek_sequence
 
@@ -1216,47 +1258,55 @@ class FindPrey(Action):
 
         # Get all entities that might be prey
         candidates = []
-        
+
         # Check Items
-        for ent, (i_stats, i_trans) in self.world.get_components_tuple(ItemStats, Transform):
+        for ent, (i_stats, i_trans) in self.world.get_components_tuple(
+            ItemStats, Transform
+        ):
             # Simple tag matching logic (should be expanded to use TagService/ResourceManager)
             is_prey = False
             if i_stats.type_id in predator.prey_tags:
                 is_prey = True
-            elif "Food" in predator.prey_tags and i_stats.type_id in ("beanpaste", "food", "cookie"):
+            elif "Food" in predator.prey_tags and i_stats.type_id in (
+                "beanpaste",
+                "food",
+                "cookie",
+            ):
                 is_prey = True
             elif "BeanPaste" in predator.prey_tags and i_stats.type_id == "beanpaste":
                 is_prey = True
-            
+
             if is_prey:
                 dist = math.hypot(i_trans.x - trans.x, i_trans.y - trans.y)
                 if dist <= predator.prey_sense_radius:
                     candidates.append((ent, dist))
 
         # Check Yukkuris (Cannibalism / Predation)
-        for ent, (y_stats, y_trans) in self.world.get_components_tuple(YukkuriStats, Transform):
+        for ent, (y_stats, y_trans) in self.world.get_components_tuple(
+            YukkuriStats, Transform
+        ):
             if ent == self.entity_id:
                 continue
-                
+
             is_prey = False
             # Check type_id matches
             if y_stats.type_id in predator.prey_tags:
                 is_prey = True
             # Check generic tags
-            if "Yukkuri" in predator.prey_tags: # Predator eats all yukkuris?
+            if "Yukkuri" in predator.prey_tags:  # Predator eats all yukkuris?
                 is_prey = True
-            
+
             # Prey logic should ideally use RelationshipRegistry/Tags too
             # For Flandre, she likely eats "reimu", "marisa", etc?
             # Or just "Yukkuri" tag?
             # default.toml has ["Predator", "Human"] in predator list?
             # Wait, Flandre's PREY tags are needed.
             # Assuming Flandre eats "beanpaste" and maybe other Yukkuris.
-                
+
             if is_prey:
-                 dist = math.hypot(y_trans.x - trans.x, y_trans.y - trans.y)
-                 if dist <= predator.prey_sense_radius:
-                     candidates.append((ent, dist))
+                dist = math.hypot(y_trans.x - trans.x, y_trans.y - trans.y)
+                if dist <= predator.prey_sense_radius:
+                    candidates.append((ent, dist))
 
         if not candidates:
             return Status.FAILURE
@@ -1267,14 +1317,9 @@ class FindPrey(Action):
 
         if ai.current_target_id != best_target:
             ai.current_target_id = cast(EntityID, best_target)
-            ai.path = None # Reset path for new target
+            ai.path = None  # Reset path for new target
 
         return Status.SUCCESS
-
-
-
-
-
 
 
 class FleePredator(Action):
@@ -1422,7 +1467,7 @@ class EatPrey(Action):
         # Check if prey is consumed
         if target_needs.health <= 0:
             # Destroy prey entity
-            self.world.delete_entity(ai.current_target_id)
+            self.world.destroy_entity(ai.current_target_id)
 
             # Reduce predator hunger
             my_needs = self.world.get_component(self.entity_id, Needs)
@@ -1567,384 +1612,6 @@ def create_yukkuri_behavior_tree(
     return root_selector
 
 
-
-
-
-        entity_id: int | None = None,
-        world: Optional["World"] = None,
-        blackboard: Any | None = None,
-    ):
-        super().__init__(name, entity_id, world, blackboard)
-
-    def update(self) -> Status:
-        """
-        Searches for valid prey entities within sensor range.
-        """
-        super().update()
-        if self.world is None or self.entity_id is None:
-            return Status.FAILURE
-
-        ai = self.world.get_component(self.entity_id, AIState)
-        predator = self.world.get_component(self.entity_id, Predator)
-        trans = self.world.get_component(self.entity_id, Transform)
-
-        if ai is None or predator is None or trans is None:
-            return Status.FAILURE
-
-        if not predator.prey_tags:
-            return Status.FAILURE
-
-        # Search for prey
-        best_target = -1
-        min_dist = float("inf")
-
-        # Get all Yukkuris
-        for uid, (u_stats, u_trans) in self.world.get_components_tuple(
-            YukkuriStats, Transform
-        ):
-            if uid == self.entity_id:
-                continue
-            if uid in ai.failed_targets:
-                continue
-
-            # Check if this entity has any of the prey tags
-            # For now, we check type_id against prey_tags
-            if u_stats.type_id not in predator.prey_tags:
-                # Also check for special tags like "Prey" or "Weak"
-                # This would require a Tags component, for now we skip
-                continue
-
-            dist = math.hypot(u_trans.x - trans.x, u_trans.y - trans.y)
-            if dist <= predator.prey_sense_radius and dist < min_dist:
-                min_dist = dist
-                best_target = uid
-
-        if best_target != -1:
-            if ai.current_target_id != best_target:
-                ai.current_target_id = cast(EntityID, best_target)
-                ai.path = None
-            return Status.SUCCESS
-
-        return Status.FAILURE
-
-
-class EatPrey(Action):
-    """
-    Channeling action that locks both predator and prey, dealing damage over time.
-    """
-
-    def __init__(
-        self,
-        name: str = "Eat Prey",
-        entity_id: int | None = None,
-        world: Optional["World"] = None,
-        blackboard: Any | None = None,
-    ):
-        super().__init__(name, entity_id, world, blackboard)
-        self._eating_progress: float = 0.0
-
-    def initialise(self) -> None:
-        """Reset eating progress when starting."""
-        self._eating_progress = 0.0
-
-    def update(self) -> Status:
-        """
-        Deals damage to prey over time. Returns SUCCESS when prey is consumed.
-        """
-        super().update()
-        if self.world is None or self.entity_id is None:
-            return Status.FAILURE
-
-        ai = self.world.get_component(self.entity_id, AIState)
-        predator = self.world.get_component(self.entity_id, Predator)
-        trans = self.world.get_component(self.entity_id, Transform)
-        controller = self.world.get_component(self.entity_id, MovementController)
-
-        if ai is None or predator is None or trans is None:
-            return Status.FAILURE
-
-        if ai.current_target_id == -1:
-            return Status.FAILURE
-
-        # Check target still exists and has Needs
-        target_trans = self.world.try_get_component(ai.current_target_id, Transform)
-        target_needs = self.world.try_get_component(ai.current_target_id, Needs)
-        target_controller = self.world.try_get_component(
-            ai.current_target_id, MovementController
-        )
-
-        if target_trans is None or target_needs is None:
-            return Status.FAILURE
-
-        # Check distance
-        dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
-        if dist > 40.0:
-            return Status.RUNNING  # Need to get closer
-
-        # --- Social Defense (Rescue) Check ---
-        # If a non-predator Yukkuri is within rescue range, abort the eating
-        rescue_radius = 60.0
-        for defender_id, (d_stats, d_trans) in self.world.get_components_tuple(
-            YukkuriStats, Transform
-        ):
-            if defender_id == self.entity_id:
-                continue
-            if defender_id == ai.current_target_id:
-                continue
-            # Check if defender is a predator (predators don't rescue)
-            if self.world.has_component(defender_id, Predator):
-                continue
-
-            defender_dist = math.hypot(
-                d_trans.x - target_trans.x, d_trans.y - target_trans.y
-            )
-            if defender_dist <= rescue_radius:
-                # Defender nearby! Interrupt predation
-                ai.current_target_id = cast(EntityID, -1)
-                return Status.FAILURE
-
-        # Lock both entities (stop movement)
-        if controller:
-            controller.target_velocity = pymunk.Vec2d(0, 0)
-        if target_controller:
-            target_controller.target_velocity = pymunk.Vec2d(0, 0)
-
-        # Deal damage (assume 60 FPS tick rate, dt ~= 0.016)
-        dt = 0.016
-        damage = predator.dps * dt
-        target_needs.health -= damage
-
-        # Check if prey is consumed
-        if target_needs.health <= 0:
-            # Destroy prey entity
-            self.world.delete_entity(ai.current_target_id)
-
-            # Reduce predator hunger
-            my_needs = self.world.get_component(self.entity_id, Needs)
-            if my_needs:
-                my_needs.hunger = max(0.0, my_needs.hunger - 50.0)
-
-            ai.current_target_id = cast(EntityID, -1)
-            return Status.SUCCESS
-
-        return Status.RUNNING
-
-
-class FleePredator(Action):
-    """
-    Action to flee from nearby predators.
-    """
-
-    def __init__(
-        self,
-        name="Flee Predator",
-        entity_id=None,
-        world=None,
-        blackboard=None,
-        speed: float = 150.0,
-    ):
-        super().__init__(name, entity_id, world, blackboard)
-        self.speed = speed
-
-    def update(self) -> Status:
-        super().update()
-        if not self.world or self.entity_id is None:
-            return Status.FAILURE
-
-        my_trans = self.world.get_component(self.entity_id, Transform)
-        controller = self.world.get_component(self.entity_id, MovementController)
-        if not my_trans or not controller:
-            return Status.FAILURE
-
-        # Find nearest predator
-        nearest_predator = None
-        min_dist = float("inf")
-        flee_start_dist = 200.0  # Start fleeing if predator is this close
-
-        for uid, (pred, trans) in self.world.get_components_tuple(Predator, Transform):
-            if uid == self.entity_id:
-                continue
-
-            dist = math.hypot(trans.x - my_trans.x, trans.y - my_trans.y)
-            if dist < flee_start_dist and dist < min_dist:
-                min_dist = dist
-                nearest_predator = trans
-
-        if nearest_predator:
-            # Run away!
-            # Vector from predator to me
-            flee_vec = pymunk.Vec2d(
-                my_trans.x - nearest_predator.x, my_trans.y - nearest_predator.y
-            )
-            if flee_vec.length > 0:
-                # Use self.speed instead of controller.max_speed
-                flee_vec = flee_vec.normalized() * self.speed
-                controller.target_velocity = flee_vec
-                return Status.RUNNING
-
-        # Safe - return FAILURE so Selector continues to Normal Behavior
-        return Status.FAILURE
-
-
-class FindPrey(Action):
-    """
-    Finds a suitable prey target for a predator.
-    """
-
-    def __init__(self, name="Find Prey", entity_id=None, world=None, blackboard=None):
-        super().__init__(name, entity_id, world, blackboard)
-
-    def update(self) -> Status:
-        super().update()
-        if not self.world or self.entity_id is None:
-            return Status.FAILURE
-
-        ai = self.world.get_component(self.entity_id, AIState)
-        predator = self.world.get_component(self.entity_id, Predator)
-        my_trans = self.world.get_component(self.entity_id, Transform)
-
-        if not ai or not predator or not my_trans:
-            return Status.FAILURE
-
-        # Find nearest valid prey
-        best_target = -1
-        min_dist = predator.prey_sense_radius
-
-        # Iterate all needs-having entities (Candidate for optimization: Spatial Hash)
-        for uid, (needs, trans) in self.world.get_components_tuple(Needs, Transform):
-            if uid == self.entity_id:
-                continue
-
-            # Check if alive
-            if needs.health <= 0:
-                continue
-
-            # Check tags/compatibility
-            # For now, simple check: is it a yukkuri?
-            # Ideally we check 'tags' component or type_id
-            target_stats = self.world.try_get_component(uid, YukkuriStats)
-            if not target_stats:
-                continue
-
-            # Predator-Prey Logic:
-            # If I have 'prey_tags', check if target matches.
-            # Simplified: Predators eat non-predators or smaller ones.
-            # For this implementation, we assume any other yukkuri is prey
-            # unless they are also a predator of same/higher level (?) through tags.
-
-            # Use Predator component tags logic if implemented, else Fallback.
-            # Fallback: Eat Reimu/Marisa if I am Predator.
-            is_valid_prey = False
-            if predator.prey_tags:
-                # Todo: Check target tags. For now assume target type_id is a tag.
-                if target_stats.type_id in predator.prey_tags:
-                    is_valid_prey = True
-            else:
-                # Default behavior: Eat anyone who is NOT a predator
-                if not self.world.has_component(uid, Predator):
-                    is_valid_prey = True
-
-            if is_valid_prey:
-                dist = math.hypot(trans.x - my_trans.x, trans.y - my_trans.y)
-                if dist < min_dist:
-                    min_dist = dist
-                    best_target = uid
-
-        if best_target != -1:
-            if ai.current_target_id != best_target:
-                ai.current_target_id = cast(EntityID, best_target)
-                ai.path = None
-            return Status.SUCCESS
-
-        return Status.FAILURE
-
-
-class EatPrey(Action):
-    """
-    Channeling action to eat prey.
-    """
-
-    def __init__(self, name="Eat Prey", entity_id=None, world=None, blackboard=None):
-        super().__init__(name, entity_id, world, blackboard)
-
-    def update(self) -> Status:
-        super().update()
-        if not self.world or self.entity_id is None:
-            return Status.FAILURE
-
-        ai = self.world.get_component(self.entity_id, AIState)
-        predator = self.world.get_component(self.entity_id, Predator)
-        trans = self.world.get_component(self.entity_id, Transform)
-        controller = self.world.get_component(self.entity_id, MovementController)
-
-        if not ai or not predator or not trans:
-            return Status.FAILURE
-
-        if ai.current_target_id == -1:
-            return Status.FAILURE
-
-        target_trans = self.world.try_get_component(ai.current_target_id, Transform)
-        target_needs = self.world.try_get_component(ai.current_target_id, Needs)
-        target_controller = self.world.try_get_component(
-            ai.current_target_id, MovementController
-        )
-
-        if target_trans is None or target_needs is None:
-            return Status.FAILURE
-
-        # Check interaction distance
-        dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
-        if dist > 40.0:
-            # Too far to eat!
-            return Status.FAILURE
-
-        # --- Social Defense (Rescue) Check ---
-        rescue_radius = 60.0
-        for defender_id, (d_stats, d_trans) in self.world.get_components_tuple(
-            YukkuriStats, Transform
-        ):
-            if defender_id == self.entity_id:
-                continue
-            if defender_id == ai.current_target_id:
-                continue
-            if self.world.has_component(defender_id, Predator):
-                continue
-
-            defender_dist = math.hypot(
-                d_trans.x - target_trans.x, d_trans.y - target_trans.y
-            )
-            if defender_dist <= rescue_radius:
-                # Defender nearby! Interrupt predation
-                ai.current_target_id = cast(EntityID, -1)
-                return Status.FAILURE
-
-        # Lock movement
-        if controller:
-            controller.target_velocity = pymunk.Vec2d(0, 0)
-        if target_controller:
-            target_controller.target_velocity = pymunk.Vec2d(0, 0)
-
-        # Deal damage
-        dt = 0.016  # Approximated fixed delta
-        damage = predator.dps * dt
-        target_needs.health -= damage
-
-        # Visual feedback (Todo: Particles)
-
-        # Check if consumed
-        if target_needs.health <= 0:
-            self.world.destroy_entity(ai.current_target_id)
-
-            my_needs = self.world.try_get_component(self.entity_id, Needs)
-            if my_needs:
-                my_needs.hunger = max(0.0, my_needs.hunger - 50.0)
-
-            ai.current_target_id = cast(EntityID, -1)
-            return Status.SUCCESS
-
-        return Status.RUNNING
-
-
 class Swoop(Action):
     """
     Rapid descent to attack target.
@@ -2065,12 +1732,16 @@ BehaviorRegistry.register_goal("Wander", build_wander_behavior)
 
 # --- SeekLight Implementation ---
 
-class FindLight(Action):
+
+# --- Flee Implementation ---
+
+
+class FindThreat(Action):
     """
-    Finds the nearest LightSource entity.
+    Finds the closest threat from Blackboard.
     """
 
-    def __init__(self, name="Find Light", entity_id=None, world=None, blackboard=None):
+    def __init__(self, name="Find Threat", entity_id=None, world=None, blackboard=None):
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:
@@ -2079,139 +1750,76 @@ class FindLight(Action):
             return Status.FAILURE
 
         ai = self.world.get_component(self.entity_id, AIState)
-        trans = self.world.get_component(self.entity_id, Transform)
-        if not ai or not trans:
+        blackboard_comp = self.world.try_get_component(self.entity_id, Blackboard)
+
+        if not ai or not blackboard_comp:
             return Status.FAILURE
 
-        # Find nearest LightSource
-        best_light = None
-        min_dist = float("inf")
-        
-        for ent, (light, l_trans) in self.world.get_components_tuple(LightSource, Transform):
-            if ent == self.entity_id:
-                continue
-            
-            dx = l_trans.x - trans.x
-            dy = l_trans.y - trans.y
-            dist_sq = dx*dx + dy*dy
-            
-            if dist_sq < min_dist:
-                min_dist = dist_sq
-                best_light = ent
+        threat_id = blackboard_comp.closest_threat_id
+        if threat_id is not None and threat_id != -1:
+            ai.current_target_id = cast(EntityID, threat_id)
+            return Status.SUCCESS
 
-        if best_light is not None:
-             ai.current_target_id = cast(EntityID, best_light)
-             ai.path = None
-             return Status.SUCCESS
-        
         return Status.FAILURE
 
-
-def build_seek_light_behavior(
-    entity_id: int,
-    world: "World",
-    width: int,
-    height: int,
-    check_goal_fn: Callable[[str], bool],
-    check_target_fn: Callable[[], bool],
-) -> Behaviour:
-    root = py_trees.composites.Sequence(name="Seek Light Sequence", memory=True)
-    
-    root.add_child(Check(name="Goal=SeekLight?", check_fn=lambda: check_goal_fn("SeekLight")))
-    
-    def has_target():
-         ai = world.try_get_component(entity_id, AIState)
-         return ai and ai.current_target_id != -1
-
-    target_selector = py_trees.composites.Selector(name="Target Selector", memory=False)
-    target_selector.add_child(Check(name="Has Target?", check_fn=has_target))
-    target_selector.add_child(FindLight(name="Find Light", entity_id=entity_id, world=world))
-    
-    root.add_child(target_selector)
-    
-    root.add_child(MoveToTarget(
-        name="Go to Light", 
-        entity_id=entity_id, 
-        world=world, 
-        acceptance_radius=30.0 
-    ))
-    
-    return root
-
-
-# --- Flee Implementation ---
-
-class FindThreat(Action):
-    """
-    Finds the closest threat from Blackboard.
-    """
-    def __init__(self, name="Find Threat", entity_id=None, world=None, blackboard=None):
-         super().__init__(name, entity_id, world, blackboard)
-
-    def update(self) -> Status:
-         super().update()
-         if not self.world or self.entity_id is None: return Status.FAILURE
-         
-         ai = self.world.get_component(self.entity_id, AIState)
-         blackboard_comp = self.world.try_get_component(self.entity_id, Blackboard)
-         
-         if not ai or not blackboard_comp: return Status.FAILURE
-         
-         threat_id = blackboard_comp.closest_threat_id
-         if threat_id is not None and threat_id != -1:
-              ai.current_target_id = cast(EntityID, threat_id)
-              return Status.SUCCESS
-         
-         return Status.FAILURE
 
 class FleeFromTarget(Action):
     """
     Calculates a destination AWAY from the current target.
     """
-    def __init__(self, name="Run Away", entity_id=None, world=None, blackboard=None, dist=300.0):
+
+    def __init__(
+        self, name="Run Away", entity_id=None, world=None, blackboard=None, dist=300.0
+    ):
         super().__init__(name, entity_id, world, blackboard)
         self.flee_dist = dist
 
     def update(self) -> Status:
         super().update()
-        if not self.world or self.entity_id is None: return Status.FAILURE
+        if not self.world or self.entity_id is None:
+            return Status.FAILURE
 
         ai = self.world.get_component(self.entity_id, AIState)
         trans = self.world.get_component(self.entity_id, Transform)
-        
-        if not ai or not trans: return Status.FAILURE
-        
+
+        if not ai or not trans:
+            return Status.FAILURE
+
         target_id = ai.current_target_id
-        if target_id == -1: return Status.FAILURE
-        
+        if target_id == -1:
+            return Status.FAILURE
+
         target_trans = self.world.try_get_component(target_id, Transform)
-        if not target_trans: return Status.FAILURE
-        
+        if not target_trans:
+            return Status.FAILURE
+
         dx = target_trans.x - trans.x
         dy = target_trans.y - trans.y
         dist = math.hypot(dx, dy)
-        
-        if dist < 0.001: 
-             dx = 1.0; dy = 0.0
-             dist = 1.0
-             
+
+        if dist < 0.001:
+            dx = 1.0
+            dy = 0.0
+            dist = 1.0
+
         dx /= dist
         dy /= dist
-        
+
         run_x = trans.x - (dx * self.flee_dist)
         run_y = trans.y - (dy * self.flee_dist)
-        
+
         # Clamp Logic (Simple World Bounds)
-        # Assuming 3000x3000? Use hardcoded or component? 
+        # Assuming 3000x3000? Use hardcoded or component?
         # Behavior width/height passed to builder usually.
         # But this is Action update.
         # Just set it. Steering handles clamping if needed.
-        
+
         ai.state_data = {"target_x": run_x, "target_y": run_y}
-        ai.path = None 
-        ai.current_target_id = cast(EntityID, -1) 
-        
+        ai.path = None
+        ai.current_target_id = cast(EntityID, -1)
+
         return Status.SUCCESS
+
 
 def build_flee_behavior(
     entity_id: int,
@@ -2222,21 +1830,22 @@ def build_flee_behavior(
     check_target_fn: Callable[[], bool],
 ) -> Behaviour:
     root = py_trees.composites.Sequence(name="Flee Sequence", memory=True)
-    
+
     root.add_child(Check(name="Goal=Flee?", check_fn=lambda: check_goal_fn("Flee")))
-    
+
     root.add_child(FindThreat(name="Identify Threat", entity_id=entity_id, world=world))
-    
-    root.add_child(FleeFromTarget(name="Pick Run Spot", entity_id=entity_id, world=world))
-    
+
+    root.add_child(
+        FleeFromTarget(name="Pick Run Spot", entity_id=entity_id, world=world)
+    )
+
     # Run!
-    root.add_child(MoveToTarget(
-        name="Run!", 
-        entity_id=entity_id, 
-        world=world, 
-        acceptance_radius=50.0 
-    ))
-    
+    root.add_child(
+        MoveToTarget(
+            name="Run!", entity_id=entity_id, world=world, acceptance_radius=50.0
+        )
+    )
+
     return root
 
 
@@ -2247,10 +1856,12 @@ BehaviorRegistry.register_goal("Flee", build_flee_behavior)
 
 # --- Standard Interaction Behaviors (Eat, Play, Talk, Dance) ---
 
+
 def build_standard_interaction_behavior(goal_name: str):
     """
     Factory to create a standard interaction behavior builder.
     """
+
     def builder(
         entity_id: int,
         world: "World",
@@ -2260,110 +1871,99 @@ def build_standard_interaction_behavior(goal_name: str):
         check_target_fn: Callable[[], bool],
     ) -> Behaviour:
         root = py_trees.composites.Sequence(name=f"{goal_name} Sequence", memory=True)
-        
-        root.add_child(Check(name=f"Goal={goal_name}?", check_fn=lambda: check_goal_fn(goal_name)))
-        
+
+        root.add_child(
+            Check(name=f"Goal={goal_name}?", check_fn=lambda: check_goal_fn(goal_name))
+        )
+
         # We assume Utility AI has already set a target in AIState.
-        # But if not, we fail. (Utility Validator ensures we have a valid target id usually, 
+        # But if not, we fail. (Utility Validator ensures we have a valid target id usually,
         # or the Action Logic "Find" handles it.
-        # For Eat, Play, Talk: Target is usually Item or Entity set by Utility Selection logic 
+        # For Eat, Play, Talk: Target is usually Item or Entity set by Utility Selection logic
         # (e.g. Scorer checks context for best object).
         # BUT UtilityAI doesn't strictly set current_target_id unless we implement "Commit".
         # Current AI sets `current_action`.
         # Who finds the food?
         # If Utility Scorer just says "Hunger is high", we have no target.
         # So we need a "Find" step.
-        
+
         # Selector: Have Target OR Find Target
-        find_selector = py_trees.composites.Selector(name="Target Selector", memory=False)
-        
+        find_selector = py_trees.composites.Selector(
+            name="Target Selector", memory=False
+        )
+
         def has_valid_target():
-             ai = world.try_get_component(entity_id, AIState)
-             return ai and ai.current_target_id != -1
+            ai = world.try_get_component(entity_id, AIState)
+            return ai and ai.current_target_id != -1
 
         find_selector.add_child(Check(name="Has Target?", check_fn=has_valid_target))
-        
-        # Specialized Finders could go here. 
-        # For now, we rely on blackboard context? 
+
+        # Specialized Finders could go here.
+        # For now, we rely on blackboard context?
         # Blackboard has `closest_food_id`.
         if goal_name == "Eat":
-             class PickFood(Action):
-                 def __init__(self, name="Pick Food", entity_id=None, world=None, blackboard=None):
-                      super().__init__(name, entity_id, world, blackboard)
-                 def update(self) -> Status:
-                      super().update()
-                      ai = self.world.get_component(self.entity_id, AIState)
-                      bb = self.world.try_get_component(self.entity_id, Blackboard)
-                      if bb and bb.closest_food_id:
-                           ai.current_target_id = bb.closest_food_id
-                           return Status.SUCCESS
-                      return Status.FAILURE
-             find_selector.add_child(PickFood(entity_id=entity_id, world=world))
-        
+
+            class PickFood(Action):
+                def __init__(
+                    self, name="Pick Food", entity_id=None, world=None, blackboard=None
+                ):
+                    super().__init__(name, entity_id, world, blackboard)
+
+                def update(self) -> Status:
+                    super().update()
+                    if not self.world or self.entity_id is None:
+                        return Status.FAILURE
+                    ai = self.world.get_component(self.entity_id, AIState)
+                    if not ai:
+                        return Status.FAILURE
+                    bb = self.world.try_get_component(self.entity_id, Blackboard)
+                    if bb and bb.closest_food_id:
+                        ai.current_target_id = cast(EntityID, bb.closest_food_id)
+                        return Status.SUCCESS
+                    return Status.FAILURE
+
+            find_selector.add_child(PickFood(entity_id=entity_id, world=world))
+
         elif goal_name in ("Talk", "Dance", "Fight"):
-             # Pick friend/enemy from blackboard?
-             # Simple logic: Pick closest?
-             pass 
+            # Pick friend/enemy from blackboard?
+            # Simple logic: Pick closest?
+            pass
 
         root.add_child(find_selector)
-        
-        root.add_child(MoveToTarget(
-            name=f"Go to {goal_name} Target", 
-            entity_id=entity_id, 
-            world=world, 
-            acceptance_radius=30.0
-        ))
-        
-        root.add_child(Interact(
-            name=f"Do {goal_name}", 
-            entity_id=entity_id, 
-            world=world, 
-            consume=(goal_name == "Eat")
-        ))
-        
+
+        root.add_child(
+            MoveToTarget(
+                name=f"Go to {goal_name} Target",
+                entity_id=entity_id,
+                world=world,
+                acceptance_radius=30.0,
+            )
+        )
+
+        root.add_child(
+            Interact(
+                name=f"Do {goal_name}",
+                entity_id=entity_id,
+                world=world,
+                consume=(goal_name == "Eat"),
+            )
+        )
+
         return root
+
     return builder
+
 
 # --- Sleep Implementation (Re-appended to be sure) ---
 
-class Sleep(Action):
-    def __init__(self, name="Sleep", entity_id=None, world=None, blackboard=None):
-        super().__init__(name, entity_id, world, blackboard)
-
-    def update(self) -> Status:
-        super().update()
-        if not self.world or self.entity_id is None: return Status.FAILURE
-        
-        controller = self.world.try_get_component(self.entity_id, MovementController)
-        if controller: controller.target_velocity = pymunk.Vec2d(0, 0)
-        
-        dt = 0.016
-        needs = self.world.try_get_component(self.entity_id, Needs)
-        if needs:
-             needs.energy += 10.0 * dt
-             if needs.energy >= 100.0: return Status.SUCCESS
-             # Also restore happiness?
-             state = self.world.try_get_component(self.entity_id, EmotionalState)
-             if state: state.happiness += 5.0 * dt
-        
-        return Status.RUNNING
-
-def build_sleep_behavior(
-    entity_id: int,
-    world: "World",
-    width: int,
-    height: int,
-    check_goal_fn: Callable[[str], bool],
-    check_target_fn: Callable[[], bool],
-) -> Behaviour:
-     root = py_trees.composites.Sequence(name="Sleep Sequence", memory=True)
-     root.add_child(Check(name="Goal=Sleep?", check_fn=lambda: check_goal_fn("Sleep")))
-     root.add_child(Sleep(entity_id=entity_id, world=world))
-     return root
 
 # Register Standards
-BehaviorRegistry.register_goal("Eat", build_standard_interaction_behavior("Eat"), required_component=Needs)
-BehaviorRegistry.register_goal("Play", build_standard_interaction_behavior("Play"), required_component=Needs)
+BehaviorRegistry.register_goal(
+    "Eat", build_standard_interaction_behavior("Eat"), required_component=Needs
+)
+BehaviorRegistry.register_goal(
+    "Play", build_standard_interaction_behavior("Play"), required_component=Needs
+)
 BehaviorRegistry.register_goal("Talk", build_standard_interaction_behavior("Talk"))
 BehaviorRegistry.register_goal("Dance", build_standard_interaction_behavior("Dance"))
 BehaviorRegistry.register_goal("Fight", build_standard_interaction_behavior("Fight"))

@@ -5,6 +5,7 @@ Application Module.
 import pygame
 import pygame_gui
 import os
+from typing import Any
 from loguru import logger
 from .resource_manager import ResourceManager
 from .scene_manager import SceneManager

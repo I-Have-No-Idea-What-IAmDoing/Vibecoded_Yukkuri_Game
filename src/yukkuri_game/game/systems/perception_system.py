@@ -6,7 +6,9 @@ Part of Proposal 4: Unified AI Architecture.
 
 import time
 import math
+from typing import cast
 from ...engine.ecs import System, World
+from ...engine.types import EntityID
 from ..components import Transform
 from ..yukkuri_components import (
     AIState,
@@ -18,13 +20,12 @@ from ..yukkuri_components import (
     RelationshipRegistry,
     ItemStats,
 )
-from ...engine.types import EntityID
 
 
 class PerceptionSystem(System):
     """
     System that populates Blackboard components with perception data.
-    
+
     Reads visible_entities from AIState (set by VisibilitySystem) and
     translates them into TargetInfo entries with social context resolution.
     Also manages short-term memory for entities that leave visibility.
@@ -163,13 +164,13 @@ class PerceptionSystem(System):
     ) -> str:
         """
         Resolves the social relationship between self and target.
-        
+
         Resolution Order (from Proposal 4 design):
         1. Predator/Prey dynamics (highest priority)
         2. Family relationship
         3. Affinity score
         4. Default to Neutral
-        
+
         Returns:
             str: One of "Friend", "Enemy", "Neutral", "Prey", "Threat", "Family"
         """
@@ -207,8 +208,8 @@ class PerceptionSystem(System):
                     return "Family"
 
             # 3. Affinity Check
-            if target_id in my_relations.relationships:
-                rel_data = my_relations.relationships[target_id]
+            if cast(EntityID, target_id) in my_relations.relationships:
+                rel_data = my_relations.relationships[cast(EntityID, target_id)]
                 if rel_data.affinity > 50:
                     return "Friend"
                 elif rel_data.affinity < -10:

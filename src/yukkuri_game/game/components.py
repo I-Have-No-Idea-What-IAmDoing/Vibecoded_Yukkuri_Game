@@ -297,7 +297,7 @@ class SteeringComponent:
 
     # Stuck detection
     time_stuck: float = 0.0
-    
+
     # Pursuit Mode
     pursuit_enabled: bool = False
 
@@ -326,4 +326,3 @@ class MoveCommand:
     use_pathfinding: bool = True
     expiration: float = 0.0
     priority: int = 2
-

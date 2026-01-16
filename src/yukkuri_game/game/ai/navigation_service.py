@@ -11,8 +11,9 @@ from .navigation_constants import TraversalCapability
 from .hpa import ClusterGraph, AStar, StringPuller
 from enum import IntEnum
 
+
 class ObstacleType(IntEnum):
-    LOW = 0   # Blocks WALK
+    LOW = 0  # Blocks WALK
     HIGH = 1  # Blocks WALK | FLY
 
 
@@ -57,11 +58,11 @@ class NavigationService:
         # 3. Async Logic
         self.request_queue = queue.PriorityQueue()
         self.result_queue = queue.Queue()
-        
+
         # Cache: (start_cluster, end_cluster, capabilities) -> Abstract Path
         # We need to invalidate this when grid changes.
         self._path_cache = {}
-        
+
         # Dirty flag for graph updates
         self._dirty = False
         self._last_rebuild = 0.0
@@ -112,7 +113,7 @@ class NavigationService:
         priority: int = 2,
     ):
         """Async path request. Puts request into PriorityQueue."""
-        
+
         # Congestion Control: Drop low priority requests if queue is full
         if self.request_queue.qsize() > 50 and priority > 2:
             return

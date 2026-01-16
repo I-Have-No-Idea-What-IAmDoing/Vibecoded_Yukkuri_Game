@@ -28,7 +28,3 @@ class CollisionCategories:
     POOP = 0b0100_0000
     SENSOR = 0b1000_0000
     ALL = 0xFFFFFFFF
-
-    # Legacy aliases for backwards compatibility
-    YUKKURI = GROUND_UNIT
-    WALL = HIGH_OBSTACLE

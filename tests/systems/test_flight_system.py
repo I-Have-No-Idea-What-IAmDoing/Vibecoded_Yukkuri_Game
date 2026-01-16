@@ -62,7 +62,9 @@ class TestFlightSystem:
 
     def test_flying_drains_stamina(self, system, world):
         """Flying should drain stamina."""
-        entity, flight = self.create_flying_entity(world, FlightState.FLYING, stamina=100.0)
+        entity, flight = self.create_flying_entity(
+            world, FlightState.FLYING, stamina=100.0
+        )
         flight.fly_cost = 5.0
         flight.hover_cost = 1.0
 
@@ -76,7 +78,9 @@ class TestFlightSystem:
 
     def test_hovering_drains_less_stamina(self, system, world):
         """Hovering (not moving) should drain less stamina."""
-        entity, flight = self.create_flying_entity(world, FlightState.FLYING, stamina=100.0)
+        entity, flight = self.create_flying_entity(
+            world, FlightState.FLYING, stamina=100.0
+        )
         flight.fly_cost = 5.0
         flight.hover_cost = 1.0
 
@@ -90,7 +94,9 @@ class TestFlightSystem:
 
     def test_hover_state_drains_stamina(self, system, world):
         """HOVERING state should drain hover_cost stamina."""
-        _, flight = self.create_flying_entity(world, FlightState.HOVERING, stamina=100.0)
+        _, flight = self.create_flying_entity(
+            world, FlightState.HOVERING, stamina=100.0
+        )
         flight.hover_cost = 2.0
 
         system.update(world, dt=1.0)
@@ -146,7 +152,9 @@ class TestFlightSystem:
     # --- Falling Tests ---
     def test_exhaustion_causes_fall(self, system, world):
         """Running out of stamina should trigger FALLING state."""
-        entity, flight = self.create_flying_entity(world, FlightState.FLYING, stamina=2.0)
+        entity, flight = self.create_flying_entity(
+            world, FlightState.FLYING, stamina=2.0
+        )
         flight.fly_cost = 5.0
 
         # Simulate moving
@@ -160,7 +168,9 @@ class TestFlightSystem:
 
     def test_falling_mechanics(self, system, world):
         """Falling should decrease altitude at accelerated rate."""
-        _, flight = self.create_flying_entity(world, FlightState.FALLING, altitude=100.0)
+        _, flight = self.create_flying_entity(
+            world, FlightState.FALLING, altitude=100.0
+        )
         flight.vertical_speed = 10.0
 
         system.update(world, dt=1.0)

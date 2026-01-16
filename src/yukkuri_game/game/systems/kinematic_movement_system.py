@@ -153,8 +153,8 @@ class KinematicMovementSystem(System):
 
             # 3. Award XP
             if dist_moved > 0.1 and self.skill_service:
-                 # Award XP based on distance. Tuning: 0.01 XP per unit?
-                 self.skill_service.add_xp(entity, SkillId.ATHLETICS, dist_moved * 0.01)
+                # Award XP based on distance. Tuning: 0.01 XP per unit?
+                self.skill_service.add_xp(entity, SkillId.ATHLETICS, dist_moved * 0.01)
 
             # 4. Sync Transform back
             trans.x = phys.body.position.x
@@ -444,7 +444,7 @@ class KinematicMovementSystem(System):
 
         body.position = current_pos
         controller.current_velocity = velocity
-        
+
         return (body.position - start_pos).length
 
     def _update_flight_collision_filter(

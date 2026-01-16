@@ -30,9 +30,11 @@ class FlightSystem(System):
         ):
             self._process_flight(world, entity, flight, transform, dt)
 
-    def _process_flight(self, world: World, entity: int, flight: Flight, transform: Transform, dt: float) -> None:
+    def _process_flight(
+        self, world: World, entity: int, flight: Flight, transform: Transform, dt: float
+    ) -> None:
         skill_service = world.services.try_get(SkillService)
-        
+
         # 1. Stamina Management
         if flight.state in (
             FlightState.FLYING,
@@ -41,18 +43,18 @@ class FlightSystem(System):
         ):
             # Drain stamina (Fly cost)
             flight.stamina -= flight.fly_cost * dt
-            
+
             # Award Athleticism XP (Flying is hard work)
             if skill_service:
-                 skill_service.add_xp(entity, SkillId.ATHLETICS, 2.0 * dt)
-                 
+                skill_service.add_xp(entity, SkillId.ATHLETICS, 2.0 * dt)
+
         elif flight.state == FlightState.HOVERING:
             # Drain stamina (Hover cost)
             flight.stamina -= flight.hover_cost * dt
-            
+
             if skill_service:
-                 skill_service.add_xp(entity, SkillId.ATHLETICS, 1.0 * dt)
-                 
+                skill_service.add_xp(entity, SkillId.ATHLETICS, 1.0 * dt)
+
         elif flight.state == FlightState.GROUNDED:
             # Recovery
             flight.stamina += flight.recovery_rate * dt
@@ -89,7 +91,7 @@ class FlightSystem(System):
             if flight.altitude <= 0:
                 flight.altitude = 0.0
                 flight.state = FlightState.GROUNDED
-            return 
+            return
 
         # Interpolate Altitude
         diff = target_altitude - flight.altitude

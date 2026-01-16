@@ -284,7 +284,6 @@ class SoftwareLightingEngine:
             grad_surf = self._get_gradient_surface(sr_key, color, intensity)
 
             # Blit the relevant chunk of the gradient
-            grad_rect = grad_surf.get_rect()
             sub_rect = pygame.Rect(gx, gy, surf_w, surf_h)
 
             light_surf.blit(grad_surf, (0, 0), area=sub_rect)
@@ -354,8 +353,6 @@ class SoftwareLightingEngine:
 
         # Transform params for low-res space
         low_res_scale = low_res_size / surf_size
-        hx = low_res_size / 2.0
-        hy = low_res_size / 2.0
         extrude_dist = radius * 2.0
         scale = self.scale * low_res_scale
 

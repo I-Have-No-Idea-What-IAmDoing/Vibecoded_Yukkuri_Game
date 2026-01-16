@@ -727,4 +727,3 @@ class ArchetypeConfig:
     predator_tags: set[str] = field(default_factory=set)
     stamina_regen: float = 10.0
     personality_bias: dict[str, float] = field(default_factory=dict)
-

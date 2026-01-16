@@ -260,7 +260,7 @@ class HUD:
         # Draw navigation debug overlay
         if self.navigation_debug_renderer and self.navigation_debug_renderer.enabled:
             self.navigation_debug_renderer.render(screen, self.world)
-            
+
         # Draw AI debug overlay
         if self.ai_debug_renderer and self.ai_debug_renderer.enabled:
             self.ai_debug_renderer.render(screen, self.world)
@@ -321,7 +321,7 @@ class HUD:
     def init_ai_debug(self, camera: "Camera") -> None:
         """Initializes the AI debug renderer."""
         self.ai_debug_renderer = AIDebugRenderer(camera)
-    
+
     def toggle_ai_debug(self) -> None:
         """Toggles AI debug visuals."""
         if self.ai_debug_renderer:

@@ -77,7 +77,9 @@ class TestMoveToTarget:
         """Test that MoveToTarget requests a path asynchronously when none exists."""
         action = MoveToTarget(entity_id=1, world=mock_world, blackboard=mock_blackboard)
 
-        ai = MagicMock(current_target_id=2, path=None, state_data={}, visible_entities=set())
+        ai = MagicMock(
+            current_target_id=2, path=None, state_data={}, visible_entities=set()
+        )
         trans = MagicMock(x=0, y=0)
         stats = MagicMock()
         needs = MagicMock(energy=100)  # Ensure energy comparison works

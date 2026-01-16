@@ -59,7 +59,6 @@ class NavigationDebugRenderer:
         """Draws green lines for cluster boundaries."""
         from ..ai.hpa import CLUSTER_SIZE
 
-        grid = self.nav_service.grid
         cell_size = self.nav_service.grid_step_size
         cluster_pixel_size = CLUSTER_SIZE * cell_size
 

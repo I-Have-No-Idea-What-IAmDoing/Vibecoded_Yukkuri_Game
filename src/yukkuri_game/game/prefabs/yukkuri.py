@@ -102,7 +102,7 @@ def create_yukkuri(
 
     # Core Components
     world.add_component(entity, Transform(x=x, y=y, scale=scale))
-    
+
     # Sprite Creation
     sprite = Sprite(
         image_name=image,
@@ -117,28 +117,28 @@ def create_yukkuri(
 
     # Animator Creation (Enables Events and State logic)
     from ..components import Animator, AnimationDefinition
-    
+
     anims = {}
     if hasattr(data, "animations") and data.animations:
         # Load data-driven animations
         for name, definition in data.animations.items():
-             # Convert msgspec struct or dict to Component definition
-             # Use dict unpacking if compatible or manual mapping
-             # Definition is msgspec Struct from data_models, Component likely expects similar or dict
-             # Let's map explicitly to be safe
-             anim_def = AnimationDefinition(
-                 name=definition.name,
-                 frames=definition.frames,
-                 frame_duration=definition.frame_duration,
-                 loop=definition.loop,
-                 ping_pong=definition.ping_pong,
-                 events=definition.events,
-                 image=definition.image,
-                 width=definition.width,
-                 height=definition.height
-             )
-             anims[name.lower()] = anim_def
-    
+            # Convert msgspec struct or dict to Component definition
+            # Use dict unpacking if compatible or manual mapping
+            # Definition is msgspec Struct from data_models, Component likely expects similar or dict
+            # Let's map explicitly to be safe
+            anim_def = AnimationDefinition(
+                name=definition.name,
+                frames=definition.frames,
+                frame_duration=definition.frame_duration,
+                loop=definition.loop,
+                ping_pong=definition.ping_pong,
+                events=definition.events,
+                image=definition.image,
+                width=definition.width,
+                height=definition.height,
+            )
+            anims[name.lower()] = anim_def
+
     # Fallback: If no explicit animations but sprite has frames, create default "idle"
     if not anims and frame_count > 1:
         # Create a default "idle" or "walk" animation from all frames
@@ -146,21 +146,21 @@ def create_yukkuri(
             name="idle",
             frames=list(range(frame_count)),
             frame_duration=frame_duration,
-            loop=loop
+            loop=loop,
         )
-        anims["walk"] = anims["idle"] # Alias
+        anims["walk"] = anims["idle"]  # Alias
 
     if anims:
         initial_anim = "idle"
         if "idle" not in anims:
             initial_anim = next(iter(anims.keys()))
-            
+
         animator = Animator(
             animations=anims,
             current_animation=initial_anim,
-            frame_index=0,
+            current_frame_index=0,
             timer=0.0,
-            speed=1.0
+            speed=1.0,
         )
         world.add_component(entity, animator)
         # Disable legacy sprite self-animation to avoid conflict?
@@ -301,9 +301,9 @@ def create_yukkuri(
         mass=10.0,
         position=(x, y),
         radius_or_size=radius,
-        collision_category=CollisionCategories.YUKKURI,
-        collision_mask=CollisionCategories.WALL
-        | CollisionCategories.YUKKURI
+        collision_category=CollisionCategories.GROUND_UNIT,
+        collision_mask=CollisionCategories.HIGH_OBSTACLE
+        | CollisionCategories.GROUND_UNIT
         | CollisionCategories.POOP,
         elasticity=0.5,
         friction=0.5,

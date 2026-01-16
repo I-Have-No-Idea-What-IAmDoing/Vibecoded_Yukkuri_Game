@@ -79,7 +79,9 @@ class TestGossipSystem:
 
         sender, receiver = 1, 2
         sender_queue = GossipQueue()
-        packet = GossipPacket(target_id=3, event_type="TestEvent", value=10.0, timestamp=100.0)
+        packet = GossipPacket(
+            target_id=3, event_type="TestEvent", value=10.0, timestamp=100.0
+        )
         sender_queue.add_packet(packet, max_length=10)
         receiver_queue = GossipQueue()
 
@@ -98,7 +100,9 @@ class TestGossipSystem:
         sector_map = mock_world.services.try_get(SectorMap)
         sector_map.get_entities_in_range.return_value = []
 
-        event = SocialInteractionEvent(initiator_id=sender, target_id=receiver, interaction_type="Talk")
+        event = SocialInteractionEvent(
+            initiator_id=sender, target_id=receiver, interaction_type="Talk"
+        )
         system.on_social_interaction(event)
 
         assert len(receiver_queue.priority_queue) == 1
@@ -135,7 +139,9 @@ class TestGossipSystem:
         system.sector_map = MagicMock()
         system.sector_map.get_entities_in_range.return_value = []
 
-        event = SocialInteractionEvent(initiator_id=sender, target_id=receiver, interaction_type="Chat")
+        event = SocialInteractionEvent(
+            initiator_id=sender, target_id=receiver, interaction_type="Chat"
+        )
         system.on_social_interaction(event)
 
         received = receiver_queue.priority_queue[0]
@@ -178,7 +184,9 @@ class TestGossipSystem:
         physics = mock_world.services.try_get(PhysicsSystem)
         physics.space.segment_query_first.return_value = None
 
-        event = SocialInteractionEvent(initiator_id=actor, target_id=target, interaction_type="Punch")
+        event = SocialInteractionEvent(
+            initiator_id=actor, target_id=target, interaction_type="Punch"
+        )
         system.on_social_interaction(event)
 
         assert len(witness_queue.priority_queue) == 1
@@ -220,7 +228,9 @@ class TestGossipSystem:
         query_res.shape.body.userdata = "Wall"
         physics.space.segment_query_first.return_value = query_res
 
-        event = SocialInteractionEvent(initiator_id=actor, target_id=2, interaction_type="Wave")
+        event = SocialInteractionEvent(
+            initiator_id=actor, target_id=2, interaction_type="Wave"
+        )
         system.on_social_interaction(event)
 
         assert len(witness_queue.priority_queue) == 0
@@ -243,7 +253,10 @@ class TestGossipExchangeIntegrity:
         world.services.register(audio_manager, AudioManager)
 
         trait_service = MagicMock(spec=TraitService)
-        trait_service.get_interaction.return_value = {"type": "SOCIAL", "base_impact": 10.0}
+        trait_service.get_interaction.return_value = {
+            "type": "SOCIAL",
+            "base_impact": 10.0,
+        }
         trait_service.get_trait.return_value = {}
         trait_service.calculate_overrides.return_value = {}
         world.services.register(trait_service, TraitService)
@@ -280,16 +293,24 @@ class TestGossipExchangeIntegrity:
         world.add_component(entity_b, Personality())
 
         # Add packet to A
-        packet = GossipPacket(target_id=999, event_type="Fight", value=10.0, timestamp=0.0)
+        packet = GossipPacket(
+            target_id=999, event_type="Fight", value=10.0, timestamp=0.0
+        )
         queue_a = world.get_component(entity_a, GossipQueue)
         queue_a.add_packet(packet)
 
         # Interact twice
-        world.add_component(entity_a, InteractionRequest(target_id=entity_b, action="Talk"))
+        world.add_component(
+            entity_a, InteractionRequest(target_id=entity_b, action="Talk")
+        )
         interaction_system.update(world, 0.1)
 
-        world.add_component(entity_a, InteractionRequest(target_id=entity_b, action="Talk"))
+        world.add_component(
+            entity_a, InteractionRequest(target_id=entity_b, action="Talk")
+        )
         interaction_system.update(world, 0.1)
 
         queue_b = world.get_component(entity_b, GossipQueue)
-        assert len(queue_b.priority_queue) == 1, "Queue grew unexpectedly (duplicates not handled)"
+        assert len(queue_b.priority_queue) == 1, (
+            "Queue grew unexpectedly (duplicates not handled)"
+        )

@@ -101,7 +101,9 @@ class SystemRegistry:
         world.add_system(ConstructionSystem())
         world.add_system(AnimationSystem())
         world.add_system(VisibilitySystem())
-        world.add_system(PerceptionSystem())  # Proposal 4: Populates Blackboard from visibility
+        world.add_system(
+            PerceptionSystem()
+        )  # Proposal 4: Populates Blackboard from visibility
         world.add_system(PoopSystem())
         world.add_system(FeedbackSystem(world))
 

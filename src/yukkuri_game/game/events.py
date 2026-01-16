@@ -327,4 +327,3 @@ class ChannelInterruptedEvent(Event):
     action_type: str
     progress: float  # 0.0 to 1.0, how far along the action was
     cause: str = "Damage"
-

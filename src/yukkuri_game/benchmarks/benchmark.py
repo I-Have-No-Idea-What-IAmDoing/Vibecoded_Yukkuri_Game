@@ -13,6 +13,15 @@ import csv
 from typing import Any
 import random
 import logging
+import cProfile
+
+from ..testing.driver import GameDriver
+from ..testing.environment import TestEnvironment
+from ..engine.application import Application
+from ..scenes.gameplay import GameplayScene
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Use Any for optional modules to avoid assignment errors with None
 psutil: Any = None
@@ -26,16 +35,6 @@ try:
     import numpy as np
 except ImportError:
     pass
-
-import cProfile
-
-from ..testing.driver import GameDriver
-from ..testing.environment import TestEnvironment
-from ..engine.application import Application
-from ..scenes.gameplay import GameplayScene
-
-# Configure logging
-logger = logging.getLogger(__name__)
 
 
 class BenchmarkRunner:

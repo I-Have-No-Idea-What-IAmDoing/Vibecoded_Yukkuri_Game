@@ -94,9 +94,10 @@ class InteractionSystem(System):
                 "can_eat_yukkuri", False
             ):
                 return True
-        
+
         # Check for Predator component (Implicit permission)
         from ..yukkuri_components import Predator
+
         if world.has_component(entity, Predator):
             return True
 

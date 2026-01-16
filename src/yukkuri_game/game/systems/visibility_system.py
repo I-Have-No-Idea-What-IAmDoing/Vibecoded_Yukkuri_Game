@@ -166,16 +166,11 @@ class VisibilitySystem(System):
         # obs_shape is unused in the loop, logic relies on body
         # obs_shape = phys_comp.shape if phys_comp else None
 
-        # Collect all shapes of the observer (Composite Body Support)
-        obs_shapes = []
-        if phys_comp:
-            obs_shapes = list(phys_comp.body.shapes)
-
         obs_dir = pymunk.Vec2d(1, 0).rotated(obs_angle)
         fov_cos = math.cos(math.radians(vision.fov / 2.0))
 
         # 1. Broadphase
-        query_mask = CollisionCategories.YUKKURI
+        query_mask = CollisionCategories.GROUND_UNIT
         query_filter = pymunk.ShapeFilter(mask=query_mask)
 
         if not self.space:
@@ -195,7 +190,9 @@ class VisibilitySystem(System):
         # point_query in pymunk finds shapes within `max_dist` of point. This is exactly what we need.
         nearby_infos = self.space.point_query(obs_pos, effective_range, query_filter)
 
-        vision_mask = CollisionCategories.WALL | CollisionCategories.YUKKURI
+        vision_mask = (
+            CollisionCategories.HIGH_OBSTACLE | CollisionCategories.GROUND_UNIT
+        )
         vision_ray_filter = pymunk.ShapeFilter(mask=vision_mask)
 
         for info in nearby_infos:

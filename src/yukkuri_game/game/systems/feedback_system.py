@@ -253,16 +253,15 @@ class FeedbackSystem(System):
         """
         audio = self.world.services.try_get(AudioManager)
         if not audio:
-             return
-        
+            return
+
         # event.event_type is the string key from animation frame (e.g. "step", "voice_hunt")
         sound_name = event.event_type
-        
+
         # Simple mapping or direct play
         # We assume sound_name matches audio assets
         if sound_name:
-             try:
-                 audio.play_sound(sound_name)
-             except Exception:
-                 pass # Squelch missing sounds
-
+            try:
+                audio.play_sound(sound_name)
+            except Exception:
+                pass  # Squelch missing sounds

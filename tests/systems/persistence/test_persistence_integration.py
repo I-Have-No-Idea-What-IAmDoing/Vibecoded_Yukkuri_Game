@@ -14,6 +14,7 @@ from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.game.components_persistence import StableIDComponent, Persistable
 
+
 @pytest.fixture
 def setup_persistence_world():
     world = World()
@@ -60,7 +61,9 @@ def setup_persistence_world():
     # Cleanup
     if os.path.exists(save_dir):
         import shutil
+
         shutil.rmtree(save_dir, ignore_errors=True)
+
 
 def test_persistence_ai_state(setup_persistence_world):
     world, persistence = setup_persistence_world
@@ -108,7 +111,7 @@ def test_persistence_ai_state(setup_persistence_world):
 
     # The new target ID should match the new ID of the item
     assert new_ai.current_target_id == new_i_id
-    
+
     # Tuples in JSON become lists
     assert new_ai.path == [[100, 100], [150, 150], [200, 200]]
 
@@ -127,10 +130,11 @@ def test_persistence_round_trip(setup_persistence_world):
     # Set specific stats
     stats = world.get_component(y_id, YukkuriStats)
     stats.name = "TestReimu"
-    
+
     # Check for EmotionalState if it exists and set happiness
     try:
         from yukkuri_game.game.yukkuri_components import EmotionalState
+
         emo = world.get_component(y_id, EmotionalState)
         if emo:
             emo.happiness = 99.0

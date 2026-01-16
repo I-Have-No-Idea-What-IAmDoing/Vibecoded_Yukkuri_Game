@@ -440,7 +440,7 @@ class UtilityAIEngine:
             return {"error": f"Action '{action_name}' not found"}
 
         action = self.actions[action_name]
-        result = {
+        result: dict[str, Any] = {
             "action": action_name,
             "weight": action.weight,
             "considerations": [],

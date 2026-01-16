@@ -347,7 +347,6 @@ class RenderSystem(System):
         # So we MUST draw slightly outside bounds.
 
         # Let's effectively simulate a slightly larger screen for the drawing step.
-        eff_sw, eff_sh = sw + margin * 2, sh + margin * 2
 
         # We need to adjust the camera's "screen center" logic for this larger surface.
         # world_to_screen_fast uses (screen_width // 2, screen_height // 2) internally?
@@ -505,7 +504,7 @@ class RenderSystem(System):
 
             # Flight-aware shadow scaling
             flight = world.try_get_component(ent, Flight)
-            shadow_alpha = 255
+            shadow_alpha = 100
             if flight and flight.max_altitude > 0:
                 height_factor = min(
                     1.0, max(0.0, flight.altitude / flight.max_altitude)
@@ -513,8 +512,8 @@ class RenderSystem(System):
                 # Scale: 100% -> 60% size as altitude increases
                 shadow_radius_x *= 1.0 - 0.4 * height_factor
                 shadow_radius_y *= 1.0 - 0.4 * height_factor
-                # Alpha: 255 -> 150 as altitude increases
-                shadow_alpha = int(255 * (1.0 - 0.4 * height_factor))
+                # Alpha: 100 -> ~60 as altitude increases
+                shadow_alpha = int(100 * (1.0 - 0.4 * height_factor))
 
             if shadow_radius_x > 0 and visual.has_drop_shadow:
                 self.renderer.submit(
@@ -523,6 +522,7 @@ class RenderSystem(System):
                         z_index=iy,  # Shadow sorts with entity
                         position=(shadow_x, shadow_y),
                         radius=(shadow_radius_x, shadow_radius_y),
+                        color=(0, 0, 0, shadow_alpha),
                     )
                 )
 

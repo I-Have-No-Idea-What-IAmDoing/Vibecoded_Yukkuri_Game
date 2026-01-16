@@ -74,9 +74,6 @@ class LightingBenchmarkRunner:
             )
 
             # Keep track for direct caster comparison
-            xs = [v[0] for v in verts]
-            ys = [v[1] for v in verts]
-            aabb = (min(xs), max(xs), min(ys), max(ys))
             occluder_vertices_list.append(verts_float)
 
         # Create Lights
