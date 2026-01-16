@@ -148,8 +148,9 @@ class SteeringSystem(System):
             # and prevent getting stuck orbiting a specific pixel.
             # Final waypoint needs to be stricter to ensure we actually arrive.
 
-            # Default to 30px (900 sq) for intermediate, 10px (100 sq) for final
-            pop_threshold_sq = 900.0
+            # Default to 60px (3600 sq) for intermediate, 10px (100 sq) for final
+            # Increased from 30px to 60px to prevent getting stuck due to separation radius (50px)
+            pop_threshold_sq = 3600.0
             if len(path) == 1:
                 pop_threshold_sq = 100.0
 
@@ -311,13 +312,30 @@ class SteeringSystem(System):
                 movement.target_velocity += jitter
 
             if steering.time_stuck > stuck_threshold_repath:
-                # Stage 2: Force Repath
-                # Clearing path will cause Behavior Tree to request new path
-                logger.warning(
-                    f"Entity {entity_id} stuck for {steering.time_stuck:.1f}s. Forcing repath."
-                )
-                ai_state.path = None
-                steering.time_stuck = 0.0
+                # Stage 2: Smart Resolution
+                # Check if we are relatively close to the waypoint (e.g. within 150px)
+                # If so, just skip it. We are likely blocked by something but "close enough".
+                # Don't do this for the final waypoint (we need to arrive).
+                
+                is_stuck_close = False
+                if len(path) > 1: # Not final
+                     # Recalc dist (without smoothing modification)
+                     raw_dist_sq = (pymunk.Vec2d(*path[0]) - current_pos).length_squared
+                     if raw_dist_sq < 22500.0: # 150px squared
+                         is_stuck_close = True
+                
+                if is_stuck_close:
+                     logger.warning(f"Entity {entity_id} stuck near waypoint. Skipping.")
+                     path.pop(0)
+                     steering.time_stuck = 0.0
+                else:
+                    # Force Repath
+                    # Clearing path will cause Behavior Tree to request new path
+                    logger.warning(
+                        f"Entity {entity_id} stuck for {steering.time_stuck:.1f}s. Forcing repath."
+                    )
+                    ai_state.path = None
+                    steering.time_stuck = 0.0
 
     def _calculate_steering_forces(
         self,

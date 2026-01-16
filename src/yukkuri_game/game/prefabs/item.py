@@ -192,7 +192,8 @@ def create_poop(world: World, x: float, y: float) -> int:
         shape.elasticity = 0.2
         shape.friction = 0.8
         shape.filter = pymunk.ShapeFilter(
-            categories=CollisionCategories.POOP, mask=CollisionCategories.ALL
+            categories=CollisionCategories.POOP,
+            mask=CollisionCategories.ALL & ~CollisionCategories.GROUND_UNIT,
         )
         # EntityFactory did not set userdata, so we don't either.
         physics_system.space.add(body, shape)
