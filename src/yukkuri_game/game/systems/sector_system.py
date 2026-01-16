@@ -253,13 +253,24 @@ class SectorSystem(System):
 
         # Iterate all entities with Transform
         for entity, (transform,) in world.get_components_tuple(Transform):
-            self.sector_map.update_entity(entity, transform.x, transform.y)
+            # Optimization: Only update sector map if entity moved or is not yet tracked
+            if (
+                transform.x != transform.prev_x
+                or transform.y != transform.prev_y
+                or entity not in self.sector_map.entity_sectors
+            ):
+                self.sector_map.update_entity(entity, transform.x, transform.y)
 
         # Update OccluderMap
         for entity, (transform, occluder) in world.get_components_tuple(
             Transform, Occluder
         ):
-            self.occluder_map.update_entity(entity, transform.x, transform.y)
+            if (
+                transform.x != transform.prev_x
+                or transform.y != transform.prev_y
+                or entity not in self.occluder_map.entity_sectors
+            ):
+                self.occluder_map.update_entity(entity, transform.x, transform.y)
 
         # Periodic cleanup of dead entities
         self.cleanup_timer += dt
