@@ -13,32 +13,54 @@ class LazyLoader(MutableMapping):
     """
 
     def __init__(
-        self, load_function: Callable[[str], Any], keys: Iterator[str] | None = None
+        self,
+        load_function: Callable[[str], Any],
+        keys: Iterator[str] | None = None,
+        initializer: Callable[[], None] | None = None,
     ):
         """
         Args:
             load_function: A function that takes a key and returns the value.
             keys: Optional initial set of keys that exist (but aren't loaded).
+            initializer: Optional function to call before iteration or counting (e.g. to load all keys).
         """
         self._load_func = load_function
         self._cache: dict[str, Any] = {}
         # We can maintain a set of 'known' keys if we scan directories,
         # otherwise we just attempt load on miss.
         self._known_keys: set[str] = set(keys) if keys else set()
+        self._initializer = initializer
+        self._initialized = False
+
+    def _ensure_initialized(self) -> None:
+        """Call the initializer if it hasn't been called yet."""
+        if not self._initialized and self._initializer:
+            logger.info("Triggering LazyLoader initialization...")
+            self._initializer()
+            self._initialized = True
 
     def __getitem__(self, key: str) -> Any:
+        # Check cache first
         if key in self._cache:
             return self._cache[key]
 
-        # Attempt load
+        # Prioritize single item load if possible
         try:
             val = self._load_func(key)
             if val is not None:
                 self._cache[key] = val
                 return val
-        except Exception as e:
-            logger.error(f"LazyLoader failed to load '{key}': {e}")
-
+        except Exception:
+            # If load failed, maybe we need to initialize (monolithic file)?
+            # Try initializing then checking cache again
+            self._ensure_initialized()
+            if key in self._cache:
+                return self._cache[key]
+            
+            # Re-raise or log error if still missing? 
+            # Original behavior was just log and raise
+            pass
+            
         raise KeyError(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
@@ -52,12 +74,11 @@ class LazyLoader(MutableMapping):
             self._known_keys.remove(key)
 
     def __iter__(self) -> Iterator[str]:
-        # Iterating only yields what is known/cached?
-        # Ideally it should yield all possible keys, but that requires scanning.
-        # For this implementation, we assume we want to iterate known keys.
+        self._ensure_initialized()
         return iter(self._known_keys.union(self._cache.keys()))
 
     def __len__(self) -> int:
+        self._ensure_initialized()
         return len(self._known_keys.union(self._cache.keys()))
 
     def __repr__(self) -> str:

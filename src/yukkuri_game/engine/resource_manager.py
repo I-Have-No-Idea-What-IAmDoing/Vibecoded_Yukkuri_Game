@@ -252,41 +252,53 @@ class ResourceManager:
         # But since we have big files, we'll just defer the whole file load.
 
         self.yukkuri_types = LazyLoader(
-            lambda k: self._load_monolithic(
+            load_function=lambda k: self._load_monolithic(
                 "yukkuris/types.toml", YukkuriData, "yukkuris", k
             ),
-            keys=None,  # Unknown keys initially
+            initializer=lambda: self._load_monolithic(
+                "yukkuris/types.toml", YukkuriData, "yukkuris"
+            ),
         )
 
         self.item_types = LazyLoader(
-            lambda k: self._load_monolithic("items/items.toml", ItemData, "items", k),
-            keys=None,
+            load_function=lambda k: self._load_monolithic(
+                "items/items.toml", ItemData, "items", k
+            ),
+            initializer=lambda: self._load_monolithic("items/items.toml", ItemData, "items"),
         )
 
         self.ai_actions = LazyLoader(
-            lambda k: self._load_monolithic("ai/actions.toml", AIData, "actions", k),
-            keys=None,
+            load_function=lambda k: self._load_monolithic(
+                "ai/actions.toml", AIData, "actions", k
+            ),
+            initializer=lambda: self._load_monolithic("ai/actions.toml", AIData, "actions"),
         )
 
         self.skills = LazyLoader(
-            lambda k: self._load_monolithic(
+            load_function=lambda k: self._load_monolithic(
                 "skills/skills.toml", SkillData, "skills", k
             ),
-            keys=None,
+            initializer=lambda: self._load_monolithic(
+                "skills/skills.toml", SkillData, "skills"
+            ),
         )
 
         self.traits = LazyLoader(
-            lambda k: self._load_monolithic(
+            load_function=lambda k: self._load_monolithic(
                 "traits/traits.toml", TraitData, "traits", k
             ),
-            keys=None,
+            initializer=lambda: self._load_monolithic(
+                "traits/traits.toml", TraitData, "traits"
+            ),
         )
 
         self.interactions = LazyLoader(
-            lambda k: self._load_monolithic(
+            load_function=lambda k: self._load_monolithic(
                 "ai/interactions.toml", InteractionData, "interaction", k
             ),
-            keys=None,
+            initializer=lambda: self._load_monolithic(
+                "ai/interactions.toml", InteractionData, "interaction"
+            ),
         )
 
         # Tuning is a single object, we can load it immediately as it's small and needed everywhere
@@ -295,16 +307,12 @@ class ResourceManager:
         logger.info("Resources configured for Lazy Loading.")
 
     def _load_monolithic(
-        self, file: str, model: type[T], attr: str, requested_key: str
+        self, file: str, model: type[T], attr: str, requested_key: str | None = None
     ) -> Any:
         """
         Loads a monolithic TOML file and populates the LazyLoader's cache with ALL items found.
-        Returns the specific requested item.
+        If requested_key is provided, returns the specific item.
         """
-        # Find which loader triggered this?
-        # We know which attribute 'attr' corresponds to.
-        # We need to populate the specific LazyLoader instance.
-
         mapping = getattr(
             self,
             "yukkuri_types"
@@ -320,25 +328,29 @@ class ResourceManager:
             else "interactions",
         )
 
-        # Load the file
+        # Skip load if already populated (check if mapping is not empty?)
+        # For LazyLoader logic, forcing a reload is fine here as it's triggered by initializer or miss.
+        
         logger.info(f"Lazy Loading Monolithic File: {file}")
         data = self.load_toml_model(file, model)
         if not data:
-            raise KeyError(f"Could not load data file {file}")
+            if requested_key:
+                 raise KeyError(f"Could not load data file {file}")
+            return None
 
-        # Get the dict from the data object
         real_dict = getattr(data, attr)
 
-        # Populate the LazyLoader's cache with ALL items
         if isinstance(mapping, LazyLoader):
             for k, v in real_dict.items():
                 mapping[k] = v
 
-        # Return the requested item
-        if requested_key in real_dict:
-            return real_dict[requested_key]
-        else:
-            raise KeyError(f"Key {requested_key} not found in {file}")
+        if requested_key:
+            if requested_key in real_dict:
+                return real_dict[requested_key]
+            else:
+                raise KeyError(f"Key {requested_key} not found in {file}")
+        
+        return None
 
     def clear(self) -> None:
         """
