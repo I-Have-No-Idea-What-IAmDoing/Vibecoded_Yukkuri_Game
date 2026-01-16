@@ -84,5 +84,15 @@ class TestSectorSystemOptimization:
         sector_system.update(world, 0.1)
         sector_system.occluder_map.update_entity.assert_called_with(entity, 60, 50)
 
+        # Manually sync prev_x to simulate PhysicsSystem end-of-frame
+        transform.prev_x = transform.x
+        transform.prev_y = transform.y
+
+        sector_system.occluder_map.update_entity.reset_mock()
+
+        # 4. Static again
+        sector_system.update(world, 0.1)
+        sector_system.occluder_map.update_entity.assert_not_called()
+
 if __name__ == "__main__":
     pytest.main([__file__])
