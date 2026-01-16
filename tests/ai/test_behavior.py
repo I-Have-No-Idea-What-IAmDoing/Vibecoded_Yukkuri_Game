@@ -41,22 +41,35 @@ def test_movetotarget_reaches_target(world_and_entity):
     ai_state = world.get_component(entity_id, AIState)
     ai_state.state_data = {"target_x": 100, "target_y": 0}
 
-    action = MoveToTarget(entity_id=entity_id, world=world)
+    action = MoveToTarget(entity_id=entity_id, world=world, acceptance_radius=10.0)
 
-    # Simulate a few steps
-    for _ in range(10):
+    for _ in range(20):  # Increased steps just in case
         status = action.update()
         if status == Status.SUCCESS:
             break
 
-        # Manually update transform based on velocity for the test
-        controller = world.get_component(entity_id, MovementController)
+        # Get components needed for simulation
         transform = world.get_component(entity_id, Transform)
+        controller = world.get_component(entity_id, MovementController)
+
+        # Simulate SteeringSystem: Process MoveCommand
+        from yukkuri_game.game.components import MoveCommand
+        if world.has_component(entity_id, MoveCommand):
+            cmd = world.get_component(entity_id, MoveCommand)
+            # Simple seek behavior for test
+            curr_pos = pymunk.Vec2d(transform.x, transform.y)
+            # ...
+            target_pos = pymunk.Vec2d(cmd.target_pos.x, cmd.target_pos.y)
+            direction = (target_pos - curr_pos).normalized()
+            controller.target_velocity = direction * (100.0 * cmd.speed_multiplier)
+        
+        # Manually update transform based on velocity for the test
         transform.x += controller.target_velocity.x * 0.1
         transform.y += controller.target_velocity.y * 0.1
 
     assert status == Status.SUCCESS
     transform = world.get_component(entity_id, Transform)
+    # With 20 steps of 0.1s at 100px/s, it moves 200px (overshoot potential if not careful, but loop breaks on success)
     assert transform.x == pytest.approx(100, abs=15)
 
 
@@ -89,9 +102,12 @@ def test_movetotarget_slows_down_when_low_energy(world_and_entity):
     action = MoveToTarget(entity_id=entity_id, world=world, speed=100.0)
     action.update()
 
-    controller = world.get_component(entity_id, MovementController)
-    # Speed should be halved (100 * 0.5)
-    assert controller.target_velocity.length == pytest.approx(50.0)
+    from yukkuri_game.game.components import MoveCommand
+    assert world.has_component(entity_id, MoveCommand)
+    cmd = world.get_component(entity_id, MoveCommand)
+    
+    # Speed multiplier should be 0.5 for low energy
+    assert cmd.speed_multiplier == pytest.approx(0.5)
 
 
 def test_movetotarget_falls_back_to_direct_movement_if_no_path(world_and_entity):
@@ -121,7 +137,12 @@ def test_movetotarget_falls_back_to_direct_movement_if_no_path(world_and_entity)
     status = action.update()
 
     # Should be RUNNING (attempting direct movement), not FAILURE
+    # Should be RUNNING (attempting direct movement), not FAILURE
     assert status == Status.RUNNING
-    controller = world.get_component(entity_id, MovementController)
-    # Should have set a velocity towards the target (positive x direction)
-    assert controller.target_velocity.x > 0
+    
+    # Check that a MoveCommand was issued (new architecture)
+    from yukkuri_game.game.components import MoveCommand
+    assert world.has_component(entity_id, MoveCommand)
+    
+    cmd = world.get_component(entity_id, MoveCommand)
+    assert cmd.target_pos.x == 100

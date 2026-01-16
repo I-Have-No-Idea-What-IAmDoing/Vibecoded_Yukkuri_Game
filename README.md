@@ -23,25 +23,21 @@ The **Yukkuri Raising Game** is a simulation game developed in Python using `pyg
 - Python 3.11 or higher.
 
 ### Installation
+### Installation
 1.  **Clone the repository**:
     ```bash
     git clone https://github.com/yourusername/yukkuri-raising-game.git
     cd yukkuri-raising-game
     ```
 
-2.  **Create a virtual environment (optional but recommended)**:
+2.  **Install Dependencies with uv**:
+    This project uses [uv](https://github.com/astral-sh/uv) for fast dependency management.
     ```bash
-    python -m venv venv
-    # On Windows:
-    venv\Scripts\activate
-    # On Unix/MacOS:
-    source venv/bin/activate
-    ```
-
-3.  **Install Dependencies**:
-    Install the package in editable mode with development dependencies:
-    ```bash
-    pip install -e .
+    # Install uv if you haven't already
+    pip install uv
+    
+    # Sync dependencies
+    uv sync
     ```
 
 ## Running the Game
@@ -49,13 +45,15 @@ The **Yukkuri Raising Game** is a simulation game developed in Python using `pyg
 ### Graphical Mode
 To launch the game with the graphical interface:
 ```bash
-python -m src.yukkuri_game.main
+uv run scripts/dev.py
+# Or directly:
+uv run python -m src.yukkuri_game.main
 ```
 
 ### Headless Mode
 To run the simulation without a window (useful for testing or server-side simulation):
 ```bash
-python -m src.yukkuri_game.main --headless
+uv run python -m src.yukkuri_game.main --headless
 ```
 
 ## Controls
@@ -201,6 +199,10 @@ def calculate_quality_score(self, yukkuri_stats: YukkuriStats) -> int:
 Run tests using `pytest`. The tests use a headless driver to simulate game logic without a window.
 ```bash
 pytest
+```bash
+uv run scripts/test.py
+# Or directly:
+uv run pytest
 ```
 
 ## Documentation

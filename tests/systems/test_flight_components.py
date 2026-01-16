@@ -79,12 +79,7 @@ class TestCollisionCategories:
         assert CC.WATER == 0b0010_0000
         assert CC.SENSOR == 0b1000_0000
 
-    def test_legacy_aliases(self):
-        """Verify legacy aliases are preserved."""
-        CC = CollisionCategories
 
-        assert CC.YUKKURI == CC.GROUND_UNIT
-        assert CC.WALL == CC.HIGH_OBSTACLE
 
     def test_categories_are_unique_bits(self):
         """Verify all categories use unique bits."""

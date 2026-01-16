@@ -462,8 +462,8 @@ class PersistenceService:
                     # Recursively handle sets/tuples in the dictionary
                     comp_dict = self._serialize_object(comp_dict)
                     components_data[comp_type_name] = comp_dict
-                except Exception:
-                    # Skip un-serializable
+                except (TypeError, ValueError, AttributeError):
+                    # Skip un-serializable components (e.g. pygame surfaces, pymunk bodies)
                     pass
 
             if components_data:

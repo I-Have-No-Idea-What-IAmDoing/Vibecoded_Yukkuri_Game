@@ -184,7 +184,6 @@ class SocialSystem(System):
             diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
 
             total_diff = diff_kind + diff_ener + diff_brav + diff_gree
-            total_diff = diff_kind + diff_ener + diff_brav + diff_gree
             # Base compatibility starts at 100 and subtracts the average difference on 4 axes.
             # If personalities are identical, compatibility is 100.
             # If completely opposite, it drops significantly.

@@ -61,11 +61,14 @@ class NavigationService:
 
         # Cache: (start_cluster, end_cluster, capabilities) -> Abstract Path
         # We need to invalidate this when grid changes.
-        self._path_cache = {}
+        self._path_cache: dict = {}
 
         # Dirty flag for graph updates
         self._dirty = False
         self._last_rebuild = 0.0
+
+        # Thread safety lock for shared state (_path_cache, _dirty, _last_rebuild)
+        self._state_lock = threading.Lock()
 
         # Multiprocessing Support (Stub)
         self.use_multiprocessing = False
@@ -87,8 +90,9 @@ class NavigationService:
         )
         self.cluster_graph = ClusterGraph(self.grid)
         self.cluster_graph.build_graph()
-        self._path_cache.clear()
-        self._dirty = False
+        with self._state_lock:
+            self._path_cache.clear()
+            self._dirty = False
 
     def _start_multiprocessing_worker(self):
         """
@@ -161,12 +165,15 @@ class NavigationService:
             try:
                 # Check dirty flag and rebuild graph if needed
                 # Throttle rebuilds to avoid spam (e.g. max once per second)
-                if self._dirty and (time.time() - self._last_rebuild > 1.0):
+                with self._state_lock:
+                    should_rebuild = self._dirty and (time.time() - self._last_rebuild > 1.0)
+                if should_rebuild:
                     try:
                         self.cluster_graph.build_graph()
-                        self._dirty = False
-                        self._last_rebuild = time.time()
-                        self._path_cache.clear()  # Invalidate cache
+                        with self._state_lock:
+                            self._dirty = False
+                            self._last_rebuild = time.time()
+                            self._path_cache.clear()  # Invalidate cache
                     except Exception as e:
                         logger.error(f"Graph rebuild failed: {e}")
                         traceback.print_exc()
@@ -198,7 +205,6 @@ class NavigationService:
                 traceback.print_exc()
                 # Don't crash the thread, retry?
                 time.sleep(1.0)
-        logger.info("NavigationService worker loop exited.")
         logger.info("NavigationService worker loop exited.")
 
     def _process_request(self, req: PathRequest) -> PathResult:
@@ -413,7 +419,8 @@ class NavigationService:
 
         self.grid.update_obstacle_rect(x, y, width, height, is_blocking, block_mask)
         # Mark dirty to trigger eventual graph rebuild
-        self._dirty = True
+        with self._state_lock:
+            self._dirty = True
 
     # Legacy Compatibility methods
     def find_path(self, start, end, can_fly=False) -> List[Tuple[float, float]]:

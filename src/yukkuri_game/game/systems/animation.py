@@ -301,7 +301,11 @@ class AnimationSystem(System):
         
         # 1. Try Archetype (Flyweight) - FAST
         if stats.archetype and stats.archetype.type_data:
-            base_image = stats.archetype.type_data.image
+            data = stats.archetype.type_data
+            if isinstance(data, dict):
+                base_image = data.get("image")
+            else:
+                base_image = data.image
             
         # 2. Fallback to ResourceManager - SLOW (Self-healing cache)
         if not base_image:
@@ -311,7 +315,11 @@ class AnimationSystem(System):
             
             # Populate cache so next time it hits the fast path
             register_archetype(stats.type_id, yukkuri_type)
-            base_image = yukkuri_type.image
+            
+            if isinstance(yukkuri_type, dict):
+                base_image = yukkuri_type.get("image")
+            else:
+                base_image = yukkuri_type.image
 
         # Determine target image based on action
         action = ai_state.current_action

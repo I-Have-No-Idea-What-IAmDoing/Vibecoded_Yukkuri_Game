@@ -226,8 +226,8 @@ class WorldSerializer:
                 # Introspect type hints to find fields that hold EntityID
                 try:
                     type_hints = typing.get_type_hints(component)
-                except Exception:
-                    # In some cases (e.g. dynamic types or partial mocks), get_type_hints might fail
+                except (TypeError, NameError):
+                    # Dynamic types, partial mocks, or forward reference issues
                     continue
 
                 for field_name, field_type in type_hints.items():

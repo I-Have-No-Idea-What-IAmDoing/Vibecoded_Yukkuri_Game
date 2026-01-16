@@ -22,6 +22,8 @@ dev = [
     "pytest>=9.0.1",
     "psutil>=7.2.1",
     "mypy>=1.8.0",
+    "ruff>=0.4.0",
+    "ty>=0.0.1a14",
 ]
 
 [build-system]

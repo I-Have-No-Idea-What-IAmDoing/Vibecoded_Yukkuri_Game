@@ -40,7 +40,7 @@ class TestUIEvents(unittest.TestCase):
         self.input_manager.is_action_pressed.return_value = False
 
         # Mock pygame.display for update loop
-        self.patcher = patch("pygame.display.get_surface")
+        self.patcher = patch("yukkuri_game.game.input_system.pygame.display.get_surface")
         self.mock_get_surface = self.patcher.start()
         self.mock_surface = MagicMock()
         self.mock_surface.get_size.return_value = (800, 600)

@@ -351,7 +351,16 @@ class GameDriver:
 
     def cleanup(self) -> None:
         """Cleans up the game instance."""
+        # Remove event bus hook to break circular reference
+        if isinstance(self.game, Application) and hasattr(self.game, "event_manager"):
+             # Restore original publish if we could (optional, but breaking the cycle is key)
+             # The cycle is: self -> game -> event_manager -> bus -> publish -> intercepted -> self
+             # We can just clear the game reference or unpatch
+             pass
+        
         self.game.quit()
+        # Break cycle
+        self.game = None
 
     def wait_until_scene(self, scene_type: type, timeout: float = 10.0) -> None:
         """

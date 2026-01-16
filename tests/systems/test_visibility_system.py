@@ -22,7 +22,7 @@ def test_visibility_occlusion():
     obs_body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     obs_body.position = (0, 0)
     obs_shape = pymunk.Circle(obs_body, 10)
-    obs_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.YUKKURI)
+    obs_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.GROUND_UNIT)
     physics_system.space.add(obs_body, obs_shape)
 
     world.add_component(obs, PhysicsBody(body=obs_body, shape=obs_shape))
@@ -35,7 +35,7 @@ def test_visibility_occlusion():
     t1_body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     t1_body.position = (100, 0)
     t1_shape = pymunk.Circle(t1_body, 10)
-    t1_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.YUKKURI)
+    t1_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.GROUND_UNIT)
     physics_system.space.add(t1_body, t1_shape)
 
     world.add_component(target1, PhysicsBody(body=t1_body, shape=t1_shape))
@@ -46,7 +46,7 @@ def test_visibility_occlusion():
     t2_body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     t2_body.position = (200, 0)
     t2_shape = pymunk.Circle(t2_body, 10)
-    t2_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.YUKKURI)
+    t2_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.GROUND_UNIT)
     physics_system.space.add(t2_body, t2_shape)
 
     world.add_component(target2, PhysicsBody(body=t2_body, shape=t2_shape))
@@ -56,7 +56,7 @@ def test_visibility_occlusion():
     wall_body = pymunk.Body(body_type=pymunk.Body.STATIC)
     wall_body.position = (150, 0)
     wall_shape = pymunk.Segment(wall_body, (0, -50), (0, 50), 5)
-    wall_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.WALL)
+    wall_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.HIGH_OBSTACLE)
     physics_system.space.add(wall_body, wall_shape)
 
     # Update
@@ -82,7 +82,7 @@ def test_visibility_fov():
     obs_body.position = (0, 0)
     obs_body.angle = 0
     obs_shape = pymunk.Circle(obs_body, 10)
-    obs_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.YUKKURI)
+    obs_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.GROUND_UNIT)
     physics_system.space.add(obs_body, obs_shape)
 
     world.add_component(obs, PhysicsBody(body=obs_body, shape=obs_shape))
@@ -95,7 +95,7 @@ def test_visibility_fov():
     t1b = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     t1b.position = (100, 0)
     t1s = pymunk.Circle(t1b, 10)
-    t1s.filter = pymunk.ShapeFilter(categories=CollisionCategories.YUKKURI)
+    t1s.filter = pymunk.ShapeFilter(categories=CollisionCategories.GROUND_UNIT)
     physics_system.space.add(t1b, t1s)
     world.add_component(t1, PhysicsBody(body=t1b, shape=t1s))
     world.add_component(t1, Transform(x=100, y=0))
@@ -105,7 +105,7 @@ def test_visibility_fov():
     t2b = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     t2b.position = (-100, 0)
     t2s = pymunk.Circle(t2b, 10)
-    t2s.filter = pymunk.ShapeFilter(categories=CollisionCategories.YUKKURI)
+    t2s.filter = pymunk.ShapeFilter(categories=CollisionCategories.GROUND_UNIT)
     physics_system.space.add(t2b, t2s)
     world.add_component(t2, PhysicsBody(body=t2b, shape=t2s))
     world.add_component(t2, Transform(x=-100, y=0))

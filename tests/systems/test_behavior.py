@@ -21,6 +21,8 @@ class TestBehaviorSystem(unittest.TestCase):
         ai = AIState()
         mock_world.get_components_tuple.return_value = [(1, (ai,))]
         mock_world.get_entities_with.return_value = [1]  # For cleanup check
+        # Ensure LOD is None or valid
+        mock_world.try_get_component.return_value = None
 
         # Mock Tree
         mock_root = MagicMock(spec=py_trees.behaviour.Behaviour)
@@ -51,6 +53,7 @@ class TestBehaviorSystem(unittest.TestCase):
 
     def test_cleanup_destroyed_entities(self) -> None:
         mock_world = MagicMock()
+        mock_world.try_get_component.return_value = None
 
         # Initial: Entity 1 exists
         mock_world.get_components_tuple.return_value = [(1, (AIState(),))]
@@ -88,6 +91,7 @@ class TestBehaviorSystem(unittest.TestCase):
     def test_blackboard_dt(self) -> None:
         mock_world = MagicMock()
         mock_world.get_components_tuple.return_value = []
+        mock_world.try_get_component.return_value = None
 
         system = BehaviorSystem(100, 100)
 

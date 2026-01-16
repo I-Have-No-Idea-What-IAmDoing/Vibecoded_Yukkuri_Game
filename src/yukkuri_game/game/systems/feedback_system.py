@@ -263,5 +263,5 @@ class FeedbackSystem(System):
         if sound_name:
             try:
                 audio.play_sound(sound_name)
-            except Exception:
-                pass  # Squelch missing sounds
+            except (KeyError, FileNotFoundError):
+                pass  # Expected: animation event references missing sound asset

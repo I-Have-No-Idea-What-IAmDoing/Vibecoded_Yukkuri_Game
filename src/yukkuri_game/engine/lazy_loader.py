@@ -50,17 +50,18 @@ class LazyLoader(MutableMapping):
             if val is not None:
                 self._cache[key] = val
                 return val
-        except Exception:
-            # If load failed, maybe we need to initialize (monolithic file)?
-            # Try initializing then checking cache again
-            self._ensure_initialized()
-            if key in self._cache:
-                return self._cache[key]
-            
-            # Re-raise or log error if still missing? 
-            # Original behavior was just log and raise
+        except (KeyError, FileNotFoundError):
+            # Single-item load not supported for this key, try monolithic initialization
             pass
-            
+        except (ValueError, TypeError) as e:
+            # Data parsing error - log and try fallback
+            logger.debug(f"LazyLoader load failed for '{key}': {e}")
+
+        # Fallback: try initializing monolithic file then checking cache
+        self._ensure_initialized()
+        if key in self._cache:
+            return self._cache[key]
+
         raise KeyError(key)
 
     def __setitem__(self, key: str, value: Any) -> None:

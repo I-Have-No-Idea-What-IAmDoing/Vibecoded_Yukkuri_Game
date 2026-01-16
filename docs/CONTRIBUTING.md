@@ -10,19 +10,10 @@ Thank you for your interest in contributing to the Yukkuri Raising Game! We welc
     git clone https://github.com/yourusername/yukkuri-raising-game.git
     cd yukkuri-raising-game
     ```
-3.  **Set up the environment**:
-    It is recommended to use a virtual environment.
+3.  **Install dependencies**:
+    We use `uv` for dependency management.
     ```bash
-    python -m venv venv
-    # On Windows:
-    venv\Scripts\activate
-    # On Unix/MacOS:
-    source venv/bin/activate
-    ```
-4.  **Install dependencies**:
-    Install the package in editable mode with development dependencies.
-    ```bash
-    pip install -e .
+    uv sync
     ```
 
 ## Development Workflow
@@ -38,12 +29,12 @@ Thank you for your interest in contributing to the Yukkuri Raising Game! We welc
 2.  **Make your changes**: Implement your feature or fix.
 3.  **Run tests**: Ensure that existing tests pass and add new tests for your changes.
     ```bash
-    pytest
+    uv run pytest
     ```
 4.  **Linting and Type Checking**:
     The project uses `mypy` for static type checking. Ensure your code passes type checks.
     ```bash
-    mypy src/
+    uv run mypy src/
     ```
 5.  **Commit your changes**: Write clear and concise commit messages.
     ```bash

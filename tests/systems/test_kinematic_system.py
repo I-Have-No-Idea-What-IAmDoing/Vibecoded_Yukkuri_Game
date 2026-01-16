@@ -22,7 +22,7 @@ def test_kinematic_movement_slide():
     wall_body = pymunk.Body(body_type=pymunk.Body.STATIC)
     wall_body.position = (100, 0)
     wall_shape = pymunk.Segment(wall_body, (0, -100), (0, 100), 5)  # Thickness 5
-    wall_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.WALL)
+    wall_shape.filter = pymunk.ShapeFilter(categories=CollisionCategories.HIGH_OBSTACLE)
     physics_system.space.add(wall_body, wall_shape)
 
     # Create Entity (Kinematic) at x=0
@@ -31,7 +31,7 @@ def test_kinematic_movement_slide():
     body.position = (0, 0)
     shape = pymunk.Circle(body, 10)
     shape.filter = pymunk.ShapeFilter(
-        categories=CollisionCategories.YUKKURI, mask=CollisionCategories.WALL
+        categories=CollisionCategories.GROUND_UNIT, mask=CollisionCategories.HIGH_OBSTACLE
     )
     physics_system.space.add(body, shape)
 
@@ -85,14 +85,14 @@ def test_kinematic_corner():
     w1 = pymunk.Body(body_type=pymunk.Body.STATIC)
     w1.position = (100, 50)
     s1 = pymunk.Segment(w1, (0, -200), (0, 200), 5)
-    s1.filter = pymunk.ShapeFilter(categories=CollisionCategories.WALL)
+    s1.filter = pymunk.ShapeFilter(categories=CollisionCategories.HIGH_OBSTACLE)
     physics_system.space.add(w1, s1)
 
     # Wall 2 (Horizontal)
     w2 = pymunk.Body(body_type=pymunk.Body.STATIC)
     w2.position = (50, 100)
     s2 = pymunk.Segment(w2, (-200, 0), (200, 0), 5)
-    s2.filter = pymunk.ShapeFilter(categories=CollisionCategories.WALL)
+    s2.filter = pymunk.ShapeFilter(categories=CollisionCategories.HIGH_OBSTACLE)
     physics_system.space.add(w2, s2)
 
     # Entity
@@ -101,7 +101,7 @@ def test_kinematic_corner():
     body.position = (50, 50)
     shape = pymunk.Circle(body, 10)
     shape.filter = pymunk.ShapeFilter(
-        categories=CollisionCategories.YUKKURI, mask=CollisionCategories.WALL
+        categories=CollisionCategories.GROUND_UNIT, mask=CollisionCategories.HIGH_OBSTACLE
     )
     physics_system.space.add(body, shape)
 

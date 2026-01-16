@@ -498,10 +498,10 @@ class HudRenderer:
         if not self.layout.debug_window or not self.layout.debug_text_box:
             return
 
-        # Accessing private _entities for debug
+        # Get entity count for debug display (fallback to 0 if world is in inconsistent state)
         try:
             entity_count = len(self.world.get_all_entities())
-        except Exception:
+        except (AttributeError, KeyError):
             entity_count = 0
 
         economy = self.world.services.get(EconomyService)

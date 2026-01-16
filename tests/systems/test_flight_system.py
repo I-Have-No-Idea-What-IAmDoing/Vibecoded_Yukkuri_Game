@@ -79,7 +79,7 @@ class TestFlightSystem:
     def test_hovering_drains_less_stamina(self, system, world):
         """Hovering (not moving) should drain less stamina."""
         entity, flight = self.create_flying_entity(
-            world, FlightState.FLYING, stamina=100.0
+            world, FlightState.HOVERING, stamina=100.0
         )
         flight.fly_cost = 5.0
         flight.hover_cost = 1.0
@@ -153,7 +153,7 @@ class TestFlightSystem:
     def test_exhaustion_causes_fall(self, system, world):
         """Running out of stamina should trigger FALLING state."""
         entity, flight = self.create_flying_entity(
-            world, FlightState.FLYING, stamina=2.0
+            world, FlightState.FLYING, stamina=2.0, altitude=100.0
         )
         flight.fly_cost = 5.0
 

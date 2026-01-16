@@ -54,6 +54,98 @@ The Yukkuri Game uses a **Unified AI Architecture** that decouples decision-maki
         *   **Obstacle Avoidance**: Steering around static geometry.
     *   **Physics Integration**: Applies final velocity to `PhysicsBody`.
 
+
+## Personality System
+
+The personality system determines how Yukkuris behave socially and react to their environment. It is built on three core pillars: **Personality Axes**, **Traits**, and **Social Compatibility**.
+
+### 1. Personality Component
+Every Yukkuri has a `Personality` component that defines its base temperament using a 4-axis system. Each axis ranges from **-100 to +100**:
+
+*   **Kindness**: Selfish (-100) <-> Kind (+100)
+*   **Energy**: Lazy (-100) <-> Energetic (+100)
+*   **Bravery**: Cowardly (-100) <-> Brave (+100)
+*   **Greed**: Generous (-100) <-> Greedy (+100)
+
+### 2. Traits (`TraitDefinition`)
+Traits (loaded from `data/traits/traits.toml`) are named attributes like "SCUM" or "GLUTTON" that modify a Yukkuri's stats and behavior.
+
+*   **Axis Shifts**: Permanent offsets to the personality axes (e.g., `SCUM` adds -50 Kindness, +50 Greed).
+*   **Stat Modifiers**: Multipliers for stat decay/regeneration (e.g., `happiness_decay = 1.2`).
+*   **AI Modifiers**: Overrides for Utility AI scoring curves (e.g., making "Eat" more urgent).
+*   **Social Modifiers**: Bonuses or penalties to compatibility with other traits.
+
+### 3. Social Compatibility
+The `SocialSystem` calculates an **Action/Opinion Score** (`affinity`) to determine if two Yukkuris are friends or enemies.
+
+**Compatibility Formula**:
+1.  **Base Score**: Starts at 100.
+2.  **Axis Difference**: Subtracts the average difference between their personality axes (similar personalities get along better).
+3.  **Trait Modifiers**: Applies specific bonuses/penalties defined in TOML (e.g., `compatibility = { NICE = -50.0 }`).
+
+### 4. Emotional State
+The `EmotionalState` component tracks dynamic feelings, which combine with Bravery to produce complex moods:
+*   **Happiness** (-100 to 100) & **Stress** (0 to 100).
+*   **Derived Emotions**:
+    *   **Rage**: High Stress + High Bravery.
+    *   **Terror**: High Stress + Low Bravery.
+    *   **Excited**: High Happiness + High Stress.
+
+---
+
+
+
+## Gossip System
+
+The **Gossip System** allows AI agents to learn about events they did not personally witness, creating a dynamic reputation network.
+
+### 1. Witnessing
+When a significant event (Social Interaction, Fight, etc.) occurs, the `GossipSystem` identifies nearby entities using the **SectorMap**.
+*   **Visual Witness**: Must have Line of Sight to the event.
+*   **Auditory Witness**: Range based on sound magnitude (e.g. `Scream` > `Talk`).
+
+### 2. Propagation
+Witnessed events are stored in a `GossipQueue` (Priority Queue). When two entities interact socially (`Talk`, `Greet`):
+*   They exchange **Gossip Packets**.
+*   **Decay**: Information value decays with each transmission (hearsay is less reliable).
+*   **Hearing Bonus**: Entities prioritize information from their own "Interest Group" (Family/Pack).
+
+---
+
+## Family System
+
+The **Family System** simulates bonding and cooperative survival mechanics ("Take it easy together").
+
+### 1. Formation
+Families form dynamically when two un-affiliated entities achieve high social standing:
+*   **Affinity** > 80.
+*   **Trust** > 80.
+*   Triggers family creation with a shared `family_group_id`.
+
+### 2. Benefits
+Family members within close proximity (visual range) receive passive buffs:
+*   **Happiness/Stress**: Constant low-level regeneration.
+*   **Resource Sharing**:
+    *   **Food**: If one eats, nearby hungry family members receive satisfaction (simulated sharing).
+    *   **Sleep**: Shared sleeping spots provide bonus energy recovery.
+
+---
+
+## Skill System
+
+The **Skill System** manages long-term progression and specialization.
+
+### 1. Mechanics
+*   **XP Gain**: `Base * Passion * Intelligence * SoftCapMod`.
+*   **Soft Caps**: Leveling slows down drastically after reaching a cap determined by Passion.
+*   **Decay**: Skills lose XP over time if not used ("rusting").
+
+### 2. Passion
+Passion acts as a multiplier affecting both learning speed and interest cap:
+*   **Apathetic (0.5x)**: Low cap, slow learning.
+*   **Normal (1.0x)**: Standard progression.
+*   **Burning (2.5x)**: Removes soft caps, rapid learning, grants Happiness when practicing.
+
 ---
 
 ## Performance & Scalability

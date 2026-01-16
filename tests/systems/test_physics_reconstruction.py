@@ -35,7 +35,7 @@ def test_reconstruct_physics_yukkuri(mock_physics_system):
     assert world.has_component(entity, PhysicsBody)
     body_comp = world.get_component(entity, PhysicsBody)
     assert body_comp.body.position == (100, 100)
-    assert body_comp.shape.filter.categories == CollisionCategories.YUKKURI
+    assert body_comp.shape.filter.categories == CollisionCategories.GROUND_UNIT
 
     # Run again, should not double add (implicit check, pymunk might error or we just check count if we could)
     # But since PhysicsBody is unique component per entity in ECS usually, checking existence is enough.

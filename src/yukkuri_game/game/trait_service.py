@@ -99,7 +99,7 @@ class TraitService:
             Dict[str, Any]: A dictionary of AI consideration overrides.
         """
         overrides = {}
-        for trait_id in traits:
+        for trait_id in sorted(traits):
             trait_data = self.get_trait(trait_id)
             if trait_data:
                 # Use attribute access for msgspec Struct
