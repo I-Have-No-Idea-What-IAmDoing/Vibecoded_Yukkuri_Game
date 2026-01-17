@@ -302,10 +302,10 @@ class AnimationSystem(System):
         # 1. Try Archetype (Flyweight) - FAST
         if stats.archetype and stats.archetype.type_data:
             data = stats.archetype.type_data
-            if isinstance(data, dict):
-                base_image = data.get("image")
-            else:
+            if hasattr(data, "image"):
                 base_image = data.image
+            elif hasattr(data, "get"):
+                base_image = data.get("image")
 
         # 2. Fallback to ResourceManager (self-healing cache).
         if not base_image:

@@ -94,7 +94,9 @@ class BenchmarkRunner:
             info["cpu_count_physical"] = str(psutil.cpu_count(logical=False))
             info["cpu_count_logical"] = str(psutil.cpu_count(logical=True))
             try:
-                info["cpu_freq_max"] = str(psutil.cpu_freq().max)
+                freq = psutil.cpu_freq() if hasattr(psutil, "cpu_freq") else None
+                if freq:
+                    info["cpu_freq_max"] = str(freq.max)
             except (AttributeError, FileNotFoundError):
                 pass  # cpu_freq might not be available
         return info

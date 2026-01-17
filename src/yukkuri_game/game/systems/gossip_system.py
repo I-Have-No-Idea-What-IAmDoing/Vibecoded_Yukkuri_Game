@@ -27,7 +27,6 @@ from ..yukkuri_components import (
 from ..components import Transform
 from ..events import SocialInteractionEvent
 from ...engine.event_bus import EventBus
-from ..services import TimeService
 from .physics import PhysicsSystem
 from .sector_system import SectorMap
 from ..trait_service import TraitService
@@ -101,7 +100,6 @@ class GossipSystem(System):
         if not actor_trans:
             return
 
-        time_service = world.services.try_get(TimeService)
         now = world.time
 
         # Handle Gossip Exchange (Talking)
@@ -306,7 +304,7 @@ class GossipSystem(System):
         """
         Adds a gossip packet to a witness's queue.
         """
-        if value < witness_threshold:
+        if value < self.WITNESS_THRESHOLD:
             return
 
         gossip = world.get_component(witness_id, GossipQueue)

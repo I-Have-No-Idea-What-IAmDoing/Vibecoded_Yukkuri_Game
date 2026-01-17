@@ -223,6 +223,7 @@ class SceneManager:
             None
         """
         try:
+            serialized_data = {}
             for k, v in self.persistent_data.items():
                 if hasattr(v, "__dataclass_fields__") or isinstance(v, msgspec.Struct):
                     encoded = msgspec.to_builtins(v)

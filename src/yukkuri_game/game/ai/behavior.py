@@ -5,8 +5,13 @@ This module now re-exports from the modular `yukkuri_game.game.ai.behaviors` pac
 
 from .behaviors import (
     Interact,
+    BehaviorRegistry,
+    create_yukkuri_behavior_tree,
 )
 
-# Legacy alias if needed (though not found in search, adding just in case logic expects it)
-Eat = Interact
-# Add other re-exports as needed by legacy code/tests
+__all__ = [
+    "Interact",
+    "Eat",
+    "BehaviorRegistry",
+    "create_yukkuri_behavior_tree",
+]

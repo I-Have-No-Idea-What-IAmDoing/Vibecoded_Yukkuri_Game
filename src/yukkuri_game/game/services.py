@@ -381,6 +381,8 @@ class GameService:
             if item in exclude_ids:
                 continue
 
+            istats = self.world.get_component(item, ItemStats)
+            itrans = self.world.get_component(item, Transform)
             if istats and itrans and getattr(istats, stat_criteria, 0.0) > 0:
                 d = math.hypot(itrans.x - position[0], itrans.y - position[1])
 

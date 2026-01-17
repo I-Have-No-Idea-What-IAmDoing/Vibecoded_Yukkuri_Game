@@ -41,7 +41,6 @@ from ..yukkuri_components import (
 )
 from ..trait_service import TraitService
 from ..skill_service import SkillService
-from ..services import TimeService
 from ..events import SocialInteractionEvent
 from ..prefabs.effects import create_floating_text
 
@@ -60,16 +59,7 @@ class SocialSystem(System):
         headline_counter (int): Counter for unique memory IDs.
     """
 
-    def __init__(self, event_bus: EventBus):
-        """
-        Initializes the SocialSystem.
 
-        Args:
-            event_bus (EventBus): The event bus instance.
-        """
-        super().__init__()
-        self.trait_service: TraitService | None = None
-        self.skill_service: SkillService | None = None
 
     # Batch processing size for relationship cleanup (prevents frame rate drops)
     CLEANUP_BATCH_SIZE = 10
@@ -128,7 +118,7 @@ class SocialSystem(System):
         if not self.audio:
             self.audio = world.services.try_get(AudioManager)
 
-        time_service = world.services.try_get(TimeService)
+
         now = world.time
 
         self._process_relationships(world, now)
@@ -330,7 +320,7 @@ class SocialSystem(System):
                 if not self._check_condition(world, actor_id, cond):
                     return
 
-        time_service = world.services.try_get(TimeService)
+
         now = world.time
 
         self._apply_impact(

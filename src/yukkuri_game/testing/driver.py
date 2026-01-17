@@ -358,7 +358,7 @@ class GameDriver:
             # We can just clear the game reference or unpatch
             pass
 
-        self.game.quit()
+        self.game.quit()  # type: ignore[union-attr]
         # Break cycle
         self.game = None
 
@@ -604,7 +604,7 @@ class GameDriver:
         if hasattr(self.game, "render"):
             self.game.render()
 
-        if self.game.screen:
+        if self.game and hasattr(self.game, "screen") and self.game.screen:
             pygame.image.save(self.game.screen, filename)
 
     def compare_screenshot(

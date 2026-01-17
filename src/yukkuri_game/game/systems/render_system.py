@@ -448,6 +448,8 @@ class RenderSystem(System):
             raw_scale = transform.scale * self.camera.zoom
             scale = round(raw_scale * 20.0) / 20.0
 
+            # Vertical offset for shadow position (feet are at bottom of sprite)
+            feet_offset_y = sprite.height * scale * 0.5
             shadow_x, shadow_y = self.camera.world_to_screen_fast(
                 ix + visual.shadow_position.x,
                 iy + visual.shadow_position.y + feet_offset_y,

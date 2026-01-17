@@ -141,11 +141,12 @@ class HierarchySystem(System):
 
                 # Create a proxy shape for this child on the Root Body
                 c_phys = world.get_component(child_id, PhysicsBody)
-                child_radius = _DEFAULT_ENTITY_RADIUS
+                proxy_radius = _DEFAULT_ENTITY_RADIUS
                 if c_phys and hasattr(c_phys.shape, "radius"):
-                    child_radius = c_phys.shape.radius
+                    proxy_radius = c_phys.shape.radius
 
                 # Create Circle at offset
+                new_shape = pymunk.Circle(body, proxy_radius, child_total_offset)
                 new_shape.friction = 0.0  # Root movement logic handles friction.
                 new_shape.elasticity = 0.0
                 new_shape.is_hierarchy_proxy = True
@@ -329,6 +330,7 @@ class HierarchySystem(System):
             None
         """
         # Fallback to origin. If no free spot, depenetration will handle it.
+        fallback_pos = pymunk.Vec2d(0, 0)
         final_pos = self.find_free_spot(space, fallback_pos, phys.shape) or fallback_pos
 
         phys.body.position = final_pos
