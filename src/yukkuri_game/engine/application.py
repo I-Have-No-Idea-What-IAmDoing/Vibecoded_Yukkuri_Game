@@ -17,7 +17,7 @@ import gc
 
 class Application:
     """
-    Main Application class responsible for the main loop, window management, and scene management.
+    Main Application class responsible for the game loop, window, and scene management.
     """
 
     def __init__(
@@ -27,28 +27,34 @@ class Application:
         title: str = "Yukkuri Raising Game",
         headless: bool = False,
         render_scale: float = 1.0,
+        deterministic: bool = False,
     ):
-        """
-        Initializes the Application.
 
+        """
         Args:
-            width (int): The width of the application window in pixels. Defaults to 1280.
-            height (int): The height of the application window in pixels. Defaults to 720.
-            title (str): The title of the application window. Defaults to "Yukkuri Raising Game".
-            headless (bool): Whether to run in headless mode (no graphics). Defaults to False.
-            render_scale (float): Scale factor for rendering resolution relative to screen resolution. Defaults to 1.0.
+            width (int): Window width in pixels.
+            height (int): Window height in pixels.
+            title (str): Application window title.
+            headless (bool): If True, runs without graphics (for tests/server).
+            render_scale (float): Rendering resolution scale relative to window size.
+            deterministic (bool): If True, enforcing deterministic behavior (e.g., synchronous NavService, seeded RNG).
         """
         self.width = width
         self.height = height
         self.title = title
         self.headless = headless
         self.render_scale = render_scale
+        self.deterministic = deterministic
+
+        if self.deterministic:
+            from .rng import seed
+            seed(42)
+            logger.info("Deterministic mode enabled. RNG seeded with 42.")
 
         self.lights_engine: Any = None
         self.screen: pygame.Surface | None = None
 
         if self.headless:
-            # Set dummy driver for headless mode
             os.environ["SDL_VIDEODRIVER"] = "dummy"
 
         pygame.init()
@@ -80,56 +86,23 @@ class Application:
     def _initialize_display(
         self, width: int, height: int, fullscreen: bool = False
     ) -> None:
+
         """
         Initializes the display and lighting engine.
-
-        Args:
-            width (int): Window width.
-            height (int): Window height.
-            fullscreen (bool): Whether to use fullscreen mode.
         """
-        if self.headless:
-            # Initialize the dummy surface first
             self.screen = pygame.display.set_mode((width, height))
-
-            # In headless mode, we force software rendering to avoid EGL/OpenGL dependency issues in sandboxes/CI.
-            # We explicitly set lights_engine to None so that RenderSystem falls back to PygameBackend (software).
-            self.lights_engine = None
+            self.lights_engine = None  # Force software rendering in headless.
             logger.info("Headless mode: forced software rendering (PygameBackend).")
 
         else:
             try:
-                # Calculate native resolution based on render scale
-
-                # Initialize LightingEngine instead of standard display
-                # We match native_res to screen_res for now to keep pixel density same as before
-                # unless we want pixel art style (which yukkuri usually is).
-                # If we want scaling, we can adjust native_res.
-
-                # CRITICAL FIX: Force Disable OpenGL/LightingEngine to use Software Renderer (PygameBackend)
-                # The OpenGL backend is broken and overwrites the screen with black.
-                # self.lights_engine = LightingEngine(
-                #     screen_res=(width, height),
-                #     native_res=(native_w, native_h),
-                #     lightmap_res=(lightmap_w, lightmap_h),
-                #     fullscreen=fullscreen,
-                # )
+                # OpenGL backend disabled - using PygameBackend (software renderer).
                 self.lights_engine = None
 
-                # Initialize standard display for Software Renderer
                 flags = pygame.FULLSCREEN if fullscreen else 0
                 self.screen = pygame.display.set_mode((width, height), flags)
                 pygame.display.set_caption(self.title)
 
-                # Store native resolution for aspect correction in NewRenderSystem
-                # self.lights_engine._native_res = (native_w, native_h)
-                # LightingEngine creates the window, so we can get the surface if needed,
-                # but usually we render via engine.
-                # Some parts of code expect self.screen to be the display surface.
-                # LightingEngine manages display, but we can access it via pygame.display.get_surface()
-                # self.screen = pygame.display.get_surface()
-                # pygame.display.set_caption(self.title)
-                # self.lights_engine.set_ambient(128, 128, 128, 255)
             except Exception as e:
                 logger.error(
                     f"Failed to initialize LightingEngine: {e}. Falling back to standard Pygame display."
@@ -146,14 +119,9 @@ class Application:
         fullscreen: bool,
         render_scale: float | None = None,
     ) -> None:
+
         """
         Changes the resolution and fullscreen state.
-
-        Args:
-            width (int): New width.
-            height (int): New height.
-            fullscreen (bool): Fullscreen flag.
-            render_scale (float | None): New render scale. If None, keeps current scale.
         """
         if render_scale is not None:
             self.render_scale = render_scale
@@ -173,13 +141,7 @@ class Application:
 
     def run(self) -> None:
         """
-        Starts the main application loop.
-
-        This method enters an infinite loop until the application is signaled to quit.
-        It handles timing, event processing, updates, and rendering.
-
-        Returns:
-            None
+        Starts the main game loop.
         """
         logger.info("Application Started")
         current_time = pygame.time.get_ticks() / 1000.0
@@ -211,11 +173,7 @@ class Application:
     def process_events(self) -> None:
         """
         Process input events from the system queue.
-
-        Delegates events to InputManager, UIManager, and SceneManager.
-
-        Returns:
-            None
+        Delegates to InputManager, UIManager, and SceneManager.
         """
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -227,13 +185,7 @@ class Application:
 
     def update(self, dt: float) -> None:
         """
-        Update application logic.
-
-        Args:
-            dt (float): Delta time in seconds.
-
-        Returns:
-            None
+        Update application logic and systems.
         """
         # 1. Pre-Update Phase (Prepare systems)
         self.event_manager.process_phase(GamePhase.PRE_UPDATE)
@@ -253,12 +205,7 @@ class Application:
 
     def render(self) -> None:
         """
-        Render the application to the screen.
-
-        Clears the screen, renders the current scene, draws the UI, and flips the display buffer.
-
-        Returns:
-            None
+        Render the application frame.
         """
         # Ensure screen is available (mypy check)
         if self.screen is None:
@@ -277,27 +224,18 @@ class Application:
         if self.scene_manager.current_scene and hasattr(
             self.scene_manager.current_scene, "init_render_system_headless"
         ):
-            # Dynamic dispatch requires Any or explicit cast
-            from typing import Any
-            from typing import cast
+            from typing import Any, cast
 
             scene = cast(Any, self.scene_manager.current_scene)
             scene.init_render_system_headless()
 
     def quit(self) -> None:
         """
-        Stops the application.
-
-        Sets the running flag to False and quits pygame.
-
-        Returns:
-            None
+        Stops the application and cleans up resources.
         """
         logger.info("Application Ended")
-        # Explicit cleanup order
         if self.scene_manager:
-            # Pop all scenes to trigger their on_exit and cleanup
-            while self.scene_manager.current_scene:
+            while self.scene_manager.current_scene:  # Pop all scenes for cleanup.
                 self.scene_manager.pop()
 
         if hasattr(self, "audio") and isinstance(self.audio, AudioManager):

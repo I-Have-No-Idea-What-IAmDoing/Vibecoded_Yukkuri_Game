@@ -154,9 +154,9 @@ class TestPerceptionSystem:
         assert blackboard.short_term_memory[target_id].position == (10, 0)
 
         # 3. Third update: Memory expires
-        system.memory_duration = 5.0
+        # MEMORY_DURATION is 10.0, so we need > 10s elapsed
         system._update_blackboard(
-            world, entity_id, ai_state, blackboard, trans, current_time=110.0
+            world, entity_id, ai_state, blackboard, trans, current_time=120.0
         )
 
         assert target_id not in blackboard.short_term_memory

@@ -1,7 +1,20 @@
 """
-Perception System.
-Populates Blackboard components with perception data and social context.
-Part of Proposal 4: Unified AI Architecture.
+Perception System - AI Awareness and Social Context.
+
+Populates Blackboard components with perception data from the visibility system.
+This is a core component of Proposal 4: Unified AI Architecture.
+
+Responsibilities:
+- Translates visible_entities from AIState into rich TargetInfo entries
+- Resolves social relationships (Friend, Enemy, Prey, Threat, Family, Neutral)
+- Manages short-term memory for entities that leave visibility range
+- Tracks nearby friend/enemy counts for utility AI considerations
+
+Relationship Resolution Priority (highest to lowest):
+1. Predator/Prey dynamics - Type-based hunting relationships
+2. Family bonds - Parents, children, mates, family group members
+3. Affinity score - Historical relationship data
+4. Default - Neutral if no relationship found
 """
 
 import time
@@ -31,9 +44,17 @@ class PerceptionSystem(System):
     Also manages short-term memory for entities that leave visibility.
     """
 
+    # How long entities remain in short-term memory after leaving visibility (seconds)
+    MEMORY_DURATION = 10.0
+
+    # Affinity thresholds for friend/enemy classification
+    FRIEND_AFFINITY_THRESHOLD = 50.0   # Above this = Friend
+    ENEMY_AFFINITY_THRESHOLD = -10.0   # Below this = Enemy
+
     def __init__(self) -> None:
         """Initializes the PerceptionSystem."""
-        self.memory_duration = 10.0  # Seconds to remember entities after losing sight
+        # Configurable via __init__ if needed, but defaults are now constants
+        pass
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -43,7 +64,9 @@ class PerceptionSystem(System):
             world (World): The ECS World.
             dt (float): Delta time.
         """
-        current_time = time.time()
+        # Perceptions decay over time.
+        # We need to know the current simulation time.
+        current_time = world.time
 
         entities = world.get_components_tuple(AIState, Blackboard, Transform)
 
@@ -148,7 +171,7 @@ class PerceptionSystem(System):
         expired_memories = [
             mem_id
             for mem_id, mem in blackboard.short_term_memory.items()
-            if current_time - mem.timestamp > self.memory_duration
+            if current_time - mem.timestamp > self.MEMORY_DURATION
         ]
         for mem_id in expired_memories:
             del blackboard.short_term_memory[mem_id]
@@ -210,9 +233,9 @@ class PerceptionSystem(System):
             # 3. Affinity Check
             if cast(EntityID, target_id) in my_relations.relationships:
                 rel_data = my_relations.relationships[cast(EntityID, target_id)]
-                if rel_data.affinity > 50:
+                if rel_data.affinity > self.FRIEND_AFFINITY_THRESHOLD:
                     return "Friend"
-                elif rel_data.affinity < -10:
+                elif rel_data.affinity < self.ENEMY_AFFINITY_THRESHOLD:
                     return "Enemy"
 
         # 4. Default

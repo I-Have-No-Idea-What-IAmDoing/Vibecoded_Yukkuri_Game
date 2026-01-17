@@ -6,7 +6,7 @@ import time
 import argparse
 import json
 import statistics
-import random
+from ..engine import rng
 import pygame
 import csv
 from typing import Any
@@ -53,17 +53,17 @@ class LightingBenchmarkRunner:
         screen = pygame.Surface((1920, 1080))
         backend = PygameBackend(screen)
 
-        random.seed(self.seed)
+        rng.seed(self.seed)
 
         # Create Occluders
         occluder_vertices_list: list[list[tuple[float, float]]] = []
         backend.begin_frame()
 
         for i in range(self.num_occluders):
-            x = random.randint(0, 1900)
-            y = random.randint(0, 1060)
-            w = random.randint(20, 50)
-            h = random.randint(20, 50)
+            x = rng.randint(0, 1900)
+            y = rng.randint(0, 1060)
+            w = rng.randint(20, 50)
+            h = rng.randint(20, 50)
             verts = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
 
             verts_float = [(float(v[0]), float(v[1])) for v in verts]
@@ -83,7 +83,7 @@ class LightingBenchmarkRunner:
                 layer=1,
                 z_index=0,
                 entity_id=i + 1000,
-                position=(random.randint(0, 1920), random.randint(0, 1080)),
+                position=(rng.randint(0, 1920), rng.randint(0, 1080)),
                 radius=300,
                 color=(255, 200, 150, 255),
                 intensity=1.0,

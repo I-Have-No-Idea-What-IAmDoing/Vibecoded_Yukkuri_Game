@@ -116,9 +116,15 @@ class GameLoader:
                 world_width=world_width,
                 world_height=world_height,
                 grid_step_size=grid_step_size,
+                deterministic_mode=self.application.deterministic,
             ),
             NavigationService,
         )
+
+        from ..game.systems.navigation_system import NavigationSystem
+
+        nav_system = NavigationSystem()
+        self.world.add_system(nav_system)
 
     def _init_sector_system(self) -> None:
         """Initializes and registers the Sector System and Map."""

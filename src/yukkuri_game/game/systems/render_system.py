@@ -1,5 +1,30 @@
 """
-Render System Module.
+Render System - Command-Based Rendering Pipeline.
+
+Converts ECS state into render commands for the backend to execute.
+Supports multiple backends (Pygame software, OpenGL hardware).
+
+Pipeline Stages:
+1. Camera update (interpolation, aspect correction)
+2. Background grid (cached for performance)
+3. Visible entity query (via SectorMap spatial partitioning)
+4. Entity processing (sprites, shadows, lights, occluders)
+5. Floating text overlay
+6. Placement preview ghost sprite
+7. Backend render execution
+
+Layer System (z-ordering):
+- LAYER_BACKGROUND (0): Grid, cached background
+- LAYER_SHADOWS (1): Drop shadows under entities
+- LAYER_ENTITIES (2): Sprites, sorted by Y position
+- LAYER_EFFECTS (3): Lights, particles
+- LAYER_UI (10): Floating text, selection UI
+
+Optimizations:
+- Background caching (invalidated on camera move)
+- Scale quantization to reduce cache key permutations
+- SectorMap culling for off-screen entities
+- Surface caching for transformed sprites
 """
 
 import pygame
@@ -38,17 +63,21 @@ from ..renderer.commands import (
 )
 from ..renderer.constants import RenderConstants
 
-# Layers
-LAYER_BACKGROUND = 0
-LAYER_SHADOWS = 1
-LAYER_ENTITIES = 2
-LAYER_EFFECTS = 3
-LAYER_UI = 10
+# ==================== LAYER CONSTANTS ====================
+# Higher layers render on top. Entities sorted by Y within layer.
+LAYER_BACKGROUND = 0   # Grid, terrain
+LAYER_SHADOWS = 1      # Drop shadows (render before sprites)
+LAYER_ENTITIES = 2     # Sprites, characters, items
+LAYER_EFFECTS = 3      # Lights, particles, FX
+LAYER_UI = 10          # Floating text, selection highlights
 
 
 class RenderSystem(System):
     """
-    System responsible for rendering using the new architecture.
+    Converts ECS world state into render commands.
+
+    Uses a command pattern: entity state is converted to SpriteCommand,
+    LightCommand, etc., then batch-processed by the backend for efficiency.
     """
 
     def __init__(
@@ -89,31 +118,24 @@ class RenderSystem(System):
         """
         Main render loop.
         """
-        # Rename dt to alpha for clarity in this context (it is interpolation alpha)
+        # Rename dt to alpha for clarity (it is interpolation alpha).
         alpha = dt
         sw, sh = self.screen.get_size()
         correction_x = 1.0
         correction_y = 1.0
 
-        # If using lighting engine with scaling, use native resolution for camera calculations
         if self.lights_enabled:
-            # Try to get native resolution from engine (internal attribute)
-            # Safe check if engine attribute exists
             if hasattr(self.renderer.backend, "engine"):
-                # Use getattr/Any to avoid mypy errors with private attributes on unknown types
                 engine = getattr(self.renderer.backend, "engine", None)
                 if engine and hasattr(engine, "_native_res"):
                     native_res: tuple[int, int] = getattr(engine, "_native_res")
                     nw, nh = native_res
                     current_w, current_h = self.screen.get_size()
 
-                    # Calculate stretch factors to fix aspect ratio distortion
                     if nw > 0 and nh > 0 and current_w > 0 and current_h > 0:
                         stretch_x = current_w / nw
                         stretch_y = current_h / nh
-
-                        # Pre-squash X to compensate for excessive horizontal stretching (widescreen)
-                        correction_x = stretch_y / stretch_x
+                        correction_x = stretch_y / stretch_x  # Pre-squash X for widescreen.
 
                     sw, sh = nw, nh
 
@@ -142,20 +164,12 @@ class RenderSystem(System):
                 self._rebuild_background_cache(sw, sh)
 
             if self._background_cache and self._last_camera_state is not None:
-                # Calculate sub-pixel offset
-                # The cache is built based on _last_camera_state (integer coordinates)
-                # The current camera position might be fractional.
-                # We need to shift the sprite to account for the difference.
-                # Delta in world units = cached_int_pos - current_float_pos
-                # Delta in screen pixels = Delta_world * zoom
-
+                # Calculate sub-pixel offset for smooth scrolling.
                 cached_cam_x, cached_cam_y, _, _, _ = self._last_camera_state
 
                 diff_x = (cached_cam_x - self.camera.camera_x) * self.camera.zoom
                 diff_y = (cached_cam_y - self.camera.camera_y) * self.camera.zoom
 
-                # Base position is center of screen (sw // 2, sh // 2)
-                # Add the offset
                 final_x = (sw // 2) + diff_x
                 final_y = (sh // 2) + diff_y
 
@@ -236,8 +250,7 @@ class RenderSystem(System):
                     sprite_width = int(sprite_width * initial_scale)
                     sprite_height = int(sprite_height * initial_scale)
 
-                # Apply camera zoom scaling to sprite dimensions
-                # Quantize scale to prevent cache thrashing
+                # Quantize scale to prevent cache thrashing.
                 raw_scale = self.camera.zoom
                 scale = round(raw_scale * 20.0) / 20.0
 
@@ -248,53 +261,36 @@ class RenderSystem(System):
                     # Scale the entire loaded image to target size
                     img = pygame.transform.scale(raw_surf, (final_w, final_h))
 
-        # Fallback if image load failed or no name provided
         if not img:
-            # Create a generic colored rect (e.g. green box)
             size = int(32 * self.camera.zoom)
             img = pygame.Surface((size, size), pygame.SRCALPHA)
-            img.fill((0, 255, 0, 128))  # Semi-transparent green
+            img.fill((0, 255, 0, 128))  # Fallback: semi-transparent green.
 
-        # Render the ghost
         if img:
-            # We need to render this immediately to the screen or submit a command
-            # Since render() was called, we might need to blit directly or submit to a layer that is processed.
-            # The renderer.render() clears commands after drawing?
-            # Wait, self.renderer.render() executes and clears the queue.
-            # So if we submit now, it won't be drawn until NEXT frame's render() call?
-            # Or we can draw directly to screen since we are "Last to be on top".
-
-            # Better architecture: Submit it before renderer.render()
-
-            # Apply Transparency to the cached surface if possible, or use alpha in SpriteCommand if supported.
-            # SpriteCommand has alpha=255.
-            # If we used a fallback rect with alpha, it works.
-            # For the real sprite, we might need to set alpha.
-
-            # For now, let's assume SpriteCommand alpha works (it's in the args).
-
             self.renderer.submit(
                 SpriteCommand(
-                    layer=LAYER_UI,  # UI Layer is usually top
+                    layer=LAYER_UI,
                     z_index=99999,
                     image=img,
-                    position=(sx, sy),  # Center/TopLeft? usually center in this engine?
-                    # RenderSystem usually centers sprites if they are entities.
-                    # InputSystem gives us 'wx, wy' which is the center of selection/click.
-                    # So center is correct.
+                    position=(sx, sy),
                     selected=False,
-                    alpha=128,  # Half Transparent
+                    alpha=128,  # Half transparent.
                     cache_key=None,
                 )
             )
 
     def _get_visible_entities(self, world: World, sw: int, sh: int) -> list[int]:
+        """Returns entities visible on screen using spatial partitioning."""
         sector_map = world.services.try_get(SectorMap)
         if sector_map:
+            # Add buffer to catch entities at screen edges (large sprites may extend)
             buffer = 500.0
+            
+            # Convert screen corners to world coordinates
             start_x, start_y = self.camera.screen_to_world(0, 0, sw, sh)
             end_x, end_y = self.camera.screen_to_world(sw, sh, sw, sh)
 
+            # Build query rectangle with buffer
             min_x = min(start_x, end_x) - buffer
             min_y = min(start_y, end_y) - buffer
             width = abs(end_x - start_x) + 2 * buffer
@@ -302,17 +298,13 @@ class RenderSystem(System):
 
             return sector_map.get_entities_in_rect(min_x, min_y, width, height)
         else:
-            # Fallback
-            return [e for e, _ in world.get_components_tuple(Transform)]
+            return [e for e, _ in world.get_components_tuple(Transform)]  # Fallback: all entities.
 
     def _rebuild_background_cache(self, sw: int, sh: int) -> None:
         """
         Rebuilds the cached background surface (grid).
         """
-        # Ensure cache surface is large enough to handle sub-pixel shifts without gaps
-        # Adding a margin of 2 pixels (safe for 1.0 unit shift at modest zoom, needs more if high zoom?)
-        # Actually, if zoom is 5.0, shift is 5 pixels.
-        # Let's add a safe margin. 32 pixels is safe.
+        # Add margin for sub-pixel shift tolerance.
         margin = 32
         req_w, req_h = sw + margin * 2, sh + margin * 2
 
@@ -322,44 +314,12 @@ class RenderSystem(System):
         ):
             self._background_cache = pygame.Surface((req_w, req_h), pygame.SRCALPHA)
 
-        self._background_cache.fill((0, 0, 0, 0))  # Clear with transparent
+        self._background_cache.fill((0, 0, 0, 0))
 
-        # We need to draw the grid AS IF the camera is at the integer position stored in _last_camera_state
+        # Draw grid at integer camera position for cache stability.
         cached_cam_x, cached_cam_y, cached_zoom, _, _ = self._last_camera_state  # type: ignore[misc]
 
-        # Override camera pos temporarily (safer to pass as args, but _draw_grid is complex)
-        # We'll use a modified _draw_grid signature
-
-        # Note: We are drawing to a larger surface, so 'sw' and 'sh' passed to _draw_grid
-        # should probably be the surface size, BUT the camera calculation assumes screen center.
-        # If we change screen size, the center shifts.
-
-        # To simplify: We draw to a surface of size (sw, sh) but we need to cover the margin?
-        # If we just cache (sw, sh) and accept that shifting > 0 reveals the edge...
-        # Let's stick to (sw, sh) for now to minimize complexity, but handle the drawing correctly.
-        # If we want a margin, we need to adjust the center offset.
-
-        # Let's revert to exact screen size caching but drawn at integer coordinates.
-        # Gaps at edges will be handled by the fact that the grid extends beyond screen usually?
-        # No, _calculate_grid_bounds clamps to screen bounds.
-
-        # If we draw exactly to screen bounds, shifting reveals empty space.
-        # So we MUST draw slightly outside bounds.
-
-        # Let's effectively simulate a slightly larger screen for the drawing step.
-
-        # We need to adjust the camera's "screen center" logic for this larger surface.
-        # world_to_screen_fast uses (screen_width // 2, screen_height // 2) internally?
-        # Let's check Camera class.
-        pass  # Checked: Camera.world_to_screen_fast uses self.half_width, self.half_height
-
-        # So we need to temporarily update Camera's half_width/height OR just use the original
-        # and blit with an offset?
-
-        # Simpler approach:
-        # Just use current screen size. Accept slight edge artifacts during movement.
-        # It's a grid on a background color.
-
+        # Draw grid to cache surface.
         self._draw_grid(
             sw,
             sh,
@@ -375,9 +335,6 @@ class RenderSystem(System):
         target_surface: pygame.Surface | None = None,
         override_cam_pos: tuple[float, float] | None = None,
     ) -> None:
-        # Generate grid lines commands? Or just draw immediate if backend supports it.
-        # Let's verify backend has draw_line
-
         grid_size = RenderConstants.GRID_SIZE
         color = RenderConstants.GRID_COLOR
 
@@ -464,11 +421,12 @@ class RenderSystem(System):
     def _process_entity(
         self, world: World, ent: int, alpha: float, sw: int, sh: int
     ) -> None:
+        """Processes a single entity's visual components into render commands."""
         transform = world.try_get_component(ent, Transform)
         if not transform:
             return
 
-        # Interpolation
+        # Interpolate position for smooth rendering.
         ix = transform.x
         iy = transform.y
         if transform.prev_x is not None and transform.prev_y is not None:
@@ -482,17 +440,9 @@ class RenderSystem(System):
         visual = world.try_get_component(ent, VisualTransform)
 
         if sprite and visual:
-            # Quantize scale to 0.05 steps to prevent cache thrashing
-            # round(scale * 20) / 20 gives 0.05 increments
-            # e.g. 1.001 -> 20.02 -> 20 -> 1.0
-            # e.g. 1.026 -> 20.52 -> 21 -> 1.05
+            # Quantize scale (0.05 increments) to prevent cache thrashing.
             raw_scale = transform.scale * self.camera.zoom
             scale = round(raw_scale * 20.0) / 20.0
-
-            # Shadow
-            # Calculate shadow position
-            # Calculate feet offset (half height) to place shadow at the base
-            feet_offset_y = sprite.height * transform.scale * 0.5
 
             shadow_x, shadow_y = self.camera.world_to_screen_fast(
                 ix + visual.shadow_position.x,
@@ -552,16 +502,14 @@ class RenderSystem(System):
                     (visual.vertical_offset + flight_offset) * self.camera.zoom
                 )
 
-                # Construct cache key for texture cache in OpenGLBackend
-                # Must match what uniquely identifies the visual appearance
                 cache_key = (
                     sprite.image_name,
                     sprite.current_frame,
-                    round(scale, 3),  # Round to reduce cache thrashing
+                    round(scale, 3),
                     round(transform.rotation, 1),
                     sprite.flip_x,
                     sprite.flip_y,
-                )
+                )  # Texture cache key for backend.
 
                 self.renderer.submit(
                     SpriteCommand(
@@ -570,7 +518,7 @@ class RenderSystem(System):
                         image=img,
                         position=(screen_pos[0], sprite_sy),
                         selected=is_selected,
-                        alpha=255,  # TODO: Support transparency in component
+                        alpha=sprite.alpha,
                         cache_key=cache_key,
                     )
                 )
@@ -621,8 +569,7 @@ class RenderSystem(System):
 
             occluder = world.try_get_component(ent, Occluder)
             if occluder:
-                # If the entity has an active light source, we shouldn't render its occluder
-                # to prevent self-shadowing artifacts (where the light is trapped inside the occluder).
+                # Skip self-shadowing: don't render occluder if entity has active light.
                 if light and light.intensity > 0:
                     pass
                 else:
@@ -675,15 +622,12 @@ class RenderSystem(System):
     def _process_floating_text(
         self, world: World, sw: int, sh: int, alpha: float
     ) -> None:
-        # Iterate all FloatingText
-        # Optimize: visible only?
         for ent, (transform, text) in world.get_components_tuple(
             Transform, FloatingText
         ):
             sx, sy = self.camera.world_to_screen_fast(transform.x, transform.y)
 
-            # Cull if offscreen?
-            if 0 <= sx <= sw and 0 <= sy <= sh:
+            if 0 <= sx <= sw and 0 <= sy <= sh:  # Cull offscreen.
                 alpha_val = 255
                 if text.max_lifetime > 0:
                     alpha_val = int(255 * (text.lifetime / text.max_lifetime))

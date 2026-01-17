@@ -59,10 +59,9 @@ class GameplayScene(Scene):
         _theme_path = (
             Path(__file__).parent.parent.parent.parent / "data" / "ui_theme.json"
         )
-        print(f"DEBUG: Calculated theme path: {_theme_path}")
-        print(f"DEBUG: Theme path exists: {_theme_path.exists()}")
+        logger.debug(f"Gameplay theme path: {_theme_path}, exists: {_theme_path.exists()}")
         if not _theme_path.exists():
-            print(f"DEBUG: CWD is {os.getcwd()}")
+            logger.warning(f"Gameplay theme not found. CWD: {os.getcwd()}")
 
         self.ui_manager = pygame_gui.UIManager(
             (self.application.width, self.application.height),
@@ -150,14 +149,7 @@ class GameplayScene(Scene):
         self.is_setup = True
         self._setup_event_handlers()
 
-        # Day/Night System (Registered here because it needs Renderer reference which is created in _setup_event_handlers for non-headless)
-        # However, _setup_event_handlers is called AFTER this.
-        # But we need renderer which is created in _setup_event_handlers.
-        # Let's move _setup_event_handlers call up?
-        # No, _setup_event_handlers uses things set up here.
-        # Let's manually add DayNightSystem in _setup_event_handlers.
-
-        # Initial Population if empty
+        # Initial population if empty.
         if not self.application.headless and len(self.world.get_all_entities()) == 0:
             start_x = float(self.camera.width) / 2.0
             start_y = float(self.camera.height) / 2.0
@@ -165,8 +157,7 @@ class GameplayScene(Scene):
             self.camera.camera_x = float(start_x)
             self.camera.camera_y = float(start_y)
 
-        # Note: Headless mode intentionally does not auto-populate entities,
-        # allowing tests to configure the initial state explicitly.
+        # Headless mode intentionally skips auto-population for test control.
 
     def _apply_initial_settings(self) -> None:
         audio_settings = self.settings_service.settings.audio

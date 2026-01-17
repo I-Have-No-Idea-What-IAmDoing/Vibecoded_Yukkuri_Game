@@ -1,8 +1,26 @@
 """
-Module defining the FamilySystem logic.
+Family System - "Take It Easy Together" Mechanics.
+
+Manages family group formation, maintenance, and cooperative benefits.
+Implements the core social bonding mechanic where Yukkuris form lasting
+family units and share resources.
+
+Family Formation:
+- High affinity + trust pairs automatically form new families
+- Existing families can absorb new members meeting thresholds
+- Family bonds persist until manually dissolved or death
+
+Family Benefits (when family members are nearby):
+- Passive happiness/stress bonuses
+- Food sharing: Eating members share nutrition with hungry family
+- Nest sharing: Sleeping members provide rest bonuses to family
+
+Performance:
+- Uses SectorMap spatial partitioning when available
+- Falls back to O(N²) comparison without spatial indexing
 """
 
-import random
+from ...engine import rng
 from loguru import logger
 
 from ...engine.ecs import System, World
@@ -30,6 +48,30 @@ class FamilySystem(System):
         check_interval (float): Time interval between family logic checks.
         last_check (float): Time since last check.
     """
+
+    # ==================== FORMATION THRESHOLDS ====================
+    # Both affinity AND trust must exceed these to form/join a family
+    MIN_AFFINITY_FOR_FAMILY = 80.0  # Minimum liking required
+    MIN_TRUST_FOR_FAMILY = 80.0    # Minimum trust required
+
+    # ==================== PROXIMITY SETTINGS ====================
+    BENEFIT_RANGE = 150.0  # Maximum distance for benefits (pixels)
+    BENEFIT_RANGE_SQ = BENEFIT_RANGE * BENEFIT_RANGE  # Pre-computed for efficiency
+
+    # ==================== TOGETHERNESS BONUSES ====================
+    # Applied per update tick while family members are near each other
+    BASE_HAPPINESS_GAIN = 0.5
+    BASE_STRESS_REDUCTION = 0.5
+
+    # ==================== FOOD SHARING ====================
+    # When one member eats, hungry family nearby gets partial benefit
+    FOOD_SHARING_HUNGER_THRESHOLD = 50.0  # Other must be this hungry to receive
+    FOOD_SHARING_AMOUNT = 1.0  # Hunger points reduced for recipient
+
+    # ==================== NEST SHARING ====================
+    # When one member sleeps, nearby family gets rest bonus
+    SLEEP_ENERGY_GAIN = 0.5
+    SLEEP_STRESS_REDUCTION = 1.0
 
     def __init__(self) -> None:
         """Initializes the FamilySystem."""
@@ -75,19 +117,20 @@ class FamilySystem(System):
 
             # Look for high affinity/trust partners
             for other_id, rel in registry.relationships.items():
-                if rel.affinity > 80.0 and rel.trust > 80.0:
+                if (
+                    rel.affinity > self.MIN_AFFINITY_FOR_FAMILY
+                    and rel.trust > self.MIN_TRUST_FOR_FAMILY
+                ):
                     # Potential mate or family member
                     other_registry = world.get_component(other_id, RelationshipRegistry)
                     if not other_registry:
                         continue
 
-                    # If neither has a family, create one
                     if (
                         registry.family_group_id is None
                         and other_registry.family_group_id is None
                     ):
-                        # Use deterministic random bits
-                        new_family_id_int = random.getrandbits(32)
+                        new_family_id_int = rng.getrandbits(32)  # Deterministic ID.
                         new_family_id = cast(EntityID, new_family_id_int)
                         registry.family_group_id = new_family_id
                         other_registry.family_group_id = new_family_id
@@ -125,11 +168,9 @@ class FamilySystem(System):
         sector_map = world.services.try_get(SectorMap)
 
         if sector_map:
-            # Optimization: Use SectorMap if available
             self._process_benefits_with_sectors(world, sector_map)
         else:
-            # Fallback to O(N^2) checks if SectorMap isn't available.
-            # This compares every entity against every other entity, which is slow for large populations.
+            # O(N²) fallback - slow for large populations.
             self._process_benefits_fallback(world)
 
     def _process_benefits_with_sectors(
@@ -168,17 +209,13 @@ class FamilySystem(System):
             if stats is None or needs is None or trans is None or ai is None:
                 continue
 
-            # Get neighbors (Visual range includes adjacent sectors which is usually enough for 150px)
-            # Sector size is 500, so "Same + Adjacent" covers 1500x1500 area centered on sector.
-            # This drastically reduces the number of checks compared to O(N^2).
+            # Sector queries cover ~1500x1500 area, reducing checks vs O(N²).
             neighbors = sector_map.get_entities_in_range(trans.x, trans.y, "visual")
 
             for other_eid in neighbors:
-                if other_eid <= eid:  # Ensure unique pair (A, B) and avoid (A, A)
+                if other_eid <= eid:  # Avoid duplicate pairs and self.
                     continue
 
-                # Check components existence for neighbor
-                # Optimization: We could use `world.has_components` but retrieving them checks anyway.
                 other_reg = world.get_component(other_eid, RelationshipRegistry)
                 if (
                     other_reg is None
@@ -322,46 +359,65 @@ class FamilySystem(System):
         """
 
         dist_sq = (trans.x - other_trans.x) ** 2 + (trans.y - other_trans.y) ** 2
-        if dist_sq < 150 * 150:  # Range for family benefits
+        if dist_sq < self.BENEFIT_RANGE_SQ:
             # 1. Base "Together" Happiness
             if emotional:
-                emotional.happiness = min(100.0, emotional.happiness + 0.5)
-                emotional.stress = max(0.0, emotional.stress - 0.5)
+                emotional.happiness = min(
+                    100.0, emotional.happiness + self.BASE_HAPPINESS_GAIN
+                )
+                emotional.stress = max(
+                    0.0, emotional.stress - self.BASE_STRESS_REDUCTION
+                )
             if other_emotional:
-                other_emotional.happiness = min(100.0, other_emotional.happiness + 0.5)
-                other_emotional.stress = max(0.0, other_emotional.stress - 0.5)
+                other_emotional.happiness = min(
+                    100.0, other_emotional.happiness + self.BASE_HAPPINESS_GAIN
+                )
+                other_emotional.stress = max(
+                    0.0, other_emotional.stress - self.BASE_STRESS_REDUCTION
+                )
 
-            # 2. Resource Sharing: Food
-            # If one is eating, share nutrition/happiness with hungry partner
-            # (Simulates "Here, have some" or calling to food)
-            if ai.current_action == "Eat" and other_needs.hunger > 50.0:
+            # 2. Food sharing: one eating shares with hungry partner.
+            if (
+                ai.current_action == "Eat"
+                and other_needs.hunger > self.FOOD_SHARING_HUNGER_THRESHOLD
+            ):
                 other_needs.hunger = max(
-                    0.0, other_needs.hunger - 1.0
-                )  # Share small benefit
+                    0.0, other_needs.hunger - self.FOOD_SHARING_AMOUNT
+                )
                 if other_emotional:
                     other_emotional.happiness = min(
-                        100.0, other_emotional.happiness + 0.5
+                        100.0, other_emotional.happiness + self.BASE_HAPPINESS_GAIN
                     )
                 logger.debug(
                     f"Family Share: {stats.name} sharing food with {other_stats.name}"
                 )
 
-            elif other_ai.current_action == "Eat" and needs.hunger > 50.0:
-                needs.hunger = max(0.0, needs.hunger - 1.0)
+            elif (
+                other_ai.current_action == "Eat"
+                and needs.hunger > self.FOOD_SHARING_HUNGER_THRESHOLD
+            ):
+                needs.hunger = max(0.0, needs.hunger - self.FOOD_SHARING_AMOUNT)
                 if emotional:
-                    emotional.happiness = min(100.0, emotional.happiness + 0.5)
+                    emotional.happiness = min(
+                        100.0, emotional.happiness + self.BASE_HAPPINESS_GAIN
+                    )
                 logger.debug(
                     f"Family Share: {other_stats.name} sharing food with {stats.name}"
                 )
 
-            # 3. Resource Sharing: Nest/Sleep
-            # If one is sleeping, boost comfort/recovery for nearby partner (simulating shared nest)
+            # 3. Nest sharing: sleeping member boosts nearby partner's recovery.
             if ai.current_action == "Sleep":
-                other_needs.energy = min(100.0, other_needs.energy + 0.5)
+                other_needs.energy = min(
+                    100.0, other_needs.energy + self.SLEEP_ENERGY_GAIN
+                )
                 if other_emotional:
-                    other_emotional.stress = max(0.0, other_emotional.stress - 1.0)
+                    other_emotional.stress = max(
+                        0.0, other_emotional.stress - self.SLEEP_STRESS_REDUCTION
+                    )
 
             if other_ai.current_action == "Sleep":
-                needs.energy = min(100.0, needs.energy + 0.5)
+                needs.energy = min(100.0, needs.energy + self.SLEEP_ENERGY_GAIN)
                 if emotional:
-                    emotional.stress = max(0.0, emotional.stress - 1.0)
+                    emotional.stress = max(
+                        0.0, emotional.stress - self.SLEEP_STRESS_REDUCTION
+                    )

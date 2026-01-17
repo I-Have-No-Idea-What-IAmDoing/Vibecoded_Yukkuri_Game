@@ -1,5 +1,27 @@
 """
-Module defining the PhysicsSystem logic.
+Physics System - Pymunk Integration and Fixed Timestep Simulation.
+
+Wraps Pymunk physics engine for deterministic collision and movement.
+Uses a fixed timestep accumulator pattern for frame-rate independent physics.
+
+Fixed Timestep Pattern:
+1. Accumulate render delta time into an accumulator
+2. While accumulator >= timestep: step physics, broadcast event, decrement
+3. Remaining accumulator < timestep becomes interpolation alpha for rendering
+
+Spatial Hash Optimization:
+- Pre-configured for ~50px entity diameter (typical Yukkuri size)
+- 2000 bucket count for good distribution with many entities
+
+Coordinate System:
+- Pymunk uses radians (CCW positive) for rotation
+- Pygame uses degrees (CCW positive)
+- Y-down screen means CCW world = CW visual, so we negate angle
+
+Event Integration:
+- Broadcasts PhysicsFixedUpdateEvent each physics step
+- Subscribes to EntityDestroyedEvent for cleanup
+- Subscribes to WorldClearedEvent for full reset
 """
 
 import pymunk
@@ -16,34 +38,36 @@ from ..components import Transform, PhysicsBody
 
 class PhysicsSystem(System):
     """
-    System responsible for stepping the physics simulation and syncing with Transform components.
+    Steps Pymunk simulation and syncs bodies to Transform components.
 
-    Attributes:
-        space (pymunk.Space): The pymunk physics space.
-        accumulator (float): Time accumulator for fixed time step.
-        time_step (float): The fixed time step for physics (default 1/60).
-        max_frame_time (float): Maximum time to simulate per frame to avoid spiral of death.
-        event_bus (Optional[EventBus]): The event bus for physics events.
+    Pymunk is source of truth for entity positions. After each step,
+    body positions are copied to Transform for rendering and game logic.
     """
+
+    # Default physics timestep (60 FPS equivalent)
+    DEFAULT_TIMESTEP = 1.0 / 60.0
+
+    # Maximum frame time to prevent spiral of death during lag spikes
+    MAX_FRAME_TIME = 0.25
 
     def __init__(self, gravity: tuple[float, float] = (0, 0)):
         """
         Initializes the PhysicsSystem.
 
         Args:
-            gravity (tuple[float, float]): The gravity vector (x, y). Defaults to (0, 0) for top-down.
+            gravity: Gravity vector (x, y). Default (0, 0) for top-down games.
         """
         self.space = pymunk.Space()
         self.space.gravity = gravity
-        self.space.damping = 0.9  # Add damping to simulate friction/air resistance
+        self.space.damping = 0.9  # Friction/air resistance simulation
 
-        # Use Spatial Hash for faster collision detection with uniform entities.
-        # dim: Average entity diameter (~50 pixels for Yukkuris).
-        # count: Expected number of entities (use 4x for good bucket distribution).
+        # Spatial hash for O(1) collision broadphase
+        # dim=50: Average Yukkuri diameter, count=2000: Expected entity count * 4
         self.space.use_spatial_hash(dim=50.0, count=2000)
+        
         self.accumulator = 0.0
-        self.time_step = 1.0 / 60.0
-        self.max_frame_time = 0.25
+        self.time_step = self.DEFAULT_TIMESTEP
+        self.max_frame_time = self.MAX_FRAME_TIME
         self.event_bus: EventBus | None = None
 
     def on_entity_destroyed(self, event: Event) -> None:

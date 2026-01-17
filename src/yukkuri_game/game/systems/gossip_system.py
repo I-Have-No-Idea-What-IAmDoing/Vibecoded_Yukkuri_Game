@@ -1,5 +1,17 @@
 """
-Module defining the GossipSystem.
+Gossip System - Social Information Propagation.
+
+Manages the witnessing and exchange of social information between entities.
+Gossip enables emergent social dynamics where Yukkuris can:
+- Witness interactions between others and form opinions
+- Share information through verbal exchanges (Talk, Greet, Chat)
+- Prioritize gossip by interest group membership (family, pack)
+
+Propagation Mechanics:
+- Witnesses within range (visual or auditory) receive gossip packets
+- Gossip value decays with each retransmission (GOSSIP_DECAY)
+- Family/pack members receive boosted value (HEARING_BONUS_MULTIPLIER)
+- Low-value gossip is filtered by WITNESS_THRESHOLD
 """
 
 import pymunk
@@ -35,6 +47,24 @@ class GossipSystem(System):
         trait_service (Optional[TraitService]): The trait service instance.
     """
 
+    # Minimum gossip value required to be recorded as a witness
+    WITNESS_THRESHOLD = 5.0
+
+    # Gossip value multiplier when retransmitting (simulates information decay)
+    GOSSIP_DECAY = 0.9
+
+    # Value boost for family/pack members (prioritizes group-relevant info)
+    HEARING_BONUS_MULTIPLIER = 1.2
+
+    # Fixed bonus added when witnessing group member interactions
+    INTEREST_GROUP_BONUS_VALUE = 5.0
+
+    # Base value assigned to witnessed events
+    BASE_WITNESS_VALUE = 10.0
+
+    # Default maximum gossip packets per entity queue
+    DEFAULT_MAX_GOSSIP_LENGTH = 10
+
     def __init__(self, event_bus: EventBus):
         """
         Initializes the GossipSystem.
@@ -51,12 +81,7 @@ class GossipSystem(System):
 
     def update(self, world: World, dt: float) -> None:
         """
-        Updates the system.
-        Lazily fetches dependencies.
-
-        Args:
-            world (World): The ECS World.
-            dt (float): Delta time.
+        Updates the system and lazily fetches dependencies.
         """
         if not self.physics_system:
             self.physics_system = world.services.try_get(PhysicsSystem)
@@ -68,9 +93,6 @@ class GossipSystem(System):
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         """
         Handles SocialInteractionEvent to trigger gossip and witnessing.
-
-        Args:
-            event (SocialInteractionEvent): The interaction event.
         """
         if not hasattr(self, "ecs_world"):
             return
@@ -81,7 +103,7 @@ class GossipSystem(System):
             return
 
         time_service = world.services.try_get(TimeService)
-        now = time_service.time_elapsed if time_service else time.time()
+        now = world.time
 
         # Handle Gossip Exchange (Talking)
         if event.interaction_type in ["Talk", "Greet", "Chat"]:
@@ -127,7 +149,6 @@ class GossipSystem(System):
             if interaction_data:
                 range_type = interaction_data.range_type
             elif event.interaction_type in ["Scream", "Shout"]:
-                # Fallback if not defined in TOML yet (though we updated it)
                 range_type = (
                     "auditory_loud"
                     if event.interaction_type == "Scream"
@@ -158,9 +179,9 @@ class GossipSystem(System):
                     continue
 
             # Interest Group Bonus
-            value = 10.0
+            value = self.BASE_WITNESS_VALUE
             if self._is_in_same_interest_group(world, witness_id, event.initiator_id):
-                value += 5.0  # Boost value (Hearing Bonus)
+                value += self.INTEREST_GROUP_BONUS_VALUE  # Boost value (Hearing Bonus)
 
             # Add Witness Gossip
             self._add_witness_gossip(world, witness_id, event, now, value=value)
@@ -194,10 +215,9 @@ class GossipSystem(System):
         )
 
         if query:
-            # Check what we hit
             hit_body = query.shape.body
             if hit_body and hit_body.userdata:
-                # Optimization: checking if hit point is close to end_pos
+                # Check if hit point is closer than target (obstacle blocking view).
                 hit_dist = math.hypot(
                     query.point.x - start_pos[0], query.point.y - start_pos[1]
                 )
@@ -205,7 +225,7 @@ class GossipSystem(System):
                     end_pos[0] - start_pos[0], end_pos[1] - start_pos[1]
                 )
 
-                if hit_dist < total_dist - 5.0:  # Hit something else
+                if hit_dist < total_dist - 5.0:
                     return False
 
         return True
@@ -242,11 +262,6 @@ class GossipSystem(System):
     def _exchange_gossip(self, world: World, sender_id: int, receiver_id: int) -> None:
         """
         Exchanges gossip from sender to receiver.
-
-        Args:
-            world (World): The ECS World.
-            sender_id (int): Sender entity ID.
-            receiver_id (int): Receiver entity ID.
         """
         sender_queue = world.get_component(sender_id, GossipQueue)
         receiver_queue = world.get_component(receiver_id, GossipQueue)
@@ -258,25 +273,20 @@ class GossipSystem(System):
         from ...config import GameConfig
 
         config = world.services.try_get(GameConfig)
-        max_length = 10
+        max_length = self.DEFAULT_MAX_GOSSIP_LENGTH
         if config and hasattr(config.rules, "social"):
             max_length = config.rules.social.max_gossip_length
 
         is_group_member = self._is_in_same_interest_group(world, sender_id, receiver_id)
 
-        # Share ALL packets (respecting max_length on receiver side implicitly)
-        # Iterate over a copy since we are not modifying sender_queue here, but good practice
         for packet in sender_queue.priority_queue:
-            # Don't share gossip about the receiver to the receiver
-            if packet.target_id == receiver_id:
+            if packet.target_id == receiver_id:  # Don't tell receiver about themselves.
                 continue
 
-            # Apply decay
-            new_value = packet.value * 0.9
+            new_value = packet.value * self.GOSSIP_DECAY
 
-            # Apply Hearing Bonus if in same group (prioritize group member's info)
-            if is_group_member:
-                new_value *= 1.2
+            if is_group_member:  # Prioritize group member's info.
+                new_value *= self.HEARING_BONUS_MULTIPLIER
 
             new_packet = GossipPacket(
                 target_id=packet.target_id,
@@ -296,22 +306,7 @@ class GossipSystem(System):
     ) -> None:
         """
         Adds a gossip packet to a witness's queue.
-
-        Args:
-            world (World): The ECS World.
-            witness_id (int): Witness entity ID.
-            event (SocialInteractionEvent): The event witnessed.
-            now (float): Current timestamp.
-            value (float): Importance value of the gossip.
         """
-        # Threshold Check
-        from ...config import GameConfig
-
-        config = world.services.try_get(GameConfig)
-        witness_threshold = 5.0
-        if config and hasattr(config.rules, "social"):
-            witness_threshold = config.rules.social.witness_threshold
-
         if value < witness_threshold:
             return
 
@@ -319,11 +314,10 @@ class GossipSystem(System):
         if not gossip:
             return
 
-        # Get Max Gossip Length from Config
         from ...config import GameConfig
 
         config = world.services.try_get(GameConfig)
-        max_length = 10
+        max_length = self.DEFAULT_MAX_GOSSIP_LENGTH
         if config and hasattr(config.rules, "social"):
             max_length = config.rules.social.max_gossip_length
 

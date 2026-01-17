@@ -47,8 +47,7 @@ class InputManager:
         self._mouse_pos: tuple[int, int] = (0, 0)
         self._mouse_wheel: float = 0.0
 
-        # Mappings: Context -> Action -> List of Keys
-        # Using lists allows multiple keys to trigger the same action.
+        # Mappings: Context -> Action -> List of Keys.
         self._key_mappings: dict[InputContext, dict[str, list[int]]] = {
             InputContext.GAMEPLAY: {
                 "up": [pygame.K_UP, pygame.K_w],
@@ -74,8 +73,7 @@ class InputManager:
             },
         }
 
-        # Mappings: Context -> Action -> Mouse Button ID
-        # 1=Left, 2=Middle, 3=Right
+        # Mappings: Context -> Action -> Mouse Button ID (1=Left, 2=Middle, 3=Right).
         self._mouse_mappings: dict[InputContext, dict[str, int]] = {
             InputContext.GAMEPLAY: {
                 "select": 1,
@@ -134,7 +132,7 @@ class InputManager:
         elif event.type == pygame.MOUSEBUTTONDOWN:
             self._mouse_buttons.add(event.button)
             self._mouse_buttons_down.add(event.button)
-            # Handle wheel buttons if they come as buttons
+            # Handle wheel buttons if they come as buttons.
             if event.button == 4:
                 self._mouse_wheel = 1.0
             elif event.button == 5:
@@ -188,7 +186,6 @@ class InputManager:
                     ):
                         return True
                 else:
-                    # Key mappings now use lists; check if the key is in any action's list.
                     if context in self._key_mappings:
                         for keys_list in self._key_mappings[context].values():
                             if key_or_btn in keys_list:
@@ -209,9 +206,7 @@ class InputManager:
         Returns:
             bool: True if the action is triggered, False otherwise.
         """
-        # Sort contexts high to low (Priority descending).
-        # We iterate from highest priority to lowest.
-        # If a higher context consumes the input, lower contexts are blocked.
+        # Iterate from highest priority to lowest; higher contexts consume input.
         sorted_contexts = sorted(
             self._active_contexts, key=lambda c: c.value, reverse=True
         )

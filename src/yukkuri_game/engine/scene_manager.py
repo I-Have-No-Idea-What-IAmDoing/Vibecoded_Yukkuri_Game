@@ -65,8 +65,7 @@ class SceneManager:
             scene = self._scenes.pop()
             scene.on_exit()
             scene.destroy()
-            # Force garbage collection to break cyclic references (Events -> Handlers -> Scene)
-            gc.collect()
+            gc.collect()  # Break cyclic references (Events -> Handlers -> Scene).
 
     def replace(self, scene: "Scene") -> None:
         """
@@ -102,17 +101,13 @@ class SceneManager:
             RuntimeError: If data corruption or incompatible versions are detected.
         """
         context_data = {}
-        # Iterate over the dependencies declared by the Scene class (via INJECTIONS ClassVar).
-        # This allows declarative dependency injection.
+        # Iterate over declared INJECTIONS; performs JIT hydration from raw dicts.
         for key, expected_type in scene.INJECTIONS.items():
             if key in self.persistent_data:
                 data = self.persistent_data[key]
 
-                # Check if we need to hydrate a raw dictionary (from a save file)
                 if isinstance(data, dict):
                     try:
-                        # 1. Check Version & Migrate
-                        # Assuming expected_type has a _version_ ClassVar
                         target_version = getattr(expected_type, "_version_", 0)
                         saved_version = data.get("_version_", 0)
 
@@ -127,19 +122,13 @@ class SceneManager:
                                 target_version,
                             )
 
-                        # 2. Clean metadata before strict conversion
-                        # msgspec/dataclasses don't want '_version_' in the init arguments
-                        # unless it's an explicit field.
+                        # Clean metadata before strict conversion.
                         hydration_data = data.copy()
                         hydration_data.pop("_version_", None)
 
-                        # 3. Convert
-                        # msgspec.convert is highly efficient and validates the schema
                         obj = msgspec.convert(hydration_data, expected_type)
 
-                        # 4. Update memory with the hydrated object
-                        # This ensures subsequent access uses the live object, preventing re-hydration overhead
-                        # and maintaining object identity within the session.
+                        # Cache hydrated object to avoid re-hydration.
                         context_data[key] = obj
                         self.persistent_data[key] = obj
 
@@ -153,8 +142,7 @@ class SceneManager:
                             f"Data corruption detected for key '{key}'"
                         ) from e
                 else:
-                    # It is already a live object (runtime transition)
-                    context_data[key] = data
+                    context_data[key] = data  # Already a live object.
             else:
                 logger.warning(
                     f"Scene {type(scene).__name__} requested injection '{key}' but it was not found."
@@ -235,15 +223,11 @@ class SceneManager:
             None
         """
         try:
-            # We need to serialize the values in persistent_data.
-            # Some might be objects, some primitives.
-            serialized_data = {}
             for k, v in self.persistent_data.items():
                 if hasattr(v, "__dataclass_fields__") or isinstance(v, msgspec.Struct):
                     encoded = msgspec.to_builtins(v)
-                    # Inject version
                     if hasattr(type(v), "_version_"):
-                        encoded["_version_"] = getattr(type(v), "_version_")
+                        encoded["_version_"] = getattr(type(v), "_version_")  # Inject version.
                     serialized_data[k] = encoded
                 else:
                     serialized_data[k] = v

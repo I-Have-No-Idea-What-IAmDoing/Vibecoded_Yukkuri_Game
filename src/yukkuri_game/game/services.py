@@ -359,45 +359,29 @@ class GameService:
             skills = self.world.get_component(searcher_id, Skills)
             if skills and SkillId.SCAVENGING in skills.states:
                 level = skills.states[SkillId.SCAVENGING].level
-                # Base radius 500 + 50 per level
-                max_radius = BASE_SCAVENGING_RADIUS + (
-                    level * SCAVENGING_RADIUS_PER_LEVEL
-                )
+                max_radius = BASE_SCAVENGING_RADIUS + (level * SCAVENGING_RADIUS_PER_LEVEL)
 
-        # Get SectorMap
         sector_map = self.world.services.try_get(SectorMap)
         candidate_items = []
 
         if sector_map:
-            # Query entities within the calculated max_radius.
-            # SectorMap.get_entities_in_radius handles querying the appropriate sectors
-            # even if the radius is very large.
             nearby_entities = sector_map.get_entities_in_radius(
                 position[0], position[1], max_radius
             )
 
-            # Filter for items
             for entity in nearby_entities:
                 if self.world.has_component(entity, ItemStats):
                     candidate_items.append(entity)
-        else:
-            # Fallback to linear scan if SectorMap not available
+        else:  # Fallback to linear scan.
             candidate_items = self.world.get_entities_with(ItemStats, Transform)
 
         for item in candidate_items:
             if item in exclude_ids:
                 continue
 
-            istats = self.world.get_component(item, ItemStats)
-            itrans = self.world.get_component(item, Transform)
-
-            # Note: candidate_items from SectorMap just gives IDs. We must verify they have ItemStats and Transform.
-            # (Though our filter above or has_component check ensures it somewhat, get_component returns None if missing)
-
             if istats and itrans and getattr(istats, stat_criteria, 0.0) > 0:
                 d = math.hypot(itrans.x - position[0], itrans.y - position[1])
 
-                # Filter by max_radius
                 if d > max_radius:
                     continue
 
@@ -459,16 +443,13 @@ class PersistenceService:
                     elif hasattr(comp, "__dict__"):
                         comp_dict = comp.__dict__
 
-                    # Recursively handle sets/tuples in the dictionary
                     comp_dict = self._serialize_object(comp_dict)
                     components_data[comp_type_name] = comp_dict
                 except (TypeError, ValueError, AttributeError):
-                    # Skip un-serializable components (e.g. pygame surfaces, pymunk bodies)
-                    pass
+                    pass  # Skip un-serializable components (e.g. pygame surfaces).
 
             if components_data:
                 ent_data = {"entity_id": ent, "components": components_data}
-                # Handle StableID
                 stable_id = self.world.try_get_component(ent, StableIDComponent)
                 if stable_id:
                     ent_data["stable_id"] = stable_id.id
@@ -505,7 +486,7 @@ class PersistenceService:
         from ..engine.serializer import WorldSerializer
         import inspect
 
-        # Gather all component types
+        # Gather all component types from modules.
         component_types = []
         for module in [components, components_persistence, yukkuri_components]:
             for name, obj in inspect.getmembers(module):

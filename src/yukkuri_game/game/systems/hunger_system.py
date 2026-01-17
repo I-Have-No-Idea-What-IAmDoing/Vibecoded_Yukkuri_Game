@@ -1,5 +1,18 @@
 """
-Module defining the HungerSystem for handling food consumption and metabolism.
+Hunger System - Food Consumption and Metabolism.
+
+Processes item consumption requests dispatched from InteractionSystem.
+Applies nutritional effects and handles item destruction.
+
+Metabolism Effects:
+- Nutrition: Reduces hunger stat (hunger = need to eat)
+- Fun: Increases happiness (tasty food makes them happy)
+- Comfort: Restores energy (filling food makes them sleepy/content)
+- Waste Generation: Nutrition increases bladder at 50% rate
+
+Skill Integration:
+- Awards Scavenging XP when consuming items
+- XP gain is flat rate (5.0 per item consumed)
 """
 
 import math
@@ -16,11 +29,10 @@ from ..skill_constants import SkillId
 
 class HungerSystem(System):
     """
-    System responsible for processing consumption interactions (eating items).
+    Processes food consumption and applies metabolic effects.
 
-    Attributes:
-        audio (Optional[AudioManager]): The audio manager instance.
-        skill_service (Optional[SkillService]): The skill service instance.
+    Lazy-loads AudioManager and SkillService on first update.
+    Consumption requests are dispatched here from InteractionSystem.
     """
 
     def __init__(self) -> None:
@@ -94,35 +106,41 @@ class HungerSystem(System):
         if dist > 50.0:
             return False
 
-        # Apply Stats
+        # ==================== STAT EFFECTS ====================
+        # Apply nutrition: decreases hunger (lower = less hungry)
         if item_stats.nutrition > 0:
             consumer_needs.hunger = max(0, consumer_needs.hunger - item_stats.nutrition)
-            # Increase bladder (waste) based on nutrition consumed.
-            # Using 0.5 as a conversion factor (20 nutrition -> 10 waste).
+            # Waste generation: food creates biological waste at 50% rate
+            # e.g., 20 nutrition creates 10 bladder pressure
             consumer_needs.bladder = min(
                 100, consumer_needs.bladder + (item_stats.nutrition * 0.5)
             )
 
+        # Fun foods increase happiness (treats, sweets)
         emotional = world.get_component(consumer_id, EmotionalState)
         if item_stats.fun > 0 and emotional:
             emotional.happiness = min(100, emotional.happiness + item_stats.fun)
 
+        # Comfort foods restore energy (filling, warm foods)
         if item_stats.comfort > 0:
             consumer_needs.energy = min(100, consumer_needs.energy + item_stats.comfort)
 
-        # Apply Scavenging XP
+        # ==================== SKILL XP ====================
+        # Award scavenging XP for finding and consuming food
         if self.skill_service:
             self.skill_service.add_xp(consumer_id, SkillId.SCAVENGING, 5.0)
 
-        # Consume Item
+        # ==================== ITEM DESTRUCTION ====================
         if request.consume:
             if self.audio:
                 self.audio.play_sound("eat")
 
+            # Remove item from world (consumed)
             world.destroy_entity(item_id)
             if world.has_component(item_id, Transform):
                 world.remove_component(item_id, Transform)
 
+            # Clear AI target reference to prevent stale target pursuit
             ai = world.get_component(consumer_id, AIState)
             if ai and ai.current_target_id == item_id:
                 ai.current_target_id = cast(EntityID, -1)

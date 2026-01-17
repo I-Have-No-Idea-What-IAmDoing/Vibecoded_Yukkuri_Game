@@ -1,11 +1,29 @@
 """
-Module implementing the social system for Yukkuri interaction and relationship management.
+Social System - Relationship and Interaction Management.
+
+Implements the "Headline System" for social memory and relationship tracking.
+Manages all social interactions between Yukkuris including:
+- Relationship formation and decay
+- Memory creation and prioritization (trivial vs core memories)
+- Opinion calculation based on compatibility and memories
+- Interaction effects on stats and emotions
+
+Relationship Model:
+- Affinity: Overall liking (-100 to 100), derived from compatibility + memories
+- Trust: Reliability measure (-100 to 100)
+- Fear: Threat perception (0 to 100)
+- Familiarity: How well entities know each other (0 to 100)
+
+Memory System:
+- Trivial buffer: Recent minor interactions (FIFO, max 25)
+- Core buffer: Significant memories (priority-based, max 35)
+- Sentiment sums track cumulative opinion influence
 """
 
 import time
 from typing import Any, cast
 from loguru import logger
-import random
+from ...engine import rng
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
@@ -53,9 +71,45 @@ class SocialSystem(System):
         super().__init__()
         self.trait_service: TraitService | None = None
         self.skill_service: SkillService | None = None
+    # Batch processing size for relationship cleanup (prevents frame rate drops)
+    CLEANUP_BATCH_SIZE = 10
+
+    # Relationships older than this (in game seconds) are purged (except family/mates)
+    RELATIONSHIP_MAX_AGE = 600.0  # 10 minutes
+
+    # Base compatibility for entities with identical personalities
+    BASE_COMPATIBILITY_SCORE = 100.0
+
+    # Divisor for personality axis differences (higher = less sensitive)
+    COMPATIBILITY_DIVISOR = 4.0
+
+    # Visual feedback configuration
+    FLOATING_TEXT_SIZE = 24
+    FLOATING_TEXT_LIFETIME = 1.5
+
+    # Feedback text colors by interaction type
+    COLOR_DEFAULT = (255, 255, 255)
+    COLOR_FRIENDLY = (100, 255, 100)
+    COLOR_HOSTILE = (255, 50, 50)
+    COLOR_ROMANTIC = (255, 105, 180)
+    COLOR_FEED = (255, 200, 50)
+    COLOR_SAD = (100, 100, 255)
+
+    # Memories with importance above this go to core buffer
+    MEMORY_IMPORTANCE_THRESHOLD = 50.0
+
+    def __init__(self, event_bus: EventBus):
+        """
+        Initializes the SocialSystem.
+
+        Args:
+            event_bus (EventBus): The event bus instance.
+        """
+        super().__init__()
+        self.trait_service: TraitService | None = None
+        self.skill_service: SkillService | None = None
         self.audio: AudioManager | None = None
         self.cleanup_index = 0
-        self.cleanup_batch_size = 10
         self.event_bus = event_bus
         self.headline_counter = 0
 
@@ -75,7 +129,7 @@ class SocialSystem(System):
             self.audio = world.services.try_get(AudioManager)
 
         time_service = world.services.try_get(TimeService)
-        now = time_service.time_elapsed if time_service else time.time()
+        now = world.time
 
         self._process_relationships(world, now)
 
@@ -89,7 +143,7 @@ class SocialSystem(System):
 
         count = len(all_entities)
         start = self.cleanup_index % count
-        end = min(start + self.cleanup_batch_size, count)
+        end = min(start + self.CLEANUP_BATCH_SIZE, count)
 
         for i in range(start, end):
             eid = all_entities[i]
@@ -97,9 +151,8 @@ class SocialSystem(System):
             if registry:
                 self._cleanup_registry(world, eid, registry, now)
 
-        # Update the index for the next frame.
-        # This ensures we cycle through all entities over time without stalling the frame.
-        self.cleanup_index = (self.cleanup_index + self.cleanup_batch_size) % max(
+        # Cycle through all entities over multiple frames.
+        self.cleanup_index = (self.cleanup_index + self.CLEANUP_BATCH_SIZE) % max(
             1, count
         )
 
@@ -110,7 +163,6 @@ class SocialSystem(System):
         Cleans up old relationships and updates opinions.
         """
         to_remove = []
-        max_age = 600  # 10 minutes
 
         for other_id, rel_data in registry.relationships.items():
             self._update_opinion(world, eid, other_id, rel_data)
@@ -123,7 +175,7 @@ class SocialSystem(System):
             )
 
             age = now - rel_data.last_update
-            if not is_special and age > max_age:
+            if not is_special and age > self.RELATIONSHIP_MAX_AGE:
                 to_remove.append(other_id)
 
         for rid in to_remove:
@@ -184,10 +236,10 @@ class SocialSystem(System):
             diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
 
             total_diff = diff_kind + diff_ener + diff_brav + diff_gree
-            # Base compatibility starts at 100 and subtracts the average difference on 4 axes.
-            # If personalities are identical, compatibility is 100.
-            # If completely opposite, it drops significantly.
-            base_compatibility += 100.0 - (total_diff / 4.0)
+            # Identical personalities yield max compatibility (100).
+            base_compatibility += self.BASE_COMPATIBILITY_SCORE - (
+                total_diff / self.COMPATIBILITY_DIVISOR
+            )
 
         if self.trait_service:
             for my_trait in subject_pers.traits:
@@ -196,7 +248,6 @@ class SocialSystem(System):
                     continue
 
                 if isinstance(trait_data, dict):
-                    # Explicit cast to help mypy resolve overload
                     td_dict = cast(dict[str, Any], trait_data)
                     social_mods = td_dict.get("social_modifiers", {})
                 else:
@@ -280,7 +331,7 @@ class SocialSystem(System):
                     return
 
         time_service = world.services.try_get(TimeService)
-        now = time_service.time_elapsed if time_service else time.time()
+        now = world.time
 
         self._apply_impact(
             world, actor_id, target_id, interaction_data, role="actor", now=now
@@ -378,29 +429,37 @@ class SocialSystem(System):
             return
 
         text = "!"
-        color = (255, 255, 255)
+        color = self.COLOR_DEFAULT
         base_impact = self._get_attr(data, "base_impact", 0.0)
 
         if interaction_name in ["Talk", "Greet"]:
             text = "♪"
-            color = (100, 255, 100)
+            color = self.COLOR_FRIENDLY
         elif interaction_name in ["Fight", "Hit"]:
             text = "💢"
-            color = (255, 50, 50)
+            color = self.COLOR_HOSTILE
         elif interaction_name == "Dance":
             text = "♥"
-            color = (255, 105, 180)
+            color = self.COLOR_ROMANTIC
         elif interaction_name == "Feed":
             text = "Mogu"
-            color = (255, 200, 50)
+            color = self.COLOR_FEED
 
         if base_impact < -10:
             text = "T_T"
-            color = (100, 100, 255)
+            color = self.COLOR_SAD
 
-        fx = trans.x + random.uniform(-10, 10)
+        fx = trans.x + rng.uniform(-10, 10)
         fy = trans.y - 30
-        create_floating_text(world, fx, fy, text, color, size=24, lifetime=1.5)
+        create_floating_text(
+            world,
+            fx,
+            fy,
+            text,
+            color,
+            size=self.FLOATING_TEXT_SIZE,
+            lifetime=self.FLOATING_TEXT_LIFETIME,
+        )
 
     def _apply_impact(
         self,
@@ -413,9 +472,7 @@ class SocialSystem(System):
     ) -> None:
         """Applies the social impact of an interaction to a subject."""
         registry = self._get_or_create_registry(world, subject_id)
-        # Casting other_id to int because msgspec structs have strict typing
-        # and RelationshipRegistry expects EntityID (int) keys.
-        oid = int(other_id)
+        oid = int(other_id)  # Ensure int for RelationshipRegistry key typing.
         if oid not in registry.relationships:
             registry.relationships[cast(Any, oid)] = RelationshipData(last_update=now)
         rel = registry.relationships[cast(Any, oid)]
@@ -450,6 +507,14 @@ class SocialSystem(System):
             registry = RelationshipRegistry()
             world.add_component(entity_id, registry)
         return registry
+
+    MAX_HAPPINESS = 100.0
+    MIN_HAPPINESS = -100.0
+    MAX_STRESS = 100.0
+    MIN_STRESS = 0.0
+    IMPACT_THRESHOLD_MAJOR_NEGATIVE = -15.0
+    IMPACT_THRESHOLD_MAJOR_POSITIVE = 15.0
+    EMOTIONAL_CHANGE_AMOUNT = 20.0
 
     def _calculate_impact_deltas(
         self,
@@ -501,6 +566,7 @@ class SocialSystem(System):
                 d_affinity *= comp_mult
                 d_trust *= comp_mult
                 d_fear *= comp_mult
+                # Familiarity unchanged by kindness - represents "knowledge of other", not liking.
 
         return d_affinity, d_trust, d_fear, d_familiarity
 
@@ -510,11 +576,17 @@ class SocialSystem(System):
         """Updates emotional state based on interaction impact."""
         emotional = world.get_component(subject_id, EmotionalState)
         if emotional:
-            if base_impact_score < -15:
-                emotional.happiness = max(-100.0, emotional.happiness - 20.0)
-                emotional.stress = min(100.0, emotional.stress + 20.0)
-            elif base_impact_score > 15:
-                emotional.happiness = min(100.0, emotional.happiness + 20.0)
+            if base_impact_score < self.IMPACT_THRESHOLD_MAJOR_NEGATIVE:
+                emotional.happiness = max(
+                    self.MIN_HAPPINESS, emotional.happiness - self.EMOTIONAL_CHANGE_AMOUNT
+                )
+                emotional.stress = min(
+                    self.MAX_STRESS, emotional.stress + self.EMOTIONAL_CHANGE_AMOUNT
+                )
+            elif base_impact_score > self.IMPACT_THRESHOLD_MAJOR_POSITIVE:
+                emotional.happiness = min(
+                    self.MAX_HAPPINESS, emotional.happiness + self.EMOTIONAL_CHANGE_AMOUNT
+                )
 
     def _add_memory_headline(
         self,
@@ -541,7 +613,7 @@ class SocialSystem(System):
             from ...config import GameConfig
 
             config = world.services.try_get(GameConfig)
-            threshold = 50.0
+            threshold = self.MEMORY_IMPORTANCE_THRESHOLD
             if config and hasattr(config.rules, "social"):
                 threshold = config.rules.social.memory_importance_threshold
 

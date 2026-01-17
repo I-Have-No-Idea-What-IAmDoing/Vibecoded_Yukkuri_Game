@@ -1,7 +1,25 @@
 """
-Visibility System.
-Optimized to use Spatial Hash for broadphase (O(N*logM)) instead of O(N*M).
-Uses Event Bus to maintain Entity Map incrementally.
+Visibility System - Line-of-Sight Calculation.
+
+Determines what each entity can see based on vision range, FOV, and obstacles.
+Uses spatial hashing for broadphase optimization and raycasting for narrowphase.
+
+Algorithm:
+1. **Broadphase**: Query entities within vision range using point_query
+2. **FOV Filter**: Check if target is within observer's field of view cone
+3. **Narrowphase**: Raycast to target, checking for obstructions
+
+Optimizations:
+- Batch processing: Only 20% of observers updated per frame (temporal amortization)
+- Body-to-entity map: O(1) lookup of entity from physics body
+- Visibility cache: Reuses results if observer moved < 10 pixels (temporal coherence)
+
+Flight Integration:
+- Flying entities gain +50% vision range at max altitude
+- Linear interpolation based on current altitude
+
+Output:
+- Populates AIState.visible_entities for use by AI decision making
 """
 
 import pymunk
@@ -19,30 +37,30 @@ from typing import cast
 
 class VisibilitySystem(System):
     """
-    Calculates visibility using spatial hashing, raycasting and caching.
+    Calculates visible entities using spatial queries and raycasting.
 
-    Attributes:
-        space (Optional[pymunk.Space]): The physics space.
-        update_index (int): Index for batch processing.
-        batch_size (float): Fraction of entities to update per frame (0.2 = 20%).
-        body_to_entity (Dict[pymunk.Body, int]): Map of bodies to entity IDs.
-        event_bus (Optional[EventBus]): The event bus.
+    Uses temporal coherence caching to avoid redundant calculations
+    when observers haven't moved significantly. Batch-processes observers
+    to spread workload across frames.
     """
+
+    # Fraction of observers processed per frame (0.2 = 20%)
+    DEFAULT_BATCH_SIZE = 0.2
+
+    # Cache invalidation threshold (pixels moved)
+    CACHE_THRESHOLD = 10.0
 
     def __init__(self) -> None:
         """Initializes the VisibilitySystem."""
         self.space: pymunk.Space | None = None
         self.update_index = 0
-        self.batch_size = 0.2  # Process 20% of entities per frame
+        self.batch_size = self.DEFAULT_BATCH_SIZE
         self.body_to_entity: dict[pymunk.Body, int] = {}
         self.event_bus: EventBus | None = None
 
-        # --- Performance Optimization: Visibility Caching ---
-        # Cache visibility results per observer.
-        # Key: entity_id -> (visible_set, cached_x, cached_y)
-        # Invalidate cache if observer moves more than cache_threshold pixels.
+        # Visibility cache: entity_id -> (visible_set, cached_x, cached_y)
         self.visibility_cache: dict[int, tuple[set[int], float, float]] = {}
-        self.cache_threshold: float = 10.0  # Invalidate if moved > 10 pixels
+        self.cache_threshold: float = self.CACHE_THRESHOLD
 
     def on_component_added(self, event: ComponentAddedEvent) -> None:
         """
@@ -90,7 +108,7 @@ class VisibilitySystem(System):
                     ComponentRemovedEvent, self.on_component_removed
                 )
 
-            # Initial population of the map, runs only once.
+            # Populate body->entity map on first run.
             physics_bodies = world.get_components(PhysicsBody)
             self.body_to_entity = {
                 comp.body: ent for ent, comp in physics_bodies.items()
@@ -112,14 +130,7 @@ class VisibilitySystem(System):
 
         self.update_index = (start + count) % total_obs
 
-        for idx in batch_indices:
-            ent, (vision, trans, ai) = observers_list[idx]
-
-            # Optimization: Try to get body from our map (reverse lookup is slow? No we only have Body->Entity)
-            # We need Entity -> Body.
-            # Let's fallback to ECS for Observer Body, it's only 1 call per observer.
-            # But we can optimize if we cache it?
-            # For now, just passing the body if found avoids logic inside.
+            # Entity->Body lookup requires ECS call (reverse map not maintained).
             phys_comp = world.try_get_component(ent, PhysicsBody)
             self.update_visibility(ent, vision, trans, ai, world, phys_comp)
 
@@ -145,26 +156,20 @@ class VisibilitySystem(System):
 
         Returns:
             None
-        """
-        # --- Cache Check: Temporal Coherence ---
-        # If observer hasn't moved significantly, reuse cached visibility.
+        # Reuse cached result if observer hasn't moved significantly.
         if entity in self.visibility_cache:
             cached_visible, cached_x, cached_y = self.visibility_cache[entity]
             dx = trans.x - cached_x
             dy = trans.y - cached_y
             dist_sq = dx * dx + dy * dy
             if dist_sq < self.cache_threshold * self.cache_threshold:
-                # Cache hit! Reuse previous visibility result.
                 ai.visible_entities = {cast(EntityID, x) for x in cached_visible}
                 return
 
         visible: set[EntityID] = set()
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
-        # phys_comp passed as argument
         obs_angle = phys_comp.body.angle if phys_comp else 0.0
-        # obs_shape is unused in the loop, logic relies on body
-        # obs_shape = phys_comp.shape if phys_comp else None
 
         obs_dir = pymunk.Vec2d(1, 0).rotated(obs_angle)
         fov_cos = math.cos(math.radians(vision.fov / 2.0))
@@ -184,10 +189,7 @@ class VisibilitySystem(System):
             altitude_factor = min(1.0, flight.altitude / flight.max_altitude)
             effective_range = vision.range * (1.0 + 0.5 * altitude_factor)
 
-        # Optimization: Use point_query only? Or shape_query with a Sensor Circle?
-        # Creating a sensor circle is expensive per entity per frame.
-        # point_query is fast but only finds shapes overlapping a point (useless for range).
-        # point_query in pymunk finds shapes within `max_dist` of point. This is exactly what we need.
+        # Broadphase: Query all entities within effective vision range.
         nearby_infos = self.space.point_query(obs_pos, effective_range, query_filter)
 
         vision_mask = (
@@ -223,15 +225,9 @@ class VisibilitySystem(System):
                 if obs_dir.dot(target_dir) < fov_cos:
                     continue
 
-            # 3. Narrowphase: Raycast
-            # We cast to the target's center.
-
-            # Note: group filter only works if shapes are configured with the same group ID.
-            # Since we can't guarantee that, we still need to check for self-hits.
+            # Narrowphase: Raycast to check line-of-sight.
             vision_ray_filter = pymunk.ShapeFilter(mask=vision_mask, group=entity)
 
-            # Optimization: Use segment_query_first to stop at the first hit.
-            # This avoids sorting and iterating through multiple hits.
             hit = self.space.segment_query_first(
                 obs_pos, target_pos, 1.0, vision_ray_filter
             )
@@ -254,38 +250,10 @@ class VisibilitySystem(System):
                         # Hit something else first - blocked
                         break
                 elif hit.shape.body == body:
-                    # First hit is the target - visible!
                     visible.add(EntityID(target_ent))
-                # else: First hit is something else (wall, other entity) - blocked
-            # else: No hit at all - shouldn't happen but target is not visible
+                # else: First hit is an obstruction - blocked.
 
-            # --- OLD LOGIC (Preserved for reference) ---
-            # hits = self.space.segment_query(obs_pos, target_pos, 1.0, vision_ray_filter)
-            # hits.sort(key=lambda x: x.alpha)
-            #
-            # blocked = False
-            #
-            # for hit in hits:
-            #     if hit.shape in obs_shapes:
-            #         continue
-            #
-            #     if hit.shape.sensor:
-            #         continue
-            #
-            #     if hit.shape.body == body:
-            #         # Hit target!
-            #         break
-            #     else:
-            #         # Hit something else
-            #         blocked = True
-            #         break
-            #
-            # if not blocked:
-            #    visible.add(target_ent)
-            # -------------------------------------------
-
-        # Store result in cache for temporal coherence
-        # Cast visible to set[int] for storage in dict[int, ...], though EntityID is int
+        # Update cache with new visibility result.
         visible_ints: set[int] = {int(x) for x in visible}
         self.visibility_cache[entity] = (visible_ints, trans.x, trans.y)
         ai.visible_entities = visible

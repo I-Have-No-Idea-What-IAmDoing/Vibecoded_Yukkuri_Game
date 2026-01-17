@@ -175,8 +175,10 @@ class Scene(ABC):
         """
         if not self.registered_components:
             # Warn developer if they forgot to register components
-            print(
-                f"Warning: Loading scene {self.__class__.__name__} with no registered components. deserialization may fail."
+            from loguru import logger
+
+            logger.warning(
+                f"Loading scene {self.__class__.__name__} with no registered components. Deserialization may fail."
             )
 
         serializer = WorldSerializer(self.world, self.registered_components)

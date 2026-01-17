@@ -14,6 +14,8 @@ from yukkuri_game.game.yukkuri_components import (
     YukkuriStats,
     Needs,
     Predator,
+    Blackboard,
+
 )
 from yukkuri_game.game.components import Transform, MovementController
 from py_trees.common import Status
@@ -367,8 +369,22 @@ class TestDetectionRange:
 
         # Create prey at 300 units away (within 500, outside default 200)
         prey = world.create_entity()
-        world.add_component(prey, Transform(x=300, y=0))
+        prey_pos = (300, 0)
+        world.add_component(prey, Transform(x=prey_pos[0], y=prey_pos[1]))
         world.add_component(prey, YukkuriStats(name="Reimu", type_id="reimu"))
+
+        # SIMULATE PERCEPTION SYSTEM
+        # The UtilitySelector no longer does distance checks itself; it relies on Blackboard.
+        # We manually check the condition the test wants to verify (radius 500 vs distance 300)
+        # and populate the Blackboard accordingly to ensure the Selector reacts correctly.
+        dist = 300.0  # From (0,0) to (300,0)
+        pred_comp = world.get_component(predator, Predator)
+        
+        nearby_enemies = 0
+        if dist <= pred_comp.prey_sense_radius:
+            nearby_enemies = 1
+            
+        world.add_component(predator, Blackboard(nearby_enemies=nearby_enemies))
 
         selector = UtilitySelector(entity_id=predator, world=world)
         selector.update()

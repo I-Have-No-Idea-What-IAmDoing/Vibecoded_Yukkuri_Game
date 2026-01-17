@@ -1,5 +1,26 @@
 """
-Serialization Module.
+World Serialization Module.
+
+Handles save/load of ECS world state using MessagePack binary format.
+Uses a two-pass approach to resolve entity reference remapping:
+
+Two-Pass Algorithm:
+1. **Create Pass**: Deserialize all entities and components, building a
+   mapping of old_entity_id -> new_entity_id. EntityID fields temporarily
+   hold stale (old) values.
+
+2. **Resolve Pass**: Scan all component fields for EntityID type hints.
+   Remap any EntityID values using the old->new mapping. Mark dangling
+   references (entities that weren't saved) as -1.
+
+This approach handles circular dependencies where Entity A references
+Entity B and vice versa, avoiding issues with creation order.
+
+Supported Reference Types:
+- EntityID (scalar)
+- Optional[EntityID]
+- List[EntityID], Set[EntityID]
+- Dict[EntityID, Any] (key remapping)
 """
 
 from typing import (
@@ -18,7 +39,12 @@ from .types import EntityID
 
 class WorldSerializer:
     """
-    Handles serialization and deserialization of the game world.
+    Serializes and deserializes ECS world state.
+
+    Uses msgspec for efficient binary encoding and supports:
+    - Component versioning and migration
+    - Entity ID remapping on load
+    - Circular reference handling via two-pass resolution
     """
 
     def __init__(self, world: World, component_types: Iterable[type[Any]]):
@@ -26,8 +52,8 @@ class WorldSerializer:
         Initializes the WorldSerializer.
 
         Args:
-            world (World): The ECS World to serialize/deserialize.
-            component_types (Iterable[Type[Any]]): A collection of component types to support.
+            world: The ECS World to serialize/deserialize.
+            component_types: Component types to include in serialization.
         """
         self.world = world
         self.component_map = {c.__name__: c for c in component_types}
@@ -56,7 +82,6 @@ class WorldSerializer:
             stable_id = stable_id_comp.id if stable_id_comp else None
 
         components_data = {}
-        # Use get_all_components to retrieve all components for the entity
         all_components = self.world.get_all_components(entity)
 
         for component in all_components:
@@ -65,23 +90,19 @@ class WorldSerializer:
             if component_type.__name__ == "PhysicsBody":
                 continue
 
-            # Avoid serializing StableIDComponent twice (it's in stable_id field)
             if self._stable_id_type and component_type == self._stable_id_type:
                 continue
 
             try:
-                # Using msgspec for efficient serialization if it's a struct/dataclass
                 if hasattr(component, "__dataclass_fields__") or isinstance(
                     component, msgspec.Struct
                 ):
                     decoded = msgspec.to_builtins(component)
-                    # Add version info if available
                     if hasattr(component_type, "_version_"):
-                        decoded["_version_"] = getattr(component_type, "_version_")
+                        decoded["_version_"] = getattr(component_type, "_version_")  # Add version.
                     components_data[component_type.__name__] = decoded
                 else:
-                    # Fallback or skip
-                    pass
+                    pass  # Skip non-serializable.
             except Exception as e:
                 logger.warning(
                     f"Failed to serialize component {component_type.__name__} for entity {entity}: {e}"
@@ -163,10 +184,7 @@ class WorldSerializer:
         if not entities_data:
             return
 
-        # Pass 1: Create Entities and Mapping
-        # We instantiate the entities so they have valid IDs in the current world.
-        # We also deserialize components but leave EntityID references pointing to old IDs for now.
-        # This allows us to handle circular references where Entity A needs Entity B's ID before B is created.
+        # Pass 1: Create entities with stale EntityID references.
         id_map: dict[int, int] = {}  # old_id -> new_id
         max_stable_id = 0
 
@@ -203,31 +221,22 @@ class WorldSerializer:
                         self.world.add_component(new_entity, component)
                     except Exception as e:
                         logger.warning(
-                            f"Failed to deserialize component {comp_name}: {e}"
+                            f"Failed to deserialize component {comp_name}: {e}",
+                            exc_info=True,
                         )
-                        print(f"DEBUG ERROR: Failed to deserialize {comp_name}: {e}")
-                        import traceback
-
-                        traceback.print_exc()
                 else:
                     logger.warning(f"Unknown component type: {comp_name}")
 
-        # Update World's next stable ID to ensure future entities don't collide with loaded ones
         if hasattr(self.world, "set_next_stable_id"):
-            self.world.set_next_stable_id(max_stable_id + 1)
+            self.world.set_next_stable_id(max_stable_id + 1)  # Avoid ID collision.
 
-        # Pass 2: Resolve References
-        # Now that all entities exist, we scan components for EntityID fields
-        # and update them using the id_map.
-        # This "Fix-up" phase patches the loaded components to point to the correct runtime EntityIDs.
+        # Pass 2: Remap EntityID references using id_map.
         for new_entity in id_map.values():
             all_components = self.world.get_all_components(new_entity)
             for component in all_components:
-                # Introspect type hints to find fields that hold EntityID
                 try:
                     type_hints = typing.get_type_hints(component)
                 except (TypeError, NameError):
-                    # Dynamic types, partial mocks, or forward reference issues
                     continue
 
                 for field_name, field_type in type_hints.items():
@@ -238,17 +247,13 @@ class WorldSerializer:
                     if val is None:
                         continue
 
-                    # Check for EntityID
                     if self._is_entity_ref(field_type):
-                        # Scalar EntityID
                         if isinstance(val, int) and not isinstance(val, bool):
                             if val in id_map:
                                 setattr(component, field_name, EntityID(id_map[val]))
                             elif val > 0:
-                                # Dangling reference (pointed to an entity that wasn't saved)
-                                setattr(component, field_name, EntityID(-1))
+                                setattr(component, field_name, EntityID(-1))  # Dangling.
 
-                    # Check for List[EntityID] or Set[EntityID]
                     elif self._is_container_of_entity_ref(field_type):
                         origin = get_origin(field_type)
                         if origin is list and isinstance(val, list):
@@ -275,16 +280,14 @@ class WorldSerializer:
                                     new_set.add(x)
                             setattr(component, field_name, new_set)
 
-                    # Check for Dict[EntityID, Any] (Keys)
                     elif self._is_dict_key_entity_ref(field_type):
                         if isinstance(val, dict):
                             new_dict = {}
                             for k, v in val.items():
                                 if isinstance(k, int) and not isinstance(k, bool):
                                     new_k = id_map.get(k, EntityID(-1) if k > 0 else k)
-                                    # Prune dangling
                                     if new_k == -1 and k > 0:
-                                        continue
+                                        continue  # Prune dangling.
                                     new_dict[EntityID(new_k)] = v
                                 else:
                                     new_dict[k] = v

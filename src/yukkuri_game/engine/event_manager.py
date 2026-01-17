@@ -38,51 +38,26 @@ class EventManager:
         self, event_type: type[Event], handler: Callable[[Any], None]
     ) -> None:
         """
-        Subscribe to an event type (immediate dispatch).
-
-        Args:
-            event_type (Type[Event]): The type of event to subscribe to.
-            handler (Callable[[Any], None]): The handler function.
-
-        Returns:
-            None
+        Register a handler for a specific event type.
+        Handlers are called immediately when the event is published.
         """
         self.bus.subscribe(event_type, handler)
 
     def publish(self, event: Event) -> None:
         """
-        Publish an event immediately.
-
-        Args:
-            event (Event): The event to publish.
-
-        Returns:
-            None
+        Dispatch an event to all subscribers immediately.
         """
         self.bus.publish(event)
 
     def queue_event(self, event: Event, phase: GamePhase) -> None:
         """
-        Queue an event to be processed during a specific phase.
-
-        Args:
-            event (Event): The event to queue.
-            phase (GamePhase): The phase in which to process the event.
-
-        Returns:
-            None
+        Store an event to be processed later during the specified game phase.
         """
         self._queues[phase].append(event)
 
     def process_phase(self, phase: GamePhase) -> None:
         """
-        Process all events queued for the given phase.
-
-        Args:
-            phase (GamePhase): The phase to process.
-
-        Returns:
-            None
+        Dispatch all events queued for the given phase and clear the queue.
         """
         events = self._queues[phase]
         self._queues[

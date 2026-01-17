@@ -1,5 +1,20 @@
+"""
+Steering System - Autonomous Movement Control.
+
+Calculates steering forces for AI-controlled entities and updates their
+target velocities. Implements Reynolds-style steering behaviors including:
+- Seek/Arrival for path following
+- Pursuit for intercept prediction
+- Separation for crowd avoidance
+- Whisker-based obstacle avoidance
+
+Processing occurs in two phases:
+1. MoveCommand-based: Direct movement orders from AI actions
+2. Path-based: Following navigation paths from AIState
+"""
+
 import math
-import random
+from ...engine import rng
 import time
 import pymunk
 from loguru import logger
@@ -27,16 +42,14 @@ class SteeringSystem(System):
     def update(self, world: World, dt: float) -> None:
         physics_system = world.services.try_get(PhysicsSystem)
         space = getattr(physics_system, "space", None) if physics_system else None
-        current_time = time.time()
+        # Stuck detection
+        current_time = world.time
 
         # --- Phase A: Process MoveCommand-based steering ---
-        # This is the new decoupled architecture from Proposal 4
         move_cmd_entities = world.get_components_tuple(
             Transform, MovementController, SteeringComponent, PhysicsBody, MoveCommand
         )
 
-        for entity_id, (trans, movement, steering, phys, move_cmd) in move_cmd_entities:
-            # Check expiration
             if move_cmd.expiration > 0 and current_time > move_cmd.expiration:
                 world.remove_component(entity_id, MoveCommand)
                 movement.target_velocity = pymunk.Vec2d(0, 0)
@@ -45,7 +58,7 @@ class SteeringSystem(System):
             current_pos = pymunk.Vec2d(trans.x, trans.y)
             target_pos = pymunk.Vec2d(move_cmd.target_pos.x, move_cmd.target_pos.y)
 
-            # If tracking an entity, update target position
+            # Track moving entity by updating target position each frame.
             if move_cmd.target_entity_id is not None:
                 target_trans = world.try_get_component(
                     move_cmd.target_entity_id, Transform
@@ -53,30 +66,26 @@ class SteeringSystem(System):
                 if target_trans:
                     target_pos = pymunk.Vec2d(target_trans.x, target_trans.y)
                 else:
-                    # Target lost, remove command
                     world.remove_component(entity_id, MoveCommand)
                     movement.target_velocity = pymunk.Vec2d(0, 0)
                     continue
 
-            # Calculate distance
             to_target = target_pos - current_pos
             dist = to_target.length
 
-            # Arrival check
-            if dist < steering.arrival_radius:
+            if dist < steering.arrival_radius:  # Close enough: stop.
                 world.remove_component(entity_id, MoveCommand)
                 movement.target_velocity = pymunk.Vec2d(0, 0)
                 continue
 
-            # Calculate desired velocity with speed multiplier
             max_speed = steering.max_speed * move_cmd.speed_multiplier
             desired_velocity = to_target.normalized() * max_speed
 
-            # Apply arrival slowdown
+            # Slow down within arrival zone for smooth stopping.
             if dist < steering.arrival_radius * 2:
                 desired_velocity *= dist / (steering.arrival_radius * 2)
 
-            # Resolve target body for exclusion (don't avoid what we want to touch)
+            # Exclude target body from avoidance so we can reach it.
             target_body = None
             if move_cmd.target_entity_id is not None:
                 t_phys = world.try_get_component(move_cmd.target_entity_id, PhysicsBody)
@@ -116,11 +125,7 @@ class SteeringSystem(System):
                 continue
 
             if not ai_state.path:
-                # No path, no steering (unless other behaviors set target_velocity)
-                # If we rely solely on SteeringSystem for movement, we should zero it out,
-                # but valid behavior might set target_velocity manually (e.g. wander).
-                # Only override if we are in a 'MOVING' state or have a path?
-                # Let's assume valid path means we should steer.
+                # No path set - other behaviors may control velocity directly.
                 continue
 
             current_pos = pymunk.Vec2d(trans.x, trans.y)
@@ -132,42 +137,23 @@ class SteeringSystem(System):
                 movement.target_velocity = pymunk.Vec2d(0, 0)
                 continue
 
-            # Pop waypoints if reached
-            # First point in path is often start, or close to it.
-            # We want to move to path[0] if we are not there.
-            # Check distance to path[0]
-            # Since path can be raw coords, assuming list of tuples or path objects.
-            # NavigationService returns list[tuple[float, float]].
-
             target_pos = pymunk.Vec2d(*path[0])
             dist_sq = (target_pos - current_pos).length_squared
 
-            # Waypoint reached threshold (e.g. 10px)
-            # Waypoint reached threshold
-            # Use looser threshold for intermediate waypoints to ensure fluid movement
-            # and prevent getting stuck orbiting a specific pixel.
-            # Final waypoint needs to be stricter to ensure we actually arrive.
-
-            # Default to 60px (3600 sq) for intermediate, 10px (100 sq) for final
-            # Increased from 30px to 60px to prevent getting stuck due to separation radius (50px)
-            pop_threshold_sq = 3600.0
-            if len(path) == 1:
-                pop_threshold_sq = 100.0
+            # Thresholds: 60px for intermediate waypoints, 10px for final arrival.
+            pop_threshold_sq = 3600.0 if len(path) > 1 else 100.0
 
             if dist_sq < pop_threshold_sq:
                 path.pop(0)
                 if not path:
-                    # Arrived at final destination
                     movement.target_velocity = pymunk.Vec2d(0, 0)
-                    ai_state.path = None  # Clear path
-                    # Maybe trigger event or state change?
+                    ai_state.path = None
                     continue
                 target_pos = pymunk.Vec2d(*path[0])
                 dist_sq = (target_pos - current_pos).length_squared
 
-            # Path Smoothing: Blend direction towards next waypoint when close to current
-            # This creates smoother curves instead of sharp turns at waypoints
-            if len(path) > 1 and dist_sq < 2500.0:  # Within 50px of current waypoint
+            # Blend towards next waypoint when close for smoother turns.
+            if len(path) > 1 and dist_sq < 2500.0:  # Within 50px.
                 next_waypoint = pymunk.Vec2d(*path[1])
                 blend_factor = 1.0 - (
                     math.sqrt(dist_sq) / 50.0
@@ -186,15 +172,13 @@ class SteeringSystem(System):
             # Only apply if targeting the FINAL waypoint (actual target) to avoid cutting corners into walls
             is_final_waypoint = len(path) == 1
 
-            # If tracking an entity, update the final target position to its LIVE position
-            # This prevents arriving at a stale "phantom" location if the target moved while we were walking.
+            # Final waypoint + tracking entity: use live position instead of stale path endpoint.
             if is_final_waypoint and ai_state.current_target_id != -1:
                 target_phys = world.try_get_component(
                     ai_state.current_target_id, PhysicsBody
                 )
                 if target_phys and target_phys.body:
                     target_pos = target_phys.body.position
-                    # Recalculate distance to new live target
                     dist_sq = (target_pos - current_pos).length_squared
 
             if (
@@ -211,10 +195,6 @@ class SteeringSystem(System):
                     to_target = target_pos - current_pos
                     dist = to_target.length
 
-                    # Time to intercept
-                    # T = dist / (my_speed - target_speed_towards_me?)
-                    # Simple approximation: T = dist / max_speed
-                    if steering.max_speed > 0.1:
                         time_to_int = dist / steering.max_speed
                         predicted_pos = target_pos + t_vel * time_to_int
                         desired_velocity = (
@@ -229,7 +209,6 @@ class SteeringSystem(System):
                         target_pos - current_pos
                     ).normalized() * steering.max_speed
             else:
-                # Standard Seek
                 desired_velocity = (
                     target_pos - current_pos
                 ).normalized() * steering.max_speed
@@ -243,7 +222,7 @@ class SteeringSystem(System):
                     else:
                         desired_velocity = pymunk.Vec2d(0, 0)
 
-            # Resolve target body for exclusion
+            # Exclude target from avoidance calculations.
             target_body = None
             if ai_state.current_target_id != -1:
                 t_phys = world.try_get_component(
@@ -263,9 +242,7 @@ class SteeringSystem(System):
                 ai_state.current_target_id,
             )
 
-            # Combine
-            # Priority: Avoidance > Separation > Seek
-            # Weights defined in component
+            # Weight-blend: Avoidance > Separation > Seek.
             total_force = (
                 (desired_velocity * steering.seek_weight)
                 + (separation_force * steering.separation_weight)
@@ -280,57 +257,50 @@ class SteeringSystem(System):
 
             movement.target_velocity = final_velocity
 
-            # Debug/Stuck Check logic
-            # Only increment if we intend to move (have path) but are moving very slowly
-            if movement.target_velocity.length_squared > 100.0:  # INTENDING to move
+            # --- Stuck Detection ---
+            # Triggers when target velocity is high but actual velocity is low.
+            if movement.target_velocity.length_squared > 100.0:
                 if movement.current_velocity.length < 5.0:
                     steering.time_stuck += dt
                 else:
-                    steering.time_stuck = max(
-                        0.0, steering.time_stuck - dt * 2.0
-                    )  # Decay
+                    # Decay stuck timer when moving (2x rate for quick recovery)
+                    steering.time_stuck = max(0.0, steering.time_stuck - dt * 2.0)
             else:
                 steering.time_stuck = 0.0
 
-            # Stuck Resolution
-            # During pursuit mode, use higher threshold and skip jitter (causes erratic chase)
+            # --- Stuck Resolution ---
+            # Two-tier resolution: jitter first, then skip waypoints or force repath.
             stuck_threshold_jitter = 3.0 if steering.pursuit_enabled else 1.0
             stuck_threshold_repath = 5.0 if steering.pursuit_enabled else 3.0
 
+            # Stage 1: Apply random jitter to wiggle free.
             if (
                 steering.time_stuck > stuck_threshold_jitter
                 and not steering.pursuit_enabled
             ):
-                # Stage 1: Jitter (only when NOT pursuing)
-                # Apply random force to try to wiggle free
                 jitter = (
                     pymunk.Vec2d(
-                        random.uniform(-1, 1), random.uniform(-1, 1)
+                        rng.uniform(-1, 1), rng.uniform(-1, 1)
                     ).normalized()
                     * steering.max_force
                 )
                 movement.target_velocity += jitter
 
+            # Stage 2: Skip nearby waypoint or force complete repath.
             if steering.time_stuck > stuck_threshold_repath:
-                # Stage 2: Smart Resolution
-                # Check if we are relatively close to the waypoint (e.g. within 150px)
-                # If so, just skip it. We are likely blocked by something but "close enough".
-                # Don't do this for the final waypoint (we need to arrive).
-                
-                is_stuck_close = False
-                if len(path) > 1: # Not final
-                     # Recalc dist (without smoothing modification)
-                     raw_dist_sq = (pymunk.Vec2d(*path[0]) - current_pos).length_squared
-                     if raw_dist_sq < 22500.0: # 150px squared
-                         is_stuck_close = True
-                
+                # Check if stuck near current waypoint (within 150px).
+                if len(path) > 1:
+                    raw_dist_sq = (pymunk.Vec2d(*path[0]) - current_pos).length_squared
+                    if raw_dist_sq < 22500.0:
+                        is_stuck_close = True
+
                 if is_stuck_close:
-                     logger.warning(f"Entity {entity_id} stuck near waypoint. Skipping.")
-                     path.pop(0)
-                     steering.time_stuck = 0.0
+                    # Skip intermediate waypoint if close enough
+                    logger.warning(f"Entity {entity_id} stuck near waypoint. Skipping.")
+                    path.pop(0)
+                    steering.time_stuck = 0.0
                 else:
-                    # Force Repath
-                    # Clearing path will cause Behavior Tree to request new path
+                    # Force complete repath via Behavior Tree
                     logger.warning(
                         f"Entity {entity_id} stuck for {steering.time_stuck:.1f}s. Forcing repath."
                     )
@@ -348,10 +318,23 @@ class SteeringSystem(System):
         target_entity_id: int | None = None,
     ) -> tuple[pymunk.Vec2d, pymunk.Vec2d]:
         """
-        Calculate separation and obstacle avoidance forces.
+        Calculates separation and obstacle avoidance steering forces.
+
+        Separation uses point queries to detect nearby entities and pushes
+        away proportionally to distance. Avoidance uses three whisker raycasts
+        (forward, +30°, -30°) to detect obstacles ahead.
+
+        Args:
+            space: Pymunk physics space for queries.
+            current_pos: Entity's current position.
+            phys: Entity's physics body (for self-exclusion).
+            movement: Movement controller with current velocity.
+            steering: Steering parameters (radii, weights).
+            target_body: Optional body to exclude from avoidance.
+            target_entity_id: Optional entity ID to exclude.
 
         Returns:
-            Tuple of (separation_force, avoidance_force).
+            Tuple of (separation_force, avoidance_force) vectors.
         """
         separation_force = pymunk.Vec2d(0, 0)
         avoidance_force = pymunk.Vec2d(0, 0)
@@ -359,7 +342,8 @@ class SteeringSystem(System):
         if not space:
             return separation_force, avoidance_force
 
-        # A. Neighbor Separation
+        # ==================== NEIGHBOR SEPARATION ====================
+        # Query all physics bodies within separation radius (50px)
         neighbor_radius = 50.0
         query_info = space.point_query(
             current_pos, neighbor_radius, pymunk.ShapeFilter()

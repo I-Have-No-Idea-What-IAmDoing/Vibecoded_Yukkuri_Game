@@ -1,5 +1,19 @@
 """
-Module defining the InteractionSystem logic.
+Interaction System - Action Request Dispatcher.
+
+Processes InteractionRequest components and routes them to appropriate handlers.
+Acts as a central hub for entity-to-entity and entity-to-item interactions.
+
+Interaction Types:
+- Item consumption: Routed to HungerSystem
+- Social actions (Talk, Fight, Dance, Greet): Routed to SocialSystem
+- Predation: Handled directly (eating other Yukkuris, requires permission)
+
+Request Lifecycle:
+1. AI system adds InteractionRequest component to entity
+2. This system processes request each frame
+3. If within range, dispatches to appropriate handler
+4. On success, removes the InteractionRequest component
 """
 
 import math
@@ -21,14 +35,10 @@ from .social_system import SocialSystem
 
 class InteractionSystem(System):
     """
-    System responsible for handling entity interactions.
-    Acts as a dispatcher to specific systems (Hunger, Social) or handles generic interactions.
+    Routes InteractionRequests to specialized systems.
 
-    Attributes:
-        audio (Optional[AudioManager]): The audio manager instance.
-        trait_service (Optional[TraitService]): The trait service.
-        hunger_system (Optional[HungerSystem]): The hunger system.
-        social_system (Optional[SocialSystem]): The social system.
+    Lazy-loads system references on first update to avoid
+    circular dependencies during initialization.
     """
 
     def __init__(self) -> None:
@@ -126,24 +136,24 @@ class InteractionSystem(System):
         """
         target_id = request.target_id
 
+        # ==================== VALIDATION ====================
+        # Ensure target still exists and has position
         if not world.entity_exists(target_id):
-            # Target is gone, invalid request -> remove it
-            return True
+            return True  # Target gone, clean up request
 
         target_transform = world.get_component(target_id, Transform)
         if not target_transform:
-            # Target invalid, remove request
-            return True
+            return True  # Target invalid
 
-        # Verify distance (sanity check)
+        # ==================== RANGE CHECK ====================
+        # 70px threshold allows for movement jitter during approach
         dist = math.hypot(
             transform.x - target_transform.x, transform.y - target_transform.y
         )
-        if dist > 70.0:  # Slightly larger than action threshold to account for movement
-            # Too far, but we don't remove request yet (maybe moving towards it)
-            return False
+        if dist > 70.0:
+            return False  # Still approaching, keep request active
 
-        # Handle Consumption (Item)
+        # ==================== DISPATCH: ITEM CONSUMPTION ====================
         item_stats = world.get_component(target_id, ItemStats)
         if item_stats:
             if self.hunger_system:
@@ -156,7 +166,7 @@ class InteractionSystem(System):
                 )
                 return False
 
-        # Handle Social Interaction (Talk/Fight/Dance)
+        # ==================== DISPATCH: SOCIAL ACTIONS ====================
         if request.action in ["Talk", "Fight", "Dance", "Greet"]:
             if self.social_system:
                 self.social_system.process_interaction_request(world, entity, request)
@@ -165,7 +175,8 @@ class InteractionSystem(System):
                 logger.warning("SocialSystem not available to handle social request.")
                 return False
 
-        # Handle Interaction with another Yukkuri (Predation)
+        # ==================== DISPATCH: PREDATION ====================
+        # Special case: eating another Yukkuri (requires trait permission)
         target_stats = world.get_component(target_id, YukkuriStats)
         if target_stats and request.consume:
             if self._check_predation_allowed(world, entity):

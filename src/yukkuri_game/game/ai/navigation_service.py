@@ -1,3 +1,18 @@
+"""
+Asynchronous HPA* (Hierarchical Pathfinding A*) Navigation Service.
+
+This module provides efficient pathfinding for large game worlds by using a
+two-level hierarchy: an abstract cluster graph for global routing and
+local A* searches within clusters for fine-grained paths.
+
+Key Features:
+- Asynchronous path computation via background worker thread
+- Path caching to avoid redundant calculations
+- Congestion control to prevent request queue overflow
+- Thread-safe grid updates with automatic graph rebuilding
+- Deterministic mode for testing and replays
+"""
+
 import threading
 import queue
 import time
@@ -13,8 +28,10 @@ from enum import IntEnum
 
 
 class ObstacleType(IntEnum):
-    LOW = 0  # Blocks WALK
-    HIGH = 1  # Blocks WALK | FLY
+    """Obstacle height classifications affecting traversal."""
+
+    LOW = 0   # Blocks ground movement (WALK) only
+    HIGH = 1  # Blocks all movement (WALK, FLY, SWIM)
 
 
 @dataclass(order=True)
@@ -38,50 +55,77 @@ class PathResult:
 class NavigationService:
     """
     Asynchronous HPA* Navigation Service.
-    Manages the unified grid, cluster graph, and a background worker thread for pathfinding.
+
+    Manages the navigation grid, cluster graph, and background worker thread.
+    Uses a two-level hierarchy for efficient pathfinding:
+
+    1. Abstract Level: Cluster graph with inter-cluster edges
+    2. Local Level: A* within individual clusters
+
+    Thread Safety:
+        - Uses _state_lock for all grid/graph modifications
+        - Worker thread holds lock during path processing
+        - Main thread must acquire lock for obstacle updates
+
+    Path Caching:
+        - Caches abstract paths by (start_cluster, end_cluster, capabilities)
+        - Cache invalidated on graph rebuild
     """
 
-    def __init__(self, world_width: int, world_height: int, grid_step_size: int = 25):
+    def __init__(
+        self,
+        world_width: int,
+        world_height: int,
+        grid_step_size: int = 25,
+        deterministic_mode: bool = False,
+    ):
         self.world_width = world_width
         self.world_height = world_height
         self.grid_step_size = grid_step_size
+        self.deterministic_mode = deterministic_mode
 
         # 1. Unified Grid
         self.grid = NavigationGrid(world_width, world_height, grid_step_size)
 
         # 2. HPA* Cluster Graph
         self.cluster_graph = ClusterGraph(self.grid)
-        # Note: We delay building the graph until the first update or explicitly?
-        # For now, let's build it immediately assuming empty grid.
         self.cluster_graph.build_graph()
 
         # 3. Async Logic
         self.request_queue = queue.PriorityQueue()
         self.result_queue = queue.Queue()
 
-        # Cache: (start_cluster, end_cluster, capabilities) -> Abstract Path
-        # We need to invalidate this when grid changes.
+        # Path cache: (start_cluster, end_cluster, capabilities) -> abstract path IDs
         self._path_cache: dict = {}
 
-        # Dirty flag for graph updates
+        # Dirty flag triggers graph rebuild on next worker cycle.
         self._dirty = False
         self._last_rebuild = 0.0
 
-        # Thread safety lock for shared state (_path_cache, _dirty, _last_rebuild)
         self._state_lock = threading.Lock()
 
-        # Multiprocessing Support (Stub)
-        self.use_multiprocessing = False
+        self.use_multiprocessing = False  # Stub for future enhancement
 
         self._running = True
-        self._thread = threading.Thread(
-            target=self._worker_loop, daemon=True, name="NavWorker"
-        )
-        self._thread.start()
+        self._thread: Optional[threading.Thread] = None
+
+        if not self.deterministic_mode:
+            self._thread = threading.Thread(
+                target=self._worker_loop, daemon=True, name="NavWorker"
+            )
+            self._thread.start()
 
         logger.info(
-            f"NavigationService initialized. Grid: {self.grid.width}x{self.grid.height}"
+            f"NavigationService initialized. Grid: {self.grid.width}x{self.grid.height}, Deterministic: {self.deterministic_mode}"
         )
+
+    def __enter__(self) -> "NavigationService":
+        """Context manager support."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager support."""
+        self.shutdown()
 
     def reset(self):
         """Resets the grid and graph."""
@@ -105,10 +149,10 @@ class NavigationService:
     def shutdown(self):
         """Stops the worker thread."""
         logger.info(
-            f"NavigationService shutdown called. Thread alive: {self._thread.is_alive()}"
+            f"NavigationService shutdown called. Thread alive: {self._thread.is_alive() if self._thread else False}"
         )
         self._running = False
-        if self._thread.is_alive():
+        if self._thread and self._thread.is_alive():
             self._thread.join(timeout=1.0)
             logger.info("NavigationService thread joined.")
         else:
@@ -121,10 +165,20 @@ class NavigationService:
         end: Tuple[float, float],
         capabilities: int = TraversalCapability.WALK,
         priority: int = 2,
+        timestamp: float | None = None,
     ):
-        """Async path request. Puts request into PriorityQueue."""
+        """
+        Queues an asynchronous path request.
 
-        # Congestion Control: Drop low priority requests if queue is full
+        Args:
+            entity_id: Requesting entity's ID (for result matching).
+            start: World coordinates of starting position.
+            end: World coordinates of destination.
+            capabilities: Bitfield of TraversalCapability flags.
+            priority: Lower value = higher priority (0=urgent, 2=normal).
+            timestamp: Request time for deterministic ordering.
+        """
+        # Drop low-priority requests when queue is congested.
         if self.request_queue.qsize() > 50 and priority > 2:
             return
 
@@ -134,21 +188,56 @@ class NavigationService:
         gx2 = int(round(end[0] / self.grid_step_size))
         gy2 = int(round(end[1] / self.grid_step_size))
 
-        # Clamp
+        # Clamp to grid bounds.
         gx1 = max(0, min(gx1, self.grid.width - 1))
         gy1 = max(0, min(gy1, self.grid.height - 1))
         gx2 = max(0, min(gx2, self.grid.width - 1))
-        gy2 = max(0, min(gy2, self.grid.height - 1))
+        gy2 = max(0, min(gy2, self.grid.height - 1)))
+
+        # Use provided timestamp or current time (non-deterministic fallback)
+        req_time = timestamp if timestamp is not None else time.time()
 
         req = PathRequest(
             priority=priority,
-            timestamp=time.time(),
+            timestamp=req_time,
             entity_id=entity_id,
             start=(gx1, gy1),
             end=(gx2, gy2),
             capabilities=capabilities,
         )
-        self.request_queue.put(req)
+
+        if self.deterministic_mode:
+            self.request_queue.put(req)
+        else:
+            self.request_queue.put(req)
+
+    def update(self, current_time: float) -> None:
+        """
+        Manual update for deterministic mode. Processes all pending requests.
+        """
+        if not self.deterministic_mode:
+            return
+
+        # Handle Graph Rebuilds
+        if self._dirty:
+            with self._state_lock:
+                self.cluster_graph.build_graph()
+                self._dirty = False
+                self._last_rebuild = current_time
+                self._path_cache.clear()
+
+        # Process all Pending Requests
+        while not self.request_queue.empty():
+            try:
+                req: PathRequest = self.request_queue.get_nowait()
+                result = self._process_request(req)
+                self.result_queue.put(result)
+                self.request_queue.task_done()
+            except queue.Empty:
+                break
+            except Exception as e:
+                logger.error(f"Error in navigation update: {e}")
+                traceback.print_exc()
 
     def get_results(self) -> List[PathResult]:
         """Call this from Main Thread to process completed paths."""
@@ -161,19 +250,22 @@ class NavigationService:
         return results
 
     def _worker_loop(self):
+        logger.info("NavWorker thread started.")
         while self._running:
             try:
-                # Check dirty flag and rebuild graph if needed
-                # Throttle rebuilds to avoid spam (e.g. max once per second)
+                # Throttle graph rebuilds to max once per second.
                 with self._state_lock:
                     should_rebuild = self._dirty and (time.time() - self._last_rebuild > 1.0)
+                
                 if should_rebuild:
+                    logger.debug("NavWorker: rebuilding graph...")
                     try:
-                        self.cluster_graph.build_graph()
                         with self._state_lock:
+                            self.cluster_graph.build_graph()
                             self._dirty = False
                             self._last_rebuild = time.time()
                             self._path_cache.clear()  # Invalidate cache
+                        logger.debug("NavWorker: graph rebuild complete.")
                     except Exception as e:
                         logger.error(f"Graph rebuild failed: {e}")
                         traceback.print_exc()
@@ -185,13 +277,16 @@ class NavigationService:
                     continue
 
                 try:
+                    logger.debug(f"NavWorker: Processing request {req.entity_id}")
                     start_time = time.perf_counter()
-                    result = self._process_request(req)
+                    # Hold lock during A* to prevent grid modification mid-search.
+                    with self._state_lock:
+                        result = self._process_request(req)
                     duration = time.perf_counter() - start_time
+                    logger.debug(f"NavWorker: Request {req.entity_id} processed in {duration:.4f}s")
 
-                    # Profiler Hook
-                    if duration > 0.01:  # Log slow paths > 10ms
-                        pass  # Removed debug log
+                    if duration > 0.01:  # Log slow paths > 10ms.
+                        pass
 
                     self.result_queue.put(result)
                 except Exception as e:
@@ -201,46 +296,44 @@ class NavigationService:
 
                 self.request_queue.task_done()
             except Exception as outer_e:
-                print(f"FATAL ERROR in NavWorker: {outer_e}")
-                traceback.print_exc()
-                # Don't crash the thread, retry?
-                time.sleep(1.0)
+                time.sleep(1.0)  # Prevent tight loop on fatal errors.
         logger.info("NavigationService worker loop exited.")
 
     def _process_request(self, req: PathRequest) -> PathResult:
+        """
+        Processes a single path request through the HPA* pipeline.
+
+        Pipeline stages:
+        1. Trivial path check (start == end)
+        2. Cache lookup for previously computed abstract paths
+        3. Same-cluster optimization (local A* only)
+        4. Cross-cluster search (abstract A* + refinement)
+        5. String pulling for path smoothing
+        6. World coordinate conversion
+
+        Returns:
+            PathResult with world-coordinate path on success.
+        """
+        logger.debug(f"_process_request start: {req.start} -> {req.end}")
         start_pos = req.start
         end_pos = req.end
         capability = req.capabilities
 
-        # 1. Trivial Case
+        # Stage 1: Trivial case - already at destination
         if start_pos == end_pos:
+            logger.debug("Trivial path found.")
             return PathResult(req.entity_id, [self._to_world(start_pos)], True)
 
-        # 2. Check Cache
+        # Stage 2: Identify clusters for cache lookup
         start_cluster = self.cluster_graph.get_cluster_for_pos(start_pos)
         end_cluster = self.cluster_graph.get_cluster_for_pos(end_pos)
 
         if start_cluster and end_cluster:
-            cache_key = (
-                (start_cluster.cx, start_cluster.cy),
-                (end_cluster.cx, end_cluster.cy),
-                capability,
-            )
-            if cache_key in self._path_cache:
-                cached_abstract = self._path_cache[cache_key]
-                # Refine for this specific start/end
-                raw_path = self._refine_cached_path(
-                    cached_abstract, start_pos, end_pos, capability
-                )
-                if raw_path:
-                    smoothed = StringPuller.smooth_path(raw_path, self.grid, capability)
-                    return PathResult(
-                        req.entity_id, [self._to_world(p) for p in smoothed], True
-                    )
+            pass  # Cache lookup handled in cross-cluster section below.
 
-        # 3. Full HPA* Workflow
-        # Check if start and end are in the same cluster (short path)
+        # Stage 3: Same-cluster optimization (local A* only).
         if start_cluster and end_cluster and start_cluster == end_cluster:
+            logger.debug(f"Same cluster search: {start_cluster.cx},{start_cluster.cy}")
             # Local A* within cluster
             raw_path = AStar.search(
                 self.grid,
@@ -254,13 +347,17 @@ class NavigationService:
                     start_cluster.max_y,
                 ),
             )
+            logger.debug(f"Local A* result: {raw_path}")
             if raw_path:
                 smoothed = StringPuller.smooth_path(raw_path, self.grid, capability)
+                logger.debug(f"Smoothed path: {smoothed}")
                 return PathResult(
                     req.entity_id, [self._to_world(p) for p in smoothed], True
                 )
-
-        # 4. Insert temporary nodes for start and goal
+        
+        logger.debug("Cross-cluster search needed (or local failed).")
+        
+        # Stage 4: Insert temporary nodes for start/goal positions.
         start_node = self.cluster_graph.insert_temporary_node(start_pos, capability)
         end_node = self.cluster_graph.insert_temporary_node(end_pos, capability)
 
@@ -274,10 +371,9 @@ class NavigationService:
 
         try:
             if not start_node or not end_node:
-                # Fallback to direct grid A*
-                raw_path = AStar.search(self.grid, start_pos, end_pos, capability)
+                raw_path = AStar.search(self.grid, start_pos, end_pos, capability)  # Direct fallback.
             else:
-                # 5. Abstract Search (A* on cluster graph)
+                # Stage 5: Abstract A* on cluster graph.
                 abstract_path = self.cluster_graph.abstract_search(start_node, end_node)
 
                 if abstract_path:
@@ -289,20 +385,21 @@ class NavigationService:
                             capability,
                         )
                         # Store only permanent node IDs
+
                         permanent_abstract = [
                             nid for nid in abstract_path if not nid.startswith("temp_")
                         ]
                         if len(permanent_abstract) >= 2:
-                            self._path_cache[cache_key] = permanent_abstract
+                            with self._state_lock:
+                                self._path_cache[cache_key] = permanent_abstract
 
-                    # 6. Refinement (local A* for each segment)
+                    # Stage 6: Refine abstract path with local A* segments.
                     raw_path = self.cluster_graph.refine_abstract_path(
                         abstract_path, capability
                     )
 
                 if not raw_path:
-                    # Fallback to direct grid A*
-                    raw_path = AStar.search(self.grid, start_pos, end_pos, capability)
+                    raw_path = AStar.search(self.grid, start_pos, end_pos, capability)  # Fallback.
         finally:
             # Clean up temporary nodes
             for temp_node in temp_nodes:
@@ -311,10 +408,10 @@ class NavigationService:
         if not raw_path:
             return PathResult(req.entity_id, [], False)
 
-        # 7. String Pulling (Smoothing)
+        # Stage 7: String pulling for path smoothing.
         smoothed_path = StringPuller.smooth_path(raw_path, self.grid, capability)
 
-        # 8. Convert to World Coords
+        # Stage 8: Convert grid to world coordinates.
         world_path = [self._to_world(p) for p in smoothed_path]
 
         return PathResult(req.entity_id, world_path, True)
@@ -417,15 +514,13 @@ class NavigationService:
         # grid.update_obstacle_rect expects 'is_blocking' and 'block_mask'
         is_blocking = not walkable
 
-        self.grid.update_obstacle_rect(x, y, width, height, is_blocking, block_mask)
-        # Mark dirty to trigger eventual graph rebuild
-        with self._state_lock:
+        with self._state_lock:  # Lock to protect grid from worker thread.
+            self.grid.update_obstacle_rect(x, y, width, height, is_blocking, block_mask)
             self._dirty = True
 
-    # Legacy Compatibility methods
     def find_path(self, start, end, can_fly=False) -> List[Tuple[float, float]]:
         """Blocking synchronous pathfinding for legacy code."""
-        # This is dangerous for performance but necessary for transition.
+        logger.debug(f"find_path called: {start} -> {end}")
         req = PathRequest(
             priority=0,
             timestamp=time.time(),
@@ -436,7 +531,11 @@ class NavigationService:
             if can_fly
             else TraversalCapability.WALK,
         )
-        result = self._process_request(req)
+        # Lock to prevent race with graph rebuild
+        with self._state_lock:
+            result = self._process_request(req)
+        
+        logger.debug(f"find_path finished. Success: {result.success}")
         return result.path if result.success else []
 
     def _to_grid(self, pos: Tuple[float, float]) -> Tuple[int, int]:

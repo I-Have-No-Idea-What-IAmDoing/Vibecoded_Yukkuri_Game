@@ -13,13 +13,13 @@ from ..engine.types import EntityID
 @dataclass(slots=True)
 class LODComponent:
     """
-    Component for Level of Detail (LOD) management.
+    Manages Level of Detail (LOD) for update frequency optimization.
     
     Levels:
-    0: High (Every frame update)
+    0: High (Every frame)
     1: Medium (Every 2nd frame)
     2: Low (Every 4th frame)
-    3: Culled (No updates usually, or minimal)
+    3: Culled (No updates)
     """
     level: int = 2
 
@@ -47,7 +47,7 @@ class PhysicsBody:
 @dataclass(slots=True)
 class Transform:
     """
-    Component representing the position and scale of an entity in the world.
+    World space position, rotation, and scale.
 
     Attributes:
         x (float): The x-coordinate of the entity.
@@ -76,7 +76,7 @@ class Transform:
 @dataclass(slots=True)
 class Velocity:
     """
-    Component representing the velocity of an entity.
+    Linear velocity vector (pixels/second).
 
     Attributes:
         dx (float): The velocity along the x-axis.
@@ -90,7 +90,7 @@ class Velocity:
 @dataclass(slots=True)
 class Sprite:
     """
-    Component representing the graphical sprite of an entity.
+    Visual asset data for rendering.
 
     Attributes:
         image_name (str): The filename of the image asset.
@@ -105,9 +105,9 @@ class Sprite:
     layer: int = 0
     flip_x: bool = False
     flip_y: bool = False
+    alpha: int = 255
 
-    # Simple/Direct animation fields (used when entity has no Animator component)
-    # Also used by Animator as the output frame index for rendering
+    # Animation fields used by Animator (or simple frame-based animation)
     frame_count: int = 1
     frame_duration: float = 0.1
     current_frame: int = 0
@@ -142,7 +142,7 @@ class Animator:
 @dataclass(slots=True)
 class Selectable:
     """
-    Component indicating that an entity can be selected by the user.
+    Flags an entity as selectable by player input.
 
     Attributes:
         selected (bool): Whether the entity is currently selected. Defaults to False.
@@ -192,15 +192,14 @@ class InteractionRequest:
 class MovementController:
     """A simple component that holds movement commands and visual state."""
 
-    # Safety Fix: Use default_factory for mutable Vector2
     target_velocity: Vector2 = field(default_factory=lambda: Vector2(0, 0))
 
-    # New fields for Kinematic Controller
+    # Kinematic controller parameters
     acceleration: float = 500.0
     friction: float = 10.0
     current_velocity: Vector2 = field(default_factory=lambda: Vector2(0, 0))
 
-    # --- Visual Tuning ---
+    # Hopping/bobbing animation parameters
     visual_bob_timer: float = 0.0
     bob_height: float = 10.0
     bob_speed: float = 5.0
@@ -245,7 +244,6 @@ class VisualTransform:
     """Holds visual-only transform data, decoupling rendering from physics."""
 
     vertical_offset: float = 0.0
-    # Safety Fix: Use default_factory for mutable Vector2
     shadow_position: Vector2 = field(default_factory=lambda: Vector2(0, 0))
     has_drop_shadow: bool = False
 
@@ -269,11 +267,8 @@ class LightSource:
     color: tuple[int, int, int] = (255, 255, 220)
     intensity: float = 1.0
     flicker_style: FlickerStyle = FlickerStyle.NONE
-    # If True, enables soft shadow rendering (blurred edges)
-    soft_shadows: bool = True
-    # If True, the light and its shadows are cached (for static lights)
-    static: bool = False
-    # Internal state for flickering
+    soft_shadows: bool = True  # Enables blurred shadow edges
+    static: bool = False  # Static lights cache their shadow geometry
     _flicker_offset: float = 0.0
 
 
@@ -283,11 +278,8 @@ class Occluder:
     Component defining a light-blocking shape (Hull).
     """
 
-    # If None, defaults to the entity's PhysicsBody shape or Sprite rect
-    polygon: list[tuple[float, float]] | None = None
-    # optimization: If True, the occluder geometry is assumed to be static (e.g. walls)
-    # and can be cached more aggressively.
-    static: bool = False
+    polygon: list[tuple[float, float]] | None = None  # Custom hull (defaults to PhysicsBody shape)
+    static: bool = False  # Static occluders cache more aggressively
 
 
 @dataclass(slots=True)
@@ -300,28 +292,27 @@ class SteeringComponent:
     max_force: float = 300.0
     mass: float = 1.0
 
-    # Current accumulated force
     current_steering_force: Vector2 = field(default_factory=lambda: Vector2(0, 0))
 
-    # Tuning weights
+    # Behavior weights
     seek_weight: float = 1.0
     separation_weight: float = 1.5
     avoidance_weight: float = 2.0
     arrival_radius: float = 25.0
 
-    # Stuck detection
+    # Stuck detection timer
     time_stuck: float = 0.0
 
-    # Pursuit Mode
+    # Pursuit/intercept prediction
     pursuit_enabled: bool = False
 
 
 @dataclass(slots=True)
 class MoveCommand:
     """
-    Command component issued by AI behavior nodes to request movement.
-    Consumed by the SteeringSystem to calculate actual velocity.
-    This decouples AI decision-making from physics execution.
+    High-level movement request issued by AI.
+    Consumed by SteeringSystem to calculate physics forces.
+    Decouples decision-making from physics execution.
 
     Attributes:
         target_pos (Vector2): World position to move towards.

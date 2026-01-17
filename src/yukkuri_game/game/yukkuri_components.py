@@ -1,5 +1,17 @@
 """
 Yukkuri Components Module.
+
+Defines all ECS components specific to Yukkuri entities including:
+- Core Stats: YukkuriStats, Needs, Skills
+- Personality: Personality, PersonalityAxis, EmotionalState
+- Social: RelationshipRegistry, RelationshipData, GossipQueue
+- AI: AIState, Blackboard, GoalComponent
+- Physical: Flight, Predator
+
+Architecture Notes:
+- YukkuriArchetype uses Flyweight pattern for memory-efficient type data sharing
+- RelationshipData implements the "Headline System" for memory management
+- Components use slots=True for memory optimization
 """
 
 from dataclasses import dataclass, field
@@ -13,21 +25,32 @@ if TYPE_CHECKING:
     from ..engine.data_models import YukkuriType
 
 
+# ==============================================================================
+# FLYWEIGHT PATTERN - Shared Type Data
+# ==============================================================================
+
 @dataclass(slots=True)
 class YukkuriArchetype:
     """
     Flyweight object holding static data shared by all Yukkuris of a specific type.
-    Wraps the read-only TOML configuration.
+    Wraps the read-only TOML configuration to avoid per-entity duplication.
     """
     type_data: "YukkuriType | None" = None
 
-# Module-level cache for Flyweights
+
+# Module-level Flyweight cache: type_id -> YukkuriArchetype
 _ARCHETYPE_CACHE: dict[str, YukkuriArchetype] = {}
+
 
 def register_archetype(type_id: str, type_data: "YukkuriType") -> None:
     """Registers a type configuration into the Flyweight cache."""
     if type_id not in _ARCHETYPE_CACHE:
         _ARCHETYPE_CACHE[type_id] = YukkuriArchetype(type_data=type_data)
+
+
+# ==============================================================================
+# FLIGHT SYSTEM
+# ==============================================================================
 
 
 class FlightState(Enum):
@@ -319,7 +342,7 @@ class RelationshipData:
         """
         for k, v in state.items():
             setattr(self, k, v)
-        # Recalculate sums on load to ensure data integrity
+        # Recalculate sums to ensure data integrity.
         self.trivial_sentiment_sum = sum(m.sentiment for m in self.trivial_buffer)
         self.core_sentiment_sum = sum(m.sentiment for m in self.core_buffer)
 
@@ -345,7 +368,6 @@ class RelationshipData:
         Args:
             headline (MemoryHeadline): The memory to add.
         """
-        # If space exists
         if len(self.core_buffer) < self.CORE_MAX_LEN:
             self.core_buffer.append(headline)
             self.core_sentiment_sum += headline.sentiment
@@ -361,18 +383,17 @@ class RelationshipData:
         min_locked_importance = float("inf")
         min_locked_index = -1
 
+        # Find oldest unlocked memory, or lowest importance locked.
         for i, mem in enumerate(self.core_buffer):
             if not mem.is_locked:
                 victim_index = i
-                break  # Found the oldest unlocked, stop searching
+                break
             else:
                 if mem.importance < min_locked_importance:
                     min_locked_importance = mem.importance
                     min_locked_index = i
 
         if victim_index != -1:
-            # Replace the unlocked memory
-            # Deque remove by index is O(N), but necessary here if not popping ends.
             removed = self.core_buffer[victim_index]
             self.core_sentiment_sum -= removed.sentiment
             del self.core_buffer[victim_index]
@@ -381,8 +402,7 @@ class RelationshipData:
             self.core_sentiment_sum += headline.sentiment
             return
 
-        # 2. All memories are locked. Check if new memory is significantly more important.
-        # "Significantly higher magnitude" -> let's say +20 difference.
+        # All locked: replace lowest importance if new is significantly better (+20).
         if min_locked_index != -1:
             if headline.importance > (min_locked_importance + 20.0):
                 removed = self.core_buffer[min_locked_index]
@@ -465,22 +485,16 @@ class GossipQueue(Component):
                 duplicate_index = i
                 break
 
-        if duplicate_index != -1:
-            existing = self.priority_queue[duplicate_index]
             if packet.value > existing.value:
-                # Replace
                 self.priority_queue[duplicate_index] = packet
-                # Re-sort to maintain order
                 self.priority_queue.sort(key=lambda x: x.value, reverse=True)
             return
 
-        # 2. Add new packet if we have space or it's better than the worst
         if len(self.priority_queue) < max_length:
             self.priority_queue.append(packet)
             self.priority_queue.sort(key=lambda x: x.value, reverse=True)
         else:
-            # Check if better than the last one (lowest priority)
-            if packet.value > self.priority_queue[-1].value:
+            if packet.value > self.priority_queue[-1].value:  # Better than lowest.
                 self.priority_queue[-1] = packet
                 self.priority_queue.sort(key=lambda x: x.value, reverse=True)
 

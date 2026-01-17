@@ -58,8 +58,8 @@ class TestMoveToTargetDrift(unittest.TestCase):
             # 2. Move Target significantly (to 300, 0) -> Drift = 100 > 50
             target_trans.x = 300.0
 
-            # Advance time slightly to ensure time.time() > last_repath_time (0.0)
-            # (It definitely is)
+            # Advance time slightly to ensure world.time > last_repath_time (0.0)
+            self.world.time = 10.0
 
             status = action.update()
 

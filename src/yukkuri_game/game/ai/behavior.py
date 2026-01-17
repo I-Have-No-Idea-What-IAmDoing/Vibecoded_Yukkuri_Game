@@ -3,17 +3,36 @@ Legacy module for behavior tree logic.
 This module now re-exports from the modular `yukkuri_game.game.ai.behaviors` package.
 """
 
-from .behaviors.trees import (
-    create_yukkuri_behavior_tree,
+from .behaviors import (
     BehaviorRegistry,
+    create_yukkuri_behavior_tree,
+    # Builders (Legacy Support)
     build_eat_behavior,
     build_sleep_behavior,
     build_play_behavior,
     build_wander_behavior,
+    # Actions
+    Idle,
+    Check,
+    CheckEmotion,
+    MoveToTarget,
+    Wander,
+    Swoop,
+    FleePredator,
+    FleeFromTarget,
+    FindItem,
+    FindLightSource,
+    FindPrey,
+    FindThreat,
+    FindSocialTarget,
+    PickFood,
+    Interact,
+    SocialInteract,
+    EatPrey,
+    Sleep,
 )
 
-# Re-exporting base Action for convenience if it was used here
-from .base_action import Action
-from .behaviors.actions.movement import MoveToTarget, Wander, Swoop, FleePredator, FleeFromTarget
-from .behaviors.actions.interaction import Interact, EatPrey
-from .behaviors.actions.searching import FindItem, FindPrey, FindThreat
+# Legacy alias if needed (though not found in search, adding just in case logic expects it)
+Eat = Interact
+# Add other re-exports as needed by legacy code/tests
+

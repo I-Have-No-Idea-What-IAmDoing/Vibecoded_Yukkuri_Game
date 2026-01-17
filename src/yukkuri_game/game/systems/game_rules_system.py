@@ -1,6 +1,20 @@
 """
-Game Rules System.
-Handles high-level game logic like selling, training, and punishing entities.
+Game Rules System - Player Action Handlers.
+
+Processes player commands for entity management:
+- Sell: Convert Yukkuri to currency, value based on stats/health/happiness
+- Train: Award badges and boost happiness (reward-based training)
+- Punish: Reduce health/happiness, increase stress/discipline
+
+Event-Driven Architecture:
+- Subscribes to request events (SellEntityRequest, TrainEntityRequest, etc.)
+- Publishes result events (EntitySoldEvent, EntityTrainedEvent, etc.)
+- UI systems listen to result events for feedback (floating text, sounds)
+
+Game Balance Notes:
+- Selling value scales with entity condition (healthy/happy = more valuable)
+- Training adds +1 badge, +10 happiness
+- Punishment deals -10 health, -20 happiness, +20 stress, +10 discipline
 """
 
 from loguru import logger
@@ -22,10 +36,10 @@ from ..events import (
 
 class GameRulesSystem(System):
     """
-    System that enforces game rules and handles player actions like selling/training.
+    Event-driven system for player management actions.
 
-    Attributes:
-        event_bus (EventBus): The event bus for subscription and publishing.
+    Purely event-driven: update() is a no-op. All logic triggered
+    by event subscriptions established in __init__.
     """
 
     def __init__(self, event_bus: EventBus):
@@ -74,32 +88,39 @@ class GameRulesSystem(System):
         emotional_state = self.ecs_world.get_component(entity, EmotionalState)
 
         if stats:
-            # Get Config
             from ...config import GameConfig
 
             config = self.ecs_world.services.try_get(GameConfig)
             stats_config = config.rules.stats if config else None
 
-            # Assuming calculate_value now takes needs
+            # Calculate sale value based on current condition:
+            # - Base value from stats (badges, age, type rarity)
+            # - Modifiers from health, happiness, traits
+            # - Minimum value is 0 (worthless but still removable)
             value = max(
                 0,
                 stats.calculate_value(
                     needs, emotional_state, stats_config=stats_config
                 ),
             )
+            
+            # Credit player account
             economy = self.ecs_world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(
                 f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}"
             )
 
+            # Get position for visual feedback spawn point
             transform = self.ecs_world.get_component(entity, Transform)
             position = (transform.x, transform.y) if transform else (0, 0)
 
+            # Audio/visual feedback
             audio = self.ecs_world.services.try_get(AudioManager)
             if audio:
                 audio.play_sound("sell")
 
+            # Notify listeners (for floating text, achievements, etc.)
             self.event_bus.publish(EntitySoldEvent(entity, value, position))
             self.ecs_world.destroy_entity(entity)
             return value
@@ -134,7 +155,10 @@ class GameRulesSystem(System):
         stats = self.ecs_world.get_component(event.entity_id, YukkuriStats)
         emotional_state = self.ecs_world.get_component(event.entity_id, EmotionalState)
         if stats:
+            # Award training badge (increases sell value and prestige)
             stats.badges += 1
+            
+            # Positive reinforcement: training makes them happier
             if emotional_state:
                 emotional_state.happiness = min(100.0, emotional_state.happiness + 10.0)
 
@@ -167,13 +191,18 @@ class GameRulesSystem(System):
         emotional_state = self.ecs_world.get_component(event.entity_id, EmotionalState)
 
         if stats and needs:
+            # Physical damage from punishment
             needs.health = max(0.0, needs.health - 10.0)
+            
             if emotional_state:
+                # Emotional harm: less happy, more stressed
                 emotional_state.happiness = max(
                     -100.0, emotional_state.happiness - 20.0
                 )
                 emotional_state.stress = min(100.0, emotional_state.stress + 20.0)
 
+            # Discipline increase: punishment teaches obedience
+            # Higher discipline = less likely to misbehave, but also less happy baseline
             stats.discipline = min(100.0, stats.discipline + 10.0)
 
             transform = self.ecs_world.get_component(event.entity_id, Transform)

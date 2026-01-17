@@ -1,5 +1,29 @@
 """
-Module defining the Sector System for efficient spatial partitioning and social propagation.
+Sector System - Spatial Partitioning for Efficient Queries.
+
+Divides the game world into fixed-size grid sectors for O(1) spatial lookups.
+Critical for performance when many entities need proximity checks.
+
+Use Cases:
+- GossipSystem: Find witnesses within visual/auditory range
+- FamilySystem: Find nearby family members for benefits
+- PerceptionSystem: Query visible entities without O(N²) scans
+- NavigationService: Obstacle queries in limited areas
+
+Sector Structure:
+- World divided into SECTOR_SIZE x SECTOR_SIZE cells (default 500px)
+- Each sector tracks entity IDs within its bounds
+- Entities automatically moved between sectors on position update
+
+Range Types (for get_entities_in_range):
+- "visual": Same sector + 8 adjacent sectors (3x3 area)
+- "auditory_loud": Same as visual (loud sounds carry far)
+- "auditory": Same sector only (quiet sounds are local)
+
+Performance:
+- Entity update: O(1) amortized
+- Range query: O(k) where k = entities in touched sectors
+- Periodic cleanup removes stale entity references
 """
 
 from collections import defaultdict
@@ -12,8 +36,11 @@ from ..components import Transform, Occluder
 
 class SectorMap:
     """
-    Manages a grid of sectors for efficient spatial queries.
-    Used for Social Propagation (Visual/Auditory) and optimizing other spatial lookups.
+    Grid-based spatial index for efficient proximity queries.
+
+    Entities are assigned to sectors based on their position.
+    Queries return all entities in relevant sectors (superset);
+    callers should filter by precise distance if needed.
     """
 
     def __init__(self, width: float, height: float, sector_size: float):
@@ -21,21 +48,22 @@ class SectorMap:
         Initializes the SectorMap.
 
         Args:
-            width (float): Total width of the world.
-            height (float): Total height of the world.
-            sector_size (float): Size of each sector (width/height).
+            width: Total world width in pixels.
+            height: Total world height in pixels.
+            sector_size: Size of each sector cell (width and height).
         """
         self.width = width
         self.height = height
         self.sector_size = sector_size
 
+        # Grid dimensions
         self.cols = int(math.ceil(width / sector_size))
         self.rows = int(math.ceil(height / sector_size))
 
-        # Stores set of entity IDs per sector index (col, row)
+        # Sector storage: (col, row) -> set of entity IDs
         self.sectors: dict[tuple[int, int], set[int]] = defaultdict(set)
 
-        # Track entity positions to optimize updates
+        # Reverse lookup: entity_id -> current (col, row)
         self.entity_sectors: dict[int, tuple[int, int]] = {}
 
     def get_sector_coords(self, x: float, y: float) -> tuple[int, int]:
@@ -44,7 +72,6 @@ class SectorMap:
         Clamps to map boundaries.
         """
         # Convert world coordinates to grid indices.
-        # This is a simple spatial hash where each bucket is a "sector".
         col = int(x / self.sector_size)
         row = int(y / self.sector_size)
 
@@ -245,7 +272,7 @@ class SectorSystem(System):
                 self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
                 self._subscribed = True
 
-        # We need to register the map as a service if it's not already
+        # Register map as service if not already.
         if not world.services.try_get(SectorMap):
             world.services.register(self.sector_map, SectorMap)
         if not world.services.try_get(OccluderMap):

@@ -3,7 +3,7 @@ Prefab functions for Yukkuri entities.
 """
 
 from typing import Any
-import random
+from yukkuri_game.engine import rng
 import pymunk
 
 from ...engine.ecs import World
@@ -19,17 +19,6 @@ from ..components import (
     SteeringComponent,
 )
 from ..yukkuri_components import (
-    YukkuriStats,
-    Needs,
-    AIState,
-    Personality,
-    RelationshipRegistry,
-    EmotionalState,
-    PersonalityAxis,
-    GossipQueue,
-    Flight,
-    FlightState,
-    Predator,
     YukkuriStats,
     Needs,
     AIState,
@@ -237,7 +226,7 @@ def create_yukkuri(
             # 50% chance to inherit each trait from parents
             for pp in parent_personalities:
                 for t in pp.traits:
-                    if random.random() < 0.5:
+                    if rng.random_float() < 0.5:
                         traits.add(t)
 
             # Inherit axis values
@@ -247,17 +236,17 @@ def create_yukkuri(
             total_greed = sum(pp.axis.greed for pp in parent_personalities)
 
             count = len(parent_personalities)
-            axis.kindness = int(total_kindness / count + random.uniform(-10, 10))
-            axis.energy = int(total_energy / count + random.uniform(-10, 10))
-            axis.bravery = int(total_bravery / count + random.uniform(-10, 10))
-            axis.greed = int(total_greed / count + random.uniform(-10, 10))
+            axis.kindness = int(total_kindness / count + rng.uniform(-10, 10))
+            axis.energy = int(total_energy / count + rng.uniform(-10, 10))
+            axis.bravery = int(total_bravery / count + rng.uniform(-10, 10))
+            axis.greed = int(total_greed / count + rng.uniform(-10, 10))
 
     # Random generation if no parents
     if not parents:
-        axis.kindness = int(random.gauss(0, 30))
-        axis.energy = int(random.gauss(0, 30))
-        axis.bravery = int(random.gauss(0, 30))
-        axis.greed = int(random.gauss(0, 30))
+        axis.kindness = int(rng.gauss(0, 30))
+        axis.energy = int(rng.gauss(0, 30))
+        axis.bravery = int(rng.gauss(0, 30))
+        axis.greed = int(rng.gauss(0, 30))
 
     # Clamp values
     axis.kindness = max(-100, min(100, axis.kindness))
@@ -266,10 +255,10 @@ def create_yukkuri(
     axis.greed = max(-100, min(100, axis.greed))
 
     # Random mutation or random trait if none inherited
-    if trait_service and (random.random() < 0.1 or not traits):
+    if trait_service and (rng.random_float() < 0.1 or not traits):
         all_traits = trait_service.get_all_trait_ids()
         if all_traits:
-            traits.add(random.choice(all_traits))
+            traits.add(rng.choice(all_traits))
 
     # Apply Trait Axis Shifts (Center Shift)
     if trait_service:

@@ -59,8 +59,8 @@ def game_driver() -> GameDriver:
         GameDriver: A driver instance for controlling the game.
     """
     with TestEnvironment():
-        # Initialize game in headless mode
-        game = Application(headless=True)
+        # Initialize game in headless mode with deterministic behavior
+        game = Application(headless=True, deterministic=True)
 
         # Note: Render system init is handled lazily by GameDriver/YukkuriGame
         # when needed (e.g. for screenshots), after game.setup() is called

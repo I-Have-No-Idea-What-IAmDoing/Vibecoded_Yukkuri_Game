@@ -1,5 +1,27 @@
 """
-Module for managing game resources like images, sounds, and data files.
+Resource Manager - Asset and Data Loading.
+
+Centralized manager for game resources including images, sounds, and TOML data.
+Implements multiple optimization patterns:
+
+Loading Strategies:
+- **Lazy Loading**: Game data (types, traits, skills) wrapped in LazyLoader
+  to defer file parsing until first access
+- **LRU Cache**: Images beyond atlas capacity use OrderedDict LRU eviction
+- **Texture Atlas**: Small images packed into single texture for batch rendering
+
+Data Files (TOML):
+- YukkuriData: Character type definitions (yukkuris/types.toml)
+- ItemData: Item definitions (items/items.toml)
+- AIData: Action definitions for utility AI (ai/actions.toml)
+- TraitData: Personality trait effects (traits/traits.toml)
+- SkillData: Skill definitions (skills/skills.toml)
+- InteractionData: Social interaction effects (ai/interactions.toml)
+
+Asset Directories:
+- data/: TOML configuration files
+- assets/images/: Sprite textures
+- assets/sounds/: Audio files
 """
 
 import os
@@ -19,32 +41,23 @@ from .data_models import (
     TraitData,
     InteractionData,
 )
+from .atlas import TextureAtlas
+from .lazy_loader import LazyLoader
 
 T = TypeVar("T")
 
 
-from .atlas import TextureAtlas
-from .lazy_loader import LazyLoader
+
+
 
 
 class ResourceManager:
     """
-    Manages game resources such as images, sounds, and configuration files.
+    Manages game resources with lazy loading and caching.
 
-    Attributes:
-        data_dir (str): The directory containing data files (TOML).
-        assets_dir (str): The directory containing asset files (images, sounds).
-        images (Dict[str, pygame.Surface]): A cache of loaded images.
-        atlas (TextureAtlas): The runtime texture atlas.
-        sounds (Dict[str, pygame.mixer.Sound]): A cache of loaded sounds.
-        configs (Dict[str, Any]): A cache of loaded configurations.
-        yukkuri_types (MutableMapping[str, YukkuriType]): Loaded Yukkuri type definitions.
-        item_types (MutableMapping[str, ItemType]): Loaded Item type definitions.
-        ai_actions (MutableMapping[str, AIAction]): Loaded AI action definitions.
-        tuning (Optional[GameTuning]): Loaded game tuning parameters.
-        skills (MutableMapping[str, SkillDefinition]): Loaded skill definitions.
-        traits (MutableMapping[str, TraitDefinition]): Loaded trait definitions.
-        interactions (MutableMapping[str, InteractionDefinition]): Loaded interaction definitions.
+    Uses LazyLoader for deferred data file parsing and TextureAtlas
+    for efficient sprite rendering. Images fall back to LRU cache
+    if atlas capacity is exceeded.
     """
 
     def __init__(
@@ -79,7 +92,6 @@ class ResourceManager:
         self.traits: Any = {}
         self.interactions: Any = {}
 
-        # Max number of images to keep in memory (usually base images are few, but good to have a limit)
         self.image_cache_limit = image_cache_limit
 
     def load_toml_model(self, filepath: str, model: type[T]) -> T | None:
@@ -95,14 +107,11 @@ class ResourceManager:
         """
         full_path = os.path.join(self.data_dir, filepath)
         try:
-            # We open in binary mode because msgspec handles decoding.
-            # If explicit text reading is needed, use encoding="utf-8".
-            with open(full_path, "rb") as f:
+            with open(full_path, "rb") as f:  # Binary mode for msgspec.
                 data = f.read()
 
             # noinspection PyTypeChecker
             decoded = msgspec.toml.decode(data, type=model)
-            # logger.info(f"Loaded TOML: {filepath}") # Reduce spam for lazy loading
             return decoded
         except Exception as e:
             logger.error(f"Failed to load TOML {filepath}: {e}")
@@ -158,9 +167,8 @@ class ResourceManager:
         if atlas_surf:
             return atlas_surf
 
-        # 2. Check Legacy Cache
         if filename in self.images:
-            self.images.move_to_end(filename)
+            self.images.move_to_end(filename)  # LRU: move to end on access.
             return self.images[filename]
 
         # 3. Load from Disk
@@ -192,64 +200,14 @@ class ResourceManager:
             surf.fill((255, 0, 0))
             return surf
 
-    def _lazy_loader_for_msgspec_dict(
-        self, model_type: type[T], file_path: str, dict_attr_name: str
-    ) -> LazyLoader:
-        """
-        Helper to create a LazyLoader that loads the ENTIRE TOML file when any key is accessed.
-        Note: The current data structure (one big TOML file per category) doesn't support granular per-item loading well
-        without refactoring the data files into 1-file-per-item directories.
 
-        So for now, 'Lazy' means we defer the parsing of the big file until the first access of ANY item in it.
-        """
-
-        def loader(key: str) -> Any:
-            # This loader is slightly hacky: It loads everything on first miss, populates the ENTIRE cache,
-            # and returns the requested key.
-            # If the file hasn't been loaded yet, load it now.
-            # But LazyLoader logic expects load_func to return ONE item.
-
-            # Alternative Lazy Strategy for Monolithic Files:
-            # We can't really load *just* "Reimu" from "yukkuris.toml" easily without parsing the whole thing.
-            # So we stick to: Load the Whole File On First Access.
-
-            logger.info(f"Lazy Loading File: {file_path}")
-            data_obj = self.load_toml_model(file_path, model_type)
-            if data_obj:
-                # We have the data. We should populate the cache of the LazyLoader with ALL items.
-                # However, we are inside the loader function which only knows to return one value.
-                # We can access the lazy loader instance if we used a method, but here we are in a closure.
-
-                # Use a small trick: The LazyLoader's cache is exposed.
-                # But we don't have reference to 'self.yukkuri_types' here yet.
-                pass
-
-            return None  # Placeholder, logic below is better
-
-        # Refined Logic:
-        # Since our data is currently in big files (e.g. types.toml), "Lazy Loading" just means "Don't parse types.toml at startup".
-        # We can implement a specialized LazyLoader that replaces itself with the real dict on first access?
-
-        pass
 
     def load_all_data(self) -> None:
         """
         Sets up LazyLoaders for game data.
         """
-        # Since we use Monolithic TOMLs, true per-item lazy loading isn't possible,
-        # but we can defer the file read until first access.
-
-        # We define a lambda that loads the file and returns the dict.
-        # But our attributes (self.yukkuri_types) expect to BE the dict.
-
-        # NOTE: Implementing full LazyLoader requires granular files or a smarter LazyProxy.
-        # given the task constraint, let's assume we want to defer the *parse*.
-
-        # Standard load is fast enough for small files, but let's implement the pattern.
-        # actually, msgspec is very fast.
-        # Detailed Implementation:
-        # We will use the LazyLoader to wrap the ACCESS.
-        # But since we have big files, we'll just defer the whole file load.
+        # LazyLoaders defer file parsing until first access.
+        # Monolithic TOML files populate the entire cache on first miss.
 
         self.yukkuri_types = LazyLoader(
             load_function=lambda k: self._load_monolithic(
@@ -313,23 +271,16 @@ class ResourceManager:
         Loads a monolithic TOML file and populates the LazyLoader's cache with ALL items found.
         If requested_key is provided, returns the specific item.
         """
+        # Determine which LazyLoader to populate based on attr name.
         mapping = getattr(
             self,
-            "yukkuri_types"
-            if attr == "yukkuris"
-            else "item_types"
-            if attr == "items"
-            else "ai_actions"
-            if attr == "actions"
-            else "skills"
-            if attr == "skills"
-            else "traits"
-            if attr == "traits"
+            "yukkuri_types" if attr == "yukkuris"
+            else "item_types" if attr == "items"
+            else "ai_actions" if attr == "actions"
+            else "skills" if attr == "skills"
+            else "traits" if attr == "traits"
             else "interactions",
         )
-
-        # Skip load if already populated (check if mapping is not empty?)
-        # For LazyLoader logic, forcing a reload is fine here as it's triggered by initializer or miss.
         
         logger.info(f"Lazy Loading Monolithic File: {file}")
         data = self.load_toml_model(file, model)

@@ -1,12 +1,28 @@
 """
-Hierarchy System.
-Manages parent-child relationships and transforms.
-Optimized to handle dismounts and structure updates more efficiently.
+Hierarchy System - Parent-Child Mount Management.
+
+Manages mounted entity relationships where one Yukkuri can carry another.
+Handles the "Totem Pole" stacking mechanic and safe dismounting.
+
+Mounting Mechanics:
+- Mounted children follow parent position with offset rotation
+- Root entity's physics body gets proxy shapes for all children
+- Mounted entities' own shapes become sensors (no collision)
+
+Dismounting:
+- When unmounting, entities need to find free space to land
+- Uses spiral search pattern to find collision-free position
+- Emergency teleport to origin if no space found within timeout
+
+Composite Collider:
+- Root body accumulates proxy shapes for each mounted child
+- Allows proper collision for entire stack while treating it as one unit
+- Structure rebuilt when mount hierarchy changes (structure_dirty flag)
 """
 
 import pymunk
 import math
-import random
+from ...engine import rng
 from loguru import logger
 from ...engine.ecs import System, World
 from ..components import (
@@ -17,12 +33,15 @@ from ..components import (
 )
 from ..collision_constants import CollisionCategories
 
-_DISMOUNT_DEFAULT_RADIUS = 10.0
-_DISMOUNT_MAX_SEARCH_RADIUS = 100.0
-_DISMOUNT_MAX_SEARCH_CHECKS = 20
-_DISMOUNT_TIMEOUT = 5.0
-_DEFAULT_ENTITY_RADIUS = 10.0
-_SPIRAL_SEARCH_MIN_RADIUS = 0.1
+# ==================== DISMOUNT SEARCH CONSTANTS ====================
+# Controls the spiral search pattern for finding free landing spots
+
+_DISMOUNT_DEFAULT_RADIUS = 10.0      # Default entity collision radius if unknown
+_DISMOUNT_MAX_SEARCH_RADIUS = 100.0  # Maximum spiral search distance
+_DISMOUNT_MAX_SEARCH_CHECKS = 20     # Maximum positions to check before giving up
+_DISMOUNT_TIMEOUT = 5.0              # Seconds before emergency teleport triggers
+_DEFAULT_ENTITY_RADIUS = 10.0        # Fallback entity size for proxy shapes
+_SPIRAL_SEARCH_MIN_RADIUS = 0.1      # Prevents division by zero in spiral calc
 
 
 class HierarchySystem(System):
@@ -99,16 +118,9 @@ class HierarchySystem(System):
             if hasattr(shape, "is_hierarchy_proxy"):
                 to_remove.append(shape)
 
-        # Simplified removal loop as suggested in PR comments
         if space:
             for s in to_remove:
                 space.remove(s)
-        # Note: If body is not in space, shapes are just attached to body.
-        # Pymunk pythonic API handles this, but explicitly:
-        # If we remove from space, it detaches from body if we added it via space.add(body, shape).
-        # But if it's just on the body?
-        # If we just added via body.shapes? Read-only.
-        # We must assume they were added to space.
 
         # Now add new shapes for children
         # Traverse hierarchy
@@ -134,10 +146,7 @@ class HierarchySystem(System):
                     child_radius = c_phys.shape.radius
 
                 # Create Circle at offset
-                new_shape = pymunk.Circle(body, child_radius, child_total_offset)
-                new_shape.friction = (
-                    0.0  # Friction handled by root movement logic usually
-                )
+                new_shape.friction = 0.0  # Root movement logic handles friction.
                 new_shape.elasticity = 0.0
                 new_shape.is_hierarchy_proxy = True
 
@@ -234,8 +243,7 @@ class HierarchySystem(System):
                     child_phys.body.position = child_pos
                     child_phys.body.angle = child_rot
 
-                    # Ensure child's OWN body is sensor (Hitbox only)
-                    # The physical collision is handled by the Root's Proxy Shapes now.
+                    # Child's own shape becomes sensor; Root's proxy handles collision.
                     if not child_phys.shape.sensor:
                         child_phys.shape.sensor = True
 
@@ -293,12 +301,9 @@ class HierarchySystem(System):
                 to_remove.append(entity)
             else:
                 if pending.time_in_pending > _DISMOUNT_TIMEOUT:
-                    # Emergency Teleport Fallback
                     logger.warning(
                         f"Entity {entity} forced dismount after timeout. Attempting Emergency Teleport."
                     )
-
-                    # _emergency_teleport always returns True because it forces position if search fails.
                     self._emergency_teleport(space, phys, trans)
 
                     if phys.shape.sensor:
@@ -323,11 +328,7 @@ class HierarchySystem(System):
         Returns:
             None
         """
-        # Fallback to world origin as a "Safe Zone" if valid.
-        fallback_pos = pymunk.Vec2d(0, 0)
-
-        # Try to find a free spot near origin. If one isn't found, we force the entity
-        # to the fallback position and let depenetration handle it.
+        # Fallback to origin. If no free spot, depenetration will handle it.
         final_pos = self.find_free_spot(space, fallback_pos, phys.shape) or fallback_pos
 
         phys.body.position = final_pos
@@ -358,13 +359,10 @@ class HierarchySystem(System):
         if hasattr(shape, "radius") and shape.radius > 0:
             collider_radius = shape.radius
         # If poly, approximate radius?
-        elif isinstance(shape, pymunk.Poly):
-            # Simple bounding box approximation for optimization
             bb = shape.cache_bb()
             width = bb.right - bb.left
             height = bb.top - bb.bottom
-            # Use half-diagonal to ensure we cover the corners (circumscribed circle)
-            collider_radius = math.hypot(width / 2.0, height / 2.0)
+            collider_radius = math.hypot(width / 2.0, height / 2.0)  # Circumscribed circle.
 
         step_size = collider_radius * 2.0
         max_checks = _DISMOUNT_MAX_SEARCH_CHECKS
@@ -380,18 +378,15 @@ class HierarchySystem(System):
         )
 
         def is_spot_free(pos: pymunk.Vec2d) -> bool:
-            # point_query finds shapes within `collider_radius` of `pos`.
-            # This effectively simulates a circle collider at `pos`.
+            # point_query simulates circle collider at pos.
             infos = space.point_query(pos, collider_radius, query_filter)
-
-            # Filter out self
             valid_hits = [i for i in infos if i.shape != shape and not i.shape.sensor]
             return len(valid_hits) == 0
 
         if is_spot_free(start_pos):
             return start_pos
 
-        theta = random.uniform(0, 2 * math.pi)
+        theta = rng.random_float() * 2 * math.pi
 
         while current_r < max_radius and checks < max_checks:
             checks += 1

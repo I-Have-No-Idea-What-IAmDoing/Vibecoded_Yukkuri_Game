@@ -53,9 +53,8 @@ class World:
         self.services = ServiceLocator()
         self._next_stable_id = 1
         self._active_entities: set[int] = set()
-        # Create the world context in esper.
-        # Esper uses a thread-local global context system, so we must switch to this world's name
-        # before performing any operations if we want to support multiple worlds.
+        # Esper uses a global context system keyed by world name.
+        # Multiple worlds can exist simultaneously (e.g., active game + pause menu).
         esper.switch_world(self.name)
 
     def get_next_stable_id(self) -> int:
@@ -93,10 +92,8 @@ class World:
         Returns:
             None
         """
-        # esper uses a global dictionary to store worlds, accessed by name.
-        # We ensure the global component database points to this world instance's data.
-        # This is critical for supporting multiple simultaneous simulations (e.g., active game + paused menu world).
-        # Fast path: identity comparison is faster than string equality for cached strings
+        # Fast path: identity check first, then string equality fallback.
+        # Avoids redundant switch_world calls when already in correct context.
         if esper.current_world is not self.name and esper.current_world != self.name:
             esper.switch_world(self.name)
 
@@ -112,20 +109,17 @@ class World:
         Yields:
             None
         """
-        # Store the previous world to restore it after the block
         previous_world = esper.current_world
         self._switch()
         try:
             yield
         finally:
-            # Restore previous context to prevent side effects in other parts of the app
+            # Restore previous context to avoid side effects on other worlds.
             if previous_world and previous_world != self.name:
                 try:
                     esper.switch_world(previous_world)
                 except KeyError:
-                    # Previous world might have been deleted during the block's execution.
-                    # This is safe to ignore as we just want to restore state if possible.
-                    pass
+                    pass  # Previous world was deleted during block execution.
 
     def create_entity(self, *components: Any) -> int:
         """
@@ -141,8 +135,7 @@ class World:
         entity_id = int(esper.create_entity(*components))
         self._active_entities.add(entity_id)
 
-        # Publish ComponentAddedEvent for each component so systems can react
-        # (e.g., renderers registering sprites, physics systems creating bodies)
+        # Notify systems of new components (e.g., physics body registration).
         event_bus = self.services.try_get(EventBus)
         if event_bus:
             for component in components:
@@ -300,7 +293,7 @@ class World:
         Returns:
             List[int]: A list of all entity IDs.
         """
-        # We maintain a separate set of entities to avoid accessing private members of esper
+        # Use internal set to avoid accessing esper's private members.
         return list(self._active_entities)
 
     def get_entities_with(self, *component_types: type[Any]) -> list[int]:
@@ -378,8 +371,7 @@ class World:
             None
         """
         self._switch()
-        # Process all registered systems (Processors) in order of priority
-        esper.process(dt)
+        esper.process(dt)  # Executes all Processors in priority order.
 
     def clear_database(self) -> None:
         """
@@ -401,9 +393,8 @@ class World:
         self.clear_database()
         self.services.clear()
         try:
-            # Cannot delete the active world context.
+            # Esper cannot delete the active context, so switch away first.
             if esper.current_world == self.name:
-                # Switch to a temporary context to allow deletion
                 esper.switch_world("__garbage_collector__")
 
             esper.delete_world(self.name)
@@ -458,14 +449,9 @@ class System(ProcessorBase):
         Args:
             dt (float): The time elapsed since the last update in seconds.
         """
-        # We need to ensure we are operating on the correct world context
         if hasattr(self, "ecs_world"):
             with self.ecs_world.context():
                 self.update(self.ecs_world, dt)
-        else:
-            # Fallback if ecs_world wasn't injected (shouldn't happen if used correctly)
-            # Pass a dummy or try to proceed if update doesn't use world (rare)
-            pass
 
     def initialize(self) -> None:
         """

@@ -1,3 +1,26 @@
+"""
+Hierarchical Pathfinding A* (HPA*) Implementation.
+
+This module implements a two-level hierarchical pathfinding system:
+
+1. **Abstract Level**: A cluster graph where the game world is divided into
+   fixed-size clusters. Entrance nodes are created at traversable boundaries
+   between adjacent clusters, connected by inter-cluster and intra-cluster edges.
+
+2. **Local Level**: Standard A* is used within clusters for fine-grained pathfinding.
+
+The HPA* algorithm workflow:
+1. Divide grid into CLUSTER_SIZE x CLUSTER_SIZE clusters
+2. Find entrances (walkable transitions) between adjacent clusters
+3. Create abstract graph nodes at entrance midpoints
+4. Connect intra-cluster nodes via local A* paths
+5. For pathfinding: insert temp nodes, search abstract graph, refine to grid path
+6. Apply string pulling (funnel algorithm) to smooth the final path
+
+References:
+- "Near Optimal Hierarchical Path-Finding" by Botea, Müller, Schaeffer (2004)
+"""
+
 import heapq
 import math
 from typing import List, Tuple, Dict, Optional
@@ -5,29 +28,50 @@ from dataclasses import dataclass, field
 from .navigation_grid import NavigationGrid
 from .navigation_constants import TraversalCapability
 
+# Cluster size in grid cells. Smaller = more nodes, faster abstract search.
+# Larger = fewer nodes, more local A* work. 8 is a balanced default.
 CLUSTER_SIZE = 8
 
 
 @dataclass
 class GraphEdge:
+    """Represents a weighted edge in the abstract cluster graph."""
+
     target_node_id: str
-    weight: float
+    weight: float  # Path cost (accumulated tile costs * distance)
 
 
 @dataclass
 class GraphNode:
-    id: str
-    position: Tuple[int, int]
+    """
+    A node in the abstract cluster graph.
+
+    Nodes are placed at cluster boundary entrances and connected to other
+    nodes within the same cluster (intra-cluster) and adjacent clusters
+    (inter-cluster).
+    """
+
+    id: str  # Format: "x_y" for permanent, "temp_x_y" for temporary
+    position: Tuple[int, int]  # Grid coordinates
     edges: List[GraphEdge] = field(default_factory=list)
-    cluster_coords: Tuple[int, int] = (0, 0)
+    cluster_coords: Tuple[int, int] = (0, 0)  # Which cluster this node belongs to
 
 
 class AStar:
-    """Static class for A* helper functions."""
+    """
+    Static A* pathfinding utilities.
+
+    Uses octile distance heuristic for 8-directional grid movement.
+    """
 
     @staticmethod
     def heuristic(a: Tuple[int, int], b: Tuple[int, int]) -> float:
-        # Octile distance
+        """
+        Computes octile distance heuristic for 8-directional movement.
+
+        Octile distance accounts for diagonal movement being sqrt(2) cost
+        while cardinal movements are cost 1.
+        """
         dx = abs(a[0] - b[0])
         dy = abs(a[1] - b[1])
         return (dx + dy) + (math.sqrt(2) - 2) * min(dx, dy)
@@ -82,8 +126,7 @@ class AStar:
                 if not grid.is_walkable(nx, ny, capability):
                     continue
 
-                # Calculate Cost
-                # Diagonal cost is sqrt(2), straight is 1
+                # Diagonal cost is sqrt(2); straight is 1.
                 dist = math.sqrt((nx - x) ** 2 + (ny - y) ** 2)
                 base_cost = grid.get_cost(nx, ny)
                 new_cost = cost_so_far[current] + (base_cost * dist)
@@ -108,37 +151,61 @@ class AStar:
 
 
 class Cluster:
+    """
+    Represents a rectangular region of the navigation grid.
+
+    Clusters partition the world into CLUSTER_SIZE x CLUSTER_SIZE regions.
+    Each cluster tracks entrance nodes at its boundaries that enable
+    connections to adjacent clusters.
+    """
+
     def __init__(self, cx: int, cy: int, grid: NavigationGrid):
+        """Initialize cluster with grid coordinates (cx, cy)."""
         self.cx = cx
         self.cy = cy
         self.grid = grid
+
+        # Calculate pixel/grid bounds (clamped to grid dimensions)
         self.min_x = cx * CLUSTER_SIZE
         self.min_y = cy * CLUSTER_SIZE
         self.max_x = min((cx + 1) * CLUSTER_SIZE - 1, grid.width - 1)
         self.max_y = min((cy + 1) * CLUSTER_SIZE - 1, grid.height - 1)
 
-        # Abstract nodes within this cluster (entrances)
-        # Dictionary mapping local position to GraphNode ID
+        # Maps grid position -> node ID for entrance nodes in this cluster
         self.nodes: Dict[Tuple[int, int], str] = {}
 
     def add_node(self, pos: Tuple[int, int], node_id: str):
+        """Registers an entrance node within this cluster."""
         if self.contains(pos):
             self.nodes[pos] = node_id
 
     def contains(self, pos: Tuple[int, int]) -> bool:
+        """Returns True if the position falls within this cluster's bounds."""
         x, y = pos
         return self.min_x <= x <= self.max_x and self.min_y <= y <= self.max_y
 
 
 class ClusterGraph:
+    """
+    Manages the abstract pathfinding graph built from clusters.
+
+    The graph consists of:
+    - Nodes at cluster boundary entrances
+    - Inter-cluster edges connecting adjacent cluster entrances (weight ~1)
+    - Intra-cluster edges connecting entrances within the same cluster
+      (weight = actual A* path cost)
+    """
+
     def __init__(self, grid: NavigationGrid):
+        """Initialize the cluster graph for the given navigation grid."""
         self.grid = grid
         self.cluster_w = int(math.ceil(grid.width / CLUSTER_SIZE))
         self.cluster_h = int(math.ceil(grid.height / CLUSTER_SIZE))
 
+        # Cluster storage: (cx, cy) -> Cluster
         self.clusters: Dict[Tuple[int, int], Cluster] = {}
 
-        # Global graph: NodeID -> GraphNode
+        # Global abstract graph: node ID -> GraphNode
         self.graph_nodes: Dict[str, GraphNode] = {}
 
         self._init_clusters()
@@ -149,23 +216,17 @@ class ClusterGraph:
                 self.clusters[(cx, cy)] = Cluster(cx, cy, self.grid)
 
     def build_graph(self, capability: int = TraversalCapability.WALK):
-        """
-        Full graph build/rebuild.
-        Note: This is expensive. In a real scenario, we update incrementally.
-        """
+        """Full graph build/rebuild. Expensive; prefer incremental updates."""
         self.graph_nodes.clear()
         for cluster in self.clusters.values():
             cluster.nodes.clear()
 
         # 1. Create Entrances between adjacent clusters
-        # Horizontal edges (West <-> East)
         for cy in range(self.cluster_h):
             for cx in range(self.cluster_w - 1):
                 c1 = self.clusters[(cx, cy)]
                 c2 = self.clusters[(cx + 1, cy)]
-                border_x = c1.max_x  # The border is between max_x of c1 and min_x of c2
-                # In pixel coords/grid indices, border_x is the last column of c1
-                # The "transition" is between (border_x, y) and (border_x+1, y)
+                border_x = c1.max_x
 
                 self._find_entrances(
                     c1, c2, border_x, is_horizontal=True, capability=capability
@@ -246,7 +307,7 @@ class ClusterGraph:
         end_k: int,
         is_horizontal: bool,
     ):
-        # For simplicity, place one node in the middle of the gap
+        # Place one node at the midpoint of the gap.
         mid_k = (start_k + end_k) // 2
 
         if is_horizontal:
@@ -259,8 +320,7 @@ class ClusterGraph:
         node1 = self._get_or_create_node(c1, pos1)
         node2 = self._get_or_create_node(c2, pos2)
 
-        # Connect them
-        cost = 1.0  # Adjacent
+        cost = 1.0  # Adjacent cells.
         node1.edges.append(GraphEdge(node2.id, cost))
         node2.edges.append(GraphEdge(node1.id, cost))
 
@@ -275,7 +335,7 @@ class ClusterGraph:
         return node
 
     def _connect_internal_nodes(self, cluster: Cluster, capability: int):
-        # For every pair of nodes in the cluster, check connectivity
+        """Connect all node pairs within a cluster via local A*."""
         nodes_in_cluster = list(cluster.nodes.values())
 
         for i in range(len(nodes_in_cluster)):
@@ -295,7 +355,6 @@ class ClusterGraph:
                 )
 
                 if path:
-                    # Calculate true cost
                     cost = 0.0
                     for k in range(len(path) - 1):
                         p_a = path[k]
@@ -474,10 +533,9 @@ class ClusterGraph:
             )
 
             if not segment:
-                # Fallback: direct grid A* without bounds
                 segment = AStar.search(
                     self.grid, node_a.position, node_b.position, capability
-                )
+                )  # Fallback: unbounded A*.
 
             if not segment:
                 return None
@@ -505,8 +563,7 @@ class StringPuller:
         current_idx = 0
 
         while current_idx < len(path) - 1:
-            # Try to connect current to as far ahead as possible
-            # Check backwards from the end
+            # Check backwards from end for longest direct line.
             found_shortcut = False
             for lookahead_idx in range(len(path) - 1, current_idx + 1, -1):
                 if StringPuller.has_line_of_sight(

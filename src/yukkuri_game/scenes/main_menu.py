@@ -38,12 +38,11 @@ class MainMenuScene(Scene):
         _theme_path = (
             Path(__file__).parent.parent.parent.parent / "data" / "ui_theme.json"
         )
-        print(f"DEBUG: MainMenu Calculated theme path: {_theme_path}")
-        print(f"DEBUG: MainMenu Theme path exists: {_theme_path.exists()}")
+        logger.debug(f"MainMenu theme path: {_theme_path}, exists: {_theme_path.exists()}")
         if not _theme_path.exists():
             import os
 
-            print(f"DEBUG: MainMenu CWD is {os.getcwd()}")
+            logger.warning(f"MainMenu theme not found. CWD: {os.getcwd()}")
 
         self.ui_manager = pygame_gui.UIManager(
             (self.application.width, self.application.height),

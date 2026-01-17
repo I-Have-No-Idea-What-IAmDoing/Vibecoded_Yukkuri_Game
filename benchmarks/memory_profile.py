@@ -53,7 +53,7 @@ def run_benchmark():
         for _ in range(60):
             app.update(1.0 / 60.0)
 
-        update_mem = get_process_memory_mb()
+        get_process_memory_mb()
 
         # Pop Scene (should trigger cleanup and GC)
         app.scene_manager.pop()

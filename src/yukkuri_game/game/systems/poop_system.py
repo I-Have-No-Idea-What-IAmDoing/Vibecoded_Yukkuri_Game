@@ -2,7 +2,7 @@
 Module defining the PoopSystem logic.
 """
 
-import random
+from ...engine import rng
 from ...engine.ecs import System, World
 from ..yukkuri_components import YukkuriStats, Needs, Poop, AIState
 from ..components import Transform
@@ -48,30 +48,26 @@ class PoopSystem(System):
             should_poop = False
 
             # Periodic/Random spawning logic
-            if random.random() < self.spawn_chance_per_second * dt:
+            if rng.random_float() < self.spawn_chance_per_second * dt:
                 should_poop = True
 
             # Bladder Logic
             # If bladder is full, they must poop (or pee? Poop component handles "waste")
             if needs.bladder > 80.0:
-                if random.random() < 0.1 * dt:  # High chance when full
+                if rng.random_float() < 0.1 * dt:  # High chance when full
                     should_poop = True
 
             # Or if cleanliness is very low (lose control)
             if needs.cleanliness < 10.0:
-                if random.random() < (self.spawn_chance_per_second * 5) * dt:
+                if rng.random_float() < (self.spawn_chance_per_second * 5) * dt:
                     should_poop = True
 
             if should_poop:
-                # Spawn behind them? or just at position.
-                offset_x = random.uniform(-10, 10)
-                offset_y = random.uniform(-10, 10)
+                offset_x = rng.uniform(-10, 10)
+                offset_y = rng.uniform(-10, 10)
                 create_poop(world, transform.x + offset_x, transform.y + offset_y)
 
-                # Feedback: Pooping might raise cleanliness slightly (relief) or lower it (dirty)?
-                # Let's say they get a bit dirtier by pooping.
                 needs.cleanliness = max(0, needs.cleanliness - 5)
-                # Reset bladder
                 needs.bladder = 0.0
 
         # 2. Environmental Effect

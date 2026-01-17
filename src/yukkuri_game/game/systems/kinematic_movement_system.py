@@ -1,7 +1,29 @@
 """
-Kinematic Movement System.
-Implements a Robust Sweep-and-Slide algorithm for deterministic character movement.
-Includes multi-plane sliding to prevent corner jitter and a pre-step depenetration pass.
+Kinematic Movement System - Deterministic Character Controller.
+
+Implements a robust Sweep-and-Slide algorithm for collision resolution,
+providing deterministic movement suitable for networked games and replays.
+
+Algorithm Overview:
+1. **Depenetration Pass**: Resolve any existing overlaps before movement
+2. **Virtual Physics**: Integrate velocity based on input (acceleration/friction)
+3. **Sweep Pass**: Cast shape along movement vector to detect collisions
+4. **Slide Resolution**: Project remaining velocity along collision surface
+5. **Multi-Plane Handling**: Supports corner resolution (prevents V-corner sticking)
+
+Performance Optimizations:
+- Stationary entities skip sweep logic entirely
+- Polygon radius caching avoids repeated circumscribed circle calculations
+- Fallback overlap check only triggers when sweep query misses edge cases
+
+Flight Integration:
+- Flying entities dynamically update collision filters based on altitude
+- Ground units collide with LOW_OBSTACLE, flying units only with HIGH_OBSTACLE
+- Swooping state enables ground unit collision for attack passes
+
+Fixed Timestep:
+- Movement runs via PhysicsFixedUpdateEvent for determinism
+- Decoupled from render framerate for consistent physics behavior
 """
 
 import pymunk
@@ -18,7 +40,7 @@ from .physics import PhysicsSystem
 
 
 class FakeHit:
-    """Helper class to simulate a collision hit result."""
+    """Synthetic hit result for fallback overlap detection."""
 
     def __init__(self, normal: pymunk.Vec2d, alpha: float) -> None:
         self.normal = normal
@@ -27,47 +49,19 @@ class FakeHit:
 
 class KinematicMovementSystem(System):
     """
-    System responsible for moving Kinematic bodies using a sweep-and-slide algorithm
-    against the static/dynamic geometry database.
+    Moves kinematic bodies using sweep-and-slide against world geometry.
 
     Features:
-    - Fixed Timestep Update
-    - Capsule/Circle Sweeping (No Box approximation)
-    - Multi-plane slide resolution (prevents V-corner getting stuck)
-    - Pre-step Depenetration (Fallback)
-    - Composite Shape Sweep Support
+    - Capsule/circle sweeping (no bounding box approximation)
+    - Multi-plane slide resolution for corners
+    - Pre-step depenetration fallback
+    - Composite shape support (stacked entities)
     """
 
     def __init__(self) -> None:
         self.space: pymunk.Space | None = None
-        self.skin_width = 0.01
+        self.skin_width = 0.01  # Collision skin to prevent surface penetration
         self.event_bus: EventBus | None = None
-        # Type hint must match System base class or handle the temporary None safely.
-        # However, System defines self.world as World, so overriding with World | None is incompatible.
-        # We should use a separate attribute or assume it's set before update.
-        # But for now, we can use 'Any' or suppress, OR initialize it properly.
-        # Let's use 'Any' for now to silence the incompatibility, or just type it as 'World' and initialize with cast(World, None) if we really have to.
-        # Better: use a separate attribute for local storage like `self._world` if we need to store it,
-        # but `update` method receives it anyway.
-        # The error "Incompatible types in assignment" is because `System` likely annotations `world` (if it does).
-        # Checking `ecs.py`... System doesn't seem to annotate `self.world` in __init__.
-        # Ah, maybe it does in `System` class definition: `self.world: World`?
-        # In `src/yukkuri_game/engine/ecs.py`, System might have `world` attribute.
-        # Let's fix by removing `self.ecs_world` line 42 and just using `self.world` from base class if available,
-        # or defining logic to handle "not initialized".
-        # But `fixed_update` needs it.
-        # Let's use `cast` to `World` when assigning `None` initially to satisfy mypy,
-        # or just type it as `self.ecs_world: World | None` and ignore the error if it conflicts with a base class attribute of same name.
-        # But `ecs_world` is a new attribute name, so it shouldn't conflict unless `System` has `ecs_world`.
-        # Wait, the error was: `src/yukkuri_game/game/systems/kinematic_movement_system.py:42: error: Incompatible types in assignment (expression has type "World | None", base class "System" defined the type as "World")`
-        # This implies `System` has `ecs_world`? Or I am misreading.
-        # Maybe I renamed `world` to `ecs_world`?
-        # Let's check `ecs.py` content I saw earlier. `System` class usually has `update(self, world, dt)`.
-        # It doesn't usually store `world`.
-        # Wait, line 42 in `kinematic` is `self.ecs_world: World | None = None`.
-        # Maybe I added `ecs_world` to `System`?
-        # Or maybe the error refers to `self.ecs_world = world` in `update`?
-        # Let's just fix the assignment.
         self._kinematic_world: World | None = None
         self._poly_radius_cache: dict[pymunk.Poly, float] = {}
         self.skill_service: SkillService | None = None
@@ -76,8 +70,6 @@ class KinematicMovementSystem(System):
         if not self.space:
             return
 
-        # Ensure we have the world. If ecs_world is None, we can't update.
-        # Ensure we have the world. If _kinematic_world is None, we can't update.
         if self._kinematic_world:
             self.fixed_update(self._kinematic_world, event.dt)
         else:
@@ -121,20 +113,17 @@ class KinematicMovementSystem(System):
             # 0. Sync Transform to Body
             start_pos = phys.body.position
 
-            # --- Performance Optimization: Skip stationary entities ---
-            # If both target velocity and current velocity are near-zero,
-            # skip the expensive sweep logic entirely.
+            # Stationary entities skip sweep logic entirely.
             target_vel_sq = controller.target_velocity.length_squared
             current_vel_sq = controller.current_velocity.length_squared
             if target_vel_sq < 0.0001 and current_vel_sq < 0.0001:
-                # Entity is stationary, just sync transform and skip
                 trans.prev_x = start_pos.x
                 trans.prev_y = start_pos.y
                 trans.x = start_pos.x
                 trans.y = start_pos.y
                 continue
 
-            # 1. Depenetration (Fallback)
+            # Resolve any existing overlaps before movement.
             clean_pos = self.resolve_penetration(phys, start_pos)
             if clean_pos != start_pos:
                 phys.body.position = clean_pos
@@ -148,12 +137,10 @@ class KinematicMovementSystem(System):
             if flight:
                 self._update_flight_collision_filter(phys, flight)
 
-            # 2. Perform Movement
             dist_moved = self.move_and_slide(phys, controller, trans, dt)
 
-            # 3. Award XP
+            # Award athletics XP based on distance traveled.
             if dist_moved > 0.1 and self.skill_service:
-                # Award XP based on distance. Tuning: 0.01 XP per unit?
                 self.skill_service.add_xp(entity, SkillId.ATHLETICS, dist_moved * 0.01)
 
             # 4. Sync Transform back
@@ -166,8 +153,7 @@ class KinematicMovementSystem(System):
         This is a fallback mechanism. A perfect sweep system shouldn't need this often.
         """
         current_pos = pos
-        # Increase iterations to handle complex overlaps
-        max_iterations = 3
+        max_iterations = 3  # Multiple passes handle complex corner overlaps.
 
         for iter_idx in range(max_iterations):
             phys.body.position = current_pos
@@ -187,11 +173,9 @@ class KinematicMovementSystem(System):
                     continue
 
                 for info in infos:
-                    # Ignore self and sensors
                     if info.shape.body == phys.body or info.shape.sensor:
                         continue
 
-                    # Ignore sensors on the other body too (e.g. hitboxes)
                     if info.shape.sensor:
                         continue
 
@@ -203,16 +187,9 @@ class KinematicMovementSystem(System):
 
                     for point in contact_set.points:
                         if point.distance < -0.001:
-                            # IMPORTANT: Pymunk's shape_query normal points from QueryShape -> SpaceShape (A->B).
-                            # If we want to push QueryShape (A) away from SpaceShape (B), we need to push in direction -Normal.
-                            # Since distance is negative (penetration), "Normal * Distance" is "-Normal * Positive".
-                            # This pushes A away from B.
-                            # We accumulate the push vector to resolve multiple overlaps simultaneously.
-
+                            # Pymunk's normal points A->B, so we push A away via -Normal * Distance.
                             push = contact_set.normal * (point.distance)
 
-                            # Accumulate max penetration depth per contact normal?
-                            # Using just one best push per shape query might be enough
                             if push.length_squared > best_push.length_squared:
                                 best_push = push
 
@@ -223,35 +200,23 @@ class KinematicMovementSystem(System):
             if hits > 0:
                 if total_push.length_squared < 0.000001:
                     break
-                # Average push? Or sum? Sum is safer for corners.
-                current_pos += total_push
+                current_pos += total_push  # Accumulate all pushes.
             else:
                 break
 
         phys.body.position = pos  # Restore
         return current_pos
 
-    def _get_poly_radius(self, shape: pymunk.Poly) -> float:
-        """Calculates the radius of a circle that fully circumscribes the polygon."""
+        """Returns the circumscribed radius of a polygon shape. Cached for performance."""
 
-        # Check cache if available.
         if shape in self._poly_radius_cache:
             return self._poly_radius_cache[shape]
 
         verts = shape.get_vertices()
-
-        # We don't need to transform verts to world, because we calculate the radius in local space.
-        # `shape.offset` is the center of our sweep capsule in local space.
-
-        # Pymunk's Poly vertices are stored relative to the body's position.
-        # If `shape.offset` exists on Poly, we use it. If not, we assume (0,0).
-
         sweep_origin_local = getattr(shape, "offset", pymunk.Vec2d(0, 0))
 
         max_sq = 0.0
-        max_sq = 0.0
         for v in verts:
-            # Vec2d doesn't have get_dist_sq, use (v - other).length_squared
             d_sq = (v - sweep_origin_local).length_squared
             if d_sq > max_sq:
                 max_sq = d_sq
@@ -276,11 +241,9 @@ class KinematicMovementSystem(System):
 
         if input_vector.length_squared < 0.000001:
             friction = controller.friction
-            # Apply damping to simulate friction when no input is given.
             damping = max(0.0, 1.0 - friction * dt)
             velocity = velocity * damping
-            # Snap to zero if velocity is very low to prevent micro-sliding.
-            if velocity.length_squared < 0.0001:
+            if velocity.length_squared < 0.0001:  # Snap to zero to prevent micro-sliding.
                 velocity = pymunk.Vec2d(0, 0)
         else:
             diff = input_vector - velocity
@@ -322,12 +285,11 @@ class KinematicMovementSystem(System):
                 elif isinstance(shape, pymunk.Poly):
                     radius = self._get_poly_radius(shape)
 
-                # Bugfix: shape_center_world must be calculated from CURRENT_POS, not body.position
-                # Calculate offset relative to body
-                shape_offset = getattr(shape, "offset", pymunk.Vec2d(0, 0))
-                rotated_offset = shape_offset.rotated(body.angle)
-                shape_center_world = current_pos + rotated_offset
-                shape_dest = shape_center_world + move_delta
+            # Calculate shape offset for sweep origin.
+            shape_offset = getattr(shape, "offset", pymunk.Vec2d(0, 0))
+            rotated_offset = shape_offset.rotated(body.angle)
+            shape_center_world = current_pos + rotated_offset
+            shape_dest = shape_center_world + move_delta
 
                 if not self.space:
                     return 0.0
@@ -346,7 +308,7 @@ class KinematicMovementSystem(System):
                     if info.normal.dot(move_delta) > 0.0001:
                         continue
 
-                    if info.alpha < best_alpha:
+                    if info.alpha < best_alpha:  # Record closest hit.
                         best_alpha = info.alpha
                         best_hit = info
 
@@ -411,7 +373,6 @@ class KinematicMovementSystem(System):
                     best_hit = FakeHit(fallback_normal, 0.0)
 
             if best_hit:
-                # Move to hit
                 md_len = move_delta.length
                 safe_alpha = (
                     max(0.0, best_hit.alpha - (self.skin_width / md_len))
@@ -422,22 +383,18 @@ class KinematicMovementSystem(System):
                 step_move = move_delta * safe_alpha
                 current_pos += step_move
 
-                # Slide Logic
-                # Calculate the remaining movement after the collision.
+                # Project remaining movement onto slide plane.
                 remainder = move_delta * (1.0 - safe_alpha)
-
-                # Project the remainder onto the slide plane (remove component along the normal).
                 dot = remainder.dot(best_hit.normal)
                 remainder = remainder - best_hit.normal * dot
 
                 move_delta = remainder
 
-                # Also project velocity so subsequent frames don't push into the wall.
+                # Project velocity to prevent next frame from pushing into wall.
                 v_dot = velocity.dot(best_hit.normal)
                 velocity = velocity - best_hit.normal * v_dot
 
             else:
-                # No hit, move full distance
                 current_pos += move_delta
                 move_delta = pymunk.Vec2d(0, 0)
                 break

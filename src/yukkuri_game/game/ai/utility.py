@@ -1,5 +1,25 @@
 """
-Module defining the Utility AI engine and logic.
+Utility AI Engine - Decision Making System.
+
+Implements a utility-based AI system for autonomous agent decision making.
+Each potential action is scored based on multiple considerations, and the
+action with the highest utility is selected.
+
+Key Concepts:
+- Action: A potential behavior (e.g., "Eat", "Flee", "Socialize")
+- Consideration: A factor that influences action utility (e.g., hunger level)
+- Curve: A function mapping input values to utility scores (0-1)
+
+Response Curves:
+- linear: Simple y = mx + b mapping for proportional responses
+- inverse_linear: 1 - x for inverse relationships (high input = low score)
+- logit: S-curve for organic behaviors with sharp midpoint transition
+- threshold: Binary response (0 or 1) for discrete triggers
+
+Scoring:
+- Actions multiply all consideration scores (any zero = action rejected)
+- Geometric mean compensation prevents many-consideration score collapse
+- Trait overrides allow personality-driven behavior modifications
 """
 
 from dataclasses import dataclass
@@ -7,7 +27,6 @@ from typing import Any, Optional
 import math
 from loguru import logger
 
-# Import TYPE_CHECKING to avoid circular import at runtime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -18,36 +37,26 @@ if TYPE_CHECKING:
 @dataclass
 class Consideration:
     """
-    A consideration evaluates a single aspect of the world state to produce a score.
+    Evaluates a world state factor to produce a utility score (0-1).
 
     Attributes:
-        name (str): The name of the consideration.
-        input_key (str): The key to look up in the context dictionary (e.g., "hunger").
-        curve_type (str): The type of response curve ("linear", "inverse_linear", "logit", "threshold").
-        params (Dict[str, float]): Parameters for the curve function.
+        name: Unique identifier for this consideration.
+        input_key: Context key to read (e.g., "hunger", "is_night").
+        curve_type: Response curve type ("linear", "logit", "threshold").
+        params: Curve parameters (varies by curve type).
     """
 
     name: str
-    input_key: str  # e.g., "hunger", "tiredness"
-    curve_type: str  # "linear", "logit", "threshold"
+    input_key: str
+    curve_type: str
     params: dict[str, float]
 
     def score(
         self, context: dict[str, Any], override_curve: dict[str, Any] | None = None
     ) -> float:
-        """
-        Calculates the score for this consideration based on the context.
-
-        Args:
-            context (Dict[str, Any]): A dictionary containing the current world state/context.
-            override_curve (Optional[Dict[str, Any]]): Optional dictionary with 'curve' and 'params' keys to override the default behavior.
-
-        Returns:
-            float: A score between 0.0 and 1.0.
-        """
+        """Calculates the score based on context and optional trait overrides."""
         val = context.get(self.input_key, None)
         if val is None:
-            # Log warning only once per key to avoid spam
             if not hasattr(self, "_warned_keys"):
                 self._warned_keys = set()
             if self.input_key not in self._warned_keys:
@@ -57,7 +66,6 @@ class Consideration:
                 self._warned_keys.add(self.input_key)
             val = 0.0
 
-        # Check for overrides
         if override_curve:
             return self.evaluate_curve(
                 val,
@@ -74,44 +82,36 @@ class Consideration:
         params: dict[str, float] | None = None,
     ) -> float:
         """
-        Evaluates the configured curve function for a given input value.
-        Maps the input value 'x' to a normalized utility score between 0.0 and 1.0.
+        Maps input value to normalized utility score (0.0-1.0).
 
-        Args:
-            x (float): The input value.
-            curve_type (Optional[str]): The type of curve (optional override).
-            params (Optional[Dict[str, float]]): Parameters for the curve (optional override).
-
-        Returns:
-            float: The mapped output value between 0.0 and 1.0.
+        Input values are expected in range 0-100 and normalized internally.
         """
         if curve_type is None:
             curve_type = self.curve_type
         if params is None:
             params = self.params
-        # Normalize x usually expected between 0 and 100, map to 0-1 range for easier curve calculation
+
+        # Normalize input from 0-100 to 0-1 range
         v = max(0, min(100, x)) / 100.0
 
         if curve_type == "linear":
-            # Linear mapping: y = mx + b
+            # y = mx + b (clamped to 0-1)
             m = params.get("m", 1.0)
             b = params.get("b", 0.0)
             return max(0.0, min(1.0, m * v + b))
 
         elif curve_type == "inverse_linear":
-            # High input value results in low score.
-            # Useful for things like 'Hunger' where high hunger should drive eating (wait, high hunger = high score needed).
-            # If input is 'Satiety', high satiety = low score.
+            # High input → low score (e.g., satiety: full stomach = no need to eat)
             return 1.0 - v
 
         elif curve_type == "logit":
-            # S-curve (Logistic function). Good for organic behaviors where response ramps up around a midpoint.
-            k = params.get("k", 10.0)  # Steepness of the curve
-            x0 = params.get("x0", 0.5)  # Midpoint (x-value where y=0.5)
+            # Logistic S-curve: gradual ramp around midpoint
+            k = params.get("k", 10.0)   # Steepness
+            x0 = params.get("x0", 0.5)  # Midpoint (y=0.5 when v=x0)
             return 1.0 / (1.0 + math.exp(-k * (v - x0)))
 
         elif curve_type == "threshold":
-            # Binary response: 1.0 if above threshold, else 0.0
+            # Binary: 1.0 if above threshold, else 0.0
             t = params.get("threshold", 0.5)
             return 1.0 if v >= t else 0.0
 
@@ -121,13 +121,7 @@ class Consideration:
 @dataclass
 class Action:
     """
-    An action that an AI agent can perform.
-
-    Attributes:
-        name (str): The name of the action.
-        considerations (List[Consideration]): A list of considerations that determine the utility of this action.
-        weight (float): A base weight multiplier for the action's utility. Defaults to 1.0.
-        effects (Optional[Dict[str, Any]]): A dictionary defining the effects of the action.
+    An executable AI action with associated utility considerations.
     """
 
     name: str
@@ -166,8 +160,7 @@ class Action:
             s = cons.score(context, override)
             final_score *= s
 
-            # Optimization: If score drops too low, prune early
-            if final_score <= 0.001:
+            if final_score <= 0.001:  # Early exit on low score.
                 return 0.0
 
         return final_score
@@ -316,16 +309,13 @@ class UtilityAIEngine:
 
         # Calculate effective overrides if personality exists
         overrides = {}
-        # Optimization: Use cached_overrides if available
         if personality and personality.cached_overrides is not None:
             overrides = personality.cached_overrides
         elif personality and trait_service:
-            # Fallback if no cache (should generally be cached by selector)
             for trait_id in personality.traits:
                 trait_data = trait_service.get_trait(trait_id)
                 if trait_data and trait_data.ai_modifiers:
-                    # Merge modifiers. If multiple traits modify the same consideration, last one wins (simple approach)
-                    # Or we could average/multiply them. For now, last one wins.
+                    # Last trait wins for conflicting modifiers.
                     for cons_name, mod in trait_data.ai_modifiers.items():
                         overrides[cons_name] = mod
 
@@ -352,9 +342,7 @@ class UtilityAIEngine:
 
             registered_behaviors = BehaviorRegistry.get_goals()
 
-            for action_name in self.actions.keys():
-                # Skip validation for Idle as it's the default fallback
-                if action_name == "Idle":
+                if action_name == "Idle":  # Skip Idle - default fallback.
                     continue
 
                 if action_name not in registered_behaviors:

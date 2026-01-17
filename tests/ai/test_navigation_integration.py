@@ -26,7 +26,10 @@ class TestNavigationIntegration(unittest.TestCase):
 
         # Initialize Navigation Service
         self.nav_service = NavigationService(
-            world_width=1000, world_height=1000, grid_step_size=25
+            world_width=1000,
+            world_height=1000,
+            grid_step_size=25,
+            deterministic_mode=True,
         )
         self.world.services.register(self.nav_service)
 
@@ -82,7 +85,9 @@ class TestNavigationIntegration(unittest.TestCase):
         # The update_obstacle_rect is instant on grid, but graph rebuild is async if using HPA*
         # Our implementation updates grid immediately.
         # Graph rebuild might be triggered if using Abstract Search.
-        time.sleep(1.2)  # Allow throttled graph rebuild (1.0s)
+        # Wait for nav service to process the obstacle update
+        # We must call world.update() to let NavigationUpdateSystem run and mark grid dirty.
+        self.world.update(1.0)
 
         # 3. Request Path
         start = (100.0, 100.0)

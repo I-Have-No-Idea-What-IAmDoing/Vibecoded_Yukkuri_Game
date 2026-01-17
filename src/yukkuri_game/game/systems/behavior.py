@@ -56,16 +56,7 @@ class BehaviorSystem(System):
         """
         self.total_time += dt
 
-        # 1. Detect new entities and add to system
-        # Optimization: Instead of full iteration, we could use events,
-        # but get_components_tuple is fast enough for checking existence if we optimized elsewhere.
-        # To avoid iterating ALL entities every frame just to find new ones,
-        # we can assume the queue covers existing ones.
-        # But we need to find *new* ones.
-        # Let's rely on a set difference for correctness, or events.
-        # For now, let's keep it simple: Iterate all AIState, if not in trees, add.
-        # This iteration cost is small compared to ticking.
-
+        # Detect new entities and add to system.
         current_ai_entities = set()
         for entity, (ai,) in world.get_components_tuple(AIState):
             current_ai_entities.add(entity)

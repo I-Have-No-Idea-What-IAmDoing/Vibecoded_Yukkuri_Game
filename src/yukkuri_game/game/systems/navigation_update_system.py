@@ -78,8 +78,8 @@ class NavigationUpdateSystem(System):
             # width/height from bb
             w = bb.right - bb.left
             h = bb.top - bb.bottom
-            x = bb.left
-            y = bb.bottom  # System uses bottom-left or top-left?
+            x = bb.left + w / 2
+            y = bb.bottom + h / 2
             # NavigationGrid.update_obstacle_rect(x, y, w, h...)
             # Grid assumes standard coordinates.
 

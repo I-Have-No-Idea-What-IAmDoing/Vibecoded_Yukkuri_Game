@@ -686,6 +686,7 @@ class GameDriver:
     def dump_state(self) -> str:
         """
         Dumps the ECS world state to a string.
+        Sanitizes memory addresses for determinism.
 
         Returns:
             str: The string representation of the world state.
@@ -702,12 +703,19 @@ class GameDriver:
             output.write(f"  Entity {entity_id}:\n")
 
             components_tuple = self.world.get_all_components(entity_id)
-
-            components_tuple = self.world.get_all_components(entity_id)
-            for comp in components_tuple:
+            # Sort components by type name for deterministic output
+            sorted_components = sorted(components_tuple, key=lambda c: type(c).__name__)
+            for comp in sorted_components:
                 output.write(f"    {type(comp).__name__}: {comp}\n")
 
-        return output.getvalue()
+        import re
+        # Mask memory addresses like 0x0000012A4AC61F20
+        # Pattern: 0x followed by 8-16 hex digits
+        cleaned = re.sub(r"0x[0-9a-fA-F]{8,}", "0xMASKED", output.getvalue())
+        # Also mask CData object refs if needed: <... object at 0x...>
+        cleaned = re.sub(r" at 0x[0-9a-fA-F]+", " at 0xMASKED", cleaned)
+        
+        return cleaned
 
     def capture_logs(self) -> LogCapture:
         """

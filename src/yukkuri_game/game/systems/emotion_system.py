@@ -1,5 +1,31 @@
 """
-Module defining the EmotionSystem logic (formerly StatDecaySystem).
+Emotion System - Stat Decay and Emotional State Management.
+
+Manages the decay of Yukkuri stats over time and updates emotional states.
+Core to the simulation's need-driven AI behavior.
+
+Stat Decay:
+- Physical stats (hunger, energy, cleanliness, social) decay over game time
+- Decay rates modifiable by traits
+- Starvation (hunger >= 100) causes health damage
+
+Emotional Model (2D Stress-Happiness Graph):
+- Happiness: -100 (sad) to +100 (happy), decays toward neutral (0)
+- Stress: 0 (calm) to 100 (stressed), decays over time
+
+Quadrant-based mood derivation:
+- Happy + Low Stress = Content/Relaxed
+- Happy + High Stress = Excited/Manic
+- Unhappy + High Stress = Rage (if brave) or Fear
+- Unhappy + Low Stress = Depression
+
+Environmental Effects:
+- Night without light source = stress increase (DARKNESS_STRESS_RATE)
+- Proximity to light negates darkness stress
+
+Personality Drift:
+- Current personality axis values drift toward base values over time
+- Simulates "returning to normal" after events that shifted personality
 """
 
 from ...engine.ecs import System, World
@@ -16,29 +42,31 @@ from ..trait_service import TraitService
 from ..services import TimeService
 from ..skill_service import SkillService
 from ...config import StatDecaySettings
-import random
+from ...engine import rng
 
 SECONDS_PER_DAY = TimeService.GAME_DAY_LENGTH
 
 
 class EmotionSystem(System):
+    """
+    Decays Yukkuri stats and manages emotional state over time.
+
+    Responsibilities:
+    - Apply decay rates to physical stats (hunger, energy, etc.)
+    - Update happiness/stress based on environment and events
+    - Apply personality drift toward baseline values
+    - Trigger daily skill decay
+    """
+
+    # Stress gained per second in darkness without light
     DARKNESS_STRESS_RATE: float = 5.0
-
-    """
-    System responsible for decaying Yukkuri stats and updating Emotional State over time.
-
-    Attributes:
-        settings (StatDecaySettings): The configuration settings for decay rates.
-        trait_service (Optional[TraitService]): Service to access trait modifiers.
-        last_day_index (int): Index of the last day processed for decay.
-    """
 
     def __init__(self, settings: StatDecaySettings):
         """
         Initializes the EmotionSystem.
 
         Args:
-            settings (StatDecaySettings): Stat decay settings configuration.
+            settings: Stat decay configuration (rates for hunger, energy, etc.).
         """
         self.settings = settings
         self.trait_service: TraitService | None = None
@@ -283,7 +311,7 @@ class EmotionSystem(System):
             change = guaranteed_drift
 
             # Apply probabilistic drift
-            if random.random() < probability_drift:
+            if rng.random_float() < probability_drift:
                 change += 1
 
             if change > 0:

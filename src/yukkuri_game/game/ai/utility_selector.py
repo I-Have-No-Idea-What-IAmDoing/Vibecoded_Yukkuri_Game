@@ -91,11 +91,8 @@ class UtilitySelector(Action):
             )
             return Status.FAILURE
 
-        # Check for manual override
         if getattr(ai, "manual_override", False):
-            # If overridden, we skip utility selection and just return SUCCESS
-            # preserving the current action set externally.
-            return Status.SUCCESS
+            return Status.SUCCESS  # Skip utility selection if overridden.
 
         if not self.engine:
             self.engine = self.world.services.try_get(UtilityAIEngine)
@@ -103,7 +100,6 @@ class UtilitySelector(Action):
                 logger.error("UtilitySelector: No Engine found")
                 return Status.FAILURE
 
-        # Also try to grab trait service again if missing
         if not self.trait_service:
             self.trait_service = self.world.services.try_get(TraitService)
 
@@ -142,8 +138,7 @@ class UtilitySelector(Action):
         happiness = 50.0
         stress = 0.0
         if emotional:
-            # Normalize -100..100 to 0..100 for AI consumption
-            happiness = (emotional.happiness + 100.0) / 2.0
+            happiness = (emotional.happiness + 100.0) / 2.0  # Normalize -100..100 to 0..100.
             stress = emotional.stress
 
         # Time of Day (0.0 to 24.0)
@@ -184,44 +179,32 @@ class UtilitySelector(Action):
             for skill_id, state in skills.states.items():
                 context[f"skill_{skill_id}"] = float(state.level)
 
-        # Inject Personality Values into Context
-        # Allows AI to make decisions based on personality traits (e.g. "Lazy" might value rest more)
         if personality:
-            # Inject Axis values (normalized to 0-100?)
             if personality.axis:
-                # Map axes to approximate old values for compatibility or new ones
                 context["val_kindness"] = (personality.axis.kindness + 100) / 2.0
                 context["val_energy"] = (personality.axis.energy + 100) / 2.0
                 context["val_bravery"] = (personality.axis.bravery + 100) / 2.0
                 context["val_greed"] = (personality.axis.greed + 100) / 2.0
-
-                # Alias for backward compatibility if actions.toml uses 'compassion' etc
-                context["val_compassion"] = context["val_kindness"]
+                context["val_compassion"] = context["val_kindness"]  # Alias for compatibility.
 
             # Inject Traits as binary flags for conditional considerations
             for trait in personality.traits:
                 context[f"trait_{trait}"] = 1.0
 
-        # Select Action
-
-        # Optimize: populate cached_overrides if missing
+        # Populate cached_overrides if missing.
         if personality and self.trait_service and personality.cached_overrides is None:
             personality.cached_overrides = self.trait_service.calculate_overrides(
                 personality.traits
             )
 
-        # We pass personality and trait service to support overrides inside the engine
-        # The engine will select the best action based on the highest utility score
         best_action = self.engine.select_action(
             context, personality, self.trait_service
         )
 
-        # Update AI State
         if best_action != ai.current_action:
             ai.current_action = best_action
             ai.action_progress = 0.0
-            # Clear failed targets when switching actions to give them another chance later
             if hasattr(ai, "failed_targets"):
-                ai.failed_targets.clear()
+                ai.failed_targets.clear()  # Reset failed targets on action change.
 
         return Status.SUCCESS

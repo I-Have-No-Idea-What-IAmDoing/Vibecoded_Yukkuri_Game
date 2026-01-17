@@ -1,8 +1,31 @@
 """
-Module defining the LifecycleSystem logic.
+Lifecycle System - Birth, Growth, and Death.
+
+Manages the lifecycle state machine for Yukkuri entities including:
+- Death detection and corpse conversion
+- Age-based growth stage transitions (Baby → Child → Adult)
+- Asexual reproduction (breeding) based on happiness/energy thresholds
+
+Lifecycle States:
+- **Baby**: Small size, limited capabilities (until baby_age_threshold)
+- **Child**: Medium size, can socialize (until child_age_threshold)
+- **Adult**: Full size, can breed when conditions met
+- **Dead**: No AI processing, visual indicator (flipped sprite)
+
+Growth Transitions:
+- Physical scale increases (1.5x Baby→Child, 1.33x Child→Adult)
+- Health capacity increases, immediate partial heal
+- Physics shape radius scaled to match visual size
+
+Breeding Requirements:
+- Must be Adult stage
+- Happiness above breeding_happiness_threshold
+- Energy above breeding_energy_threshold
+- Random chance per tick (breeding_chance)
+- Spawns Baby of same type at offset position
 """
 
-import random
+from ...engine import rng
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ..yukkuri_components import YukkuriStats, Needs, AIState, Dead, EmotionalState
@@ -15,10 +38,10 @@ from loguru import logger
 
 class LifecycleSystem(System):
     """
-    System responsible for handling lifecycle events: Death, Growth, and Breeding.
+    Handles lifecycle events: death, growth, and breeding.
 
-    Attributes:
-        settings (LifecycleSettings): The configuration settings.
+    Processes entities each frame to check for stage transitions
+    based on age and breeding eligibility based on stats.
     """
 
     def __init__(self, settings: LifecycleSettings):
@@ -215,7 +238,7 @@ class LifecycleSystem(System):
                 and needs.energy >= self.settings.breeding_energy_threshold
             ):
                 # Chance to breed
-                if random.random() < self.settings.breeding_chance:
+                if rng.random_float() < self.settings.breeding_chance:
                     self._breed(world, entity, stats, needs, transform)
 
     def _breed(
@@ -246,8 +269,8 @@ class LifecycleSystem(System):
 
         # Spawn Baby
         # Offset position slightly
-        offset_x = random.uniform(-20, 20)
-        offset_y = random.uniform(-20, 20)
+        offset_x = rng.uniform(-20.0, 20.0)
+        offset_y = rng.uniform(-20.0, 20.0)
 
         create_yukkuri(
             world,

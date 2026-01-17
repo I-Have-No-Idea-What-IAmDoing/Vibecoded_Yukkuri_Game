@@ -11,7 +11,7 @@ import platform
 import gc
 import csv
 from typing import Any
-import random
+from ..engine import rng
 import logging
 import cProfile
 
@@ -147,7 +147,7 @@ class BenchmarkRunner:
                     # Set random seed for this iteration
                     current_seed = self.seed + i if self.seed is not None else None
                     if current_seed is not None:
-                        random.seed(current_seed)
+                        rng.seed(current_seed)
                         if np:
                             np.random.seed(current_seed)
 
@@ -168,8 +168,8 @@ class BenchmarkRunner:
                         height = app.height
                         # Use seeded random or deterministic placement
                         if current_seed is not None:
-                            x = random.randint(25, width - 25)
-                            y = random.randint(25, height - 25)
+                            x = rng.randint(25, width - 25)
+                            y = rng.randint(25, height - 25)
                         else:
                             x = (driver.frame_count * 1234 + j * 5678) % (
                                 width - 50

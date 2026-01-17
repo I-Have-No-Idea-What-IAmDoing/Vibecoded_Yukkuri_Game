@@ -2,7 +2,7 @@
 Module defining the FeedbackSystem logic.
 """
 
-import random
+from ...engine import rng
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.audio import AudioManager
@@ -46,7 +46,6 @@ class FeedbackSystem(System):
             self.event_bus.subscribe(EntityGrewEvent, self.on_growth)
             self.event_bus.subscribe(EntityDiedEvent, self.on_death)
             self.event_bus.subscribe(EntityTrainedEvent, self.on_trained)
-            self.event_bus.subscribe(EntityTrainedEvent, self.on_trained)
             self.event_bus.subscribe(EntityPunishedEvent, self.on_punished)
             # Subscribe to Animation Events for audio/visuals
             self.event_bus.subscribe(AnimationEvent, self.on_animation_event)
@@ -83,7 +82,7 @@ class FeedbackSystem(System):
                 else:
                     prob = 0.01 * dt
 
-                if random.random() < prob:
+                if rng.random_float() < prob:
                     audio.play_sound("cry")
 
         to_destroy = []

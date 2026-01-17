@@ -1,6 +1,6 @@
 import time
 import math
-import random
+from yukkuri_game.engine import rng
 from typing import Any, Optional, cast, TYPE_CHECKING
 import pymunk
 from py_trees.common import Status
@@ -152,7 +152,7 @@ class MoveToTarget(Action):
             path_failed = state_data.get("path_failed", False)
 
             if is_requesting:
-                now = time.time()
+                now = self.world.time
                 request_timestamp = state_data.get("path_request_time", 0.0)
                 if (now - request_timestamp) > 2.0:
                     state_data["path_requesting"] = False
@@ -184,12 +184,13 @@ class MoveToTarget(Action):
                         (target_pos.x, target_pos.y),
                         capabilities=capabilities,
                         priority=priority,
+                        timestamp=self.world.time,
                     )
 
                     if ai.state_data is None:
                         ai.state_data = {}
                     ai.state_data["path_requesting"] = True
-                    ai.state_data["path_request_time"] = time.time()
+                    ai.state_data["path_request_time"] = self.world.time
                     ai.state_data["path_destination"] = (target_pos.x, target_pos.y)
                     if "path_failed" in ai.state_data:
                         del ai.state_data["path_failed"]
@@ -220,7 +221,7 @@ class MoveToTarget(Action):
 
                     drift_sq = (target_pos - pymunk.Vec2d(*path_dest)).length_squared
                     if drift_sq > drift_threshold_sq:
-                        now = time.time()
+                        now = self.world.time
                         last_repath_time = ai.state_data.get("last_repath_time", 0.0)
                         if now - last_repath_time > 0.5:
                             ai.path = None
@@ -297,8 +298,8 @@ class Wander(Action):
 
         ai = self.world.get_component(self.entity_id, AIState)
         if ai:
-            tx = random.uniform(0, self.width)
-            ty = random.uniform(0, self.height)
+            tx = rng.uniform(0, self.width)
+            ty = rng.uniform(0, self.height)
             ai.state_data = {"target_x": tx, "target_y": ty}
             ai.path = None
             ai.current_target_id = EntityID(-1)
