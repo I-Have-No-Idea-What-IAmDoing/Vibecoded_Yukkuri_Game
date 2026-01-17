@@ -61,12 +61,13 @@ class World:
     def time(self) -> float:
         """
         Convenience property to get the current game time.
-        
+
         Returns:
             float: The elapsed game time in seconds, or 0.0 if TimeService is unavailable.
         """
         # Lazy import to avoid circular dependency
         from ..game.services import TimeService
+
         time_service = self.services.try_get(TimeService)
         return time_service.time_elapsed if time_service else 0.0
 

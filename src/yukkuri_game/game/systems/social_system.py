@@ -59,8 +59,6 @@ class SocialSystem(System):
         headline_counter (int): Counter for unique memory IDs.
     """
 
-
-
     # Batch processing size for relationship cleanup (prevents frame rate drops)
     CLEANUP_BATCH_SIZE = 10
 
@@ -117,7 +115,6 @@ class SocialSystem(System):
             self.skill_service = world.services.try_get(SkillService)
         if not self.audio:
             self.audio = world.services.try_get(AudioManager)
-
 
         now = world.time
 
@@ -319,7 +316,6 @@ class SocialSystem(System):
             for cond in conditions:
                 if not self._check_condition(world, actor_id, cond):
                     return
-
 
         now = world.time
 
