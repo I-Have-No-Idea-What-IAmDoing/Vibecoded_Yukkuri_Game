@@ -52,7 +52,7 @@ class FamilySystem(System):
     # ==================== FORMATION THRESHOLDS ====================
     # Both affinity AND trust must exceed these to form/join a family
     MIN_AFFINITY_FOR_FAMILY = 80.0  # Minimum liking required
-    MIN_TRUST_FOR_FAMILY = 80.0    # Minimum trust required
+    MIN_TRUST_FOR_FAMILY = 80.0  # Minimum trust required
 
     # ==================== PROXIMITY SETTINGS ====================
     BENEFIT_RANGE = 150.0  # Maximum distance for benefits (pixels)

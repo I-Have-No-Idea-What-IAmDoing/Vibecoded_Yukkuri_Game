@@ -29,7 +29,6 @@ class Application:
         render_scale: float = 1.0,
         deterministic: bool = False,
     ):
-
         """
         Args:
             width (int): Window width in pixels.
@@ -48,6 +47,7 @@ class Application:
 
         if self.deterministic:
             from .rng import seed
+
             seed(42)
             logger.info("Deterministic mode enabled. RNG seeded with 42.")
 
@@ -86,10 +86,10 @@ class Application:
     def _initialize_display(
         self, width: int, height: int, fullscreen: bool = False
     ) -> None:
-
         """
         Initializes the display and lighting engine.
         """
+        if self.headless:
             self.screen = pygame.display.set_mode((width, height))
             self.lights_engine = None  # Force software rendering in headless.
             logger.info("Headless mode: forced software rendering (PygameBackend).")
@@ -119,7 +119,6 @@ class Application:
         fullscreen: bool,
         render_scale: float | None = None,
     ) -> None:
-
         """
         Changes the resolution and fullscreen state.
         """

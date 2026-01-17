@@ -41,8 +41,6 @@ from ..physics_utils import add_physics_body, get_yukkuri_radius
 from ..inventory_component import InventoryComponent
 
 
-
-
 def create_yukkuri(
     world: World,
     type_id: str,
@@ -193,10 +191,7 @@ def create_yukkuri(
 
     # Yukkuri Stats and Needs
     stats = YukkuriStats(
-        name=f"{type_id}_{entity}",
-        type_id=type_id,
-        age=age,
-        growth_stage=growth_stage
+        name=f"{type_id}_{entity}", type_id=type_id, age=age, growth_stage=growth_stage
     )
     world.add_component(entity, stats)
 

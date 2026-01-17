@@ -7,10 +7,11 @@ from ..components import Transform, LODComponent
 from ..camera import Camera
 from .sector_system import SectorMap
 
+
 class LODSystem(System):
     """
     System responsible for assigning LOD levels to entities based on distance from camera.
-    
+
     LOD Levels:
     0: High (Priority)
     1: Medium
@@ -27,7 +28,7 @@ class LODSystem(System):
         self.enable_lod = enable_lod
         self.update_interval = update_interval
         self.frame_count = 0
-        
+
         # Ranges
         self.high_dist = 800
         self.med_dist = 1500
@@ -52,12 +53,12 @@ class LODSystem(System):
         self.frame_count += 1
         if self.frame_count < self.update_interval:
             return
-        
+
         self.frame_count = 0
 
         camera = world.services.try_get(Camera)
         sector_map = world.services.try_get(SectorMap)
-        
+
         if not camera:
             return
 
@@ -69,23 +70,25 @@ class LODSystem(System):
 
         self._update_optimized(world, sector_map, camera.camera_x, camera.camera_y)
 
-    def _update_optimized(self, world: World, sector_map: SectorMap, cx: float, cy: float) -> None:
+    def _update_optimized(
+        self, world: World, sector_map: SectorMap, cx: float, cy: float
+    ) -> None:
         """
         Optimized update using Spatial Partitioning.
         O(Visible Entities) + O(Entities leaving view).
         """
         current_active = set()
-        
+
         # define view rect for "Medium" range (max interest)
         # 1500 padding around camera
         rect_x = cx - self.med_dist
         rect_y = cy - self.med_dist
         rect_w = self.med_dist * 2
         rect_h = self.med_dist * 2
-        
+
         # Get potential entities from SectorMap
         visible_ids = sector_map.get_entities_in_rect(rect_x, rect_y, rect_w, rect_h)
-        
+
         high_dist_sq = self.high_dist * self.high_dist
         med_dist_sq = self.med_dist * self.med_dist
 
@@ -100,8 +103,8 @@ class LODSystem(System):
 
             dx = transform.x - cx
             dy = transform.y - cy
-            dist_sq = dx*dx + dy*dy
-            
+            dist_sq = dx * dx + dy * dy
+
             if dist_sq < high_dist_sq:
                 lod.level = 0
                 current_active.add(entity)
@@ -113,26 +116,28 @@ class LODSystem(System):
                 # Should be Low
                 if lod.level != 2:
                     lod.level = 2
-        
+
         # Downgrade entities that left the active range.
         for entity in self.active_entities:
             if entity not in current_active:
                 lod = world.try_get_component(entity, LODComponent)
                 if lod:
                     lod.level = 2
-        
+
         self.active_entities = current_active
 
     def _update_naive(self, world: World, cx: float, cy: float) -> None:
         """Fallback O(N) update."""
         high_sq = self.high_dist * self.high_dist
         med_sq = self.med_dist * self.med_dist
-        
-        for entity, (transform, lod) in world.get_components_tuple(Transform, LODComponent):
+
+        for entity, (transform, lod) in world.get_components_tuple(
+            Transform, LODComponent
+        ):
             dx = transform.x - cx
             dy = transform.y - cy
-            dist_sq = dx*dx + dy*dy
-            
+            dist_sq = dx * dx + dy * dy
+
             if dist_sq < high_sq:
                 lod.level = 0
             elif dist_sq < med_sq:

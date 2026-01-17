@@ -47,10 +47,6 @@ from .lazy_loader import LazyLoader
 T = TypeVar("T")
 
 
-
-
-
-
 class ResourceManager:
     """
     Manages game resources with lazy loading and caching.
@@ -200,8 +196,6 @@ class ResourceManager:
             surf.fill((255, 0, 0))
             return surf
 
-
-
     def load_all_data(self) -> None:
         """
         Sets up LazyLoaders for game data.
@@ -222,14 +216,18 @@ class ResourceManager:
             load_function=lambda k: self._load_monolithic(
                 "items/items.toml", ItemData, "items", k
             ),
-            initializer=lambda: self._load_monolithic("items/items.toml", ItemData, "items"),
+            initializer=lambda: self._load_monolithic(
+                "items/items.toml", ItemData, "items"
+            ),
         )
 
         self.ai_actions = LazyLoader(
             load_function=lambda k: self._load_monolithic(
                 "ai/actions.toml", AIData, "actions", k
             ),
-            initializer=lambda: self._load_monolithic("ai/actions.toml", AIData, "actions"),
+            initializer=lambda: self._load_monolithic(
+                "ai/actions.toml", AIData, "actions"
+            ),
         )
 
         self.skills = LazyLoader(
@@ -274,19 +272,24 @@ class ResourceManager:
         # Determine which LazyLoader to populate based on attr name.
         mapping = getattr(
             self,
-            "yukkuri_types" if attr == "yukkuris"
-            else "item_types" if attr == "items"
-            else "ai_actions" if attr == "actions"
-            else "skills" if attr == "skills"
-            else "traits" if attr == "traits"
+            "yukkuri_types"
+            if attr == "yukkuris"
+            else "item_types"
+            if attr == "items"
+            else "ai_actions"
+            if attr == "actions"
+            else "skills"
+            if attr == "skills"
+            else "traits"
+            if attr == "traits"
             else "interactions",
         )
-        
+
         logger.info(f"Lazy Loading Monolithic File: {file}")
         data = self.load_toml_model(file, model)
         if not data:
             if requested_key:
-                 raise KeyError(f"Could not load data file {file}")
+                raise KeyError(f"Could not load data file {file}")
             return None
 
         real_dict = getattr(data, attr)
@@ -300,7 +303,7 @@ class ResourceManager:
                 return real_dict[requested_key]
             else:
                 raise KeyError(f"Key {requested_key} not found in {file}")
-        
+
         return None
 
     def clear(self) -> None:

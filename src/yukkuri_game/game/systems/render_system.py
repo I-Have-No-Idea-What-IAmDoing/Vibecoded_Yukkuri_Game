@@ -65,11 +65,11 @@ from ..renderer.constants import RenderConstants
 
 # ==================== LAYER CONSTANTS ====================
 # Higher layers render on top. Entities sorted by Y within layer.
-LAYER_BACKGROUND = 0   # Grid, terrain
-LAYER_SHADOWS = 1      # Drop shadows (render before sprites)
-LAYER_ENTITIES = 2     # Sprites, characters, items
-LAYER_EFFECTS = 3      # Lights, particles, FX
-LAYER_UI = 10          # Floating text, selection highlights
+LAYER_BACKGROUND = 0  # Grid, terrain
+LAYER_SHADOWS = 1  # Drop shadows (render before sprites)
+LAYER_ENTITIES = 2  # Sprites, characters, items
+LAYER_EFFECTS = 3  # Lights, particles, FX
+LAYER_UI = 10  # Floating text, selection highlights
 
 
 class RenderSystem(System):
@@ -135,7 +135,9 @@ class RenderSystem(System):
                     if nw > 0 and nh > 0 and current_w > 0 and current_h > 0:
                         stretch_x = current_w / nw
                         stretch_y = current_h / nh
-                        correction_x = stretch_y / stretch_x  # Pre-squash X for widescreen.
+                        correction_x = (
+                            stretch_y / stretch_x
+                        )  # Pre-squash X for widescreen.
 
                     sw, sh = nw, nh
 
@@ -285,7 +287,7 @@ class RenderSystem(System):
         if sector_map:
             # Add buffer to catch entities at screen edges (large sprites may extend)
             buffer = 500.0
-            
+
             # Convert screen corners to world coordinates
             start_x, start_y = self.camera.screen_to_world(0, 0, sw, sh)
             end_x, end_y = self.camera.screen_to_world(sw, sh, sw, sh)
@@ -298,7 +300,9 @@ class RenderSystem(System):
 
             return sector_map.get_entities_in_rect(min_x, min_y, width, height)
         else:
-            return [e for e, _ in world.get_components_tuple(Transform)]  # Fallback: all entities.
+            return [
+                e for e, _ in world.get_components_tuple(Transform)
+            ]  # Fallback: all entities.
 
     def _rebuild_background_cache(self, sw: int, sh: int) -> None:
         """

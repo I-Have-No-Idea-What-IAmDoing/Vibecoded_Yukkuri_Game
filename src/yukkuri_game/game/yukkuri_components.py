@@ -29,12 +29,14 @@ if TYPE_CHECKING:
 # FLYWEIGHT PATTERN - Shared Type Data
 # ==============================================================================
 
+
 @dataclass(slots=True)
 class YukkuriArchetype:
     """
     Flyweight object holding static data shared by all Yukkuris of a specific type.
     Wraps the read-only TOML configuration to avoid per-entity duplication.
     """
+
     type_data: "YukkuriType | None" = None
 
 

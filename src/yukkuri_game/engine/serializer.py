@@ -99,7 +99,9 @@ class WorldSerializer:
                 ):
                     decoded = msgspec.to_builtins(component)
                     if hasattr(component_type, "_version_"):
-                        decoded["_version_"] = getattr(component_type, "_version_")  # Add version.
+                        decoded["_version_"] = getattr(
+                            component_type, "_version_"
+                        )  # Add version.
                     components_data[component_type.__name__] = decoded
                 else:
                     pass  # Skip non-serializable.
@@ -252,7 +254,9 @@ class WorldSerializer:
                             if val in id_map:
                                 setattr(component, field_name, EntityID(id_map[val]))
                             elif val > 0:
-                                setattr(component, field_name, EntityID(-1))  # Dangling.
+                                setattr(
+                                    component, field_name, EntityID(-1)
+                                )  # Dangling.
 
                     elif self._is_container_of_entity_ref(field_type):
                         origin = get_origin(field_type)

@@ -227,7 +227,9 @@ class SceneManager:
                 if hasattr(v, "__dataclass_fields__") or isinstance(v, msgspec.Struct):
                     encoded = msgspec.to_builtins(v)
                     if hasattr(type(v), "_version_"):
-                        encoded["_version_"] = getattr(type(v), "_version_")  # Inject version.
+                        encoded["_version_"] = getattr(
+                            type(v), "_version_"
+                        )  # Inject version.
                     serialized_data[k] = encoded
                 else:
                     serialized_data[k] = v

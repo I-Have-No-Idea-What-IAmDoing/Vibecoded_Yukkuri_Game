@@ -112,15 +112,15 @@ class BehaviorSystem(System):
 
             # Determine required interval based on stability and LOD
             required_interval = self.min_tick_interval
-            
+
             # LOD Throttling
             lod = world.try_get_component(entity, LODComponent)
             if lod:
-                if lod.level == 1: # Medium
+                if lod.level == 1:  # Medium
                     required_interval *= 2.0
-                elif lod.level == 2: # Low
+                elif lod.level == 2:  # Low
                     required_interval *= 5.0
-                elif lod.level >= 3: # Culled
+                elif lod.level >= 3:  # Culled
                     required_interval *= 10.0
 
             if entity in self.stable_entities:

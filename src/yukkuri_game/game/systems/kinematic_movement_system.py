@@ -207,8 +207,8 @@ class KinematicMovementSystem(System):
         phys.body.position = pos  # Restore
         return current_pos
 
+    def _get_poly_radius(self, shape: pymunk.Poly) -> float:
         """Returns the circumscribed radius of a polygon shape. Cached for performance."""
-
         if shape in self._poly_radius_cache:
             return self._poly_radius_cache[shape]
 
@@ -243,7 +243,9 @@ class KinematicMovementSystem(System):
             friction = controller.friction
             damping = max(0.0, 1.0 - friction * dt)
             velocity = velocity * damping
-            if velocity.length_squared < 0.0001:  # Snap to zero to prevent micro-sliding.
+            if (
+                velocity.length_squared < 0.0001
+            ):  # Snap to zero to prevent micro-sliding.
                 velocity = pymunk.Vec2d(0, 0)
         else:
             diff = input_vector - velocity
@@ -285,11 +287,11 @@ class KinematicMovementSystem(System):
                 elif isinstance(shape, pymunk.Poly):
                     radius = self._get_poly_radius(shape)
 
-            # Calculate shape offset for sweep origin.
-            shape_offset = getattr(shape, "offset", pymunk.Vec2d(0, 0))
-            rotated_offset = shape_offset.rotated(body.angle)
-            shape_center_world = current_pos + rotated_offset
-            shape_dest = shape_center_world + move_delta
+                # Calculate shape offset for sweep origin.
+                shape_offset = getattr(shape, "offset", pymunk.Vec2d(0, 0))
+                rotated_offset = shape_offset.rotated(body.angle)
+                shape_center_world = current_pos + rotated_offset
+                shape_dest = shape_center_world + move_delta
 
                 if not self.space:
                     return 0.0

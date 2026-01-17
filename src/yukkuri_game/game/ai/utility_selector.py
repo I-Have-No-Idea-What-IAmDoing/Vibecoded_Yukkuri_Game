@@ -138,7 +138,9 @@ class UtilitySelector(Action):
         happiness = 50.0
         stress = 0.0
         if emotional:
-            happiness = (emotional.happiness + 100.0) / 2.0  # Normalize -100..100 to 0..100.
+            happiness = (
+                emotional.happiness + 100.0
+            ) / 2.0  # Normalize -100..100 to 0..100.
             stress = emotional.stress
 
         # Time of Day (0.0 to 24.0)
@@ -185,7 +187,9 @@ class UtilitySelector(Action):
                 context["val_energy"] = (personality.axis.energy + 100) / 2.0
                 context["val_bravery"] = (personality.axis.bravery + 100) / 2.0
                 context["val_greed"] = (personality.axis.greed + 100) / 2.0
-                context["val_compassion"] = context["val_kindness"]  # Alias for compatibility.
+                context["val_compassion"] = context[
+                    "val_kindness"
+                ]  # Alias for compatibility.
 
             # Inject Traits as binary flags for conditional considerations
             for trait in personality.traits:

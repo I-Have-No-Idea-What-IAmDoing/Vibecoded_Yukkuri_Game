@@ -91,16 +91,16 @@ class FlightSystem(System):
             if flight.altitude <= 0:
                 flight.altitude = 0.0
                 flight.state = FlightState.GROUNDED
-                
+
                 # Apply Fall Damage and Stun
                 needs = world.try_get_component(entity, Needs)
                 if needs:
                     needs.health -= 10.0
-                    
+
                 emotional = world.try_get_component(entity, EmotionalState)
                 if emotional:
                     emotional.stress += 20.0
-                    
+
             return
 
         # Interpolate Altitude

@@ -59,7 +59,9 @@ class GameplayScene(Scene):
         _theme_path = (
             Path(__file__).parent.parent.parent.parent / "data" / "ui_theme.json"
         )
-        logger.debug(f"Gameplay theme path: {_theme_path}, exists: {_theme_path.exists()}")
+        logger.debug(
+            f"Gameplay theme path: {_theme_path}, exists: {_theme_path.exists()}"
+        )
         if not _theme_path.exists():
             logger.warning(f"Gameplay theme not found. CWD: {os.getcwd()}")
 

@@ -353,11 +353,11 @@ class GameDriver:
         """Cleans up the game instance."""
         # Remove event bus hook to break circular reference
         if isinstance(self.game, Application) and hasattr(self.game, "event_manager"):
-             # Restore original publish if we could (optional, but breaking the cycle is key)
-             # The cycle is: self -> game -> event_manager -> bus -> publish -> intercepted -> self
-             # We can just clear the game reference or unpatch
-             pass
-        
+            # Restore original publish if we could (optional, but breaking the cycle is key)
+            # The cycle is: self -> game -> event_manager -> bus -> publish -> intercepted -> self
+            # We can just clear the game reference or unpatch
+            pass
+
         self.game.quit()
         # Break cycle
         self.game = None
@@ -709,12 +709,13 @@ class GameDriver:
                 output.write(f"    {type(comp).__name__}: {comp}\n")
 
         import re
+
         # Mask memory addresses like 0x0000012A4AC61F20
         # Pattern: 0x followed by 8-16 hex digits
         cleaned = re.sub(r"0x[0-9a-fA-F]{8,}", "0xMASKED", output.getvalue())
         # Also mask CData object refs if needed: <... object at 0x...>
         cleaned = re.sub(r" at 0x[0-9a-fA-F]+", " at 0xMASKED", cleaned)
-        
+
         return cleaned
 
     def capture_logs(self) -> LogCapture:

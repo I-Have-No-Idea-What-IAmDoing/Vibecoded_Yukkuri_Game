@@ -38,7 +38,9 @@ class MainMenuScene(Scene):
         _theme_path = (
             Path(__file__).parent.parent.parent.parent / "data" / "ui_theme.json"
         )
-        logger.debug(f"MainMenu theme path: {_theme_path}, exists: {_theme_path.exists()}")
+        logger.debug(
+            f"MainMenu theme path: {_theme_path}, exists: {_theme_path.exists()}"
+        )
         if not _theme_path.exists():
             import os
 

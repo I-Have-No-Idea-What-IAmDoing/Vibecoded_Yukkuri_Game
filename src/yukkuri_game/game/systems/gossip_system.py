@@ -27,7 +27,6 @@ from ..yukkuri_components import (
 from ..components import Transform
 from ..events import SocialInteractionEvent
 from ...engine.event_bus import EventBus
-import time
 from ..services import TimeService
 from .physics import PhysicsSystem
 from .sector_system import SectorMap

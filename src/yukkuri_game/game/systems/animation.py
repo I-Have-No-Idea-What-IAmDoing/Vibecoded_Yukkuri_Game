@@ -41,9 +41,11 @@ class AnimationSystem(System):
         """
 
         self.frame_count += 1
-        
+
         # Handle Animator components (Advanced Animation)
-        for entity_id, (sprite, animator) in world.get_components_tuple(Sprite, Animator):
+        for entity_id, (sprite, animator) in world.get_components_tuple(
+            Sprite, Animator
+        ):
             # Check LOD
             lod = world.try_get_component(entity_id, LODComponent)
             if lod:
@@ -56,7 +58,7 @@ class AnimationSystem(System):
                 # Level 3 (Culled): Skip animation updates
                 elif lod.level >= 3:
                     continue
-                
+
             self._update_animator(entity_id, animator, sprite, dt)
 
             # Sync with AI State if available
@@ -81,7 +83,7 @@ class AnimationSystem(System):
                 elif lod.level == 2 and self.frame_count % 4 != 0:
                     continue
                 elif lod.level >= 3:
-                     continue
+                    continue
 
             # Dynamic Sprite Switching based on AIState (if no Animator)
             self._update_dynamic_sprite(world, entity, sprite, rm)
@@ -296,7 +298,7 @@ class AnimationSystem(System):
 
         # Determine base image name
         base_image = None
-        
+
         # 1. Try Archetype (Flyweight) - FAST
         if stats.archetype and stats.archetype.type_data:
             data = stats.archetype.type_data
@@ -304,7 +306,7 @@ class AnimationSystem(System):
                 base_image = data.get("image")
             else:
                 base_image = data.image
-            
+
         # 2. Fallback to ResourceManager (self-healing cache).
         if not base_image:
             yukkuri_type = rm.yukkuri_types.get(stats.type_id)

@@ -64,7 +64,7 @@ class PhysicsSystem(System):
         # Spatial hash for O(1) collision broadphase
         # dim=50: Average Yukkuri diameter, count=2000: Expected entity count * 4
         self.space.use_spatial_hash(dim=50.0, count=2000)
-        
+
         self.accumulator = 0.0
         self.time_step = self.DEFAULT_TIMESTEP
         self.max_frame_time = self.MAX_FRAME_TIME

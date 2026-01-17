@@ -106,7 +106,7 @@ class Consideration:
 
         elif curve_type == "logit":
             # Logistic S-curve: gradual ramp around midpoint
-            k = params.get("k", 10.0)   # Steepness
+            k = params.get("k", 10.0)  # Steepness
             x0 = params.get("x0", 0.5)  # Midpoint (y=0.5 when v=x0)
             return 1.0 / (1.0 + math.exp(-k * (v - x0)))
 
@@ -342,6 +342,7 @@ class UtilityAIEngine:
 
             registered_behaviors = BehaviorRegistry.get_goals()
 
+            for action_name in self.actions:
                 if action_name == "Idle":  # Skip Idle - default fallback.
                     continue
 

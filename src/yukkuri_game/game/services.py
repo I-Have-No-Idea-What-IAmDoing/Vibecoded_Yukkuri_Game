@@ -359,7 +359,9 @@ class GameService:
             skills = self.world.get_component(searcher_id, Skills)
             if skills and SkillId.SCAVENGING in skills.states:
                 level = skills.states[SkillId.SCAVENGING].level
-                max_radius = BASE_SCAVENGING_RADIUS + (level * SCAVENGING_RADIUS_PER_LEVEL)
+                max_radius = BASE_SCAVENGING_RADIUS + (
+                    level * SCAVENGING_RADIUS_PER_LEVEL
+                )
 
         sector_map = self.world.services.try_get(SectorMap)
         candidate_items = []

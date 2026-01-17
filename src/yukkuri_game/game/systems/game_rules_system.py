@@ -103,7 +103,7 @@ class GameRulesSystem(System):
                     needs, emotional_state, stats_config=stats_config
                 ),
             )
-            
+
             # Credit player account
             economy = self.ecs_world.services.get(EconomyService)
             economy.add_money(value)
@@ -157,7 +157,7 @@ class GameRulesSystem(System):
         if stats:
             # Award training badge (increases sell value and prestige)
             stats.badges += 1
-            
+
             # Positive reinforcement: training makes them happier
             if emotional_state:
                 emotional_state.happiness = min(100.0, emotional_state.happiness + 10.0)
@@ -193,7 +193,7 @@ class GameRulesSystem(System):
         if stats and needs:
             # Physical damage from punishment
             needs.health = max(0.0, needs.health - 10.0)
-            
+
             if emotional_state:
                 # Emotional harm: less happy, more stressed
                 emotional_state.happiness = max(

@@ -30,7 +30,7 @@ from enum import IntEnum
 class ObstacleType(IntEnum):
     """Obstacle height classifications affecting traversal."""
 
-    LOW = 0   # Blocks ground movement (WALK) only
+    LOW = 0  # Blocks ground movement (WALK) only
     HIGH = 1  # Blocks all movement (WALK, FLY, SWIM)
 
 
@@ -192,7 +192,7 @@ class NavigationService:
         gx1 = max(0, min(gx1, self.grid.width - 1))
         gy1 = max(0, min(gy1, self.grid.height - 1))
         gx2 = max(0, min(gx2, self.grid.width - 1))
-        gy2 = max(0, min(gy2, self.grid.height - 1)))
+        gy2 = max(0, min(gy2, self.grid.height - 1))
 
         # Use provided timestamp or current time (non-deterministic fallback)
         req_time = timestamp if timestamp is not None else time.time()
@@ -255,8 +255,10 @@ class NavigationService:
             try:
                 # Throttle graph rebuilds to max once per second.
                 with self._state_lock:
-                    should_rebuild = self._dirty and (time.time() - self._last_rebuild > 1.0)
-                
+                    should_rebuild = self._dirty and (
+                        time.time() - self._last_rebuild > 1.0
+                    )
+
                 if should_rebuild:
                     logger.debug("NavWorker: rebuilding graph...")
                     try:
@@ -283,7 +285,9 @@ class NavigationService:
                     with self._state_lock:
                         result = self._process_request(req)
                     duration = time.perf_counter() - start_time
-                    logger.debug(f"NavWorker: Request {req.entity_id} processed in {duration:.4f}s")
+                    logger.debug(
+                        f"NavWorker: Request {req.entity_id} processed in {duration:.4f}s"
+                    )
 
                     if duration > 0.01:  # Log slow paths > 10ms.
                         pass
@@ -295,7 +299,7 @@ class NavigationService:
                     self.result_queue.put(PathResult(req.entity_id, [], False))
 
                 self.request_queue.task_done()
-            except Exception as outer_e:
+            except Exception:
                 time.sleep(1.0)  # Prevent tight loop on fatal errors.
         logger.info("NavigationService worker loop exited.")
 
@@ -354,9 +358,9 @@ class NavigationService:
                 return PathResult(
                     req.entity_id, [self._to_world(p) for p in smoothed], True
                 )
-        
+
         logger.debug("Cross-cluster search needed (or local failed).")
-        
+
         # Stage 4: Insert temporary nodes for start/goal positions.
         start_node = self.cluster_graph.insert_temporary_node(start_pos, capability)
         end_node = self.cluster_graph.insert_temporary_node(end_pos, capability)
@@ -371,7 +375,9 @@ class NavigationService:
 
         try:
             if not start_node or not end_node:
-                raw_path = AStar.search(self.grid, start_pos, end_pos, capability)  # Direct fallback.
+                raw_path = AStar.search(
+                    self.grid, start_pos, end_pos, capability
+                )  # Direct fallback.
             else:
                 # Stage 5: Abstract A* on cluster graph.
                 abstract_path = self.cluster_graph.abstract_search(start_node, end_node)
@@ -399,7 +405,9 @@ class NavigationService:
                     )
 
                 if not raw_path:
-                    raw_path = AStar.search(self.grid, start_pos, end_pos, capability)  # Fallback.
+                    raw_path = AStar.search(
+                        self.grid, start_pos, end_pos, capability
+                    )  # Fallback.
         finally:
             # Clean up temporary nodes
             for temp_node in temp_nodes:
@@ -534,7 +542,7 @@ class NavigationService:
         # Lock to prevent race with graph rebuild
         with self._state_lock:
             result = self._process_request(req)
-        
+
         logger.debug(f"find_path finished. Success: {result.success}")
         return result.path if result.success else []
 

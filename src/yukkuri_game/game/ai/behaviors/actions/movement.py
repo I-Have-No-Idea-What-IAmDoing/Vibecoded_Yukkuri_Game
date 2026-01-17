@@ -1,4 +1,3 @@
-import time
 import math
 from yukkuri_game.engine import rng
 from typing import Any, Optional, cast, TYPE_CHECKING

@@ -15,7 +15,6 @@ Processing occurs in two phases:
 
 import math
 from ...engine import rng
-import time
 import pymunk
 from loguru import logger
 from ...engine.ecs import System, World
@@ -50,6 +49,7 @@ class SteeringSystem(System):
             Transform, MovementController, SteeringComponent, PhysicsBody, MoveCommand
         )
 
+        for entity_id, (trans, movement, steering, phys, move_cmd) in move_cmd_entities:
             if move_cmd.expiration > 0 and current_time > move_cmd.expiration:
                 world.remove_component(entity_id, MoveCommand)
                 movement.target_velocity = pymunk.Vec2d(0, 0)
@@ -195,6 +195,7 @@ class SteeringSystem(System):
                     to_target = target_pos - current_pos
                     dist = to_target.length
 
+                    if dist > 0:
                         time_to_int = dist / steering.max_speed
                         predicted_pos = target_pos + t_vel * time_to_int
                         desired_velocity = (
@@ -279,15 +280,14 @@ class SteeringSystem(System):
                 and not steering.pursuit_enabled
             ):
                 jitter = (
-                    pymunk.Vec2d(
-                        rng.uniform(-1, 1), rng.uniform(-1, 1)
-                    ).normalized()
+                    pymunk.Vec2d(rng.uniform(-1, 1), rng.uniform(-1, 1)).normalized()
                     * steering.max_force
                 )
                 movement.target_velocity += jitter
 
             # Stage 2: Skip nearby waypoint or force complete repath.
             if steering.time_stuck > stuck_threshold_repath:
+                is_stuck_close = False
                 # Check if stuck near current waypoint (within 150px).
                 if len(path) > 1:
                     raw_dist_sq = (pymunk.Vec2d(*path[0]) - current_pos).length_squared

@@ -36,12 +36,12 @@ from ..collision_constants import CollisionCategories
 # ==================== DISMOUNT SEARCH CONSTANTS ====================
 # Controls the spiral search pattern for finding free landing spots
 
-_DISMOUNT_DEFAULT_RADIUS = 10.0      # Default entity collision radius if unknown
+_DISMOUNT_DEFAULT_RADIUS = 10.0  # Default entity collision radius if unknown
 _DISMOUNT_MAX_SEARCH_RADIUS = 100.0  # Maximum spiral search distance
-_DISMOUNT_MAX_SEARCH_CHECKS = 20     # Maximum positions to check before giving up
-_DISMOUNT_TIMEOUT = 5.0              # Seconds before emergency teleport triggers
-_DEFAULT_ENTITY_RADIUS = 10.0        # Fallback entity size for proxy shapes
-_SPIRAL_SEARCH_MIN_RADIUS = 0.1      # Prevents division by zero in spiral calc
+_DISMOUNT_MAX_SEARCH_CHECKS = 20  # Maximum positions to check before giving up
+_DISMOUNT_TIMEOUT = 5.0  # Seconds before emergency teleport triggers
+_DEFAULT_ENTITY_RADIUS = 10.0  # Fallback entity size for proxy shapes
+_SPIRAL_SEARCH_MIN_RADIUS = 0.1  # Prevents division by zero in spiral calc
 
 
 class HierarchySystem(System):
@@ -358,11 +358,13 @@ class HierarchySystem(System):
         collider_radius = _DISMOUNT_DEFAULT_RADIUS
         if hasattr(shape, "radius") and shape.radius > 0:
             collider_radius = shape.radius
-        # If poly, approximate radius?
+            # If poly, approximate radius?
             bb = shape.cache_bb()
             width = bb.right - bb.left
             height = bb.top - bb.bottom
-            collider_radius = math.hypot(width / 2.0, height / 2.0)  # Circumscribed circle.
+            collider_radius = math.hypot(
+                width / 2.0, height / 2.0
+            )  # Circumscribed circle.
 
         step_size = collider_radius * 2.0
         max_checks = _DISMOUNT_MAX_SEARCH_CHECKS

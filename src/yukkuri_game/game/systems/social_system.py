@@ -20,7 +20,6 @@ Memory System:
 - Sentiment sums track cumulative opinion influence
 """
 
-import time
 from typing import Any, cast
 from loguru import logger
 from ...engine import rng
@@ -71,6 +70,7 @@ class SocialSystem(System):
         super().__init__()
         self.trait_service: TraitService | None = None
         self.skill_service: SkillService | None = None
+
     # Batch processing size for relationship cleanup (prevents frame rate drops)
     CLEANUP_BATCH_SIZE = 10
 
@@ -578,14 +578,16 @@ class SocialSystem(System):
         if emotional:
             if base_impact_score < self.IMPACT_THRESHOLD_MAJOR_NEGATIVE:
                 emotional.happiness = max(
-                    self.MIN_HAPPINESS, emotional.happiness - self.EMOTIONAL_CHANGE_AMOUNT
+                    self.MIN_HAPPINESS,
+                    emotional.happiness - self.EMOTIONAL_CHANGE_AMOUNT,
                 )
                 emotional.stress = min(
                     self.MAX_STRESS, emotional.stress + self.EMOTIONAL_CHANGE_AMOUNT
                 )
             elif base_impact_score > self.IMPACT_THRESHOLD_MAJOR_POSITIVE:
                 emotional.happiness = min(
-                    self.MAX_HAPPINESS, emotional.happiness + self.EMOTIONAL_CHANGE_AMOUNT
+                    self.MAX_HAPPINESS,
+                    emotional.happiness + self.EMOTIONAL_CHANGE_AMOUNT,
                 )
 
     def _add_memory_headline(

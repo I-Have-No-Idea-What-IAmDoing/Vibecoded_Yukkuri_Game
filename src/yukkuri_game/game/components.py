@@ -14,13 +14,14 @@ from ..engine.types import EntityID
 class LODComponent:
     """
     Manages Level of Detail (LOD) for update frequency optimization.
-    
+
     Levels:
     0: High (Every frame)
     1: Medium (Every 2nd frame)
     2: Low (Every 4th frame)
     3: Culled (No updates)
     """
+
     level: int = 2
 
 
@@ -278,7 +279,9 @@ class Occluder:
     Component defining a light-blocking shape (Hull).
     """
 
-    polygon: list[tuple[float, float]] | None = None  # Custom hull (defaults to PhysicsBody shape)
+    polygon: list[tuple[float, float]] | None = (
+        None  # Custom hull (defaults to PhysicsBody shape)
+    )
     static: bool = False  # Static occluders cache more aggressively
 
 

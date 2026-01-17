@@ -17,7 +17,6 @@ Relationship Resolution Priority (highest to lowest):
 4. Default - Neutral if no relationship found
 """
 
-import time
 import math
 from typing import cast
 from ...engine.ecs import System, World
@@ -48,8 +47,8 @@ class PerceptionSystem(System):
     MEMORY_DURATION = 10.0
 
     # Affinity thresholds for friend/enemy classification
-    FRIEND_AFFINITY_THRESHOLD = 50.0   # Above this = Friend
-    ENEMY_AFFINITY_THRESHOLD = -10.0   # Below this = Enemy
+    FRIEND_AFFINITY_THRESHOLD = 50.0  # Above this = Friend
+    ENEMY_AFFINITY_THRESHOLD = -10.0  # Below this = Enemy
 
     def __init__(self) -> None:
         """Initializes the PerceptionSystem."""

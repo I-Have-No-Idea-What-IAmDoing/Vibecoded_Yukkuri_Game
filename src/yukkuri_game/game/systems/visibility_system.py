@@ -130,6 +130,8 @@ class VisibilitySystem(System):
 
         self.update_index = (start + count) % total_obs
 
+        for idx in batch_indices:
+            ent, (vision, trans, ai) = observers_list[idx]
             # Entity->Body lookup requires ECS call (reverse map not maintained).
             phys_comp = world.try_get_component(ent, PhysicsBody)
             self.update_visibility(ent, vision, trans, ai, world, phys_comp)
@@ -156,6 +158,7 @@ class VisibilitySystem(System):
 
         Returns:
             None
+        """
         # Reuse cached result if observer hasn't moved significantly.
         if entity in self.visibility_cache:
             cached_visible, cached_x, cached_y = self.visibility_cache[entity]
