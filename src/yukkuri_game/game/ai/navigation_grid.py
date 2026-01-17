@@ -77,10 +77,10 @@ class NavigationGrid:
         half_w = width / 2
         half_h = height / 2
 
-        min_gx = int(round((world_x - half_w) / self.grid_step_size))
-        max_gx = int(round((world_x + half_w) / self.grid_step_size))
-        min_gy = int(round((world_y - half_h) / self.grid_step_size))
-        max_gy = int(round((world_y + half_h) / self.grid_step_size))
+        min_gx = int(math.ceil((world_x - half_w) / self.grid_step_size))
+        max_gx = int(math.floor((world_x + half_w) / self.grid_step_size)) + 1
+        min_gy = int(math.ceil((world_y - half_h) / self.grid_step_size))
+        max_gy = int(math.floor((world_y + half_h) / self.grid_step_size)) + 1
 
         # Clamp bounds
         min_gx = max(0, min_gx)

@@ -12,6 +12,7 @@ from yukkuri_game.game.ai.navigation_service import NavigationService
 from yukkuri_game.game.components import Transform, MovementController, PhysicsBody
 from yukkuri_game.game.yukkuri_components import AIState, Needs
 from yukkuri_game.game.ai.behavior import MoveToTarget
+from yukkuri_game.game.services import TimeService
 
 
 class TestAdaptiveDrift(unittest.TestCase):
@@ -21,6 +22,8 @@ class TestAdaptiveDrift(unittest.TestCase):
         self.world.services.register(self.event_bus)
         self.nav_service = MagicMock(spec=NavigationService)
         self.world.services.register(self.nav_service, service_type=NavigationService)
+        self.time_service = TimeService()
+        self.world.services.register(self.time_service)
 
     def test_adaptive_threshold(self):
         try:
@@ -74,7 +77,7 @@ class TestAdaptiveDrift(unittest.TestCase):
             target_trans.x = 130
 
             # Ensure cooldown doesn't block (using time.time() inside, so set last_repath_time to 0)
-            ai.state_data["last_repath_time"] = 0.0
+            self.time_service.time_elapsed = 10.0
 
             action.update()
             self.assertIsNone(

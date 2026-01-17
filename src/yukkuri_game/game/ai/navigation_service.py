@@ -102,7 +102,7 @@ class NavigationService:
         self._dirty = False
         self._last_rebuild = 0.0
 
-        self._state_lock = threading.Lock()
+        self._state_lock = threading.RLock()
 
         self.use_multiprocessing = False  # Stub for future enhancement
 

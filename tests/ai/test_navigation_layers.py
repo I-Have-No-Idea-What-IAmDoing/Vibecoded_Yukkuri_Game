@@ -1,93 +1,95 @@
 """
-Unit tests for the Navigation Service dual-layer grids.
+Unit tests for the Navigation Service unified grid with capabilities.
 """
 
+import pytest
 from yukkuri_game.game.ai.navigation_service import NavigationService, ObstacleType
+from yukkuri_game.game.ai.navigation_constants import TraversalCapability
 
 
 class TestNavigationServiceDualGrids:
-    """Tests for dual-layer navigation grids."""
+    """Tests for navigation grid capabilities (Unified Grid)."""
 
-    def test_initialization_creates_both_grids(self):
-        """Verify both ground and air grids are created."""
-        nav = NavigationService(1000, 1000, grid_step_size=50)
+    @pytest.fixture
+    def nav(self):
+        service = NavigationService(1000, 1000, grid_step_size=50, deterministic_mode=True)
+        yield service
+        service.shutdown()
 
-        assert nav.ground_grid is not None
-        assert nav.air_grid is not None
-        assert nav.ground_grid is not nav.air_grid
+    def test_initialization_creates_grid(self, nav):
+        """Verify unified grid is created."""
+        print("DEBUG: Start Init Test")
+        assert nav.grid is not None
+        # Verify default state (Walkable and Flyable)
+        assert nav.grid.is_walkable(0, 0, TraversalCapability.WALK)
+        assert nav.grid.is_walkable(0, 0, TraversalCapability.FLY)
 
-    def test_low_obstacle_only_blocks_ground(self):
-        """LOW obstacles should only block ground grid, not air grid."""
-        nav = NavigationService(1000, 1000, grid_step_size=50)
-
+    def test_low_obstacle_only_blocks_ground(self, nav):
+        """LOW obstacles should only block WALK, not FLY."""
         # Place a low obstacle
-        nav.update_obstacle(
-            100.0, 100.0, walkable=False, obstacle_type=ObstacleType.LOW
+        nav.update_obstacle_rect(
+            100.0, 100.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.LOW
         )
 
         gx, gy = 2, 2  # 100 / 50 = 2
-        assert nav.ground_grid.node(gx, gy).walkable is False
-        assert nav.air_grid.node(gx, gy).walkable is True  # Air unaffected
+        # Ground (WALK) blocked
+        assert not nav.grid.is_walkable(gx, gy, TraversalCapability.WALK)
+        # Air (FLY) unaffected
+        assert nav.grid.is_walkable(gx, gy, TraversalCapability.FLY)
 
-    def test_high_obstacle_blocks_both(self):
-        """HIGH obstacles should block both ground and air grids."""
-        nav = NavigationService(1000, 1000, grid_step_size=50)
-
-        nav.update_obstacle(
-            200.0, 200.0, walkable=False, obstacle_type=ObstacleType.HIGH
+    def test_high_obstacle_blocks_both(self, nav):
+        """HIGH obstacles should block both WALK and FLY."""
+        nav.update_obstacle_rect(
+            200.0, 200.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.HIGH
         )
 
         gx, gy = 4, 4
-        assert nav.ground_grid.node(gx, gy).walkable is False
-        assert nav.air_grid.node(gx, gy).walkable is False
+        assert not nav.grid.is_walkable(gx, gy, TraversalCapability.WALK)
+        assert not nav.grid.is_walkable(gx, gy, TraversalCapability.FLY)
 
-    def test_find_path_ground_blocked_by_low_obstacle(self):
+    def test_find_path_ground_blocked_by_low_obstacle(self, nav):
         """Ground path should be blocked by low obstacles."""
-        nav = NavigationService(500, 500, grid_step_size=25)
+        # Block a cell with LOW obstacle at (100, 0) which is grid (2, 0)
+        nav.update_obstacle_rect(
+            100.0, 0.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.LOW
+        )
 
-        # Block a cell with LOW obstacle
-        nav.update_obstacle(125.0, 0.0, walkable=False, obstacle_type=ObstacleType.LOW)
-
-        # Try to path through
-        path = nav.find_path((0.0, 0.0), (250.0, 0.0), can_fly=False)
+        # Try to path from (0,0) to (200,0)
+        path = nav.find_path((0.0, 0.0), (200.0, 0.0), can_fly=False)
 
         # Path should exist but avoid the blocked cell
+        assert path is not None
         assert len(path) > 0
-        # Check the path doesn't go directly through 125, 0
+        
+        # Check if any point is exactly at the blockage.
+        blocked = False
         for px, py in path:
-            gx = int(round(px / nav.grid_step_size))
-            if gx == 5 and int(round(py / nav.grid_step_size)) == 0:
-                # If path touches this cell, it's wrong (unless going around)
-                pass  # Simplified check
+            if abs(px - 100.0) < 10.0 and abs(py - 0.0) < 10.0:
+                blocked = True
+        assert not blocked, "Path went through obstacle"
 
-    def test_find_path_air_ignores_low_obstacle(self):
+    def test_find_path_air_ignores_low_obstacle(self, nav):
         """Air path should ignore low obstacles."""
-        nav = NavigationService(500, 500, grid_step_size=25)
-
-        # Block with LOW obstacle
-        nav.update_obstacle(125.0, 0.0, walkable=False, obstacle_type=ObstacleType.LOW)
+        # Block with LOW obstacle at (100, 0)
+        nav.update_obstacle_rect(
+            100.0, 0.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.LOW
+        )
 
         # Find path as flying unit
-        path = nav.find_path((0.0, 0.0), (250.0, 0.0), can_fly=True)
+        path = nav.find_path((0.0, 0.0), (200.0, 0.0), can_fly=True)
 
-        # Path should exist and can go straight (LOW doesn't block air)
+        assert path is not None
         assert len(path) > 0
-
-    def test_reset_clears_both_grids(self):
-        """Reset should clear both grids."""
-        nav = NavigationService(500, 500, grid_step_size=50)
-
-        nav.update_obstacle(
-            100.0, 100.0, walkable=False, obstacle_type=ObstacleType.HIGH
+        
+    def test_reset_clears_grid(self, nav):
+        """Reset should clear grid."""
+        nav.update_obstacle_rect(
+            100.0, 100.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.HIGH
         )
         nav.reset()
 
         gx, gy = 2, 2
-        assert nav.ground_grid.node(gx, gy).walkable is True
-        assert nav.air_grid.node(gx, gy).walkable is True
+        assert nav.grid.is_walkable(gx, gy, TraversalCapability.WALK)
+        assert nav.grid.is_walkable(gx, gy, TraversalCapability.FLY)
 
-    def test_legacy_grid_alias(self):
-        """The legacy 'grid' attribute should alias ground_grid."""
-        nav = NavigationService(500, 500, grid_step_size=50)
 
-        assert nav.grid is nav.ground_grid

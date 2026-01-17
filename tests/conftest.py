@@ -71,7 +71,15 @@ def game_driver() -> GameDriver:
         driver.setup()
         yield driver
 
-        # Cleanup
         driver.cleanup()
         pygame.quit()
         gc.collect()
+
+
+def pytest_sessionstart(session):
+    """
+    Called before the test session starts.
+    Set up the environment for headless testing globally.
+    """
+    os.environ["SDL_VIDEODRIVER"] = "dummy"
+    os.environ["SDL_AUDIODRIVER"] = "dummy"

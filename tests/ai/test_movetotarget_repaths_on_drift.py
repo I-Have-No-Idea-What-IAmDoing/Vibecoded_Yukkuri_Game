@@ -11,6 +11,7 @@ from yukkuri_game.game.ai.navigation_service import NavigationService
 from yukkuri_game.game.components import Transform, MovementController
 from yukkuri_game.game.yukkuri_components import AIState, Needs
 from yukkuri_game.game.ai.behavior import MoveToTarget
+from yukkuri_game.game.services import TimeService
 from py_trees.common import Status
 
 
@@ -19,6 +20,9 @@ class TestMoveToTargetDrift(unittest.TestCase):
         self.world = World()
         self.event_bus = EventBus()
         self.world.services.register(self.event_bus)
+
+        self.time_service = TimeService()
+        self.world.services.register(self.time_service)
 
         self.nav_service = MagicMock(spec=NavigationService)
         self.world.services.register(self.nav_service, service_type=NavigationService)
@@ -59,7 +63,7 @@ class TestMoveToTargetDrift(unittest.TestCase):
             target_trans.x = 300.0
 
             # Advance time slightly to ensure world.time > last_repath_time (0.0)
-            self.world.time = 10.0
+            self.time_service.time_elapsed = 10.0
 
             status = action.update()
 

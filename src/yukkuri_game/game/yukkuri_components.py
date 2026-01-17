@@ -487,7 +487,9 @@ class GossipQueue(Component):
                 duplicate_index = i
                 break
 
-            if packet.value > existing.value:
+        # 2. Handle duplicate: update if new packet has higher value
+        if duplicate_index != -1:
+            if packet.value > self.priority_queue[duplicate_index].value:
                 self.priority_queue[duplicate_index] = packet
                 self.priority_queue.sort(key=lambda x: x.value, reverse=True)
             return

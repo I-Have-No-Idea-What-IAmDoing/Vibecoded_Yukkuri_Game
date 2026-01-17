@@ -71,6 +71,8 @@ class TestSocialSystem:
         # Mock TimeService
         time_service = MagicMock(spec=TimeService)
         time_service.time_elapsed = base_time
+        # IMPORTANT: Set world.time to float, as MagicMock won't use the property getter
+        world.time = base_time
 
         trait_service = MagicMock(spec=TraitService)
 
@@ -95,6 +97,7 @@ class TestSocialSystem:
         trait_service = MagicMock(spec=TraitService)
         time_service = MagicMock(spec=TimeService)
         time_service.time_elapsed = 1000.0
+        world.time = 1000.0  # Fix: Ensure world.time is float
 
         # Mock Config for Memory Threshold
         config = MagicMock()

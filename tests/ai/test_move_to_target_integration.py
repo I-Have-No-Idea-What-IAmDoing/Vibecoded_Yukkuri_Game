@@ -2,7 +2,7 @@ import unittest
 import pymunk
 from unittest.mock import MagicMock
 from yukkuri_game.game.ai.behavior import MoveToTarget
-from yukkuri_game.game.components import Transform, PhysicsBody, MovementController
+from yukkuri_game.game.components import Transform, PhysicsBody, MovementController, MoveCommand
 from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, Needs
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.ai.navigation_service import NavigationService
@@ -53,11 +53,10 @@ class TestPathfindingRobustness(unittest.TestCase):
         status = action.update()
         self.assertEqual(status, py_trees.common.Status.RUNNING)
 
-        self.world.get_component(self.entity_id, Transform)
-        # Should have moved towards 50, 0 (or 100, 0 if string pulling worked)
-        # Since physics is mocked but not stepped, we check if velocity was set in MovementController
-        controller = self.world.get_component(self.entity_id, MovementController)
-        self.assertNotEqual(controller.target_velocity, (0, 0))
+        # MoveToTarget now adds a MoveCommand instead of setting velocity directly
+        self.assertTrue(self.world.has_component(self.entity_id, MoveCommand))
+        cmd = self.world.get_component(self.entity_id, MoveCommand)
+        self.assertEqual(cmd.target_pos, pymunk.Vec2d(100, 0))
 
 
 if __name__ == "__main__":

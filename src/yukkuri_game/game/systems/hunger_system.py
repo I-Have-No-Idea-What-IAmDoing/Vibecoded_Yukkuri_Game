@@ -137,8 +137,6 @@ class HungerSystem(System):
 
             # Remove item from world (consumed)
             world.destroy_entity(item_id)
-            if world.has_component(item_id, Transform):
-                world.remove_component(item_id, Transform)
 
             # Clear AI target reference to prevent stale target pursuit
             ai = world.get_component(consumer_id, AIState)
