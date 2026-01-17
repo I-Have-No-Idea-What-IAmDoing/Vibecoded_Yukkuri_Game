@@ -38,12 +38,6 @@ class InventorySystem(System):
 
     def _handle_pickups(self, world: World) -> None:
         """Process all pickup requests."""
-        # Use try/except or safe iteration if concurrent modification is a risk,
-        # but standard ECS pattern usually allows collecting then iterating.
-
-        # Get all entities with InventoryPickupRequest and InventoryComponent
-        # Note: We query strictly for entities that CAN pick things up (have inventory)
-        # effectively filtering out invalid requests source-side.
         for entity_id, (inventory, request) in world.get_components_tuple(
             InventoryComponent, InventoryPickupRequest
         ):
@@ -88,11 +82,7 @@ class InventorySystem(System):
                             )
                         )
 
-                    # Destroy the world entity
                     world.destroy_entity(target_id)
-                    # We might want to publish EntityDestroyedEvent manually if destroy_entity doesn't?
-                    # destroy_entity usually queues it or handles it.
-                    # Checking world.py would confirm, but usually safe.
 
                     logger.info(
                         f"Entity {entity_id} picked up item {item_type_id} (Entity {target_id})."
@@ -126,20 +116,10 @@ class InventorySystem(System):
                 removed = inventory.remove(item_type_id, count)
 
                 if removed > 0:
-                    # Spawn new item entity
-                    # Logic: Spawn at dropper's position + offset?
-                    # For now, exact position. Physics normally resolves overlap.
                     spawn_x = transform.x
-                    spawn_y = (
-                        transform.y + 20
-                    )  # Slight offset so it doesn't clip usually
+                    spawn_y = transform.y + 20  # Offset to avoid overlap.
 
                     try:
-                        # Assuming 1 drop call = 1 entity for now (stacks on ground?)
-                        # The current implementations spawns 1 entity per call.
-                        # Ideally, the ItemStats/Entity should support a 'count' if we want ground stacks.
-                        # For now, we spawn 'removed' individual entities if > 1?
-                        # Or just loop. Loop is safer for MVP if Item entity doesn't have stack count.
                         for _ in range(removed):
                             entity_factory.create_item(item_type_id, spawn_x, spawn_y)
 
@@ -156,12 +136,10 @@ class InventorySystem(System):
                         )
 
                     except ValueError as e:
-                        # Item type might not exist in factory logic
                         logger.error(
                             f"Failed to spawn dropped item {item_type_id}: {e}"
                         )
-                        # Refund item?
-                        inventory.add(item_type_id, removed, 999)  # Force add back
+                        inventory.add(item_type_id, removed, 999)
 
             else:
                 logger.debug(

@@ -102,14 +102,9 @@ class LifecycleSystem(System):
                 if world.has_component(entity, AIState):
                     world.remove_component(entity, AIState)
 
-                # Change Sprite
                 sprite = world.get_component(entity, Sprite)
                 if sprite:
-                    # Try to change to dead sprite if available, otherwise tint or rotate
-                    # For now, let's append "_dead" to the image name if possible,
-                    # but we can't easily check file existence here without ResourceManager.
-                    # As a safe fallback, we can flip it upside down (rotate 180)
-                    sprite.flip_y = True
+                    sprite.flip_y = True  # Flip upside down as death indicator.
 
     def _handle_growth(self, world: World) -> None:
         """
@@ -187,19 +182,13 @@ class LifecycleSystem(System):
         if needs.health > needs.max_health:
             needs.health = needs.max_health
 
-        # Adjust Physics Body if it exists
         physics = world.get_component(entity, PhysicsBody)
         if physics:
-            # We can't easily resize a shape in Pymunk without recreating it or scaling it.
-            # But we can't scale a circle shape directly easily?
-            # Actually, `shape.unsafe_set_radius` exists for circles.
             if hasattr(physics.shape, "unsafe_set_radius"):
-                # Scale the radius proportionally
-                # This supports non-standard sized entities (e.g. giants, minis) correctly
                 new_radius = physics.shape.radius * scale_multiplier
                 physics.shape.unsafe_set_radius(new_radius)
-            elif hasattr(physics.shape, "unsafe_set_vertices"):  # Box
-                pass  # Complex
+            elif hasattr(physics.shape, "unsafe_set_vertices"):
+                pass
 
         # Emit Event
         event_bus = world.services.try_get(EventBus)
@@ -264,11 +253,9 @@ class LifecycleSystem(System):
         """
         logger.info(f"{parent_stats.name} is breeding!")
 
-        # Reduce energy
         parent_needs.energy -= self.settings.breeding_cost
 
-        # Spawn Baby
-        # Offset position slightly
+        # Spawn Baby at offset position.
         offset_x = rng.uniform(-20.0, 20.0)
         offset_y = rng.uniform(-20.0, 20.0)
 

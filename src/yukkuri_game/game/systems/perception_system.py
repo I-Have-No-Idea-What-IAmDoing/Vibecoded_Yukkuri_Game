@@ -64,8 +64,6 @@ class PerceptionSystem(System):
             world (World): The ECS World.
             dt (float): Delta time.
         """
-        # Perceptions decay over time.
-        # We need to know the current simulation time.
         current_time = world.time
 
         entities = world.get_components_tuple(AIState, Blackboard, Transform)
@@ -144,7 +142,6 @@ class PerceptionSystem(System):
                     blackboard.closest_threat_id = target_id
             elif relation == "Prey":
                 blackboard.nearby_prey += 1
-                # Prey is potential food for predators
                 if distance < closest_food_dist:
                     closest_food_dist = distance
                     blackboard.closest_food_id = target_id
@@ -201,7 +198,6 @@ class PerceptionSystem(System):
         target_predator = world.try_get_component(target_id, Predator)
 
         # 1. Predator/Prey Check
-        # Am I a predator looking at prey?
         if my_predator and target_stats:
             if target_stats.type_id in my_predator.prey_tags:
                 return "Prey"

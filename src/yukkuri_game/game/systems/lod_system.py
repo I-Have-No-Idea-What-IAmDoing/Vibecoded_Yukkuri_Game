@@ -42,10 +42,8 @@ class LODSystem(System):
         """
         Updates LOD levels for all entities.
         """
-        # If disabled: Force all to High (0) to ensure deterministic/correct behavior
+        # If disabled: Force all to High (0) for determinism.
         if not self.enable_lod:
-            # This is slow O(N) but acceptable since this mode is for testing/debugging.
-            # We need to ensure even new entities (default Low) are set to High.
             for entity, (_, lod) in world.get_components_tuple(Transform, LODComponent):
                 if lod.level != 0:
                     lod.level = 0
@@ -92,12 +90,6 @@ class LODSystem(System):
         med_dist_sq = self.med_dist * self.med_dist
 
         for entity in visible_ids:
-            # We still need to check Components and exact distance
-            # sector_map returns IDs, check if they have LODComponent
-            # (SectorMap tracks Transforms, but entity might not have LOD)
-            
-            # Optimization: Batch get or try_get. 
-            # World doesn't have batch get by ID list yet.
             lod = world.try_get_component(entity, LODComponent)
             if not lod:
                 continue
@@ -122,14 +114,12 @@ class LODSystem(System):
                 if lod.level != 2:
                     lod.level = 2
         
-        # Downgrade entities that left the active range
-        # entities in self.active_entities but not in current_active
+        # Downgrade entities that left the active range.
         for entity in self.active_entities:
             if entity not in current_active:
-                # Check if entity still exists (might have been destroyed)
                 lod = world.try_get_component(entity, LODComponent)
                 if lod:
-                    lod.level = 2 # Low
+                    lod.level = 2
         
         self.active_entities = current_active
 

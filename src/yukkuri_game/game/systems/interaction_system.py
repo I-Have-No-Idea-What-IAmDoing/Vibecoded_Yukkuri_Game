@@ -27,6 +27,7 @@ from ..yukkuri_components import (
     ItemStats,
     AIState,
     Personality,
+    Predator,
 )
 from ..trait_service import TraitService
 from .hunger_system import HungerSystem
@@ -69,8 +70,7 @@ class InteractionSystem(System):
         if self.social_system is None:
             self.social_system = world.services.try_get(SocialSystem)
 
-        # Get all entities with InteractionRequest
-        # We need to iterate safely because we might remove components
+        # Process interaction requests (iterate copy for safe removal).
         entities = list(
             world.get_components_tuple(InteractionRequest, Transform, YukkuriStats)
         )
@@ -105,11 +105,8 @@ class InteractionSystem(System):
             ):
                 return True
 
-        # Check for Predator component (Implicit permission)
-        from ..yukkuri_components import Predator
-
-        if world.has_component(entity, Predator):
-            return True
+            if world.has_component(entity, Predator):
+                return True
 
         return False
 
@@ -137,21 +134,19 @@ class InteractionSystem(System):
         target_id = request.target_id
 
         # ==================== VALIDATION ====================
-        # Ensure target still exists and has position
         if not world.entity_exists(target_id):
-            return True  # Target gone, clean up request
+            return True
 
         target_transform = world.get_component(target_id, Transform)
         if not target_transform:
-            return True  # Target invalid
+            return True
 
         # ==================== RANGE CHECK ====================
-        # 70px threshold allows for movement jitter during approach
         dist = math.hypot(
             transform.x - target_transform.x, transform.y - target_transform.y
         )
-        if dist > 70.0:
-            return False  # Still approaching, keep request active
+        if dist > 70.0:  # 70px threshold for movement jitter.
+            return False
 
         # ==================== DISPATCH: ITEM CONSUMPTION ====================
         item_stats = world.get_component(target_id, ItemStats)

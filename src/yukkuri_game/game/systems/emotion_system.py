@@ -286,13 +286,9 @@ class EmotionSystem(System):
         Returns:
             None
         """
-        drift_rate = getattr(
-            self.settings, "personality_drift_rate", 0.1
-        )  # Units per second
+        drift_rate = getattr(self.settings, "personality_drift_rate", 0.1)
 
-        # We can simulate fractional drift by using a probability that is clamped.
-        # But if drift_rate * dt > 1, we should drift multiple points.
-
+        # Fractional drift via probability.
         drift_amount_float = drift_rate * dt
         guaranteed_drift = int(drift_amount_float)
         probability_drift = drift_amount_float - guaranteed_drift

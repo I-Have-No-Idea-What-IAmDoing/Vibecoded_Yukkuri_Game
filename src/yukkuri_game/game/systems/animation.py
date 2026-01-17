@@ -260,8 +260,6 @@ class AnimationSystem(System):
                 FlightState.HOVERING,
             ):
                 target_anim = "fly"
-                # Special case: If action is "Hunt" and we are flying -> "hunt_fly"?
-                # For now, "fly" takes precedence to show they are airborne.
 
         if (
             target_anim in animator.animations
@@ -307,15 +305,14 @@ class AnimationSystem(System):
             else:
                 base_image = data.image
             
-        # 2. Fallback to ResourceManager - SLOW (Self-healing cache)
+        # 2. Fallback to ResourceManager (self-healing cache).
         if not base_image:
             yukkuri_type = rm.yukkuri_types.get(stats.type_id)
             if not yukkuri_type:
                 return
-            
-            # Populate cache so next time it hits the fast path
+
             register_archetype(stats.type_id, yukkuri_type)
-            
+
             if isinstance(yukkuri_type, dict):
                 base_image = yukkuri_type.get("image")
             else:

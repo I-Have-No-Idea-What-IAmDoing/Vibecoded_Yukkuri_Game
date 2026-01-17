@@ -232,40 +232,15 @@ class SoftwareLightingEngine:
         # Surface size is determined by the clipped area
         surf_w, surf_h = clip_rect.size
 
-        # Calculate offsets for drawing relative to the clipped surface
-        # clip_rect.x is the screen coordinate of the left edge of this surface.
-        # We want to transform World -> Screen -> Surface
-        # Screen = World * scale + camera_offset (already handled by lx, ly passed in?)
-        # Wait, lx, ly are SCREEN coordinates of the light center.
-
-        # The light center in Screen coords is (int(lx * scale), int(ly * scale)) which is roughly passed sx, sy
-        # Note: We calculated sx, sy before quantization. But we need accurate center for shadows.
+        # Light center in screen coords.
         sx_center = lx * self.scale
         sy_center = ly * self.scale
 
-        # Surface Origin in Screen coords = clip_rect.topleft
-        # So coordinate (x, y) on surface = Screen(x + clip_rect.x, y + clip_rect.y)
-
-        # To draw the gradient correctly:
-        # The gradient is a (sr*2, sr*2) image centered at (sr, sr).
-        # In screen space, it is centered at (sx, sy).
-        # TopLeft of gradient in Screen Space = (sx - sr, sy - sr).
-
-        # We want to blit the part of the gradient that overlaps clip_rect.
-        # Gradient Subsurface Rect (relative to gradient topleft):
-        # x = clip_rect.x - (sx - sr)
-        # y = clip_rect.y - (sy - sr)
-        # w, h = clip_rect.size
-
+        # Calculate subsurface offsets.
         gx = clip_rect.x - (int(sx_center) - sr_key)
         gy = clip_rect.y - (int(sy_center) - sr_key)
 
-        # Offset for shadow calculations
-        # Shadow vertices calc: (World * scale - ScreenCenter) + HalfSize
-        # Here we map directly to Surface.
-        # Screen point P -> Surface point P' = P - clip_rect.topleft
-
-        # Pass offset to shadow functions
+        # Offset for shadow calculations.
         offset_x = clip_rect.x
         offset_y = clip_rect.y
 
@@ -419,10 +394,7 @@ class SoftwareLightingEngine:
         # Single-pass blur via smoothscale
         blurred_mask = pygame.transform.smoothscale(shadow_mask, (surf_size, surf_size))
 
-        # Apply shadow mask via multiplicative blend
-        # White (255,255,255) * light = light (no shadow)
-        # Black (0,0,0) * light = black (full shadow)
-        # Gray values = partial shadow (soft edges)
+        # Apply shadow mask via multiplicative blend.
         light_surf.blit(blurred_mask, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
 
     def _draw_shadow_volumes_optimized(
@@ -485,10 +457,7 @@ class SoftwareLightingEngine:
                 # World quad: p1, p2, p2+extrusion, p1+extrusion
                 # Transform: (world * scale - screen_pos) + half_size
 
-                # Inline coordinate transform for speed
-                # Inline coordinate transform for speed
-                # ScreenPos = World * Scale
-                # SurfacePos = ScreenPos - Offset
+                # Transform to surface coordinates.
                 q0_x = p1[0] * scale - offset_x
                 q0_y = p1[1] * scale - offset_y
                 q1_x = p2[0] * scale - offset_x

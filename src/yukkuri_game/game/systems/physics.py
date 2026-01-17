@@ -132,21 +132,15 @@ class PhysicsSystem(System):
 
         self.accumulator += dt
 
-        # Fixed timestep update loop
-        # We process physics in fixed increments (self.time_step) to ensure determinism
-        # and stability, regardless of the variable frame render time (dt).
+        # Fixed timestep update loop for determinism.
         while self.accumulator >= self.time_step:
-            # Broadcast Fixed Update Event so other systems (like KinematicMovement)
-            # can sync their logic exactly with the physics step.
             if self.event_bus:
                 self.event_bus.publish(PhysicsFixedUpdateEvent(dt=self.time_step))
 
             self.space.step(self.time_step)
             self.accumulator -= self.time_step
 
-        # Sync PhysicsBody -> Transform
-        # Pymunk is the source of truth for position, so we update the ECS Transform component
-        # to reflect the latest physics state for other systems (rendering, logic) to use.
+        # Sync PhysicsBody -> Transform.
         for entity, (phys, trans) in world.get_components_tuple(PhysicsBody, Transform):
             trans.prev_x = trans.x
             trans.prev_y = trans.y
@@ -154,19 +148,13 @@ class PhysicsSystem(System):
 
             trans.x = phys.body.position.x
             trans.y = phys.body.position.y
-            # Convert pymunk radians to degrees for pygame.
-            # Pymunk's angle is in radians (positive is counter-clockwise).
-            # Pygame's rotate function uses degrees (positive is counter-clockwise).
-            # With a Y-down coordinate system, a counter-clockwise rotation in world space
-            # appears as a clockwise rotation on screen. To achieve this with pygame's
-            # CCW rotation, we must negate the angle.
+            # Convert pymunk radians to pygame degrees (negate for Y-down screen).
             trans.rotation = -math.degrees(phys.body.angle)
 
     def clear(self) -> None:
         """
         Clears all bodies, shapes, and constraints from the physics space.
         """
-        # Pymunk doesn't have a clear() method on space, so we remove everything.
         for shape in list(self.space.shapes):
             self.space.remove(shape)
         for body in list(self.space.bodies):
