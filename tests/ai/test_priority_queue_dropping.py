@@ -9,7 +9,9 @@ from yukkuri_game.game.ai.navigation_service import NavigationService
 
 class TestNavigationServiceCongestion(unittest.TestCase):
     def test_drops_low_priority_when_full(self):
-        service = NavigationService(100, 100)
+        # Use deterministic_mode=True so the worker thread doesn't consume items
+        # from the queue while we are counting them.
+        service = NavigationService(100, 100, deterministic_mode=True)
 
         # Fill queue with 51 items
         # We can directly access queue or push via request_path

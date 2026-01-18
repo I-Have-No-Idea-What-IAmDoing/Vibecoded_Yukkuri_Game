@@ -6,11 +6,10 @@ from yukkuri_game.game.ui.tabbed_panel import TabbedPanel
 
 @pytest.fixture
 def ui_manager():
-    pygame.init()
-    pygame.display.set_mode((800, 600))
+    # Pygame initialized by tests/ui/conftest.py
     manager = pygame_gui.UIManager((800, 600))
     yield manager
-    pygame.quit()
+    # No pygame.quit() here!
 
 
 def test_tabbed_panel_offset_positioning(ui_manager):

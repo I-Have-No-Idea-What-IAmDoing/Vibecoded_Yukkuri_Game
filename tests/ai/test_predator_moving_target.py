@@ -32,13 +32,13 @@ class TestPredatorMovingTarget(unittest.TestCase):
         self.event_bus = EventBus()
         self.world.services.register(self.event_bus)
 
-        # Import NavigationService via behavior module to ensure type match
-        import yukkuri_game.game.ai.behavior as behavior_mod
-
-        NavServiceClass = behavior_mod.NavigationService
+        # Import NavigationService directly
+        from yukkuri_game.game.ai.navigation_service import NavigationService
+        
+        NavServiceClass = NavigationService
 
         self.nav_service = NavServiceClass(
-            world_width=1000, world_height=1000, grid_step_size=25
+            world_width=1000, world_height=1000, grid_step_size=25, deterministic_mode=True
         )
         self.world.services.register(self.nav_service, service_type=NavServiceClass)
 

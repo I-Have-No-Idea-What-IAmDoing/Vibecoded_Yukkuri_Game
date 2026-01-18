@@ -526,12 +526,14 @@ class NavigationService:
             self.grid.update_obstacle_rect(x, y, width, height, is_blocking, block_mask)
             self._dirty = True
 
-    def find_path(self, start, end, can_fly=False) -> List[Tuple[float, float]]:
+    def find_path(
+        self, start, end, can_fly=False, timestamp: float | None = None
+    ) -> List[Tuple[float, float]]:
         """Blocking synchronous pathfinding for legacy code."""
         logger.debug(f"find_path called: {start} -> {end}")
         req = PathRequest(
             priority=0,
-            timestamp=time.time(),
+            timestamp=timestamp if timestamp is not None else time.time(),
             entity_id=-1,  # Dummy ID
             start=self._to_grid(start),
             end=self._to_grid(end),

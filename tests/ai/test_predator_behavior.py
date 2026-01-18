@@ -26,7 +26,7 @@ def world():
 @pytest.fixture
 def predator_entity(world):
     entity = world.create_entity()
-    world.add_component(entity, Predator(prey_sense_radius=100.0, dps=100.0))
+    world.add_component(entity, Predator(prey_sense_radius=100.0, dps=100.0, prey_tags={"Yukkuri", "reimu"}))
     world.add_component(entity, AIState())
     world.add_component(entity, Transform(x=0, y=0))
     world.add_component(entity, MovementController())

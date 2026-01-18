@@ -12,8 +12,8 @@ from ..utility_selector import UtilitySelector
 # Import Actions
 from .actions.basic import Idle, Check, CheckEmotion
 from .actions.movement import MoveToTarget, Wander, Swoop, FleePredator, FleeFromTarget
-from .actions.searching import FindItem, FindLightSource, FindPrey, FindThreat, PickFood
-from .actions.interaction import Interact, EatPrey
+from .actions.searching import FindItem, FindLightSource, FindPrey, FindThreat, PickFood, FindSocialTarget
+from .actions.interaction import Interact, EatPrey, SocialInteract
 from .actions.survival import Sleep
 
 if TYPE_CHECKING:
@@ -299,9 +299,24 @@ def build_standard_interaction_behavior(goal_name: str):
 
         if goal_name == "Eat":
             find_selector.add_child(PickFood(entity_id=entity_id, world=world))
-        elif goal_name in ("Talk", "Dance", "Fight"):
-            # TODO: Specialized Finders
-            pass
+        elif goal_name in ("Talk", "Dance"):
+            find_selector.add_child(
+                FindSocialTarget(
+                    name=f"Find {goal_name} Partner",
+                    entity_id=entity_id,
+                    world=world,
+                    criteria="friend",
+                )
+            )
+        elif goal_name == "Fight":
+            find_selector.add_child(
+                FindSocialTarget(
+                    name="Find Fight Target",
+                    entity_id=entity_id,
+                    world=world,
+                    criteria="enemy",
+                )
+            )
 
         root.add_child(find_selector)
 
@@ -314,14 +329,25 @@ def build_standard_interaction_behavior(goal_name: str):
             )
         )
 
-        root.add_child(
-            Interact(
-                name=f"Do {goal_name}",
-                entity_id=entity_id,
-                world=world,
-                consume=(goal_name == "Eat"),
+        if goal_name == "Eat":
+            root.add_child(
+                Interact(
+                    name=f"Do {goal_name}",
+                    entity_id=entity_id,
+                    world=world,
+                    consume=True,
+                )
             )
-        )
+        else:
+            # Social Action
+            root.add_child(
+                SocialInteract(
+                    name=f"Do {goal_name}",
+                    entity_id=entity_id,
+                    world=world,
+                    interaction_type=goal_name,
+                )
+            )
 
         return root
 
