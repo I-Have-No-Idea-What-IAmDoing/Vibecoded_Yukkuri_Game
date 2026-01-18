@@ -95,7 +95,7 @@ def run_benchmark():
 
         render_system.update(world, 0.016)
 
-    end_time = time.time()
+    end_time = time.perf_counter()
     duration = end_time - start_time
     avg_time = duration / iterations * 1000 # ms
 
