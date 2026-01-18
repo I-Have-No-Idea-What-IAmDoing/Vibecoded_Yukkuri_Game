@@ -9,3 +9,7 @@
 ## 2026-10-24 - [Render System Optimization]
 **Learning:** `RenderSystem` was iterating all `FloatingText` entities every frame, regardless of visibility. By using the pre-calculated `visible_entities` list from `SectorMap`, we reduced checks from O(Total) to O(Visible).
 **Action:** Use `visible_entities` for all renderable components, not just Sprites.
+
+## 2026-10-25 - [Perception Throttling & Cache Identity]
+**Learning:** `VisibilitySystem` was creating new `set` objects even on cache hits, preventing consumers like `PerceptionSystem` from efficiently detecting changes via `id()` checks. By returning the cached `set` object directly, downstream systems can skip processing with O(1) checks.
+**Action:** When caching collections, reuse the collection object itself on cache hits to enable identity-based dirty checks in dependent systems.
