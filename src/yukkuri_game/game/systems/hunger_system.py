@@ -5,22 +5,22 @@ Processes item consumption requests dispatched from InteractionSystem.
 Applies nutritional effects and handles item destruction.
 
 Metabolism Effects:
-- Nutrition: Reduces hunger stat (hunger = need to eat)
-- Fun: Increases happiness (tasty food makes them happy)
-- Comfort: Restores energy (filling food makes them sleepy/content)
-- Waste Generation: Nutrition increases bladder at 50% rate
+-   Nutrition: Reduces hunger stat (hunger = need to eat).
+-   Fun: Increases happiness (tasty food makes them happy).
+-   Comfort: Restores energy (filling food makes them sleepy/content).
+-   Waste Generation: Nutrition increases bladder at 50% rate.
 
 Skill Integration:
-- Awards Scavenging XP when consuming items
-- XP gain is flat rate (5.0 per item consumed)
+-   Awards Scavenging XP when consuming items.
+-   XP gain is flat rate (5.0 per item consumed).
 """
 
 import math
+from typing import cast, Optional
 
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
 from ...engine.types import EntityID
-from typing import cast
 from ..components import Transform, InteractionRequest
 from ..yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, EmotionalState
 from ..skill_service import SkillService
@@ -33,25 +33,27 @@ class HungerSystem(System):
 
     Lazy-loads AudioManager and SkillService on first update.
     Consumption requests are dispatched here from InteractionSystem.
+
+    Attributes:
+        audio (Optional[AudioManager]): Audio manager for sound effects.
+        skill_service (Optional[SkillService]): Service for skill progression.
     """
 
     def __init__(self) -> None:
         """Initializes the HungerSystem."""
         super().__init__()
-        self.audio: AudioManager | None = None
-        self.skill_service: SkillService | None = None
+        self.audio: Optional[AudioManager] = None
+        self.skill_service: Optional[SkillService] = None
 
     def update(self, world: World, dt: float) -> None:
         """
         Updates the hunger system.
+
         Note: Consumption logic is now dispatched from InteractionSystem.
 
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
         if self.audio is None:
             self.audio = world.services.try_get(AudioManager)
@@ -106,8 +108,7 @@ class HungerSystem(System):
         if dist > 50.0:
             return False
 
-        # ==================== STAT EFFECTS ====================
-        # ==================== STAT EFFECTS ====================
+        # Stat Effects
         # Fun effects apply regardless of consumption (Play or Eat)
         emotional = world.get_component(consumer_id, EmotionalState)
         if item_stats.fun > 0 and emotional:
@@ -117,7 +118,9 @@ class HungerSystem(System):
         if request.consume:
             # Apply nutrition: decreases hunger (lower = less hungry)
             if item_stats.nutrition > 0:
-                consumer_needs.hunger = max(0, consumer_needs.hunger - item_stats.nutrition)
+                consumer_needs.hunger = max(
+                    0, consumer_needs.hunger - item_stats.nutrition
+                )
                 # Waste generation: food creates biological waste at 50% rate
                 consumer_needs.bladder = min(
                     100, consumer_needs.bladder + (item_stats.nutrition * 0.5)
@@ -125,14 +128,15 @@ class HungerSystem(System):
 
             # Comfort foods restore energy (filling, warm foods)
             if item_stats.comfort > 0:
-                consumer_needs.energy = min(100, consumer_needs.energy + item_stats.comfort)
+                consumer_needs.energy = min(
+                    100, consumer_needs.energy + item_stats.comfort
+                )
 
-            # ==================== SKILL XP ====================
             # Award scavenging XP only for eating
             if self.skill_service:
                 self.skill_service.add_xp(consumer_id, SkillId.SCAVENGING, 5.0)
 
-        # ==================== ITEM DESTRUCTION ====================
+        # Item Destruction
         if request.consume:
             if self.audio:
                 self.audio.play_sound("eat")

@@ -1,23 +1,20 @@
 """
 Social System - Relationship and Interaction Management.
 
-Implements the "Headline System" for social memory and relationship tracking.
-Manages all social interactions between Yukkuris including:
-- Relationship formation and decay
-- Memory creation and prioritization (trivial vs core memories)
-- Opinion calculation based on compatibility and memories
-- Interaction effects on stats and emotions
+This system monitors social interactions and manages long-term relationships between entities.
+It implements the "Headline System" for memory, where significant events ("headlines") that drive
+affinity changes are stored and decay over time.
 
-Relationship Model:
-- Affinity: Overall liking (-100 to 100), derived from compatibility + memories
-- Trust: Reliability measure (-100 to 100)
-- Fear: Threat perception (0 to 100)
-- Familiarity: How well entities know each other (0 to 100)
+Relationships track:
+-   Affinity: Relative liking (-100 to 100), derived from base compatibility and consolidated memories.
+-   Trust: Reliability and safety perception (-100 to 100).
+-   Fear: Threat perception (0 to 100).
+-   Familiarity: Depth of knowledge about the other entity (0 to 100).
 
-Memory System:
-- Trivial buffer: Recent minor interactions (FIFO, max 25)
-- Core buffer: Significant memories (priority-based, max 35)
-- Sentiment sums track cumulative opinion influence
+Key Features:
+-   Memory Consolidation: Trivial memories decay rapidly; core memories persist based on importance.
+-   Compatibility: Base affinity calculated from Personality traits and axes (Kindness, Energy, etc.).
+-   Interaction Impacts: Modifies stats (Health, Happiness, Stress) and relationship values.
 """
 
 from typing import Any, cast
@@ -46,35 +43,38 @@ from ..prefabs.effects import create_floating_text
 
 class SocialSystem(System):
     """
-    System responsible for managing social relationships, memory decay, and applying interaction effects.
-    Implements "Headline System" for memory and Opinion Calculation.
+    Manages social relationships, memory formation, and interaction effects.
+
+    This system handles the lifecycle of social interactions, from processing requests
+    to applying their effects on entity states and relationships. It periodically cleans up
+    stale relationships to manage memory usage.
 
     Attributes:
-        trait_service (TraitService | None): The trait service.
-        skill_service (SkillService | None): The skill service.
-        cleanup_index (int): Index for partial update loop.
-        cleanup_batch_size (int): Number of entities to process per frame.
-        event_bus (EventBus): The event bus.
-        headline_counter (int): Counter for unique memory IDs.
+        trait_service (Optional[TraitService]): Service for accessing trait data.
+        skill_service (Optional[SkillService]): Service for managing skills and XP.
+        audio (Optional[AudioManager]): Manager for playing sound effects.
+        cleanup_index (int): Index cursor for incremental relationship cleanup.
+        event_bus (EventBus): Event bus for publishing/subscribing to social events.
+        headline_counter (int): Monotonic ref counter for memory IDs.
     """
 
-    # Batch processing size for relationship cleanup (prevents frame rate drops)
+    # Batch processing size for relationship cleanup to distribute load.
     CLEANUP_BATCH_SIZE = 10
 
-    # Relationships older than this (in game seconds) are purged (except family/mates)
+    # Relationships older than this (in game seconds) are purged (excluding family/mates).
     RELATIONSHIP_MAX_AGE = 600.0  # 10 minutes
 
-    # Base compatibility for entities with identical personalities
+    # Base compatibility score for entities with identical personalities.
     BASE_COMPATIBILITY_SCORE = 100.0
 
-    # Divisor for personality axis differences (higher = less sensitive)
+    # Divisor for personality axis differences (higher value = less sensitivity to differences).
     COMPATIBILITY_DIVISOR = 4.0
 
-    # Visual feedback configuration
+    # Visual feedback settings.
     FLOATING_TEXT_SIZE = 24
     FLOATING_TEXT_LIFETIME = 1.5
 
-    # Feedback text colors by interaction type
+    # Interaction feedback colors.
     COLOR_DEFAULT = (255, 255, 255)
     COLOR_FRIENDLY = (100, 255, 100)
     COLOR_HOSTILE = (255, 50, 50)
@@ -82,7 +82,7 @@ class SocialSystem(System):
     COLOR_FEED = (255, 200, 50)
     COLOR_SAD = (100, 100, 255)
 
-    # Memories with importance above this go to core buffer
+    # Memories with importance above this threshold are promoted to the core buffer.
     MEMORY_IMPORTANCE_THRESHOLD = 50.0
 
     def __init__(self, event_bus: EventBus):
@@ -90,7 +90,7 @@ class SocialSystem(System):
         Initializes the SocialSystem.
 
         Args:
-            event_bus (EventBus): The event bus instance.
+            event_bus (EventBus): Wide-event bus for social event handling.
         """
         super().__init__()
         self.trait_service: TraitService | None = None
@@ -102,11 +102,13 @@ class SocialSystem(System):
 
     def update(self, world: World, dt: float) -> None:
         """
-        Updates the social system (memory decay, relationship cleanup).
+        Updates the social system.
+
+        Performs incremental cleanup of stale relationships and resolves service dependencies.
 
         Args:
-            world (World): The ECS World.
-            dt (float): Delta time.
+            world (World): The ECS World instance.
+            dt (float): Delta time since the last frame.
         """
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
@@ -114,14 +116,21 @@ class SocialSystem(System):
             self.skill_service = world.services.try_get(SkillService)
         if not self.audio:
             self.audio = world.services.try_get(AudioManager)
+        
+        # Inject world for event handlers if not already present
+        if not hasattr(self, "ecs_world"):
+            self.ecs_world = world
 
         now = world.time
-
         self._process_relationships(world, now)
 
     def _process_relationships(self, world: World, now: float) -> None:
         """
-        Processes relationship updates and cleanup in batches.
+        Processes relationship updates and cleanup in small batches.
+
+        Args:
+            world (World): The ECS World.
+            now (float): Current game time.
         """
         all_entities = world.get_entities_with(RelationshipRegistry)
         if not all_entities:
@@ -137,7 +146,6 @@ class SocialSystem(System):
             if registry:
                 self._cleanup_registry(world, eid, registry, now)
 
-        # Cycle through all entities over multiple frames.
         self.cleanup_index = (self.cleanup_index + self.CLEANUP_BATCH_SIZE) % max(
             1, count
         )
@@ -146,13 +154,20 @@ class SocialSystem(System):
         self, world: World, eid: int, registry: RelationshipRegistry, now: float
     ) -> None:
         """
-        Cleans up old relationships and updates opinions.
+        Purges old relationships and updates opinion scores.
+
+        Args:
+            world (World): The ECS World.
+            eid (int): The entity ID owning the registry.
+            registry (RelationshipRegistry): The relationship component.
+            now (float): Current game time.
         """
         to_remove = []
 
         for other_id, rel_data in registry.relationships.items():
             self._update_opinion(world, eid, other_id, rel_data)
 
+            # Check if relationship is exempt from decay (mates or family)
             other_registry = world.get_component(other_id, RelationshipRegistry)
             is_special = (other_id == registry.mate_id) or (
                 registry.family_group_id is not None
@@ -171,7 +186,12 @@ class SocialSystem(System):
         self, world: World, initiator_id: int, request: InteractionRequest
     ) -> None:
         """
-        Process a direct social interaction request from the behavior tree.
+        Processes a direct social interaction request from the behavior tree.
+
+        Args:
+            world (World): The ECS World.
+            initiator_id (int): Entity ID initiating the interaction.
+            request (InteractionRequest): The request component containing details.
         """
         target_id = request.target_id
         action = request.action
@@ -191,7 +211,14 @@ class SocialSystem(System):
         force_compatibility_update: bool = False,
     ) -> None:
         """
-        Recalculates the opinion (affinity).
+        Recalculates the total affinity (opinion) based on compatibility and memories.
+
+        Args:
+            world (World): The ECS World.
+            subject_id (int): The entity "feeling" the opinion.
+            other_id (int): The entity the opinion is about.
+            rel_data (RelationshipData): The relationship data to update.
+            force_compatibility_update (bool): Whether to force recalculation of base compatibility.
         """
         if not self.trait_service:
             return
@@ -200,6 +227,8 @@ class SocialSystem(System):
         other_pers = world.get_component(other_id, Personality)
 
         if subject_pers and other_pers:
+            # We could optimize by only calculating this once or on change,
+            # but current logic calculates it every update cycle.
             rel_data.base_compatibility = self._calculate_base_compatibility(
                 subject_pers, other_pers
             )
@@ -212,6 +241,13 @@ class SocialSystem(System):
     ) -> float:
         """
         Calculates base compatibility between two personalities.
+
+        Args:
+            subject_pers (Personality): Personality of the subject.
+            other_pers (Personality): Personality of the target.
+
+        Returns:
+            float: A compatibility score (typically centered around 0 to 100).
         """
         base_compatibility = 0.0
 
@@ -222,7 +258,7 @@ class SocialSystem(System):
             diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
 
             total_diff = diff_kind + diff_ener + diff_brav + diff_gree
-            # Identical personalities yield max compatibility (100).
+            # Identical personalities yield max compatibility.
             base_compatibility += self.BASE_COMPATIBILITY_SCORE - (
                 total_diff / self.COMPATIBILITY_DIVISOR
             )
@@ -250,7 +286,12 @@ class SocialSystem(System):
         return base_compatibility
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
-        """Handler for SocialInteractionEvent."""
+        """
+        Event handler for SocialInteractionEvent.
+
+        Args:
+            event (SocialInteractionEvent): The event payload.
+        """
         if not hasattr(self, "ecs_world"):
             return
         self.register_interaction(
@@ -258,7 +299,17 @@ class SocialSystem(System):
         )
 
     def _check_condition(self, world: World, entity_id: int, condition: Any) -> bool:
-        """Checks if a condition is met by the entity."""
+        """
+        Checks if a specific condition is met by the entity.
+
+        Args:
+            world (World): The ECS World.
+            entity_id (int): The entity to check.
+            condition (Any): string expression, dict with 'expression', or dict with 'type'.
+
+        Returns:
+            bool: True if the condition is met, False otherwise.
+        """
         if isinstance(condition, str):
             evaluator = world.services.try_get(ConditionEvaluator)
             if evaluator:
@@ -286,6 +337,7 @@ class SocialSystem(System):
         return True
 
     def _get_attr(self, obj: Any, key: str, default: Any = None) -> Any:
+        """Safe attribute/key accessor for mixed objects/dicts."""
         if isinstance(obj, dict):
             return obj.get(key, default)
         return getattr(obj, key, default)
@@ -293,7 +345,15 @@ class SocialSystem(System):
     def register_interaction(
         self, world: World, actor_id: int, target_id: int, interaction_name: str
     ) -> None:
-        """Registers a social interaction."""
+        """
+        Registers and executes the effects of a social interaction.
+
+        Args:
+            world (World): The ECS World.
+            actor_id (int): Initiator ID.
+            target_id (int): Target ID.
+            interaction_name (str): Name of the interaction (e.g., "Greet", "Attack").
+        """
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
             if not self.trait_service:
@@ -318,6 +378,7 @@ class SocialSystem(System):
 
         now = world.time
 
+        # Apply bidirectional impacts
         self._apply_impact(
             world, actor_id, target_id, interaction_data, role="actor", now=now
         )
@@ -334,7 +395,15 @@ class SocialSystem(System):
     def _apply_additional_effects(
         self, world: World, actor_id: int, target_id: int, interaction_data: Any
     ) -> None:
-        """Applies physical impacts and skill rewards."""
+        """
+        Applies physical impacts (stats) and skill rewards.
+
+        Args:
+            world (World): The ECS World.
+            actor_id (int): Initiator ID.
+            target_id (int): Target ID.
+            interaction_data (Any): Configuration data for the interaction.
+        """
         physical_impact = self._get_attr(interaction_data, "physical_impact", {})
         if physical_impact:
             self._apply_physical_impact(world, actor_id, physical_impact)
@@ -360,8 +429,14 @@ class SocialSystem(System):
     def _apply_physical_impact(
         self, world: World, entity_id: int, impact: dict[str, float]
     ) -> None:
-        """Helper to apply physical stat changes to an entity."""
+        """
+        Helper to apply physical stat changes (Health, Energy, etc.) to an entity.
 
+        Args:
+            world (World): The ECS World.
+            entity_id (int): Target entity ID.
+            impact (dict[str, float]): Dictionary of stat changes.
+        """
         needs = world.get_component(entity_id, Needs)
         emotional = world.get_component(entity_id, EmotionalState)
 
@@ -390,11 +465,17 @@ class SocialSystem(System):
                 )
 
     def _play_audio(self, interaction_name: str) -> None:
-        """Plays audio for the interaction."""
+        """
+        Plays audio cue for the interaction.
+
+        Args:
+            interaction_name (str): Name of the interaction to map to sound.
+        """
         if not self.audio:
             return
 
         sound_name = ""
+        # TODO(Audio): Replace hardcoded mapping with data-driven approach.
         if interaction_name in ["Talk", "Greet"]:
             sound_name = "talk"
         elif interaction_name in ["Fight", "Hit"]:
@@ -408,7 +489,15 @@ class SocialSystem(System):
     def _spawn_visual_feedback(
         self, world: World, entity_id: int, interaction_name: str, data: Any
     ) -> None:
-        """Spawns visual feedback (floating text/icon)."""
+        """
+        Spawns visual feedback (floating text/icon) over the target entity.
+
+        Args:
+            world (World): The ECS World.
+            entity_id (int): Target entity ID.
+            interaction_name (str): Name of the interaction.
+            data (Any): Interaction data.
+        """
         trans = world.get_component(entity_id, Transform)
         if not trans:
             return
@@ -417,6 +506,7 @@ class SocialSystem(System):
         color = self.COLOR_DEFAULT
         base_impact = self._get_attr(data, "base_impact", 0.0)
 
+        # Basic feedback mapping
         if interaction_name in ["Talk", "Greet"]:
             text = "♪"
             color = self.COLOR_FRIENDLY
@@ -455,11 +545,23 @@ class SocialSystem(System):
         role: str,
         now: float,
     ) -> None:
-        """Applies the social impact of an interaction to a subject."""
+        """
+        Applies the social impact of an interaction to a subject's relationship and emotions.
+
+        Args:
+            world (World): The ECS World.
+            subject_id (int): The entity being affected.
+            other_id (int): The other party in the interaction.
+            data (Any): Interaction configuration data.
+            role (str): "actor" or "target".
+            now (float): Current game time.
+        """
         registry = self._get_or_create_registry(world, subject_id)
         oid = int(other_id)  # Ensure int for RelationshipRegistry key typing.
+        
         if oid not in registry.relationships:
             registry.relationships[cast(Any, oid)] = RelationshipData(last_update=now)
+        
         rel = registry.relationships[cast(Any, oid)]
         rel.last_update = now
 
@@ -510,7 +612,20 @@ class SocialSystem(System):
         modifiers: dict[str, dict[str, float]],
         base_impact_score: float,
     ) -> tuple[float, float, float, float]:
-        """Calculates impact deltas considering personality and traits."""
+        """
+        Calculates impact deltas considering personality and traits.
+
+        Args:
+            world (World): The ECS World.
+            subject_id (int): Subject entity ID.
+            other_id (int): Other entity ID.
+            social_impact (dict): Base impact values.
+            modifiers (dict): Trait-based modifiers.
+            base_impact_score (float): Raw impact score of the interaction.
+
+        Returns:
+            tuple[float, float, float, float]: Deltas for affinity, trust, fear, familiarity.
+        """
         d_affinity = social_impact.get("affinity", 0.0)
         d_trust = social_impact.get("trust", 0.0)
         d_fear = social_impact.get("fear", 0.0)
@@ -518,6 +633,7 @@ class SocialSystem(System):
 
         subject_personality = world.get_component(subject_id, Personality)
         if subject_personality:
+            # Apply trait modifiers
             for trait in subject_personality.traits:
                 key = f"trait:{trait}"
                 if key in modifiers:
@@ -526,6 +642,7 @@ class SocialSystem(System):
                     d_trust += mod.get("trust", 0.0)
                     d_fear += mod.get("fear", 0.0)
 
+            # Apply conditional modifiers
             evaluator = world.services.try_get(ConditionEvaluator)
             if evaluator:
                 actor_context = evaluator.build_context(world, other_id)
@@ -538,6 +655,7 @@ class SocialSystem(System):
                         d_trust += mod.get("trust", 0.0)
                         d_fear += mod.get("fear", 0.0)
 
+            # Apply personality axis multipliers
             kindness = 0
             if subject_personality.axis:
                 kindness = subject_personality.axis.kindness
@@ -551,14 +669,22 @@ class SocialSystem(System):
                 d_affinity *= comp_mult
                 d_trust *= comp_mult
                 d_fear *= comp_mult
-                # Familiarity unchanged by kindness - represents "knowledge of other", not liking.
 
         return d_affinity, d_trust, d_fear, d_familiarity
 
     def _update_emotional_state(
         self, world: World, subject_id: int, base_impact_score: float
     ) -> None:
-        """Updates emotional state based on interaction impact."""
+        """
+        Updates emotional state based on interaction impact.
+        
+        Major positive/negative events shift happiness and stress immediately.
+
+        Args:
+            world (World): The ECS World.
+            subject_id (int): Entity ID.
+            base_impact_score (float): Impact magnitude.
+        """
         emotional = world.get_component(subject_id, EmotionalState)
         if emotional:
             if base_impact_score < self.IMPACT_THRESHOLD_MAJOR_NEGATIVE:
@@ -584,7 +710,17 @@ class SocialSystem(System):
         event_type: str,
         now: float,
     ) -> None:
-        """Adds a memory headline to the relationship."""
+        """
+        Constructs and adds a memory headline to the relationship.
+
+        Args:
+            world (World): The ECS World.
+            rel (RelationshipData): Relationship to update.
+            base_impact_score (float): Raw importance.
+            d_affinity (float): Sentiment change.
+            event_type (str): Type of event.
+            now (float): Timestamp.
+        """
         if abs(base_impact_score) > 0:
             self.headline_counter += 1
             headline = MemoryHeadline(
@@ -597,8 +733,8 @@ class SocialSystem(System):
                 event_type=event_type,
             )
 
+            # Retrieve config-driven threshold if available
             from ...config import GameConfig
-
             config = world.services.try_get(GameConfig)
             threshold = self.MEMORY_IMPORTANCE_THRESHOLD
             if config and hasattr(config.rules, "social"):

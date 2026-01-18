@@ -1,16 +1,20 @@
 """
 Tests for the Resource Manager.
+
+This module validates the functionality of the `ResourceManager`, ensuring robust handling
+of TOML data files, image assets, and fallback mechanisms like lazy loading and caching.
 """
 
 from unittest.mock import MagicMock, patch, mock_open
-from yukkuri_game.engine.resource_manager import ResourceManager
-
 from typing import Dict
 import msgspec
+from yukkuri_game.engine.resource_manager import ResourceManager
 
 
 class MockModel(msgspec.Struct):
-    """Mock model for testing TOML loading."""
+    """
+    Mock data model for testing TOML parsing.
+    """
 
     key: str
     section: Dict[str, int]
@@ -18,7 +22,14 @@ class MockModel(msgspec.Struct):
 
 def test_load_toml_success() -> None:
     """
-    Tests successful loading and parsing of a TOML file.
+    Verifies that a TOML file is correctly read and parsed into a model.
+
+    Setup:
+        - Mocks the built-in `open` function with valid TOML byte content.
+
+    Assertions:
+        - The `ResourceManager.load_toml_model` method returns a `MockModel` instance.
+        - The parsed attributes (`key`, `section`) match the expected values.
     """
     rm = ResourceManager()
     toml_content = b'key = "value"\n[section]\nsub = 123'
@@ -32,11 +43,16 @@ def test_load_toml_success() -> None:
 
 def test_load_toml_failure() -> None:
     """
-    Tests graceful failure when loading a missing TOML file.
+    Verifies graceful handling of missing or inaccessible TOML files.
+
+    Setup:
+        - Mocks the built-in `open` function to raise `FileNotFoundError`.
+
+    Assertions:
+        - The `ResourceManager.load_toml_model` method returns `None` instead of raising an exception.
     """
     rm = ResourceManager()
 
-    # Simulate file not found or read error
     with patch("builtins.open", side_effect=FileNotFoundError):
         data = rm.load_toml_model("nonexistent.toml", MockModel)
 
@@ -47,45 +63,59 @@ def test_load_toml_failure() -> None:
 @patch("yukkuri_game.engine.resource_manager.os.path.exists")
 def test_load_image_success(mock_exists: MagicMock, mock_load: MagicMock) -> None:
     """
-    Tests successful loading and caching of an image.
+    Verifies that an image is successfully loaded from disk when not cached.
+
+    Setup:
+        - Mocks `os.path.exists` to return True.
+        - Mocks `pygame.image.load` to return a dummy surface.
+        - Mocks `TextureAtlas` to report a full atlas, forcing a cache fallback.
+
+    Assertions:
+        - The returned object is a `pygame.Surface`.
+        - The image is added to the `rm.images` cache.
+        - A second call for the same image hits the cache (no second load).
     """
-    import pygame  # Ensure pygame is available
+    import pygame  # Ensure pygame is available for typing
     rm = ResourceManager()
-    # Mock atlas to avoid interference and force disk load
+    
+    # Force disk load path: mocked atlas refuses to accept new image
     rm.atlas = MagicMock()
     rm.atlas.get_region.return_value = None
-    rm.atlas.add_image.return_value = False  # Simulate full atlas, fallback to image cache
+    rm.atlas.add_image.return_value = False
 
     mock_exists.return_value = True
     
-    # Use real surface to satisfy TextureAtlas.add_image -> surface.blit requirements
+    # Create valid surface for atlas compatibility checks
     real_surface = pygame.Surface((32, 32))
     mock_load.return_value.convert_alpha.return_value = real_surface
 
     img = rm.load_image("test.png")
 
-    # Check if it's a surface
     assert isinstance(img, pygame.Surface)
     assert img.get_size() == (32, 32)
-
-    # Since atlas.add_image is mocked to return False, it should be in the cache
     assert rm.images["test.png"] == real_surface
 
+    # Verify Caching behavior
     img2 = rm.load_image("test.png")
     assert img2.get_size() == (32, 32)
-    # mock_load should be called once (cached)
     mock_load.assert_called_once()
 
 
 @patch("yukkuri_game.engine.resource_manager.os.path.exists")
 def test_load_image_not_found(mock_exists: MagicMock) -> None:
     """
-    Tests that a placeholder image is returned when the file is missing.
+    Verifies that a placeholder image is returned when the target file is missing.
+
+    Setup:
+        - Mocks `os.path.exists` to return False.
+
+    Assertions:
+        - The method returns a valid `pygame.Surface` (placeholder).
+        - The returned surface has the expected dimensions (32x32).
     """
     rm = ResourceManager()
     mock_exists.return_value = False
 
-    # Should return a magenta placeholder
     img = rm.load_image("missing.png")
 
     assert img.get_size() == (32, 32)
@@ -93,13 +123,21 @@ def test_load_image_not_found(mock_exists: MagicMock) -> None:
 
 def test_load_all_data() -> None:
     """
-    Tests loading all game data (types, items, actions).
+    Verifies the initialization and monolithic loading behavior of LazyLoaders.
+
+    This test checks the 'lazy' nature of data loading:
+    1.  Verifies eager loading of `tuning` data.
+    2.  Verifies `LazyLoader` initialization for other resources.
+    3.  Triggers a lazy load and ensures the underlying `_load_monolithic` is called.
+    
+    Setup:
+        - Mocks `load_toml_model` to return specific distinct mock objects for each call.
     """
     from yukkuri_game.engine.lazy_loader import LazyLoader
 
     rm = ResourceManager()
 
-    # Create mock data objects that match the expected return types of load_toml_model
+    # Define mock data structures for expected returns
     mock_yukkuri_data = MagicMock()
     mock_yukkuri_data.yukkuris = {"Reimu": {}}
 
@@ -111,30 +149,29 @@ def test_load_all_data() -> None:
 
     mock_tuning_data = MagicMock()
 
-    # We need to simulate the return values for when LazyLoaders actually trigger
-    # Tuning is loaded eagerly, others are lazy.
-    # Order of side_effect depends on access order.
+    # Sequence of returns:
     # 1. Tuning (Eager)
-    # 2. Yukkuris (Lazy access)
-    # 3. Items (Lazy access)
-    # 4. Actions (Lazy access)
+    # 2. Yukkuris (Triggered by lazy access)
+    # 3. Items (Triggered by lazy access)
+    # 4. Actions (Triggered by lazy access)
+    # 5-7. Remaining LazyLoaders (Skills, Traits, Interactions)
     
     with patch.object(
         rm,
         "load_toml_model",
         side_effect=[
-            mock_tuning_data,      # Tuning (eager)
-            mock_yukkuri_data,     # Yukkuris (lazy)
-            mock_item_data,        # Items (lazy)
-            mock_ai_data,          # Actions (lazy)
-            MagicMock(),           # Skills (lazy)
-            MagicMock(),           # Traits (lazy)
-            MagicMock(),           # Interactions (lazy)
+            mock_tuning_data,
+            mock_yukkuri_data,
+            mock_item_data,
+            mock_ai_data,
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
         ],
     ) as mock_load:
         rm.load_all_data()
         
-        # Verify LazyLoaders are created
+        # Assertion 1: Verify correct type initialization
         assert isinstance(rm.yukkuri_types, LazyLoader)
         assert isinstance(rm.item_types, LazyLoader)
         assert isinstance(rm.ai_actions, LazyLoader)
@@ -143,10 +180,11 @@ def test_load_all_data() -> None:
         assert isinstance(rm.interactions, LazyLoader)
         assert rm.tuning == mock_tuning_data
         
-        # Verify eager load happened
+        # Assertion 2: Verify Eager Load (only Tuning)
         assert mock_load.call_count == 1
         
-        # Trigger Lazy Loading
+        # Assertion 3: Verify Lazy Loading Trigger
+        # Accessing "Reimu" triggers the second call to load_toml_model
         assert rm.yukkuri_types["Reimu"] == {}
         assert mock_load.call_count == 2
         

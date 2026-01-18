@@ -5,20 +5,21 @@ Populates Blackboard components with perception data from the visibility system.
 Translates raw visible entity sets into semantic context (TargetInfo).
 
 Responsibilities:
-- Converts visible entity IDs into `TargetInfo` objects.
-- Resolves relationships (Friend, Enemy, Prey, Family) based on stats and history.
-- Manages Short-Term Memory (remembering entities that just left view).
-- Aggregates census data (count of nearby friends/enemies) for Utility AI.
+-   Converts visible entity IDs into `TargetInfo` objects.
+-   Resolves relationships (Friend, Enemy, Prey, Family) based on stats and history.
+-   Manages Short-Term Memory (remembering entities that just left view).
+-   Aggregates census data (count of nearby friends/enemies) for Utility AI.
 
 Relationship Resolution Priority:
-1. Predator/Prey (Biological imperative)
-2. Family (Social bond)
-3. Affinity (Personal history)
-4. Neutral (Default)
+1.  Predator/Prey (Biological imperative).
+2.  Family (Social bond).
+3.  Affinity (Personal history).
+4.  Neutral (Default).
 """
 
 import math
-from typing import cast
+from typing import cast, Optional, Dict, Set
+
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
 from ...engine.events import EntityDestroyedEvent
@@ -43,6 +44,11 @@ class PerceptionSystem(System):
     Reads `visible_entities` from `AIState` (populated by VisibilitySystem) and
     updates the `Blackboard` component. This separates the "what can I see" logic
     from the "what does it mean to me" logic.
+
+    Attributes:
+        _last_update_times (Dict[int, float]): Timestamp of last update per entity.
+        _last_visible_set_ids (Dict[int, int]): ID of the visible entity set from the last frame.
+        _subscribed (bool): Whether the system has subscribed to event bus events.
     """
 
     # Duration (seconds) to remember entities after they leave FOV
@@ -58,13 +64,16 @@ class PerceptionSystem(System):
     def __init__(self) -> None:
         """Initializes the PerceptionSystem."""
         super().__init__()
-        self._last_update_times: dict[int, float] = {}
-        self._last_visible_set_ids: dict[int, int] = {}
+        self._last_update_times: Dict[int, float] = {}
+        self._last_visible_set_ids: Dict[int, int] = {}
         self._subscribed = False
 
-    def initialize(self, world: World | None = None) -> None:
+    def initialize(self, world: Optional[World] = None) -> None:
         """
         Sets up event subscriptions.
+
+        Args:
+            world (Optional[World]): The ECS World.
         """
         target_world = world
         if target_world is None and hasattr(self, "ecs_world"):
@@ -79,6 +88,9 @@ class PerceptionSystem(System):
     def on_entity_destroyed(self, event: EntityDestroyedEvent) -> None:
         """
         Cleans up tracking data for destroyed entities.
+
+        Args:
+            event (EntityDestroyedEvent): The destruction event.
         """
         entity_id = event.entity_id
         self._last_update_times.pop(entity_id, None)
@@ -108,8 +120,13 @@ class PerceptionSystem(System):
             # Fix: Ensure current_visible_id is defined (it was missing in original code)
             visible_set_id = id(ai_state.visible_entities)
 
-            time_expired = current_time - self._last_update_times.get(entity_id, 0.0) >= self.UPDATE_INTERVAL
-            visibility_changed = visible_set_id != self._last_visible_set_ids.get(entity_id, 0)
+            time_expired = (
+                current_time - self._last_update_times.get(entity_id, 0.0)
+                >= self.UPDATE_INTERVAL
+            )
+            visibility_changed = visible_set_id != self._last_visible_set_ids.get(
+                entity_id, 0
+            )
 
             should_update = time_expired or visibility_changed
 
@@ -131,6 +148,14 @@ class PerceptionSystem(System):
     ) -> None:
         """
         Populates the Blackboard with analyzed targets.
+
+        Args:
+            world (World): The ECS World.
+            entity_id (int): The entity ID.
+            ai_state (AIState): The AI state component.
+            blackboard (Blackboard): The blackboard component.
+            trans (Transform): The transform component.
+            current_time (float): The current simulation time.
         """
         my_pos = (trans.x, trans.y)
 
@@ -141,7 +166,7 @@ class PerceptionSystem(System):
 
         # Memory management
         previously_visible = set(blackboard.visible_targets.keys())
-        currently_visible: set[EntityID] = set()
+        currently_visible: Set[EntityID] = set()
 
         # Reset Census
         blackboard.nearby_friends = 0
@@ -224,12 +249,20 @@ class PerceptionSystem(System):
         world: World,
         self_id: int,
         target_id: int,
-        my_stats: YukkuriStats | None,
-        my_predator: Predator | None,
-        my_relations: RelationshipRegistry | None,
+        my_stats: Optional[YukkuriStats],
+        my_predator: Optional[Predator],
+        my_relations: Optional[RelationshipRegistry],
     ) -> str:
         """
         Determines the social stance towards a target.
+
+        Args:
+            world (World): The ECS World.
+            self_id (int): The entity ID of the observer.
+            target_id (int): The entity ID of the target.
+            my_stats (Optional[YukkuriStats]): The observer's stats.
+            my_predator (Optional[Predator]): The observer's predator component.
+            my_relations (Optional[RelationshipRegistry]): The observer's relationship registry.
 
         Returns:
             str: "Friend", "Enemy", "Neutral", "Prey", "Threat", or "Family".

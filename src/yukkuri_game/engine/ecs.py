@@ -1,11 +1,13 @@
 """
-Module defining the Entity Component System (ECS) wrapper.
+Entity Component System (ECS) Module.
 
 This module provides a wrapper around the `esper` library to offer a more
 structured and type-safe interface for managing entities and components.
+It integrates with the `ServiceLocator` and `EventBus` for system-wide communication.
 """
 
 import uuid
+import contextlib
 from typing import (
     TypeVar,
     Any,
@@ -20,50 +22,49 @@ from .events import (
     ComponentRemovedEvent,
 )
 from .event_bus import EventBus
-import contextlib
 
 T = TypeVar("T")
 
 
 class Component:
     """
-    Base class for components.
+    Base class for all components.
 
-    In Esper, components can be any object, but we keep this class for
-    explicit typing and potential future extension.
+    While `esper` allows any object to be a component, inheriting from this class
+    ensures explicit typing and provides a hook for potential future extensions.
     """
-
     pass
 
 
 class World:
     """
-    The main ECS (Entity Component System) World class, wrapping esper's context-based API.
+    The main ECS World manager, wrapping `esper`'s context-based API.
 
-    Each instance of this class manages a separate esper World context.
+    Each `World` instance manages a distinct `esper` context, allowing for multiple
+    isolated game states (e.g., active gameplay vs. pause menus).
 
     Attributes:
-        name (str): The unique name of the world context.
-        services (ServiceLocator): The service locator associated with this world.
+        name (str): Unique identifier for this world context.
+        services (ServiceLocator): Service registry specific to this world.
     """
 
     def __init__(self) -> None:
-        """Initializes a new ECS World."""
+        """Initializes a new ECS World with a unique ID and service locator."""
         self.name = str(uuid.uuid4())
         self.services = ServiceLocator()
         self._next_stable_id = 1
         self._active_entities: set[int] = set()
-        # Esper uses a global context system keyed by world name.
-        # Multiple worlds can exist simultaneously (e.g., active game + pause menu).
+        
+        # Register this world with esper's global context system.
         esper.switch_world(self.name)
 
     @property
     def time(self) -> float:
         """
-        Convenience property to get the current game time.
+        Retrieves the current elapsed game time.
 
         Returns:
-            float: The elapsed game time in seconds, or 0.0 if TimeService is unavailable.
+            float: Elapsed time in seconds. Returns 0.0 if the TimeService is unavailable.
         """
         # Lazy import to avoid circular dependency
         from ..game.services import TimeService
@@ -73,10 +74,10 @@ class World:
 
     def get_next_stable_id(self) -> int:
         """
-        Returns the next unique stable ID for this world.
+        Generates the next unique stable ID.
 
-        The stable ID is used for persistence to identify entities across game sessions,
-        separate from the runtime entity ID.
+        Stable IDs are used for persistence, identifying entities across game sessions
+        independently of their runtime entity ID.
 
         Returns:
             int: The next available stable ID.
@@ -87,38 +88,31 @@ class World:
 
     def set_next_stable_id(self, next_id: int) -> None:
         """
-        Sets the next stable ID manually.
+        Manually sets the next stable ID counter.
 
-        This is primarily used during level loading to ensure that new entities
-        do not conflict with loaded stable IDs.
+        Used during level loading to prevent conflicts with loaded entity IDs.
 
         Args:
-            next_id (int): The next stable ID to use.
+            next_id: The next stable ID to be used.
         """
         self._next_stable_id = next_id
 
     def _switch(self) -> None:
         """
-        Switches to this world's context.
+        Activates this world's context in `esper`.
 
-        Performance: Uses identity comparison for fast-path when already in correct context.
-
-        Returns:
-            None
+        Optimized to avoid redundant context switches if this world is already active.
         """
-        # Fast path: identity check first, then string equality fallback.
-        # Avoids redundant switch_world calls when already in correct context.
         if esper.current_world is not self.name and esper.current_world != self.name:
             esper.switch_world(self.name)
 
     @contextlib.contextmanager
     def context(self) -> Iterator[None]:
         """
-        Context manager to ensure operations are performed in this world's context.
+        Context manager for executing operations within this world's scope.
 
-        Usage:
-            with world.context():
-                # perform esper operations directly or via methods
+        Ensures that `esper` operations performed inside the `with` block apply
+        to this world instances, restoring the previous context afterwards.
 
         Yields:
             None
@@ -128,28 +122,28 @@ class World:
         try:
             yield
         finally:
-            # Restore previous context to avoid side effects on other worlds.
             if previous_world and previous_world != self.name:
                 try:
                     esper.switch_world(previous_world)
                 except KeyError:
-                    pass  # Previous world was deleted during block execution.
+                    pass  # Previous world was deleted during execution.
 
     def create_entity(self, *components: Any) -> int:
         """
-        Creates a new entity with the given components.
+        Creates a new entity composed of the provided components.
+
+        Publishes a `ComponentAddedEvent` for each attached component.
 
         Args:
-            *components (Any): The components to add to the entity.
+            *components: Variable list of component instances to attach.
 
         Returns:
-            int: The unique ID of the newly created entity.
+            int: The unique runtime ID of the created entity.
         """
         self._switch()
         entity_id = int(esper.create_entity(*components))
         self._active_entities.add(entity_id)
 
-        # Notify systems of new components (e.g., physics body registration).
         event_bus = self.services.try_get(EventBus)
         if event_bus:
             for component in components:
@@ -161,17 +155,16 @@ class World:
 
     def destroy_entity(self, entity: int) -> None:
         """
-        Destroys an entity and removes all its components.
+        Removes an entity and all its components from the world.
+
+        Publishes an `EntityDestroyedEvent` before deletion. Safe to call even if
+        the entity does not exist (no-op).
 
         Args:
-            entity (int): The ID of the entity to destroy.
-
-        Returns:
-            None
+            entity: The ID of the entity to destroy.
         """
         self._switch()
         try:
-            # Notify before deletion
             event_bus = self.services.try_get(EventBus)
             if event_bus:
                 event_bus.publish(EntityDestroyedEvent(entity))
@@ -183,27 +176,26 @@ class World:
 
     def entity_exists(self, entity: int) -> bool:
         """
-        Checks if an entity exists.
+        Checks if an entity ID represents a valid, active entity.
 
         Args:
-            entity (int): The ID of the entity.
+            entity: The ID to check.
 
         Returns:
-            bool: True if the entity exists, False otherwise.
+            True if the entity exists in this world, False otherwise.
         """
         self._switch()
         return bool(esper.entity_exists(entity))
 
     def add_component(self, entity: int, component: Any) -> None:
         """
-        Adds a component to an entity.
+        Attaches a single component to an existing entity.
+
+        Publishes a `ComponentAddedEvent`.
 
         Args:
-            entity (int): The ID of the entity.
-            component (Any): The component instance to add.
-
-        Returns:
-            None
+            entity: The target entity ID.
+            component: The component instance to add.
         """
         self._switch()
         esper.add_component(entity, component)
@@ -214,18 +206,16 @@ class World:
 
     def remove_component(self, entity: int, component_type: type[Any]) -> None:
         """
-        Removes a component of a specific type from an entity.
+        Detaches a component of the specified type from an entity.
+
+        Publishes a `ComponentRemovedEvent`. Safe to call if the component is missing.
 
         Args:
-            entity (int): The ID of the entity.
-            component_type (Type[Any]): The type of component to remove.
-
-        Returns:
-            None
+            entity: The target entity ID.
+            component_type: The class of the component to remove.
         """
         self._switch()
         try:
-            # esper.remove_component returns the removed component instance
             removed_component = esper.remove_component(entity, component_type)
 
             event_bus = self.services.try_get(EventBus)
@@ -238,14 +228,14 @@ class World:
 
     def get_component(self, entity: int, component_type: type[T]) -> T | None:
         """
-        Retrieves a component of a specific type from an entity.
+        Retrieves a specific component from an entity.
 
         Args:
-            entity (int): The ID of the entity.
-            component_type (Type[T]): The type of component to retrieve.
+            entity: The entity ID.
+            component_type: The class of the component to retrieve.
 
         Returns:
-            Optional[T]: The component instance, or None if the entity does not have it.
+            The component instance if found, otherwise None.
         """
         self._switch()
         try:
@@ -256,27 +246,27 @@ class World:
 
     def try_get_component(self, entity: int, component_type: type[T]) -> T | None:
         """
-        Alias for get_component.
+        Alias for `get_component`.
 
         Args:
-            entity (int): The ID of the entity.
-            component_type (Type[T]): The type of component to retrieve.
+            entity: The entity ID.
+            component_type: The class of the component to retrieve.
 
         Returns:
-            Optional[T]: The component instance, or None if the entity does not have it.
+            The component instance if found, otherwise None.
         """
         return self.get_component(entity, component_type)
 
     def has_component(self, entity: int, component_type: type[Any]) -> bool:
         """
-        Checks if an entity has a specific component type.
+        Checks if an entity matches a specific component type.
 
         Args:
-            entity (int): The ID of the entity.
-            component_type (Type[Any]): The type of component to check for.
+            entity: The entity ID.
+            component_type: The component class to check for.
 
         Returns:
-            bool: True if the entity has the component, False otherwise.
+            True if the entity satisfies the component requirement, False otherwise.
         """
         self._switch()
         try:
@@ -286,13 +276,13 @@ class World:
 
     def get_components(self, component_type: type[T]) -> dict[int, T]:
         """
-        Retrieves all components of a specific type.
+        Retrieves all instances of a specific component type across all entities.
 
         Args:
-            component_type (Type[T]): The type of component to retrieve.
+            component_type: The component class to query.
 
         Returns:
-            Dict[int, T]: A dictionary mapping entity IDs to component instances.
+            A dictionary mapping Entity ID -> Component Instance.
         """
         self._switch()
         return {
@@ -302,23 +292,22 @@ class World:
 
     def get_all_entities(self) -> list[int]:
         """
-        Retrieves all entity IDs in the current world context.
+        Retrieves all active entity IDs in this world.
 
         Returns:
-            List[int]: A list of all entity IDs.
+            A list of all entity IDs.
         """
-        # Use internal set to avoid accessing esper's private members.
         return list(self._active_entities)
 
     def get_entities_with(self, *component_types: type[Any]) -> list[int]:
         """
-        Retrieves a list of entity IDs that have all specified component types.
+        Finds entities that possess ALL of the specified component types.
 
         Args:
-            *component_types (Type[Any]): A variable number of component types.
+            *component_types: Variable list of component classes to direct the query.
 
         Returns:
-            List[int]: A list of entity IDs matching the criteria.
+            A list of matching entity IDs.
         """
         self._switch()
         if not component_types:
@@ -329,28 +318,30 @@ class World:
         self, *component_types: type[Any]
     ) -> list[tuple[int, tuple[Any, ...]]]:
         """
-        Retrieves entities and their components for the specified types.
+        Efficiently retrieves entities and their components for a specific query signature.
 
-        This maps directly to esper.get_components for efficient iteration.
+        This method maps directly to `esper.get_components` and is preferred for
+        iterating over entities in Systems.
 
         Args:
-            *component_types (Type[Any]): The component types to retrieve.
+            *component_types: The component classes to query.
 
         Returns:
-            List[Tuple[int, Tuple[Any, ...]]]: A list of (entity, (component1, component2, ...)).
+            A list of tuples, where each tuple contains:
+            (Entity ID, (Component1, Component2, ...))
         """
         self._switch()
         return esper.get_components(*component_types)
 
     def get_all_components(self, entity: int) -> tuple[Any, ...]:
         """
-        Retrieves all components for a specific entity.
+        Retrieves every component attached to a specific entity.
 
         Args:
-            entity (int): The entity ID.
+            entity: The entity ID.
 
         Returns:
-            Tuple[Any, ...]: A tuple of all component instances attached to the entity.
+            A tuple containing all component instances for the entity.
         """
         self._switch()
         try:
@@ -360,40 +351,34 @@ class World:
 
     def add_system(self, system: "System") -> None:
         """
-        Adds a system to the world.
+        Registers a System to run in this world.
+
+        Injection:
+            Sets `system.ecs_world` to this World instance.
 
         Args:
-            system (System): The System instance to add.
-
-        Returns:
-            None
+            system: The System instance to register.
         """
         self._switch()
-        # Inject world reference into system
         system.ecs_world = self
         system.initialize()
         esper.add_processor(system)  # type: ignore[arg-type]
 
     def update(self, dt: float) -> None:
         """
-        Updates all systems in the world.
+        Advances the world state by one tick.
+
+        Executes all registered Systems in priority order.
 
         Args:
-            dt (float): The time elapsed since the last update in seconds.
-
-        Returns:
-            None
+            dt: Delta time in seconds since the last frame.
         """
         self._switch()
-        esper.process(dt)  # Executes all Processors in priority order.
+        esper.process(dt)
 
     def clear_database(self) -> None:
         """
-        Clears all entities and components from the world.
-        Note: This does NOT remove Processors (Systems).
-
-        Returns:
-            None
+        Removes all entities and components. Does NOT remove registered Systems.
         """
         self._switch()
         esper.clear_database()
@@ -401,39 +386,31 @@ class World:
 
     def destroy(self) -> None:
         """
-        Destroys the world and removes it from the esper registry.
-        Essential for preventing memory leaks when worlds are discarded.
+        Completely tears down the world.
+
+        clears the database, clears services, and removes the world context from `esper`.
+        This is essential for memory management when unloading levels or closing the game.
         """
         self.clear_database()
         self.services.clear()
         try:
-            # Esper cannot delete the active context, so switch away first.
+            # Esper cannot delete the currently active world, so we must switch safely.
             if esper.current_world == self.name:
                 esper.switch_world("__garbage_collector__")
 
             esper.delete_world(self.name)
         except KeyError:
-            pass  # Already deleted or didn't exist
+            pass
 
 
 if TYPE_CHECKING:
 
     class ProcessorBase:
         """
-        Base class for Processors (Systems).
-        Used for type checking against esper.Processor.
+        Type hint helper for Esper Processors.
         """
 
         def process(self, dt: float) -> None:
-            """
-            Processes the system logic.
-
-            Args:
-                dt (float): Delta time.
-
-            Returns:
-                None
-            """
             ...
 else:
     ProcessorBase = esper.Processor
@@ -441,27 +418,26 @@ else:
 
 class System(ProcessorBase):
     """
-    Base class for systems in the ECS.
+    Base class for all ECS Systems.
 
-    Systems contain logic that operates on entities with specific components.
-    Subclasses should implement the `update` method.
+    Systems hold game logic and operate on entities that possess specific components.
+    Subclasses must implement the `update` method.
 
     Attributes:
-        ecs_world (World): The ECS World instance the system belongs to.
-                           Injected when the system is added to the World.
+        ecs_world (World): reference to the World this system belongs to. Injected automatically.
     """
 
     ecs_world: World
 
     def process(self, dt: float) -> None:
         """
-        The method called by the ECS engine (Esper) every frame.
+        Internal wrapper called by Esper every frame.
 
-        This implementation ensures the correct world context is active before
-        delegating to the user-defined `update` method.
+        This method acts as a safeguard, ensuring the correct World context is active
+        before passing control to the user-defined `update` logic.
 
         Args:
-            dt (float): The time elapsed since the last update in seconds.
+            dt: Delta time in seconds.
         """
         if hasattr(self, "ecs_world"):
             with self.ecs_world.context():
@@ -469,20 +445,23 @@ class System(ProcessorBase):
 
     def initialize(self) -> None:
         """
-        Called when the system is added to the world.
-        Can be overridden by subclasses to perform initialization (e.g., event subscription).
+        Lifecycle hook called when the system is first added to the World.
+
+        Override this to perform setup tasks like subscribing to events.
         """
         pass
 
     def update(self, world: World, dt: float) -> None:
         """
-        Updates the system logic. Must be implemented by subclasses.
+        The core logic loop for the system.
+
+        Must be implemented by subclasses.
 
         Args:
-            world (World): The ECS World instance.
-            dt (float): The time elapsed since the last update in seconds.
+            world: The active ECS World instance.
+            dt: Delta time in seconds.
 
         Raises:
-            NotImplementedError: If the subclass does not implement this method.
+            NotImplementedError: If not overridden by the subclass.
         """
         raise NotImplementedError

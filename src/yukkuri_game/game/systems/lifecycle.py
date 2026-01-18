@@ -2,28 +2,30 @@
 Lifecycle System - Birth, Growth, and Death.
 
 Manages the lifecycle state machine for Yukkuri entities including:
-- Death detection and corpse conversion
-- Age-based growth stage transitions (Baby → Child → Adult)
-- Asexual reproduction (breeding) based on happiness/energy thresholds
+-   Death detection and corpse conversion.
+-   Age-based growth stage transitions (Baby → Child → Adult).
+-   Asexual reproduction (breeding) based on happiness/energy thresholds.
 
 Lifecycle States:
-- **Baby**: Small size, limited capabilities (until baby_age_threshold)
-- **Child**: Medium size, can socialize (until child_age_threshold)
-- **Adult**: Full size, can breed when conditions met
-- **Dead**: No AI processing, visual indicator (flipped sprite)
+-   **Baby**: Small size, limited capabilities (until baby_age_threshold).
+-   **Child**: Medium size, can socialize (until child_age_threshold).
+-   **Adult**: Full size, can breed when conditions met.
+-   **Dead**: No AI processing, visual indicator (flipped sprite).
 
 Growth Transitions:
-- Physical scale increases (1.5x Baby→Child, 1.33x Child→Adult)
-- Health capacity increases, immediate partial heal
-- Physics shape radius scaled to match visual size
+-   Physical scale increases (1.5x Baby→Child, 1.33x Child→Adult).
+-   Health capacity increases, immediate partial heal.
+-   Physics shape radius scaled to match visual size.
 
 Breeding Requirements:
-- Must be Adult stage
-- Happiness above breeding_happiness_threshold
-- Energy above breeding_energy_threshold
-- Random chance per tick (breeding_chance)
-- Spawns Baby of same type at offset position
+-   Must be Adult stage.
+-   Happiness above breeding_happiness_threshold.
+-   Energy above breeding_energy_threshold.
+-   Random chance per tick (breeding_chance).
+-   Spawns Baby of same type at offset position.
 """
+
+from loguru import logger
 
 from ...engine import rng
 from ...engine.ecs import System, World
@@ -33,7 +35,6 @@ from ..components import Sprite, Transform, PhysicsBody
 from ..events import EntityDiedEvent, EntityGrewEvent
 from ...config import LifecycleSettings
 from ..prefabs.yukkuri import create_yukkuri
-from loguru import logger
 
 
 class LifecycleSystem(System):
@@ -42,6 +43,9 @@ class LifecycleSystem(System):
 
     Processes entities each frame to check for stage transitions
     based on age and breeding eligibility based on stats.
+
+    Attributes:
+        settings (LifecycleSettings): Lifecycle settings.
     """
 
     def __init__(self, settings: LifecycleSettings):
@@ -60,9 +64,6 @@ class LifecycleSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
         self._handle_death(world)
         self._handle_growth(world)
@@ -74,9 +75,6 @@ class LifecycleSystem(System):
 
         Args:
             world (World): The ECS World.
-
-        Returns:
-            None
         """
         event_bus = world.services.try_get(EventBus)
 
@@ -112,9 +110,6 @@ class LifecycleSystem(System):
 
         Args:
             world (World): The ECS World.
-
-        Returns:
-            None
         """
         for entity, (stats, needs, transform) in world.get_components_tuple(
             YukkuriStats, Needs, Transform
@@ -161,9 +156,6 @@ class LifecycleSystem(System):
             transform (Transform): The entity's transform.
             new_stage (str): The new growth stage.
             scale_multiplier (float): The scale multiplier.
-
-        Returns:
-            None
         """
         logger.info(
             f"{stats.name} is growing from {stats.growth_stage} to {new_stage}!"
@@ -203,9 +195,6 @@ class LifecycleSystem(System):
 
         Args:
             world (World): The ECS World.
-
-        Returns:
-            None
         """
         for entity, (stats, needs, transform) in world.get_components_tuple(
             YukkuriStats, Needs, Transform
@@ -247,9 +236,6 @@ class LifecycleSystem(System):
             parent_stats (YukkuriStats): The parent's stats.
             parent_needs (Needs): The parent's needs.
             parent_transform (Transform): The parent's transform.
-
-        Returns:
-            None
         """
         logger.info(f"{parent_stats.name} is breeding!")
 

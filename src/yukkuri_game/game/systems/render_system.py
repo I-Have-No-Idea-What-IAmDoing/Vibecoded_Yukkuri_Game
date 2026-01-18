@@ -1,35 +1,29 @@
 """
 Render System - Command-Based Rendering Pipeline.
 
-Converts ECS state into render commands for the backend to execute.
-Supports multiple backends (Pygame software, OpenGL hardware).
+This system converts ECS state into render commands for the backend to execute.
+It supports multiple backends (e.g., Pygame software, OpenGL hardware) via a command pattern.
 
 Pipeline Stages:
-1. Camera update (interpolation, aspect correction)
-2. Background grid (cached for performance)
-3. Visible entity query (via SectorMap spatial partitioning)
-4. Entity processing (sprites, shadows, lights, occluders)
-5. Floating text overlay
-6. Placement preview ghost sprite
-7. Backend render execution
+1.  Camera update (interpolation, aspect correction)
+2.  Background grid rendering (cached for performance)
+3.  Visible entity query (via SectorMap spatial partitioning)
+4.  Entity processing (sprites, shadows, lights, occluders)
+5.  Floating text overlay
+6.  Placement preview ghost sprite
+7.  Backend render execution
 
 Layer System (z-ordering):
-- LAYER_BACKGROUND (0): Grid, cached background
-- LAYER_SHADOWS (1): Drop shadows under entities
-- LAYER_ENTITIES (2): Sprites, sorted by Y position
-- LAYER_EFFECTS (3): Lights, particles
-- LAYER_UI (10): Floating text, selection UI
-
-Optimizations:
-- Background caching (invalidated on camera move)
-- Scale quantization to reduce cache key permutations
-- SectorMap culling for off-screen entities
-- Surface caching for transformed sprites
+-   LAYER_BACKGROUND (0): Grid, terrain
+-   LAYER_SHADOWS (1): Drop shadows
+-   LAYER_ENTITIES (2): Sprites, sorted by Y-position
+-   LAYER_EFFECTS (3): Lights, particles
+-   LAYER_UI (10): Floating text, selection UI
 """
 
-import pygame
 import math
 from typing import Any
+import pygame
 
 from ...engine.ecs import System, World
 from ...engine.resource_manager import ResourceManager
@@ -74,10 +68,18 @@ LAYER_UI = 10  # Floating text, selection highlights
 
 class RenderSystem(System):
     """
-    Converts ECS world state into render commands.
+    Converts ECS world state into render commands for the backend.
 
-    Uses a command pattern: entity state is converted to SpriteCommand,
-    LightCommand, etc., then batch-processed by the backend for efficiency.
+    Attributes:
+        screen (pygame.Surface): The main display surface.
+        rm (ResourceManager): Resource manager for asset loading.
+        camera (Camera): The camera/viewport controller.
+        surface_cache (SurfaceCache): Cache for transformed sprite surfaces.
+        renderer (Renderer): The abstract renderer instance.
+        lights_enabled (bool): Whether lighting effects are active.
+        _background_cache (Optional[pygame.Surface]): Cached grid/background surface.
+        _background_cache_valid (bool): Validity flag for the background cache.
+        _last_camera_state (Optional[Tuple]): Snapshot of camera state for cache invalidation.
     """
 
     def __init__(
@@ -87,6 +89,15 @@ class RenderSystem(System):
         lights_engine: Any = None,
         force_lighting: bool = False,
     ):
+        """
+        Initializes the RenderSystem.
+
+        Args:
+            screen (pygame.Surface): The main display surface.
+            world (World): The ECS world instance.
+            lights_engine (Any): Optional OpenGL lighting engine.
+            force_lighting (bool): Force lighting enablement (deprecated/unused).
+        """
         self.screen = screen
         self.rm = world.services.get(ResourceManager)
         self.camera = world.services.get(Camera)
@@ -96,9 +107,6 @@ class RenderSystem(System):
         # Select backend: OpenGLBackend if lights_engine is available, else PygameBackend.
         # TEMPORARY: Force PygameBackend as OpenGL backend is currently broken.
         if lights_engine is not None:
-            # backend = OpenGLBackend(screen, lights_engine)
-            # self.lights_enabled = True
-
             # Fallback to software renderer even if lights engine is provided
             backend = PygameBackend(screen)
             self.lights_enabled = True  # PygameBackend supports software lighting
@@ -117,6 +125,10 @@ class RenderSystem(System):
     def update(self, world: World, dt: float) -> None:
         """
         Main render loop.
+
+        Args:
+            world (World): The ECS world instance.
+            dt (float): Interpolation factor (alpha).
         """
         # Rename dt to alpha for clarity (it is interpolation alpha).
         alpha = dt
@@ -125,27 +137,25 @@ class RenderSystem(System):
         correction_y = 1.0
 
         if self.lights_enabled:
-            if hasattr(self.renderer.backend, "engine"):
-                engine = getattr(self.renderer.backend, "engine", None)
-                if engine and hasattr(engine, "_native_res"):
-                    native_res: tuple[int, int] = getattr(engine, "_native_res")
-                    nw, nh = native_res
-                    current_w, current_h = self.screen.get_size()
+            # Check for native resolution scaling if backend supports it
+            engine = getattr(self.renderer.backend, "engine", None)
+            if engine and hasattr(engine, "_native_res"):
+                native_res: tuple[int, int] = getattr(engine, "_native_res")
+                nw, nh = native_res
+                current_w, current_h = self.screen.get_size()
 
-                    if nw > 0 and nh > 0 and current_w > 0 and current_h > 0:
-                        stretch_x = current_w / nw
-                        stretch_y = current_h / nh
-                        correction_x = (
-                            stretch_y / stretch_x
-                        )  # Pre-squash X for widescreen.
+                if nw > 0 and nh > 0 and current_w > 0 and current_h > 0:
+                    stretch_x = current_w / nw
+                    stretch_y = current_h / nh
+                    correction_x = stretch_y / stretch_x  # Pre-squash X for widescreen.
 
-                    sw, sh = nw, nh
+                sw, sh = nw, nh
 
         self.camera.set_aspect_correction(correction_x, correction_y)
         self.camera.update_matrices(sw, sh, alpha)
 
         # 1. Clear & Draw Grid
-        self.renderer.clear_screen((50, 50, 50))  # Dark background, but not pitch black
+        self.renderer.clear_screen((50, 50, 50))  # Dark grey background
 
         # Manage Background Cache
         current_camera_state = (
@@ -160,7 +170,7 @@ class RenderSystem(System):
             self._background_cache_valid = False
             self._last_camera_state = current_camera_state
 
-        # Skip grid when zoomed in past 5x (grid becomes sparse and less useful)
+        # Skip grid when zoomed in past 5x (becomes sparse/useless)
         if self.camera.zoom < 5.0:
             if not self._background_cache_valid or not self._background_cache:
                 self._rebuild_background_cache(sw, sh)
@@ -222,10 +232,8 @@ class RenderSystem(System):
 
         image_name = input_service.place_image_name
         wx, wy = input_service.current_placement_pos
-
         sx, sy = self.camera.world_to_screen_fast(wx, wy)
 
-        # Basic Fallback logic
         img = None
         if image_name:
             raw_surf = self.rm.load_image(image_name)
@@ -282,7 +290,17 @@ class RenderSystem(System):
             )
 
     def _get_visible_entities(self, world: World, sw: int, sh: int) -> list[int]:
-        """Returns entities visible on screen using spatial partitioning."""
+        """
+        Returns entities visible on screen using spatial partitioning.
+
+        Args:
+            world (World): The ECS World.
+            sw (int): Screen width.
+            sh (int): Screen height.
+
+        Returns:
+            list[int]: List of visible entity IDs.
+        """
         sector_map = world.services.try_get(SectorMap)
         if sector_map:
             # Add buffer to catch entities at screen edges (large sprites may extend)
@@ -307,6 +325,10 @@ class RenderSystem(System):
     def _rebuild_background_cache(self, sw: int, sh: int) -> None:
         """
         Rebuilds the cached background surface (grid).
+
+        Args:
+            sw (int): Screen width.
+            sh (int): Screen height.
         """
         # Add margin for sub-pixel shift tolerance.
         margin = 32
@@ -321,9 +343,8 @@ class RenderSystem(System):
         self._background_cache.fill((0, 0, 0, 0))
 
         # Draw grid at integer camera position for cache stability.
-        cached_cam_x, cached_cam_y, cached_zoom, _, _ = self._last_camera_state  # type: ignore[misc]
+        cached_cam_x, cached_cam_y, _, _, _ = self._last_camera_state  # type: ignore[misc]
 
-        # Draw grid to cache surface.
         self._draw_grid(
             sw,
             sh,
@@ -339,6 +360,15 @@ class RenderSystem(System):
         target_surface: pygame.Surface | None = None,
         override_cam_pos: tuple[float, float] | None = None,
     ) -> None:
+        """
+        Draws the grid.
+
+        Args:
+            sw (int): Screen width.
+            sh (int): Screen height.
+            target_surface (Optional[pygame.Surface]): Surface to draw on.
+            override_cam_pos (Optional[Tuple]): Optional camera position override.
+        """
         grid_size = RenderConstants.GRID_SIZE
         color = RenderConstants.GRID_COLOR
 
@@ -355,7 +385,6 @@ class RenderSystem(System):
             sw, sh, grid_size, cam_x, cam_y
         )
 
-        # Optimization: Batch line drawing if possible, or direct draw to surface
         if target_surface:
             # Draw directly to cache surface
             for col in range(start_col, end_col):
@@ -368,14 +397,9 @@ class RenderSystem(System):
                 _, sy = world_to_screen(0, y)
                 pygame.draw.line(target_surface, color, (0, sy), (sw, sy))
         else:
-            # Fallback to backend immediate draw (if cache is bypassed)
-            # We still need to respect override_cam_pos if passed, but typically wouldn't be.
-            # If backend.draw_line is used, it uses backend coords.
-            # And we use self.camera.world_to_screen_fast usually.
-
+            # Fallback to backend immediate draw
             for col in range(start_col, end_col):
                 x = col * grid_size
-                # If override is provided, we must use custom transform
                 if override_cam_pos:
                     sx, _ = world_to_screen(x, 0)
                 else:
@@ -398,10 +422,9 @@ class RenderSystem(System):
         cam_x: float | None = None,
         cam_y: float | None = None,
     ) -> tuple[int, int, int, int]:
+        """Helper to calculate visible grid lines."""
         if cam_x is not None and cam_y is not None:
             # Custom calculation based on override pos
-            # screen_to_world inverse:
-            # wx = (sx - half_w) / zoom + cam_x
             half_w = screen_w / 2
             half_h = screen_h / 2
             zoom = self.camera.zoom
@@ -482,8 +505,7 @@ class RenderSystem(System):
                     )
                 )
 
-            # Sprite
-            # Get cached surface
+            # Sprite Rendering
             img = self.surface_cache.get_surface(
                 sprite.image_name,
                 sprite.current_frame,
@@ -515,7 +537,7 @@ class RenderSystem(System):
                     round(transform.rotation, 1),
                     sprite.flip_x,
                     sprite.flip_y,
-                )  # Texture cache key for backend.
+                )
 
                 self.renderer.submit(
                     SpriteCommand(
@@ -560,7 +582,7 @@ class RenderSystem(System):
 
                 self.renderer.submit(
                     LightCommand(
-                        layer=LAYER_EFFECTS,  # Lights are handled specially by backend
+                        layer=LAYER_EFFECTS,
                         z_index=iy,
                         entity_id=ent,
                         position=screen_pos,
@@ -590,6 +612,7 @@ class RenderSystem(System):
         ix: float,
         iy: float,
     ) -> None:
+        """Processes and submits occlusion geometry."""
         sprite = world.try_get_component(ent, Sprite)
         body = world.try_get_component(ent, PhysicsBody)
 

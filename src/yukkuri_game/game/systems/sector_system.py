@@ -5,29 +5,31 @@ Divides the game world into fixed-size grid sectors for O(1) spatial lookups.
 Critical for performance when many entities need proximity checks.
 
 Use Cases:
-- GossipSystem: Find witnesses within visual/auditory range
-- FamilySystem: Find nearby family members for benefits
-- PerceptionSystem: Query visible entities without O(N²) scans
-- NavigationService: Obstacle queries in limited areas
+-   GossipSystem: Find witnesses within visual/auditory range.
+-   FamilySystem: Find nearby family members for benefits.
+-   PerceptionSystem: Query visible entities without O(N^2) scans.
+-   NavigationService: Obstacle queries in limited areas.
 
 Sector Structure:
-- World divided into SECTOR_SIZE x SECTOR_SIZE cells (default 500px)
-- Each sector tracks entity IDs within its bounds
-- Entities automatically moved between sectors on position update
+-   World divided into SECTOR_SIZE x SECTOR_SIZE cells (default 500px).
+-   Each sector tracks entity IDs within its bounds.
+-   Entities automatically moved between sectors on position update.
 
 Range Types (for get_entities_in_range):
-- "visual": Same sector + 8 adjacent sectors (3x3 area)
-- "auditory_loud": Same as visual (loud sounds carry far)
-- "auditory": Same sector only (quiet sounds are local)
+-   "visual": Same sector + 8 adjacent sectors (3x3 area).
+-   "auditory_loud": Same as visual (loud sounds carry far).
+-   "auditory": Same sector only (quiet sounds are local).
 
 Performance:
-- Entity update: O(1) amortized
-- Range query: O(k) where k = entities in touched sectors
-- Periodic cleanup removes stale entity references
+-   Entity update: O(1) amortized.
+-   Range query: O(k) where k = entities in touched sectors.
+-   Periodic cleanup removes stale entity references.
 """
 
 from collections import defaultdict
 import math
+from typing import Dict, List, Set, Tuple, Optional
+
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import EntityDestroyedEvent
@@ -41,6 +43,15 @@ class SectorMap:
     Entities are assigned to sectors based on their position.
     Queries return all entities in relevant sectors (superset);
     callers should filter by precise distance if needed.
+
+    Attributes:
+        width (float): Total world width in pixels.
+        height (float): Total world height in pixels.
+        sector_size (float): Size of each sector cell.
+        cols (int): Number of columns in the grid.
+        rows (int): Number of rows in the grid.
+        sectors (Dict[Tuple[int, int], Set[int]]): Map of (col, row) to set of entity IDs.
+        entity_sectors (Dict[int, Tuple[int, int]]): Reverse lookup of entity ID to (col, row).
     """
 
     def __init__(self, width: float, height: float, sector_size: float):
@@ -48,9 +59,9 @@ class SectorMap:
         Initializes the SectorMap.
 
         Args:
-            width: Total world width in pixels.
-            height: Total world height in pixels.
-            sector_size: Size of each sector cell (width and height).
+            width (float): Total world width in pixels.
+            height (float): Total world height in pixels.
+            sector_size (float): Size of each sector cell (width and height).
         """
         self.width = width
         self.height = height
@@ -61,15 +72,22 @@ class SectorMap:
         self.rows = int(math.ceil(height / sector_size))
 
         # Sector storage: (col, row) -> set of entity IDs
-        self.sectors: dict[tuple[int, int], set[int]] = defaultdict(set)
+        self.sectors: Dict[Tuple[int, int], Set[int]] = defaultdict(set)
 
         # Reverse lookup: entity_id -> current (col, row)
-        self.entity_sectors: dict[int, tuple[int, int]] = {}
+        self.entity_sectors: Dict[int, Tuple[int, int]] = {}
 
-    def get_sector_coords(self, x: float, y: float) -> tuple[int, int]:
+    def get_sector_coords(self, x: float, y: float) -> Tuple[int, int]:
         """
         Returns the (col, row) coordinates for a given world position.
         Clamps to map boundaries.
+
+        Args:
+            x (float): X coordinate.
+            y (float): Y coordinate.
+
+        Returns:
+            Tuple[int, int]: (col, row) indices.
         """
         # Convert world coordinates to grid indices.
         col = int(x / self.sector_size)
@@ -84,6 +102,11 @@ class SectorMap:
     def update_entity(self, entity_id: int, x: float, y: float) -> None:
         """
         Updates the entity's position in the sector map.
+
+        Args:
+            entity_id (int): ID of the entity.
+            x (float): New X coordinate.
+            y (float): New Y coordinate.
         """
         new_sector = self.get_sector_coords(x, y)
         old_sector = self.entity_sectors.get(entity_id)
@@ -102,6 +125,9 @@ class SectorMap:
     def remove_entity(self, entity_id: int) -> None:
         """
         Removes an entity from the sector map.
+
+        Args:
+            entity_id (int): ID of the entity to remove.
         """
         if entity_id in self.entity_sectors:
             sector = self.entity_sectors[entity_id]
@@ -109,15 +135,29 @@ class SectorMap:
                 self.sectors[sector].remove(entity_id)
             del self.entity_sectors[entity_id]
 
-    def get_entities_in_sector(self, col: int, row: int) -> set[int]:
+    def get_entities_in_sector(self, col: int, row: int) -> Set[int]:
         """
         Returns all entities in a specific sector.
+
+        Args:
+            col (int): Column index.
+            row (int): Row index.
+
+        Returns:
+            Set[int]: Set of entity IDs in the sector.
         """
         return self.sectors.get((col, row), set())
 
-    def get_adjacent_sectors(self, col: int, row: int) -> list[tuple[int, int]]:
+    def get_adjacent_sectors(self, col: int, row: int) -> List[Tuple[int, int]]:
         """
         Returns a list of valid (col, row) tuples for adjacent sectors (including diagonals).
+
+        Args:
+            col (int): Center column index.
+            row (int): Center row index.
+
+        Returns:
+            List[Tuple[int, int]]: List of adjacent (col, row) coordinates.
         """
         adjacent = []
         for dx in [-1, 0, 1]:
@@ -132,16 +172,20 @@ class SectorMap:
 
     def get_entities_in_range(
         self, x: float, y: float, range_type: str = "visual"
-    ) -> list[int]:
+    ) -> List[int]:
         """
         Returns entities based on propagation rules.
 
         Args:
-            x, y: Origin position.
-            range_type: "visual" (Same + Adjacent) or "auditory_loud" (Same + Adjacent) or "auditory" (Same).
+            x (float): Origin X coordinate.
+            y (float): Origin Y coordinate.
+            range_type (str): "visual" (Same + Adjacent) or "auditory_loud" (Same + Adjacent) or "auditory" (Same).
+
+        Returns:
+            List[int]: List of entity IDs in range.
         """
         col, row = self.get_sector_coords(x, y)
-        result: list[int] = []
+        result: List[int] = []
 
         # Always include current sector (the sector the entity is currently standing in)
         sector_entities = self.sectors.get((col, row))
@@ -157,15 +201,19 @@ class SectorMap:
 
         return result
 
-    def get_entities_in_radius(self, x: float, y: float, radius: float) -> list[int]:
+    def get_entities_in_radius(self, x: float, y: float, radius: float) -> List[int]:
         """
         Returns all entities in sectors overlapping the given radius.
         Note: This returns a superset of entities (all entities in touched sectors).
         Distance checking should be done by the caller for precision.
 
         Args:
-            x, y: Center position.
-            radius: The search radius.
+            x (float): Center X coordinate.
+            y (float): Center Y coordinate.
+            radius (float): The search radius.
+
+        Returns:
+            List[int]: List of entity IDs in possible range.
         """
         # Calculate bounding box of the circle
         min_x = x - radius
@@ -177,7 +225,7 @@ class SectorMap:
         start_col, start_row = self.get_sector_coords(min_x, min_y)
         end_col, end_row = self.get_sector_coords(max_x, max_y)
 
-        result: list[int] = []
+        result: List[int] = []
 
         # Iterate over rectangular range of sectors
         for c in range(start_col, end_col + 1):
@@ -190,14 +238,19 @@ class SectorMap:
 
     def get_entities_in_rect(
         self, x: float, y: float, width: float, height: float
-    ) -> list[int]:
+    ) -> List[int]:
         """
         Returns all entities in sectors overlapping the given rectangle.
         Note: This returns a superset of entities (all entities in touched sectors).
 
         Args:
-            x, y: Top-left position (world space).
-            width, height: dimensions.
+            x (float): Top-left positions X (world space).
+            y (float): Top-left positions Y (world space).
+            width (float): Rectangle width.
+            height (float): Rectangle height.
+
+        Returns:
+            List[int]: List of entity IDs in possible range.
         """
         min_x = x
         max_x = x + width
@@ -208,7 +261,7 @@ class SectorMap:
         start_col, start_row = self.get_sector_coords(min_x, min_y)
         end_col, end_row = self.get_sector_coords(max_x, max_y)
 
-        result: list[int] = []
+        result: List[int] = []
 
         # Iterate over rectangular range of sectors
         for c in range(start_col, end_col + 1):
@@ -232,15 +285,31 @@ class OccluderMap(SectorMap):
 class SectorSystem(System):
     """
     System responsible for keeping the SectorMap updated with entity positions.
+
+    Attributes:
+        sector_map (SectorMap): The main entity sector map.
+        occluder_map (OccluderMap): The occluder sector map.
+        event_bus (Optional[EventBus]): The event bus.
+        cleanup_timer (float): Timer for periodic cleanup.
+        cleanup_interval (float): Interval for cleanup in seconds.
     """
 
     def __init__(
         self,
-        event_bus: EventBus | None = None,
+        event_bus: Optional[EventBus] = None,
         width: float = 4000,
         height: float = 4000,
         sector_size: float = 500,
     ):
+        """
+        Initializes the SectorSystem.
+
+        Args:
+            event_bus (Optional[EventBus]): The event bus.
+            width (float): World width.
+            height (float): World height.
+            sector_size (float): Size of sectors.
+        """
         self.sector_map = SectorMap(width, height, sector_size)
         self.occluder_map = OccluderMap(width, height, sector_size)
         self.event_bus = event_bus
@@ -256,6 +325,9 @@ class SectorSystem(System):
     def on_entity_destroyed(self, event: EntityDestroyedEvent) -> None:
         """
         Handler for when an entity is destroyed.
+
+        Args:
+            event (EntityDestroyedEvent): The event data.
         """
         self.sector_map.remove_entity(event.entity_id)
         self.occluder_map.remove_entity(event.entity_id)
@@ -263,6 +335,10 @@ class SectorSystem(System):
     def update(self, world: World, dt: float) -> None:
         """
         Updates entity positions in the SectorMap.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         # Lazy subscription if event_bus wasn't provided in init (backward compatibility)
         if not self._subscribed:
@@ -308,6 +384,9 @@ class SectorSystem(System):
     def cleanup_dead_entities(self, world: World) -> None:
         """
         Removes entities from SectorMap that no longer exist in the world or have no Transform.
+
+        Args:
+            world (World): The ECS World.
         """
         # Cleanup main sector map
         to_remove = []

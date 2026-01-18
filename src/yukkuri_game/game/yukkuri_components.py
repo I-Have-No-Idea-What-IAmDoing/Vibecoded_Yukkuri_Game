@@ -1,17 +1,13 @@
 """
 Yukkuri Components Module.
 
-Defines all ECS components specific to Yukkuri entities including:
-- Core Stats: YukkuriStats, Needs, Skills
-- Personality: Personality, PersonalityAxis, EmotionalState
-- Social: RelationshipRegistry, RelationshipData, GossipQueue
-- AI: AIState, Blackboard, GoalComponent
-- Physical: Flight, Predator
+Defines all ECS components specific to Yukkuri entities, covering stats,
+personality, social relationships, AI state, and physical properties.
 
-Architecture Notes:
-- YukkuriArchetype uses Flyweight pattern for memory-efficient type data sharing
-- RelationshipData implements the "Headline System" for memory management
-- Components use slots=True for memory optimization
+Key Features:
+- **Flyweight Pattern**: Uses `YukkuriArchetype` to share static data.
+- **Memory Optimization**: Utilizes `slots=True` for all dataclasses.
+- **Headline System**: Implements memory management in `RelationshipData`.
 """
 
 from dataclasses import dataclass, field
@@ -34,7 +30,11 @@ if TYPE_CHECKING:
 class YukkuriArchetype:
     """
     Flyweight object holding static data shared by all Yukkuris of a specific type.
-    Wraps the read-only TOML configuration to avoid per-entity duplication.
+
+    Wraps the read-only TOML configuration to avoid per-entity data duplication.
+
+    Attributes:
+        type_data (Optional[YukkuriType]): The loaded configuration data.
     """
 
     type_data: "YukkuriType | None" = None
@@ -45,7 +45,13 @@ _ARCHETYPE_CACHE: dict[str, YukkuriArchetype] = {}
 
 
 def register_archetype(type_id: str, type_data: "YukkuriType") -> None:
-    """Registers a type configuration into the Flyweight cache."""
+    """
+    Registers a type configuration into the Flyweight cache.
+
+    Args:
+        type_id (str): The unique type identifier.
+        type_data (YukkuriType): The configuration object to cache.
+    """
     if type_id not in _ARCHETYPE_CACHE:
         _ARCHETYPE_CACHE[type_id] = YukkuriArchetype(type_data=type_data)
 
@@ -57,22 +63,22 @@ def register_archetype(type_id: str, type_data: "YukkuriType") -> None:
 
 class FlightState(Enum):
     """
-    Enum representing the flight state of a flying Yukkuri.
+    Enumeration representing the current flight status of a Yukkuri.
     """
 
-    GROUNDED = 0  # Walking/Idle on ground
-    TAKEOFF = 1  # Ascending (Altitude < Max)
-    FLYING = 2  # Cruising (Altitude ~= Max)
-    HOVERING = 3  # Stationary in air (Reduced Stamina Cost)
-    LANDING = 4  # Descending (Altitude > 0)
-    SWOOPING = 5  # Rapid attack descent (Altitude -> 0 temporarily)
-    FALLING = 6  # Out of stamina/Stunned. Gravity applies full force.
+    GROUNDED = 0
+    TAKEOFF = 1  # Ascending
+    FLYING = 2
+    HOVERING = 3  # Stationary (Reduced Stamina Cost)
+    LANDING = 4  # Descending
+    SWOOPING = 5  # Rapid attack descent
+    FALLING = 6  # Out of stamina/Stunned
 
 
 @dataclass(slots=True)
 class PersonalityAxis:
     """
-    The 4-Axis integer system (-100 to +100) for personality.
+    The 4-Axis integer system (-100 to +100) defining personality traits.
 
     Attributes:
         kindness (int): Kindness vs Selfishness.
@@ -90,25 +96,25 @@ class PersonalityAxis:
 @dataclass(slots=True)
 class EmotionalState(Component):
     """
-    Component for the 2D Stress-Happiness Graph and derived emotions.
+    Component tracking emotional wellbeing via a 2D Stress-Happiness graph.
 
     Attributes:
-        happiness (float): -100 to 100.
-        stress (float): 0 to 100.
+        happiness (float): Range -100 to 100.
+        stress (float): Range 0 to 100.
     """
 
-    happiness: float = 0.0  # -100 to 100
-    stress: float = 0.0  # 0 to 100
+    happiness: float = 0.0
+    stress: float = 0.0
 
     def get_dominant_emotion(self, bravery: int = 0) -> str:
         """
-        Derives the mood based on the 4 quadrants and Bravery.
+        Determines the current dominant emotion based on stress/happiness quadrants.
 
         Args:
-            bravery (int): The bravery stat of the entity.
+            bravery (int): The entity's bravery stat, influencing stress response.
 
         Returns:
-            str: The name of the dominant emotion.
+            str: The name of the dominant emotion (e.g., "Excited", "Rage").
         """
         is_happy = self.happiness >= 0
         is_stressed = self.stress >= 50
@@ -120,10 +126,7 @@ class EmotionalState(Component):
                 return "Content/Relaxed"
         else:
             if is_stressed:
-                if bravery > 0:
-                    return "Rage"
-                else:
-                    return "Terror"
+                return "Rage" if bravery > 0 else "Terror"
             else:
                 return "Depressed/Sulking"
 
@@ -131,17 +134,17 @@ class EmotionalState(Component):
 @dataclass(slots=True)
 class Needs(Component):
     """
-    Component containing the physiological needs of a Yukkuri.
+    Component managing physiological needs.
 
     Attributes:
-        health (float): Current health.
-        max_health (float): Maximum health.
-        hunger (float): Current hunger (0-100).
-        social (float): Current social satisfaction (0-100).
-        energy (float): Current energy (0-100).
-        cleanliness (float): Current cleanliness (0-100).
-        bladder (float): Current bladder fullness (0-100).
-        easiness (float): Overall happiness stat (0-100).
+        health (float): Current health points.
+        max_health (float): Maximum health capacity.
+        hunger (float): Hunger level (0-100). Higher is hungrier.
+        social (float): Social satisfaction (0-100).
+        energy (float): Energy level (0-100).
+        cleanliness (float): Hygiene level (0-100).
+        bladder (float): Bladder fullness (0-100).
+        easiness (float): Overall happiness metric (0-100).
     """
 
     health: float = 100.0
@@ -157,23 +160,21 @@ class Needs(Component):
 @dataclass(slots=True)
 class YukkuriStats(Component):
     """
-    Component containing the statistics of a Yukkuri.
+    Component containing general statistics and progression data.
 
     Attributes:
-        name (str): Name of the Yukkuri.
-        type_id (str): Type identifier.
-        archetype (YukkuriArchetype | None): Reference to the archetype data.
-        age (float): Current age in seconds.
-        growth_stage (str): Current growth stage (e.g., "Baby", "Adult").
-        badges (int): Number of badges earned.
-        quality_score (float): Calculated quality score.
-        discipline (float): Current discipline level (0-100).
-        intelligence (float): Intelligence stat.
+        name (str): Entity name.
+        type_id (str): Type identifier key.
+        age (float): Age in game seconds.
+        growth_stage (str): Lifecycle stage (e.g., "Baby", "Adult").
+        badges (int): Number of achievements/badges earned.
+        quality_score (float): Calculated value/quality metric.
+        discipline (float): Training level (0-100).
+        intelligence (float): Intelligence multiplier.
     """
 
     name: str
     type_id: str
-    # archetype field removed from slots to prevent serialization
     age: float = 0.0
     growth_stage: str = "Baby"
     badges: int = 0
@@ -184,17 +185,22 @@ class YukkuriStats(Component):
     @property
     def archetype(self) -> "YukkuriArchetype | None":
         """
-        Retrieves the archetype Flyweight from the global cache.
-        Returns None if not yet loaded/registered.
+        Retrieves the shared archetype data from the global cache.
+
+        Returns:
+            Optional[YukkuriArchetype]: The cached archetype, or None if not registered.
         """
         return _ARCHETYPE_CACHE.get(self.type_id)
 
     def get_intelligence(self, stats_config: "StatsSettings | None" = None) -> float:
         """
-        Returns the intelligence stat.
+        Retrieves the intelligence stat.
 
         Args:
-            stats_config (StatsSettings | None): Config for stats (unused now, kept for compatibility).
+            stats_config: Deprecated. Kept for API compatibility.
+
+        Returns:
+            float: The intelligence value.
         """
         return self.intelligence
 
@@ -205,15 +211,17 @@ class YukkuriStats(Component):
         stats_config: "StatsSettings | None" = None,
     ) -> int:
         """
-        Calculates the value of the Yukkuri based on stats and emotional state.
+        Calculates the monetary value of the Yukkuri.
+
+        Value is derived from badges, emotional state, health, and age.
 
         Args:
-            needs (Needs | None): The needs component.
-            emotional_state (EmotionalState | None): The emotional state component.
-            stats_config (StatsSettings | None): Config for stats value calculation.
+            needs: Optional Needs component to factor in health penalty.
+            emotional_state: Optional EmotionalState to factor in happiness.
+            stats_config: Optional configuration settings for value weights.
 
         Returns:
-            int: The calculated monetary value.
+            int: The calculated value.
         """
         badge_val = 500
         health_penalty = 2.0
@@ -239,22 +247,22 @@ class YukkuriStats(Component):
 @dataclass(slots=True)
 class MemoryHeadline:
     """
-    Represents a significant memory/event.
+    Represents a significant memory or event in an entity's history.
 
     Attributes:
-        id (int): Unique ID of the memory.
-        timestamp (float): Time when the event occurred.
-        importance (float): Absolute magnitude of the event's impact.
-        sentiment (float): Signed value (-100 to 100) representing opinion change.
-        event_type (str): Type of the event.
-        text (str): Description of the event.
-        is_locked (bool): Whether the memory is locked (cannot be forgotten).
+        id (int): Unique memory identifier.
+        timestamp (float): Game time when the event occurred.
+        importance (float): Absolute magnitude of impact (0-100+).
+        sentiment (float): Signed opinion change (-100 to 100).
+        event_type (str): Category of the event.
+        text (str): Readable description.
+        is_locked (bool): If True, prevents this memory from being forgotten.
     """
 
     id: int
     timestamp: float
-    importance: float  # Absolute magnitude of the event
-    sentiment: float  # Signed value (-100 to 100) representing opinion change
+    importance: float
+    sentiment: float
     event_type: str
     text: str = ""
     is_locked: bool = False
@@ -263,13 +271,13 @@ class MemoryHeadline:
 @dataclass(slots=True)
 class Personality:
     """
-    Component defining the personality of a Yukkuri.
+    Component defining the personality profile.
 
     Attributes:
-        traits (Set[str]): A set of trait IDs referencing TOML data.
-        axis (PersonalityAxis): The current 4-Axis personality values.
-        base_axis (PersonalityAxis): The natural resting point of the personality (Genetic + Traits).
-        cached_overrides (dict[str, Any] | None): Cached AI overrides from traits.
+        traits (Set[str]): Set of active trait IDs.
+        axis (PersonalityAxis): Current personality values.
+        base_axis (PersonalityAxis): Genetic/Innate personality baseline.
+        cached_overrides (Optional[Dict[str, Any]]): Cached AI behavior overrides.
     """
 
     traits: set[str] = field(default_factory=set)
@@ -281,21 +289,22 @@ class Personality:
 @dataclass(slots=True)
 class RelationshipData:
     """
-    Stores data about a relationship with another entity.
+    Data structure managing the relationship with a specific entity.
+    Implements the "Headline System" for memory retention and sentiment calculation.
 
     Attributes:
-        affinity (float): Affection/Liking (-100 to 100).
-        trust (float): Trust level (-100 to 100).
-        fear (float): Fear level (0 to 100).
-        familiarity (float): How well they know each other.
+        affinity (float): Net affection/liking (-100 to 100).
+        trust (float): Reliability perception (-100 to 100).
+        fear (float): Thread perception (0 to 100).
+        familiarity (float): Knowledge level (0 to 100).
         last_update (float): Timestamp of last interaction.
-        base_compatibility (float): Cached base compatibility score.
-        trivial_sentiment_sum (float): Sum of sentiments in trivial buffer.
-        core_sentiment_sum (float): Sum of sentiments in core buffer.
-        trivial_buffer (List[MemoryHeadline]): List of trivial memories.
-        core_buffer (List[MemoryHeadline]): List of core memories.
-        TRIVIAL_MAX_LEN (int): Max size of trivial buffer.
-        CORE_MAX_LEN (int): Max size of core buffer.
+        base_compatibility (float): Cached personality compatibility score.
+        trivial_sentiment_sum (float): Cached sum of trivial memory sentiments.
+        core_sentiment_sum (float): Cached sum of core memory sentiments.
+        trivial_buffer (List[MemoryHeadline]): FIFO buffer for minor events.
+        core_buffer (List[MemoryHeadline]): Priority buffer for major events.
+        TRIVIAL_MAX_LEN (int): Capacity of trivial buffer.
+        CORE_MAX_LEN (int): Capacity of core buffer.
     """
 
     affinity: float = 0.0
@@ -312,7 +321,6 @@ class RelationshipData:
     core_sentiment_sum: float = 0.0
 
     # Memory Buffers
-    # We use lists to manually manage size and update sums
     trivial_buffer: list[MemoryHeadline] = field(default_factory=list)
     core_buffer: list[MemoryHeadline] = field(default_factory=list)
 
@@ -322,12 +330,11 @@ class RelationshipData:
 
     def add_headline(self, headline: MemoryHeadline, threshold: float = 50.0) -> None:
         """
-        Adds a headline to the appropriate buffer based on its importance.
+        Adds a memory to the appropriate buffer based on importance.
 
         Args:
-            headline (MemoryHeadline): The memory event to add.
-            threshold (float): Importance threshold for determining if a memory is 'core'.
-                               Defaults to 50.0.
+            headline (MemoryHeadline): The new memory.
+            threshold (float): Importance threshold for Core vs Trivial.
         """
         if headline.importance > threshold or headline.is_locked:
             self._add_core_memory(headline)
@@ -336,11 +343,7 @@ class RelationshipData:
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         """
-        Support for pickling: Ensure running sums are consistent when loading old data
-        or data that wasn't saved with sums.
-
-        Args:
-            state (Dict[str, Any]): The pickled state dictionary.
+        Restores state from pickle, recalculating sentiment sums to ensure consistency.
         """
         for k, v in state.items():
             setattr(self, k, v)
@@ -349,12 +352,7 @@ class RelationshipData:
         self.core_sentiment_sum = sum(m.sentiment for m in self.core_buffer)
 
     def _add_trivial_memory(self, headline: MemoryHeadline) -> None:
-        """
-        Adds a memory to the trivial buffer. Manages buffer size FIFO.
-
-        Args:
-            headline (MemoryHeadline): The memory to add.
-        """
+        """Adds to trivial buffer (FIFO)."""
         if len(self.trivial_buffer) >= self.TRIVIAL_MAX_LEN:
             removed = self.trivial_buffer.pop(0)  # Remove oldest
             self.trivial_sentiment_sum -= removed.sentiment
@@ -364,28 +362,19 @@ class RelationshipData:
 
     def _add_core_memory(self, headline: MemoryHeadline) -> None:
         """
-        Adds to core buffer with locking and priority logic.
-        If full, only overwrites unlocked memories or lower importance locked memories if significantly better.
-
-        Args:
-            headline (MemoryHeadline): The memory to add.
+        Adds to core buffer with priority logic.
+        Evicts the least valuable memory if full (Oldest Unlocked > Lowest Importance Locked).
         """
         if len(self.core_buffer) < self.CORE_MAX_LEN:
             self.core_buffer.append(headline)
             self.core_sentiment_sum += headline.sentiment
             return
 
-        # Buffer is full
-
-        # 1. Try to find the oldest UNLOCKED memory.
-        # We iterate from oldest (index 0) to newest.
+        # Buffer is full - Find victim
         victim_index = -1
-
-        # We also track the lowest importance LOCKED memory in case we need it later.
         min_locked_importance = float("inf")
         min_locked_index = -1
 
-        # Find oldest unlocked memory, or lowest importance locked.
         for i, mem in enumerate(self.core_buffer):
             if not mem.is_locked:
                 victim_index = i
@@ -404,7 +393,7 @@ class RelationshipData:
             self.core_sentiment_sum += headline.sentiment
             return
 
-        # All locked: replace lowest importance if new is significantly better (+20).
+        # All items are locked: replace lowest importance only if significantly better
         if min_locked_index != -1:
             if headline.importance > (min_locked_importance + 20.0):
                 removed = self.core_buffer[min_locked_index]
@@ -418,14 +407,14 @@ class RelationshipData:
 @dataclass(slots=True)
 class RelationshipRegistry:
     """
-    Component tracking social relationships and family ties.
+    Component storing all social relationships for an entity.
 
     Attributes:
-        relationships (Dict[EntityID, RelationshipData]): Map of EntityID to RelationshipData.
-        biological_parents (List[EntityID]): List of parent entity IDs.
-        biological_children (List[EntityID]): List of children entity IDs.
-        family_group_id (EntityID | None): ID of the family group they belong to.
-        mate_id (EntityID | None): ID of the mate entity.
+        relationships (Dict[EntityID, RelationshipData]): Map of target entity IDs to relationship data.
+        biological_parents (List[EntityID]): IDs of biological parents.
+        biological_children (List[EntityID]): IDs of biological children.
+        family_group_id (Optional[EntityID]): Shared family group identifier.
+        mate_id (Optional[EntityID]): ID of current mate.
     """
 
     relationships: dict[EntityID, RelationshipData] = field(default_factory=dict)
@@ -434,15 +423,17 @@ class RelationshipRegistry:
     family_group_id: EntityID | None = None
     mate_id: EntityID | None = None
 
-    # Metadata for serialization remapping
-    # Fields that contain EntityIDs that need remapping
-    # _references: Set[str] = field(default_factory=lambda: {"relationships", "biological_parents", "biological_children", "family_group_id", "mate_id"}, repr=False, init=False)
-
 
 @dataclass(slots=True)
 class GossipPacket:
     """
-    Represents a single piece of gossip or social information.
+    Represents a unit of social information transmission.
+
+    Attributes:
+        target_id (EntityID): The subject of the gossip.
+        event_type (str): The nature of the event (e.g., "Attack").
+        value (float): Informational value/priority.
+        timestamp (float): Time of the event.
     """
 
     target_id: EntityID
@@ -457,25 +448,21 @@ class GossipPacket:
 @dataclass(slots=True)
 class GossipQueue(Component):
     """
-    Component managing a queue of gossip packets.
+    Component managing a priority queue of outgoing gossip.
+
+    Attributes:
+        priority_queue (List[GossipPacket]): Sorted list of gossip packets.
     """
 
     priority_queue: list[GossipPacket] = field(default_factory=list)
 
-    # Metadata for serialization remapping
-    # Note: GossipPacket contains target_id, so we might need deep inspection or just clear it on load?
-    # Retaining gossip across saves is complex if we have to remap inside nested objects in a list.
-    # For now, we will NOT remap GossipQueue and accept that IDs might be stale (or we clear it on load).
-    # Ideally, we should iterate priority_queue.
-    # _references: Set[str] = field(default_factory=lambda: {"priority_queue"}, repr=False, init=False)
-
     def add_packet(self, packet: GossipPacket, max_length: int = 10) -> None:
         """
-        Adds a packet to the queue, merging duplicates and keeping the list sorted by value (descending).
+        Adds a packet to the queue, maintaining sort order and handling duplicates.
 
         Args:
-            packet (GossipPacket): The gossip packet to add.
-            max_length (int): Maximum length of the queue.
+            packet (GossipPacket): The packet to add.
+            max_length (int): Max queue size.
         """
         # 1. Check for duplicates
         duplicate_index = -1
@@ -494,11 +481,12 @@ class GossipQueue(Component):
                 self.priority_queue.sort(key=lambda x: x.value, reverse=True)
             return
 
+        # 3. Add or replace lowest
         if len(self.priority_queue) < max_length:
             self.priority_queue.append(packet)
             self.priority_queue.sort(key=lambda x: x.value, reverse=True)
         else:
-            if packet.value > self.priority_queue[-1].value:  # Better than lowest.
+            if packet.value > self.priority_queue[-1].value:
                 self.priority_queue[-1] = packet
                 self.priority_queue.sort(key=lambda x: x.value, reverse=True)
 
@@ -506,16 +494,16 @@ class GossipQueue(Component):
 @dataclass(slots=True)
 class AIState:
     """
-    Component maintaining the AI state of an entity.
+    Component maintaining execution state for the AI system.
 
     Attributes:
-        current_action (str): The name of the current action.
-        current_target_id (EntityID): The ID of the current target entity.
-        path (list[Any] | None): The current navigation path.
-        action_progress (float): Progress of the current action (0.0 to 1.0).
-        state_data (dict[str, Any] | None): Arbitrary data for the current state.
-        failed_targets (Set[EntityID]): Set of target IDs that failed recently.
-        manual_override (bool): Whether AI is overridden by manual control.
+        current_action (str): Debug name of current activity.
+        current_target_id (EntityID): Entity being targeted.
+        path (Optional[List[Any]]): Navigation path cache.
+        action_progress (float): Completion percentage (0.0-1.0).
+        state_data (Optional[Dict]): Scratchpad for action-specific data.
+        failed_targets (Set[EntityID]): Blacklist of recently failed targets.
+        manual_override (bool): If True, AI logic is suspended.
     """
 
     current_action: str = "Idle"
@@ -527,23 +515,20 @@ class AIState:
     visible_entities: set[EntityID] = field(default_factory=set)
     manual_override: bool = False
 
-    # Metadata for serialization remapping
-    # _references: Set[str] = field(default_factory=lambda: {"current_target_id", "failed_targets"}, repr=False, init=False)
-
 
 @dataclass(slots=True)
 class ItemStats:
     """
-    Component containing statistics for an Item.
+    Component defining the properties of an Item entity.
 
     Attributes:
-        name (str): Name of the item.
-        type_id (str): Type identifier.
-        cost (int): Cost in money.
-        nutrition (float): Nutrition value.
-        fun (float): Fun value.
-        comfort (float): Comfort value.
-        is_portable (bool): Whether it can be carried.
+        name (str): Display name.
+        type_id (str): Type key.
+        cost (int): Monetary value.
+        nutrition (float): Hunger reduction value.
+        fun (float): Entertainment value.
+        comfort (float): Stress reduction value.
+        is_portable (bool): Can be picked up.
     """
 
     name: str
@@ -558,13 +543,13 @@ class ItemStats:
 @dataclass(slots=True)
 class SkillState:
     """
-    Tracks the state of a single skill.
+    Data container for a single skill instance.
 
     Attributes:
-        level (int): Current skill level.
-        current_xp (float): XP accumulated towards the next level.
-        passion (float): Multiplier for XP gain.
-        last_used_gametime (float): Timestamp of last skill usage.
+        level (int): Proficiency tier.
+        current_xp (float): Progress to next level.
+        passion (float): XP gain multiplier (Talent).
+        last_used_gametime (float): Timestamp of last activation.
     """
 
     level: int = 0
@@ -576,10 +561,10 @@ class SkillState:
 @dataclass(slots=True)
 class Skills(Component):
     """
-    Component holding all skills for an entity.
+    Component holding the collection of skills for an entity.
 
     Attributes:
-        states (Dict[str, SkillState]): Map of SkillId to SkillState.
+        states (Dict[str, SkillState]): Map of Skill ID to SkillState.
     """
 
     states: dict[str, SkillState] = field(default_factory=dict)
@@ -587,18 +572,14 @@ class Skills(Component):
 
 @dataclass(slots=True)
 class Poop:
-    """
-    Tag component identifying an entity as Poop.
-    """
+    """Tag component identifying identifying the entity as excrement."""
 
     pass
 
 
 @dataclass(slots=True)
 class Dead:
-    """
-    Tag component for dead entities.
-    """
+    """Tag component identifying that the entity is deceased."""
 
     pass
 
@@ -606,18 +587,18 @@ class Dead:
 @dataclass(slots=True)
 class Flight(Component):
     """
-    Component for flying Yukkuris.
+    Component handling flight mechanics and stamina.
 
     Attributes:
-        altitude (float): Current visual height (0.0 to max_altitude).
-        max_altitude (float): Target height for cruising.
-        vertical_speed (float): Units per second for ascent/descent.
-        stamina (float): Current flight stamina.
-        max_stamina (float): Maximum flight stamina.
-        fly_cost (float): Stamina drain/sec while moving in air.
-        hover_cost (float): Stamina drain/sec while stationary.
-        recovery_rate (float): Stamina gain/sec while GROUNDED.
-        state (FlightState): Current flight state.
+        altitude (float): Current height above ground.
+        max_altitude (float): Ceiling height.
+        vertical_speed (float): Ascent/Descent rate.
+        stamina (float): Current flight energy.
+        max_stamina (float): Max flight energy.
+        fly_cost (float): Stamina drain per second when moving.
+        hover_cost (float): Stamina drain per second when static.
+        recovery_rate (float): Stamina regen per second when grounded.
+        state (FlightState): Current flight mode.
     """
 
     altitude: float = 0.0
@@ -637,14 +618,14 @@ class Flight(Component):
 @dataclass(slots=True)
 class Predator(Component):
     """
-    Component for predator Yukkuris that hunt other entities.
+    Component for predator behavior logic.
 
     Attributes:
-        prey_tags (set[str]): Tags that identify valid prey (e.g., {"Prey", "Weak"}).
+        prey_tags (Set[str]): Tags defining valid food sources.
         prey_sense_radius (float): Detection range for prey.
-        hunger_threshold (float): Hunger level at which hunting starts.
-        aggression (float): Multiplier for attack decisions.
-        dps (float): Damage per second when eating prey.
+        hunger_threshold (float): Hunger level triggering hunt mode.
+        aggression (float): Aggression multiplier.
+        dps (float): Damage per second during feeding.
     """
 
     prey_tags: set[str] = field(default_factory=set)
@@ -654,20 +635,20 @@ class Predator(Component):
     dps: float = 20.0
 
 
-# --- Proposal 4: Unified AI Architecture Components ---
+# --- Unified AI Architecture Components ---
 
 
 class GoalType(Enum):
     """
-    High-level goals that the Utility AI system can select.
+    High-level goal categories for Utility AI selection.
     """
 
     IDLE = 0
     WANDER = 1
-    FORAGE = 2  # Find food
+    FORAGE = 2
     EAT = 3
     FLEE = 4
-    HUNT = 5  # Predator-specific
+    HUNT = 5
     SOCIALIZE = 6
     SLEEP = 7
     PATROL = 8
@@ -676,15 +657,14 @@ class GoalType(Enum):
 @dataclass(slots=True)
 class GoalComponent(Component):
     """
-    Represents the current high-level goal of an AI agent.
-    Set by the UtilitySystem, consumed by the BehaviorTreeSystem.
+    Component representing the current strategic goal selected by Utility AI.
 
     Attributes:
-        goal_type (GoalType): The selected goal.
-        priority (float): Score from Utility AI (0.0 to 1.0+).
-        target_id (EntityID | None): Optional target for goal (e.g., food item, prey).
-        stickiness (float): Hysteresis bonus to prevent rapid goal switching.
-        timestamp (float): When the goal was set (for timeout logic).
+        goal_type (GoalType): The active goal category.
+        priority (float): Utility score (importance).
+        target_id (Optional[EntityID]): Specific target associated with goal.
+        stickiness (float): Score bonus to maintain current goal (hysteresis).
+        timestamp (float): Time when the goal was adopted.
     """
 
     goal_type: GoalType = GoalType.IDLE
@@ -697,14 +677,14 @@ class GoalComponent(Component):
 @dataclass(slots=True)
 class TargetInfo:
     """
-    Information about a perceived entity stored in the Blackboard.
+    Snapshot of a perceived entity in the Blackboard.
 
     Attributes:
-        entity_id (EntityID): The entity's ID.
-        position (tuple[float, float]): Last known position.
-        distance (float): Distance from self.
-        relation (str): "Friend", "Enemy", "Neutral", "Prey", "Threat".
-        timestamp (float): When this info was last updated.
+        entity_id (EntityID): The observed entity.
+        position (Tuple[float, float]): Last observed location.
+        distance (float): Distance from observer.
+        relation (str): Semantic relationship ("Friend", "Enemy", etc.).
+        timestamp (float): Time of observation.
     """
 
     entity_id: EntityID
@@ -717,11 +697,11 @@ class TargetInfo:
 @dataclass(slots=True)
 class LastKnownPosition:
     """
-    Memory entry for an entity that left the visibility range.
+    Memory record for an entity that has moved out of view.
 
     Attributes:
-        position (tuple[float, float]): Last seen position.
-        timestamp (float): When the entity was last seen.
+        position (Tuple[float, float]): Last valid position.
+        timestamp (float): Time when contact was lost.
     """
 
     position: tuple[float, float]
@@ -731,23 +711,24 @@ class LastKnownPosition:
 @dataclass(slots=True)
 class Blackboard(Component):
     """
-    Per-agent data store populated by the PerceptionSystem.
-    Read by UtilitySystem and BehaviorTreeSystem.
+    Shared knowledge state for AI decision making.
+    Populated by PerceptionSystem, consumed by UtilitySystem.
 
     Attributes:
-        visible_targets (dict[EntityID, TargetInfo]): Currently visible entities.
-        short_term_memory (dict[EntityID, LastKnownPosition]): Memory of entities that left view.
-        nearby_friends (int): Count of friends in perception range.
-        nearby_enemies (int): Count of enemies/threats in perception range.
-        closest_threat_id (EntityID | None): ID of the closest threat (for flee priority).
-        closest_food_id (EntityID | None): ID of the closest food source.
+        visible_targets (Dict[EntityID, TargetInfo]): Currently seen entities.
+        short_term_memory (Dict[EntityID, LastKnownPosition]): Recently lost entities.
+        nearby_friends (int): Count of allies nearby.
+        nearby_enemies (int): Count of threats nearby.
+        nearby_prey (int): Count of prey nearby.
+        closest_threat_id (Optional[EntityID]): ID of critical threat.
+        closest_food_id (Optional[EntityID]): ID of optimal food source.
     """
 
     visible_targets: dict[EntityID, TargetInfo] = field(default_factory=dict)
     short_term_memory: dict[EntityID, LastKnownPosition] = field(default_factory=dict)
     nearby_friends: int = 0
     nearby_enemies: int = 0
-    nearby_prey: int = 0  # Added for predator logic
+    nearby_prey: int = 0
     closest_threat_id: EntityID | None = None
     closest_food_id: EntityID | None = None
 
@@ -755,16 +736,15 @@ class Blackboard(Component):
 @dataclass(slots=True)
 class ArchetypeConfig:
     """
-    Data-driven configuration loaded from TOML for AI behavior.
-    Attached to entities to define their behavior profile.
+    Configuration attached to entities to define specific AI behavior profiles.
 
     Attributes:
-        archetype_id (str): Identifier (e.g., "predator", "prey", "scavenger").
-        priorities (list[GoalType]): Ordered list of goal preferences.
-        prey_tags (set[str]): Tags that identify valid prey (for predators).
-        predator_tags (set[str]): Tags that identify threats (for prey).
-        stamina_regen (float): Stamina regeneration rate.
-        personality_bias (dict[str, float]): Axis adjustments (e.g., {"arrogance": 0.5}).
+        archetype_id (str): Behavior profile name (e.g. "predator", "coward").
+        priorities (List[GoalType]): Ordered preference list for goals.
+        prey_tags (Set[str]): Tags treated as prey.
+        predator_tags (Set[str]): Tags treated as predators.
+        stamina_regen (float): Stamina recovery rate.
+        personality_bias (Dict[str, float]): Base modifier for personality axes.
     """
 
     archetype_id: str = "default"

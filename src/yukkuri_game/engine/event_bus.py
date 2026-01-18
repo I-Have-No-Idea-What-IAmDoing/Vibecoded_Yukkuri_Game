@@ -1,8 +1,9 @@
 """
-Module defining the EventBus system.
+Event Bus Module.
 
-The EventBus provides a mechanism for decoupled communication between different
-parts of the application using a publish-subscribe pattern.
+This module provides the `EventBus`, a mechanism for decoupled communication between
+systems via a publish-subscribe pattern. It promotes loose coupling by allowing
+producers and consumers to interact without direct references to each other.
 """
 
 from typing import Any, TypeVar
@@ -14,12 +15,11 @@ from loguru import logger
 @dataclass(frozen=True)
 class Event:
     """
-    Base class for all events.
+    Base class for all system events.
 
-    Events are simple data containers used to communicate between systems.
-    Subclasses should be frozen dataclasses to ensure immutability.
+    Events are immutable data containers carrying state change information.
+    Subclasses must be decorated with `@dataclass(frozen=True)`.
     """
-
     pass
 
 
@@ -29,62 +29,58 @@ EventHandler = Callable[[E], None]
 
 class EventBus:
     """
-    A lightweight Event Bus to decouple producers from consumers.
+    A lightweight, type-safe Event Bus.
 
-    Allows systems to subscribe to and publish events without knowing about each other.
+    Manages subscriptions and publication of events.
 
     Attributes:
-        _subscribers (Dict[Type[Event], List[Callable[[Any], None]]]): A dictionary
-            mapping event types to lists of handlers.
+        _subscribers: A mapping of Event types to a list of callable handlers.
     """
 
     def __init__(self) -> None:
-        """Initializes the EventBus."""
+        """Initializes a new, empty EventBus."""
         self._subscribers: dict[type[Event], list[Callable[[Any], None]]] = {}
 
     def subscribe(self, event_type: type[E], handler: EventHandler[E]) -> None:
         """
-        Subscribes a handler to a specific event type.
+        Registers a callback function for a specific event type.
 
         Args:
-            event_type (Type[E]): The class of the event to subscribe to.
-            handler (EventHandler[E]): The function to call when the event is published.
-
-        Returns:
-            None
+            event_type: The class of the event to listen for.
+            handler: The function to execute when the event is published.
+                     Must accept a single argument of type `event_type`.
         """
         if event_type not in self._subscribers:
             self._subscribers[event_type] = []
-        # We need to cast handler to Callable[[Any], None] because Dict is invariant
+        
+        # Type-casting needed as Dict is invariant, but runtime behavior is safe.
         self._subscribers[event_type].append(handler)
 
     def unsubscribe(self, event_type: type[E], handler: EventHandler[E]) -> None:
         """
-        Unsubscribes a handler from a specific event type.
+        Removes a previously registered callback.
+
+        Safe to call even if the handler was never registered.
 
         Args:
-            event_type (Type[E]): The class of the event to unsubscribe from.
-            handler (EventHandler[E]): The handler function to remove.
-
-        Returns:
-            None
+            event_type: The class of the event.
+            handler: The function to remove.
         """
         if event_type in self._subscribers:
             try:
                 self._subscribers[event_type].remove(handler)
-
             except ValueError:
-                pass  # Handler not found
+                pass
 
     def publish(self, event: Event) -> None:
         """
-        Publishes an event to all subscribers of its type.
+        Broadcasts an event to all registered subscribers.
+
+        Handlers are executed synchronously in the order they were registered.
+        Exceptions within handlers are caught and logged to prevent system crashes.
 
         Args:
-            event (Event): The event instance to publish.
-
-        Returns:
-            None
+            event: The event instance to broadcast.
         """
         event_type = type(event)
         if event_type in self._subscribers:
@@ -96,9 +92,6 @@ class EventBus:
 
     def clear(self) -> None:
         """
-        Clears all subscribers from the event bus.
-
-        Returns:
-            None
+        Removes all subscribers, effectively resetting the bus.
         """
         self._subscribers.clear()

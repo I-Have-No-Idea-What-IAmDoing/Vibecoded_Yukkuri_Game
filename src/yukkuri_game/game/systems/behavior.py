@@ -1,9 +1,21 @@
 """
-Module defining the BehaviorSystem logic.
+Behavior System Module.
+
+This system manages the lifecycle and execution of Behavior Trees for entities.
+It handles tree creation, destruction, and periodic updates (ticking).
+
+Key features:
+    - Round-robin scheduling to distribute AI updates across frames.
+    - Tick throttling for distant or stable entities to improve performance.
+    - Automatic cleanup of trees for destroyed entities.
 """
+
+from collections import deque
+from typing import Dict, Set
 
 import py_trees
 from py_trees.common import Status
+
 from ...engine.ecs import System, World
 from ..components import LODComponent
 from ..yukkuri_components import AIState
@@ -14,10 +26,18 @@ class BehaviorSystem(System):
     """
     System responsible for ticking Behavior Trees.
 
+    Manages a collection of behavior trees, executing them based on a
+    scheduling policy that prioritizes close, active entities and throttles
+    distant or stable ones.
+
     Attributes:
         world_w (float): The width of the world boundary.
         world_h (float): The height of the world boundary.
-        trees (Dict[int, py_trees.trees.BehaviourTree]): A dictionary mapping entity IDs to their behavior trees.
+        trees (Dict[int, py_trees.trees.BehaviourTree]): Map of entity IDs to behavior trees.
+        update_queue (deque[int]): Queue for round-robin scheduling.
+        last_update_times (Dict[int, float]): Map of entity IDs to last tick timestamp.
+        total_time (float): Accumulated simulation time.
+        stable_entities (Set[int]): Set of entities currently in a stable state (SUCCESS).
     """
 
     def __init__(self, world_width: float, world_height: float):
@@ -30,33 +50,35 @@ class BehaviorSystem(System):
         """
         self.world_w = world_width
         self.world_h = world_height
-        self.trees: dict[int, py_trees.trees.BehaviourTree] = {}
-        # Round-robin queue for updates
-        from collections import deque
-
+        self.trees: Dict[int, py_trees.trees.BehaviourTree] = {}
+        
         self.update_queue: deque[int] = deque()
-        self.max_updates_per_frame = 10  # Tune this based on performance
+        self.max_updates_per_frame = 10  # Configurable performance definition
 
-        self.last_update_times: dict[int, float] = {}
+        self.last_update_times: Dict[int, float] = {}
         self.total_time: float = 0.0
 
-        # --- Performance Optimization: Tick Throttling ---
-        # Minimum time (seconds) between ticks for the same entity.
-        # Reduces CPU load by preventing excessively frequent AI updates.
-        self.min_tick_interval: float = 0.1  # 100ms = 10 ticks/sec max per entity
-
-        # Entities in stable states (SUCCESS) are ticked less frequently.
-        self.stable_tick_multiplier: float = 3.0  # 3x slower for stable entities
-        self.stable_entities: set[int] = set()  # Track entities in stable states
+        # Performance Optimization: Tick Throttling
+        # Minimum seconds between ticks. 0.1s = 10Hz max per entity.
+        self.min_tick_interval: float = 0.1
+        
+        # Throttling multiplier for entities in specific states (e.g. Sleeping)
+        self.stable_tick_multiplier: float = 3.0
+        self.stable_entities: Set[int] = set()
 
     def update(self, world: World, dt: float) -> None:
         """
-        Ticks behavior trees using round-robin scheduling.
-        Caps updates to max_updates_per_frame.
+        Ticks behavior trees using round-robin scheduling and throttling.
+
+        Caps the number of updates per frame to maintain steady frame rates.
+        
+        Args:
+            world (World): The ECS world instance.
+            dt (float): Time delta since last frame.
         """
         self.total_time += dt
 
-        # Detect new entities and add to system.
+        # 1. Detect new entities and add to system
         current_ai_entities = set()
         for entity, (ai,) in world.get_components_tuple(AIState):
             current_ai_entities.add(entity)
@@ -70,21 +92,14 @@ class BehaviorSystem(System):
                 self.last_update_times[entity] = self.total_time
 
         # 2. Cleanup dead entities
-        # Check if any entities in trees are no longer in current_ai_entities
-        # This handles both death and component removal
-        dead_entities = []
-        for entity in self.trees:
-            if entity not in current_ai_entities:
-                dead_entities.append(entity)
-
+        dead_entities = [e for e in self.trees if e not in current_ai_entities]
+        
         for entity in dead_entities:
             del self.trees[entity]
             if entity in self.last_update_times:
                 del self.last_update_times[entity]
-            # Also clean up stable entities tracking
             self.stable_entities.discard(entity)
-            # Removing from deque is O(N), so we just skip them during update loop if encountered
-            # Or we can rebuild deque if many die. Lazy removal is better usually.
+            # Safe to leave in deque; will be skipped in main loop
 
         # 3. Process Batch with Tick Throttling
         updates_count = 0
@@ -101,19 +116,16 @@ class BehaviorSystem(System):
 
             entity = self.update_queue.popleft()
 
-            # If entity is dead (removed from trees), skip and don't re-queue
+            # Skip dead entities
             if entity not in self.trees:
                 continue
 
-            # --- Tick Throttling ---
-            # Calculate time since last tick for this entity
+            # --- Tick Throttling Logic ---
             last_time = self.last_update_times.get(entity, self.total_time - 0.1)
             time_since_last_tick = self.total_time - last_time
-
-            # Determine required interval based on stability and LOD
             required_interval = self.min_tick_interval
 
-            # LOD Throttling
+            # LOD Scaling
             lod = world.try_get_component(entity, LODComponent)
             if lod:
                 if lod.level == 1:  # Medium
@@ -123,47 +135,44 @@ class BehaviorSystem(System):
                 elif lod.level >= 3:  # Culled
                     required_interval *= 10.0
 
+            # State Scaling
             if entity in self.stable_entities:
-                # Stable entities tick less frequently
                 required_interval *= self.stable_tick_multiplier
 
-            # Skip if not enough time has passed
+            # Skip if interval not met
             if time_since_last_tick < required_interval:
-                # Re-queue immediately without counting as an update
                 self.update_queue.append(entity)
                 skipped_count += 1
-                # Prevent infinite loop if all entities are throttled
                 if skipped_count >= max_queue_checks:
                     break
                 continue
 
-            # Calculate dt for this entity (actual time since last tick)
+            # Calculate actual AI dt
             entity_dt = time_since_last_tick
             if entity_dt <= 0:
                 entity_dt = 0.1
 
-            # Tick the behavior tree
+            # Execute Tick
             py_trees.blackboard.Blackboard().set("dt", entity_dt)
             tree = self.trees[entity]
             tree.tick()
 
-            # Post-tick logic and stable state tracking
+            # Post-tick logic
             ai = world.try_get_component(entity, AIState)
             root_status = tree.root.status
 
             if root_status == Status.SUCCESS:
-                # Mark as stable - will tick less frequently
                 self.stable_entities.add(entity)
             elif root_status == Status.RUNNING:
-                # Active behavior - remove from stable set
                 self.stable_entities.discard(entity)
-            # FAILURE stays at normal rate to retry quickly
+            # FAILURE implies re-planning needed, do not throttle extra.
 
+            # Reset manual overrides on competition
             if ai and (root_status == Status.SUCCESS or root_status == Status.FAILURE):
                 if getattr(ai, "manual_override", False):
                     ai.manual_override = False
 
-            # Update time and re-queue
+            # Update Metadata
             self.last_update_times[entity] = self.total_time
             self.update_queue.append(entity)
             updates_count += 1

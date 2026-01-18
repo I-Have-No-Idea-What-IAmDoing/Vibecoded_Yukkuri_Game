@@ -1,14 +1,28 @@
+"""
+Navigation System - Pathfinding Result Processor.
+"""
+
 from ...engine.ecs import System, World
 from ..ai.navigation_service import NavigationService
 from ..yukkuri_components import AIState
+from ..components import Transform
 
 
 class NavigationSystem(System):
     """
     System that processes asynchronous pathfinding results.
+
+    Retrieves completed paths from NavigationService and updates entity AIState.
     """
 
     def update(self, world: World, dt: float) -> None:
+        """
+        Updates the navigation system.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+        """
         nav_service = world.services.try_get(NavigationService)
         if not nav_service:
             return
@@ -31,8 +45,6 @@ class NavigationSystem(System):
 
                     # Prune start node to prevent backtracking.
                     if ai_state.path and len(ai_state.path) > 1:
-                        from ..components import Transform
-
                         trans = world.try_get_component(result.entity_id, Transform)
                         if trans:
                             px, py = ai_state.path[0]

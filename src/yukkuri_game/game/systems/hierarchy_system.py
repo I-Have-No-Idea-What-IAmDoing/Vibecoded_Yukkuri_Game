@@ -5,25 +5,27 @@ Manages mounted entity relationships where one Yukkuri can carry another.
 Handles the "Totem Pole" stacking mechanic and safe dismounting.
 
 Mounting Mechanics:
-- Mounted children follow parent position with offset rotation
-- Root entity's physics body gets proxy shapes for all children
-- Mounted entities' own shapes become sensors (no collision)
+-   Mounted children follow parent position with offset rotation.
+-   Root entity's physics body gets proxy shapes for all children.
+-   Mounted entities' own shapes become sensors (no collision).
 
 Dismounting:
-- When unmounting, entities need to find free space to land
-- Uses spiral search pattern to find collision-free position
-- Emergency teleport to origin if no space found within timeout
+-   When unmounting, entities need to find free space to land.
+-   Uses spiral search pattern to find collision-free position.
+-   Emergency teleport to origin if no space found within timeout.
 
 Composite Collider:
-- Root body accumulates proxy shapes for each mounted child
-- Allows proper collision for entire stack while treating it as one unit
-- Structure rebuilt when mount hierarchy changes (structure_dirty flag)
+-   Root body accumulates proxy shapes for each mounted child.
+-   Allows proper collision for entire stack while treating it as one unit.
+-   Structure rebuilt when mount hierarchy changes (structure_dirty flag).
 """
 
 import pymunk
 import math
-from ...engine import rng
+from typing import Dict, List, Optional, Tuple
+
 from loguru import logger
+from ...engine import rng
 from ...engine.ecs import System, World
 from ..components import (
     Mount,
@@ -33,9 +35,7 @@ from ..components import (
 )
 from ..collision_constants import CollisionCategories
 
-# ==================== DISMOUNT SEARCH CONSTANTS ====================
 # Controls the spiral search pattern for finding free landing spots
-
 _DISMOUNT_DEFAULT_RADIUS = 10.0  # Default entity collision radius if unknown
 _DISMOUNT_MAX_SEARCH_RADIUS = 100.0  # Maximum spiral search distance
 _DISMOUNT_MAX_SEARCH_CHECKS = 20  # Maximum positions to check before giving up
@@ -57,9 +57,6 @@ class HierarchySystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
         # 1. Build a map of all mounted entities
         mounts = world.get_components(Mount)
@@ -81,7 +78,7 @@ class HierarchySystem(System):
         self.process_dismounts(world, dt)
 
     def process_structure_update(
-        self, world: World, root_entity: int, mounts: dict[int, Mount]
+        self, world: World, root_entity: int, mounts: Dict[int, Mount]
     ) -> None:
         """
         Updates the Root's physics body shapes to represent the stack ("The Totem Pole").
@@ -90,10 +87,7 @@ class HierarchySystem(System):
         Args:
             world (World): The ECS World.
             root_entity (int): The root entity ID.
-            mounts (dict): Dictionary of all Mount components.
-
-        Returns:
-            None
+            mounts (Dict[int, Mount]): Dictionary of all Mount components.
         """
         mount = mounts.get(root_entity)
         if not mount or not mount.structure_dirty:
@@ -162,7 +156,7 @@ class HierarchySystem(System):
         mount.structure_dirty = False
 
     def process_entity(
-        self, world: World, root_entity: int, mounts: dict[int, Mount]
+        self, world: World, root_entity: int, mounts: Dict[int, Mount]
     ) -> None:
         """
         Iteratively update children of this entity using a stack.
@@ -170,10 +164,7 @@ class HierarchySystem(System):
         Args:
             world (World): The ECS World.
             root_entity (int): The root entity ID.
-            mounts (dict): Dictionary of all Mount components.
-
-        Returns:
-            None
+            mounts (Dict[int, Mount]): Dictionary of all Mount components.
         """
         root_pos = None
         root_rot = 0.0
@@ -268,9 +259,6 @@ class HierarchySystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
         components = world.get_components_tuple(PendingDismount, Transform, PhysicsBody)
 
@@ -325,9 +313,6 @@ class HierarchySystem(System):
             space (pymunk.Space): The physics space.
             phys (PhysicsBody): The physics component.
             trans (Transform): The transform component.
-
-        Returns:
-            None
         """
         # Fallback to origin. If no free spot, depenetration will handle it.
         fallback_pos = pymunk.Vec2d(0, 0)
@@ -339,7 +324,7 @@ class HierarchySystem(System):
 
     def find_free_spot(
         self, space: pymunk.Space, start_pos: pymunk.Vec2d, shape: pymunk.Shape
-    ) -> pymunk.Vec2d | None:
+    ) -> Optional[pymunk.Vec2d]:
         """
         Searches for a free spot using a spiral pattern.
         Uses point_query (or reusing the same temp shape if possible) to ensure the full volume fits.

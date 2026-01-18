@@ -3,6 +3,8 @@ Module defining the visual movement system.
 """
 
 import math
+from typing import Optional
+
 import pymunk
 from ...engine.ecs import System, World
 from ..components import PhysicsBody, MovementController, VisualTransform
@@ -13,6 +15,7 @@ from ..skill_constants import SkillId
 class VisualMovementSystem(System):
     """
     Updates visual transforms for effects like hopping and handles side effects of movement (like XP).
+
     Does NOT update physics bodies directly (that is handled by KinematicMovementSystem).
 
     Attributes:
@@ -25,7 +28,7 @@ class VisualMovementSystem(System):
     def __init__(self) -> None:
         """Initializes the VisualMovementSystem."""
         super().__init__()
-        self.skill_service: SkillService | None = None
+        self.skill_service: Optional[SkillService] = None
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -36,9 +39,6 @@ class VisualMovementSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
         if not self.skill_service:
             self.skill_service = world.services.try_get(SkillService)
@@ -54,7 +54,7 @@ class VisualMovementSystem(System):
                 # Use the controller's current_velocity (calculated from virtual physics)
                 speed = controller.current_velocity.length
             else:
-                # Fallback for dynamic bodies if any (though Proposal 4 says all are Kinematic)
+                # Fallback for dynamic bodies if any
                 speed = phys.body.velocity.length
 
             if speed > 0.1:
@@ -78,5 +78,3 @@ class VisualMovementSystem(System):
 
             # 4. Shadow position is an offset, usually (0,0) or (0, height/2)
             # RenderSystem adds this to the entity's world position.
-            # Leaving it as (0,0) (default) keeps the shadow at the entity's ground center.
-            pass

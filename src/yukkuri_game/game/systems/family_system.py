@@ -6,24 +6,26 @@ Implements the core social bonding mechanic where Yukkuris form lasting
 family units and share resources.
 
 Family Formation:
-- High affinity + trust pairs automatically form new families
-- Existing families can absorb new members meeting thresholds
-- Family bonds persist until manually dissolved or death
+-   High affinity + trust pairs automatically form new families.
+-   Existing families can absorb new members meeting thresholds.
+-   Family bonds persist until manually dissolved or death.
 
 Family Benefits (when family members are nearby):
-- Passive happiness/stress bonuses
-- Food sharing: Eating members share nutrition with hungry family
-- Nest sharing: Sleeping members provide rest bonuses to family
+-   Passive happiness/stress bonuses.
+-   Food sharing: Eating members share nutrition with hungry family.
+-   Nest sharing: Sleeping members provide rest bonuses to family.
 
 Performance:
-- Uses SectorMap spatial partitioning when available
-- Falls back to O(N²) comparison without spatial indexing
+-   Uses SectorMap spatial partitioning when available.
+-   Falls back to O(N²) comparison without spatial indexing.
 """
 
-from ...engine import rng
+from typing import cast, Optional
 from loguru import logger
 
+from ...engine import rng
 from ...engine.ecs import System, World
+from ...engine.types import EntityID
 from ..yukkuri_components import (
     YukkuriStats,
     Needs,
@@ -33,42 +35,37 @@ from ..yukkuri_components import (
 )
 from ..systems.sector_system import SectorMap
 from ..components import Transform
-from ...engine.types import EntityID
-from typing import cast
 
 
 class FamilySystem(System):
     """
     System responsible for managing family groups and logic.
-    Handles 'Take it easy together' logic:
-    - High affinity entities forming a family.
-    - Resource sharing (food/nest benefits).
 
     Attributes:
         check_interval (float): Time interval between family logic checks.
         last_check (float): Time since last check.
     """
 
-    # ==================== FORMATION THRESHOLDS ====================
+    # FORMATION THRESHOLDS
     # Both affinity AND trust must exceed these to form/join a family
-    MIN_AFFINITY_FOR_FAMILY = 80.0  # Minimum liking required
-    MIN_TRUST_FOR_FAMILY = 80.0  # Minimum trust required
+    MIN_AFFINITY_FOR_FAMILY = 80.0
+    MIN_TRUST_FOR_FAMILY = 80.0
 
-    # ==================== PROXIMITY SETTINGS ====================
+    # PROXIMITY SETTINGS
     BENEFIT_RANGE = 150.0  # Maximum distance for benefits (pixels)
-    BENEFIT_RANGE_SQ = BENEFIT_RANGE * BENEFIT_RANGE  # Pre-computed for efficiency
+    BENEFIT_RANGE_SQ = BENEFIT_RANGE * BENEFIT_RANGE
 
-    # ==================== TOGETHERNESS BONUSES ====================
+    # TOGETHERNESS BONUSES
     # Applied per update tick while family members are near each other
     BASE_HAPPINESS_GAIN = 0.5
     BASE_STRESS_REDUCTION = 0.5
 
-    # ==================== FOOD SHARING ====================
+    # FOOD SHARING
     # When one member eats, hungry family nearby gets partial benefit
     FOOD_SHARING_HUNGER_THRESHOLD = 50.0  # Other must be this hungry to receive
     FOOD_SHARING_AMOUNT = 1.0  # Hunger points reduced for recipient
 
-    # ==================== NEST SHARING ====================
+    # NEST SHARING
     # When one member sleeps, nearby family gets rest bonus
     SLEEP_ENERGY_GAIN = 0.5
     SLEEP_STRESS_REDUCTION = 1.0
@@ -86,9 +83,6 @@ class FamilySystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
         self.last_check += dt
         if self.last_check >= self.check_interval:
@@ -102,9 +96,6 @@ class FamilySystem(System):
 
         Args:
             world (World): The ECS World.
-
-        Returns:
-            None
         """
         entities = world.get_entities_with(RelationshipRegistry, YukkuriStats)
 
@@ -126,11 +117,12 @@ class FamilySystem(System):
                     if not other_registry:
                         continue
 
+                    # Case 1: Neither has a family -> Create new family
                     if (
                         registry.family_group_id is None
                         and other_registry.family_group_id is None
                     ):
-                        new_family_id_int = rng.getrandbits(32)  # Deterministic ID.
+                        new_family_id_int = rng.getrandbits(32)
                         new_family_id = cast(EntityID, new_family_id_int)
                         registry.family_group_id = new_family_id
                         other_registry.family_group_id = new_family_id
@@ -138,7 +130,7 @@ class FamilySystem(System):
                             f"New Family Formed: {stats.name} and Entity {other_id}"
                         )
 
-                    # If one has a family and other doesn't, join
+                    # Case 2: One has family, other doesn't -> Join existing
                     elif (
                         registry.family_group_id is not None
                         and other_registry.family_group_id is None
@@ -160,11 +152,7 @@ class FamilySystem(System):
 
         Args:
             world (World): The ECS World.
-
-        Returns:
-            None
         """
-
         sector_map = world.services.try_get(SectorMap)
 
         if sector_map:
@@ -182,18 +170,10 @@ class FamilySystem(System):
         Args:
             world (World): The ECS World.
             sector_map (SectorMap): The sector map service.
-
-        Returns:
-            None
         """
-        from ..components import Transform
-
         entities = world.get_entities_with(
             RelationshipRegistry, YukkuriStats, Needs, Transform, AIState
         )
-
-        # To avoid processing pairs twice, we only process if eid < other_eid.
-        # But sector queries return neighbors, so we just filter.
 
         for eid in entities:
             reg = world.get_component(eid, RelationshipRegistry)
@@ -258,12 +238,7 @@ class FamilySystem(System):
 
         Args:
             world (World): The ECS World.
-
-        Returns:
-            None
         """
-        from ..components import Transform
-
         entities = world.get_entities_with(
             RelationshipRegistry, YukkuriStats, Needs, Transform, AIState
         )
@@ -292,7 +267,6 @@ class FamilySystem(System):
                 ):
                     continue
 
-                # Same family
                 other_trans = world.get_component(other_eid, Transform)
                 other_ai = world.get_component(other_eid, AIState)
                 other_stats = world.get_component(other_eid, YukkuriStats)
@@ -334,8 +308,8 @@ class FamilySystem(System):
         other_trans: "Transform",
         ai: AIState,
         other_ai: AIState,
-        emotional: EmotionalState | None,
-        other_emotional: EmotionalState | None,
+        emotional: Optional[EmotionalState],
+        other_emotional: Optional[EmotionalState],
     ) -> None:
         """
         Helper to apply benefits between two entities if they are close enough.
@@ -353,11 +327,7 @@ class FamilySystem(System):
             other_ai (AIState): Second entity AI state.
             emotional (Optional[EmotionalState]): First entity emotional state.
             other_emotional (Optional[EmotionalState]): Second entity emotional state.
-
-        Returns:
-            None
         """
-
         dist_sq = (trans.x - other_trans.x) ** 2 + (trans.y - other_trans.y) ** 2
         if dist_sq < self.BENEFIT_RANGE_SQ:
             # 1. Base "Together" Happiness
@@ -421,3 +391,5 @@ class FamilySystem(System):
                     emotional.stress = max(
                         0.0, emotional.stress - self.SLEEP_STRESS_REDUCTION
                     )
+
+

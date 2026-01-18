@@ -1,29 +1,85 @@
 """
-Module defining the AnimationSystem logic.
+Animation System - Sprite Animation Management.
+
+Handles sprite animation states, frame updates, and rendering for entities.
+Driven by state changes (idle, walk, run, etc.) and time deltas.
+
+Components:
+-   Animation: Stores current state, speed, frame index, and sprite sheet reference.
+-   AnimationSystem: Updates Animation components based on game time.
+
+Features:
+-   State-based animations (mapped to rows/indices in sprite sheet).
+-   Variable animation speeds.
+-   Looping or one-shot playback.
+-   Horizontal flipping for direction facing.
+-   Visual debug rendering of collision shapes (if enabled).
+
+Data Structure:
+-   Animation definitions are loaded from TOML via ResourceManager.
+-   Sprite sheets are standard grids of frames.
 """
 
-from ...engine.ecs import System, World
+import pygame
+from typing import Dict, List, Optional, Tuple, Any, Union
+
+from ...engine.ecs import System, World, Component
 from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
+from ...engine.assets import AnimationResource
 from ..components import Sprite, Animator, LODComponent
 from ..yukkuri_components import AIState, YukkuriStats, register_archetype
 from ..events import AnimationEvent
 
+class Animation(Component):
+    """
+    Component storing animation state for an entity.
+
+    Attributes:
+        current_animation (str): Name of the current animation state (e.g., "idle").
+        frame_index (float): Current frame index (float for sub-frame smoothing).
+        speed (float): Playback speed multiplier.
+        facing_right (bool): True if facing right, False if facing left.
+        sprite_sheet_id (str): ID of the sprite sheet resource.
+        animations (Dict[str, Any]): Dictionary of available animation states.
+    """
+
+    def __init__(
+        self,
+        sprite_sheet_id: str,
+        animations: Dict[str, Any],
+        default_anim: str = "idle",
+    ):
+        """
+        Initializes the Animation component.
+
+        Args:
+            sprite_sheet_id (str): Resource ID for the sprite sheet.
+            animations (Dict[str, Any]): Animation data (frames, loops, etc.).
+            default_anim (str): Initial animation state.
+        """
+        self.sprite_sheet_id = sprite_sheet_id
+        self.animations = animations
+        self.current_animation = default_anim
+        self.frame_index = 0.0
+        self.speed = 1.0
+        self.facing_right = True
+
 
 class AnimationSystem(System):
     """
-    System responsible for updating sprite animations.
+    Animation System - Sprite Animation Management.
 
-    Attributes:
-        event_bus (Optional[EventBus]): The event bus to publish animation events to.
+    Handles sprite animation states, frame updates, and rendering for entities.
+    Driven by state changes (idle, walk, run, etc.) and time deltas.
     """
 
-    def __init__(self, event_bus: EventBus | None = None):
+    def __init__(self, event_bus: Optional[EventBus] = None):
         """
         Initializes the AnimationSystem.
 
         Args:
-            event_bus (Optional[EventBus]): The event bus to publish animation events to.
+            event_bus (Optional[EventBus]): The event bus.
         """
         self.event_bus = event_bus
         self.frame_count: int = 0
@@ -35,11 +91,7 @@ class AnimationSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
-
         self.frame_count += 1
 
         # Handle Animator components (Advanced Animation)
@@ -67,8 +119,6 @@ class AnimationSystem(System):
                 self._sync_ai_animation(world, entity_id, animator, ai_state)
 
         # Handle Legacy Sprite Animation (if no Animator)
-
-        # Retrieve ResourceManager once
         rm = world.services.try_get(ResourceManager)
 
         for entity, sprite in world.get_components(Sprite).items():
@@ -115,9 +165,6 @@ class AnimationSystem(System):
             animator (Animator): The animator component.
             sprite (Sprite): The sprite component.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
         current_anim_def = animator.animations.get(animator.current_animation)
         if not current_anim_def:
@@ -166,9 +213,7 @@ class AnimationSystem(System):
                         animator.current_frame_index = 1  # Go forward
                         animator.forward = True
                         if animator.current_frame_index >= len(current_anim_def.frames):
-                            animator.current_frame_index = (
-                                0  # Should not happen unless len=1
-                            )
+                            animator.current_frame_index = 0
             else:
                 # Standard loop or single play
                 animator.current_frame_index += 1
@@ -222,9 +267,6 @@ class AnimationSystem(System):
         Args:
             animator (Animator): The animator component.
             new_anim (str): The name of the new animation.
-
-        Returns:
-            None
         """
         animator.current_animation = new_anim
         animator.current_frame_index = 0
@@ -243,9 +285,6 @@ class AnimationSystem(System):
             entity (int): The entity ID.
             animator (Animator): The animator component.
             ai_state (AIState): The AIState component.
-
-        Returns:
-            None
         """
         target_anim = ai_state.current_action.lower()
 
@@ -270,7 +309,7 @@ class AnimationSystem(System):
             self._switch_animation(animator, target_anim)
 
     def _update_dynamic_sprite(
-        self, world: World, entity: int, sprite: Sprite, rm: ResourceManager | None
+        self, world: World, entity: int, sprite: Sprite, rm: Optional[ResourceManager]
     ) -> None:
         """
         Updates the sprite image based on AIState if no Animator is present.
@@ -280,9 +319,6 @@ class AnimationSystem(System):
             entity (int): The entity ID.
             sprite (Sprite): The sprite component.
             rm (Optional[ResourceManager]): The resource manager.
-
-        Returns:
-            None
         """
         if not rm:
             return

@@ -5,28 +5,30 @@ Manages the decay of Yukkuri stats over time and updates emotional states.
 Core to the simulation's need-driven AI behavior.
 
 Stat Decay:
-- Physical stats (hunger, energy, cleanliness, social) decay over game time
-- Decay rates modifiable by traits
-- Starvation (hunger >= 100) causes health damage
+-   Physical stats (hunger, energy, cleanliness, social) decay over game time.
+-   Decay rates modifiable by traits.
+-   Starvation (hunger >= 100) causes health damage.
 
 Emotional Model (2D Stress-Happiness Graph):
-- Happiness: -100 (sad) to +100 (happy), decays toward neutral (0)
-- Stress: 0 (calm) to 100 (stressed), decays over time
+-   Happiness: -100 (sad) to +100 (happy), decays toward neutral (0).
+-   Stress: 0 (calm) to 100 (stressed), decays over time.
 
 Quadrant-based mood derivation:
-- Happy + Low Stress = Content/Relaxed
-- Happy + High Stress = Excited/Manic
-- Unhappy + High Stress = Rage (if brave) or Fear
-- Unhappy + Low Stress = Depression
+-   Happy + Low Stress = Content/Relaxed.
+-   Happy + High Stress = Excited/Manic.
+-   Unhappy + High Stress = Rage (if brave) or Fear.
+-   Unhappy + Low Stress = Depression.
 
 Environmental Effects:
-- Night without light source = stress increase (DARKNESS_STRESS_RATE)
-- Proximity to light negates darkness stress
+-   Night without light source = stress increase (DARKNESS_STRESS_RATE).
+-   Proximity to light negates darkness stress.
 
 Personality Drift:
-- Current personality axis values drift toward base values over time
-- Simulates "returning to normal" after events that shifted personality
+-   Current personality axis values drift toward base values over time.
+-   Simulates "returning to normal" after events that shifted personality.
 """
+
+from typing import Dict, List, Tuple, Optional
 
 from ...engine.ecs import System, World
 from ..yukkuri_components import (
@@ -52,10 +54,15 @@ class EmotionSystem(System):
     Decays Yukkuri stats and manages emotional state over time.
 
     Responsibilities:
-    - Apply decay rates to physical stats (hunger, energy, etc.)
-    - Update happiness/stress based on environment and events
-    - Apply personality drift toward baseline values
-    - Trigger daily skill decay
+    -   Apply decay rates to physical stats (hunger, energy, etc.).
+    -   Update happiness/stress based on environment and events.
+    -   Apply personality drift toward baseline values.
+    -   Trigger daily skill decay.
+
+    Attributes:
+        settings (StatDecaySettings): Stat decay configuration.
+        trait_service (Optional[TraitService]): Trait service.
+        last_day_index (int): Index of the last day for skill decay tracking.
     """
 
     # Stress gained per second in darkness without light
@@ -66,10 +73,10 @@ class EmotionSystem(System):
         Initializes the EmotionSystem.
 
         Args:
-            settings: Stat decay configuration (rates for hunger, energy, etc.).
+            settings (StatDecaySettings): Stat decay configuration (rates for hunger, energy, etc.).
         """
         self.settings = settings
-        self.trait_service: TraitService | None = None
+        self.trait_service: Optional[TraitService] = None
         self.last_day_index = -1
 
     def update(self, world: World, dt: float) -> None:
@@ -77,9 +84,9 @@ class EmotionSystem(System):
         Decays stats and emotional state for all entities with YukkuriStats.
 
         Also handles:
-        - Global skill decay (daily).
-        - Game time vs Physics time scaling.
-        - Night-time stress modifiers.
+        -   Global skill decay (daily).
+        -   Game time vs Physics time scaling.
+        -   Night-time stress modifiers.
 
         Args:
             world (World): The ECS World.
@@ -117,8 +124,16 @@ class EmotionSystem(System):
                 world, entity, stats, needs, game_dt, dt, is_night, light_sources
             )
 
-    def _get_active_lights(self, world: World) -> list[tuple[Transform, LightSource]]:
-        """Returns a list of active light sources (transform, light)."""
+    def _get_active_lights(self, world: World) -> List[Tuple[Transform, LightSource]]:
+        """
+        Returns a list of active light sources.
+
+        Args:
+            world (World): The ECS World.
+
+        Returns:
+            List[Tuple[Transform, LightSource]]: List of active light source components and their transforms.
+        """
         lights = []
         for ent, (trans, light) in world.get_components_tuple(Transform, LightSource):
             if light.intensity > 0.0:
@@ -128,7 +143,14 @@ class EmotionSystem(System):
     def _handle_skill_decay(
         self, world: World, time_service: TimeService, skill_service: SkillService
     ) -> None:
-        """Checks if a day has passed and triggers skill decay."""
+        """
+        Checks if a day has passed and triggers skill decay.
+
+        Args:
+            world (World): The ECS World.
+            time_service (TimeService): The time service.
+            skill_service (SkillService): The skill service.
+        """
         current_day_index = int(time_service.time_elapsed / SECONDS_PER_DAY)
 
         if self.last_day_index == -1:
@@ -149,9 +171,21 @@ class EmotionSystem(System):
         game_dt: float,
         dt: float,
         is_night: bool,
-        light_sources: list[tuple[Transform, LightSource]],
+        light_sources: List[Tuple[Transform, LightSource]],
     ) -> None:
-        """Applies decay for a single entity."""
+        """
+        Applies decay for a single entity.
+
+        Args:
+            world (World): The ECS World.
+            entity (int): The entity ID.
+            stats (YukkuriStats): The stats component.
+            needs (Needs): The needs component.
+            game_dt (float): The game delta time.
+            dt (float): The physics delta time.
+            is_night (bool): Whether it is currently night.
+            light_sources (List[Tuple[Transform, LightSource]]): List of active light sources.
+        """
         emotional_state = world.get_component(entity, EmotionalState)
         personality = world.get_component(entity, Personality)
         trans = world.get_component(entity, Transform)
@@ -200,9 +234,17 @@ class EmotionSystem(System):
             self._drift_personality(personality, dt)
 
     def _calculate_multipliers(
-        self, personality: Personality | None
-    ) -> dict[str, float]:
-        """Calculates decay multipliers based on traits."""
+        self, personality: Optional[Personality]
+    ) -> Dict[str, float]:
+        """
+        Calculates decay multipliers based on traits.
+
+        Args:
+            personality (Optional[Personality]): The personality component.
+
+        Returns:
+            Dict[str, float]: Multipliers for various stats.
+        """
         mults = {
             "hunger": 1.0,
             "energy": 1.0,
@@ -228,14 +270,25 @@ class EmotionSystem(System):
     def _update_emotional_state(
         self,
         emotional_state: EmotionalState,
-        trans: Transform | None,
+        trans: Optional[Transform],
         dt: float,
         game_dt: float,
         is_night: bool,
-        light_sources: list[tuple[Transform, LightSource]],
-        multipliers: dict[str, float],
+        light_sources: List[Tuple[Transform, LightSource]],
+        multipliers: Dict[str, float],
     ) -> None:
-        """Updates stress and happiness."""
+        """
+        Updates stress and happiness.
+
+        Args:
+            emotional_state (EmotionalState): The emotional state component.
+            trans (Optional[Transform]): The transform component.
+            dt (float): The physics delta time.
+            game_dt (float): The game delta time.
+            is_night (bool): Whether it is currently night.
+            light_sources (List[Tuple[Transform, LightSource]]): List of active light sources.
+            multipliers (Dict[str, float]): Decay multipliers.
+        """
         # Darkness Stress
         if is_night and trans:
             in_light = False
@@ -282,9 +335,6 @@ class EmotionSystem(System):
         Args:
             personality (Personality): The personality component.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
         drift_rate = getattr(self.settings, "personality_drift_rate", 0.1)
 

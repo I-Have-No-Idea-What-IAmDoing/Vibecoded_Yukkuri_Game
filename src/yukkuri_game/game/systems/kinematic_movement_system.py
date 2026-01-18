@@ -5,30 +5,32 @@ Implements a robust Sweep-and-Slide algorithm for collision resolution,
 providing deterministic movement suitable for networked games and replays.
 
 Algorithm Overview:
-1. **Depenetration Pass**: Resolve any existing overlaps before movement
-2. **Virtual Physics**: Integrate velocity based on input (acceleration/friction)
-3. **Sweep Pass**: Cast shape along movement vector to detect collisions
-4. **Slide Resolution**: Project remaining velocity along collision surface
-5. **Multi-Plane Handling**: Supports corner resolution (prevents V-corner sticking)
+1.  **Depenetration Pass**: Resolve any existing overlaps before movement.
+2.  **Virtual Physics**: Integrate velocity based on input (acceleration/friction).
+3.  **Sweep Pass**: Cast shape along movement vector to detect collisions.
+4.  **Slide Resolution**: Project remaining velocity along collision surface.
+5.  **Multi-Plane Handling**: Supports corner resolution (prevents V-corner sticking).
 
 Performance Optimizations:
-- Stationary entities skip sweep logic entirely
-- Polygon radius caching avoids repeated circumscribed circle calculations
-- Fallback overlap check only triggers when sweep query misses edge cases
+-   Stationary entities skip sweep logic entirely.
+-   Polygon radius caching avoids repeated circumscribed circle calculations.
+-   Fallback overlap check only triggers when sweep query misses edge cases.
 
 Flight Integration:
-- Flying entities dynamically update collision filters based on altitude
-- Ground units collide with LOW_OBSTACLE, flying units only with HIGH_OBSTACLE
-- Swooping state enables ground unit collision for attack passes
+-   Flying entities dynamically update collision filters based on altitude.
+-   Ground units collide with LOW_OBSTACLE, flying units only with HIGH_OBSTACLE.
+-   Swooping state enables ground unit collision for attack passes.
 
 Fixed Timestep:
-- Movement runs via PhysicsFixedUpdateEvent for determinism
-- Decoupled from render framerate for consistent physics behavior
+-   Movement runs via PhysicsFixedUpdateEvent for determinism.
+-   Decoupled from render framerate for consistent physics behavior.
 """
 
-import pymunk
+from typing import cast, Optional, Dict
 import math
+import pymunk
 from loguru import logger
+
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import PhysicsFixedUpdateEvent
@@ -52,21 +54,36 @@ class KinematicMovementSystem(System):
     Moves kinematic bodies using sweep-and-slide against world geometry.
 
     Features:
-    - Capsule/circle sweeping (no bounding box approximation)
-    - Multi-plane slide resolution for corners
-    - Pre-step depenetration fallback
-    - Composite shape support (stacked entities)
+    -   Capsule/circle sweeping (no bounding box approximation).
+    -   Multi-plane slide resolution for corners.
+    -   Pre-step depenetration fallback.
+    -   Composite shape support (stacked entities).
+
+    Attributes:
+        space (Optional[pymunk.Space]): Physics space reference.
+        skin_width (float): Collision skin width.
+        event_bus (Optional[EventBus]): EventBus reference.
+        _kinematic_world (Optional[World]): World reference for fixed updates.
+        _poly_radius_cache (Dict[pymunk.Poly, float]): Cache for polygon radii.
+        skill_service (Optional[SkillService]): SkillService reference.
     """
 
     def __init__(self) -> None:
-        self.space: pymunk.Space | None = None
+        """Initializes the KinematicMovementSystem."""
+        self.space: Optional[pymunk.Space] = None
         self.skin_width = 0.01  # Collision skin to prevent surface penetration
-        self.event_bus: EventBus | None = None
-        self._kinematic_world: World | None = None
-        self._poly_radius_cache: dict[pymunk.Poly, float] = {}
-        self.skill_service: SkillService | None = None
+        self.event_bus: Optional[EventBus] = None
+        self._kinematic_world: Optional[World] = None
+        self._poly_radius_cache: Dict[pymunk.Poly, float] = {}
+        self.skill_service: Optional[SkillService] = None
 
     def on_fixed_update(self, event: PhysicsFixedUpdateEvent) -> None:
+        """
+        Handles PhysicsFixedUpdateEvent to run deterministic physics.
+
+        Args:
+            event (PhysicsFixedUpdateEvent): The fixed update event.
+        """
         if not self.space:
             return
 
@@ -79,7 +96,11 @@ class KinematicMovementSystem(System):
 
     def update(self, world: World, dt: float) -> None:
         """
-        Updates kinematic entities.
+        Updates the system, initializing services on first run.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         if not self.space:
             physics_system = world.services.try_get(PhysicsSystem)
@@ -98,19 +119,23 @@ class KinematicMovementSystem(System):
     def fixed_update(self, world: World, dt: float) -> None:
         """
         Runs the deterministic movement logic.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Fixed delta time.
         """
         components = world.get_components_tuple(
             PhysicsBody, MovementController, Transform
         )
 
-        # Lazy import to avoid circular dependency if needed or just use imported SkillId
+        # Lazy import to avoid circular dependency
         from ..skill_constants import SkillId
 
         for entity, (phys, controller, trans) in components:
             if phys.body.body_type != pymunk.Body.KINEMATIC:
                 continue
 
-            # 0. Sync Transform to Body
+            # Sync Transform to Body
             start_pos = phys.body.position
 
             # Stationary entities skip sweep logic entirely.
@@ -132,7 +157,7 @@ class KinematicMovementSystem(System):
             trans.prev_x = start_pos.x
             trans.prev_y = start_pos.y
 
-            # --- Flight Collision Filter Update ---
+            # Flight Collision Filter Update
             flight = world.try_get_component(entity, Flight)
             if flight:
                 self._update_flight_collision_filter(phys, flight)
@@ -143,7 +168,7 @@ class KinematicMovementSystem(System):
             if dist_moved > 0.1 and self.skill_service:
                 self.skill_service.add_xp(entity, SkillId.ATHLETICS, dist_moved * 0.01)
 
-            # 4. Sync Transform back
+            # Sync Transform back
             trans.x = phys.body.position.x
             trans.y = phys.body.position.y
 
@@ -151,6 +176,13 @@ class KinematicMovementSystem(System):
         """
         Checks if the body is currently overlapping static geometry and pushes it out.
         This is a fallback mechanism. A perfect sweep system shouldn't need this often.
+
+        Args:
+            phys (PhysicsBody): The entity's physics body.
+            pos (pymunk.Vec2d): The current position.
+
+        Returns:
+            pymunk.Vec2d: The resolved position.
         """
         current_pos = pos
         max_iterations = 3  # Multiple passes handle complex corner overlaps.
@@ -232,6 +264,18 @@ class KinematicMovementSystem(System):
         trans: Transform,
         dt: float,
     ) -> float:
+        """
+        Executes the sweep-and-slide movement algorithm.
+
+        Args:
+            phys (PhysicsBody): The entity's physics body.
+            controller (MovementController): The movement controller component.
+            trans (Transform): The entity's transform component.
+            dt (float): Fixed delta time.
+
+        Returns:
+            float: The distance actually moved.
+        """
         body = phys.body
         start_pos = body.position
 
@@ -270,11 +314,15 @@ class KinematicMovementSystem(System):
         for i in range(max_slides):
             if move_delta.length_squared < 0.000001:
                 break
+            
+            # Pymunk does not support sweeping circles natively with segment query in the same way for all shapes,
+            # but we approximate or use the shape's specific sweep if possible.
+            # Here we are iterating shapes and checking segment queries.
 
             target_pos = current_pos + move_delta
 
             # Perform Sweep for ALL shapes in the body
-            best_hit: pymunk.SegmentQueryInfo | FakeHit | None = None
+            best_hit: Optional[pymunk.SegmentQueryInfo | FakeHit] = None
             best_alpha = 1.0
 
             for shape in body.shapes:
@@ -415,6 +463,10 @@ class KinematicMovementSystem(System):
         - GROUNDED/LANDING/TAKEOFF (low altitude): Collide with ground units, low obstacles, high obstacles, water.
         - FLYING/HOVERING (high altitude): Only collide with flying units and high obstacles.
         - SWOOPING (attack descent): Collide with ground units, low obstacles, high obstacles.
+
+        Args:
+            phys (PhysicsBody): The entity's physics body.
+            flight (Flight): The flight component.
         """
         CC = CollisionCategories
 

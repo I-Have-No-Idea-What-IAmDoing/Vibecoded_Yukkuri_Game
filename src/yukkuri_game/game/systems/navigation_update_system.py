@@ -1,5 +1,10 @@
-from typing import TYPE_CHECKING, cast
+"""
+Navigation Update System - Dynamic Obstacle Tracker.
+"""
+
+from typing import cast, Optional
 import pymunk
+
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import (
@@ -10,17 +15,21 @@ from ...engine.events import (
 from ..components import PhysicsBody
 from ..ai.navigation_service import NavigationService
 
-if TYPE_CHECKING:
-    pass
-
 
 class NavigationUpdateSystem(System):
     """
     System responsible for updating the NavigationGrid when obstacles change.
-    Listens for PhysicsBody additions/removals.
+
+    Listens for PhysicsBody additions/removals and updates the grid accordingly.
+    Only tracks STATIC bodies (Walls, etc) as dynamic bodies use local avoidance.
+
+    Attributes:
+        event_bus (Optional[EventBus]): The event bus.
+        nav_service (Optional[NavigationService]): The navigation service.
     """
 
     def initialize(self) -> None:
+        """Initializes system and subscriptions."""
         self.event_bus = self.ecs_world.services.get(EventBus)
         self.nav_service = self.ecs_world.services.try_get(NavigationService)
 
@@ -29,42 +38,69 @@ class NavigationUpdateSystem(System):
         self.event_bus.subscribe(WorldClearedEvent, self.on_world_cleared)
 
     def update(self, world: World, dt: float) -> None:
-        # Passive system, reacts to events.
+        """
+        Passive system, only reacts to events.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+        """
         pass
 
     def on_component_added(self, event: ComponentAddedEvent) -> None:
+        """
+        Handles PhysicsBody component addition.
+
+        Args:
+            event (ComponentAddedEvent): The event.
+        """
         if event.component_type is PhysicsBody:
             self._handle_body_update(
                 event.entity_id, cast(PhysicsBody, event.component), added=True
             )
 
     def on_component_removed(self, event: ComponentRemovedEvent) -> None:
+        """
+        Handles PhysicsBody component removal.
+
+        Args:
+            event (ComponentRemovedEvent): The event.
+        """
         if event.component_type is PhysicsBody:
             self._handle_body_update(
                 event.entity_id, cast(PhysicsBody, event.component), added=False
             )
 
     def on_world_cleared(self, event: WorldClearedEvent) -> None:
+        """
+        Handles world cleared event.
+
+        Args:
+            event (WorldClearedEvent): The event.
+        """
         if self.nav_service:
-            self.nav_service.reset()  # We need to implement reset() in NavigationService
+            self.nav_service.reset()
 
     def _handle_body_update(
         self, entity_id: int, phys: PhysicsBody, added: bool
     ) -> None:
+        """
+        Updates the navigation grid based on physics body changes.
+
+        Args:
+            entity_id (int): Entity ID.
+            phys (PhysicsBody): The physics component.
+            added (bool): True if added, False if removed.
+        """
         if not self.nav_service:
-            # Try getting it again (might be registered late? unlikely given SystemRegistry order)
             self.nav_service = self.ecs_world.services.try_get(NavigationService)
             if not self.nav_service:
                 return
 
         # Only care about STATIC bodies (Walls, etc)
-        # Dynamic bodies (Yukkuris) are handled via steering/local avoidance, not grid blocking usually.
+        # Dynamic bodies (Yukkuris) are handled via steering/local avoidance.
         if phys.body.body_type != pymunk.Body.STATIC:
             return
-
-        # We need the Transform to know where it is.
-        # PhysicsBody has position in body, but simpler to use component if available/synced.
-        # But body.position is authoritative.
 
         # Get AABB of the shapes
         for shape in phys.body.shapes:
@@ -80,13 +116,6 @@ class NavigationUpdateSystem(System):
             h = bb.top - bb.bottom
             x = bb.left + w / 2
             y = bb.bottom + h / 2
-            # NavigationGrid.update_obstacle_rect(x, y, w, h...)
-            # Grid assumes standard coordinates.
-
-            # Map collision mask to capability?
-            # If it blocks everything, it blocks WALK|FLY|SWIM.
-            # Usually static walls block everything.
-            # We can check shape.filter if needed.
 
             self.nav_service.update_obstacle_rect(
                 x,

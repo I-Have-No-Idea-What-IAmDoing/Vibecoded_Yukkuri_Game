@@ -3,21 +3,24 @@ Gossip System - Social Information Propagation.
 
 Manages the witnessing and exchange of social information between entities.
 Gossip enables emergent social dynamics where Yukkuris can:
-- Witness interactions between others and form opinions
-- Share information through verbal exchanges (Talk, Greet, Chat)
-- Prioritize gossip by interest group membership (family, pack)
+-   Witness interactions between others and form opinions.
+-   Share information through verbal exchanges (Talk, Greet, Chat).
+-   Prioritize gossip by interest group membership (family, pack).
 
 Propagation Mechanics:
-- Witnesses within range (visual or auditory) receive gossip packets
-- Gossip value decays with each retransmission (GOSSIP_DECAY)
-- Family/pack members receive boosted value (HEARING_BONUS_MULTIPLIER)
-- Low-value gossip is filtered by WITNESS_THRESHOLD
+-   Witnesses within range (visual or auditory) receive gossip packets.
+-   Gossip value decays with each retransmission (GOSSIP_DECAY).
+-   Family/pack members receive boosted value (HEARING_BONUS_MULTIPLIER).
+-   Low-value gossip is filtered by WITNESS_THRESHOLD.
 """
 
+from typing import cast, Optional
+import math
 import pymunk
-from typing import cast
+
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
+from ...engine.event_bus import EventBus
 from ..yukkuri_components import (
     GossipQueue,
     GossipPacket,
@@ -26,11 +29,9 @@ from ..yukkuri_components import (
 )
 from ..components import Transform
 from ..events import SocialInteractionEvent
-from ...engine.event_bus import EventBus
 from .physics import PhysicsSystem
 from .sector_system import SectorMap
 from ..trait_service import TraitService
-import math
 
 
 class GossipSystem(System):
@@ -73,13 +74,17 @@ class GossipSystem(System):
         super().__init__()
         self.event_bus = event_bus
         self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
-        self.physics_system: PhysicsSystem | None = None
-        self.sector_map: SectorMap | None = None
-        self.trait_service: TraitService | None = None
+        self.physics_system: Optional[PhysicsSystem] = None
+        self.sector_map: Optional[SectorMap] = None
+        self.trait_service: Optional[TraitService] = None
 
     def update(self, world: World, dt: float) -> None:
         """
         Updates the system and lazily fetches dependencies.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
         """
         if not self.physics_system:
             self.physics_system = world.services.try_get(PhysicsSystem)
@@ -91,6 +96,9 @@ class GossipSystem(System):
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         """
         Handles SocialInteractionEvent to trigger gossip and witnessing.
+
+        Args:
+            event (SocialInteractionEvent): The event data.
         """
         if not hasattr(self, "ecs_world"):
             return
@@ -259,6 +267,11 @@ class GossipSystem(System):
     def _exchange_gossip(self, world: World, sender_id: int, receiver_id: int) -> None:
         """
         Exchanges gossip from sender to receiver.
+
+        Args:
+            world (World): The ECS World.
+            sender_id (int): Source entity.
+            receiver_id (int): Destination entity.
         """
         sender_queue = world.get_component(sender_id, GossipQueue)
         receiver_queue = world.get_component(receiver_id, GossipQueue)
@@ -303,6 +316,13 @@ class GossipSystem(System):
     ) -> None:
         """
         Adds a gossip packet to a witness's queue.
+
+        Args:
+            world (World): The ECS World.
+            witness_id (int): The witness causing the gossip.
+            event (SocialInteractionEvent): The event being witnessed.
+            now (float): Current timestamp.
+            value (float): Initial value of the gossip.
         """
         if value < self.WITNESS_THRESHOLD:
             return

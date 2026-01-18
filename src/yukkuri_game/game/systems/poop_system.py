@@ -11,9 +11,11 @@ from ..prefabs.item import create_poop
 
 class PoopSystem(System):
     """
-    System responsible for Poop mechanics:
-    1. Spawning poop periodically or based on cleanliness.
-    2. Reducing cleanliness of Yukkuris near poop.
+    System responsible for Poop mechanics.
+
+    Mechanics:
+    1.  Spawning poop periodically or based on cleanliness/bladder.
+    2.  Reducing cleanliness of Yukkuris near poop.
 
     Attributes:
         spawn_chance_per_second (float): Probability of pooping per second.
@@ -23,7 +25,6 @@ class PoopSystem(System):
 
     def __init__(self) -> None:
         """Initializes the PoopSystem with default configuration."""
-        # Configuration
         super().__init__()
         self.spawn_chance_per_second = 0.01  # % chance per second to poop randomly
         self.poop_radius = 200.0
@@ -36,11 +37,8 @@ class PoopSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
-        # 1. Spawning Poop
+        # Spawning Poop
         # Iterate over Yukkuris
         for entity, (stats, needs, transform, ai) in world.get_components_tuple(
             YukkuriStats, Needs, Transform, AIState
@@ -52,12 +50,12 @@ class PoopSystem(System):
                 should_poop = True
 
             # Bladder Logic
-            # If bladder is full, they must poop (or pee? Poop component handles "waste")
+            # If bladder is full, they must poop
             if needs.bladder > 80.0:
                 if rng.random_float() < 0.1 * dt:  # High chance when full
                     should_poop = True
 
-            # Or if cleanliness is very low (lose control)
+            # Cleanliness low (lose control)
             if needs.cleanliness < 10.0:
                 if rng.random_float() < (self.spawn_chance_per_second * 5) * dt:
                     should_poop = True
@@ -70,7 +68,7 @@ class PoopSystem(System):
                 needs.cleanliness = max(0, needs.cleanliness - 5)
                 needs.bladder = 0.0
 
-        # 2. Environmental Effect
+        # Environmental Effect
         # Find all poop entities
         poop_entities = world.get_entities_with(Poop, Transform)
         if not poop_entities:

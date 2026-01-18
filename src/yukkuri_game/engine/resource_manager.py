@@ -1,27 +1,9 @@
 """
-Resource Manager - Asset and Data Loading.
+Resource Manager Module.
 
-Centralized manager for game resources including images, sounds, and TOML data.
-Implements multiple optimization patterns:
-
-Loading Strategies:
-- **Lazy Loading**: Game data (types, traits, skills) wrapped in LazyLoader
-  to defer file parsing until first access
-- **LRU Cache**: Images beyond atlas capacity use OrderedDict LRU eviction
-- **Texture Atlas**: Small images packed into single texture for batch rendering
-
-Data Files (TOML):
-- YukkuriData: Character type definitions (yukkuris/types.toml)
-- ItemData: Item definitions (items/items.toml)
-- AIData: Action definitions for utility AI (ai/actions.toml)
-- TraitData: Personality trait effects (traits/traits.toml)
-- SkillData: Skill definitions (skills/skills.toml)
-- InteractionData: Social interaction effects (ai/interactions.toml)
-
-Asset Directories:
-- data/: TOML configuration files
-- assets/images/: Sprite textures
-- assets/sounds/: Audio files
+This module provides the `ResourceManager` class, which handles the loading, caching,
+and lifecycle management of game assets (images, sounds) and data files (TOML primitives).
+It implements lazy loading for data files to optimize startup time and memory usage.
 """
 
 import os
@@ -49,11 +31,29 @@ T = TypeVar("T")
 
 class ResourceManager:
     """
-    Manages game resources with lazy loading and caching.
+    Manages loading and caching of game resources.
 
-    Uses LazyLoader for deferred data file parsing and TextureAtlas
-    for efficient sprite rendering. Images fall back to LRU cache
-    if atlas capacity is exceeded.
+    This class serves as the central access point for all game assets. It employs
+    several optimization strategies:
+    1.  **Lazy Loading**: Data files are parsed only when accessed.
+    2.  **Texture Atlas**: Small images are packed into a single large texture to minimize state changes during rendering.
+    3.  **LRU Caching**: Individual images are cached with an LRU eviction policy if the atlas is full or unavailable.
+
+    Attributes:
+        data_dir (str): Relative path to the directory containing data files.
+        assets_dir (str): Relative path to the directory containing assets.
+        image_cache_limit (int): Maximum number of individual images to hold in the LRU cache.
+        images (OrderedDict[str, pygame.Surface]): LRU cache of loaded image surfaces.
+        atlas (TextureAtlas): Dynamic texture atlas for efficient sprite management.
+        sounds (dict[str, pygame.mixer.Sound]): Cache of loaded sound effects.
+        configs (dict[str, Any]): General configuration storage.
+        yukkuri_types (LazyLoader): Lazy-loaded registry of Yukkuri definitions.
+        item_types (LazyLoader): Lazy-loaded registry of item definitions.
+        ai_actions (LazyLoader): Lazy-loaded registry of AI actions.
+        tuning (GameTuning | None): Global game tuning parameters (loaded eagerly).
+        skills (LazyLoader): Lazy-loaded registry of skills.
+        traits (LazyLoader): Lazy-loaded registry of traits.
+        interactions (LazyLoader): Lazy-loaded registry of interaction definitions.
     """
 
     def __init__(
@@ -66,20 +66,19 @@ class ResourceManager:
         Initializes the ResourceManager.
 
         Args:
-            data_dir (str): The directory path for data files. Defaults to "data".
-            assets_dir (str): The directory path for asset files. Defaults to "assets".
-            image_cache_limit (int): The maximum number of images to keep in memory. Defaults to 100.
+            data_dir: Directory containing TOML data files. Defaults to "data".
+            assets_dir: Directory containing image and sound assets. Defaults to "assets".
+            image_cache_limit: Maximum items for the image LRU cache. Defaults to 100.
         """
         self.data_dir = data_dir
         self.assets_dir = assets_dir
-        # Using OrderedDict for simple LRU if needed, though raw images are usually few
         self.images: OrderedDict[str, pygame.Surface] = OrderedDict()
         self.atlas = TextureAtlas()
 
         self.sounds: dict[str, pygame.mixer.Sound] = {}
         self.configs: dict[str, Any] = {}
 
-        # Cache for loaded data (initialized empty or as LazyLoaders)
+        # Optimized data structures using LazyLoader to defer parsing cost.
         self.yukkuri_types: Any = {}
         self.item_types: Any = {}
         self.ai_actions: Any = {}
@@ -92,20 +91,21 @@ class ResourceManager:
 
     def load_toml_model(self, filepath: str, model: type[T]) -> T | None:
         """
-        Loads a TOML file relative to the data directory and parses it into a msgspec Struct.
+        Loads and parses a TOML file into a structured model.
 
         Args:
-            filepath (str): The relative path to the TOML file within the data directory.
-            model (Type[T]): The msgspec.Struct type to parse into.
+            filepath: Path to the TOML file, relative to `self.data_dir`.
+            model: The `msgspec.Struct` type definition to parse the data into.
 
         Returns:
-            Optional[T]: The parsed data object, or None if loading fails.
+            The parsed data object of type `T`, or None if the operation fails.
         """
         full_path = os.path.join(self.data_dir, filepath)
         try:
-            with open(full_path, "rb") as f:  # Binary mode for msgspec.
+            with open(full_path, "rb") as f:
                 data = f.read()
 
+            # msgspec is highly optimized for performance.
             # noinspection PyTypeChecker
             decoded = msgspec.toml.decode(data, type=model)
             return decoded
@@ -115,14 +115,14 @@ class ResourceManager:
 
     def save_toml_model(self, filepath: str, data: msgspec.Struct) -> bool:
         """
-        Saves a msgspec Struct to a TOML file relative to the data directory.
+        Serializes and saves a structured model to a TOML file.
 
         Args:
-            filepath (str): The relative path to the TOML file within the data directory.
-            data (msgspec.Struct): The data to save.
+            filepath: Destination path, relative to `self.data_dir`.
+            data: The `msgspec.Struct` object to serialize.
 
         Returns:
-            bool: True if saving succeeded, False otherwise.
+            True if the file was successfully written, False otherwise.
         """
         full_path = os.path.join(self.data_dir, filepath)
         try:
@@ -137,54 +137,63 @@ class ResourceManager:
 
     def get_image_path(self, filename: str) -> str:
         """
-        Returns the full path to an image file.
+        Resolves the absolute path for an image file.
 
         Args:
-            filename (str): The filename of the image.
+            filename: Name of the image file (e.g., "sprite.png").
 
         Returns:
-            str: The full path to the image file.
+            The absolute file path to the image.
         """
         return os.path.join(self.assets_dir, "images", filename)
 
     def load_image(self, filename: str) -> pygame.Surface:
         """
-        Loads an image relative to the assets/images directory.
-        Checks the Atlas first. If valid, adds to Atlas and returns the subsurface.
+        Retrieves an image, utilizing the texture atlas and cache.
+
+        Strategies in order:
+        1. Check if the image is already in the TextureAtlas.
+        2. Check the LRU image cache.
+        3. Load from disk.
+        4. Attempt to pack into the TextureAtlas.
+        5. Store in LRU cache if packing fails.
 
         Args:
-            filename (str): The filename of the image to load.
+            filename: The filename of the image to load.
 
         Returns:
-            pygame.Surface: The loaded image surface or a placeholder.
+            The requested pygame.Surface. Returns a magenta placeholder if loading fails.
         """
-        # 1. Check Atlas (Already packed?)
+        # Strategy 1: Atlas Lookup
         atlas_surf = self.atlas.get_region(filename)
         if atlas_surf:
             return atlas_surf
 
+        # Strategy 2: LRU Cache Lookup
         if filename in self.images:
-            self.images.move_to_end(filename)  # LRU: move to end on access.
+            self.images.move_to_end(filename)
             return self.images[filename]
 
-        # 3. Load from Disk
+        # Strategy 3: Disk Load
         full_path = self.get_image_path(filename)
         try:
             if not os.path.exists(full_path):
                 logger.warning(f"Image not found: {filename}. Creating placeholder.")
+                # Return visible error texture (magenta)
                 surf = pygame.Surface((32, 32))
-                surf.fill((255, 0, 255))  # Magenta placeholder
+                surf.fill((255, 0, 255))
                 self.images[filename] = surf
                 return surf
 
             img = pygame.image.load(full_path).convert_alpha()
 
-            # 4. Try Packing into Atlas
+            # Strategy 4: Atlas Packing
+            # Attempt to add to dynamic atlas for batching benefits
             if self.atlas.add_image(filename, img):
-                # Success! Return the subsurface from the atlas
                 return self.atlas.get_region(filename)  # type: ignore
 
-            # 5. Fallback to Image Cache if Atlas is full
+            # Strategy 5: Cache Fallback
+            # If atlas is full or image type is unsuitable, use standard LRU cache
             self.images[filename] = img
             if len(self.images) > self.image_cache_limit:
                 self.images.popitem(last=False)
@@ -192,17 +201,18 @@ class ResourceManager:
             return img
         except Exception as e:
             logger.error(f"Failed to load image {filename}: {e}")
+            # Return critical error texture (red)
             surf = pygame.Surface((32, 32))
             surf.fill((255, 0, 0))
             return surf
 
     def load_all_data(self) -> None:
         """
-        Sets up LazyLoaders for game data.
-        """
-        # LazyLoaders defer file parsing until first access.
-        # Monolithic TOML files populate the entire cache on first miss.
+        Initializes the data registries using LazyLoaders.
 
+        This setup ensures that monolithic TOML files are not parsed until a specific
+        resource from them is requested, significantly improving initial startup time.
+        """
         self.yukkuri_types = LazyLoader(
             load_function=lambda k: self._load_monolithic(
                 "yukkuris/types.toml", YukkuriData, "yukkuris", k
@@ -257,7 +267,7 @@ class ResourceManager:
             ),
         )
 
-        # Tuning is a single object, we can load it immediately as it's small and needed everywhere
+        # Tuning data is small and accessed frequently, so we load it eagerly.
         self.tuning = self.load_toml_model("yukkuri_tuning.toml", GameTuning)
 
         logger.info("Resources configured for Lazy Loading.")
@@ -266,8 +276,22 @@ class ResourceManager:
         self, file: str, model: type[T], attr: str, requested_key: str | None = None
     ) -> Any:
         """
-        Loads a monolithic TOML file and populates the LazyLoader's cache with ALL items found.
-        If requested_key is provided, returns the specific item.
+        Helper to handle monolithic file loading for LazyLoaders.
+
+        Parses the entire file and populates the cache. If a specific key was requested,
+        it returns that specific item after populating the cache.
+
+        Args:
+            file: TOML filename.
+            model: Data model class.
+            attr: Attribute name in the data model that contains the dictionary of items.
+            requested_key: Specific key to return immediately (optional).
+
+        Returns:
+            The requested item if `requested_key` is provided, otherwise None.
+
+        Raises:
+            KeyError: If the file cannot be loaded or the requested key is missing.
         """
         # Determine which LazyLoader to populate based on attr name.
         mapping = getattr(
@@ -294,6 +318,7 @@ class ResourceManager:
 
         real_dict = getattr(data, attr)
 
+        # Populate the LazyLoader's internal cache with all items found in the file.
         if isinstance(mapping, LazyLoader):
             for k, v in real_dict.items():
                 mapping[k] = v
@@ -308,10 +333,13 @@ class ResourceManager:
 
     def clear(self) -> None:
         """
-        Clears all loaded resources to free memory.
+        Resets the resource manager state.
+
+        Clears all caches (images, sounds, configs) and resets LazyLoaders.
+        Used to free memory or reset game state.
         """
         self.images.clear()
-        # Re-create atlas to clear it
+        # Create a fresh atlas
         self.atlas = TextureAtlas()
 
         self.sounds.clear()

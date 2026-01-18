@@ -3,20 +3,22 @@ Steering System - Autonomous Movement Control.
 
 Calculates steering forces for AI-controlled entities and updates their
 target velocities. Implements Reynolds-style steering behaviors including:
-- Seek/Arrival for path following
-- Pursuit for intercept prediction
-- Separation for crowd avoidance
-- Whisker-based obstacle avoidance
+-   Seek/Arrival for path following.
+-   Pursuit for intercept prediction.
+-   Separation for crowd avoidance.
+-   Whisker-based obstacle avoidance.
 
 Processing occurs in two phases:
-1. MoveCommand-based: Direct movement orders from AI actions
-2. Path-based: Following navigation paths from AIState
+1.  MoveCommand-based: Direct movement orders from AI actions.
+2.  Path-based: Following navigation paths from AIState.
 """
 
 import math
-from ...engine import rng
+from typing import Optional, Tuple
 import pymunk
 from loguru import logger
+
+from ...engine import rng
 from ...engine.ecs import System, World
 from ..components import (
     Transform,
@@ -34,14 +36,20 @@ class SteeringSystem(System):
     System that calculates steering forces and updates MovementController.target_velocity.
 
     Supports two modes:
-    1. MoveCommand-based: AI issues MoveCommand, SteeringSystem processes it.
-    2. Path-based: AI sets path in AIState, SteeringSystem follows it.
+    1.  MoveCommand-based: AI issues MoveCommand, SteeringSystem processes it.
+    2.  Path-based: AI sets path in AIState, SteeringSystem follows it.
     """
 
     def update(self, world: World, dt: float) -> None:
+        """
+        Updates the SteeringSystem, calculating forces and applying them.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+        """
         physics_system = world.services.try_get(PhysicsSystem)
         space = getattr(physics_system, "space", None) if physics_system else None
-        # Stuck detection
         current_time = world.time
 
         # --- Phase A: Process MoveCommand-based steering ---
@@ -309,14 +317,14 @@ class SteeringSystem(System):
 
     def _calculate_steering_forces(
         self,
-        space: pymunk.Space | None,
+        space: Optional[pymunk.Space],
         current_pos: pymunk.Vec2d,
         phys: PhysicsBody,
         movement: MovementController,
         steering: SteeringComponent,
-        target_body: pymunk.Body | None = None,
-        target_entity_id: int | None = None,
-    ) -> tuple[pymunk.Vec2d, pymunk.Vec2d]:
+        target_body: Optional[pymunk.Body] = None,
+        target_entity_id: Optional[int] = None,
+    ) -> Tuple[pymunk.Vec2d, pymunk.Vec2d]:
         """
         Calculates separation and obstacle avoidance steering forces.
 
@@ -325,16 +333,16 @@ class SteeringSystem(System):
         (forward, +30°, -30°) to detect obstacles ahead.
 
         Args:
-            space: Pymunk physics space for queries.
-            current_pos: Entity's current position.
-            phys: Entity's physics body (for self-exclusion).
-            movement: Movement controller with current velocity.
-            steering: Steering parameters (radii, weights).
-            target_body: Optional body to exclude from avoidance.
-            target_entity_id: Optional entity ID to exclude.
+            space (Optional[pymunk.Space]): Pymunk physics space for queries.
+            current_pos (pymunk.Vec2d): Entity's current position.
+            phys (PhysicsBody): Entity's physics body (for self-exclusion).
+            movement (MovementController): Movement controller with current velocity.
+            steering (SteeringComponent): Steering parameters (radii, weights).
+            target_body (Optional[pymunk.Body]): Optional body to exclude from avoidance.
+            target_entity_id (Optional[int]): Optional entity ID to exclude.
 
         Returns:
-            Tuple of (separation_force, avoidance_force) vectors.
+            Tuple[pymunk.Vec2d, pymunk.Vec2d]: Tube of (separation_force, avoidance_force) vectors.
         """
         separation_force = pymunk.Vec2d(0, 0)
         avoidance_force = pymunk.Vec2d(0, 0)
@@ -342,7 +350,7 @@ class SteeringSystem(System):
         if not space:
             return separation_force, avoidance_force
 
-        # ==================== NEIGHBOR SEPARATION ====================
+        # Neighbor Separation
         # Query all physics bodies within separation radius (50px)
         neighbor_radius = 50.0
         query_info = space.point_query(
@@ -377,7 +385,7 @@ class SteeringSystem(System):
         if count > 0:
             separation_force = separation_force.normalized() * steering.max_speed
 
-        # B. Whisker Avoidance (Raycasts)
+        # Whisker Avoidance (Raycasts)
         if movement.target_velocity.length > 10.0:
             look_dir = movement.target_velocity.normalized()
             whisker_len = 50.0

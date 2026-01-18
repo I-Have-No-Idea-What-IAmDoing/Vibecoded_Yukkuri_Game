@@ -6,11 +6,11 @@ two-level hierarchy: an abstract cluster graph for global routing and
 local A* searches within clusters for fine-grained paths.
 
 Key Features:
-- Asynchronous path computation via background worker thread
-- Path caching to avoid redundant calculations
-- Congestion control to prevent request queue overflow
-- Thread-safe grid updates with automatic graph rebuilding
-- Deterministic mode for testing and replays
+-   Asynchronous path computation via background worker thread.
+-   Path caching to avoid redundant calculations.
+-   Congestion control to prevent request queue overflow.
+-   Thread-safe grid updates with automatic graph rebuilding.
+-   Deterministic mode for testing and replays.
 """
 
 import threading
@@ -20,22 +20,33 @@ import traceback
 from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
 from loguru import logger
+from enum import IntEnum
 
 from .navigation_grid import NavigationGrid
 from .navigation_constants import TraversalCapability
 from .hpa import ClusterGraph, AStar, StringPuller
-from enum import IntEnum
 
 
 class ObstacleType(IntEnum):
-    """Obstacle height classifications affecting traversal."""
+    """
+    Obstacle height classifications affecting traversal.
 
-    LOW = 0  # Blocks ground movement (WALK) only
-    HIGH = 1  # Blocks all movement (WALK, FLY, SWIM)
+    Attributes:
+        LOW: Blocks ground movement (WALK) only.
+        HIGH: Blocks all movement (WALK, FLY, SWIM).
+    """
+    LOW = 0
+    HIGH = 1
 
 
 @dataclass(order=True)
 class PathRequest:
+    """
+    State for a pending path request.
+
+    Ordered by priority for processing. Comparers ignore non-priority fields to
+    maintain stable sort order for equal priorities (FIFO for same priority).
+    """
     priority: int
     timestamp: float
     entity_id: int
@@ -46,6 +57,7 @@ class PathRequest:
 
 @dataclass
 class PathResult:
+    """Result of a pathfinding request."""
     entity_id: int
     path: List[Tuple[float, float]]  # World coordinates
     success: bool
@@ -58,18 +70,23 @@ class NavigationService:
 
     Manages the navigation grid, cluster graph, and background worker thread.
     Uses a two-level hierarchy for efficient pathfinding:
-
-    1. Abstract Level: Cluster graph with inter-cluster edges
-    2. Local Level: A* within individual clusters
+    1.  Abstract Level: Cluster graph with inter-cluster edges.
+    2.  Local Level: A* within individual clusters.
 
     Thread Safety:
-        - Uses _state_lock for all grid/graph modifications
-        - Worker thread holds lock during path processing
-        - Main thread must acquire lock for obstacle updates
+        - Uses `_state_lock` for all grid/graph modifications.
+        - Worker thread holds lock during path processing and graph rebuilding.
+        - Main thread must acquire lock for obstacle updates.
 
-    Path Caching:
-        - Caches abstract paths by (start_cluster, end_cluster, capabilities)
-        - Cache invalidated on graph rebuild
+    Attributes:
+        world_width (int): Width of the world in pixels.
+        world_height (int): Height of the world in pixels.
+        grid_step_size (int): Size of each grid cell in pixels.
+        deterministic_mode (bool): If True, runs logic synchronously for determinism.
+        grid (NavigationGrid): The underlying navigation grid.
+        cluster_graph (ClusterGraph): The hierarchical HPA* graph.
+        request_queue (queue.PriorityQueue): queue for pending PathRequests.
+        result_queue (queue.Queue): queue for completed PathResults.
     """
 
     def __init__(
@@ -79,19 +96,28 @@ class NavigationService:
         grid_step_size: int = 25,
         deterministic_mode: bool = False,
     ):
+        """
+        Initializes the NavigationService.
+
+        Args:
+            world_width (int): Width of the world in pixels.
+            world_height (int): Height of the world in pixels.
+            grid_step_size (int): Size of each grid cell in pixels.
+            deterministic_mode (bool): If True, disables worker thread for deterministic execution.
+        """
         self.world_width = world_width
         self.world_height = world_height
         self.grid_step_size = grid_step_size
         self.deterministic_mode = deterministic_mode
 
-        # 1. Unified Grid
+        # Unified Grid
         self.grid = NavigationGrid(world_width, world_height, grid_step_size)
 
-        # 2. HPA* Cluster Graph
+        # HPA* Cluster Graph
         self.cluster_graph = ClusterGraph(self.grid)
         self.cluster_graph.build_graph()
 
-        # 3. Async Logic
+        # Async Logic
         self.request_queue = queue.PriorityQueue()
         self.result_queue = queue.Queue()
 
@@ -104,7 +130,7 @@ class NavigationService:
 
         self._state_lock = threading.RLock()
 
-        self.use_multiprocessing = False  # Stub for future enhancement
+        self.use_multiprocessing = False  # Reserved for future enhancement
 
         self._running = True
         self._thread: Optional[threading.Thread] = None
@@ -120,15 +146,15 @@ class NavigationService:
         )
 
     def __enter__(self) -> "NavigationService":
-        """Context manager support."""
+        """Context manager entry."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Context manager support."""
+        """Context manager exit; handles shutdown."""
         self.shutdown()
 
-    def reset(self):
-        """Resets the grid and graph."""
+    def reset(self) -> None:
+        """Resets the grid and graph to their initial state."""
         self.grid = NavigationGrid(
             self.world_width, self.world_height, self.grid_step_size
         )
@@ -138,16 +164,8 @@ class NavigationService:
             self._path_cache.clear()
             self._dirty = False
 
-    def _start_multiprocessing_worker(self):
-        """
-        Stub for starting a multiprocessing worker.
-        TODO: Implement shared memory grid and request/result pipes.
-        """
-        if self.use_multiprocessing:
-            raise NotImplementedError("Multiprocessing not yet implemented.")
-
-    def shutdown(self):
-        """Stops the worker thread."""
+    def shutdown(self) -> None:
+        """Stops the background worker thread."""
         logger.info(
             f"NavigationService shutdown called. Thread alive: {self._thread.is_alive() if self._thread else False}"
         )
@@ -166,17 +184,17 @@ class NavigationService:
         capabilities: int = TraversalCapability.WALK,
         priority: int = 2,
         timestamp: float | None = None,
-    ):
+    ) -> None:
         """
         Queues an asynchronous path request.
 
         Args:
-            entity_id: Requesting entity's ID (for result matching).
-            start: World coordinates of starting position.
-            end: World coordinates of destination.
-            capabilities: Bitfield of TraversalCapability flags.
-            priority: Lower value = higher priority (0=urgent, 2=normal).
-            timestamp: Request time for deterministic ordering.
+            entity_id (int): Requesting entity's ID (for result matching).
+            start (Tuple[float, float]): World coordinates of starting position.
+            end (Tuple[float, float]): World coordinates of destination.
+            capabilities (int): Bitfield of TraversalCapability flags.
+            priority (int): Lower value = higher priority (0=urgent, 2=normal).
+            timestamp (Optional[float]): Request time for deterministic ordering.
         """
         # Drop low-priority requests when queue is congested.
         if self.request_queue.qsize() > 50 and priority > 2:
@@ -206,14 +224,14 @@ class NavigationService:
             capabilities=capabilities,
         )
 
-        if self.deterministic_mode:
-            self.request_queue.put(req)
-        else:
-            self.request_queue.put(req)
+        self.request_queue.put(req)
 
     def update(self, current_time: float) -> None:
         """
-        Manual update for deterministic mode. Processes all pending requests.
+        Manual update for deterministic mode. Processes all pending requests synchronously.
+
+        Args:
+            current_time (float): Current game time.
         """
         if not self.deterministic_mode:
             return
@@ -240,7 +258,14 @@ class NavigationService:
                 traceback.print_exc()
 
     def get_results(self) -> List[PathResult]:
-        """Call this from Main Thread to process completed paths."""
+        """
+        Retrieves all completed path results from the queue.
+        
+        This method should be called from the Main Thread.
+
+        Returns:
+            List[PathResult]: A list of completed path results.
+        """
         results = []
         try:
             while True:
@@ -249,7 +274,8 @@ class NavigationService:
             pass
         return results
 
-    def _worker_loop(self):
+    def _worker_loop(self) -> None:
+        """Main loop for the background worker thread."""
         logger.info("NavWorker thread started.")
         while self._running:
             try:
@@ -316,6 +342,9 @@ class NavigationService:
         5. String pulling for path smoothing
         6. World coordinate conversion
 
+        Args:
+            req (PathRequest): The request to process.
+
         Returns:
             PathResult with world-coordinate path on success.
         """
@@ -332,9 +361,6 @@ class NavigationService:
         # Stage 2: Identify clusters for cache lookup
         start_cluster = self.cluster_graph.get_cluster_for_pos(start_pos)
         end_cluster = self.cluster_graph.get_cluster_for_pos(end_pos)
-
-        if start_cluster and end_cluster:
-            pass  # Cache lookup handled in cross-cluster section below.
 
         # Stage 3: Same-cluster optimization (local A* only).
         if start_cluster and end_cluster and start_cluster == end_cluster:
@@ -392,7 +418,6 @@ class NavigationService:
                             capability,
                         )
                         # Store only permanent node IDs
-
                         permanent_abstract = [
                             nid for nid in abstract_path if not nid.startswith("temp_")
                         ]
@@ -432,7 +457,12 @@ class NavigationService:
         end_pos: Tuple[int, int],
         capability: int,
     ) -> Optional[List[Tuple[int, int]]]:
-        """Refines a cached abstract path for specific start/end positions."""
+        """
+        Refines a cached abstract path for specific start/end positions.
+        
+        Connects the start position to the first cached node, and the last
+        cached node to the end position, reusing the cached middle section.
+        """
         if not cached_abstract:
             return None
 
@@ -480,6 +510,7 @@ class NavigationService:
         return full_path
 
     def _to_world(self, grid_pos: Tuple[int, int]) -> Tuple[float, float]:
+        """Converts grid coordinates to world coordinates."""
         return (
             float(grid_pos[0] * self.grid_step_size),
             float(grid_pos[1] * self.grid_step_size),
@@ -492,24 +523,19 @@ class NavigationService:
         width: float,
         height: float,
         walkable: bool,
-        obstacle_type: int = 1,  # Legacy type, unused now? Or map to capability?
+        obstacle_type: int = 1,
     ) -> None:
         """
-        Updates the grid.
-        For now, ObstacleType.HIGH blocks everything.
-        ObstacleType.LOW blocks WALK but allows FLY.
+        Updates the grid map with an obstacle or clearance.
+
+        Args:
+            x (float): X position in world coords.
+            y (float): Y position in world coords.
+            width (float): Width in world coords.
+            height (float): Height in world coords.
+            walkable (bool): If True, area becomes walkable. If False, it becomes blocked.
+            obstacle_type (int): ObstacleType enum value (LOW=blocks walk, HIGH=blocks all).
         """
-        # Mapping legacy obstacle types to capabilities
-        # LOW (0) -> Blocks WALK.
-        # HIGH (1) -> Blocks WALK | FLY.
-
-        # If 'walkable' is False, we are BLOCKING.
-        # If 'walkable' is True, we are CLEARING the block.
-
-        # We want to clear bits if blocking.
-        # But the function name is 'update_obstacle_rect' and arg is 'walkable'.
-        # Interpretation: walkable=False means ADD OBSTACLE.
-
         block_mask = 0
         if obstacle_type == 0:  # LOW
             block_mask = TraversalCapability.WALK
@@ -530,7 +556,21 @@ class NavigationService:
     def find_path(
         self, start, end, can_fly=False, timestamp: float | None = None
     ) -> List[Tuple[float, float]]:
-        """Blocking synchronous pathfinding for legacy code."""
+        """
+        Blocking synchronous pathfinding.
+        
+        Note: This is intended for legacy code or cases where immediate results are required
+        and blocking the main thread is acceptable (or when using deterministic mode).
+
+        Args:
+            start (Tuple[float, float]): Start world position.
+            end (Tuple[float, float]): End world position.
+            can_fly (bool): If True, uses FLY capability.
+            timestamp (Optional[float]): Timestamp for request ordering.
+        
+        Returns:
+            List[Tuple[float, float]]: The calculated path, or empty list if failed.
+        """
         logger.debug(f"find_path called: {start} -> {end}")
         req = PathRequest(
             priority=0,
@@ -550,6 +590,7 @@ class NavigationService:
         return result.path if result.success else []
 
     def _to_grid(self, pos: Tuple[float, float]) -> Tuple[int, int]:
+        """Converts world coordinates to grid coordinates."""
         gx = int(round(pos[0] / self.grid_step_size))
         gy = int(round(pos[1] / self.grid_step_size))
         gx = max(0, min(gx, self.grid.width - 1))

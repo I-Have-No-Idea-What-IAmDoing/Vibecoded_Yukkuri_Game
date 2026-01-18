@@ -5,25 +5,27 @@ Determines what each entity can see based on vision range, FOV, and obstacles.
 Uses spatial hashing for broadphase optimization and raycasting for narrowphase.
 
 Algorithm:
-1. **Broadphase**: Query entities within vision range using point_query
-2. **FOV Filter**: Check if target is within observer's field of view cone
-3. **Narrowphase**: Raycast to target, checking for obstructions
+1.  **Broadphase**: Query entities within vision range using point_query.
+2.  **FOV Filter**: Check if target is within observer's field of view cone.
+3.  **Narrowphase**: Raycast to target, checking for obstructions.
 
 Optimizations:
-- Batch processing: Only 20% of observers updated per frame (temporal amortization)
-- Body-to-entity map: O(1) lookup of entity from physics body
-- Visibility cache: Reuses results if observer moved < 10 pixels (temporal coherence)
+-   Batch processing: Only 20% of observers updated per frame (temporal amortization).
+-   Body-to-entity map: O(1) lookup of entity from physics body.
+-   Visibility cache: Reuses results if observer moved < 10 pixels (temporal coherence).
 
 Flight Integration:
-- Flying entities gain +50% vision range at max altitude
-- Linear interpolation based on current altitude
+-   Flying entities gain +50% vision range at max altitude.
+-   Linear interpolation based on current altitude.
 
 Output:
-- Populates AIState.visible_entities for use by AI decision making
+-   Populates AIState.visible_entities for use by AI decision making.
 """
 
 import pymunk
 import math
+from typing import Dict, List, Optional, Set, Tuple, cast
+
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import ComponentAddedEvent, ComponentRemovedEvent
@@ -32,7 +34,6 @@ from ..yukkuri_components import AIState, Flight
 from .physics import PhysicsSystem
 from ..collision_constants import CollisionCategories
 from ...engine.types import EntityID
-from typing import cast
 
 
 class VisibilitySystem(System):
@@ -42,6 +43,15 @@ class VisibilitySystem(System):
     Uses temporal coherence caching to avoid redundant calculations
     when observers haven't moved significantly. Batch-processes observers
     to spread workload across frames.
+
+    Attributes:
+        space (Optional[pymunk.Space]): The physics space.
+        update_index (int): Index for batch processing.
+        batch_size (float): Fraction of observers processed per frame.
+        body_to_entity (Dict[pymunk.Body, int]): Map of physics bodies to entity IDs.
+        event_bus (Optional[EventBus]): The event bus.
+        visibility_cache (Dict[int, Tuple[Set[EntityID], float, float]]): Cache for visibility results.
+        cache_threshold (float): Movement threshold for cache invalidation.
     """
 
     # Fraction of observers processed per frame (0.2 = 20%)
@@ -52,14 +62,14 @@ class VisibilitySystem(System):
 
     def __init__(self) -> None:
         """Initializes the VisibilitySystem."""
-        self.space: pymunk.Space | None = None
+        self.space: Optional[pymunk.Space] = None
         self.update_index = 0
         self.batch_size = self.DEFAULT_BATCH_SIZE
-        self.body_to_entity: dict[pymunk.Body, int] = {}
-        self.event_bus: EventBus | None = None
+        self.body_to_entity: Dict[pymunk.Body, int] = {}
+        self.event_bus: Optional[EventBus] = None
 
         # Visibility cache: entity_id -> (visible_set, cached_x, cached_y)
-        self.visibility_cache: dict[int, tuple[set[EntityID], float, float]] = {}
+        self.visibility_cache: Dict[int, Tuple[Set[EntityID], float, float]] = {}
         self.cache_threshold: float = self.CACHE_THRESHOLD
 
     def on_component_added(self, event: ComponentAddedEvent) -> None:
@@ -90,9 +100,6 @@ class VisibilitySystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
         if not self.space:
             physics_system = world.services.try_get(PhysicsSystem)
@@ -143,7 +150,7 @@ class VisibilitySystem(System):
         trans: Transform,
         ai: AIState,
         world: World,
-        phys_comp: PhysicsBody | None,
+        phys_comp: Optional[PhysicsBody],
     ) -> None:
         """
         Calculates visible entities for a single observer.
@@ -155,9 +162,7 @@ class VisibilitySystem(System):
             trans (Transform): The transform component.
             ai (AIState): The AI state component to update.
             world (World): The ECS World.
-
-        Returns:
-            None
+            phys_comp (Optional[PhysicsBody]): The physics component of the observer.
         """
         # Reuse cached result if observer hasn't moved significantly.
         if entity in self.visibility_cache:
@@ -170,7 +175,7 @@ class VisibilitySystem(System):
                 ai.visible_entities = cached_visible
                 return
 
-        visible: set[EntityID] = set()
+        visible: Set[EntityID] = set()
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
         obs_angle = phys_comp.body.angle if phys_comp else 0.0

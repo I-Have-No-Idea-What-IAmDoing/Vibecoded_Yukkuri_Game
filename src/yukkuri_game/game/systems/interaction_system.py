@@ -5,21 +5,24 @@ Processes InteractionRequest components and routes them to appropriate handlers.
 Acts as a central hub for entity-to-entity and entity-to-item interactions.
 
 Interaction Types:
-- Item consumption: Routed to HungerSystem
-- Social actions (Talk, Fight, Dance, Greet): Routed to SocialSystem
-- Predation: Handled directly (eating other Yukkuris, requires permission)
+-   Item consumption: Routed to HungerSystem.
+-   Social actions (Talk, Fight, Dance, Greet): Routed to SocialSystem.
+-   Predation: Handled directly (eating other Yukkuris, requires permission).
 
 Request Lifecycle:
-1. AI system adds InteractionRequest component to entity
-2. This system processes request each frame
-3. If within range, dispatches to appropriate handler
-4. On success, removes the InteractionRequest component
+1.  AI system adds InteractionRequest component to entity.
+2.  This system processes request each frame.
+3.  If within range, dispatches to appropriate handler.
+4.  On success, removes the InteractionRequest component.
 """
 
 import math
+from typing import cast, Optional, List
 from loguru import logger
+
 from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
+from ...engine.types import EntityID
 from ..components import Transform, InteractionRequest
 from ..yukkuri_components import (
     YukkuriStats,
@@ -40,15 +43,21 @@ class InteractionSystem(System):
 
     Lazy-loads system references on first update to avoid
     circular dependencies during initialization.
+
+    Attributes:
+        audio (Optional[AudioManager]): Audio manager.
+        trait_service (Optional[TraitService]): Trait service.
+        hunger_system (Optional[HungerSystem]): Hunger system.
+        social_system (Optional[SocialSystem]): Social system.
     """
 
     def __init__(self) -> None:
         """Initializes the InteractionSystem."""
         super().__init__()
-        self.audio: AudioManager | None = None
-        self.trait_service: TraitService | None = None
-        self.hunger_system: HungerSystem | None = None
-        self.social_system: SocialSystem | None = None
+        self.audio: Optional[AudioManager] = None
+        self.trait_service: Optional[TraitService] = None
+        self.hunger_system: Optional[HungerSystem] = None
+        self.social_system: Optional[SocialSystem] = None
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -57,9 +66,6 @@ class InteractionSystem(System):
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
-
-        Returns:
-            None
         """
         if self.audio is None:
             self.audio = world.services.try_get(AudioManager)
@@ -133,7 +139,7 @@ class InteractionSystem(System):
         """
         target_id = request.target_id
 
-        # ==================== VALIDATION ====================
+        # Validation
         if not world.entity_exists(target_id):
             return True
 
@@ -141,14 +147,14 @@ class InteractionSystem(System):
         if not target_transform:
             return True
 
-        # ==================== RANGE CHECK ====================
+        # Range Check
         dist = math.hypot(
             transform.x - target_transform.x, transform.y - target_transform.y
         )
         if dist > 70.0:  # 70px threshold for movement jitter.
             return False
 
-        # ==================== DISPATCH: ITEM CONSUMPTION ====================
+        # Dispatch: Item Consumption
         item_stats = world.get_component(target_id, ItemStats)
         if item_stats:
             if self.hunger_system:
@@ -161,7 +167,7 @@ class InteractionSystem(System):
                 )
                 return False
 
-        # ==================== DISPATCH: SOCIAL ACTIONS ====================
+        # Dispatch: Social Actions
         if request.action in ["Talk", "Fight", "Dance", "Greet"]:
             if self.social_system:
                 self.social_system.process_interaction_request(world, entity, request)
@@ -170,7 +176,7 @@ class InteractionSystem(System):
                 logger.warning("SocialSystem not available to handle social request.")
                 return False
 
-        # ==================== DISPATCH: PREDATION ====================
+        # Dispatch: Predation
         # Special case: eating another Yukkuri (requires trait permission)
         target_stats = world.get_component(target_id, YukkuriStats)
         if target_stats and request.consume:
@@ -180,14 +186,11 @@ class InteractionSystem(System):
                 if needs:
                     needs.hunger = max(0, needs.hunger - 50.0)  # Big meal
                 if self.audio:
-                    self.audio.play_sound("eat")  # Crunch?
+                    self.audio.play_sound("eat")
 
                 world.destroy_entity(target_id)
                 ai = world.get_component(entity, AIState)
                 if ai and ai.current_target_id == target_id:
-                    from typing import cast
-                    from ...engine.types import EntityID
-
                     ai.current_target_id = cast(EntityID, -1)
                 logger.info(f"Entity {entity} ate Yukkuri {target_id} (Predation).")
             else:

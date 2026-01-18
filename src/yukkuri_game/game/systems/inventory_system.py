@@ -1,6 +1,11 @@
 """
-Module defining the InventorySystem logic.
+Inventory System - Pickup and Drop Logic.
+
+Manages entity inventory interactions, including picking up items from the world
+and dropping items back into the world.
 """
+
+from typing import Optional
 
 from loguru import logger
 from ...engine.ecs import System, World
@@ -23,11 +28,19 @@ class InventorySystem(System):
     """
 
     def __init__(self) -> None:
+        """Initializes the InventorySystem."""
         super().__init__()
-        self.event_bus: EventBus | None = None
-        self.resource_manager: ResourceManager | None = None
+        self.event_bus: Optional[EventBus] = None
+        self.resource_manager: Optional[ResourceManager] = None
 
     def update(self, world: World, dt: float) -> None:
+        """
+        Updates the inventory system, processing pickup and drop requests.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Delta time.
+        """
         if self.event_bus is None:
             self.event_bus = world.services.try_get(EventBus)
         if self.resource_manager is None:
@@ -37,7 +50,12 @@ class InventorySystem(System):
         self._handle_drops(world)
 
     def _handle_pickups(self, world: World) -> None:
-        """Process all pickup requests."""
+        """
+        Process all pickup requests.
+
+        Args:
+            world (World): The ECS World.
+        """
         for entity_id, (inventory, request) in world.get_components_tuple(
             InventoryComponent, InventoryPickupRequest
         ):
@@ -100,7 +118,12 @@ class InventorySystem(System):
             world.remove_component(entity_id, InventoryPickupRequest)
 
     def _handle_drops(self, world: World) -> None:
-        """Process all drop requests."""
+        """
+        Process all drop requests.
+
+        Args:
+            world (World): The ECS World.
+        """
         entity_factory = world.services.try_get(EntityFactory)
         if not entity_factory:
             # Cannot drop if we can't spawn entities
