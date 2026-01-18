@@ -146,26 +146,32 @@ class Application:
         current_time = pygame.time.get_ticks() / 1000.0
 
         while self.running:
-            new_time = pygame.time.get_ticks() / 1000.0
-            frame_time = new_time - current_time
-            current_time = new_time
+            try:
+                new_time = pygame.time.get_ticks() / 1000.0
+                frame_time = new_time - current_time
+                current_time = new_time
 
-            if frame_time > 0.25:
-                frame_time = 0.25
-            self.accumulator += frame_time
+                if frame_time > 0.25:
+                    frame_time = 0.25
+                self.accumulator += frame_time
 
-            # Input processing should happen every frame
-            self.process_events()
+                # Input processing should happen every frame
+                self.process_events()
 
-            while self.accumulator >= self.fixed_dt:
-                self.update(self.fixed_dt)
-                self.accumulator -= self.fixed_dt
+                while self.accumulator >= self.fixed_dt:
+                    self.update(self.fixed_dt)
+                    self.accumulator -= self.fixed_dt
 
-            if not self.headless:
-                self.render()
-                self.clock.tick(60)
-            else:
-                self.clock.tick(60)
+                if not self.headless:
+                    self.render()
+                    self.clock.tick(60)
+                else:
+                    self.clock.tick(60)
+            except Exception as e:
+                logger.critical(f"Unhandled exception in game loop: {e}")
+                import traceback
+                logger.critical(traceback.format_exc())
+                self.running = False
 
         self.quit()
 
