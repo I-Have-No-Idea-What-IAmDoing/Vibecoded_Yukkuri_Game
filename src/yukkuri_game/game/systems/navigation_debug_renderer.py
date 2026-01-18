@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from ..camera import Camera
     from ...engine.ecs import World
 
+from ..ai.navigation_constants import TraversalCapability
+
 
 class NavigationDebugRenderer:
     """
@@ -28,9 +30,13 @@ class NavigationDebugRenderer:
 
         # Colors
         self.COLOR_CLUSTER_BORDER = (0, 200, 0, 100)  # Green, semi-transparent
-        self.COLOR_ENTRANCE = (0, 100, 255, 150)  # Blue
+        self.COLOR_ENTRANCE_WALK = (0, 100, 255, 150)  # Blue (WALK graph)
+        self.COLOR_ENTRANCE_FLY = (0, 255, 200, 150)  # Cyan (FLY graph)
         self.COLOR_PATH = (255, 255, 0, 200)  # Yellow
         self.COLOR_STEERING = (255, 50, 50, 200)  # Red
+
+        # Display options
+        self.show_fly_graph = False  # Toggle to also show FLY graph
 
     def toggle(self) -> None:
         """Toggles debug rendering on/off."""
@@ -45,7 +51,9 @@ class NavigationDebugRenderer:
             return
 
         self._draw_cluster_boundaries(surface)
-        self._draw_entrances(surface)
+        self._draw_entrances(surface, TraversalCapability.WALK, self.COLOR_ENTRANCE_WALK)
+        if self.show_fly_graph:
+            self._draw_entrances(surface, TraversalCapability.FLY, self.COLOR_ENTRANCE_FLY)
         self._draw_active_paths(surface, world)
         self._draw_steering_vectors(surface, world)
 
@@ -95,10 +103,12 @@ class NavigationDebugRenderer:
                 surface, self.COLOR_CLUSTER_BORDER[:3], (sx_left, sy), (sx_right, sy), 1
             )
 
-    def _draw_entrances(self, surface: pygame.Surface) -> None:
-        """Draws blue circles at entrance nodes and lines for edges."""
+    def _draw_entrances(
+        self, surface: pygame.Surface, capability: int, color: tuple
+    ) -> None:
+        """Draws circles at entrance nodes and lines for edges for the given capability."""
         cell_size = self.nav_service.grid_step_size
-        graph = self.nav_service.cluster_graph
+        graph = self.nav_service.get_graph(capability)
 
         # Draw nodes as small circles
         for node_id, node in graph.graph_nodes.items():
@@ -109,9 +119,8 @@ class NavigationDebugRenderer:
             world_y = node.position[1] * cell_size
             sx, sy = self._world_to_screen(world_x, world_y)
 
-            # Check if on screen
             if 0 <= sx < self.camera.width and 0 <= sy < self.camera.height:
-                pygame.draw.circle(surface, self.COLOR_ENTRANCE[:3], (sx, sy), 4)
+                pygame.draw.circle(surface, color[:3], (sx, sy), 4)
 
         # Draw edges as lines (only draw each edge once)
         drawn_edges = set()
@@ -138,7 +147,7 @@ class NavigationDebugRenderer:
                 sx2, sy2 = self._world_to_screen(x2, y2)
 
                 pygame.draw.line(
-                    surface, self.COLOR_ENTRANCE[:3], (sx1, sy1), (sx2, sy2), 1
+                    surface, color[:3], (sx1, sy1), (sx2, sy2), 1
                 )
 
     def _draw_active_paths(self, surface: pygame.Surface, world: "World") -> None:

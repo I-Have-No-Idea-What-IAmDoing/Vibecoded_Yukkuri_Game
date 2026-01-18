@@ -116,9 +116,11 @@ class NavigationService:
         # Unified Grid
         self.grid = NavigationGrid(world_width, world_height, grid_step_size)
 
-        # HPA* Cluster Graph
-        self.cluster_graph = ClusterGraph(self.grid)
-        self.cluster_graph.build_graph()
+        # HPA* Cluster Graphs - one per traversal capability
+        self.cluster_graphs: Dict[int, ClusterGraph] = {}
+        for cap in [TraversalCapability.WALK, TraversalCapability.FLY]:
+            self.cluster_graphs[cap] = ClusterGraph(self.grid)
+            self.cluster_graphs[cap].build_graph(capability=cap)
 
         # Async Logic
         self.request_queue = queue.PriorityQueue()
@@ -161,11 +163,27 @@ class NavigationService:
         self.grid = NavigationGrid(
             self.world_width, self.world_height, self.grid_step_size
         )
-        self.cluster_graph = ClusterGraph(self.grid)
-        self.cluster_graph.build_graph()
+        self.cluster_graphs.clear()
+        for cap in [TraversalCapability.WALK, TraversalCapability.FLY]:
+            self.cluster_graphs[cap] = ClusterGraph(self.grid)
+            self.cluster_graphs[cap].build_graph(capability=cap)
         with self._state_lock:
             self._path_cache.clear()
             self._dirty = False
+
+    def get_graph(self, capability: int) -> ClusterGraph:
+        """
+        Returns the appropriate cluster graph for the given capability.
+
+        Args:
+            capability (int): Bitfield of TraversalCapability flags.
+
+        Returns:
+            ClusterGraph: The graph for the requested capability.
+        """
+        if capability & TraversalCapability.FLY:
+            return self.cluster_graphs[TraversalCapability.FLY]
+        return self.cluster_graphs[TraversalCapability.WALK]
 
     def shutdown(self) -> None:
         """Stops the background worker thread."""
@@ -242,7 +260,8 @@ class NavigationService:
         # Handle Graph Rebuilds
         if self._dirty:
             with self._state_lock:
-                self.cluster_graph.build_graph()
+                for cap, graph in self.cluster_graphs.items():
+                    graph.build_graph(capability=cap)
                 self._dirty = False
                 self._last_rebuild = current_time
                 self._path_cache.clear()
@@ -292,7 +311,8 @@ class NavigationService:
                     logger.debug("NavWorker: rebuilding graph...")
                     try:
                         with self._state_lock:
-                            self.cluster_graph.build_graph()
+                            for cap, graph in self.cluster_graphs.items():
+                                graph.build_graph(capability=cap)
                             self._dirty = False
                             self._last_rebuild = time.time()
                             self._path_cache.clear()  # Invalidate cache
@@ -356,14 +376,42 @@ class NavigationService:
         end_pos = req.end
         capability = req.capabilities
 
+        # Select appropriate graph for this capability
+        graph = self.get_graph(capability)
+
         # Stage 1: Trivial case - already at destination
         if start_pos == end_pos:
             logger.debug("Trivial path found.")
             return PathResult(req.entity_id, [self._to_world(start_pos)], True)
 
         # Stage 2: Identify clusters for cache lookup
-        start_cluster = self.cluster_graph.get_cluster_for_pos(start_pos)
-        end_cluster = self.cluster_graph.get_cluster_for_pos(end_pos)
+        start_cluster = graph.get_cluster_for_pos(start_pos)
+        end_cluster = graph.get_cluster_for_pos(end_pos)
+
+        # Stage 2.5: Check path cache for cross-cluster paths
+        if start_cluster and end_cluster and start_cluster != end_cluster:
+            cache_key = (
+                (start_cluster.cx, start_cluster.cy),
+                (end_cluster.cx, end_cluster.cy),
+                capability,
+            )
+            with self._state_lock:
+                cached_abstract = self._path_cache.get(cache_key)
+
+            if cached_abstract:
+                logger.debug(f"Cache hit for {cache_key}")
+                raw_path = self._refine_cached_path(
+                    cached_abstract, start_pos, end_pos, capability
+                )
+                if raw_path:
+                    smoothed = StringPuller.smooth_path(
+                        raw_path, self.grid, capability
+                    )
+                    return PathResult(
+                        req.entity_id, [self._to_world(p) for p in smoothed], True
+                    )
+                else:
+                    logger.debug("Cached path refinement failed, falling through.")
 
         # Stage 3: Same-cluster optimization (local A* only).
         if start_cluster and end_cluster and start_cluster == end_cluster:
@@ -392,8 +440,8 @@ class NavigationService:
         logger.debug("Cross-cluster search needed (or local failed).")
 
         # Stage 4: Insert temporary nodes for start/goal positions.
-        start_node = self.cluster_graph.insert_temporary_node(start_pos, capability)
-        end_node = self.cluster_graph.insert_temporary_node(end_pos, capability)
+        start_node = graph.insert_temporary_node(start_pos, capability)
+        end_node = graph.insert_temporary_node(end_pos, capability)
 
         temp_nodes = []
         if start_node and start_node.id.startswith("temp_"):
@@ -410,7 +458,7 @@ class NavigationService:
                 )  # Direct fallback.
             else:
                 # Stage 5: Abstract A* on cluster graph.
-                abstract_path = self.cluster_graph.abstract_search(start_node, end_node)
+                abstract_path = graph.abstract_search(start_node, end_node)
 
                 if abstract_path:
                     # Cache the abstract path (without temp nodes)
@@ -429,7 +477,7 @@ class NavigationService:
                                 self._path_cache[cache_key] = permanent_abstract
 
                     # Stage 6: Refine abstract path with local A* segments.
-                    raw_path = self.cluster_graph.refine_abstract_path(
+                    raw_path = graph.refine_abstract_path(
                         abstract_path, capability
                     )
 
@@ -440,7 +488,7 @@ class NavigationService:
         finally:
             # Clean up temporary nodes
             for temp_node in temp_nodes:
-                self.cluster_graph.remove_temporary_node(temp_node)
+                graph.remove_temporary_node(temp_node)
 
         if not raw_path:
             return PathResult(req.entity_id, [], False)
@@ -469,11 +517,14 @@ class NavigationService:
         if not cached_abstract:
             return None
 
+        # Select appropriate graph for this capability
+        graph = self.get_graph(capability)
+
         # Build full abstract path: start -> cached -> end
         full_path = []
 
         # Connect start to first cached node
-        first_node = self.cluster_graph.graph_nodes.get(cached_abstract[0])
+        first_node = graph.graph_nodes.get(cached_abstract[0])
         if not first_node:
             return None
 
@@ -486,7 +537,7 @@ class NavigationService:
 
         # Refine the cached abstract path
         if len(cached_abstract) > 1:
-            middle_path = self.cluster_graph.refine_abstract_path(
+            middle_path = graph.refine_abstract_path(
                 cached_abstract, capability
             )
             if middle_path:
@@ -497,7 +548,7 @@ class NavigationService:
                     full_path.extend(middle_path)
 
         # Connect last cached node to end
-        last_node = self.cluster_graph.graph_nodes.get(cached_abstract[-1])
+        last_node = graph.graph_nodes.get(cached_abstract[-1])
         if not last_node:
             return None
 
