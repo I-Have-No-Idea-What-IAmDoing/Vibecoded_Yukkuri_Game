@@ -88,9 +88,24 @@ class ServiceLocator:
     def clear(self) -> None:
         """
         Clears all registered services.
+        Calls shutdown() on services if they have it.
         Useful for testing or resetting state.
 
         Returns:
             None
         """
+        for service in self._services.values():
+            if hasattr(service, "shutdown") and callable(service.shutdown):
+                try:
+                    service.shutdown()
+                except Exception:
+                    from loguru import logger
+                    logger.exception(f"Error shutting down service {service}")
+            elif hasattr(service, "cleanup") and callable(service.cleanup):
+                try:
+                    service.cleanup()
+                except Exception:
+                    from loguru import logger
+                    logger.exception(f"Error cleaning up service {service}")
+
         self._services.clear()
