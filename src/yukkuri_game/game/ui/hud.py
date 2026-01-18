@@ -99,6 +99,28 @@ class HUD:
             InventoryItemActionEvent, self.on_inventory_item_action
         )
 
+    def cleanup(self) -> None:
+        """
+        Unsubscribes all event listeners.
+        Must be called when the HUD is destroyed to prevent memory leaks.
+        """
+        self.event_bus.unsubscribe(EntitySelectedEvent, self.on_entity_selected)
+        self.event_bus.unsubscribe(GamePausedEvent, self.on_game_paused)
+        self.event_bus.unsubscribe(LogMessageEvent, self.on_log_message)
+        self.event_bus.unsubscribe(
+            ContextMenuRequestedEvent, self.on_context_menu_requested
+        )
+        self.event_bus.unsubscribe(
+            InventoryViewRequestedEvent, self.on_inventory_view_requested
+        )
+        self.event_bus.unsubscribe(InventoryChangedEvent, self.on_inventory_changed)
+        self.event_bus.unsubscribe(
+            InventoryItemActionEvent, self.on_inventory_item_action
+        )
+
+        if self.inventory_panel:
+            self.inventory_panel.close()
+
     def resize(self, width: int, height: int) -> None:
         """
         Resizes the HUD.

@@ -294,13 +294,14 @@ class NavigationService:
 
                     self.result_queue.put(result)
                 except Exception as e:
-                    logger.error(f"Error in navigation worker: {e}")
-                    traceback.print_exc()
+                    logger.exception(f"Error in navigation worker: {e}")
                     self.result_queue.put(PathResult(req.entity_id, [], False))
 
                 self.request_queue.task_done()
             except Exception:
-                time.sleep(1.0)  # Prevent tight loop on fatal errors.
+                # Fatal error in loop structure
+                time.sleep(1.0)
+                logger.error("Navigation worker loop fatal error, retrying...")
         logger.info("NavigationService worker loop exited.")
 
     def _process_request(self, req: PathRequest) -> PathResult:

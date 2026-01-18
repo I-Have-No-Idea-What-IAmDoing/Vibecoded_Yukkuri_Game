@@ -214,6 +214,11 @@ class GameplayScene(Scene):
         logger.info("Exited Gameplay Scene")
         self.ui_manager.clear_and_reset()
 
+        # Cleanup HUD listeners
+        if self.hud:
+            self.hud.cleanup()
+            self.hud = None
+
         # Sync back global state to Application/SceneManager
         if hasattr(self, "economy_service") and self.economy_service:
             self.application.scene_manager.set_global_data(

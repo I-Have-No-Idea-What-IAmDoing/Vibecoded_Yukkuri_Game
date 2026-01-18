@@ -107,28 +107,30 @@ class HungerSystem(System):
             return False
 
         # ==================== STAT EFFECTS ====================
-        # Apply nutrition: decreases hunger (lower = less hungry)
-        if item_stats.nutrition > 0:
-            consumer_needs.hunger = max(0, consumer_needs.hunger - item_stats.nutrition)
-            # Waste generation: food creates biological waste at 50% rate
-            # e.g., 20 nutrition creates 10 bladder pressure
-            consumer_needs.bladder = min(
-                100, consumer_needs.bladder + (item_stats.nutrition * 0.5)
-            )
-
-        # Fun foods increase happiness (treats, sweets)
+        # ==================== STAT EFFECTS ====================
+        # Fun effects apply regardless of consumption (Play or Eat)
         emotional = world.get_component(consumer_id, EmotionalState)
         if item_stats.fun > 0 and emotional:
             emotional.happiness = min(100, emotional.happiness + item_stats.fun)
 
-        # Comfort foods restore energy (filling, warm foods)
-        if item_stats.comfort > 0:
-            consumer_needs.energy = min(100, consumer_needs.energy + item_stats.comfort)
+        # Nutritional/Metabolic effects ONLY if consumed
+        if request.consume:
+            # Apply nutrition: decreases hunger (lower = less hungry)
+            if item_stats.nutrition > 0:
+                consumer_needs.hunger = max(0, consumer_needs.hunger - item_stats.nutrition)
+                # Waste generation: food creates biological waste at 50% rate
+                consumer_needs.bladder = min(
+                    100, consumer_needs.bladder + (item_stats.nutrition * 0.5)
+                )
 
-        # ==================== SKILL XP ====================
-        # Award scavenging XP for finding and consuming food
-        if self.skill_service:
-            self.skill_service.add_xp(consumer_id, SkillId.SCAVENGING, 5.0)
+            # Comfort foods restore energy (filling, warm foods)
+            if item_stats.comfort > 0:
+                consumer_needs.energy = min(100, consumer_needs.energy + item_stats.comfort)
+
+            # ==================== SKILL XP ====================
+            # Award scavenging XP only for eating
+            if self.skill_service:
+                self.skill_service.add_xp(consumer_id, SkillId.SCAVENGING, 5.0)
 
         # ==================== ITEM DESTRUCTION ====================
         if request.consume:
