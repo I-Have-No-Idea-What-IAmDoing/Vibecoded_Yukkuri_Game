@@ -26,7 +26,7 @@ def simulation_world() -> tuple[World, int, int]:
     """
     world = World()
     world.services.register(GameService(world))
-    world.services.register(NavigationService(1000, 1000))
+    world.services.register(NavigationService(1000, 1000, deterministic_mode=True))
 
     # Create Yukkuri
     yukkuri = world.create_entity()
@@ -145,19 +145,14 @@ def test_simulation_action_eat(
     trans = world.get_component(yukkuri, Transform)
     initial_x = trans.x
 
-    # Wait for pathfinding (async)
-    import time
-    time.sleep(0.1)
-
+    # Process behavior -> Request Path
     behavior_system.update(world, 0.1)
+    # Process Navigation (Deterministic) -> Compute Path -> Update AIState
     navigation_system.update(world, 0.1)
+    # Process Behavior again -> See Path -> Issue MoveCommand
+    behavior_system.update(world, 0.1)
+    # Process Steering -> Consume MoveCommand -> Update Velocity
     steering_system.update(world, 0.1)
-
-    # Loop briefly to allow path processing
-    for _ in range(3):
-        behavior_system.update(world, 0.1)
-        navigation_system.update(world, 0.1)
-        steering_system.update(world, 0.1)
 
     # BehaviorSystem updates MoveToTarget, which adds MoveCommand
     # SteeringSystem processes MoveCommand -> MovementController.target_velocity
@@ -173,8 +168,9 @@ def test_simulation_action_eat(
     assert trans.x > initial_x  # Should have moved towards 100
 
     # Move until close enough (Dist <= 30 for Interact, < 15 for MoveToTarget success)
-    for _ in range(50):  # Increased range to be safe
+    for _ in range(50):
         behavior_system.update(world, 0.1)
+        # Navigation update not strictly needed every frame if path is already set, but good for repathing
         navigation_system.update(world, 0.1)
         steering_system.update(world, 0.1)
         # Manually apply velocity
@@ -245,19 +241,14 @@ def test_simulation_action_wander(
     trans = world.get_component(yukkuri, Transform)
     initial_x, initial_y = trans.x, trans.y
 
-    # Wait for pathfinding (async)
-    import time
-    time.sleep(0.1)
-
+    # Process behavior -> Request Path
     behavior_system.update(world, 0.1)
+    # Process Navigation (Deterministic) -> Compute Path
     navigation_system.update(world, 0.1)
+    # Process Behavior -> Follow Path
+    behavior_system.update(world, 0.1)
+    # Process Steering
     steering_system.update(world, 0.1)
-
-    # Loop briefly to allow path processing
-    for _ in range(10):
-        behavior_system.update(world, 0.1)
-        navigation_system.update(world, 0.1)
-        steering_system.update(world, 0.1)
 
     # Manually apply velocity
     controller = world.get_component(yukkuri, MovementController)

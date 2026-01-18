@@ -25,6 +25,9 @@ from yukkuri_game.engine.types import EntityID
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
 
+WAYPOINT_ACCEPTANCE_RADIUS = 20.0
+LOW_ENERGY_THRESHOLD = 30.0
+
 
 class MoveToTarget(Action):
     """
@@ -265,7 +268,7 @@ class MoveToTarget(Action):
             dist_to_waypoint = (next_point - current_pos).length
 
             # Waypoint reached?
-            if dist_to_waypoint < 20.0:  # Waypoint acceptance radius
+            if dist_to_waypoint < WAYPOINT_ACCEPTANCE_RADIUS:
                 ai.path.pop(0)
                 if not ai.path:
                     # Path finished
@@ -275,7 +278,7 @@ class MoveToTarget(Action):
 
             if ai.path:
                 speed_modifier = 1.0
-                if needs.energy < 30:
+                if needs.energy < LOW_ENERGY_THRESHOLD:
                     speed_modifier = 0.5
 
                 self.world.add_component(
