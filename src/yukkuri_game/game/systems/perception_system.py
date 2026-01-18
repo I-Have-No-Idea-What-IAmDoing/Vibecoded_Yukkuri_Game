@@ -78,10 +78,8 @@ class PerceptionSystem(System):
     def on_entity_destroyed(self, event: EntityDestroyedEvent) -> None:
         """Clean up local state when entity is destroyed."""
         entity_id = event.entity_id
-        if entity_id in self._last_update_times:
-            del self._last_update_times[entity_id]
-        if entity_id in self._last_visible_set_ids:
-            del self._last_visible_set_ids[entity_id]
+        self._last_update_times.pop(entity_id, None)
+        self._last_visible_set_ids.pop(entity_id, None)
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -104,19 +102,9 @@ class PerceptionSystem(System):
             # Skip update if within interval AND visible set object hasn't changed.
             # We check object identity of ai_state.visible_entities because VisibilitySystem
             # now reuses the set object when visibility hasn't changed.
-            should_update = False
-
-            # Check time
-            last_time = self._last_update_times.get(entity_id, 0.0)
-            if current_time - last_time >= self.UPDATE_INTERVAL:
-                should_update = True
-
-            # Check if visibility set changed (by reference)
-            current_visible_id = id(ai_state.visible_entities)
-            last_visible_id = self._last_visible_set_ids.get(entity_id, 0)
-
-            if current_visible_id != last_visible_id:
-                should_update = True
+            time_expired = current_time - self._last_update_times.get(entity_id, 0.0) >= self.UPDATE_INTERVAL
+            visibility_changed = id(ai_state.visible_entities) != self._last_visible_set_ids.get(entity_id, 0)
+            should_update = time_expired or visibility_changed
 
             if should_update:
                 self._update_blackboard(
