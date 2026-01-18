@@ -195,7 +195,7 @@ class RenderSystem(System):
             self._process_entity(world, ent, alpha, sw, sh)
 
         # 4. Floating Text
-        self._process_floating_text(world, sw, sh, alpha)
+        self._process_floating_text(world, visible_entities, sw, sh, alpha)
 
         # 5. Placement Preview (Submit before render)
         self._process_placement_preview(world, sw, sh)
@@ -626,14 +626,32 @@ class RenderSystem(System):
         self.renderer.set_ambient_light(color)
 
     def _process_floating_text(
-        self, world: World, sw: int, sh: int, alpha: float
+        self,
+        world: World,
+        visible_entities: list[int],
+        sw: int,
+        sh: int,
+        alpha: float,
     ) -> None:
-        for ent, (transform, text) in world.get_components_tuple(
-            Transform, FloatingText
-        ):
+        """
+        Processes floating text components for visible entities.
+
+        Optimization: iterates only over visible entities (from SectorMap)
+        instead of all floating text entities in the world.
+        """
+        for ent in visible_entities:
+            text = world.try_get_component(ent, FloatingText)
+            if not text:
+                continue
+
+            transform = world.try_get_component(ent, Transform)
+            if not transform:
+                continue
+
             sx, sy = self.camera.world_to_screen_fast(transform.x, transform.y)
 
-            if 0 <= sx <= sw and 0 <= sy <= sh:  # Cull offscreen.
+            # Cull offscreen (visible_entities has a buffer)
+            if 0 <= sx <= sw and 0 <= sy <= sh:
                 alpha_val = 255
                 if text.max_lifetime > 0:
                     alpha_val = int(255 * (text.lifetime / text.max_lifetime))

@@ -5,3 +5,7 @@
 ## 2025-05-21 - [Sector System Optimization]
 **Learning:** `SectorSystem` was rebuilding the spatial map for every entity every frame, consuming ~13ms for 5000 static entities. Adding a simple dirty check (`x != prev_x`) reduced this to ~4ms (3x speedup).
 **Action:** Always check for state changes before performing expensive spatial updates, especially for systems iterating over all entities.
+
+## 2026-10-24 - [Render System Optimization]
+**Learning:** `RenderSystem` was iterating all `FloatingText` entities every frame, regardless of visibility. By using the pre-calculated `visible_entities` list from `SectorMap`, we reduced checks from O(Total) to O(Visible).
+**Action:** Use `visible_entities` for all renderable components, not just Sprites.
