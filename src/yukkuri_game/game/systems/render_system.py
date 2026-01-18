@@ -644,9 +644,7 @@ class RenderSystem(System):
             if not text:
                 continue
 
-            transform = world.try_get_component(ent, Transform)
-            if not transform:
-                continue
+            transform = world.get_component(ent, Transform)
 
             sx, sy = self.camera.world_to_screen_fast(transform.x, transform.y)
 
