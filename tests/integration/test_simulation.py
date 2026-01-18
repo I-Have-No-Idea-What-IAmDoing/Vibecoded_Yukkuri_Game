@@ -3,13 +3,16 @@ Tests for Game Simulation (Systems integration).
 """
 
 import pytest
+import pymunk
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform, MovementController
+from yukkuri_game.game.components import Transform, MovementController, SteeringComponent, PhysicsBody
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, AIState, ItemStats
 from yukkuri_game.game.systems.behavior import BehaviorSystem
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.game.systems.interaction_system import InteractionSystem
+from yukkuri_game.game.systems.navigation_system import NavigationSystem
+from yukkuri_game.game.systems.steering_system import SteeringSystem
 from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.game.services import GameService
 from yukkuri_game.game.ai.utility import UtilityAIEngine
@@ -32,7 +35,13 @@ def simulation_world() -> tuple[World, int, int]:
     world.add_component(yukkuri, Needs(hunger=50))
     world.add_component(yukkuri, AIState())
     world.add_component(yukkuri, MovementController())
-    # We don't add PhysicsBody so MoveToTarget modifies Transform directly
+    world.add_component(yukkuri, SteeringComponent())
+
+    # Add PhysicsBody for SteeringSystem
+    body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+    body.position = (0, 0)
+    shape = pymunk.Circle(body, 10)
+    world.add_component(yukkuri, PhysicsBody(body=body, shape=shape))
 
     # Create Item
     item = world.create_entity()
@@ -45,7 +54,7 @@ def simulation_world() -> tuple[World, int, int]:
 
 
 @pytest.fixture
-def systems() -> tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem]:
+def systems() -> tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem, NavigationSystem, SteeringSystem]:
     """
     Sets up the systems used in the simulation tests.
     """
@@ -58,19 +67,21 @@ def systems() -> tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSyst
         StatDecaySettings(hunger=2.0, cleanliness=2.0)
     )  # Set specific decay rates
     interaction_system = InteractionSystem()
+    navigation_system = NavigationSystem()
+    steering_system = SteeringSystem()
 
-    return behavior_system, stat_decay_system, mock_ai_engine, interaction_system
+    return behavior_system, stat_decay_system, mock_ai_engine, interaction_system, navigation_system, steering_system
 
 
 def test_simulation_update_decay(
     simulation_world: tuple[World, int, int],
-    systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem],
+    systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem, NavigationSystem, SteeringSystem],
 ) -> None:
     """
     Tests that stats decay over time via the EmotionSystem.
     """
     world, yukkuri, _ = simulation_world
-    _, stat_decay_system, _, _ = systems
+    _, stat_decay_system, _, _, _, _ = systems
 
     # Initial stats
     needs = world.get_component(yukkuri, Needs)
@@ -91,13 +102,13 @@ def test_simulation_update_decay(
 
 def test_simulation_action_eat(
     simulation_world: tuple[World, int, int],
-    systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem],
+    systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem, NavigationSystem, SteeringSystem],
 ) -> None:
     """
     Tests the full 'Eat' action cycle: Utility Selection -> Moving -> Interaction.
     """
     world, yukkuri, item = simulation_world
-    behavior_system, _, mock_ai_engine, interaction_system = systems
+    behavior_system, _, mock_ai_engine, interaction_system, navigation_system, steering_system = systems
 
     # Force AI to choose Eat
     mock_ai_engine.select_action.return_value = "Eat"
@@ -125,6 +136,7 @@ def test_simulation_action_eat(
     assert ai.current_action == "Eat"
     # 1st Tick: Eat Seq -> Goal=Eat? (Yes) -> Eat Exec -> Have Target? (No) -> Find Food (Success, sets target)
     behavior_system.update(world, 0.1)
+    navigation_system.update(world, 0.1)
 
     assert ai.current_target_id == item
 
@@ -132,8 +144,24 @@ def test_simulation_action_eat(
     # Move closer. Dist 100 -> 90 (Speed 100 * 0.1)
     trans = world.get_component(yukkuri, Transform)
     initial_x = trans.x
+
+    # Wait for pathfinding (async)
+    import time
+    time.sleep(0.1)
+
     behavior_system.update(world, 0.1)
-    # BehaviorSystem updates MoveToTarget, which sets target_velocity in MovementController.
+    navigation_system.update(world, 0.1)
+    steering_system.update(world, 0.1)
+
+    # Loop briefly to allow path processing
+    for _ in range(3):
+        behavior_system.update(world, 0.1)
+        navigation_system.update(world, 0.1)
+        steering_system.update(world, 0.1)
+
+    # BehaviorSystem updates MoveToTarget, which adds MoveCommand
+    # SteeringSystem processes MoveCommand -> MovementController.target_velocity
+
     # We need to manually simulate movement application since we don't have PhysicsSystem/MovementSystem in this test.
     controller = world.get_component(yukkuri, MovementController)
 
@@ -145,8 +173,10 @@ def test_simulation_action_eat(
     assert trans.x > initial_x  # Should have moved towards 100
 
     # Move until close enough (Dist <= 30 for Interact, < 15 for MoveToTarget success)
-    for _ in range(30):  # Increased range to be safe
+    for _ in range(50):  # Increased range to be safe
         behavior_system.update(world, 0.1)
+        navigation_system.update(world, 0.1)
+        steering_system.update(world, 0.1)
         # Manually apply velocity
         trans.x += controller.target_velocity.x * 0.1
         trans.y += controller.target_velocity.y * 0.1
@@ -183,13 +213,13 @@ def test_simulation_action_eat(
 
 def test_simulation_action_wander(
     simulation_world: tuple[World, int, int],
-    systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem],
+    systems: tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem, NavigationSystem, SteeringSystem],
 ) -> None:
     """
     Tests the 'Wander' action.
     """
     world, yukkuri, _ = simulation_world
-    behavior_system, _, mock_ai_engine, _ = systems
+    behavior_system, _, mock_ai_engine, _, navigation_system, steering_system = systems
 
     mock_ai_engine.select_action.return_value = "Wander"
     # Register mock engine so UtilitySelector finds it
@@ -215,7 +245,19 @@ def test_simulation_action_wander(
     trans = world.get_component(yukkuri, Transform)
     initial_x, initial_y = trans.x, trans.y
 
+    # Wait for pathfinding (async)
+    import time
+    time.sleep(0.1)
+
     behavior_system.update(world, 0.1)
+    navigation_system.update(world, 0.1)
+    steering_system.update(world, 0.1)
+
+    # Loop briefly to allow path processing
+    for _ in range(10):
+        behavior_system.update(world, 0.1)
+        navigation_system.update(world, 0.1)
+        steering_system.update(world, 0.1)
 
     # Manually apply velocity
     controller = world.get_component(yukkuri, MovementController)

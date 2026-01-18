@@ -49,20 +49,43 @@ def test_load_image_success(mock_exists: MagicMock, mock_load: MagicMock) -> Non
     """
     Tests successful loading and caching of an image.
     """
+    import pygame  # Ensure pygame is available
     rm = ResourceManager()
     mock_exists.return_value = True
-    mock_surface = MagicMock()
-    mock_load.return_value.convert_alpha.return_value = mock_surface
+
+    # Use real surface to satisfy TextureAtlas.add_image -> surface.blit requirements
+    real_surface = pygame.Surface((32, 32))
+    mock_load.return_value.convert_alpha.return_value = real_surface
 
     img = rm.load_image("test.png")
 
-    assert img == mock_surface
-    assert rm.images["test.png"] == mock_surface
+    # The returned image should be a subsurface from the atlas, NOT the original surface
+    # unless atlas packing failed. But with (32, 32) it should succeed.
+    # The ResourceManager returns self.atlas.get_region(filename).
+    # self.atlas.get_region returns a subsurface.
 
-    # Test caching
+    # Check if it's a surface
+    assert isinstance(img, pygame.Surface)
+    assert img.get_size() == (32, 32)
+
+    # Since we use a real surface, caching logic might store the subsurface or the original
+    # if atlas packing failed.
+    # With atlas packing success, `rm.images` (LRU cache) might NOT have it?
+    # Let's check logic:
+    # 4. Try Packing into Atlas
+    # if self.atlas.add_image(filename, img):
+    #    return self.atlas.get_region(filename)
+
+    # So if packing succeeds, it is NOT added to rm.images (LRU cache).
+    # But later `load_image` checks:
+    # atlas_surf = self.atlas.get_region(filename)
+    # if atlas_surf: return atlas_surf
+
+    # So for caching test:
     img2 = rm.load_image("test.png")
-    assert img2 == mock_surface
-    mock_load.assert_called_once()  # Only called once due to cache
+    assert img2.get_size() == (32, 32)
+    # mock_load should be called once
+    mock_load.assert_called_once()
 
 
 @patch("yukkuri_game.engine.resource_manager.os.path.exists")
@@ -117,10 +140,10 @@ def test_load_all_data() -> None:
         rm,
         "load_toml_model",
         side_effect=[
+            mock_tuning_data,
             mock_yukkuri_data,
             mock_item_data,
             mock_ai_data,
-            mock_tuning_data,
             MagicMock(),
             MagicMock(),
             MagicMock(),
@@ -133,4 +156,5 @@ def test_load_all_data() -> None:
         assert rm.ai_actions == {"Eat": {}}
         assert rm.tuning == mock_tuning_data
 
-        assert mock_load.call_count == 7
+        # 1 call for tuning (immediate) + 3 calls for accessed lazy loaders
+        assert mock_load.call_count == 4

@@ -88,9 +88,22 @@ class ServiceLocator:
     def clear(self) -> None:
         """
         Clears all registered services.
+        Calls shutdown() on services if they have it.
         Useful for testing or resetting state.
 
         Returns:
             None
         """
+        for service in self._services.values():
+            if hasattr(service, "shutdown") and callable(service.shutdown):
+                try:
+                    service.shutdown()
+                except Exception:
+                    pass  # Ignore errors during cleanup
+            elif hasattr(service, "cleanup") and callable(service.cleanup):
+                try:
+                    service.cleanup()
+                except Exception:
+                    pass
+
         self._services.clear()

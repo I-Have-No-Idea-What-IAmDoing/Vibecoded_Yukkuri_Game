@@ -258,6 +258,37 @@ class MoveToTarget(Action):
                 )
                 return Status.RUNNING
 
+        # Path Following Logic
+        if ai.path:
+            # Get next waypoint
+            next_point = pymunk.Vec2d(*ai.path[0])
+            dist_to_waypoint = (next_point - current_pos).length
+
+            # Waypoint reached?
+            if dist_to_waypoint < 20.0:  # Waypoint acceptance radius
+                ai.path.pop(0)
+                if not ai.path:
+                    # Path finished
+                    pass
+                else:
+                    next_point = pymunk.Vec2d(*ai.path[0])
+
+            if ai.path:
+                speed_modifier = 1.0
+                if needs.energy < 30:
+                    speed_modifier = 0.5
+
+                self.world.add_component(
+                    self.entity_id,
+                    MoveCommand(
+                        target_pos=next_point,
+                        target_entity_id=None,
+                        speed_multiplier=speed_modifier,
+                        priority=2,
+                    ),
+                )
+                return Status.RUNNING
+
         if self.world.has_component(self.entity_id, MoveCommand):
             self.world.remove_component(self.entity_id, MoveCommand)
 
