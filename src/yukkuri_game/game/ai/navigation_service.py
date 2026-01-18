@@ -18,7 +18,7 @@ import queue
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 from loguru import logger
 from enum import IntEnum
 
@@ -404,9 +404,7 @@ class NavigationService:
                     cached_abstract, start_pos, end_pos, capability
                 )
                 if raw_path:
-                    smoothed = StringPuller.smooth_path(
-                        raw_path, self.grid, capability
-                    )
+                    smoothed = StringPuller.smooth_path(raw_path, self.grid, capability)
                     return PathResult(
                         req.entity_id, [self._to_world(p) for p in smoothed], True
                     )
@@ -477,9 +475,7 @@ class NavigationService:
                                 self._path_cache[cache_key] = permanent_abstract
 
                     # Stage 6: Refine abstract path with local A* segments.
-                    raw_path = graph.refine_abstract_path(
-                        abstract_path, capability
-                    )
+                    raw_path = graph.refine_abstract_path(abstract_path, capability)
 
                 if not raw_path:
                     raw_path = AStar.search(
@@ -537,9 +533,7 @@ class NavigationService:
 
         # Refine the cached abstract path
         if len(cached_abstract) > 1:
-            middle_path = graph.refine_abstract_path(
-                cached_abstract, capability
-            )
+            middle_path = graph.refine_abstract_path(cached_abstract, capability)
             if middle_path:
                 # Avoid duplicate at junction
                 if full_path and middle_path and full_path[-1] == middle_path[0]:

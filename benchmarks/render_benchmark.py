@@ -4,13 +4,6 @@ import time
 import random
 import pygame
 
-# Add src to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
-
-# Mock pygame for headless environment if needed
-os.environ["SDL_VIDEODRIVER"] = "dummy"
-pygame.init()
-
 from yukkuri_game.engine.ecs import World  # noqa: E402
 from yukkuri_game.game.systems.render_system import RenderSystem  # noqa: E402
 from yukkuri_game.game.systems.sector_system import SectorSystem  # noqa: E402
@@ -23,6 +16,13 @@ from yukkuri_game.game.components import (
 from yukkuri_game.game.camera import Camera  # noqa: E402
 from yukkuri_game.game.services import TimeService  # noqa: E402
 from yukkuri_game.engine.resource_manager import ResourceManager  # noqa: E402
+
+# Add src to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
+
+# Mock pygame for headless environment if needed
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+pygame.init()
 
 
 def setup_world(num_entities=5000, num_floating_text=1000):

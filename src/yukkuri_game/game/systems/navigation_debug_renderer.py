@@ -51,9 +51,13 @@ class NavigationDebugRenderer:
             return
 
         self._draw_cluster_boundaries(surface)
-        self._draw_entrances(surface, TraversalCapability.WALK, self.COLOR_ENTRANCE_WALK)
+        self._draw_entrances(
+            surface, TraversalCapability.WALK, self.COLOR_ENTRANCE_WALK
+        )
         if self.show_fly_graph:
-            self._draw_entrances(surface, TraversalCapability.FLY, self.COLOR_ENTRANCE_FLY)
+            self._draw_entrances(
+                surface, TraversalCapability.FLY, self.COLOR_ENTRANCE_FLY
+            )
         self._draw_active_paths(surface, world)
         self._draw_steering_vectors(surface, world)
 
@@ -146,9 +150,7 @@ class NavigationDebugRenderer:
                 sx1, sy1 = self._world_to_screen(x1, y1)
                 sx2, sy2 = self._world_to_screen(x2, y2)
 
-                pygame.draw.line(
-                    surface, color[:3], (sx1, sy1), (sx2, sy2), 1
-                )
+                pygame.draw.line(surface, color[:3], (sx1, sy1), (sx2, sy2), 1)
 
     def _draw_active_paths(self, surface: pygame.Surface, world: "World") -> None:
         """Draws yellow lines for active AI paths."""
