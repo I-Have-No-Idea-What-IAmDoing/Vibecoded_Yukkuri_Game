@@ -59,7 +59,7 @@ class VisibilitySystem(System):
         self.event_bus: EventBus | None = None
 
         # Visibility cache: entity_id -> (visible_set, cached_x, cached_y)
-        self.visibility_cache: dict[int, tuple[set[int], float, float]] = {}
+        self.visibility_cache: dict[int, tuple[set[EntityID], float, float]] = {}
         self.cache_threshold: float = self.CACHE_THRESHOLD
 
     def on_component_added(self, event: ComponentAddedEvent) -> None:
@@ -166,7 +166,8 @@ class VisibilitySystem(System):
             dy = trans.y - cached_y
             dist_sq = dx * dx + dy * dy
             if dist_sq < self.cache_threshold * self.cache_threshold:
-                ai.visible_entities = {cast(EntityID, x) for x in cached_visible}
+                # OPTIMIZATION: Reuse the existing set object to allow object identity checks
+                ai.visible_entities = cached_visible
                 return
 
         visible: set[EntityID] = set()
@@ -257,6 +258,5 @@ class VisibilitySystem(System):
                 # else: First hit is an obstruction - blocked.
 
         # Update cache with new visibility result.
-        visible_ints: set[int] = {int(x) for x in visible}
-        self.visibility_cache[entity] = (visible_ints, trans.x, trans.y)
+        self.visibility_cache[entity] = (visible, trans.x, trans.y)
         ai.visible_entities = visible

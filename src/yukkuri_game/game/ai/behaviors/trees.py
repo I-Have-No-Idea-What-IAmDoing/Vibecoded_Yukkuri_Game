@@ -426,7 +426,7 @@ BehaviorRegistry.register_goal("Wander", build_wander_behavior)
 BehaviorRegistry.register_goal("SeekLight", build_seek_light_behavior)
 BehaviorRegistry.register_goal("Flee", build_flee_behavior)
 BehaviorRegistry.register_goal(
-    "Eat", build_standard_interaction_behavior("Eat"), required_component=Needs
+    "Eat", build_eat_behavior, required_component=Needs
 )
 BehaviorRegistry.register_goal(
     "Play", build_standard_interaction_behavior("Play"), required_component=Needs

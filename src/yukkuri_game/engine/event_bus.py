@@ -8,6 +8,7 @@ parts of the application using a publish-subscribe pattern.
 from typing import Any, TypeVar
 from collections.abc import Callable
 from dataclasses import dataclass
+from loguru import logger
 
 
 @dataclass(frozen=True)
@@ -88,7 +89,10 @@ class EventBus:
         event_type = type(event)
         if event_type in self._subscribers:
             for handler in self._subscribers[event_type]:
-                handler(event)
+                try:
+                    handler(event)
+                except Exception as e:
+                    logger.exception(f"Error handling event {event_type.__name__}: {e}")
 
     def clear(self) -> None:
         """

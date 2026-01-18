@@ -25,6 +25,9 @@ from yukkuri_game.engine.types import EntityID
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
 
+WAYPOINT_ACCEPTANCE_RADIUS = 20.0
+LOW_ENERGY_THRESHOLD = 30.0
+
 
 class MoveToTarget(Action):
     """
@@ -252,6 +255,37 @@ class MoveToTarget(Action):
                         target_entity_id=(
                             ai.current_target_id if ai.current_target_id != -1 else None
                         ),
+                        speed_multiplier=speed_modifier,
+                        priority=2,
+                    ),
+                )
+                return Status.RUNNING
+
+        # Path Following Logic
+        if ai.path:
+            # Get next waypoint
+            next_point = pymunk.Vec2d(*ai.path[0])
+            dist_to_waypoint = (next_point - current_pos).length
+
+            # Waypoint reached?
+            if dist_to_waypoint < WAYPOINT_ACCEPTANCE_RADIUS:
+                ai.path.pop(0)
+                if not ai.path:
+                    # Path finished
+                    pass
+                else:
+                    next_point = pymunk.Vec2d(*ai.path[0])
+
+            if ai.path:
+                speed_modifier = 1.0
+                if needs.energy < LOW_ENERGY_THRESHOLD:
+                    speed_modifier = 0.5
+
+                self.world.add_component(
+                    self.entity_id,
+                    MoveCommand(
+                        target_pos=next_point,
+                        target_entity_id=None,
                         speed_multiplier=speed_modifier,
                         priority=2,
                     ),

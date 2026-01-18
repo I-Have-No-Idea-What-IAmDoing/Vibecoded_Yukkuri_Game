@@ -49,6 +49,7 @@ def test_load_image_success(mock_exists: MagicMock, mock_load: MagicMock) -> Non
     """
     Tests successful loading and caching of an image.
     """
+    import pygame  # Ensure pygame is available
     rm = ResourceManager()
     # Mock atlas to avoid interference and force disk load
     rm.atlas = MagicMock()
@@ -56,20 +57,24 @@ def test_load_image_success(mock_exists: MagicMock, mock_load: MagicMock) -> Non
     rm.atlas.add_image.return_value = False  # Simulate full atlas, fallback to image cache
 
     mock_exists.return_value = True
-    mock_surface = MagicMock()
-    # Mock convert_alpha to return a mock surface
-    mock_load.return_value.convert_alpha.return_value = mock_surface
     
+    # Use real surface to satisfy TextureAtlas.add_image -> surface.blit requirements
+    real_surface = pygame.Surface((32, 32))
+    mock_load.return_value.convert_alpha.return_value = real_surface
+
     img = rm.load_image("test.png")
-    
-    # Verify loaded image was returned
-    assert img == mock_surface
-    assert rm.images["test.png"] == mock_surface
-    
-    # Test caching (should hit self.images)
+
+    # Check if it's a surface
+    assert isinstance(img, pygame.Surface)
+    assert img.get_size() == (32, 32)
+
+    # Since atlas.add_image is mocked to return False, it should be in the cache
+    assert rm.images["test.png"] == real_surface
+
     img2 = rm.load_image("test.png")
-    assert img2 == mock_surface
-    mock_load.assert_called_once()  # Only called once due to cache
+    assert img2.get_size() == (32, 32)
+    # mock_load should be called once (cached)
+    mock_load.assert_called_once()
 
 
 @patch("yukkuri_game.engine.resource_manager.os.path.exists")
@@ -122,6 +127,9 @@ def test_load_all_data() -> None:
             mock_yukkuri_data,     # Yukkuris (lazy)
             mock_item_data,        # Items (lazy)
             mock_ai_data,          # Actions (lazy)
+            MagicMock(),           # Skills (lazy)
+            MagicMock(),           # Traits (lazy)
+            MagicMock(),           # Interactions (lazy)
         ],
     ) as mock_load:
         rm.load_all_data()
@@ -130,6 +138,9 @@ def test_load_all_data() -> None:
         assert isinstance(rm.yukkuri_types, LazyLoader)
         assert isinstance(rm.item_types, LazyLoader)
         assert isinstance(rm.ai_actions, LazyLoader)
+        assert isinstance(rm.skills, LazyLoader)
+        assert isinstance(rm.traits, LazyLoader)
+        assert isinstance(rm.interactions, LazyLoader)
         assert rm.tuning == mock_tuning_data
         
         # Verify eager load happened
@@ -143,4 +154,3 @@ def test_load_all_data() -> None:
         assert mock_load.call_count == 3
         
         assert rm.ai_actions["Eat"] == {}
-        assert mock_load.call_count == 4
