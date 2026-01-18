@@ -2,19 +2,19 @@
 Perception System - AI Awareness and Social Context.
 
 Populates Blackboard components with perception data from the visibility system.
-This is a core component of Proposal 4: Unified AI Architecture.
+Translates raw visible entity sets into semantic context (TargetInfo).
 
 Responsibilities:
-- Translates visible_entities from AIState into rich TargetInfo entries
-- Resolves social relationships (Friend, Enemy, Prey, Threat, Family, Neutral)
-- Manages short-term memory for entities that leave visibility range
-- Tracks nearby friend/enemy counts for utility AI considerations
+- Converts visible entity IDs into `TargetInfo` objects.
+- Resolves relationships (Friend, Enemy, Prey, Family) based on stats and history.
+- Manages Short-Term Memory (remembering entities that just left view).
+- Aggregates census data (count of nearby friends/enemies) for Utility AI.
 
-Relationship Resolution Priority (highest to lowest):
-1. Predator/Prey dynamics - Type-based hunting relationships
-2. Family bonds - Parents, children, mates, family group members
-3. Affinity score - Historical relationship data
-4. Default - Neutral if no relationship found
+Relationship Resolution Priority:
+1. Predator/Prey (Biological imperative)
+2. Family (Social bond)
+3. Affinity (Personal history)
+4. Neutral (Default)
 """
 
 import math
@@ -40,20 +40,19 @@ class PerceptionSystem(System):
     """
     System that populates Blackboard components with perception data.
 
-    Reads visible_entities from AIState (set by VisibilitySystem) and
-    translates them into TargetInfo entries with social context resolution.
-    Also manages short-term memory for entities that leave visibility.
+    Reads `visible_entities` from `AIState` (populated by VisibilitySystem) and
+    updates the `Blackboard` component. This separates the "what can I see" logic
+    from the "what does it mean to me" logic.
     """
 
-    # How long entities remain in short-term memory after leaving visibility (seconds)
+    # Duration (seconds) to remember entities after they leave FOV
     MEMORY_DURATION = 10.0
 
-    # Affinity thresholds for friend/enemy classification
-    FRIEND_AFFINITY_THRESHOLD = 50.0  # Above this = Friend
-    ENEMY_AFFINITY_THRESHOLD = -10.0  # Below this = Enemy
+    # Relationship thresholds
+    FRIEND_AFFINITY_THRESHOLD = 50.0
+    ENEMY_AFFINITY_THRESHOLD = -10.0
 
-    # Update frequency for perception (seconds)
-    # 0.1s = 10 updates per second (approx every 6 frames at 60FPS)
+    # Throttle: 10 updates/sec max per entity
     UPDATE_INTERVAL = 0.1
 
     def __init__(self) -> None:
@@ -64,7 +63,9 @@ class PerceptionSystem(System):
         self._subscribed = False
 
     def initialize(self, world: World | None = None) -> None:
-        """Subscribe to events."""
+        """
+        Sets up event subscriptions.
+        """
         target_world = world
         if target_world is None and hasattr(self, "ecs_world"):
             target_world = self.ecs_world
@@ -76,34 +77,40 @@ class PerceptionSystem(System):
                 self._subscribed = True
 
     def on_entity_destroyed(self, event: EntityDestroyedEvent) -> None:
-        """Clean up local state when entity is destroyed."""
+        """
+        Cleans up tracking data for destroyed entities.
+        """
         entity_id = event.entity_id
         self._last_update_times.pop(entity_id, None)
         self._last_visible_set_ids.pop(entity_id, None)
 
     def update(self, world: World, dt: float) -> None:
         """
-        Updates Blackboard components for all entities with both AIState and Blackboard.
+        Updates perception state for all AI entities.
 
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
         """
-        # Lazy subscription if not initialized via add_system (legacy support)
         if not self._subscribed:
             self.initialize(world)
 
         current_time = world.time
 
+        # Iterate entities that have AI + Blackboard + Transform
         entities = world.get_components_tuple(AIState, Blackboard, Transform)
 
         for entity_id, (ai_state, blackboard, trans) in entities:
-            # OPTIMIZATION: Throttling
-            # Skip update if within interval AND visible set object hasn't changed.
-            # We check object identity of ai_state.visible_entities because VisibilitySystem
-            # now reuses the set object when visibility hasn't changed.
+            # Throttling Logic:
+            # Update if timer expired OR if the set of visible entities has changed physically
+            # (checked via object ID, assuming VisibilitySystem replaces the set on change).
+
+            # Fix: Ensure current_visible_id is defined (it was missing in original code)
+            visible_set_id = id(ai_state.visible_entities)
+
             time_expired = current_time - self._last_update_times.get(entity_id, 0.0) >= self.UPDATE_INTERVAL
-            visibility_changed = id(ai_state.visible_entities) != self._last_visible_set_ids.get(entity_id, 0)
+            visibility_changed = visible_set_id != self._last_visible_set_ids.get(entity_id, 0)
+
             should_update = time_expired or visibility_changed
 
             if should_update:
@@ -111,7 +118,7 @@ class PerceptionSystem(System):
                     world, entity_id, ai_state, blackboard, trans, current_time
                 )
                 self._last_update_times[entity_id] = current_time
-                self._last_visible_set_ids[entity_id] = current_visible_id
+                self._last_visible_set_ids[entity_id] = visible_set_id
 
     def _update_blackboard(
         self,
@@ -123,20 +130,20 @@ class PerceptionSystem(System):
         current_time: float,
     ) -> None:
         """
-        Updates a single entity's Blackboard.
+        Populates the Blackboard with analyzed targets.
         """
         my_pos = (trans.x, trans.y)
 
-        # Get this entity's components for social context
+        # Context components
         my_stats = world.try_get_component(entity_id, YukkuriStats)
         my_predator = world.try_get_component(entity_id, Predator)
         my_relations = world.try_get_component(entity_id, RelationshipRegistry)
 
-        # Track previous visible targets for memory management
+        # Memory management
         previously_visible = set(blackboard.visible_targets.keys())
         currently_visible: set[EntityID] = set()
 
-        # Reset counts
+        # Reset Census
         blackboard.nearby_friends = 0
         blackboard.nearby_enemies = 0
         blackboard.nearby_prey = 0
@@ -146,7 +153,7 @@ class PerceptionSystem(System):
         closest_threat_dist = float("inf")
         closest_food_dist = float("inf")
 
-        # Process visible entities
+        # Analyze current view
         for target_id in ai_state.visible_entities:
             target_trans = world.try_get_component(target_id, Transform)
             if not target_trans:
@@ -155,12 +162,11 @@ class PerceptionSystem(System):
             target_pos = (target_trans.x, target_trans.y)
             distance = math.hypot(target_pos[0] - my_pos[0], target_pos[1] - my_pos[1])
 
-            # Resolve social context
             relation = self._resolve_relation(
                 world, entity_id, target_id, my_stats, my_predator, my_relations
             )
 
-            # Create TargetInfo
+            # Update/Create Info
             target_info = TargetInfo(
                 entity_id=target_id,
                 position=target_pos,
@@ -172,7 +178,7 @@ class PerceptionSystem(System):
             blackboard.visible_targets[target_id] = target_info
             currently_visible.add(target_id)
 
-            # Update counts and closest references
+            # Update Census Data
             if relation in ("Friend", "Family"):
                 blackboard.nearby_friends += 1
             elif relation in ("Enemy", "Threat"):
@@ -186,14 +192,14 @@ class PerceptionSystem(System):
                     closest_food_dist = distance
                     blackboard.closest_food_id = target_id
 
-            # Check if target is food item
+            # Food Item Check
             target_item = world.try_get_component(target_id, ItemStats)
             if target_item and target_item.nutrition > 0:
                 if distance < closest_food_dist:
                     closest_food_dist = distance
                     blackboard.closest_food_id = target_id
 
-        # Move entities that left visibility to short-term memory
+        # Handle entities leaving view (Short-term Memory)
         lost_targets = previously_visible - currently_visible
         for lost_id in lost_targets:
             if lost_id in blackboard.visible_targets:
@@ -204,7 +210,7 @@ class PerceptionSystem(System):
                 )
                 del blackboard.visible_targets[lost_id]
 
-        # Clean up expired memories
+        # Forget old memories
         expired_memories = [
             mem_id
             for mem_id, mem in blackboard.short_term_memory.items()
@@ -223,39 +229,32 @@ class PerceptionSystem(System):
         my_relations: RelationshipRegistry | None,
     ) -> str:
         """
-        Resolves the social relationship between self and target.
-
-        Resolution Order (from Proposal 4 design):
-        1. Predator/Prey dynamics (highest priority)
-        2. Family relationship
-        3. Affinity score
-        4. Default to Neutral
+        Determines the social stance towards a target.
 
         Returns:
-            str: One of "Friend", "Enemy", "Neutral", "Prey", "Threat", "Family"
+            str: "Friend", "Enemy", "Neutral", "Prey", "Threat", or "Family".
         """
         target_stats = world.try_get_component(target_id, YukkuriStats)
         target_predator = world.try_get_component(target_id, Predator)
 
-        # 1. Predator/Prey Check
+        # 1. Biological (Predator/Prey)
         if my_predator and target_stats:
             if target_stats.type_id in my_predator.prey_tags:
                 return "Prey"
 
-        # Is target a predator that hunts my type?
         if target_predator and my_stats:
             if my_stats.type_id in target_predator.prey_tags:
                 return "Threat"
 
-        # 2. Family Check
+        # 2. Family
         if my_relations:
-            # Check if target is family
             if target_id in my_relations.biological_parents:
                 return "Family"
             if target_id in my_relations.biological_children:
                 return "Family"
             if my_relations.mate_id == target_id:
                 return "Family"
+
             if my_relations.family_group_id and target_stats:
                 target_relations = world.try_get_component(
                     target_id, RelationshipRegistry
@@ -266,7 +265,7 @@ class PerceptionSystem(System):
                 ):
                     return "Family"
 
-            # 3. Affinity Check
+            # 3. Affinity
             if cast(EntityID, target_id) in my_relations.relationships:
                 rel_data = my_relations.relationships[cast(EntityID, target_id)]
                 if rel_data.affinity > self.FRIEND_AFFINITY_THRESHOLD:
