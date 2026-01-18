@@ -300,8 +300,8 @@ class NavigationService:
                 self.request_queue.task_done()
             except Exception:
                 # Fatal error in loop structure
+                logger.exception("Navigation worker loop fatal error, retrying...")
                 time.sleep(1.0)
-                logger.error("Navigation worker loop fatal error, retrying...")
         logger.info("NavigationService worker loop exited.")
 
     def _process_request(self, req: PathRequest) -> PathResult:

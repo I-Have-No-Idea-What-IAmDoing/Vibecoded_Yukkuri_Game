@@ -645,6 +645,8 @@ class RenderSystem(System):
                 continue
 
             transform = world.get_component(ent, Transform)
+            if not transform:
+                continue
 
             sx, sy = self.camera.world_to_screen_fast(transform.x, transform.y)
 

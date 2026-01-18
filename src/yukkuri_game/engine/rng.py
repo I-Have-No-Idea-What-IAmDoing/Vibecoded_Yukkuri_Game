@@ -26,8 +26,10 @@ class RNG:
             np.random.seed(
                 seed if isinstance(seed, int) and seed is not None else 42
             )  # Numpy needs int usually
-        except Exception:
-            pass
+        except Exception as e:
+            # Numpy might be missing or seed invalid
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to seed numpy: {e}")
 
     def random(self) -> float:
         return random.random()

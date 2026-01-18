@@ -12,13 +12,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../s
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 pygame.init()
 
-from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.systems.render_system import RenderSystem
-from yukkuri_game.game.systems.sector_system import SectorSystem
-from yukkuri_game.game.components import Transform, FloatingText, Sprite, VisualTransform
-from yukkuri_game.game.camera import Camera
-from yukkuri_game.game.services import TimeService
-from yukkuri_game.engine.resource_manager import ResourceManager
+from yukkuri_game.engine.ecs import World  # noqa: E402
+from yukkuri_game.game.systems.render_system import RenderSystem  # noqa: E402
+from yukkuri_game.game.systems.sector_system import SectorSystem  # noqa: E402
+from yukkuri_game.game.components import Transform, FloatingText, Sprite, VisualTransform  # noqa: E402
+from yukkuri_game.game.camera import Camera  # noqa: E402
+from yukkuri_game.game.services import TimeService  # noqa: E402
+from yukkuri_game.engine.resource_manager import ResourceManager  # noqa: E402
 
 def setup_world(num_entities=5000, num_floating_text=1000):
     world = World()
@@ -30,7 +30,7 @@ def setup_world(num_entities=5000, num_floating_text=1000):
     # Mock ResourceManager
     rm = ResourceManager()
     # We need to mock load_image to return a surface
-    rm.load_image = lambda name: pygame.Surface((32, 32))
+    rm.load_image = lambda name: pygame.Surface((32, 32))  # type: ignore
     rm.item_types = {}
     rm.yukkuri_types = {}
     world.services.register(rm)

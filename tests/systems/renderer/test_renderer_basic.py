@@ -1,23 +1,30 @@
+import pytest
 import pygame
 from yukkuri_game.game.renderer.commands import TextCommand
 from yukkuri_game.game.renderer.renderer import Renderer
 from yukkuri_game.game.renderer.pygame_backend import PygameBackend
 
 
-def test_renderer_initialization():
+@pytest.fixture
+def renderer_backend():
     pygame.init()
     screen = pygame.Surface((800, 600))
     backend = PygameBackend(screen)
-    renderer = Renderer(backend)
+    yield backend
+    # No explicit quit here if we want to share, but usually for unit tests we should be careful.
+    # Letting conftest handle global quit or doing it here if isolated.
+    # Given the pollution, let's NOT call quit() here to avoid killing the session for others,
+    # but rely on the fact that we just needed init.
+
+
+def test_renderer_initialization(renderer_backend):
+    renderer = Renderer(renderer_backend)
     assert renderer is not None
-    assert renderer.backend == backend
+    assert renderer.backend == renderer_backend
 
 
-def test_renderer_submit_and_clear():
-    pygame.init()
-    screen = pygame.Surface((800, 600))
-    backend = PygameBackend(screen)
-    renderer = Renderer(backend)
+def test_renderer_submit_and_clear(renderer_backend):
+    renderer = Renderer(renderer_backend)
 
     cmd = TextCommand(
         layer=1,
@@ -34,9 +41,3 @@ def test_renderer_submit_and_clear():
     renderer.render()
 
     assert len(renderer._commands) == 0
-
-
-if __name__ == "__main__":
-    test_renderer_initialization()
-    test_renderer_submit_and_clear()
-    print("Tests passed!")

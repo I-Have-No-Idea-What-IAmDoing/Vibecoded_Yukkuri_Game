@@ -30,7 +30,6 @@ from ...engine.audio import AudioManager
 from ..utils.evaluator import ConditionEvaluator
 from ..components import Transform, InteractionRequest
 from ..yukkuri_components import (
-    YukkuriStats,
     Needs,
     RelationshipRegistry,
     RelationshipData,

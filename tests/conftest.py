@@ -83,3 +83,21 @@ def pytest_sessionstart(session):
     """
     os.environ["SDL_VIDEODRIVER"] = "dummy"
     os.environ["SDL_AUDIODRIVER"] = "dummy"
+
+
+@pytest.fixture(autouse=True)
+def cleanup_game_state():
+    """
+    Global fixture to clean up game state between tests.
+    Ensures esper world is cleared and GC is run.
+    """
+    yield
+    import esper
+    # Clear the default world context if any
+    try:
+        esper.clear_database()
+    except Exception:
+        pass
+    
+    # Force Garbage Collection to clear cyclic references (Events -> Handlers -> Entities)
+    gc.collect()
