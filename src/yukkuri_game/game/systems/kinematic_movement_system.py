@@ -26,7 +26,7 @@ Fixed Timestep:
 -   Decoupled from render framerate for consistent physics behavior.
 """
 
-from typing import cast, Optional, Dict
+from typing import Optional, Dict
 import math
 import pymunk
 from loguru import logger

@@ -2,7 +2,7 @@
 Navigation Update System - Dynamic Obstacle Tracker.
 """
 
-from typing import cast, Optional
+from typing import cast
 import pymunk
 
 from ...engine.ecs import System, World

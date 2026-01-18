@@ -17,7 +17,7 @@ Request Lifecycle:
 """
 
 import math
-from typing import cast, Optional, List
+from typing import cast, Optional
 from loguru import logger
 
 from ...engine.ecs import System, World

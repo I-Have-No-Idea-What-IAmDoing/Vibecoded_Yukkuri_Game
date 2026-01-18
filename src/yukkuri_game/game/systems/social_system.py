@@ -464,9 +464,17 @@ class SocialSystem(System):
                     0.0, min(100.0, emotional.stress + impact["stress"])
                 )
 
+    SOCIAL_AUDIO_MAP = {
+        "Talk": "talk",
+        "Greet": "talk",
+        "Fight": "hit",
+        "Hit": "hit",
+        "Dance": "jump",
+    }
+
     def _play_audio(self, interaction_name: str) -> None:
         """
-        Plays audio cue for the interaction.
+        Plays audio cue for the interaction using a mapped sound name.
 
         Args:
             interaction_name (str): Name of the interaction to map to sound.
@@ -474,15 +482,7 @@ class SocialSystem(System):
         if not self.audio:
             return
 
-        sound_name = ""
-        # TODO(Audio): Replace hardcoded mapping with data-driven approach.
-        if interaction_name in ["Talk", "Greet"]:
-            sound_name = "talk"
-        elif interaction_name in ["Fight", "Hit"]:
-            sound_name = "hit"
-        elif interaction_name == "Dance":
-            sound_name = "jump"
-
+        sound_name = self.SOCIAL_AUDIO_MAP.get(interaction_name, "")
         if sound_name:
             self.audio.play_sound(sound_name)
 

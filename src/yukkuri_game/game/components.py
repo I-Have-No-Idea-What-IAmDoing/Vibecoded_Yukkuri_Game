@@ -8,7 +8,6 @@ Most components are implemented as slotted dataclasses for memory optimization.
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Optional
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
 from ..engine.data_models import AnimationDefinition

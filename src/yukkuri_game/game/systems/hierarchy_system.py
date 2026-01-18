@@ -22,7 +22,7 @@ Composite Collider:
 
 import pymunk
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 from loguru import logger
 from ...engine import rng

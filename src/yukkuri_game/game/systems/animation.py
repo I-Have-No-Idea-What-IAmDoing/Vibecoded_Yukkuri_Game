@@ -20,8 +20,7 @@ Data Structure:
 -   Sprite sheets are standard grids of frames.
 """
 
-import pygame
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, Optional, Any
 
 from ...engine.ecs import System, World, Component
 from ...engine.event_bus import EventBus

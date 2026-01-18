@@ -24,7 +24,7 @@ Output:
 
 import pymunk
 import math
-from typing import Dict, List, Optional, Set, Tuple, cast
+from typing import Dict, Optional, Set, Tuple
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus

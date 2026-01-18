@@ -2,7 +2,7 @@
 Game Driver for automated testing.
 """
 
-import random
+from ..engine import rng
 import pygame
 import os
 import io
@@ -15,6 +15,7 @@ from ..engine.application import Application
 from ..engine.event_bus import Event
 from ..game.services import TimeService
 from ..game.components import Transform
+
 
 # --- Predicates & Commands ---
 
@@ -195,7 +196,7 @@ class GameDriver:
         Args:
             seed (int): The seed value.
         """
-        random.seed(seed)
+        rng.seed(seed)
         try:
             import numpy as np
 
