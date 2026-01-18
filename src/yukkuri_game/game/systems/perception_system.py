@@ -21,6 +21,8 @@ import math
 from typing import cast
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
+from ...engine.events import EntityDestroyedEvent
+from ...engine.event_bus import EventBus
 from ..components import Transform
 from ..yukkuri_components import (
     AIState,
@@ -50,10 +52,34 @@ class PerceptionSystem(System):
     FRIEND_AFFINITY_THRESHOLD = 50.0  # Above this = Friend
     ENEMY_AFFINITY_THRESHOLD = -10.0  # Below this = Enemy
 
+    # Update frequency for perception (seconds)
+    # 0.1s = 10 updates per second (approx every 6 frames at 60FPS)
+    UPDATE_INTERVAL = 0.1
+
     def __init__(self) -> None:
         """Initializes the PerceptionSystem."""
-        # Configurable via __init__ if needed, but defaults are now constants
-        pass
+        super().__init__()
+        self._last_update_times: dict[int, float] = {}
+        self._last_visible_set_ids: dict[int, int] = {}
+        self._subscribed = False
+
+    def initialize(self, world: World | None = None) -> None:
+        """Subscribe to events."""
+        target_world = world
+        if target_world is None and hasattr(self, "ecs_world"):
+            target_world = self.ecs_world
+
+        if target_world:
+            event_bus = target_world.services.try_get(EventBus)
+            if event_bus:
+                event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
+                self._subscribed = True
+
+    def on_entity_destroyed(self, event: EntityDestroyedEvent) -> None:
+        """Clean up local state when entity is destroyed."""
+        entity_id = event.entity_id
+        self._last_update_times.pop(entity_id, None)
+        self._last_visible_set_ids.pop(entity_id, None)
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -63,14 +89,29 @@ class PerceptionSystem(System):
             world (World): The ECS World.
             dt (float): Delta time.
         """
+        # Lazy subscription if not initialized via add_system (legacy support)
+        if not self._subscribed:
+            self.initialize(world)
+
         current_time = world.time
 
         entities = world.get_components_tuple(AIState, Blackboard, Transform)
 
         for entity_id, (ai_state, blackboard, trans) in entities:
-            self._update_blackboard(
-                world, entity_id, ai_state, blackboard, trans, current_time
-            )
+            # OPTIMIZATION: Throttling
+            # Skip update if within interval AND visible set object hasn't changed.
+            # We check object identity of ai_state.visible_entities because VisibilitySystem
+            # now reuses the set object when visibility hasn't changed.
+            time_expired = current_time - self._last_update_times.get(entity_id, 0.0) >= self.UPDATE_INTERVAL
+            visibility_changed = id(ai_state.visible_entities) != self._last_visible_set_ids.get(entity_id, 0)
+            should_update = time_expired or visibility_changed
+
+            if should_update:
+                self._update_blackboard(
+                    world, entity_id, ai_state, blackboard, trans, current_time
+                )
+                self._last_update_times[entity_id] = current_time
+                self._last_visible_set_ids[entity_id] = current_visible_id
 
     def _update_blackboard(
         self,
