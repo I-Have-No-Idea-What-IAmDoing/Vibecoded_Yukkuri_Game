@@ -81,7 +81,7 @@ def run_benchmark():
     render_system.update(world, 0.016)
 
     print("Starting benchmark...")
-    start_time = time.time()
+    start_time = time.perf_counter()
     iterations = 100
 
     for _ in range(iterations):
