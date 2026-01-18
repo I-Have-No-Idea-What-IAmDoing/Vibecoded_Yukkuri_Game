@@ -73,8 +73,14 @@ class ConstructionSystem(System):
 
         if self.economy_service and self.factory:
             if self.economy_service.get_money() >= event.cost:
-                self.economy_service.remove_money(event.cost)
-                if event.entity_type == "yukkuri":
-                    self.factory.create_yukkuri(event.type_id, event.x, event.y)
-                elif event.entity_type == "item":
-                    self.factory.create_item(event.type_id, event.x, event.y)
+                try:
+                    if event.entity_type == "yukkuri":
+                        self.factory.create_yukkuri(event.type_id, event.x, event.y)
+                    elif event.entity_type == "item":
+                        self.factory.create_item(event.type_id, event.x, event.y)
+
+                    self.economy_service.remove_money(event.cost)
+                except Exception:
+                    # Propagate to EventBus (which should log it)
+                    # Money is NOT removed since remove_money is after creation
+                    raise
