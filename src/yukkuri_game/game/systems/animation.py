@@ -26,7 +26,6 @@ from typing import Dict, List, Optional, Tuple, Any, Union
 from ...engine.ecs import System, World, Component
 from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
-from ...engine.assets import AnimationResource
 from ..components import Sprite, Animator, LODComponent
 from ..yukkuri_components import AIState, YukkuriStats, register_archetype
 from ..events import AnimationEvent

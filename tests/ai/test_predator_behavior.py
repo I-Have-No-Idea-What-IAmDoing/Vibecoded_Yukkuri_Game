@@ -1,12 +1,5 @@
-import sys
-from unittest.mock import MagicMock
 
-# Mock pygame before importing modules that use it
-mock_pygame = MagicMock()
-sys.modules["pygame"] = mock_pygame
-sys.modules["pygame.locals"] = MagicMock()
-sys.modules["pygame_gui"] = MagicMock()
-sys.modules["pygame_light2d"] = MagicMock()
+
 
 import pytest
 from unittest.mock import MagicMock

@@ -26,6 +26,7 @@ import math
 from typing import List, Tuple, Dict, Optional
 from dataclasses import dataclass, field
 from .navigation_grid import NavigationGrid
+from .navigation_constants import TraversalCapability
 
 # Cluster size in grid cells. Smaller = more nodes, faster abstract search.
 # Larger = fewer nodes, more local A* work. 8 is a balanced default.

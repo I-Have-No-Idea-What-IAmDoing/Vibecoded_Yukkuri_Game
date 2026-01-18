@@ -15,6 +15,7 @@ dependencies = [
     "msgspec>=0.20.0",
     "simpleeval>=1.0.3",
     "pygame-render>=1.4.2",
+    "tomli-w>=1.0.0",
 ]
 
 [dependency-groups]
