@@ -78,6 +78,7 @@ def create_yukkuri(
     entity = world.create_entity()
 
     try:
+
         def _get_attr(d: Any, k: str, default: Any = None) -> Any:
             if isinstance(d, dict):
                 return d.get(k, default)
@@ -192,7 +193,10 @@ def create_yukkuri(
 
         # Yukkuri Stats and Needs
         stats = YukkuriStats(
-            name=f"{type_id}_{entity}", type_id=type_id, age=age, growth_stage=growth_stage
+            name=f"{type_id}_{entity}",
+            type_id=type_id,
+            age=age,
+            growth_stage=growth_stage,
         )
         world.add_component(entity, stats)
 
@@ -216,7 +220,9 @@ def create_yukkuri(
         # Inheritance logic
         if parents and trait_service:
             parent_personalities = [
-                p for p in (world.get_component(pid, Personality) for pid in parents) if p
+                p
+                for p in (world.get_component(pid, Personality) for pid in parents)
+                if p
             ]
             if parent_personalities:
                 # 50% chance to inherit each trait from parents
@@ -347,5 +353,5 @@ def create_yukkuri(
         return entity
 
     except Exception:
-        world.delete_entity(entity)
+        world.destroy_entity(entity)
         raise

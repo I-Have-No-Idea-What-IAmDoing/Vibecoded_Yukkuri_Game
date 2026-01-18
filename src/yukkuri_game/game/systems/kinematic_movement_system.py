@@ -314,7 +314,7 @@ class KinematicMovementSystem(System):
         for i in range(max_slides):
             if move_delta.length_squared < 0.000001:
                 break
-            
+
             # Pymunk does not support sweeping circles natively with segment query in the same way for all shapes,
             # but we approximate or use the shape's specific sweep if possible.
             # Here we are iterating shapes and checking segment queries.

@@ -56,11 +56,11 @@ class Consideration:
     ) -> float:
         """
         Calculates the score based on context and optional trait overrides.
-        
+
         Args:
             context (dict[str, Any]): The current world state context.
             override_curve (Optional[dict[str, Any]]): Curve override definition.
-            
+
         Returns:
             float: The calculated score (0.0 to 1.0).
         """
@@ -94,12 +94,12 @@ class Consideration:
         Maps input value to normalized utility score (0.0-1.0).
 
         Input values are expected in range 0-100 and normalized internally.
-        
+
         Args:
             x (float): Input value (0-100).
             curve_type (Optional[str]): Curve type override.
             params (Optional[dict[str, float]]): Curve parameters override.
-            
+
         Returns:
             float: Normalized utility score (0.0 to 1.0).
         """
@@ -139,7 +139,7 @@ class Consideration:
 class Action:
     """
     An executable AI action with associated utility considerations.
-    
+
     Attributes:
         name (str): The name of the action.
         considerations (list[Consideration]): List of considerations affecting score.
@@ -474,8 +474,3 @@ class UtilityAIEngine:
 
         result["final_score"] = round(running_score, 6)
         return result
-
-
-
-
-

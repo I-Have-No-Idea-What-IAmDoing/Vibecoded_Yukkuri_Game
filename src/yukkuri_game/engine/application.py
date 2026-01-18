@@ -170,6 +170,7 @@ class Application:
             except Exception as e:
                 logger.critical(f"Unhandled exception in game loop: {e}")
                 import traceback
+
                 logger.critical(traceback.format_exc())
                 self.running = False
 

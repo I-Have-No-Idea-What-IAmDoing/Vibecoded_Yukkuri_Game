@@ -35,6 +35,7 @@ class ObstacleType(IntEnum):
         LOW: Blocks ground movement (WALK) only.
         HIGH: Blocks all movement (WALK, FLY, SWIM).
     """
+
     LOW = 0
     HIGH = 1
 
@@ -47,6 +48,7 @@ class PathRequest:
     Ordered by priority for processing. Comparers ignore non-priority fields to
     maintain stable sort order for equal priorities (FIFO for same priority).
     """
+
     priority: int
     timestamp: float
     entity_id: int
@@ -58,6 +60,7 @@ class PathRequest:
 @dataclass
 class PathResult:
     """Result of a pathfinding request."""
+
     entity_id: int
     path: List[Tuple[float, float]]  # World coordinates
     success: bool
@@ -260,7 +263,7 @@ class NavigationService:
     def get_results(self) -> List[PathResult]:
         """
         Retrieves all completed path results from the queue.
-        
+
         This method should be called from the Main Thread.
 
         Returns:
@@ -459,7 +462,7 @@ class NavigationService:
     ) -> Optional[List[Tuple[int, int]]]:
         """
         Refines a cached abstract path for specific start/end positions.
-        
+
         Connects the start position to the first cached node, and the last
         cached node to the end position, reusing the cached middle section.
         """
@@ -558,7 +561,7 @@ class NavigationService:
     ) -> List[Tuple[float, float]]:
         """
         Blocking synchronous pathfinding.
-        
+
         Note: This is intended for legacy code or cases where immediate results are required
         and blocking the main thread is acceptable (or when using deterministic mode).
 
@@ -567,7 +570,7 @@ class NavigationService:
             end (Tuple[float, float]): End world position.
             can_fly (bool): If True, uses FLY capability.
             timestamp (Optional[float]): Timestamp for request ordering.
-        
+
         Returns:
             List[Tuple[float, float]]: The calculated path, or empty list if failed.
         """

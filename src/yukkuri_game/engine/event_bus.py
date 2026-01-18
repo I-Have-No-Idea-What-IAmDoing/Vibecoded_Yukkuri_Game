@@ -20,6 +20,7 @@ class Event:
     Events are immutable data containers carrying state change information.
     Subclasses must be decorated with `@dataclass(frozen=True)`.
     """
+
     pass
 
 
@@ -52,7 +53,7 @@ class EventBus:
         """
         if event_type not in self._subscribers:
             self._subscribers[event_type] = []
-        
+
         # Type-casting needed as Dict is invariant, but runtime behavior is safe.
         self._subscribers[event_type].append(handler)
 

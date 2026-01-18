@@ -100,12 +100,14 @@ class ServiceLocator:
                     service.shutdown()
                 except Exception:
                     from loguru import logger
+
                     logger.exception(f"Error shutting down service {service}")
             elif hasattr(service, "cleanup") and callable(service.cleanup):
                 try:
                     service.cleanup()
                 except Exception:
                     from loguru import logger
+
                     logger.exception(f"Error cleaning up service {service}")
 
         self._services.clear()

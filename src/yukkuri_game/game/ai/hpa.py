@@ -36,6 +36,7 @@ CLUSTER_SIZE = 8
 @dataclass
 class GraphEdge:
     """Represents a weighted edge in the abstract cluster graph."""
+
     target_node_id: str
     weight: float  # Path cost (accumulated tile costs * distance)
 
@@ -49,6 +50,7 @@ class GraphNode:
     nodes within the same cluster (intra-cluster) and adjacent clusters
     (inter-cluster).
     """
+
     id: str  # Format: "x_y" for permanent, "temp_x_y" for temporary
     position: Tuple[int, int]  # Grid coordinates
     edges: List[GraphEdge] = field(default_factory=list)
@@ -69,11 +71,11 @@ class AStar:
 
         Octile distance accounts for diagonal movement being sqrt(2) cost
         while cardinal movements are cost 1.
-        
+
         Args:
             a: Start position (x, y).
             b: End position (x, y).
-            
+
         Returns:
             float: Estimated cost.
         """
@@ -91,14 +93,14 @@ class AStar:
     ) -> Optional[List[Tuple[int, int]]]:
         """
         Runs A* search.
-        
+
         Args:
             grid (NavigationGrid): The search grid.
             start (Tuple[int, int]): Start position (x, y).
             goal (Tuple[int, int]): Goal position (x, y).
             capability (int): Traversal capability mask.
             bounds (Optional[Tuple[int, int, int, int]]): Optional search bounds (min_x, min_y, max_x, max_y).
-            
+
         Returns:
             Optional[List[Tuple[int, int]]]: The path from start to goal (inclusive), or None if not found.
         """
@@ -169,7 +171,7 @@ class Cluster:
     Clusters partition the world into CLUSTER_SIZE x CLUSTER_SIZE regions.
     Each cluster tracks entrance nodes at its boundaries that enable
     connections to adjacent clusters.
-    
+
     Attributes:
         cx (int): Cluster grid X coordinate.
         cy (int): Cluster grid Y coordinate.
@@ -239,7 +241,7 @@ class ClusterGraph:
     def build_graph(self, capability: int = 1) -> None:
         """
         Full graph build/rebuild. Expensive; prefer incremental updates.
-        
+
         Args:
             capability (int): Traversal capability mask (default: WALK=1).
         """
@@ -584,12 +586,12 @@ class StringPuller:
     ) -> List[Tuple[int, int]]:
         """
         Smooths a jagged grid path into a straighter path by 'pulling' the string tight.
-        
+
         Args:
             path: Input path as list of (x, y) tuples.
             grid: Navigation grid.
             capability: Traversal capability mask.
-            
+
         Returns:
             Smoothed path.
         """
@@ -657,5 +659,3 @@ class StringPuller:
                 error += dx
 
         return True
-
-

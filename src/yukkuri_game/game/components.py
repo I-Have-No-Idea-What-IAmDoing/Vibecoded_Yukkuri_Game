@@ -398,7 +398,7 @@ class SteeringComponent:
 class MoveCommand:
     """
     High-level movement directive issued by AI or decision systems.
-    
+
     This component acts as an interface between the AI (Goal System) and
     the Physics/Steering execution layer.
 

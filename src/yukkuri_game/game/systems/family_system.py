@@ -391,5 +391,3 @@ class FamilySystem(System):
                     emotional.stress = max(
                         0.0, emotional.stress - self.SLEEP_STRESS_REDUCTION
                     )
-
-

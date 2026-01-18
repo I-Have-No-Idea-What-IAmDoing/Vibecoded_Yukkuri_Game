@@ -29,6 +29,7 @@ class RNG:
         except Exception as e:
             # Numpy might be missing or seed invalid
             import logging
+
             logging.getLogger(__name__).warning(f"Failed to seed numpy: {e}")
 
     def random(self) -> float:

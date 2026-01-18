@@ -33,6 +33,7 @@ class Component:
     While `esper` allows any object to be a component, inheriting from this class
     ensures explicit typing and provides a hook for potential future extensions.
     """
+
     pass
 
 
@@ -54,7 +55,7 @@ class World:
         self.services = ServiceLocator()
         self._next_stable_id = 1
         self._active_entities: set[int] = set()
-        
+
         # Register this world with esper's global context system.
         esper.switch_world(self.name)
 
@@ -410,8 +411,7 @@ if TYPE_CHECKING:
         Type hint helper for Esper Processors.
         """
 
-        def process(self, dt: float) -> None:
-            ...
+        def process(self, dt: float) -> None: ...
 else:
     ProcessorBase = esper.Processor
 

@@ -12,7 +12,14 @@ from ..utility_selector import UtilitySelector
 # Import Actions
 from .actions.basic import Idle, Check, CheckEmotion
 from .actions.movement import MoveToTarget, Wander, Swoop, FleePredator, FleeFromTarget
-from .actions.searching import FindItem, FindLightSource, FindPrey, FindThreat, PickFood, FindSocialTarget
+from .actions.searching import (
+    FindItem,
+    FindLightSource,
+    FindPrey,
+    FindThreat,
+    PickFood,
+    FindSocialTarget,
+)
 from .actions.interaction import Interact, EatPrey, SocialInteract
 from .actions.survival import Sleep
 
@@ -425,9 +432,7 @@ BehaviorRegistry.register_goal("Hunt", build_hunt_behavior, required_component=P
 BehaviorRegistry.register_goal("Wander", build_wander_behavior)
 BehaviorRegistry.register_goal("SeekLight", build_seek_light_behavior)
 BehaviorRegistry.register_goal("Flee", build_flee_behavior)
-BehaviorRegistry.register_goal(
-    "Eat", build_eat_behavior, required_component=Needs
-)
+BehaviorRegistry.register_goal("Eat", build_eat_behavior, required_component=Needs)
 BehaviorRegistry.register_goal(
     "Play", build_standard_interaction_behavior("Play"), required_component=Needs
 )

@@ -1,4 +1,3 @@
-
 import sys
 import os
 import time
@@ -15,10 +14,16 @@ pygame.init()
 from yukkuri_game.engine.ecs import World  # noqa: E402
 from yukkuri_game.game.systems.render_system import RenderSystem  # noqa: E402
 from yukkuri_game.game.systems.sector_system import SectorSystem  # noqa: E402
-from yukkuri_game.game.components import Transform, FloatingText, Sprite, VisualTransform  # noqa: E402
+from yukkuri_game.game.components import (
+    Transform,
+    FloatingText,
+    Sprite,
+    VisualTransform,
+)  # noqa: E402
 from yukkuri_game.game.camera import Camera  # noqa: E402
 from yukkuri_game.game.services import TimeService  # noqa: E402
 from yukkuri_game.engine.resource_manager import ResourceManager  # noqa: E402
+
 
 def setup_world(num_entities=5000, num_floating_text=1000):
     world = World()
@@ -57,7 +62,7 @@ def setup_world(num_entities=5000, num_floating_text=1000):
         world.create_entity(
             Transform(x=x, y=y),
             Sprite(image_name="test.png", width=32, height=32),
-            VisualTransform()
+            VisualTransform(),
         )
 
     print(f"Spawning {num_floating_text} floating texts...")
@@ -66,13 +71,20 @@ def setup_world(num_entities=5000, num_floating_text=1000):
         y = random.uniform(0, 10000)
         world.create_entity(
             Transform(x=x, y=y),
-            FloatingText(text="Test", color=(255, 255, 255), lifetime=1.0, max_lifetime=1.0, velocity_y=10.0)
+            FloatingText(
+                text="Test",
+                color=(255, 255, 255),
+                lifetime=1.0,
+                max_lifetime=1.0,
+                velocity_y=10.0,
+            ),
         )
 
     # Ensure SectorSystem updates
     sector_system.update(world, 0.1)
 
     return world, render_system
+
 
 def run_benchmark():
     world, render_system = setup_world(num_entities=10000, num_floating_text=5000)
@@ -97,10 +109,11 @@ def run_benchmark():
 
     end_time = time.perf_counter()
     duration = end_time - start_time
-    avg_time = duration / iterations * 1000 # ms
+    avg_time = duration / iterations * 1000  # ms
 
     print(f"Total time: {duration:.4f}s")
     print(f"Average frame time: {avg_time:.4f}ms")
+
 
 if __name__ == "__main__":
     run_benchmark()

@@ -29,6 +29,7 @@ from ..components import Sprite, Animator, LODComponent
 from ..yukkuri_components import AIState, YukkuriStats, register_archetype
 from ..events import AnimationEvent
 
+
 class Animation(Component):
     """
     Component storing animation state for an entity.

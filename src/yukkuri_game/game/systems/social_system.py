@@ -116,7 +116,7 @@ class SocialSystem(System):
             self.skill_service = world.services.try_get(SkillService)
         if not self.audio:
             self.audio = world.services.try_get(AudioManager)
-        
+
         # Inject world for event handlers if not already present
         if not hasattr(self, "ecs_world"):
             self.ecs_world = world
@@ -558,10 +558,10 @@ class SocialSystem(System):
         """
         registry = self._get_or_create_registry(world, subject_id)
         oid = int(other_id)  # Ensure int for RelationshipRegistry key typing.
-        
+
         if oid not in registry.relationships:
             registry.relationships[cast(Any, oid)] = RelationshipData(last_update=now)
-        
+
         rel = registry.relationships[cast(Any, oid)]
         rel.last_update = now
 
@@ -677,7 +677,7 @@ class SocialSystem(System):
     ) -> None:
         """
         Updates emotional state based on interaction impact.
-        
+
         Major positive/negative events shift happiness and stress immediately.
 
         Args:
@@ -735,6 +735,7 @@ class SocialSystem(System):
 
             # Retrieve config-driven threshold if available
             from ...config import GameConfig
+
             config = world.services.try_get(GameConfig)
             threshold = self.MEMORY_IMPORTANCE_THRESHOLD
             if config and hasattr(config.rules, "social"):

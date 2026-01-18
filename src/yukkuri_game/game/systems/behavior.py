@@ -51,7 +51,7 @@ class BehaviorSystem(System):
         self.world_w = world_width
         self.world_h = world_height
         self.trees: Dict[int, py_trees.trees.BehaviourTree] = {}
-        
+
         self.update_queue: deque[int] = deque()
         self.max_updates_per_frame = 10  # Configurable performance definition
 
@@ -61,7 +61,7 @@ class BehaviorSystem(System):
         # Performance Optimization: Tick Throttling
         # Minimum seconds between ticks. 0.1s = 10Hz max per entity.
         self.min_tick_interval: float = 0.1
-        
+
         # Throttling multiplier for entities in specific states (e.g. Sleeping)
         self.stable_tick_multiplier: float = 3.0
         self.stable_entities: Set[int] = set()
@@ -71,7 +71,7 @@ class BehaviorSystem(System):
         Ticks behavior trees using round-robin scheduling and throttling.
 
         Caps the number of updates per frame to maintain steady frame rates.
-        
+
         Args:
             world (World): The ECS world instance.
             dt (float): Time delta since last frame.
@@ -93,7 +93,7 @@ class BehaviorSystem(System):
 
         # 2. Cleanup dead entities
         dead_entities = [e for e in self.trees if e not in current_ai_entities]
-        
+
         for entity in dead_entities:
             del self.trees[entity]
             if entity in self.last_update_times:
