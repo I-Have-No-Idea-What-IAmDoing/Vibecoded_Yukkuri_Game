@@ -23,12 +23,27 @@ class PoopSystem(System):
         smell_strength (float): Amount of cleanliness lost per second near poop.
     """
 
+    # Spawning probabilities
+    BASE_SPAWN_CHANCE = 0.01  # % chance per second to poop randomly
+    BLADDER_FULL_THRESHOLD = 80.0  # Must poop above this
+    BLADDER_FULL_CHANCE_MULT = 10.0  # (0.1 / 0.01) = 10x chance when full
+    CLEANLINESS_CRITICAL_THRESHOLD = 10.0  # Lose control below this
+    CLEANLINESS_CRITICAL_CHANCE_MULT = 5.0  # 5x chance when filthy
+
+    # Consequences
+    SPAWN_CLEANLINESS_PENALTY = 5.0  # Cleanliness lost upon pooping
+    SPAWN_OFFSET_RANGE = 10.0  # Random positioning jitter
+
+    # Environmental effect
+    DEFAULT_SMELL_RADIUS = 200.0
+    DEFAULT_SMELL_STRENGTH = 5.0
+
     def __init__(self) -> None:
         """Initializes the PoopSystem with default configuration."""
         super().__init__()
-        self.spawn_chance_per_second = 0.01  # % chance per second to poop randomly
-        self.poop_radius = 200.0
-        self.smell_strength = 5.0  # Cleanliness lost per second when near poop
+        self.spawn_chance_per_second = self.BASE_SPAWN_CHANCE
+        self.poop_radius = self.DEFAULT_SMELL_RADIUS
+        self.smell_strength = self.DEFAULT_SMELL_STRENGTH
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -51,21 +66,21 @@ class PoopSystem(System):
 
             # Bladder Logic
             # If bladder is full, they must poop
-            if needs.bladder > 80.0:
-                if rng.random_float() < 0.1 * dt:  # High chance when full
+            if needs.bladder > self.BLADDER_FULL_THRESHOLD:
+                if rng.random_float() < (self.spawn_chance_per_second * self.BLADDER_FULL_CHANCE_MULT) * dt:
                     should_poop = True
 
             # Cleanliness low (lose control)
-            if needs.cleanliness < 10.0:
-                if rng.random_float() < (self.spawn_chance_per_second * 5) * dt:
+            if needs.cleanliness < self.CLEANLINESS_CRITICAL_THRESHOLD:
+                if rng.random_float() < (self.spawn_chance_per_second * self.CLEANLINESS_CRITICAL_CHANCE_MULT) * dt:
                     should_poop = True
 
             if should_poop:
-                offset_x = rng.uniform(-10, 10)
-                offset_y = rng.uniform(-10, 10)
+                offset_x = rng.uniform(-self.SPAWN_OFFSET_RANGE, self.SPAWN_OFFSET_RANGE)
+                offset_y = rng.uniform(-self.SPAWN_OFFSET_RANGE, self.SPAWN_OFFSET_RANGE)
                 create_poop(world, transform.x + offset_x, transform.y + offset_y)
 
-                needs.cleanliness = max(0, needs.cleanliness - 5)
+                needs.cleanliness = max(0.0, needs.cleanliness - self.SPAWN_CLEANLINESS_PENALTY)
                 needs.bladder = 0.0
 
         # Environmental Effect

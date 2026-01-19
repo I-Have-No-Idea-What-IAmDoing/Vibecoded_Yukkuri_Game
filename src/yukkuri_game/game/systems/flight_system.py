@@ -17,6 +17,11 @@ class FlightSystem(System):
     - State transitions (e.g. running out of stamina).
     """
 
+    # Fall consequences
+    FALL_DAMAGE = 10.0  # Health lost when falling from exhaustion
+    FALL_STRESS = 20.0  # Stress gained when falling
+    SWOOP_ALTITUDE = 5.0  # Target altitude during swoop attack
+
     def update(self, world: World, dt: float) -> None:
         """
         Updates flight components.
@@ -84,7 +89,7 @@ class FlightSystem(System):
                 flight.state = FlightState.GROUNDED
                 flight.altitude = 0.0
         elif flight.state == FlightState.SWOOPING:
-            target_altitude = 5.0  # Swoop low but not touching ground
+            target_altitude = self.SWOOP_ALTITUDE  # Swoop low but not touching ground
         elif flight.state == FlightState.FALLING:
             target_altitude = 0.0
             flight.altitude -= flight.vertical_speed * 2.0 * dt
@@ -95,11 +100,11 @@ class FlightSystem(System):
                 # Apply Fall Damage and Stun
                 needs = world.try_get_component(entity, Needs)
                 if needs:
-                    needs.health -= 10.0
+                    needs.health -= self.FALL_DAMAGE
 
                 emotional = world.try_get_component(entity, EmotionalState)
                 if emotional:
-                    emotional.stress += 20.0
+                    emotional.stress += self.FALL_STRESS
 
             return
 

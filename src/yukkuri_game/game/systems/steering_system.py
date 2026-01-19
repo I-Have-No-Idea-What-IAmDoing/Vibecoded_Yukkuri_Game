@@ -40,6 +40,25 @@ class SteeringSystem(System):
     2.  Path-based: AI sets path in AIState, SteeringSystem follows it.
     """
 
+    # Waypoint thresholds (squared distances for performance)
+    WAYPOINT_THRESHOLD_SQ = 3600.0  # 60px - pop intermediate waypoints
+    ARRIVAL_THRESHOLD_SQ = 100.0  # 10px - final arrival distance
+    WAYPOINT_BLEND_THRESHOLD_SQ = 2500.0  # 50px - start blending to next waypoint
+
+    # Stuck detection thresholds (seconds)
+    STUCK_THRESHOLD_JITTER = 1.0  # Time before applying random jitter
+    STUCK_THRESHOLD_JITTER_PURSUIT = 3.0  # Longer threshold during pursuit
+    STUCK_THRESHOLD_REPATH = 3.0  # Time before forcing repath
+    STUCK_THRESHOLD_REPATH_PURSUIT = 5.0  # Longer threshold during pursuit
+    STUCK_CLOSE_DISTANCE_SQ = 22500.0  # 150px - close enough to skip waypoint
+
+    # Velocity thresholds
+    MIN_TARGET_VELOCITY_SQ = 100.0  # Minimum velocity² to consider entity "moving"
+
+    # Steering radii
+    NEIGHBOR_SEPARATION_RADIUS = 50.0  # Query radius for separation behavior
+    WHISKER_LENGTH = 50.0  # Raycast length for obstacle avoidance
+
     def update(self, world: World, dt: float) -> None:
         """
         Updates the SteeringSystem, calculating forces and applying them.
@@ -149,7 +168,7 @@ class SteeringSystem(System):
             dist_sq = (target_pos - current_pos).length_squared
 
             # Thresholds: 60px for intermediate waypoints, 10px for final arrival.
-            pop_threshold_sq = 3600.0 if len(path) > 1 else 100.0
+            pop_threshold_sq = self.WAYPOINT_THRESHOLD_SQ if len(path) > 1 else self.ARRIVAL_THRESHOLD_SQ
 
             if dist_sq < pop_threshold_sq:
                 path.pop(0)
@@ -161,7 +180,7 @@ class SteeringSystem(System):
                 dist_sq = (target_pos - current_pos).length_squared
 
             # Blend towards next waypoint when close for smoother turns.
-            if len(path) > 1 and dist_sq < 2500.0:  # Within 50px.
+            if len(path) > 1 and dist_sq < self.WAYPOINT_BLEND_THRESHOLD_SQ:
                 next_waypoint = pymunk.Vec2d(*path[1])
                 blend_factor = 1.0 - (
                     math.sqrt(dist_sq) / 50.0
@@ -268,7 +287,7 @@ class SteeringSystem(System):
 
             # --- Stuck Detection ---
             # Triggers when target velocity is high but actual velocity is low.
-            if movement.target_velocity.length_squared > 100.0:
+            if movement.target_velocity.length_squared > self.MIN_TARGET_VELOCITY_SQ:
                 if movement.current_velocity.length < 5.0:
                     steering.time_stuck += dt
                 else:
@@ -279,8 +298,8 @@ class SteeringSystem(System):
 
             # --- Stuck Resolution ---
             # Two-tier resolution: jitter first, then skip waypoints or force repath.
-            stuck_threshold_jitter = 3.0 if steering.pursuit_enabled else 1.0
-            stuck_threshold_repath = 5.0 if steering.pursuit_enabled else 3.0
+            stuck_threshold_jitter = self.STUCK_THRESHOLD_JITTER_PURSUIT if steering.pursuit_enabled else self.STUCK_THRESHOLD_JITTER
+            stuck_threshold_repath = self.STUCK_THRESHOLD_REPATH_PURSUIT if steering.pursuit_enabled else self.STUCK_THRESHOLD_REPATH
 
             # Stage 1: Apply random jitter to wiggle free.
             if (
@@ -299,7 +318,7 @@ class SteeringSystem(System):
                 # Check if stuck near current waypoint (within 150px).
                 if len(path) > 1:
                     raw_dist_sq = (pymunk.Vec2d(*path[0]) - current_pos).length_squared
-                    if raw_dist_sq < 22500.0:
+                    if raw_dist_sq < self.STUCK_CLOSE_DISTANCE_SQ:
                         is_stuck_close = True
 
                 if is_stuck_close:
@@ -352,7 +371,7 @@ class SteeringSystem(System):
 
         # Neighbor Separation
         # Query all physics bodies within separation radius (50px)
-        neighbor_radius = 50.0
+        neighbor_radius = self.NEIGHBOR_SEPARATION_RADIUS
         query_info = space.point_query(
             current_pos, neighbor_radius, pymunk.ShapeFilter()
         )
@@ -388,7 +407,7 @@ class SteeringSystem(System):
         # Whisker Avoidance (Raycasts)
         if movement.target_velocity.length > 10.0:
             look_dir = movement.target_velocity.normalized()
-            whisker_len = 50.0
+            whisker_len = self.WHISKER_LENGTH
             filter_ = pymunk.ShapeFilter(mask=pymunk.ShapeFilter.ALL_MASKS())
 
             rays = [

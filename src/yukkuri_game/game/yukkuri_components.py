@@ -192,12 +192,9 @@ class YukkuriStats(Component):
         """
         return _ARCHETYPE_CACHE.get(self.type_id)
 
-    def get_intelligence(self, stats_config: "StatsSettings | None" = None) -> float:
+    def get_intelligence(self) -> float:
         """
         Retrieves the intelligence stat.
-
-        Args:
-            stats_config: Deprecated. Kept for API compatibility.
 
         Returns:
             float: The intelligence value.

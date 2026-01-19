@@ -48,6 +48,11 @@ class LifecycleSystem(System):
         settings (LifecycleSettings): Lifecycle settings.
     """
 
+    # Growth constants
+    CHILD_MAX_HEALTH_BONUS = 50  # Extra max health when becoming Child
+    GROWTH_HEALTH_RESTORE = 50  # Health restored on any growth transition
+    BREEDING_SPAWN_OFFSET = 20.0  # Random offset range for baby spawn position
+
     def __init__(self, settings: LifecycleSettings):
         """
         Initializes the LifecycleSystem.
@@ -168,9 +173,9 @@ class LifecycleSystem(System):
 
         # Adjust Stats
         if new_stage == "Child":
-            needs.max_health += 50
+            needs.max_health += self.CHILD_MAX_HEALTH_BONUS
 
-        needs.health += 50  # Heal on growth
+        needs.health += self.GROWTH_HEALTH_RESTORE  # Heal on growth
         if needs.health > needs.max_health:
             needs.health = needs.max_health
 
@@ -242,8 +247,8 @@ class LifecycleSystem(System):
         parent_needs.energy -= self.settings.breeding_cost
 
         # Spawn Baby at offset position.
-        offset_x = rng.uniform(-20.0, 20.0)
-        offset_y = rng.uniform(-20.0, 20.0)
+        offset_x = rng.uniform(-self.BREEDING_SPAWN_OFFSET, self.BREEDING_SPAWN_OFFSET)
+        offset_y = rng.uniform(-self.BREEDING_SPAWN_OFFSET, self.BREEDING_SPAWN_OFFSET)
 
         create_yukkuri(
             world,

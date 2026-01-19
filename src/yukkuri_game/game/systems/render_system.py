@@ -82,12 +82,16 @@ class RenderSystem(System):
         _last_camera_state (Optional[Tuple]): Snapshot of camera state for cache invalidation.
     """
 
+    # Rendering constants
+    DEFAULT_SPRITE_SIZE = 64  # Default width/height for placement preview
+    VISIBILITY_BUFFER = 500.0  # Extra buffer around screen for entity visibility query
+    BACKGROUND_CACHE_MARGIN = 32  # Margin for background cache surface
+
     def __init__(
         self,
         screen: pygame.Surface,
         world: World,
         lights_engine: Any = None,
-        force_lighting: bool = False,
     ):
         """
         Initializes the RenderSystem.
@@ -96,7 +100,6 @@ class RenderSystem(System):
             screen (pygame.Surface): The main display surface.
             world (World): The ECS world instance.
             lights_engine (Any): Optional OpenGL lighting engine.
-            force_lighting (bool): Force lighting enablement (deprecated/unused).
         """
         self.screen = screen
         self.rm = world.services.get(ResourceManager)
@@ -242,8 +245,8 @@ class RenderSystem(System):
                 place_type = input_service.place_type
                 entity_type = input_service.place_entity_type
 
-                sprite_width = 64  # Default
-                sprite_height = 64
+                sprite_width = self.DEFAULT_SPRITE_SIZE  # Default
+                sprite_height = self.DEFAULT_SPRITE_SIZE
 
                 if entity_type == "item" and place_type in self.rm.item_types:
                     item_data = self.rm.item_types[place_type]
@@ -304,7 +307,7 @@ class RenderSystem(System):
         sector_map = world.services.try_get(SectorMap)
         if sector_map:
             # Add buffer to catch entities at screen edges (large sprites may extend)
-            buffer = 500.0
+            buffer = self.VISIBILITY_BUFFER
 
             # Convert screen corners to world coordinates
             start_x, start_y = self.camera.screen_to_world(0, 0, sw, sh)
@@ -331,7 +334,7 @@ class RenderSystem(System):
             sh (int): Screen height.
         """
         # Add margin for sub-pixel shift tolerance.
-        margin = 32
+        margin = self.BACKGROUND_CACHE_MARGIN
         req_w, req_h = sw + margin * 2, sh + margin * 2
 
         if not self._background_cache or self._background_cache.get_size() != (

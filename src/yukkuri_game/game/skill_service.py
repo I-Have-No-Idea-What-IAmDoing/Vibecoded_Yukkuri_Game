@@ -20,7 +20,7 @@ from .trait_service import TraitService
 from ..engine.event_bus import EventBus
 from .events import LevelUpEvent
 from ..engine.resource_manager import ResourceManager
-from ..config import SkillsSettings, GameConfig
+from ..config import SkillsSettings
 
 
 class SkillService:
@@ -139,9 +139,7 @@ class SkillService:
         stats = self.world.get_component(entity_id, YukkuriStats)
         int_factor = 1.0
         if stats:
-            config = self.world.services.try_get(GameConfig)
-            stats_config = config.rules.stats if config else None
-            int_factor = stats.get_intelligence(stats_config=stats_config)
+            int_factor = stats.get_intelligence()
 
         final_xp = amount * state.passion * int_factor * gain_multiplier
 

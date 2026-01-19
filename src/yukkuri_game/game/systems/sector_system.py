@@ -294,12 +294,20 @@ class SectorSystem(System):
         cleanup_interval (float): Interval for cleanup in seconds.
     """
 
+    # World bounds and partitioning defaults
+    DEFAULT_WORLD_WIDTH = 4000.0
+    DEFAULT_WORLD_HEIGHT = 4000.0
+    DEFAULT_SECTOR_SIZE = 500.0
+
+    # Housekeeping
+    CLEANUP_INTERVAL = 5.0  # Seconds
+
     def __init__(
         self,
         event_bus: Optional[EventBus] = None,
-        width: float = 4000,
-        height: float = 4000,
-        sector_size: float = 500,
+        width: float = DEFAULT_WORLD_WIDTH,
+        height: float = DEFAULT_WORLD_HEIGHT,
+        sector_size: float = DEFAULT_SECTOR_SIZE,
     ):
         """
         Initializes the SectorSystem.
@@ -316,7 +324,7 @@ class SectorSystem(System):
         self._subscribed = False
 
         self.cleanup_timer = 0.0
-        self.cleanup_interval = 5.0  # Seconds
+        self.cleanup_interval = self.CLEANUP_INTERVAL  # Seconds
 
         if self.event_bus:
             self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)

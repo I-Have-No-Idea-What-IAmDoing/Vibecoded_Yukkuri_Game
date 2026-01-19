@@ -536,5 +536,4 @@ class GameplayScene(Scene):
                 self.application.screen,
                 self.world,
                 lights_engine=getattr(self.application, "lights_engine", None),
-                force_lighting=True,
             )
