@@ -13,3 +13,7 @@
 ## 2026-10-25 - [Perception Throttling & Cache Identity]
 **Learning:** `VisibilitySystem` was creating new `set` objects even on cache hits, preventing consumers like `PerceptionSystem` from efficiently detecting changes via `id()` checks. By returning the cached `set` object directly, downstream systems can skip processing with O(1) checks.
 **Action:** When caching collections, reuse the collection object itself on cache hits to enable identity-based dirty checks in dependent systems.
+
+## 2026-10-26 - [Pygame Renderer Optimization]
+**Learning:** `PygameBackend` was performing `surface.copy()` for every transparent sprite and `font.render()` for every text label every frame. This created massive GC pressure and CPU overhead.
+**Action:** Use `set_alpha` toggling (apply alpha, blit, restore alpha) instead of copying surfaces. Always cache rendered text surfaces using an LRU cache.
