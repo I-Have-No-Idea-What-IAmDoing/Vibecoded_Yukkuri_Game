@@ -180,6 +180,7 @@ class InventoryPanel:
                 manager=self.manager,
                 container=panel,
                 object_id=f"drop_btn_{item.item_type_id}",
+                tool_tip_text=f"Drop 1 {name} on the ground",
             )
 
             y_pos += item_height + 5
@@ -213,6 +214,13 @@ class InventoryPanel:
         """Request to drop an item using event-driven approach."""
         if self.entity_id is None:
             return
+
+        # Play sound
+        from ...engine.audio import AudioManager
+
+        audio = self.world.services.try_get(AudioManager)
+        if audio:
+            audio.play_sound("click")
 
         if self.event_bus:
             # Preferred: Use event-driven approach for loose coupling
