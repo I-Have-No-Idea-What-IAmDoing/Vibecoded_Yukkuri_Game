@@ -36,7 +36,7 @@ from ...engine.event_bus import EventBus
 from ...engine.events import PhysicsFixedUpdateEvent
 from ..components import PhysicsBody, MovementController, Transform
 from ..collision_constants import CollisionCategories
-from ..yukkuri_components import Flight, FlightState
+from ..yukkuri_components import Flight, FlightState, YukkuriStats
 from ..skill_service import SkillService
 from .physics import PhysicsSystem
 
@@ -162,7 +162,10 @@ class KinematicMovementSystem(System):
             if flight:
                 self._update_flight_collision_filter(phys, flight)
 
-            dist_moved = self.move_and_slide(phys, controller, trans, dt)
+            stats = world.try_get_component(entity, YukkuriStats)
+            agility = stats.agility if stats else 1.0
+
+            dist_moved = self.move_and_slide(phys, controller, trans, dt, agility)
 
             # Award athletics XP based on distance traveled.
             if dist_moved > 0.1 and self.skill_service:
@@ -263,6 +266,7 @@ class KinematicMovementSystem(System):
         controller: MovementController,
         trans: Transform,
         dt: float,
+        agility: float = 1.0,
     ) -> float:
         """
         Executes the sweep-and-slide movement algorithm.
@@ -293,7 +297,7 @@ class KinematicMovementSystem(System):
                 velocity = pymunk.Vec2d(0, 0)
         else:
             diff = input_vector - velocity
-            change = controller.acceleration * dt
+            change = controller.acceleration * agility * dt
             if change >= diff.length:
                 velocity = input_vector
             else:

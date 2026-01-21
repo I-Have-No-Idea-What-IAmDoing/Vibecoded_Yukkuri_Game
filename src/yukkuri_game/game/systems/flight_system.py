@@ -4,7 +4,7 @@ Flight System Module.
 
 from ...engine.ecs import System, World
 from ..components import Transform
-from ..yukkuri_components import Flight, FlightState, Needs, EmotionalState
+from ..yukkuri_components import Flight, FlightState, Needs, EmotionalState, YukkuriStats
 from ..skill_service import SkillService
 from ..skill_constants import SkillId
 
@@ -39,6 +39,9 @@ class FlightSystem(System):
         self, world: World, entity: int, flight: Flight, transform: Transform, dt: float
     ) -> None:
         skill_service = world.services.try_get(SkillService)
+        
+        stats = world.try_get_component(entity, YukkuriStats)
+        agility = stats.agility if stats else 1.0
 
         # 1. Stamina Management
         if flight.state in (
@@ -46,8 +49,8 @@ class FlightSystem(System):
             FlightState.TAKEOFF,
             FlightState.SWOOPING,
         ):
-            # Drain stamina (Fly cost)
-            flight.stamina -= flight.fly_cost * dt
+            # Drain stamina (Fly cost) - More agile = more efficient
+            flight.stamina -= (flight.fly_cost / agility) * dt
 
             # Award Athleticism XP (Flying is hard work)
             if skill_service:
@@ -55,7 +58,7 @@ class FlightSystem(System):
 
         elif flight.state == FlightState.HOVERING:
             # Drain stamina (Hover cost)
-            flight.stamina -= flight.hover_cost * dt
+            flight.stamina -= (flight.hover_cost / agility) * dt
 
             if skill_service:
                 skill_service.add_xp(entity, SkillId.ATHLETICS, 1.0 * dt)
@@ -97,21 +100,21 @@ class FlightSystem(System):
                 flight.altitude = 0.0
                 flight.state = FlightState.GROUNDED
 
-                # Apply Fall Damage and Stun
+                # Apply Fall Damage and Stun - Agile entities take less damage
                 needs = world.try_get_component(entity, Needs)
                 if needs:
-                    needs.health -= self.FALL_DAMAGE
+                    needs.health -= self.FALL_DAMAGE / agility
 
                 emotional = world.try_get_component(entity, EmotionalState)
                 if emotional:
-                    emotional.stress += self.FALL_STRESS
+                    emotional.stress += self.FALL_STRESS / agility
 
             return
 
         # Interpolate Altitude
         diff = target_altitude - flight.altitude
         if abs(diff) > 0.01:
-            change = flight.vertical_speed * dt
+            change = flight.vertical_speed * agility * dt
             if abs(diff) < change:
                 flight.altitude = target_altitude
             else:

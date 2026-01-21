@@ -164,6 +164,11 @@ class PerceptionSystem(System):
         my_predator = world.try_get_component(entity_id, Predator)
         my_relations = world.try_get_component(entity_id, RelationshipRegistry)
 
+        # Reaction Time (Agility)
+        reaction_delay = 0.5
+        if my_stats and my_stats.agility > 0:
+            reaction_delay = 0.5 / my_stats.agility
+
         # Memory management
         previously_visible = set(blackboard.visible_targets.keys())
         currently_visible: Set[EntityID] = set()
@@ -191,6 +196,12 @@ class PerceptionSystem(System):
                 world, entity_id, target_id, my_stats, my_predator, my_relations
             )
 
+            # Persistence: Keep original detection time if known
+            old_info = blackboard.visible_targets.get(target_id)
+            detected_at = current_time
+            if old_info:
+                detected_at = old_info.detected_at
+
             # Update/Create Info
             target_info = TargetInfo(
                 entity_id=target_id,
@@ -198,10 +209,16 @@ class PerceptionSystem(System):
                 distance=distance,
                 relation=relation,
                 timestamp=current_time,
+                detected_at=detected_at,
             )
 
             blackboard.visible_targets[target_id] = target_info
             currently_visible.add(target_id)
+
+            # Reaction Buffering:
+            # AI ignores the target for census purposes until reaction time has passed.
+            if (current_time - detected_at) < reaction_delay:
+                continue
 
             # Update Census Data
             if relation in ("Friend", "Family"):

@@ -181,6 +181,7 @@ class YukkuriStats(Component):
     quality_score: float = 0.0
     discipline: float = 0.0
     intelligence: float = 1.0
+    agility: float = 1.0
 
     @property
     def archetype(self) -> "YukkuriArchetype | None":
@@ -689,6 +690,7 @@ class TargetInfo:
     distance: float
     relation: str = "Neutral"
     timestamp: float = 0.0
+    detected_at: float = 0.0
 
 
 @dataclass(slots=True)

@@ -180,6 +180,12 @@ class InteractionSystem(System):
         # Special case: eating another Yukkuri (requires trait permission)
         target_stats = world.get_component(target_id, YukkuriStats)
         if target_stats and request.consume:
+            # Predation Dodge Check
+            if target_stats.agility > stats.agility * 1.5:
+                logger.info(f"Yukkuri {target_id} dodged predation from {entity}!")
+                # TODO: Spawn "Miss!" text popup
+                return True
+
             if self._check_predation_allowed(world, entity):
                 # Execute Predation
                 needs = world.get_component(entity, Needs)

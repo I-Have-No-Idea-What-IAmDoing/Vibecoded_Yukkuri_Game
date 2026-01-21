@@ -27,7 +27,7 @@ from ..components import (
     PhysicsBody,
     MoveCommand,
 )
-from ..yukkuri_components import AIState
+from ..yukkuri_components import AIState, YukkuriStats
 from .physics import PhysicsSystem
 
 
@@ -104,8 +104,11 @@ class SteeringSystem(System):
                 world.remove_component(entity_id, MoveCommand)
                 movement.target_velocity = pymunk.Vec2d(0, 0)
                 continue
+            
+            stats = world.try_get_component(entity_id, YukkuriStats)
+            agility = stats.agility if stats else 1.0
 
-            max_speed = steering.max_speed * move_cmd.speed_multiplier
+            max_speed = steering.max_speed * move_cmd.speed_multiplier * agility
             desired_velocity = to_target.normalized() * max_speed
 
             # Slow down within arrival zone for smooth stopping.
@@ -157,6 +160,10 @@ class SteeringSystem(System):
 
             current_pos = pymunk.Vec2d(trans.x, trans.y)
             path = ai_state.path
+
+            stats = world.try_get_component(entity_id, YukkuriStats)
+            agility = stats.agility if stats else 1.0
+            effective_max_speed = steering.max_speed * agility
 
             # 1. Path Following (Seek / Arrival)
             # Find next waypoint
@@ -227,7 +234,7 @@ class SteeringSystem(System):
                         predicted_pos = target_pos + t_vel * time_to_int
                         desired_velocity = (
                             predicted_pos - current_pos
-                        ).normalized() * steering.max_speed
+                        ).normalized() * effective_max_speed
                     else:
                         desired_velocity = (
                             target_pos - current_pos
@@ -235,11 +242,11 @@ class SteeringSystem(System):
                 else:
                     desired_velocity = (
                         target_pos - current_pos
-                    ).normalized() * steering.max_speed
+                    ).normalized() * effective_max_speed
             else:
                 desired_velocity = (
                     target_pos - current_pos
-                ).normalized() * steering.max_speed
+                ).normalized() * effective_max_speed
 
             # Arrival (if last point)
             if is_final_waypoint:
@@ -280,8 +287,8 @@ class SteeringSystem(System):
             final_velocity = total_force
 
             # Clamp
-            if final_velocity.length > steering.max_speed:
-                final_velocity = final_velocity.normalized() * steering.max_speed
+            if final_velocity.length > effective_max_speed:
+                final_velocity = final_velocity.normalized() * effective_max_speed
 
             movement.target_velocity = final_velocity
 
