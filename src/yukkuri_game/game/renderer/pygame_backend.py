@@ -1,4 +1,5 @@
 from typing import Any
+from collections import OrderedDict
 import pygame
 from .backend import RenderBackend
 from .commands import (
@@ -32,6 +33,13 @@ class PygameBackend(RenderBackend):
         self.shadow_surface_cache: dict[
             tuple[int, int, tuple[int, int, int, int]], pygame.Surface
         ] = {}  # (rx, ry, color) -> Surface
+
+        # Text Cache (LRU)
+        # Key: (text, size, color, font_name)
+        self.text_cache: OrderedDict[
+            tuple[str, int, tuple[int, int, int], str | None], pygame.Surface
+        ] = OrderedDict()
+        self.max_text_cache_size = 500
 
     def clear(self, color: tuple[int, int, int]) -> None:
         self.screen.fill(color)
@@ -136,21 +144,42 @@ class PygameBackend(RenderBackend):
 
         image_to_blit = cmd.image
         if cmd.alpha < 255:
-            image_to_blit = cmd.image.copy()
+            # Optimization: Toggle alpha instead of copy.
+            # This avoids expensive surface copying every frame.
+            # We must restore the original alpha afterwards because the surface might be shared/cached.
+            original_alpha = image_to_blit.get_alpha()
             image_to_blit.set_alpha(cmd.alpha)
-        self.screen.blit(image_to_blit, dest_rect)
+            self.screen.blit(image_to_blit, dest_rect)
+            image_to_blit.set_alpha(original_alpha if original_alpha is not None else 255)
+        else:
+            self.screen.blit(image_to_blit, dest_rect)
 
         if cmd.selected:
             pygame.draw.rect(self.screen, (255, 255, 0), dest_rect.inflate(4, 4), 2)
 
     def _render_text(self, cmd: TextCommand) -> None:
-        font = self._get_font(cmd.size, cmd.font_name)
-        surf = font.render(cmd.text, True, cmd.color)
-        if cmd.alpha < 255:
-            surf.set_alpha(cmd.alpha)
+        # Check cache
+        key = (cmd.text, cmd.size, cmd.color, cmd.font_name)
+        if key in self.text_cache:
+            self.text_cache.move_to_end(key)
+            surf = self.text_cache[key]
+        else:
+            font = self._get_font(cmd.size, cmd.font_name)
+            surf = font.render(cmd.text, True, cmd.color)
+            self.text_cache[key] = surf
+            if len(self.text_cache) > self.max_text_cache_size:
+                self.text_cache.popitem(last=False)
 
         dest_rect = surf.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
-        self.screen.blit(surf, dest_rect)
+
+        if cmd.alpha < 255:
+            # Optimization: Toggle alpha instead of copy/creating new surface.
+            original_alpha = surf.get_alpha()
+            surf.set_alpha(cmd.alpha)
+            self.screen.blit(surf, dest_rect)
+            surf.set_alpha(original_alpha if original_alpha is not None else 255)
+        else:
+            self.screen.blit(surf, dest_rect)
 
     def _render_shadow(self, cmd: ShadowCommand) -> None:
         rx, ry = int(cmd.radius[0]), int(cmd.radius[1])
