@@ -6,22 +6,24 @@ structured and type-safe interface for managing entities and components.
 It integrates with the `ServiceLocator` and `EventBus` for system-wide communication.
 """
 
-import uuid
 import contextlib
-from typing import (
-    TypeVar,
-    Any,
-    TYPE_CHECKING,
-)
+import uuid
 from collections.abc import Iterator
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    TypeVar,
+)
+
 import esper
-from .service_locator import ServiceLocator
+
+from .event_bus import EventBus
 from .events import (
-    EntityDestroyedEvent,
     ComponentAddedEvent,
     ComponentRemovedEvent,
+    EntityDestroyedEvent,
 )
-from .event_bus import EventBus
+from .service_locator import ServiceLocator
 
 T = TypeVar("T")
 
@@ -414,6 +416,7 @@ if TYPE_CHECKING:
         """
 
         def process(self, dt: float) -> None: ...
+
 else:
     ProcessorBase = esper.Processor
 

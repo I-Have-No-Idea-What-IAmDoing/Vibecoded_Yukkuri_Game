@@ -6,35 +6,36 @@ of various Entity-Component-System (ECS) systems into the game world.
 """
 
 from typing import TYPE_CHECKING
+
 from .engine.ecs import World
 from .engine.event_bus import EventBus
-from .game.systems.emotion_system import EmotionSystem
-from .game.systems.lifecycle import LifecycleSystem
-from .game.systems.behavior import BehaviorSystem
-from .game.systems.physics import PhysicsSystem
-from .game.systems.visual_movement_system import VisualMovementSystem
-from .game.systems.kinematic_movement_system import KinematicMovementSystem
-from .game.systems.hierarchy_system import HierarchySystem
-from .game.systems.visibility_system import VisibilitySystem
-from .game.systems.construction_system import ConstructionSystem
+from .game.input_system import InputSystem
 from .game.systems.animation import AnimationSystem
-from .game.systems.poop_system import PoopSystem
+from .game.systems.behavior import BehaviorSystem
+from .game.systems.construction_system import ConstructionSystem
+from .game.systems.emotion_system import EmotionSystem
+from .game.systems.family_system import FamilySystem
 from .game.systems.feedback_system import FeedbackSystem
+from .game.systems.flight_system import FlightSystem
+from .game.systems.game_rules_system import GameRulesSystem
+from .game.systems.gossip_system import GossipSystem
+from .game.systems.hierarchy_system import HierarchySystem
 from .game.systems.hunger_system import HungerSystem
 from .game.systems.interaction_system import InteractionSystem
-from .game.systems.social_system import SocialSystem
-from .game.systems.gossip_system import GossipSystem
-from .game.systems.family_system import FamilySystem
-from .game.systems.game_rules_system import GameRulesSystem
 from .game.systems.inventory_system import InventorySystem
-from .game.systems.flight_system import FlightSystem
-from .game.input_system import InputSystem
-from .game.systems.time_system import TimeSystem
+from .game.systems.kinematic_movement_system import KinematicMovementSystem
+from .game.systems.lifecycle import LifecycleSystem
 from .game.systems.mouse_light_system import MouseLightSystem
 from .game.systems.navigation_system import NavigationSystem
-from .game.systems.steering_system import SteeringSystem
 from .game.systems.navigation_update_system import NavigationUpdateSystem
 from .game.systems.perception_system import PerceptionSystem
+from .game.systems.physics import PhysicsSystem
+from .game.systems.poop_system import PoopSystem
+from .game.systems.social_system import SocialSystem
+from .game.systems.steering_system import SteeringSystem
+from .game.systems.time_system import TimeSystem
+from .game.systems.visibility_system import VisibilitySystem
+from .game.systems.visual_movement_system import VisualMovementSystem
 
 if TYPE_CHECKING:
     from .config import GameConfig
@@ -65,15 +66,15 @@ class SystemRegistry:
         certain systems as services within the world's service locator.
 
         Args:
-            world (World): The ECS World instance to register systems with.
-            game_config (GameConfig): The game configuration object containing rules and settings.
-            camera (Camera): The camera object used for view-dependent systems and input.
-            event_bus (EventBus): The event bus for inter-system communication.
-            physics_system (PhysicsSystem): The pre-initialized physics system.
+            world: The ECS World instance to register systems with.
+            game_config: The game configuration object containing rules and settings.
+            camera: The camera object used for view-dependent systems and input.
+            event_bus: The event bus for inter-system communication.
+            physics_system: The pre-initialized physics system.
 
         Returns:
-            InputSystem: The registered input system, which is returned so it can be accessed
-                         for event handling in the main loop.
+            The registered input system, which is returned so it can be accessed
+            for event handling in the main loop.
         """
 
         input_system = InputSystem(camera)

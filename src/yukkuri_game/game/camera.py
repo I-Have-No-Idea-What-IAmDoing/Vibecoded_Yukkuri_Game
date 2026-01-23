@@ -30,7 +30,7 @@ class Camera:
         Initializes the Camera.
 
         Args:
-            settings (WorldSettings | None): World settings configuration.
+            settings: World settings configuration.
         """
         _settings = settings if settings is not None else WorldSettings()
         self.width = _settings.width
@@ -60,7 +60,13 @@ class Camera:
         self.correction_y = 1.0
 
     def set_aspect_correction(self, x: float, y: float) -> None:
-        """Sets the aspect ratio correction factors."""
+        """
+        Sets the aspect ratio correction factors.
+
+        Args:
+            x: Horizontal aspect correction.
+            y: Vertical aspect correction.
+        """
         self.correction_x = x
         self.correction_y = y
 
@@ -70,9 +76,9 @@ class Camera:
         Call this at the beginning of a render frame.
 
         Args:
-            screen_w (int): Screen width.
-            screen_h (int): Screen height.
-            alpha (float): Interpolation factor (0.0 to 1.0).
+            screen_w: Screen width.
+            screen_h: Screen height.
+            alpha: Interpolation factor (0.0 to 1.0).
         """
         # Interpolate camera position and zoom
         curr_zoom = self.prev_zoom + (self.zoom - self.prev_zoom) * alpha
@@ -95,10 +101,10 @@ class Camera:
         Formula: screen = (world - camera) * zoom + screen_center
 
         Args:
-            wx (float): World x-coordinate.
-            wy (float): World y-coordinate.
-            screen_w (int): Screen width.
-            screen_h (int): Screen height.
+            wx: World x-coordinate.
+            wy: World y-coordinate.
+            screen_w: Screen width.
+            screen_h: Screen height.
 
         Returns:
             tuple[float, float]: (screen_x, screen_y)
@@ -116,6 +122,16 @@ class Camera:
         """
         Optimized version of world_to_screen that uses cached values.
         Requires update_matrices() to be called first in the frame.
+
+        Args:
+            wx: World x-coordinate.
+            wy: World y-coordinate.
+
+        Returns:
+            tuple[float, float]: (screen_x, screen_y)
+
+        Raises:
+            RuntimeError: If update_matrices() was not called before this method.
         """
         if (
             self._cached_zoom_x is None
@@ -141,10 +157,10 @@ class Camera:
         Formula: world = (screen - screen_center) / zoom + camera
 
         Args:
-            sx (float): Screen x-coordinate.
-            sy (float): Screen y-coordinate.
-            screen_w (int): Screen width.
-            screen_h (int): Screen height.
+            sx: Screen x-coordinate.
+            sy: Screen y-coordinate.
+            screen_w: Screen width.
+            screen_h: Screen height.
 
         Returns:
             tuple[float, float]: (world_x, world_y)
@@ -160,12 +176,9 @@ class Camera:
         Handles input for camera control (zoom and pan).
 
         Args:
-            event (pygame.event.Event): The Pygame event.
-            screen_w (int): Screen width.
-            screen_h (int): Screen height.
-
-        Returns:
-            None
+            event: The Pygame event.
+            screen_w: Screen width.
+            screen_h: Screen height.
         """
         zoom_amount = 0.0
         if event.type == pygame.MOUSEWHEEL:
@@ -209,10 +222,7 @@ class Camera:
         Keyboard/mouse movement is handled by process_input().
 
         Args:
-            dt (float): Delta time.
-
-        Returns:
-            None
+            dt: Delta time.
         """
         # Save previous state for interpolation
         self.prev_camera_x = self.camera_x
@@ -229,8 +239,8 @@ class Camera:
         Should be called every frame.
 
         Args:
-            input_manager (InputManager): The input manager instance.
-            dt (float): Delta time.
+            input_manager: The input manager instance.
+            dt: Delta time.
         """
         # Keyboard Movement
         speed = 500.0 * dt / self.zoom  # Adjust by zoom for consistent feel

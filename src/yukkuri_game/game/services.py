@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import os
 import msgspec
 import dataclasses
+import math
 
 from ..engine.ecs import World
 from .components import Transform
@@ -339,14 +340,12 @@ class GameService:
         Args:
             position (tuple[float, float]): The search origin (x, y).
             stat_criteria (str): The ItemStats attribute to maximize (e.g. "nutrition").
-            exclude_ids (Set[int] | None): IDs to ignore.
+            exclude_ids (set[int] | None): IDs to ignore.
             searcher_id (int): The ID of the searching entity (optional, for skill checks).
 
         Returns:
             int: The ID of the best item, or -1 if none found.
         """
-        import math
-
         best_dist = float("inf")
         best_item = -1
 
@@ -397,13 +396,37 @@ class GameService:
 
 
 class PersistenceService:
+    """
+    Service responsible for saving and loading the game state.
+
+    Attributes:
+        world (World): The ECS world instance.
+        save_dir (str): Directory where save files are stored.
+    """
+
     def __init__(self, world: World, save_dir: str = "saves"):
+        """
+        Initializes the PersistenceService.
+
+        Args:
+            world: The ECS world.
+            save_dir: Path to the save directory.
+        """
         self.world = world
         self.save_dir = save_dir
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
     def _serialize_object(self, obj: object) -> object:
+        """
+        Recursively converts objects to JSON-serializable structures.
+
+        Args:
+            obj: The object to serialize.
+
+        Returns:
+            The serialized object.
+        """
         if isinstance(obj, (set, tuple)):
             return list(obj)
         if isinstance(obj, dict):
@@ -413,6 +436,12 @@ class PersistenceService:
         return obj
 
     def save_game(self, filename: str) -> None:
+        """
+        Saves the current game state to a file.
+
+        Args:
+            filename: The name of the save file.
+        """
         filepath = os.path.join(self.save_dir, filename)
 
         data = {"money": 0, "time": 0.0, "entities": []}
@@ -466,6 +495,15 @@ class PersistenceService:
             f.write(msgspec.msgpack.encode(data))
 
     def load_game(self, filename: str) -> bool:
+        """
+        Loads the game state from a file.
+
+        Args:
+            filename: The name of the save file.
+
+        Returns:
+            True if successful, False if file not found.
+        """
         filepath = os.path.join(self.save_dir, filename)
         if not os.path.exists(filepath):
             return False

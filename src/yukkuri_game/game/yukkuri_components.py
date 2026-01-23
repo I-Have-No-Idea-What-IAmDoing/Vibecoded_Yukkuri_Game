@@ -12,7 +12,8 @@ Key Features:
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from ..engine.ecs import Component
 from ..engine.types import EntityID
 
@@ -34,7 +35,7 @@ class YukkuriArchetype:
     Wraps the read-only TOML configuration to avoid per-entity data duplication.
 
     Attributes:
-        type_data (Optional[YukkuriType]): The loaded configuration data.
+        type_data (YukkuriType | None): The loaded configuration data.
     """
 
     type_data: "YukkuriType | None" = None
@@ -272,10 +273,10 @@ class Personality:
     Component defining the personality profile.
 
     Attributes:
-        traits (Set[str]): Set of active trait IDs.
+        traits (set[str]): Set of active trait IDs.
         axis (PersonalityAxis): Current personality values.
         base_axis (PersonalityAxis): Genetic/Innate personality baseline.
-        cached_overrides (Optional[Dict[str, Any]]): Cached AI behavior overrides.
+        cached_overrides (dict[str, Any] | None): Cached AI behavior overrides.
     """
 
     traits: set[str] = field(default_factory=set)
@@ -299,8 +300,8 @@ class RelationshipData:
         base_compatibility (float): Cached personality compatibility score.
         trivial_sentiment_sum (float): Cached sum of trivial memory sentiments.
         core_sentiment_sum (float): Cached sum of core memory sentiments.
-        trivial_buffer (List[MemoryHeadline]): FIFO buffer for minor events.
-        core_buffer (List[MemoryHeadline]): Priority buffer for major events.
+        trivial_buffer (list[MemoryHeadline]): FIFO buffer for minor events.
+        core_buffer (list[MemoryHeadline]): Priority buffer for major events.
         TRIVIAL_MAX_LEN (int): Capacity of trivial buffer.
         CORE_MAX_LEN (int): Capacity of core buffer.
     """
@@ -408,11 +409,11 @@ class RelationshipRegistry:
     Component storing all social relationships for an entity.
 
     Attributes:
-        relationships (Dict[EntityID, RelationshipData]): Map of target entity IDs to relationship data.
-        biological_parents (List[EntityID]): IDs of biological parents.
-        biological_children (List[EntityID]): IDs of biological children.
-        family_group_id (Optional[EntityID]): Shared family group identifier.
-        mate_id (Optional[EntityID]): ID of current mate.
+        relationships (dict[EntityID, RelationshipData]): Map of target entity IDs to relationship data.
+        biological_parents (list[EntityID]): IDs of biological parents.
+        biological_children (list[EntityID]): IDs of biological children.
+        family_group_id (EntityID | None): Shared family group identifier.
+        mate_id (EntityID | None): ID of current mate.
     """
 
     relationships: dict[EntityID, RelationshipData] = field(default_factory=dict)
@@ -449,7 +450,7 @@ class GossipQueue(Component):
     Component managing a priority queue of outgoing gossip.
 
     Attributes:
-        priority_queue (List[GossipPacket]): Sorted list of gossip packets.
+        priority_queue (list[GossipPacket]): Sorted list of gossip packets.
     """
 
     priority_queue: list[GossipPacket] = field(default_factory=list)
@@ -497,10 +498,11 @@ class AIState:
     Attributes:
         current_action (str): Debug name of current activity.
         current_target_id (EntityID): Entity being targeted.
-        path (Optional[List[Any]]): Navigation path cache.
+        path (list[Any] | None): Navigation path cache.
         action_progress (float): Completion percentage (0.0-1.0).
-        state_data (Optional[Dict]): Scratchpad for action-specific data.
-        failed_targets (Set[EntityID]): Blacklist of recently failed targets.
+        state_data (dict[str, Any] | None): Scratchpad for action-specific data.
+        failed_targets (set[EntityID]): Blacklist of recently failed targets.
+        visible_entities (set[EntityID]): Set of visible entity IDs.
         manual_override (bool): If True, AI logic is suspended.
     """
 
@@ -562,7 +564,7 @@ class Skills(Component):
     Component holding the collection of skills for an entity.
 
     Attributes:
-        states (Dict[str, SkillState]): Map of Skill ID to SkillState.
+        states (dict[str, SkillState]): Map of Skill ID to SkillState.
     """
 
     states: dict[str, SkillState] = field(default_factory=dict)
@@ -619,7 +621,7 @@ class Predator(Component):
     Component for predator behavior logic.
 
     Attributes:
-        prey_tags (Set[str]): Tags defining valid food sources.
+        prey_tags (set[str]): Tags defining valid food sources.
         prey_sense_radius (float): Detection range for prey.
         hunger_threshold (float): Hunger level triggering hunt mode.
         aggression (float): Aggression multiplier.
@@ -660,7 +662,7 @@ class GoalComponent(Component):
     Attributes:
         goal_type (GoalType): The active goal category.
         priority (float): Utility score (importance).
-        target_id (Optional[EntityID]): Specific target associated with goal.
+        target_id (EntityID | None): Specific target associated with goal.
         stickiness (float): Score bonus to maintain current goal (hysteresis).
         timestamp (float): Time when the goal was adopted.
     """
@@ -679,10 +681,11 @@ class TargetInfo:
 
     Attributes:
         entity_id (EntityID): The observed entity.
-        position (Tuple[float, float]): Last observed location.
+        position (tuple[float, float]): Last observed location.
         distance (float): Distance from observer.
         relation (str): Semantic relationship ("Friend", "Enemy", etc.).
         timestamp (float): Time of observation.
+        detected_at (float): Time when the entity was first detected.
     """
 
     entity_id: EntityID
@@ -699,7 +702,7 @@ class LastKnownPosition:
     Memory record for an entity that has moved out of view.
 
     Attributes:
-        position (Tuple[float, float]): Last valid position.
+        position (tuple[float, float]): Last valid position.
         timestamp (float): Time when contact was lost.
     """
 
@@ -714,13 +717,13 @@ class Blackboard(Component):
     Populated by PerceptionSystem, consumed by UtilitySystem.
 
     Attributes:
-        visible_targets (Dict[EntityID, TargetInfo]): Currently seen entities.
-        short_term_memory (Dict[EntityID, LastKnownPosition]): Recently lost entities.
+        visible_targets (dict[EntityID, TargetInfo]): Currently seen entities.
+        short_term_memory (dict[EntityID, LastKnownPosition]): Recently lost entities.
         nearby_friends (int): Count of allies nearby.
         nearby_enemies (int): Count of threats nearby.
         nearby_prey (int): Count of prey nearby.
-        closest_threat_id (Optional[EntityID]): ID of critical threat.
-        closest_food_id (Optional[EntityID]): ID of optimal food source.
+        closest_threat_id (EntityID | None): ID of critical threat.
+        closest_food_id (EntityID | None): ID of optimal food source.
     """
 
     visible_targets: dict[EntityID, TargetInfo] = field(default_factory=dict)
@@ -739,11 +742,11 @@ class ArchetypeConfig:
 
     Attributes:
         archetype_id (str): Behavior profile name (e.g. "predator", "coward").
-        priorities (List[GoalType]): Ordered preference list for goals.
-        prey_tags (Set[str]): Tags treated as prey.
-        predator_tags (Set[str]): Tags treated as predators.
+        priorities (list[GoalType]): Ordered preference list for goals.
+        prey_tags (set[str]): Tags treated as prey.
+        predator_tags (set[str]): Tags treated as predators.
         stamina_regen (float): Stamina recovery rate.
-        personality_bias (Dict[str, float]): Base modifier for personality axes.
+        personality_bias (dict[str, float]): Base modifier for personality axes.
     """
 
     archetype_id: str = "default"
