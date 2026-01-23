@@ -5,6 +5,7 @@ This module handles command-line argument parsing and initializes the game appli
 """
 
 import argparse
+
 from .engine.application import Application
 from .scenes.main_menu import MainMenuScene
 
@@ -15,14 +16,9 @@ def main() -> None:
 
     Parses command-line arguments to configure the application (e.g., headless mode),
     initializes the Application instance, pushes the main menu scene, and starts the game loop.
-
-    Command-line Arguments:
-        --headless: Run in headless mode (no window).
-
-    Returns:
-        None
     """
     parser = argparse.ArgumentParser(description="Yukkuri Raising Game")
+    # Define command-line arguments
     parser.add_argument(
         "--headless", action="store_true", help="Run in headless mode (no window)"
     )

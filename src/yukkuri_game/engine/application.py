@@ -2,9 +2,10 @@
 Application Module.
 """
 
+import gc
+import os
 import pygame
 import pygame_gui
-import os
 from typing import Any
 from loguru import logger
 from .resource_manager import ResourceManager
@@ -12,7 +13,6 @@ from .scene_manager import SceneManager
 from .input_manager import InputManager
 from .event_manager import EventManager, GamePhase
 from .audio import AudioManager
-import gc
 
 
 class Application:
@@ -30,13 +30,15 @@ class Application:
         deterministic: bool = False,
     ):
         """
+        Initializes the application.
+
         Args:
-            width (int): Window width in pixels.
-            height (int): Window height in pixels.
-            title (str): Application window title.
-            headless (bool): If True, runs without graphics (for tests/server).
-            render_scale (float): Rendering resolution scale relative to window size.
-            deterministic (bool): If True, enforcing deterministic behavior (e.g., synchronous NavService, seeded RNG).
+            width: Window width in pixels.
+            height: Window height in pixels.
+            title: Application window title.
+            headless: If True, runs without graphics (for tests/server).
+            render_scale: Rendering resolution scale relative to window size.
+            deterministic: If True, enforcing deterministic behavior (e.g., synchronous NavService, seeded RNG).
         """
         self.width = width
         self.height = height
@@ -88,6 +90,11 @@ class Application:
     ) -> None:
         """
         Initializes the display and lighting engine.
+
+        Args:
+            width: Width of the display.
+            height: Height of the display.
+            fullscreen: Whether to enable fullscreen mode.
         """
         if self.headless:
             self.screen = pygame.display.set_mode((width, height))
@@ -121,6 +128,12 @@ class Application:
     ) -> None:
         """
         Changes the resolution and fullscreen state.
+
+        Args:
+            width: New width.
+            height: New height.
+            fullscreen: New fullscreen state.
+            render_scale: Optional new render scale.
         """
         if render_scale is not None:
             self.render_scale = render_scale
@@ -179,6 +192,7 @@ class Application:
     def process_events(self) -> None:
         """
         Process input events from the system queue.
+
         Delegates to InputManager, UIManager, and SceneManager.
         """
         for event in pygame.event.get():
@@ -192,6 +206,9 @@ class Application:
     def update(self, dt: float) -> None:
         """
         Update application logic and systems.
+
+        Args:
+            dt: Delta time in seconds.
         """
         # 1. Pre-Update Phase (Prepare systems)
         self.event_manager.process_phase(GamePhase.PRE_UPDATE)
@@ -225,6 +242,7 @@ class Application:
     def init_render_system_headless(self) -> None:
         """
         Initializes the render system for the current scene if in headless mode.
+
         This allows taking screenshots or verifying rendering logic without a window.
         """
         if self.scene_manager.current_scene and hasattr(

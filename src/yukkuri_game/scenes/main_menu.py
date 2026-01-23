@@ -2,6 +2,7 @@
 Main Menu Scene.
 """
 
+import os
 from pathlib import Path
 
 import pygame
@@ -31,7 +32,7 @@ class MainMenuScene(Scene):
         Initializes the MainMenuScene.
 
         Args:
-            application (Application): The main application instance.
+            application: The main application instance.
         """
         super().__init__(application)
         # Compute absolute path for theme file (relative to project root)
@@ -42,8 +43,6 @@ class MainMenuScene(Scene):
             f"MainMenu theme path: {_theme_path}, exists: {_theme_path.exists()}"
         )
         if not _theme_path.exists():
-            import os
-
             logger.warning(f"MainMenu theme not found. CWD: {os.getcwd()}")
 
         self.ui_manager = pygame_gui.UIManager(
@@ -101,7 +100,7 @@ class MainMenuScene(Scene):
         Updates the scene.
 
         Args:
-            dt (float): Delta time.
+            dt: Delta time.
         """
         super().update(dt)
         self.ui_manager.update(dt)
@@ -118,7 +117,7 @@ class MainMenuScene(Scene):
         Handles input events.
 
         Args:
-            event (pygame.event.Event): The Pygame event.
+            event: The Pygame event.
         """
         self.ui_manager.process_events(event)
         # InputManager processing is handled by Application

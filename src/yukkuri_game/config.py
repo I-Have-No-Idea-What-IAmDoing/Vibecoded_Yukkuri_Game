@@ -6,8 +6,9 @@ world settings, rule settings (stats, lifecycle, social, skills), and
 the main configuration loader.
 """
 
-import msgspec
 from pathlib import Path
+
+import msgspec
 
 
 class TimeSettings(msgspec.Struct):
@@ -190,11 +191,11 @@ def load_config(data_dir: Path = Path("data")) -> GameConfig:
     If the files do not exist, default configurations are used.
 
     Args:
-        data_dir (Path): The directory containing config.toml and rules.toml.
-                         Defaults to 'data'.
+        data_dir: The directory containing config.toml and rules.toml.
+            Defaults to 'data'.
 
     Returns:
-        GameConfig: The loaded game configuration object.
+        The loaded game configuration object.
 
     Raises:
         msgspec.ValidationError: If the configuration files contain invalid types or structures.

@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
-from src.engine.ecs import World, EntityID
+from src.yukkuri_game.engine.ecs import World
+from src.yukkuri_game.engine.types import EntityID
 from src.yukkuri_game.game.systems.perception_system import PerceptionSystem
 from src.yukkuri_game.game.systems.kinematic_movement_system import KinematicMovementSystem
 from src.yukkuri_game.game.yukkuri_components import AIState, Blackboard, YukkuriStats, TargetInfo
@@ -20,12 +21,12 @@ class TestAgilityIntegration:
         world.add_component(entity, Transform(x=0, y=0))
         
         # High Agility = Low Delay (0.5 / 2.0 = 0.25s)
-        world.add_component(entity, YukkuriStats(agility=2.0))
+        world.add_component(entity, YukkuriStats(name="TestEntity", type_id="test", agility=2.0))
         
         # Setup target
         target = world.create_entity()
         world.add_component(target, Transform(x=10, y=0)) # Nearby
-        world.add_component(target, YukkuriStats(type_id="enemy")) # Enemy relation logic depends on more input, so let's mock _resolve_relation
+        world.add_component(target, YukkuriStats(name="Enemy", type_id="enemy")) # Enemy relation logic depends on more input, so let's mock _resolve_relation
         
         # Mock _resolve_relation to return Enemy
         system._resolve_relation = MagicMock(return_value="Enemy")
@@ -34,8 +35,14 @@ class TestAgilityIntegration:
         ai_state.visible_entities = {target}
         blackboard = world.get_component(entity, Blackboard)
         
+        # Mock TimeService
+        from src.yukkuri_game.game.services import TimeService
+        time_service = MagicMock(spec=TimeService)
+        time_service.time_elapsed = 0.0
+        world.services.register(time_service, TimeService)
+
         # --- Frame 1: Top of detection (Time 0.0) ---
-        world.time = 0.0
+        time_service.time_elapsed = 0.0
         system.update(world, 0.1)
         
         assert blackboard.nearby_enemies == 0, "Should buffer reaction initially"
@@ -43,13 +50,13 @@ class TestAgilityIntegration:
         assert blackboard.visible_targets[target].detected_at == 0.0
         
         # --- Frame 2: Still buffering (Time 0.2 < 0.25) ---
-        world.time = 0.2
+        time_service.time_elapsed = 0.2
         system.update(world, 0.1)
         assert blackboard.nearby_enemies == 0, "Should still be buffering"
         assert blackboard.visible_targets[target].detected_at == 0.0 # Should persist
         
         # --- Frame 3: Reaction Triggered (Time 0.3 > 0.25) ---
-        world.time = 0.3
+        time_service.time_elapsed = 0.3
         system.update(world, 0.1)
         assert blackboard.nearby_enemies == 1, "Should react now"
         
@@ -59,10 +66,10 @@ class TestAgilityIntegration:
         system = KinematicMovementSystem()
         
         entity = world.create_entity()
-        world.add_component(entity, PhysicsBody(body=MagicMock()))
+        world.add_component(entity, PhysicsBody(body=MagicMock(), shape=MagicMock()))
         world.add_component(entity, MovementController(acceleration=10.0))
-        world.add_component(entity, Transform())
-        world.add_component(entity, YukkuriStats(agility=2.0))
+        world.add_component(entity, Transform(x=0, y=0))
+        world.add_component(entity, YukkuriStats(name="Test", type_id="test", agility=2.0))
         
         # Just running update to check for crashes and correct call signature
         # We can't easily verify the internal acceleration usage without spying on move_and_slide
@@ -77,7 +84,7 @@ class TestAgilityIntegration:
         system.space = MagicMock() # Mock space
         
         # Fake FixedUpdate
-        from src.engine.events import PhysicsFixedUpdateEvent
+        from src.yukkuri_game.engine.events import PhysicsFixedUpdateEvent
         system.on_fixed_update(PhysicsFixedUpdateEvent(dt=0.1))
         
         # Verify allow call with agility
