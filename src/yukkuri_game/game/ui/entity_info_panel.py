@@ -271,6 +271,7 @@ class EntityInfoPanel:
                 text=f"Sell All ({selection_count})",
                 manager=self.manager,
                 container=self.window,
+                tool_tip_text="Sell selected items",
                 object_id="sell_button",
             )
 
