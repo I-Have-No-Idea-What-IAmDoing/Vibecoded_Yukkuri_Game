@@ -1,13 +1,30 @@
-import numpy as np
+"""
+Module defining the NavigationGrid.
+
+This grid serves as the fundamental data structure for pathfinding and movement,
+storing traversal costs and capability masks for each cell in the world.
+"""
+
 import math
 from dataclasses import dataclass
-from typing import Tuple, Optional
-from .navigation_constants import TraversalCapability, TerrainType
+
+import numpy as np
+
+from .navigation_constants import TerrainType, TraversalCapability
 
 
 @dataclass(slots=True)
 class NavNode:
-    position: Tuple[int, int]
+    """
+    Represents a single node in the navigation grid.
+
+    Attributes:
+        position (tuple[int, int]): Grid coordinates (x, y).
+        access_mask (int): Bitmask defining traversal capabilities (e.g., WALK, FLY).
+        cost (float): Movement cost for traversing this node.
+    """
+
+    position: tuple[int, int]
     access_mask: int
     cost: float = 1.0
 
@@ -15,10 +32,19 @@ class NavNode:
 class NavigationGrid:
     """
     A unified navigation grid using numpy for storage.
-    Stores traversal capabilities (bitmask) and movement costs.
+
+    Stores traversal capabilities (bitmask) and movement costs efficiently.
     """
 
     def __init__(self, world_width: int, world_height: int, grid_step_size: int = 25):
+        """
+        Initializes the NavigationGrid.
+
+        Args:
+            world_width (int): Width of the game world in pixels.
+            world_height (int): Height of the game world in pixels.
+            grid_step_size (int): Size of each grid cell in pixels. Defaults to 25.
+        """
         self.world_width = world_width
         self.world_height = world_height
         self.grid_step_size = grid_step_size
@@ -34,19 +60,22 @@ class NavigationGrid:
         )
 
         # Initialize default values
-        # Default: All capabilities (WALK | FLY | SWIM currently not strictly separate in bits,
-        # but locally we want default walkable).
-        # Actually default should be 0 or all?
-        # In the old system, everything was walkable by default.
-        # Here, let's assume everything is ground-walkable and air-flyable by default unless blocked.
-        # But usually we strictly define blocking.
-        # Let's set default to fully traversable.
+        # Default: All capabilities (WALK | FLY).
         default_mask = TraversalCapability.WALK | TraversalCapability.FLY
         self.cells["access_mask"] = default_mask
         self.cells["cost"] = TerrainType.GRASS.value  # Default cost
 
-    def get_node(self, x: int, y: int) -> Optional[NavNode]:
-        """Returns a NavNode object for the given grid coordinates."""
+    def get_node(self, x: int, y: int) -> NavNode | None:
+        """
+        Returns a NavNode object for the given grid coordinates.
+
+        Args:
+            x (int): Grid X coordinate.
+            y (int): Grid Y coordinate.
+
+        Returns:
+            NavNode | None: The node object if coordinates are valid, else None.
+        """
         if 0 <= x < self.width and 0 <= y < self.height:
             cell = self.cells[x, y]
             return NavNode(
@@ -55,7 +84,15 @@ class NavigationGrid:
         return None
 
     def set_obstacle(self, x: int, y: int, mask: int, cost: float = 1.0) -> None:
-        """Sets the obstacle mask and cost at the given coordinates."""
+        """
+        Sets the obstacle mask and cost at the given coordinates.
+
+        Args:
+            x (int): Grid X coordinate.
+            y (int): Grid Y coordinate.
+            mask (int): The access mask to set.
+            cost (float): The movement cost. Defaults to 1.0.
+        """
         if 0 <= x < self.width and 0 <= y < self.height:
             self.cells[x, y]["access_mask"] = mask
             self.cells[x, y]["cost"] = cost
@@ -67,12 +104,21 @@ class NavigationGrid:
         width: float,
         height: float,
         is_blocking: bool,
-        block_mask: int,  # Bits to set/clear. If blocking, we CLEAR these bits from access_mask.
+        block_mask: int,
     ) -> None:
         """
-        Updates a rectangular area.
-        If is_blocking is True, the bits in block_mask are CLEARED (removed from allowed capabilities).
-        If is_blocking is False, the bits in block_mask are SET (added to allowed capabilities).
+        Updates a rectangular area in the grid.
+
+        If `is_blocking` is True, the bits in `block_mask` are CLEARED (removed from allowed capabilities).
+        If `is_blocking` is False, the bits in `block_mask` are SET (added to allowed capabilities).
+
+        Args:
+            world_x (float): Center X coordinate in world space.
+            world_y (float): Center Y coordinate in world space.
+            width (float): Width of the area in pixels.
+            height (float): Height of the area in pixels.
+            is_blocking (bool): Whether to block or unblock the capabilities.
+            block_mask (int): The capability bits to modify.
         """
         half_w = width / 2
         half_h = height / 2
@@ -92,9 +138,6 @@ class NavigationGrid:
             view = self.cells["access_mask"][min_gx:max_gx, min_gy:max_gy]
             if is_blocking:
                 # Remove capabilities (bitwise AND with inverse of block_mask)
-                # But numpy doesn't support &= ~mask directly on views easily if dtype is slightly different,
-                # but here it is u1.
-                # ~block_mask might be negative in python int, need to ensure u1
                 inv_mask = np.uint8(~block_mask & 0xFF)
                 np.bitwise_and(view, inv_mask, out=view)
             else:
@@ -102,18 +145,34 @@ class NavigationGrid:
                 np.bitwise_or(view, np.uint8(block_mask), out=view)
 
     def is_walkable(self, x: int, y: int, capability_mask: int) -> bool:
-        """Checks if a cell is traversable by an entity with the given capability mask."""
+        """
+        Checks if a cell is traversable by an entity with the given capability mask.
+
+        Args:
+            x (int): Grid X coordinate.
+            y (int): Grid Y coordinate.
+            capability_mask (int): The capability mask of the entity.
+
+        Returns:
+            bool: True if at least one capability bit matches, False otherwise.
+        """
         if 0 <= x < self.width and 0 <= y < self.height:
             cell_mask = self.cells[x, y]["access_mask"]
-            # If any bit overlaps, it is traversable?
-            # Or does the cell need to support ALL capabilities required?
-            # Usually: The cell defines "what can traverse here".
-            # E.g. Cell=WALK. Entity=WALK. (WALK & WALK) > 0 -> OK.
-            # Cell=FLY. Entity=WALK. (FLY & WALK) == 0 -> Blocked.
+            # Check if any capability overlaps
             return (cell_mask & capability_mask) > 0
         return False
 
     def get_cost(self, x: int, y: int) -> float:
+        """
+        Retrieves the movement cost for a specific grid cell.
+
+        Args:
+            x (int): Grid X coordinate.
+            y (int): Grid Y coordinate.
+
+        Returns:
+            float: The movement cost. Returns infinity if out of bounds.
+        """
         if 0 <= x < self.width and 0 <= y < self.height:
             return self.cells[x, y]["cost"]
         return float("inf")

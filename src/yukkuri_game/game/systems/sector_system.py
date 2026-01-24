@@ -26,14 +26,17 @@ Performance:
 -   Periodic cleanup removes stale entity references.
 """
 
-from collections import defaultdict
 import math
-from typing import Dict, List, Set, Tuple, Optional
+from collections import defaultdict
+from typing import TYPE_CHECKING
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import EntityDestroyedEvent
-from ..components import Transform, Occluder
+from ..components import Occluder, Transform
+
+if TYPE_CHECKING:
+    pass
 
 
 class SectorMap:
@@ -50,8 +53,8 @@ class SectorMap:
         sector_size (float): Size of each sector cell.
         cols (int): Number of columns in the grid.
         rows (int): Number of rows in the grid.
-        sectors (Dict[Tuple[int, int], Set[int]]): Map of (col, row) to set of entity IDs.
-        entity_sectors (Dict[int, Tuple[int, int]]): Reverse lookup of entity ID to (col, row).
+        sectors (dict[tuple[int, int], set[int]]): Map of (col, row) to set of entity IDs.
+        entity_sectors (dict[int, tuple[int, int]]): Reverse lookup of entity ID to (col, row).
     """
 
     def __init__(self, width: float, height: float, sector_size: float):
@@ -72,12 +75,12 @@ class SectorMap:
         self.rows = int(math.ceil(height / sector_size))
 
         # Sector storage: (col, row) -> set of entity IDs
-        self.sectors: Dict[Tuple[int, int], Set[int]] = defaultdict(set)
+        self.sectors: dict[tuple[int, int], set[int]] = defaultdict(set)
 
         # Reverse lookup: entity_id -> current (col, row)
-        self.entity_sectors: Dict[int, Tuple[int, int]] = {}
+        self.entity_sectors: dict[int, tuple[int, int]] = {}
 
-    def get_sector_coords(self, x: float, y: float) -> Tuple[int, int]:
+    def get_sector_coords(self, x: float, y: float) -> tuple[int, int]:
         """
         Returns the (col, row) coordinates for a given world position.
         Clamps to map boundaries.
@@ -87,7 +90,7 @@ class SectorMap:
             y (float): Y coordinate.
 
         Returns:
-            Tuple[int, int]: (col, row) indices.
+            tuple[int, int]: (col, row) indices.
         """
         # Convert world coordinates to grid indices.
         col = int(x / self.sector_size)
@@ -135,7 +138,7 @@ class SectorMap:
                 self.sectors[sector].remove(entity_id)
             del self.entity_sectors[entity_id]
 
-    def get_entities_in_sector(self, col: int, row: int) -> Set[int]:
+    def get_entities_in_sector(self, col: int, row: int) -> set[int]:
         """
         Returns all entities in a specific sector.
 
@@ -144,11 +147,11 @@ class SectorMap:
             row (int): Row index.
 
         Returns:
-            Set[int]: Set of entity IDs in the sector.
+            set[int]: Set of entity IDs in the sector.
         """
         return self.sectors.get((col, row), set())
 
-    def get_adjacent_sectors(self, col: int, row: int) -> List[Tuple[int, int]]:
+    def get_adjacent_sectors(self, col: int, row: int) -> list[tuple[int, int]]:
         """
         Returns a list of valid (col, row) tuples for adjacent sectors (including diagonals).
 
@@ -157,7 +160,7 @@ class SectorMap:
             row (int): Center row index.
 
         Returns:
-            List[Tuple[int, int]]: List of adjacent (col, row) coordinates.
+            list[tuple[int, int]]: List of adjacent (col, row) coordinates.
         """
         adjacent = []
         for dx in [-1, 0, 1]:
@@ -172,7 +175,7 @@ class SectorMap:
 
     def get_entities_in_range(
         self, x: float, y: float, range_type: str = "visual"
-    ) -> List[int]:
+    ) -> list[int]:
         """
         Returns entities based on propagation rules.
 
@@ -182,10 +185,10 @@ class SectorMap:
             range_type (str): "visual" (Same + Adjacent) or "auditory_loud" (Same + Adjacent) or "auditory" (Same).
 
         Returns:
-            List[int]: List of entity IDs in range.
+            list[int]: List of entity IDs in range.
         """
         col, row = self.get_sector_coords(x, y)
-        result: List[int] = []
+        result: list[int] = []
 
         # Always include current sector (the sector the entity is currently standing in)
         sector_entities = self.sectors.get((col, row))
@@ -201,9 +204,10 @@ class SectorMap:
 
         return result
 
-    def get_entities_in_radius(self, x: float, y: float, radius: float) -> List[int]:
+    def get_entities_in_radius(self, x: float, y: float, radius: float) -> list[int]:
         """
         Returns all entities in sectors overlapping the given radius.
+
         Note: This returns a superset of entities (all entities in touched sectors).
         Distance checking should be done by the caller for precision.
 
@@ -213,7 +217,7 @@ class SectorMap:
             radius (float): The search radius.
 
         Returns:
-            List[int]: List of entity IDs in possible range.
+            list[int]: List of entity IDs in possible range.
         """
         # Calculate bounding box of the circle
         min_x = x - radius
@@ -225,7 +229,7 @@ class SectorMap:
         start_col, start_row = self.get_sector_coords(min_x, min_y)
         end_col, end_row = self.get_sector_coords(max_x, max_y)
 
-        result: List[int] = []
+        result: list[int] = []
 
         # Iterate over rectangular range of sectors
         for c in range(start_col, end_col + 1):
@@ -238,9 +242,10 @@ class SectorMap:
 
     def get_entities_in_rect(
         self, x: float, y: float, width: float, height: float
-    ) -> List[int]:
+    ) -> list[int]:
         """
         Returns all entities in sectors overlapping the given rectangle.
+
         Note: This returns a superset of entities (all entities in touched sectors).
 
         Args:
@@ -250,7 +255,7 @@ class SectorMap:
             height (float): Rectangle height.
 
         Returns:
-            List[int]: List of entity IDs in possible range.
+            list[int]: List of entity IDs in possible range.
         """
         min_x = x
         max_x = x + width
@@ -261,7 +266,7 @@ class SectorMap:
         start_col, start_row = self.get_sector_coords(min_x, min_y)
         end_col, end_row = self.get_sector_coords(max_x, max_y)
 
-        result: List[int] = []
+        result: list[int] = []
 
         # Iterate over rectangular range of sectors
         for c in range(start_col, end_col + 1):
@@ -289,7 +294,7 @@ class SectorSystem(System):
     Attributes:
         sector_map (SectorMap): The main entity sector map.
         occluder_map (OccluderMap): The occluder sector map.
-        event_bus (Optional[EventBus]): The event bus.
+        event_bus (EventBus | None): The event bus.
         cleanup_timer (float): Timer for periodic cleanup.
         cleanup_interval (float): Interval for cleanup in seconds.
     """
@@ -304,7 +309,7 @@ class SectorSystem(System):
 
     def __init__(
         self,
-        event_bus: Optional[EventBus] = None,
+        event_bus: EventBus | None = None,
         width: float = DEFAULT_WORLD_WIDTH,
         height: float = DEFAULT_WORLD_HEIGHT,
         sector_size: float = DEFAULT_SECTOR_SIZE,
@@ -313,7 +318,7 @@ class SectorSystem(System):
         Initializes the SectorSystem.
 
         Args:
-            event_bus (Optional[EventBus]): The event bus.
+            event_bus (EventBus | None): The event bus.
             width (float): World width.
             height (float): World height.
             sector_size (float): Size of sectors.
@@ -340,7 +345,7 @@ class SectorSystem(System):
         self.sector_map.remove_entity(event.entity_id)
         self.occluder_map.remove_entity(event.entity_id)
 
-    def update(self, world: World, dt: float) -> None:
+    def update(self, world: "World", dt: float) -> None:
         """
         Updates entity positions in the SectorMap.
 
@@ -389,7 +394,7 @@ class SectorSystem(System):
             self.cleanup_timer = 0.0
             self.cleanup_dead_entities(world)
 
-    def cleanup_dead_entities(self, world: World) -> None:
+    def cleanup_dead_entities(self, world: "World") -> None:
         """
         Removes entities from SectorMap that no longer exist in the world or have no Transform.
 

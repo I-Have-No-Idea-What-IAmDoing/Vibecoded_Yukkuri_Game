@@ -1,24 +1,26 @@
+"""
+Module containing searching behavior actions.
+"""
+
 import math
-from typing import Any, Optional, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
+
 from py_trees.common import Status
+from yukkuri_game.engine.types import EntityID
 
 from ...base_action import Action
-from ....components import (
-    Transform,
-    LightSource,
-)
+from ...navigation_constants import TraversalCapability
+from ...navigation_service import NavigationService
+from ....components import LightSource, Transform
+from ....services import GameService
 from ....yukkuri_components import (
     AIState,
-    YukkuriStats,
-    ItemStats,
-    Predator,
     Blackboard,
     Flight,
+    ItemStats,
+    Predator,
+    YukkuriStats,
 )
-from ....services import GameService
-from ...navigation_service import NavigationService
-from ...navigation_constants import TraversalCapability
-from yukkuri_game.engine.types import EntityID
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -32,11 +34,32 @@ class FindItem(Action):
         stat_criteria (str): The item stat to look for (e.g., "nutrition", "fun").
     """
 
-    def __init__(self, name: str, entity_id: int, world: "World", stat_criteria: str):
+    def __init__(
+        self,
+        name: str,
+        entity_id: int | None,
+        world: "World | None",
+        stat_criteria: str,
+    ):
+        """
+        Initializes the FindItem action.
+
+        Args:
+            name (str): Action name.
+            entity_id (int): Entity ID.
+            world (World): ECS World.
+            stat_criteria (str): The stat to optimize for.
+        """
         super().__init__(name, entity_id, world)
         self.stat_criteria = stat_criteria
 
     def update(self) -> Status:
+        """
+        Updates the search logic.
+
+        Returns:
+            Status: SUCCESS if found, FAILURE otherwise.
+        """
         super().update()
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
@@ -98,10 +121,26 @@ class FindLightSource(Action):
     Action to find the nearest light source.
     """
 
-    def __init__(self, name: str, entity_id: int, world: "World"):
+    def __init__(
+        self, name: str, entity_id: int | None, world: "World | None"
+    ):
+        """
+        Initializes the FindLightSource action.
+
+        Args:
+            name (str): Action name.
+            entity_id (int): Entity ID.
+            world (World): ECS World.
+        """
         super().__init__(name, entity_id, world)
 
     def update(self) -> Status:
+        """
+        Updates the search logic.
+
+        Returns:
+            Status: SUCCESS if found, FAILURE otherwise.
+        """
         super().update()
         if not self.world or not self.entity_id:
             return Status.FAILURE
@@ -144,7 +183,7 @@ class FindPrey(Action):
         self,
         name: str = "Find Prey",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
     ):
         super().__init__(name, entity_id, world, blackboard)
@@ -220,7 +259,13 @@ class FindThreat(Action):
     Finds the closest threat from Blackboard.
     """
 
-    def __init__(self, name="Find Threat", entity_id=None, world=None, blackboard=None):
+    def __init__(
+        self,
+        name: str = "Find Threat",
+        entity_id: int | None = None,
+        world: "World | None" = None,
+        blackboard: Any | None = None,
+    ):
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:
@@ -250,7 +295,9 @@ class FindSocialTarget(Action):
         criteria (str): Criteria for selecting a target (e.g., "friend", "enemy", "any").
     """
 
-    def __init__(self, name: str, entity_id: int, world: "World", criteria: str):
+    def __init__(
+        self, name: str, entity_id: int, world: "World", criteria: str
+    ):
         super().__init__(name, entity_id, world)
         self.criteria = criteria
 
@@ -314,7 +361,13 @@ class PickFood(Action):
     Selects the closest food from the blackboard.
     """
 
-    def __init__(self, name="Pick Food", entity_id=None, world=None, blackboard=None):
+    def __init__(
+        self,
+        name: str = "Pick Food",
+        entity_id: int | None = None,
+        world: "World | None" = None,
+        blackboard: Any | None = None,
+    ):
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:

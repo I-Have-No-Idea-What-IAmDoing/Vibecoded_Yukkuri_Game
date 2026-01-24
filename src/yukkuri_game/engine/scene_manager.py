@@ -2,13 +2,15 @@
 Scene Manager Module.
 """
 
-from typing import Optional, TYPE_CHECKING, Any
-import pygame
-import msgspec
 import gc
+from typing import TYPE_CHECKING, Any
+
+import msgspec
+import pygame
 from loguru import logger
-from .scene import Scene, SceneContext
+
 from .migration import MigrationRegistry
+from .scene import Scene, SceneContext
 
 if TYPE_CHECKING:
     pass
@@ -17,6 +19,10 @@ if TYPE_CHECKING:
 class SceneManager:
     """
     Manages a stack of Scene objects and handles global persistence state.
+
+    Attributes:
+        _scenes (list[Scene]): The stack of active scenes.
+        persistent_data (dict[str, Any]): Global data shared across scenes.
     """
 
     def __init__(self) -> None:
@@ -25,12 +31,12 @@ class SceneManager:
         self.persistent_data: dict[str, Any] = {}
 
     @property
-    def current_scene(self) -> Optional["Scene"]:
+    def current_scene(self) -> Scene | None:
         """
         Gets the current active scene (the one on top of the stack).
 
         Returns:
-            Optional[Scene]: The current scene, or None if the stack is empty.
+            Scene | None: The current scene, or None if the stack is empty.
         """
         return self._scenes[-1] if self._scenes else None
 
@@ -40,9 +46,6 @@ class SceneManager:
 
         Args:
             scene (Scene): The scene to push.
-
-        Returns:
-            None
         """
         context = self._prepare_context(scene)
 
@@ -57,9 +60,6 @@ class SceneManager:
         Pop the current scene from the stack.
 
         Calls on_exit() on the popped scene.
-
-        Returns:
-            None
         """
         if self._scenes:
             scene = self._scenes.pop()
@@ -73,9 +73,6 @@ class SceneManager:
 
         Args:
             scene (Scene): The new scene.
-
-        Returns:
-            None
         """
         if self._scenes:
             self.pop()
@@ -156,20 +153,12 @@ class SceneManager:
 
         Args:
             dt (float): Delta time in seconds.
-
-        Returns:
-            None
         """
         if self.current_scene:
             self.current_scene.update(dt)
 
     def render(self) -> None:
-        """
-        Render the current scene.
-
-        Returns:
-            None
-        """
+        """Render the current scene."""
         if self.current_scene:
             self.current_scene.render()
 
@@ -179,9 +168,6 @@ class SceneManager:
 
         Args:
             event (pygame.event.Event): The pygame event.
-
-        Returns:
-            None
         """
         if self.current_scene:
             self.current_scene.handle_event(event)
@@ -193,9 +179,6 @@ class SceneManager:
         Args:
             key (str): The key for the data.
             value (Any): The value to store.
-
-        Returns:
-            None
         """
         self.persistent_data[key] = value
 
@@ -218,9 +201,6 @@ class SceneManager:
 
         Args:
             filepath (str): The path to the file to save to.
-
-        Returns:
-            None
         """
         try:
             serialized_data = {}
@@ -247,9 +227,6 @@ class SceneManager:
 
         Args:
             filepath (str): The path to the file to load from.
-
-        Returns:
-            None
         """
         try:
             with open(filepath, "rb") as f:

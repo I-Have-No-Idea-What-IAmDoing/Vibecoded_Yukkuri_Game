@@ -18,20 +18,19 @@ Entity B and vice versa, avoiding issues with creation order.
 
 Supported Reference Types:
 - EntityID (scalar)
-- Optional[EntityID]
-- List[EntityID], Set[EntityID]
-- Dict[EntityID, Any] (key remapping)
+- EntityID | None
+- list[EntityID], set[EntityID]
+- dict[EntityID, Any] (key remapping)
 """
 
-from typing import (
-    Any,
-    get_origin,
-    get_args,
-)
-from collections.abc import Iterable
+import types
 import typing
+from collections.abc import Iterable
+from typing import Any, get_args, get_origin
+
 import msgspec
 from loguru import logger
+
 from .ecs import World
 from .migration import MigrationRegistry
 from .types import EntityID
@@ -45,6 +44,12 @@ class WorldSerializer:
     - Component versioning and migration
     - Entity ID remapping on load
     - Circular reference handling via two-pass resolution
+
+    Attributes:
+        world (World): The ECS World.
+        component_map (dict[str, type]): Map of component name to class.
+        _persistable_type (type | None): The Persistable component class.
+        _stable_id_type (type | None): The StableIDComponent component class.
     """
 
     def __init__(self, world: World, component_types: Iterable[type[Any]]):
@@ -52,8 +57,8 @@ class WorldSerializer:
         Initializes the WorldSerializer.
 
         Args:
-            world: The ECS World to serialize/deserialize.
-            component_types: Component types to include in serialization.
+            world (World): The ECS World to serialize/deserialize.
+            component_types (Iterable[type[Any]]): Component types to include in serialization.
         """
         self.world = world
         self.component_map = {c.__name__: c for c in component_types}
@@ -68,7 +73,7 @@ class WorldSerializer:
             entity (int): The entity ID to serialize.
 
         Returns:
-            Optional[Dict[str, Any]]: A dict containing 'entity_id', 'stable_id', 'components',
+            dict[str, Any] | None: A dict containing 'entity_id', 'stable_id', 'components',
             or None if the entity is not persistable.
         """
         if not self._persistable_type or not self.world.has_component(
@@ -121,7 +126,7 @@ class WorldSerializer:
         Returns a list of serialized data for all persistable entities.
 
         Returns:
-            list[Dict[str, Any]]: A list of serialized entity data dictionaries.
+            list[dict[str, Any]]: A list of serialized entity data dictionaries.
         """
         if not self._persistable_type:
             logger.warning("Persistable component type not registered. Cannot save.")
@@ -140,9 +145,6 @@ class WorldSerializer:
 
         Args:
             filepath (str): The path to the file to save to.
-
-        Returns:
-            None
         """
         entities_data = self.get_persistable_entities_data()
         with open(filepath, "wb") as f:
@@ -155,9 +157,6 @@ class WorldSerializer:
 
         Args:
             filepath (str): The path to the file to load from.
-
-        Returns:
-            None
         """
         try:
             with open(filepath, "rb") as f:
@@ -178,10 +177,7 @@ class WorldSerializer:
         2. Iterate through all created components and resolve any EntityID fields to the new IDs.
 
         Args:
-            entities_data (list[Dict[str, Any]]): A list of serialized entity data dictionaries.
-
-        Returns:
-            None
+            entities_data (list[dict[str, Any]]): A list of serialized entity data dictionaries.
         """
         if not entities_data:
             return
@@ -301,10 +297,10 @@ class WorldSerializer:
 
     def _is_entity_ref(self, tp: type) -> bool:
         """
-        Check if type is EntityID or Optional[EntityID].
+        Check if type is EntityID or EntityID | None.
 
         Args:
-            tp (Type): The type to check.
+            tp (type): The type to check.
 
         Returns:
             bool: True if it is an EntityID reference.
@@ -312,24 +308,23 @@ class WorldSerializer:
         if tp is EntityID:
             return True
         origin = get_origin(tp)
-        if origin is typing.Union:  # Check for Optional[EntityID]
+        if origin is types.UnionType or origin is typing.Union:
             args = get_args(tp)
-            # Optional[T] is Union[T, NoneType]
             return EntityID in args
         return False
 
     def _is_container_of_entity_ref(self, tp: type) -> bool:
         """
-        Check if type is List[EntityID] or Set[EntityID].
+        Check if type is list[EntityID] or set[EntityID].
 
         Args:
-            tp (Type): The type to check.
+            tp (type): The type to check.
 
         Returns:
             bool: True if it is a container of EntityID.
         """
         origin = get_origin(tp)
-        if origin in (list, set, list, set):
+        if origin in (list, set):
             args = get_args(tp)
             if args and self._is_entity_ref(args[0]):
                 return True
@@ -337,16 +332,16 @@ class WorldSerializer:
 
     def _is_dict_key_entity_ref(self, tp: type) -> bool:
         """
-        Check if type is Dict[EntityID, Any].
+        Check if type is dict[EntityID, Any].
 
         Args:
-            tp (Type): The type to check.
+            tp (type): The type to check.
 
         Returns:
             bool: True if the key type is EntityID.
         """
         origin = get_origin(tp)
-        if origin in (dict, dict):
+        if origin is dict:
             args = get_args(tp)
             if args and self._is_entity_ref(args[0]):
                 return True

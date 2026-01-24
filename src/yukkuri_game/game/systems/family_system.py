@@ -20,21 +20,26 @@ Performance:
 -   Falls back to O(N²) comparison without spatial indexing.
 """
 
-from typing import cast, Optional
+from typing import TYPE_CHECKING, cast
+
 from loguru import logger
 
 from ...engine import rng
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
+from ..components import Transform
 from ..yukkuri_components import (
-    YukkuriStats,
-    Needs,
-    RelationshipRegistry,
     AIState,
     EmotionalState,
+    Needs,
+    RelationshipRegistry,
+    YukkuriStats,
 )
-from ..systems.sector_system import SectorMap
-from ..components import Transform
+
+if TYPE_CHECKING:
+    from ..systems.sector_system import SectorMap
+else:
+    from ..systems.sector_system import SectorMap
 
 
 class FamilySystem(System):
@@ -76,7 +81,7 @@ class FamilySystem(System):
         self.check_interval = 2.0  # Check more frequently for resource sharing
         self.last_check = 0.0
 
-    def update(self, world: World, dt: float) -> None:
+    def update(self, world: "World", dt: float) -> None:
         """
         Updates the FamilySystem.
 
@@ -90,7 +95,7 @@ class FamilySystem(System):
             self._process_family_formation(world)
             self._process_family_benefits(world)
 
-    def _process_family_formation(self, world: World) -> None:
+    def _process_family_formation(self, world: "World") -> None:
         """
         Check for high affinity pairs that are not in a family and merge them.
 
@@ -145,7 +150,7 @@ class FamilySystem(System):
                         registry.family_group_id = other_registry.family_group_id
                         logger.info(f"{stats.name} joined family of Entity {other_id}")
 
-    def _process_family_benefits(self, world: World) -> None:
+    def _process_family_benefits(self, world: "World") -> None:
         """
         Apply benefits to family members near each other.
         Includes simulated resource sharing.
@@ -162,7 +167,7 @@ class FamilySystem(System):
             self._process_benefits_fallback(world)
 
     def _process_benefits_with_sectors(
-        self, world: World, sector_map: SectorMap
+        self, world: "World", sector_map: "SectorMap"
     ) -> None:
         """
         Process family benefits using spatial partitioning for efficiency.
@@ -232,7 +237,7 @@ class FamilySystem(System):
                     other_emotional,
                 )
 
-    def _process_benefits_fallback(self, world: World) -> None:
+    def _process_benefits_fallback(self, world: "World") -> None:
         """
         Process family benefits using O(N^2) checks (fallback).
 
@@ -304,12 +309,12 @@ class FamilySystem(System):
         other_stats: YukkuriStats,
         needs: Needs,
         other_needs: Needs,
-        trans: "Transform",
-        other_trans: "Transform",
+        trans: Transform,
+        other_trans: Transform,
         ai: AIState,
         other_ai: AIState,
-        emotional: Optional[EmotionalState],
-        other_emotional: Optional[EmotionalState],
+        emotional: EmotionalState | None,
+        other_emotional: EmotionalState | None,
     ) -> None:
         """
         Helper to apply benefits between two entities if they are close enough.
@@ -325,8 +330,8 @@ class FamilySystem(System):
             other_trans (Transform): Second entity transform.
             ai (AIState): First entity AI state.
             other_ai (AIState): Second entity AI state.
-            emotional (Optional[EmotionalState]): First entity emotional state.
-            other_emotional (Optional[EmotionalState]): Second entity emotional state.
+            emotional (EmotionalState | None): First entity emotional state.
+            other_emotional (EmotionalState | None): Second entity emotional state.
         """
         dist_sq = (trans.x - other_trans.x) ** 2 + (trans.y - other_trans.y) ** 2
         if dist_sq < self.BENEFIT_RANGE_SQ:

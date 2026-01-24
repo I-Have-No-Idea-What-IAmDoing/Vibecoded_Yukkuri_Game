@@ -5,35 +5,43 @@ Manages entity inventory interactions, including picking up items from the world
 and dropping items back into the world.
 """
 
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from loguru import logger
+
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ...engine.resource_manager import ResourceManager
 from ...engine.events import InventoryChangedEvent
+from ...engine.resource_manager import ResourceManager
 from ..components import Transform
+from ..entity_factory import EntityFactory
 from ..inventory_component import (
     InventoryComponent,
-    InventoryPickupRequest,
     InventoryDropRequest,
+    InventoryPickupRequest,
 )
 from ..yukkuri_components import ItemStats
-from ..entity_factory import EntityFactory
+
+if TYPE_CHECKING:
+    pass
 
 
 class InventorySystem(System):
     """
     System responsible for handling inventory interactions (pickup, drop).
+
+    Attributes:
+        event_bus (EventBus | None): Event bus.
+        resource_manager (ResourceManager | None): Resource manager.
     """
 
     def __init__(self) -> None:
         """Initializes the InventorySystem."""
         super().__init__()
-        self.event_bus: Optional[EventBus] = None
-        self.resource_manager: Optional[ResourceManager] = None
+        self.event_bus: EventBus | None = None
+        self.resource_manager: ResourceManager | None = None
 
-    def update(self, world: World, dt: float) -> None:
+    def update(self, world: "World", dt: float) -> None:
         """
         Updates the inventory system, processing pickup and drop requests.
 
@@ -49,7 +57,7 @@ class InventorySystem(System):
         self._handle_pickups(world)
         self._handle_drops(world)
 
-    def _handle_pickups(self, world: World) -> None:
+    def _handle_pickups(self, world: "World") -> None:
         """
         Process all pickup requests.
 
@@ -117,7 +125,7 @@ class InventorySystem(System):
             # Clean up request
             world.remove_component(entity_id, InventoryPickupRequest)
 
-    def _handle_drops(self, world: World) -> None:
+    def _handle_drops(self, world: "World") -> None:
         """
         Process all drop requests.
 

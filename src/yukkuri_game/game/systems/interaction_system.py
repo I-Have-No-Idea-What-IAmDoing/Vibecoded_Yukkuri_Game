@@ -17,24 +17,31 @@ Request Lifecycle:
 """
 
 import math
-from typing import cast, Optional
+from typing import TYPE_CHECKING, cast
+
 from loguru import logger
 
-from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
+from ...engine.ecs import System, World
 from ...engine.types import EntityID
-from ..components import Transform, InteractionRequest
+from ..components import InteractionRequest, Transform
 from ..yukkuri_components import (
-    YukkuriStats,
-    Needs,
-    ItemStats,
     AIState,
+    ItemStats,
+    Needs,
     Personality,
     Predator,
+    YukkuriStats,
 )
-from ..trait_service import TraitService
-from .hunger_system import HungerSystem
-from .social_system import SocialSystem
+
+if TYPE_CHECKING:
+    from ..trait_service import TraitService
+    from .hunger_system import HungerSystem
+    from .social_system import SocialSystem
+else:
+    from ..trait_service import TraitService
+    from .hunger_system import HungerSystem
+    from .social_system import SocialSystem
 
 
 class InteractionSystem(System):
@@ -45,21 +52,21 @@ class InteractionSystem(System):
     circular dependencies during initialization.
 
     Attributes:
-        audio (Optional[AudioManager]): Audio manager.
-        trait_service (Optional[TraitService]): Trait service.
-        hunger_system (Optional[HungerSystem]): Hunger system.
-        social_system (Optional[SocialSystem]): Social system.
+        audio (AudioManager | None): Audio manager.
+        trait_service (TraitService | None): Trait service.
+        hunger_system (HungerSystem | None): Hunger system.
+        social_system (SocialSystem | None): Social system.
     """
 
     def __init__(self) -> None:
         """Initializes the InteractionSystem."""
         super().__init__()
-        self.audio: Optional[AudioManager] = None
-        self.trait_service: Optional[TraitService] = None
-        self.hunger_system: Optional[HungerSystem] = None
-        self.social_system: Optional[SocialSystem] = None
+        self.audio: AudioManager | None = None
+        self.trait_service: TraitService | None = None
+        self.hunger_system: HungerSystem | None = None
+        self.social_system: SocialSystem | None = None
 
-    def update(self, world: World, dt: float) -> None:
+    def update(self, world: "World", dt: float) -> None:
         """
         Updates the interaction system.
 
@@ -88,7 +95,7 @@ class InteractionSystem(System):
             if handled and world.has_component(entity, InteractionRequest):
                 world.remove_component(entity, InteractionRequest)
 
-    def _check_predation_allowed(self, world: World, entity: int) -> bool:
+    def _check_predation_allowed(self, world: "World", entity: int) -> bool:
         """
         Checks if the entity has permission to eat other Yukkuris (Predation).
 
@@ -118,7 +125,7 @@ class InteractionSystem(System):
 
     def _handle_interaction(
         self,
-        world: World,
+        world: "World",
         entity: int,
         request: InteractionRequest,
         transform: Transform,

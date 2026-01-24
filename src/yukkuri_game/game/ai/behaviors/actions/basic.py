@@ -1,8 +1,15 @@
-from typing import Any, Callable, Optional, TYPE_CHECKING
+"""
+Module containing basic behavior actions.
+"""
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
 from py_trees.common import Status
+
 from ...base_action import Action
-from ....yukkuri_components import EmotionalState
 from ....components import PhysicsBody
+from ....yukkuri_components import EmotionalState
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -17,11 +24,17 @@ class Idle(Action):
         self,
         name: str = "Idle",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
     ):
         """
         Initializes the Idle action.
+
+        Args:
+            name (str): Action name.
+            entity_id (int | None): Entity ID.
+            world (World | None): ECS World.
+            blackboard (Any | None): Blackboard.
         """
         super().__init__(name, entity_id, world, blackboard)
 
@@ -54,8 +67,8 @@ class Check(Action):
         Initializes the Check behavior.
 
         Args:
-            name: The name of the behavior node.
-            check_fn: The function to call. Should return True for success.
+            name (str): The name of the behavior node.
+            check_fn (Callable[[], bool]): The function to call. Should return True for success.
         """
         super().__init__(name)
         self.check_fn = check_fn

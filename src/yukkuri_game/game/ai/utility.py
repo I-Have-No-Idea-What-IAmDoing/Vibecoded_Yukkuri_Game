@@ -22,16 +22,15 @@ Scoring:
 -   Trait overrides allow personality-driven behavior modifications.
 """
 
-from dataclasses import dataclass
-from typing import Any, Optional
 import math
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
 from loguru import logger
 
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
-    from ..yukkuri_components import Personality
     from ..trait_service import TraitService
+    from ..yukkuri_components import Personality
 
 
 @dataclass
@@ -40,10 +39,11 @@ class Consideration:
     Evaluates a world state factor to produce a utility score (0-1).
 
     Attributes:
-        name: Unique identifier for this consideration.
-        input_key: Context key to read (e.g., "hunger", "is_night").
-        curve_type: Response curve type ("linear", "logit", "threshold").
-        params: Curve parameters (varies by curve type).
+        name (str): Unique identifier for this consideration.
+        input_key (str): Context key to read (e.g., "hunger", "is_night").
+        curve_type (str): Response curve type ("linear", "logit", "threshold").
+        params (dict[str, float]): Curve parameters (varies by curve type).
+        _warned_keys (set[str]): Cache of keys warned about to prevent log spam.
     """
 
     name: str
@@ -59,7 +59,7 @@ class Consideration:
 
         Args:
             context (dict[str, Any]): The current world state context.
-            override_curve (Optional[dict[str, Any]]): Curve override definition.
+            override_curve (dict[str, Any] | None): Curve override definition.
 
         Returns:
             float: The calculated score (0.0 to 1.0).
@@ -97,8 +97,8 @@ class Consideration:
 
         Args:
             x (float): Input value (0-100).
-            curve_type (Optional[str]): Curve type override.
-            params (Optional[dict[str, float]]): Curve parameters override.
+            curve_type (str | None): Curve type override.
+            params (dict[str, float] | None): Curve parameters override.
 
         Returns:
             float: Normalized utility score (0.0 to 1.0).
@@ -144,7 +144,7 @@ class Action:
         name (str): The name of the action.
         considerations (list[Consideration]): List of considerations affecting score.
         weight (float): Base weight of the action.
-        effects (Optional[dict]): Action effects (if any).
+        effects (dict[str, Any] | None): Action effects (if any).
     """
 
     name: str
@@ -164,7 +164,7 @@ class Action:
 
         Args:
             context (dict[str, Any]): A dictionary containing the current world state/context.
-            trait_overrides (Optional[dict[str, Any]]): A dictionary where keys are consideration names
+            trait_overrides (dict[str, Any] | None): A dictionary where keys are consideration names
                                              and values are override definitions.
 
         Returns:
@@ -198,7 +198,7 @@ class Action:
 
         Args:
             context (dict[str, Any]): Current world state context.
-            trait_overrides (Optional[dict[str, Any]]): Optional trait modifier overrides.
+            trait_overrides (dict[str, Any] | None): Optional trait modifier overrides.
 
         Returns:
             float: Compensated utility score.
@@ -306,16 +306,16 @@ class UtilityAIEngine:
     def select_action(
         self,
         context: dict[str, Any],
-        personality: Optional["Personality"] = None,
-        trait_service: Optional["TraitService"] = None,
+        personality: "Personality | None" = None,
+        trait_service: "TraitService | None" = None,
     ) -> str:
         """
         Selects the action with the highest utility score.
 
         Args:
             context (dict[str, Any]): A dictionary containing the current world state/context.
-            personality (Optional[Personality]): The personality component of the entity (optional).
-            trait_service (Optional[TraitService]): The trait service to look up trait data (optional).
+            personality (Personality | None): The personality component of the entity (optional).
+            trait_service (TraitService | None): The trait service to look up trait data (optional).
 
         Returns:
             str: The name of the selected action.

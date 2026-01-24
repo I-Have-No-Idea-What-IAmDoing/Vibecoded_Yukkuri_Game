@@ -3,13 +3,17 @@ Module defining the visual movement system.
 """
 
 import math
-from typing import Optional
+from typing import TYPE_CHECKING
 
 import pymunk
+
 from ...engine.ecs import System, World
-from ..components import PhysicsBody, MovementController, VisualTransform
-from ..skill_service import SkillService
+from ..components import MovementController, PhysicsBody, VisualTransform
 from ..skill_constants import SkillId
+from ..skill_service import SkillService
+
+if TYPE_CHECKING:
+    pass
 
 
 class VisualMovementSystem(System):
@@ -19,7 +23,7 @@ class VisualMovementSystem(System):
     Does NOT update physics bodies directly (that is handled by KinematicMovementSystem).
 
     Attributes:
-        skill_service (Optional[SkillService]): The skill service instance.
+        skill_service (SkillService | None): The skill service instance.
     """
 
     XP_SPEED_SCALAR = 100.0
@@ -28,7 +32,7 @@ class VisualMovementSystem(System):
     def __init__(self) -> None:
         """Initializes the VisualMovementSystem."""
         super().__init__()
-        self.skill_service: Optional[SkillService] = None
+        self.skill_service: SkillService | None = None
 
     def update(self, world: World, dt: float) -> None:
         """

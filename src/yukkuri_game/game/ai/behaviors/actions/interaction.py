@@ -1,21 +1,17 @@
+"""
+Module containing interaction behavior actions.
+"""
+
 import math
-from typing import Any, Optional, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
+
 import pymunk
 from py_trees.common import Status
+from yukkuri_game.engine.types import EntityID
 
 from ...base_action import Action
-from ....components import (
-    Transform,
-    MovementController,
-    InteractionRequest,
-)
-from ....yukkuri_components import (
-    AIState,
-    Needs,
-    Predator,
-    YukkuriStats,
-)
-from yukkuri_game.engine.types import EntityID
+from ....components import InteractionRequest, MovementController, Transform
+from ....yukkuri_components import AIState, Needs, Predator, YukkuriStats
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -33,14 +29,30 @@ class Interact(Action):
         self,
         name: str = "Interact",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
         consume: bool = True,
     ):
+        """
+        Initializes the Interact action.
+
+        Args:
+            name (str): Action name.
+            entity_id (int | None): Entity ID.
+            world (World | None): ECS World.
+            blackboard (Any | None): Blackboard.
+            consume (bool): Whether to consume the target.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self.consume = consume
 
     def update(self) -> Status:
+        """
+        Updates the interaction logic.
+
+        Returns:
+            Status: SUCCESS if interaction initiated, FAILURE on error, RUNNING otherwise.
+        """
         super().update()
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
@@ -83,10 +95,25 @@ class SocialInteract(Action):
     def __init__(
         self, name: str, entity_id: int, world: "World", interaction_type: str
     ):
+        """
+        Initializes the SocialInteract action.
+
+        Args:
+            name (str): Action name.
+            entity_id (int): Entity ID.
+            world (World): ECS World.
+            interaction_type (str): Interaction type identifier.
+        """
         super().__init__(name, entity_id, world)
         self.interaction_type = interaction_type
 
     def update(self) -> Status:
+        """
+        Updates the social interaction logic.
+
+        Returns:
+            Status: SUCCESS if interaction initiated, RUNNING if moving to range.
+        """
         super().update()
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
@@ -129,16 +156,28 @@ class EatPrey(Action):
         self,
         name: str = "Eat Prey",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
     ):
+        """
+        Initializes the EatPrey action.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self._eating_progress: float = 0.0
 
     def initialise(self) -> None:
+        """Resets eating progress."""
         self._eating_progress = 0.0
 
     def update(self) -> Status:
+        """
+        Updates the eating logic.
+
+        Deals damage to target and restores hunger to predator.
+
+        Returns:
+            Status: RUNNING while eating, SUCCESS when prey consumed, FAILURE if interrupted.
+        """
         super().update()
         if self.world is None or self.entity_id is None:
             return Status.FAILURE

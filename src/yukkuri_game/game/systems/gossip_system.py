@@ -14,24 +14,29 @@ Propagation Mechanics:
 -   Low-value gossip is filtered by WITNESS_THRESHOLD.
 """
 
-from typing import cast, Optional
 import math
+from typing import TYPE_CHECKING, cast
+
 import pymunk
 
 from ...engine.ecs import System, World
-from ...engine.types import EntityID
 from ...engine.event_bus import EventBus
-from ..yukkuri_components import (
-    GossipQueue,
-    GossipPacket,
-    YukkuriStats,
-    RelationshipRegistry,
-)
+from ...engine.types import EntityID
 from ..components import Transform
 from ..events import SocialInteractionEvent
+from ..yukkuri_components import (
+    GossipPacket,
+    GossipQueue,
+    RelationshipRegistry,
+    YukkuriStats,
+)
 from .physics import PhysicsSystem
 from .sector_system import SectorMap
-from ..trait_service import TraitService
+
+if TYPE_CHECKING:
+    from ..trait_service import TraitService
+else:
+    from ..trait_service import TraitService
 
 
 class GossipSystem(System):
@@ -41,9 +46,9 @@ class GossipSystem(System):
 
     Attributes:
         event_bus (EventBus): The event bus instance.
-        physics_system (Optional[PhysicsSystem]): The physics system instance.
-        sector_map (Optional[SectorMap]): The sector map instance.
-        trait_service (Optional[TraitService]): The trait service instance.
+        physics_system (PhysicsSystem | None): The physics system instance.
+        sector_map (SectorMap | None): The sector map instance.
+        trait_service (TraitService | None): The trait service instance.
     """
 
     # Minimum gossip value required to be recorded as a witness
@@ -74,11 +79,11 @@ class GossipSystem(System):
         super().__init__()
         self.event_bus = event_bus
         self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
-        self.physics_system: Optional[PhysicsSystem] = None
-        self.sector_map: Optional[SectorMap] = None
-        self.trait_service: Optional[TraitService] = None
+        self.physics_system: PhysicsSystem | None = None
+        self.sector_map: SectorMap | None = None
+        self.trait_service: TraitService | None = None
 
-    def update(self, world: World, dt: float) -> None:
+    def update(self, world: "World", dt: float) -> None:
         """
         Updates the system and lazily fetches dependencies.
 
@@ -124,7 +129,7 @@ class GossipSystem(System):
 
     def _process_witnesses_sector(
         self,
-        world: World,
+        world: "World",
         event: SocialInteractionEvent,
         actor_trans: Transform,
         now: float,
@@ -192,7 +197,7 @@ class GossipSystem(System):
             self._add_witness_gossip(world, witness_id, event, now, value=value)
 
     def _check_line_of_sight(
-        self, world: World, start_trans: Transform, end_trans: Transform
+        self, world: "World", start_trans: Transform, end_trans: Transform
     ) -> bool:
         """
         Checks if there is a clear line of sight between two transforms.
@@ -236,7 +241,7 @@ class GossipSystem(System):
         return True
 
     def _is_in_same_interest_group(
-        self, world: World, entity_a: int, entity_b: int
+        self, world: "World", entity_a: int, entity_b: int
     ) -> bool:
         """
         Checks if two entities are in the same interest group (Family, Pack).
@@ -264,7 +269,7 @@ class GossipSystem(System):
 
         return False
 
-    def _exchange_gossip(self, world: World, sender_id: int, receiver_id: int) -> None:
+    def _exchange_gossip(self, world: "World", sender_id: int, receiver_id: int) -> None:
         """
         Exchanges gossip from sender to receiver.
 
@@ -308,7 +313,7 @@ class GossipSystem(System):
 
     def _add_witness_gossip(
         self,
-        world: World,
+        world: "World",
         witness_id: int,
         event: SocialInteractionEvent,
         now: float,

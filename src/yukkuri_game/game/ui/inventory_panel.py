@@ -2,24 +2,26 @@
 Module for Inventory UI Panel.
 """
 
+from typing import TYPE_CHECKING
+
 import pygame
 import pygame_gui
+from loguru import logger
 from pygame_gui.elements import (
-    UIWindow,
     UIButton,
-    UIScrollingContainer,
     UILabel,
     UIPanel,
+    UIScrollingContainer,
+    UIWindow,
 )
-from typing import Optional, TYPE_CHECKING
-from loguru import logger
-from ..inventory_component import InventoryComponent
+
 from ..events import InventoryItemActionEvent
+from ..inventory_component import InventoryComponent
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
-    from ...engine.resource_manager import ResourceManager
     from ...engine.event_bus import EventBus
+    from ...engine.resource_manager import ResourceManager
 
 
 class InventoryPanel:
@@ -30,33 +32,59 @@ class InventoryPanel:
     - Caches ResourceManager reference
     - Uses item name cache to avoid repeated lookups
     - Supports event-driven updates (auto-refresh on InventoryChangedEvent)
+
+    Attributes:
+        manager (pygame_gui.UIManager): The UI Manager.
+        world (World): The ECS World.
+        event_bus (EventBus | None): The event bus.
+        window (UIWindow | None): The main UI window.
+        entity_id (int | None): The ID of the entity whose inventory is shown.
+        scroll_container (UIScrollingContainer | None): Container for item list.
     """
 
     def __init__(
         self,
         manager: pygame_gui.UIManager,
         world: "World",
-        event_bus: Optional["EventBus"] = None,
+        event_bus: "EventBus | None" = None,
     ):
+        """
+        Initializes the InventoryPanel.
+
+        Args:
+            manager (pygame_gui.UIManager): The UI Manager.
+            world (World): The ECS World.
+            event_bus (EventBus | None): The event bus.
+        """
         self.manager = manager
         self.world = world
         self.event_bus = event_bus
-        self.window: Optional[UIWindow] = None
-        self.entity_id: Optional[int] = None
-        self.scroll_container: Optional[UIScrollingContainer] = None
+        self.window: UIWindow | None = None
+        self.entity_id: int | None = None
+        self.scroll_container: UIScrollingContainer | None = None
 
         # Performance: Cache ResourceManager reference
-        self._resource_manager: Optional["ResourceManager"] = None
+        self._resource_manager: "ResourceManager | None" = None
         # Performance: Cache item names to avoid repeated lookups
         self._item_name_cache: dict[str, str] = {}
 
     @property
     def is_visible(self) -> bool:
-        """Returns True if the inventory panel is currently visible."""
+        """
+        Returns True if the inventory panel is currently visible.
+
+        Returns:
+            bool: Visibility state.
+        """
         return self.window is not None and self.entity_id is not None
 
-    def _get_resource_manager(self) -> Optional["ResourceManager"]:
-        """Lazy load and cache ResourceManager."""
+    def _get_resource_manager(self) -> "ResourceManager | None":
+        """
+        Lazy load and cache ResourceManager.
+
+        Returns:
+            ResourceManager | None: The resource manager instance.
+        """
         if self._resource_manager is None:
             from ...engine.resource_manager import ResourceManager
 
@@ -64,7 +92,15 @@ class InventoryPanel:
         return self._resource_manager
 
     def _get_item_name(self, item_type_id: str) -> str:
-        """Get item display name with caching."""
+        """
+        Get item display name with caching.
+
+        Args:
+            item_type_id (str): The item type ID.
+
+        Returns:
+            str: The friendly display name.
+        """
         if item_type_id in self._item_name_cache:
             return self._item_name_cache[item_type_id]
 
@@ -81,6 +117,10 @@ class InventoryPanel:
     def show(self, entity_id: int, position: tuple[int, int] = (100, 100)) -> None:
         """
         Shows the inventory for the specified entity.
+
+        Args:
+            entity_id (int): The entity ID.
+            position (tuple[int, int]): Window position (x, y).
         """
         self.close()
         self.entity_id = entity_id
@@ -188,7 +228,15 @@ class InventoryPanel:
         self.scroll_container.set_scrollable_area_dimensions((250, y_pos))
 
     def process_event(self, event: pygame.event.Event) -> bool:
-        """Process UI events and handle button clicks."""
+        """
+        Process UI events and handle button clicks.
+
+        Args:
+            event (pygame.event.Event): The event to process.
+
+        Returns:
+            bool: True if event was handled.
+        """
         if not self.window or self.entity_id is None:
             return False
 
@@ -211,7 +259,12 @@ class InventoryPanel:
         return False
 
     def _drop_item(self, item_type_id: str) -> None:
-        """Request to drop an item using event-driven approach."""
+        """
+        Request to drop an item using event-driven approach.
+
+        Args:
+            item_type_id (str): The ID of the item to drop.
+        """
         if self.entity_id is None:
             return
 
