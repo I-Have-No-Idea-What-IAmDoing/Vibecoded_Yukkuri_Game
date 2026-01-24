@@ -345,6 +345,7 @@ class HudRenderer:
                     f"<b>Happiness:</b> {happiness}<br>"
                     f"<b>Stress:</b> {stress}<br>"
                     f"<b>Badges:</b> {stats.badges}<br>"
+                    f"<b>Agility:</b> {stats.agility:.1f}<br>"
                     f"<b>Action:</b> {action}"
                 )
 

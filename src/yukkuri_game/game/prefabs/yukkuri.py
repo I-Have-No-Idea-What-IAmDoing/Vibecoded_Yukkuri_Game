@@ -197,6 +197,7 @@ def create_yukkuri(
             type_id=type_id,
             age=age,
             growth_stage=growth_stage,
+            agility=_get_attr(data, "agility", 1.0),
         )
         world.add_component(entity, stats)
 
