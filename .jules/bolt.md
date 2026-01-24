@@ -17,3 +17,7 @@
 ## 2026-10-26 - [Pygame Renderer Optimization]
 **Learning:** `PygameBackend` was performing `surface.copy()` for every transparent sprite and `font.render()` for every text label every frame. This created massive GC pressure and CPU overhead.
 **Action:** Use `set_alpha` toggling (apply alpha, blit, restore alpha) instead of copying surfaces. Always cache rendered text surfaces using an LRU cache.
+
+## 2026-10-27 - [Physics System Optimization]
+**Learning:** `PhysicsSystem` was syncing `Transform` components for every entity every frame, even for static objects. Enabling Pymunk's `sleep_time_threshold` allows skipping physics steps for resting bodies, and we can skip the Python-side sync for `is_sleeping` bodies. This reduced tick time from ~20ms to ~4ms (5.3x speedup) for 5000 static entities.
+**Action:** Enable physics engine sleeping and skip component synchronization for sleeping bodies to avoid O(N) overhead on static scenes.
