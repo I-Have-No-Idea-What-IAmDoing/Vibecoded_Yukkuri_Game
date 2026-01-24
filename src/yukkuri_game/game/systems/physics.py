@@ -65,6 +65,9 @@ class PhysicsSystem(System):
         # dim=50: Average Yukkuri diameter, count=2000: Expected entity count * 4
         self.space.use_spatial_hash(dim=50.0, count=2000)
 
+        # Enable sleeping for static bodies optimization
+        self.space.sleep_time_threshold = 0.5
+
         self.accumulator = 0.0
         self.time_step = self.DEFAULT_TIMESTEP
         self.max_frame_time = self.MAX_FRAME_TIME
@@ -142,6 +145,13 @@ class PhysicsSystem(System):
 
         # Sync PhysicsBody -> Transform.
         for entity, (phys, trans) in world.get_components_tuple(PhysicsBody, Transform):
+            if phys.body.is_sleeping:
+                # Ensure stable interpolation for sleeping bodies
+                trans.prev_x = trans.x
+                trans.prev_y = trans.y
+                trans.prev_rotation = trans.rotation
+                continue
+
             trans.prev_x = trans.x
             trans.prev_y = trans.y
             trans.prev_rotation = trans.rotation
