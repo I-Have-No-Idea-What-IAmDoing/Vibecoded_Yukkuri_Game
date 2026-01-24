@@ -193,7 +193,7 @@ class HudLayout:
             text="Save",
             manager=self.manager,
             container=self.top_panel,
-            tool_tip_text="Save current game state",
+            tool_tip_text="Save current game state to 'savegame'",
             object_id=ObjectID(class_id="menu_button"),
         )
 
@@ -202,7 +202,7 @@ class HudLayout:
             text="Load",
             manager=self.manager,
             container=self.top_panel,
-            tool_tip_text="Load saved game",
+            tool_tip_text="Load game state from 'savegame'",
             object_id=ObjectID(class_id="menu_button"),
         )
 
@@ -323,7 +323,7 @@ class HudLayout:
             text="Clean Tool",
             manager=self.manager,
             container=self.bottom_panel,
-            tool_tip_text="Click to clean poop",
+            tool_tip_text="Remove waste and dirt from the ground",
             object_id="clean_button",
         )
 
@@ -526,6 +526,7 @@ class HudLayout:
             text="Save",
             manager=self.manager,
             container=self.settings_window,
+            tool_tip_text="Save changes and close",
         )
 
         self.settings_controls["cancel_btn"] = UIButton(
@@ -533,6 +534,7 @@ class HudLayout:
             text="Cancel",
             manager=self.manager,
             container=self.settings_window,
+            tool_tip_text="Discard changes and close",
         )
 
     def close_settings_window(self) -> None:

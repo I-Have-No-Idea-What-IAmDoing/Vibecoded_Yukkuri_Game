@@ -6,22 +6,24 @@ structured and type-safe interface for managing entities and components.
 It integrates with the `ServiceLocator` and `EventBus` for system-wide communication.
 """
 
-import uuid
 import contextlib
-from typing import (
-    TypeVar,
-    Any,
-    TYPE_CHECKING,
-)
+import uuid
 from collections.abc import Iterator
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    TypeVar,
+)
+
 import esper
-from .service_locator import ServiceLocator
+
+from .event_bus import EventBus
 from .events import (
-    EntityDestroyedEvent,
     ComponentAddedEvent,
     ComponentRemovedEvent,
+    EntityDestroyedEvent,
 )
-from .event_bus import EventBus
+from .service_locator import ServiceLocator
 
 T = TypeVar("T")
 
@@ -240,14 +242,15 @@ class World:
         """
         self._switch()
         try:
-            return esper.component_for_entity(entity, component_type)
+            return esper.component_for_entity(entity, component_type)  # type: ignore[no-any-return]
 
         except KeyError:
             return None
 
     def try_get_component(self, entity: int, component_type: type[T]) -> T | None:
         """
-        Alias for `get_component`.
+        Safely retrieves a component without raising exceptions if missing.
+        Optimized to avoid try-except overhead using `esper.try_component`.
 
         Args:
             entity: The entity ID.
@@ -256,7 +259,8 @@ class World:
         Returns:
             The component instance if found, otherwise None.
         """
-        return self.get_component(entity, component_type)
+        self._switch()
+        return esper.try_component(entity, component_type)  # type: ignore[no-any-return]
 
     def has_component(self, entity: int, component_type: type[Any]) -> bool:
         """
@@ -332,7 +336,7 @@ class World:
             (Entity ID, (Component1, Component2, ...))
         """
         self._switch()
-        return esper.get_components(*component_types)
+        return esper.get_components(*component_types)  # type: ignore[no-any-return]
 
     def get_all_components(self, entity: int) -> tuple[Any, ...]:
         """
@@ -346,7 +350,7 @@ class World:
         """
         self._switch()
         try:
-            return esper.components_for_entity(entity)
+            return esper.components_for_entity(entity)  # type: ignore[no-any-return]
         except KeyError:
             return ()
 
@@ -363,7 +367,7 @@ class World:
         self._switch()
         system.ecs_world = self
         system.initialize()
-        esper.add_processor(system)  # type: ignore[arg-type]
+        esper.add_processor(system)
 
     def update(self, dt: float) -> None:
         """
@@ -412,6 +416,7 @@ if TYPE_CHECKING:
         """
 
         def process(self, dt: float) -> None: ...
+
 else:
     ProcessorBase = esper.Processor
 

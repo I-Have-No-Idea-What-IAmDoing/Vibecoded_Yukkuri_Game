@@ -8,8 +8,10 @@ Most components are implemented as slotted dataclasses for memory optimization.
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
+
 import pymunk
 from pymunk.vec2d import Vec2d as Vector2
+
 from ..engine.data_models import AnimationDefinition
 from ..engine.types import EntityID
 
@@ -40,7 +42,7 @@ class PhysicsBody:
     Attributes:
         body (pymunk.Body): The physics body instance.
         shape (pymunk.Shape): The collision shape attached to the body.
-        base_radius (Optional[float]): The original radius of the shape, used for
+        base_radius (float | None): The original radius of the shape, used for
             resizing logic (e.g. Totem Pole stacking). Defaults to the shape's radius.
     """
 
@@ -64,9 +66,9 @@ class Transform:
         y (float): The y-coordinate in world space.
         rotation (float): Rotation angle in radians. Defaults to 0.0.
         scale (float): Scale factor. Defaults to 1.0.
-        prev_x (Optional[float]): X-coordinate from the previous frame (for interpolation).
-        prev_y (Optional[float]): Y-coordinate from the previous frame.
-        prev_rotation (Optional[float]): Rotation from the previous frame.
+        prev_x (float | None): X-coordinate from the previous frame (for interpolation).
+        prev_y (float | None): Y-coordinate from the previous frame.
+        prev_rotation (float | None): Rotation from the previous frame.
     """
 
     x: float
@@ -145,13 +147,13 @@ class Animator:
     Component for handling complex, state-based animations.
 
     Attributes:
-        animations (Dict[str, AnimationDefinition]): Map of animation names to definitions.
+        animations (dict[str, AnimationDefinition]): Map of animation names to definitions.
         current_animation (str): Name of the currently playing animation.
         current_frame_index (int): Index into the current animation's frame list.
         timer (float): Timer for the current frame.
         finished (bool): True if a non-looping animation has completed.
         speed (float): Playback speed multiplier. Defaults to 1.0.
-        next_animation (Optional[str]): Animation to transition to after completion.
+        next_animation (str | None): Animation to transition to after completion.
         forward (bool): Direction flag for ping-pong animations. Defaults to True.
     """
 
@@ -251,7 +253,7 @@ class Mount:
 
     Attributes:
         parent_id (EntityID): The ID of the parent entity this is mounted to.
-        children_ids (List[EntityID]): List of IDs of entities mounted to this one.
+        children_ids (list[EntityID]): List of IDs of entities mounted to this one.
         mount_point_offset (Vector2): Offset from the parent's position.
         layer_order (int): Relative sorting order within the stack.
         structure_dirty (bool): Flag indicating the hierarchy needs update.
@@ -350,7 +352,7 @@ class Occluder:
     Component defining a geometry that blocks light (Shadow Caster).
 
     Attributes:
-        polygon (Optional[List[Tuple[float, float]]]): Custom hull vertices.
+        polygon (list[tuple[float, float]] | None): Custom hull vertices.
             If None, the PhysicsBody shape is used.
         static (bool): Optimization flag. If True, occlusion geometry is cached.
     """
@@ -404,7 +406,7 @@ class MoveCommand:
 
     Attributes:
         target_pos (Vector2): The destination coordinates.
-        target_entity_id (Optional[int]): Entity to track/follow.
+        target_entity_id (int | None): Entity to track/follow.
         speed_multiplier (float): Modifier for movement speed (0.0 to 1.0+).
         altitude (float): Desired flight altitude (for flying entities).
         use_pathfinding (bool): If True, requests a path. If False, steers directly.

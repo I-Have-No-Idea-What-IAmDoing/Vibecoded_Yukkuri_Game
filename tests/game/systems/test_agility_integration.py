@@ -1,12 +1,11 @@
 import pytest
 from unittest.mock import MagicMock
-from yukkuri_game.engine.ecs import World
-from yukkuri_game.engine.types import EntityID
-from yukkuri_game.game.services import TimeService
-from yukkuri_game.game.systems.perception_system import PerceptionSystem
-from yukkuri_game.game.systems.kinematic_movement_system import KinematicMovementSystem
-from yukkuri_game.game.yukkuri_components import AIState, Blackboard, YukkuriStats, TargetInfo
-from yukkuri_game.game.components import Transform, PhysicsBody, MovementController
+from src.yukkuri_game.engine.ecs import World
+from src.yukkuri_game.engine.types import EntityID
+from src.yukkuri_game.game.systems.perception_system import PerceptionSystem
+from src.yukkuri_game.game.systems.kinematic_movement_system import KinematicMovementSystem
+from src.yukkuri_game.game.yukkuri_components import AIState, Blackboard, YukkuriStats, TargetInfo
+from src.yukkuri_game.game.components import Transform, PhysicsBody, MovementController
 
 class TestAgilityIntegration:
     
@@ -35,12 +34,12 @@ class TestAgilityIntegration:
         world.add_component(entity, Transform(x=0, y=0))
         
         # High Agility = Low Delay (0.5 / 2.0 = 0.25s)
-        world.add_component(entity, YukkuriStats(name="Test", type_id="test", agility=2.0))
+        world.add_component(entity, YukkuriStats(name="TestEntity", type_id="test", agility=2.0))
         
         # Setup target
         target = world.create_entity()
         world.add_component(target, Transform(x=10, y=0)) # Nearby
-        world.add_component(target, YukkuriStats(name="Target", type_id="enemy", agility=1.0)) # Enemy relation logic depends on more input, so let's mock _resolve_relation
+        world.add_component(target, YukkuriStats(name="Enemy", type_id="enemy", agility=1.0)) # Enemy relation logic depends on more input, so let's mock _resolve_relation
         
         # Mock _resolve_relation to return Enemy
         system._resolve_relation = MagicMock(return_value="Enemy")
@@ -49,6 +48,12 @@ class TestAgilityIntegration:
         ai_state.visible_entities = {target}
         blackboard = world.get_component(entity, Blackboard)
         
+        # Mock TimeService
+        from src.yukkuri_game.game.services import TimeService
+        time_service = MagicMock(spec=TimeService)
+        time_service.time_elapsed = 0.0
+        world.services.register(time_service, TimeService)
+
         # --- Frame 1: Top of detection (Time 0.0) ---
         time_service.time_elapsed = 0.0
         system.update(world, 0.1)
@@ -98,7 +103,7 @@ class TestAgilityIntegration:
         system.space = MagicMock() # Mock space
         
         # Fake FixedUpdate
-        from yukkuri_game.engine.events import PhysicsFixedUpdateEvent
+        from src.yukkuri_game.engine.events import PhysicsFixedUpdateEvent
         system.on_fixed_update(PhysicsFixedUpdateEvent(dt=0.1))
         
         # Verify allow call with agility
