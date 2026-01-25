@@ -85,7 +85,7 @@ class RenderSystem(System):
     # Rendering constants
     DEFAULT_SPRITE_SIZE = 64  # Default width/height for placement preview
     VISIBILITY_BUFFER = 500.0  # Extra buffer around screen for entity visibility query
-    BACKGROUND_CACHE_MARGIN = 32  # Margin for background cache surface
+    BACKGROUND_CACHE_MARGIN = 200  # Margin for background cache surface
 
     def __init__(
         self,
@@ -161,17 +161,36 @@ class RenderSystem(System):
         self.renderer.clear_screen((50, 50, 50))  # Dark grey background
 
         # Manage Background Cache
-        current_camera_state = (
-            int(self.camera.camera_x),
-            int(self.camera.camera_y),
-            self.camera.zoom,
-            sw,
-            sh,
-        )
+        # Optimization: Only invalidate cache if we scroll past the margin or zoom/screen size changes.
+        should_invalidate = False
+        if self._last_camera_state is None:
+            should_invalidate = True
+        else:
+            cached_x, cached_y, cached_zoom, cached_sw, cached_sh = (
+                self._last_camera_state
+            )
 
-        if current_camera_state != self._last_camera_state:
+            # Invalidate if zoom or screen size changes
+            if cached_zoom != self.camera.zoom or cached_sw != sw or cached_sh != sh:
+                should_invalidate = True
+            else:
+                # Check if we scrolled past the margin
+                # diff is in screen pixels
+                diff_x = (cached_x - self.camera.camera_x) * self.camera.zoom
+                diff_y = (cached_y - self.camera.camera_y) * self.camera.zoom
+                margin = self.BACKGROUND_CACHE_MARGIN
+                if abs(diff_x) > margin or abs(diff_y) > margin:
+                    should_invalidate = True
+
+        if should_invalidate:
             self._background_cache_valid = False
-            self._last_camera_state = current_camera_state
+            self._last_camera_state = (
+                int(self.camera.camera_x),
+                int(self.camera.camera_y),
+                self.camera.zoom,
+                sw,
+                sh,
+            )
 
         # Skip grid when zoomed in past 5x (becomes sparse/useless)
         if self.camera.zoom < 5.0:
