@@ -96,7 +96,7 @@ class World:
         Used during level loading to prevent conflicts with loaded entity IDs.
 
         Args:
-            next_id: The next stable ID to be used.
+            next_id (int): The next stable ID to be used.
         """
         self._next_stable_id = next_id
 
@@ -138,7 +138,7 @@ class World:
         Publishes a `ComponentAddedEvent` for each attached component.
 
         Args:
-            *components: Variable list of component instances to attach.
+            *components (Any): Variable list of component instances to attach.
 
         Returns:
             int: The unique runtime ID of the created entity.
@@ -164,7 +164,7 @@ class World:
         the entity does not exist (no-op).
 
         Args:
-            entity: The ID of the entity to destroy.
+            entity (int): The ID of the entity to destroy.
         """
         self._switch()
         try:
@@ -182,10 +182,10 @@ class World:
         Checks if an entity ID represents a valid, active entity.
 
         Args:
-            entity: The ID to check.
+            entity (int): The ID to check.
 
         Returns:
-            True if the entity exists in this world, False otherwise.
+            bool: True if the entity exists in this world, False otherwise.
         """
         self._switch()
         return bool(esper.entity_exists(entity))
@@ -197,8 +197,8 @@ class World:
         Publishes a `ComponentAddedEvent`.
 
         Args:
-            entity: The target entity ID.
-            component: The component instance to add.
+            entity (int): The target entity ID.
+            component (Any): The component instance to add.
         """
         self._switch()
         esper.add_component(entity, component)
@@ -214,8 +214,8 @@ class World:
         Publishes a `ComponentRemovedEvent`. Safe to call if the component is missing.
 
         Args:
-            entity: The target entity ID.
-            component_type: The class of the component to remove.
+            entity (int): The target entity ID.
+            component_type (type[Any]): The class of the component to remove.
         """
         self._switch()
         try:
@@ -234,11 +234,11 @@ class World:
         Retrieves a specific component from an entity.
 
         Args:
-            entity: The entity ID.
-            component_type: The class of the component to retrieve.
+            entity (int): The entity ID.
+            component_type (type[T]): The class of the component to retrieve.
 
         Returns:
-            The component instance if found, otherwise None.
+            T | None: The component instance if found, otherwise None.
         """
         self._switch()
         try:
@@ -250,14 +250,15 @@ class World:
     def try_get_component(self, entity: int, component_type: type[T]) -> T | None:
         """
         Safely retrieves a component without raising exceptions if missing.
+
         Optimized to avoid try-except overhead using `esper.try_component`.
 
         Args:
-            entity: The entity ID.
-            component_type: The class of the component to retrieve.
+            entity (int): The entity ID.
+            component_type (type[T]): The class of the component to retrieve.
 
         Returns:
-            The component instance if found, otherwise None.
+            T | None: The component instance if found, otherwise None.
         """
         self._switch()
         return esper.try_component(entity, component_type)  # type: ignore[no-any-return]
@@ -267,11 +268,11 @@ class World:
         Checks if an entity matches a specific component type.
 
         Args:
-            entity: The entity ID.
-            component_type: The component class to check for.
+            entity (int): The entity ID.
+            component_type (type[Any]): The component class to check for.
 
         Returns:
-            True if the entity satisfies the component requirement, False otherwise.
+            bool: True if the entity satisfies the component requirement, False otherwise.
         """
         self._switch()
         try:
@@ -284,10 +285,10 @@ class World:
         Retrieves all instances of a specific component type across all entities.
 
         Args:
-            component_type: The component class to query.
+            component_type (type[T]): The component class to query.
 
         Returns:
-            A dictionary mapping Entity ID -> Component Instance.
+            dict[int, T]: A dictionary mapping Entity ID -> Component Instance.
         """
         self._switch()
         return {
@@ -300,7 +301,7 @@ class World:
         Retrieves all active entity IDs in this world.
 
         Returns:
-            A list of all entity IDs.
+            list[int]: A list of all entity IDs.
         """
         return list(self._active_entities)
 
@@ -309,10 +310,10 @@ class World:
         Finds entities that possess ALL of the specified component types.
 
         Args:
-            *component_types: Variable list of component classes to direct the query.
+            *component_types (type[Any]): Variable list of component classes to direct the query.
 
         Returns:
-            A list of matching entity IDs.
+            list[int]: A list of matching entity IDs.
         """
         self._switch()
         if not component_types:
@@ -329,11 +330,11 @@ class World:
         iterating over entities in Systems.
 
         Args:
-            *component_types: The component classes to query.
+            *component_types (type[Any]): The component classes to query.
 
         Returns:
-            A list of tuples, where each tuple contains:
-            (Entity ID, (Component1, Component2, ...))
+            list[tuple[int, tuple[Any, ...]]]: A list of tuples, where each tuple contains:
+                (Entity ID, (Component1, Component2, ...))
         """
         self._switch()
         return esper.get_components(*component_types)  # type: ignore[no-any-return]
@@ -343,10 +344,10 @@ class World:
         Retrieves every component attached to a specific entity.
 
         Args:
-            entity: The entity ID.
+            entity (int): The entity ID.
 
         Returns:
-            A tuple containing all component instances for the entity.
+            tuple[Any, ...]: A tuple containing all component instances for the entity.
         """
         self._switch()
         try:
@@ -362,7 +363,7 @@ class World:
             Sets `system.ecs_world` to this World instance.
 
         Args:
-            system: The System instance to register.
+            system (System): The System instance to register.
         """
         self._switch()
         system.ecs_world = self
@@ -376,7 +377,7 @@ class World:
         Executes all registered Systems in priority order.
 
         Args:
-            dt: Delta time in seconds since the last frame.
+            dt (float): Delta time in seconds since the last frame.
         """
         self._switch()
         esper.process(dt)
@@ -393,7 +394,7 @@ class World:
         """
         Completely tears down the world.
 
-        clears the database, clears services, and removes the world context from `esper`.
+        Clears the database, clears services, and removes the world context from `esper`.
         This is essential for memory management when unloading levels or closing the game.
         """
         self.clear_database()
@@ -442,7 +443,7 @@ class System(ProcessorBase):
         before passing control to the user-defined `update` logic.
 
         Args:
-            dt: Delta time in seconds.
+            dt (float): Delta time in seconds.
         """
         if hasattr(self, "ecs_world"):
             with self.ecs_world.context():
@@ -463,8 +464,8 @@ class System(ProcessorBase):
         Must be implemented by subclasses.
 
         Args:
-            world: The active ECS World instance.
-            dt: Delta time in seconds.
+            world (World): The active ECS World instance.
+            dt (float): Delta time in seconds.
 
         Raises:
             NotImplementedError: If not overridden by the subclass.
