@@ -55,17 +55,17 @@ class PhysicsSystem(System):
         Initializes the PhysicsSystem.
 
         Args:
-            gravity: Gravity vector (x, y). Default (0, 0) for top-down games.
+            gravity (tuple[float, float]): Gravity vector (x, y). Defaults to (0, 0).
         """
         self.space = pymunk.Space()
         self.space.gravity = gravity
         self.space.damping = 0.9  # Friction/air resistance simulation
 
-        # Spatial hash for O(1) collision broadphase
+        # Configure spatial hash for optimized broadphase collision detection.
         # dim=50: Average Yukkuri diameter, count=2000: Expected entity count * 4
         self.space.use_spatial_hash(dim=50.0, count=2000)
 
-        # Enable sleeping for static bodies optimization
+        # Allow static bodies to sleep to save CPU cycles.
         self.space.sleep_time_threshold = 0.5
 
         self.accumulator = 0.0
@@ -118,10 +118,7 @@ class PhysicsSystem(System):
 
         Args:
             world (World): The ECS World.
-            dt (float): Delta time.
-
-        Returns:
-            None
+            dt (float): Delta time in seconds.
         """
         if self.event_bus is None:
             self.event_bus = world.services.try_get(EventBus)
@@ -129,7 +126,7 @@ class PhysicsSystem(System):
                 self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
                 self.event_bus.subscribe(WorldClearedEvent, self.on_world_cleared)
 
-        # Clamp dt to avoid spiral of death with high time scales or lag
+        # Clamp delta time to prevent simulation instability (spiral of death).
         if dt > self.max_frame_time:
             dt = self.max_frame_time
 
