@@ -242,7 +242,7 @@ class World:
         """
         self._switch()
         try:
-            return esper.component_for_entity(entity, component_type)  # type: ignore[no-any-return]
+            return esper.component_for_entity(entity, component_type)
 
         except KeyError:
             return None
@@ -261,7 +261,7 @@ class World:
             T | None: The component instance if found, otherwise None.
         """
         self._switch()
-        return esper.try_component(entity, component_type)  # type: ignore[no-any-return]
+        return esper.try_component(entity, component_type)
 
     def has_component(self, entity: int, component_type: type[Any]) -> bool:
         """
@@ -337,7 +337,7 @@ class World:
                 (Entity ID, (Component1, Component2, ...))
         """
         self._switch()
-        return esper.get_components(*component_types)  # type: ignore[no-any-return]
+        return esper.get_components(*component_types)
 
     def get_all_components(self, entity: int) -> tuple[Any, ...]:
         """
@@ -351,7 +351,7 @@ class World:
         """
         self._switch()
         try:
-            return esper.components_for_entity(entity)  # type: ignore[no-any-return]
+            return esper.components_for_entity(entity)
         except KeyError:
             return ()
 
@@ -368,7 +368,7 @@ class World:
         self._switch()
         system.ecs_world = self
         system.initialize()
-        esper.add_processor(system)
+        esper.add_processor(system)  # type: ignore[arg-type]
 
     def update(self, dt: float) -> None:
         """

@@ -16,9 +16,6 @@ from .skill_constants import SkillId
 from .systems.sector_system import SectorMap
 from . import components, components_persistence, yukkuri_components
 
-if TYPE_CHECKING:
-    pass
-
 BASE_SCAVENGING_RADIUS = 500.0
 SCAVENGING_RADIUS_PER_LEVEL = 50.0
 
@@ -444,7 +441,7 @@ class PersistenceService:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
-    def _serialize_object(self, obj: object) -> object:
+    def _serialize_object(self, obj: object) -> Any:
         """
         Recursively converts objects to JSON-serializable structures.
 
@@ -452,7 +449,7 @@ class PersistenceService:
             obj (object): The object to serialize.
 
         Returns:
-            object: The serialized object.
+            Any: The serialized object.
         """
         if isinstance(obj, (set, tuple)):
             return list(obj)
