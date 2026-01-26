@@ -1,5 +1,6 @@
 import math
-from typing import Any, Optional, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
+
 import pymunk
 from py_trees.common import Status
 
@@ -33,10 +34,20 @@ class Interact(Action):
         self,
         name: str = "Interact",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
         consume: bool = True,
     ):
+        """
+        Initializes the Interact action.
+
+        Args:
+            name (str): Behavior name.
+            entity_id (int | None): Entity ID.
+            world (World | None): ECS World.
+            blackboard (Any | None): Blackboard.
+            consume (bool): Whether to consume the target.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self.consume = consume
 
@@ -83,6 +94,15 @@ class SocialInteract(Action):
     def __init__(
         self, name: str, entity_id: int, world: "World", interaction_type: str
     ):
+        """
+        Initializes the SocialInteract action.
+
+        Args:
+            name (str): Behavior name.
+            entity_id (int): Entity ID.
+            world (World): ECS World.
+            interaction_type (str): Interaction type.
+        """
         super().__init__(name, entity_id, world)
         self.interaction_type = interaction_type
 
@@ -129,9 +149,18 @@ class EatPrey(Action):
         self,
         name: str = "Eat Prey",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
     ):
+        """
+        Initializes the EatPrey action.
+
+        Args:
+            name (str): Behavior name.
+            entity_id (int | None): Entity ID.
+            world (World | None): ECS World.
+            blackboard (Any | None): Blackboard.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self._eating_progress: float = 0.0
 

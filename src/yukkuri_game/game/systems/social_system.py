@@ -17,28 +17,33 @@ Key Features:
 -   Interaction Impacts: Modifies stats (Health, Happiness, Stress) and relationship values.
 """
 
-from typing import Any, cast
-from loguru import logger
-from ...engine import rng
+from typing import TYPE_CHECKING, Any, cast
 
+from loguru import logger
+
+from ...engine import rng
+from ...engine.audio import AudioManager
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ...engine.audio import AudioManager
-from ..utils.evaluator import ConditionEvaluator
-from ..components import Transform, InteractionRequest
-from ..yukkuri_components import (
-    Needs,
-    RelationshipRegistry,
-    RelationshipData,
-    MemoryHeadline,
-    Personality,
-    EmotionalState,
-    Skills,
-)
-from ..trait_service import TraitService
-from ..skill_service import SkillService
+from ...engine.types import EntityID
+from ..components import InteractionRequest, Transform
 from ..events import SocialInteractionEvent
 from ..prefabs.effects import create_floating_text
+from ..skill_service import SkillService
+from ..trait_service import TraitService
+from ..utils.evaluator import ConditionEvaluator
+from ..yukkuri_components import (
+    EmotionalState,
+    MemoryHeadline,
+    Needs,
+    Personality,
+    RelationshipData,
+    RelationshipRegistry,
+    Skills,
+)
+
+if TYPE_CHECKING:
+    from ...engine.data_models import InteractionDefinition
 
 
 class SocialSystem(System):
@@ -298,14 +303,16 @@ class SocialSystem(System):
             self.ecs_world, event.initiator_id, event.target_id, event.interaction_type
         )
 
-    def _check_condition(self, world: World, entity_id: int, condition: Any) -> bool:
+    def _check_condition(
+        self, world: World, entity_id: int, condition: str | dict[str, Any]
+    ) -> bool:
         """
         Checks if a specific condition is met by the entity.
 
         Args:
             world (World): The ECS World.
             entity_id (int): The entity to check.
-            condition (Any): string expression, dict with 'expression', or dict with 'type'.
+            condition (str | dict[str, Any]): string expression, dict with 'expression', or dict with 'type'.
 
         Returns:
             bool: True if the condition is met, False otherwise.
@@ -393,7 +400,11 @@ class SocialSystem(System):
         self._apply_additional_effects(world, actor_id, target_id, interaction_data)
 
     def _apply_additional_effects(
-        self, world: World, actor_id: int, target_id: int, interaction_data: Any
+        self,
+        world: World,
+        actor_id: int,
+        target_id: int,
+        interaction_data: "InteractionDefinition | dict[str, Any]",
     ) -> None:
         """
         Applies physical impacts (stats) and skill rewards.
@@ -402,7 +413,7 @@ class SocialSystem(System):
             world (World): The ECS World.
             actor_id (int): Initiator ID.
             target_id (int): Target ID.
-            interaction_data (Any): Configuration data for the interaction.
+            interaction_data (InteractionDefinition | dict[str, Any]): Configuration data for the interaction.
         """
         physical_impact = self._get_attr(interaction_data, "physical_impact", {})
         if physical_impact:
@@ -487,7 +498,11 @@ class SocialSystem(System):
             self.audio.play_sound(sound_name)
 
     def _spawn_visual_feedback(
-        self, world: World, entity_id: int, interaction_name: str, data: Any
+        self,
+        world: World,
+        entity_id: int,
+        interaction_name: str,
+        data: "InteractionDefinition | dict[str, Any]",
     ) -> None:
         """
         Spawns visual feedback (floating text/icon) over the target entity.
@@ -496,7 +511,7 @@ class SocialSystem(System):
             world (World): The ECS World.
             entity_id (int): Target entity ID.
             interaction_name (str): Name of the interaction.
-            data (Any): Interaction data.
+            data (InteractionDefinition | dict[str, Any]): Interaction data.
         """
         trans = world.get_component(entity_id, Transform)
         if not trans:
@@ -541,7 +556,7 @@ class SocialSystem(System):
         world: World,
         subject_id: int,
         other_id: int,
-        data: Any,
+        data: "InteractionDefinition | dict[str, Any]",
         role: str,
         now: float,
     ) -> None:
@@ -552,7 +567,7 @@ class SocialSystem(System):
             world (World): The ECS World.
             subject_id (int): The entity being affected.
             other_id (int): The other party in the interaction.
-            data (Any): Interaction configuration data.
+            data (InteractionDefinition | dict[str, Any]): Interaction configuration data.
             role (str): "actor" or "target".
             now (float): Current game time.
         """

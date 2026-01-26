@@ -2,9 +2,10 @@
 Module defining the base Action class for AI behaviors.
 """
 
+from typing import TYPE_CHECKING, Any
+
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
-from typing import Optional, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -15,16 +16,16 @@ class Action(Behaviour):
     Base class for AI actions in the Behavior Tree.
 
     Attributes:
-        entity_id (Optional[int]): The ID of the entity performing the action.
-        world (Optional[World]): The ECS World instance.
-        blackboard (Optional[Any]): The Behavior Tree blackboard.
+        entity_id (int | None): The ID of the entity performing the action.
+        world (World | None): The ECS World instance.
+        blackboard (Any | None): The Behavior Tree blackboard.
     """
 
     def __init__(
         self,
         name: str = "Action",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
     ):
         """
@@ -32,9 +33,9 @@ class Action(Behaviour):
 
         Args:
             name (str): The name of the behavior node.
-            entity_id (Optional[int]): The ID of the entity.
-            world (Optional[World]): The ECS World instance.
-            blackboard (Optional[Any]): The Behavior Tree blackboard.
+            entity_id (int | None): The ID of the entity.
+            world (World | None): The ECS World instance.
+            blackboard (Any | None): The Behavior Tree blackboard.
         """
         super().__init__(name)
         self.entity_id = entity_id
