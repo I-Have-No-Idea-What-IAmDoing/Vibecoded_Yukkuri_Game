@@ -36,8 +36,9 @@ def test_renderer_submit_and_clear(renderer_backend):
     )
     renderer.submit(cmd)
 
-    assert len(renderer._commands) == 1
+    # Check internal storage structure (updated to use layers)
+    assert len(renderer._layers[1]) == 1
 
     renderer.render()
 
-    assert len(renderer._commands) == 0
+    assert len(renderer._layers) == 0
