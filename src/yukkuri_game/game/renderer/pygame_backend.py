@@ -22,7 +22,6 @@ class PygameBackend(RenderBackend):
 
         # State
         self.ambient_color = (20, 20, 20, 255)
-        self.commands: list[Any] = []
 
         # New Lighting Engine
         w, h = screen.get_size()
@@ -45,8 +44,6 @@ class PygameBackend(RenderBackend):
         self.screen.fill(color)
 
     def begin_frame(self) -> None:
-        self.commands.clear()
-
         # Sync size if changed
         w, h = self.screen.get_size()
         if self.lighting_engine.native_size != (w, h):
@@ -56,39 +53,20 @@ class PygameBackend(RenderBackend):
         self.lighting_engine.clear((c[0], c[1], c[2]))
 
     def end_frame(self) -> None:
-        # 1. Render all non-light commands (Sprites, Text, Blobs)
-        self.commands.sort(key=lambda cmd: (cmd.layer, cmd.z_index))
-
-        for cmd in self.commands:
-            if isinstance(cmd, SpriteCommand):
-                self._render_sprite(cmd)
-            elif isinstance(cmd, TextCommand):
-                self._render_text(cmd)
-            elif isinstance(cmd, ShadowCommand):
-                self._render_shadow(cmd)
-
-        # 2. Render Lighting Overlay
+        # Render Lighting Overlay
         # (Lights have already been processed into the engine via draw_light)
         # We just get the final surface and blit it.
-
-        # We assume the engine has processed all lights submitted via draw_light
-        # BUT wait, draw_light calculates shadows immediately in the engine?
-        # Or does it queue?
-        # The engine.render_light does immediate work.
-        # But draw_light is called during the frame.
-        # So we don't need to loop here unless we deferred it.
-
         lightmap = self.lighting_engine.get_surface()
         self.screen.blit(lightmap, (0, 0), special_flags=pygame.BLEND_MULT)
 
     def draw_sprite(self, cmd: SpriteCommand) -> None:
-        self.commands.append(cmd)
+        self._render_sprite(cmd)
 
     def draw_text(self, cmd: TextCommand) -> None:
-        self.commands.append(cmd)
+        self._render_text(cmd)
 
     def draw_shadow(self, cmd: ShadowCommand) -> None:
-        self.commands.append(cmd)
+        self._render_shadow(cmd)
 
     def draw_light(self, cmd: LightCommand) -> None:
         # Submit directly to engine
