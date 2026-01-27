@@ -25,3 +25,7 @@
 ## 2026-10-28 - [Render Cache Invalidation Optimization]
 **Learning:** `RenderSystem` background cache was invalidating on every pixel of camera movement, effectively disabling the cache during scrolling. Adding a margin-based invalidation check (rebuild only when offset > margin) restores caching benefits while scrolling.
 **Action:** When implementing spatial caches (grids, terrain), implement "loose" invalidation with a safe margin to avoid rebuilding on every frame of movement.
+
+## 2026-10-29 - [Renderer Pipeline Double-Sort]
+**Learning:** `Renderer` was sorting commands by `(layer, z_index)` and `PygameBackend` was buffering and sorting them *again*. Removing the backend buffer and sorting, and using immediate rendering with bucketed layers in `Renderer` eliminated the double-sort and list overhead, yielding a ~7% frame time improvement.
+**Action:** Use "immediate mode" for backends where possible. Organize render queues by layer (buckets) to avoid expensive global sorting and allow faster per-layer sorts (using `attrgetter`).
