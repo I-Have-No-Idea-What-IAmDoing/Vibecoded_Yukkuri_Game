@@ -1,8 +1,10 @@
 import math
-from yukkuri_game.engine import rng
-from typing import Any, Optional, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
+
 import pymunk
 from py_trees.common import Status
+
+from yukkuri_game.engine import rng
 
 from ...base_action import Action
 from ....components import (
@@ -32,17 +34,32 @@ LOW_ENERGY_THRESHOLD = 30.0
 class MoveToTarget(Action):
     """
     Moves the entity towards a target using direct velocity control.
+
+    Attributes:
+        speed (float): Movement speed.
+        acceptance_radius (float): Distance to consider target reached.
     """
 
     def __init__(
         self,
         name: str = "Move To Target",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
         speed: float = 100.0,
         acceptance_radius: float = 40.0,
     ):
+        """
+        Initializes the MoveToTarget action.
+
+        Args:
+            name (str): Behavior name.
+            entity_id (int | None): Entity ID.
+            world (World | None): ECS World.
+            blackboard (Any | None): Blackboard.
+            speed (float): Movement speed.
+            acceptance_radius (float): Distance threshold.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self.speed = speed
         self.acceptance_radius = acceptance_radius
@@ -321,17 +338,33 @@ class MoveToTarget(Action):
 class Wander(Action):
     """
     Causes the entity to wander to a random location.
+
+    Attributes:
+        width (int): Wander area width.
+        height (int): Wander area height.
+        move_action (MoveToTarget | None): Sub-action for movement.
     """
 
     def __init__(
         self,
         name: str = "Wander",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
         width: int = 3000,
         height: int = 3000,
     ):
+        """
+        Initializes the Wander action.
+
+        Args:
+            name (str): Behavior name.
+            entity_id (int | None): Entity ID.
+            world (World | None): ECS World.
+            blackboard (Any | None): Blackboard.
+            width (int): Wander area width.
+            height (int): Wander area height.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self.width = width
         self.height = height
@@ -364,7 +397,22 @@ class Swoop(Action):
     Rapid descent to attack target.
     """
 
-    def __init__(self, name="Swoop", entity_id=None, world=None, blackboard=None):
+    def __init__(
+        self,
+        name: str = "Swoop",
+        entity_id: int | None = None,
+        world: "World | None" = None,
+        blackboard: Any | None = None,
+    ):
+        """
+        Initializes the Swoop action.
+
+        Args:
+            name (str): Behavior name.
+            entity_id (int | None): Entity ID.
+            world (World | None): ECS World.
+            blackboard (Any | None): Blackboard.
+        """
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:
@@ -391,16 +439,29 @@ class Swoop(Action):
 class FleePredator(Action):
     """
     Action to flee from nearby predators.
+
+    Attributes:
+        speed (float): Flee speed.
     """
 
     def __init__(
         self,
-        name="Flee Predator",
-        entity_id=None,
-        world=None,
-        blackboard=None,
+        name: str = "Flee Predator",
+        entity_id: int | None = None,
+        world: "World | None" = None,
+        blackboard: Any | None = None,
         speed: float = 150.0,
     ):
+        """
+        Initializes the FleePredator action.
+
+        Args:
+            name (str): Behavior name.
+            entity_id (int | None): Entity ID.
+            world (World | None): ECS World.
+            blackboard (Any | None): Blackboard.
+            speed (float): Flee speed.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self.speed = speed
 
@@ -442,11 +503,29 @@ class FleePredator(Action):
 class FleeFromTarget(Action):
     """
     Calculates a destination AWAY from the current target.
+
+    Attributes:
+        flee_dist (float): Distance to flee.
     """
 
     def __init__(
-        self, name="Run Away", entity_id=None, world=None, blackboard=None, dist=300.0
+        self,
+        name: str = "Run Away",
+        entity_id: int | None = None,
+        world: "World | None" = None,
+        blackboard: Any | None = None,
+        dist: float = 300.0,
     ):
+        """
+        Initializes the FleeFromTarget action.
+
+        Args:
+            name (str): Behavior name.
+            entity_id (int | None): Entity ID.
+            world (World | None): ECS World.
+            blackboard (Any | None): Blackboard.
+            dist (float): Distance to flee.
+        """
         super().__init__(name, entity_id, world, blackboard)
         self.flee_dist = dist
 

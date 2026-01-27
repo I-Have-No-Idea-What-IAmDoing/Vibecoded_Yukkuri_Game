@@ -2,7 +2,7 @@
 Module defining core game services.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 import os
 import msgspec
 import dataclasses
@@ -15,9 +15,6 @@ from .yukkuri_components import ItemStats, Skills
 from .skill_constants import SkillId
 from .systems.sector_system import SectorMap
 from . import components, components_persistence, yukkuri_components
-
-if TYPE_CHECKING:
-    pass
 
 BASE_SCAVENGING_RADIUS = 500.0
 SCAVENGING_RADIUS_PER_LEVEL = 50.0
@@ -47,7 +44,15 @@ class TimeService:
         day_start_hour: float = 6.0,
         night_start_hour: float = 20.0,
     ) -> None:
-        """Initializes the TimeService."""
+        """
+        Initializes the TimeService.
+
+        Args:
+            time_elapsed (float): The initial elapsed game time. Defaults to 0.0.
+            scale (float): The game time scale factor. Defaults to 60.0.
+            day_start_hour (float): The hour (0-24) when day starts. Defaults to 6.0.
+            night_start_hour (float): The hour (0-24) when night starts. Defaults to 20.0.
+        """
         self._time_elapsed = time_elapsed
         self._scale = scale
         self._day_start_hour = day_start_hour
@@ -104,18 +109,29 @@ class TimeService:
     def time_of_day(self) -> float:
         """
         Returns the time of day in hours (0.0 to 24.0).
+
+        Returns:
+            float: Time of day in hours.
         """
         return (self._time_elapsed % self.GAME_DAY_LENGTH) / 3600.0
 
     @property
     def hour_of_day(self) -> float:
-        """Alias for time_of_day."""
+        """
+        Alias for time_of_day.
+
+        Returns:
+            float: Time of day in hours.
+        """
         return self.time_of_day
 
     @property
     def is_night(self) -> bool:
         """
         Returns True if it is currently night time.
+
+        Returns:
+            bool: True if it is night.
         """
         t = self.time_of_day
         return t > self._night_start_hour or t < self._day_start_hour
@@ -125,6 +141,9 @@ class TimeService:
         """
         Returns the current day number (1-indexed).
         Day 1 starts at time_elapsed = 0.
+
+        Returns:
+            int: The current day number.
         """
         return int(self._time_elapsed / self.GAME_DAY_LENGTH) + 1
 
@@ -151,12 +170,17 @@ class EconomyService:
         Initializes the EconomyService.
 
         Args:
-            initial_money (int): The starting amount of money.
+            initial_money (int): The starting amount of money. Defaults to 1000.
         """
         self._money = initial_money
 
     def get_money(self) -> int:
-        """Returns the current amount of money."""
+        """
+        Returns the current amount of money.
+
+        Returns:
+            int: The current money amount.
+        """
         return self._money
 
     def add_money(self, amount: int) -> None:
@@ -282,7 +306,7 @@ class InputService:
             type_id (str): The type ID of the entity to place.
             cost (int): The cost of the entity.
             entity_type (str): "yukkuri" or "item".
-            image_name (str): Image name for preview.
+            image_name (str): Image name for preview. Defaults to "".
         """
         self._placing_mode = True
         self._cleaning_mode = False
@@ -339,9 +363,9 @@ class GameService:
 
         Args:
             position (tuple[float, float]): The search origin (x, y).
-            stat_criteria (str): The ItemStats attribute to maximize (e.g. "nutrition").
-            exclude_ids (set[int] | None): IDs to ignore.
-            searcher_id (int): The ID of the searching entity (optional, for skill checks).
+            stat_criteria (str): The ItemStats attribute to maximize (e.g. "nutrition"). Defaults to "nutrition".
+            exclude_ids (set[int] | None): IDs to ignore. Defaults to None.
+            searcher_id (int): The ID of the searching entity (optional, for skill checks). Defaults to -1.
 
         Returns:
             int: The ID of the best item, or -1 if none found.
@@ -409,23 +433,23 @@ class PersistenceService:
         Initializes the PersistenceService.
 
         Args:
-            world: The ECS world.
-            save_dir: Path to the save directory.
+            world (World): The ECS world.
+            save_dir (str): Path to the save directory. Defaults to "saves".
         """
         self.world = world
         self.save_dir = save_dir
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
-    def _serialize_object(self, obj: object) -> object:
+    def _serialize_object(self, obj: object) -> Any:
         """
         Recursively converts objects to JSON-serializable structures.
 
         Args:
-            obj: The object to serialize.
+            obj (object): The object to serialize.
 
         Returns:
-            The serialized object.
+            Any: The serialized object.
         """
         if isinstance(obj, (set, tuple)):
             return list(obj)
@@ -440,7 +464,7 @@ class PersistenceService:
         Saves the current game state to a file.
 
         Args:
-            filename: The name of the save file.
+            filename (str): The name of the save file.
         """
         filepath = os.path.join(self.save_dir, filename)
 
@@ -499,10 +523,10 @@ class PersistenceService:
         Loads the game state from a file.
 
         Args:
-            filename: The name of the save file.
+            filename (str): The name of the save file.
 
         Returns:
-            True if successful, False if file not found.
+            bool: True if successful, False if file not found.
         """
         filepath = os.path.join(self.save_dir, filename)
         if not os.path.exists(filepath):

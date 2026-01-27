@@ -21,3 +21,7 @@
 ## 2026-10-27 - [Physics System Optimization]
 **Learning:** `PhysicsSystem` was syncing `Transform` components for every entity every frame, even for static objects. Enabling Pymunk's `sleep_time_threshold` allows skipping physics steps for resting bodies, and we can skip the Python-side sync for `is_sleeping` bodies. This reduced tick time from ~20ms to ~4ms (5.3x speedup) for 5000 static entities.
 **Action:** Enable physics engine sleeping and skip component synchronization for sleeping bodies to avoid O(N) overhead on static scenes.
+
+## 2026-10-28 - [Render Cache Invalidation Optimization]
+**Learning:** `RenderSystem` background cache was invalidating on every pixel of camera movement, effectively disabling the cache during scrolling. Adding a margin-based invalidation check (rebuild only when offset > margin) restores caching benefits while scrolling.
+**Action:** When implementing spatial caches (grids, terrain), implement "loose" invalidation with a safe margin to avoid rebuilding on every frame of movement.

@@ -23,11 +23,9 @@ Scoring:
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, TYPE_CHECKING
 import math
 from loguru import logger
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..yukkuri_components import Personality
@@ -40,10 +38,10 @@ class Consideration:
     Evaluates a world state factor to produce a utility score (0-1).
 
     Attributes:
-        name: Unique identifier for this consideration.
-        input_key: Context key to read (e.g., "hunger", "is_night").
-        curve_type: Response curve type ("linear", "logit", "threshold").
-        params: Curve parameters (varies by curve type).
+        name (str): Unique identifier for this consideration.
+        input_key (str): Context key to read (e.g., "hunger", "is_night").
+        curve_type (str): Response curve type ("linear", "logit", "threshold").
+        params (dict[str, float]): Curve parameters (varies by curve type).
     """
 
     name: str
@@ -59,7 +57,7 @@ class Consideration:
 
         Args:
             context (dict[str, Any]): The current world state context.
-            override_curve (Optional[dict[str, Any]]): Curve override definition.
+            override_curve (dict[str, Any] | None): Curve override definition. Defaults to None.
 
         Returns:
             float: The calculated score (0.0 to 1.0).
@@ -97,8 +95,8 @@ class Consideration:
 
         Args:
             x (float): Input value (0-100).
-            curve_type (Optional[str]): Curve type override.
-            params (Optional[dict[str, float]]): Curve parameters override.
+            curve_type (str | None): Curve type override. Defaults to None.
+            params (dict[str, float] | None): Curve parameters override. Defaults to None.
 
         Returns:
             float: Normalized utility score (0.0 to 1.0).
@@ -143,8 +141,8 @@ class Action:
     Attributes:
         name (str): The name of the action.
         considerations (list[Consideration]): List of considerations affecting score.
-        weight (float): Base weight of the action.
-        effects (Optional[dict]): Action effects (if any).
+        weight (float): Base weight of the action. Defaults to 1.0.
+        effects (dict[str, Any] | None): Action effects (if any). Defaults to None.
     """
 
     name: str
@@ -164,8 +162,8 @@ class Action:
 
         Args:
             context (dict[str, Any]): A dictionary containing the current world state/context.
-            trait_overrides (Optional[dict[str, Any]]): A dictionary where keys are consideration names
-                                             and values are override definitions.
+            trait_overrides (dict[str, Any] | None): A dictionary where keys are consideration names
+                                             and values are override definitions. Defaults to None.
 
         Returns:
             float: The calculated utility score.
@@ -175,13 +173,14 @@ class Action:
 
         final_score = self.weight
         for cons in self.considerations:
-            # Check if there is an override for this specific consideration.
+            # Apply consideration-specific trait overrides if present.
             override = trait_overrides.get(cons.name) if trait_overrides else None
 
             s = cons.score(context, override)
             final_score *= s
 
-            if final_score <= 0.001:  # Early exit on low score.
+            # Prune branches with negligible utility.
+            if final_score <= 0.001:
                 return 0.0
 
         return final_score
@@ -198,7 +197,7 @@ class Action:
 
         Args:
             context (dict[str, Any]): Current world state context.
-            trait_overrides (Optional[dict[str, Any]]): Optional trait modifier overrides.
+            trait_overrides (dict[str, Any] | None): Optional trait modifier overrides. Defaults to None.
 
         Returns:
             float: Compensated utility score.
@@ -263,7 +262,6 @@ class UtilityAIEngine:
         considerations = []
 
         if isinstance(data, dict):
-            # Handle dict input
             cons_list = data.get("considerations", [])
             for cons_data in cons_list:
                 considerations.append(
@@ -278,7 +276,6 @@ class UtilityAIEngine:
             weight = data.get("weight", 1.0)
             effects = data.get("effects", {})
         else:
-            # Handle msgspec struct
             for cons_obj in data.considerations:
                 considerations.append(
                     Consideration(
@@ -306,16 +303,16 @@ class UtilityAIEngine:
     def select_action(
         self,
         context: dict[str, Any],
-        personality: Optional["Personality"] = None,
-        trait_service: Optional["TraitService"] = None,
+        personality: "Personality | None" = None,
+        trait_service: "TraitService | None" = None,
     ) -> str:
         """
         Selects the action with the highest utility score.
 
         Args:
             context (dict[str, Any]): A dictionary containing the current world state/context.
-            personality (Optional[Personality]): The personality component of the entity (optional).
-            trait_service (Optional[TraitService]): The trait service to look up trait data (optional).
+            personality (Personality | None): The personality component of the entity. Defaults to None.
+            trait_service (TraitService | None): The trait service to look up trait data. Defaults to None.
 
         Returns:
             str: The name of the selected action.
@@ -347,7 +344,9 @@ class UtilityAIEngine:
     def validate_actions(self) -> None:
         """
         Validates that all loaded utility actions have corresponding implementations
-        in the Behavior Tree system. Logs warnings for missing implementations.
+        in the Behavior Tree system.
+
+        Logs warnings for missing implementations.
         """
         try:
             # Import here to avoid circular dependency

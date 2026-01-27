@@ -140,9 +140,6 @@ class HUD:
 
         Args:
             event (LogMessageEvent): The event data.
-
-        Returns:
-            None
         """
         if self.layout.log_box:
             # Convert color tuple to hex string
@@ -166,9 +163,6 @@ class HUD:
 
         Args:
             event (EntitySelectedEvent): The entity selected event.
-
-        Returns:
-            None
         """
         self.selected_entities = list(event.entity_ids)
         self.events.set_selected_entities(self.selected_entities)
@@ -180,9 +174,6 @@ class HUD:
 
         Args:
             event (GamePausedEvent): The game paused event.
-
-        Returns:
-            None
         """
         if self.layout.pause_btn:
             self.layout.pause_btn.set_text("Resume" if event.paused else "Pause")
@@ -190,6 +181,9 @@ class HUD:
     def on_context_menu_requested(self, event: ContextMenuRequestedEvent) -> None:
         """
         Handles ContextMenuRequestedEvent.
+
+        Args:
+            event (ContextMenuRequestedEvent): The context menu requested event.
         """
         options = []
 
@@ -216,7 +210,13 @@ class HUD:
     def on_context_menu_action(
         self, action_id: str, target_data: tuple[int, tuple[int, int]]
     ) -> None:
-        """Callback for context menu actions. Uses event-driven approach."""
+        """
+        Callback for context menu actions. Uses event-driven approach.
+
+        Args:
+            action_id (str): The ID of the selected action.
+            target_data (tuple[int, tuple[int, int]]): The target entity ID and position.
+        """
         entity_id, position = target_data
         if action_id == "view_inventory":
             # Publish event instead of direct method call for loose coupling
@@ -225,12 +225,22 @@ class HUD:
             self.event_bus.publish(EntitySelectedEvent((entity_id,)))
 
     def on_inventory_view_requested(self, event: InventoryViewRequestedEvent) -> None:
-        """Handles InventoryViewRequestedEvent to show inventory panel."""
+        """
+        Handles InventoryViewRequestedEvent to show inventory panel.
+
+        Args:
+            event (InventoryViewRequestedEvent): The inventory view requested event.
+        """
         position = event.position if event.position else (100, 100)
         self.inventory_panel.show(event.entity_id, position)
 
     def on_inventory_changed(self, event: InventoryChangedEvent) -> None:
-        """Handles InventoryChangedEvent to auto-refresh inventory panel."""
+        """
+        Handles InventoryChangedEvent to auto-refresh inventory panel.
+
+        Args:
+            event (InventoryChangedEvent): The inventory changed event.
+        """
         # Only refresh if the changed entity is currently being viewed
         if (
             self.inventory_panel.entity_id is not None
@@ -239,7 +249,12 @@ class HUD:
             self.inventory_panel.refresh()
 
     def on_inventory_item_action(self, event: InventoryItemActionEvent) -> None:
-        """Handles InventoryItemActionEvent for drop/use/transfer actions."""
+        """
+        Handles InventoryItemActionEvent for drop/use/transfer actions.
+
+        Args:
+            event (InventoryItemActionEvent): The inventory item action event.
+        """
         from ..inventory_component import InventoryDropRequest
 
         if event.action == "drop":
@@ -258,10 +273,7 @@ class HUD:
         Checks for selection changes and delegates rendering updates to HudRenderer.
 
         Args:
-            dt (float): Delta time since last frame.
-
-        Returns:
-            None
+            dt (float): Delta time since last frame in seconds.
         """
         self.renderer.fps = self.fps  # Sync FPS
 
@@ -290,9 +302,6 @@ class HUD:
     def _update_selection_window_layout(self) -> None:
         """
         Updates the layout of the selection window based on the selected entity type.
-
-        Returns:
-            None
         """
         if not self.selected_entities:
             self.layout.close_selection_window()
@@ -312,9 +321,6 @@ class HUD:
     def toggle_debug(self) -> None:
         """
         Toggles the visibility of the debug window.
-
-        Returns:
-            None
         """
         self.show_debug = not self.show_debug
         if self.show_debug:
@@ -325,8 +331,6 @@ class HUD:
     def toggle_lighting_debug(self) -> None:
         """Toggles lighting debug visuals."""
         self.lighting_debug = not self.lighting_debug
-        # Access renderer via renderer property or other means if needed.
-        # This will be used by the main loop or renderer.
 
     def toggle_navigation_debug(self) -> None:
         """Toggles navigation debug visuals (clusters, paths, steering)."""
@@ -336,12 +340,23 @@ class HUD:
     def init_navigation_debug(
         self, nav_service: "NavigationService", camera: "Camera"
     ) -> None:
-        """Initializes the navigation debug renderer."""
+        """
+        Initializes the navigation debug renderer.
+
+        Args:
+            nav_service (NavigationService): The navigation service.
+            camera (Camera): The game camera.
+        """
 
         self.navigation_debug_renderer = NavigationDebugRenderer(nav_service, camera)
 
     def init_ai_debug(self, camera: "Camera") -> None:
-        """Initializes the AI debug renderer."""
+        """
+        Initializes the AI debug renderer.
+
+        Args:
+            camera (Camera): The game camera.
+        """
         self.ai_debug_renderer = AIDebugRenderer(camera)
 
     def toggle_ai_debug(self) -> None:
@@ -355,9 +370,6 @@ class HUD:
 
         Args:
             message (str): The error message to display.
-
-        Returns:
-            None
         """
         self.renderer.show_error(message)
 
@@ -369,9 +381,6 @@ class HUD:
 
         Args:
             event (pygame.event.Event): The Pygame event to process.
-
-        Returns:
-            None
         """
         # Handle Context Menu Events
         if self.context_menu.process_event(event):
@@ -381,7 +390,7 @@ class HUD:
         if self.inventory_panel.process_event(event):
             return
 
-        _ = self.events.process_event(event)
+        self.events.process_event(event)
 
         # Check if event processing resulted in state changes we need to react to immediately
         # For example, if sold, we need to clear selection
