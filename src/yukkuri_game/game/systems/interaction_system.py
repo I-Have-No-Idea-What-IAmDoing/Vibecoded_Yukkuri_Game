@@ -190,7 +190,7 @@ class InteractionSystem(System):
                     target_transform.y - 20,
                     "Miss!",
                     (255, 50, 50),
-                    size=24
+                    size=24,
                 )
                 return True
 

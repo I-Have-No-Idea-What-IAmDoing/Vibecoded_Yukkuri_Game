@@ -150,7 +150,9 @@ class PygameBackend(RenderBackend):
             original_alpha = image_to_blit.get_alpha()
             image_to_blit.set_alpha(cmd.alpha)
             self.screen.blit(image_to_blit, dest_rect)
-            image_to_blit.set_alpha(original_alpha if original_alpha is not None else 255)
+            image_to_blit.set_alpha(
+                original_alpha if original_alpha is not None else 255
+            )
         else:
             self.screen.blit(image_to_blit, dest_rect)
 

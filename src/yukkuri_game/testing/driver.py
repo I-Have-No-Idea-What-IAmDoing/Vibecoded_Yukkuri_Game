@@ -289,7 +289,7 @@ class GameDriver:
             except Exception as e:
                 logger.error(f"create_yukkuri failed with exception: {e}")
                 return -1
-        
+
         logger.error("create_yukkuri failed: No EntityFactory in services")
         return -1
 

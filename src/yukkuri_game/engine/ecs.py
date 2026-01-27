@@ -367,7 +367,7 @@ class World:
         self._switch()
         system.ecs_world = self
         system.initialize()
-        esper.add_processor(system)  # type: ignore[arg-type]
+        esper.add_processor(system)
 
     def update(self, dt: float) -> None:
         """

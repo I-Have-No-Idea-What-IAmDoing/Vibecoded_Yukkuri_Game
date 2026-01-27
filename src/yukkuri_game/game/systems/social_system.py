@@ -25,7 +25,6 @@ from ...engine import rng
 from ...engine.audio import AudioManager
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ...engine.types import EntityID
 from ..components import InteractionRequest, Transform
 from ..events import SocialInteractionEvent
 from ..prefabs.effects import create_floating_text

@@ -104,7 +104,7 @@ class SteeringSystem(System):
                 world.remove_component(entity_id, MoveCommand)
                 movement.target_velocity = pymunk.Vec2d(0, 0)
                 continue
-            
+
             stats = world.try_get_component(entity_id, YukkuriStats)
             agility = stats.agility if stats else 1.0
 
@@ -175,7 +175,11 @@ class SteeringSystem(System):
             dist_sq = (target_pos - current_pos).length_squared
 
             # Thresholds: 60px for intermediate waypoints, 10px for final arrival.
-            pop_threshold_sq = self.WAYPOINT_THRESHOLD_SQ if len(path) > 1 else self.ARRIVAL_THRESHOLD_SQ
+            pop_threshold_sq = (
+                self.WAYPOINT_THRESHOLD_SQ
+                if len(path) > 1
+                else self.ARRIVAL_THRESHOLD_SQ
+            )
 
             if dist_sq < pop_threshold_sq:
                 path.pop(0)
@@ -305,8 +309,16 @@ class SteeringSystem(System):
 
             # --- Stuck Resolution ---
             # Two-tier resolution: jitter first, then skip waypoints or force repath.
-            stuck_threshold_jitter = self.STUCK_THRESHOLD_JITTER_PURSUIT if steering.pursuit_enabled else self.STUCK_THRESHOLD_JITTER
-            stuck_threshold_repath = self.STUCK_THRESHOLD_REPATH_PURSUIT if steering.pursuit_enabled else self.STUCK_THRESHOLD_REPATH
+            stuck_threshold_jitter = (
+                self.STUCK_THRESHOLD_JITTER_PURSUIT
+                if steering.pursuit_enabled
+                else self.STUCK_THRESHOLD_JITTER
+            )
+            stuck_threshold_repath = (
+                self.STUCK_THRESHOLD_REPATH_PURSUIT
+                if steering.pursuit_enabled
+                else self.STUCK_THRESHOLD_REPATH
+            )
 
             # Stage 1: Apply random jitter to wiggle free.
             if (

@@ -10,6 +10,7 @@ from yukkuri_game.game.systems.physics import PhysicsSystem
 from yukkuri_game.game.components import Transform, PhysicsBody
 from yukkuri_game.engine.ecs import World
 
+
 def run_benchmark():
     world = World()
     physics_system = PhysicsSystem(gravity=(0, 0))
@@ -28,7 +29,7 @@ def run_benchmark():
         shape = pymunk.Circle(body, 5)
 
         phys = PhysicsBody(body=body, shape=shape)
-        trans = Transform(x=i*10.0, y=0.0)
+        trans = Transform(x=i * 10.0, y=0.0)
 
         world.add_component(entity, phys)
         world.add_component(entity, trans)
@@ -49,6 +50,7 @@ def run_benchmark():
 
     print(f"Total time: {duration:.4f}s")
     print(f"Average tick: {avg_tick:.4f}ms")
+
 
 if __name__ == "__main__":
     run_benchmark()

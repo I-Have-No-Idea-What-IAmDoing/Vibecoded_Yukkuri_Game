@@ -113,7 +113,7 @@ class AnimationSystem(System):
             # Apply Agility Modifier to Animation Speed
             stats = world.try_get_component(entity_id, YukkuriStats)
             agility_mod = min(1.5, stats.agility) if stats else 1.0
-            
+
             self._update_animator(entity_id, animator, sprite, dt * agility_mod)
 
             # Sync with AI State if available

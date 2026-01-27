@@ -1,16 +1,18 @@
-
 import sys
 import os
 import gc
 import weakref
 
 # Add src to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+)
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 import pygame
+
 # Initialize pygame before importing application components that might rely on it
 pygame.init()
 
@@ -18,10 +20,11 @@ from yukkuri_game.engine.application import Application  # noqa: E402
 from yukkuri_game.scenes.gameplay import GameplayScene  # noqa: E402
 from yukkuri_game.scenes.main_menu import MainMenuScene  # noqa: E402
 
+
 def check_memory():
     # Redirect print to a file or capture it
     log_file = open("memory_report.txt", "w", encoding="utf-8")
-    
+
     def log(msg):
         print(msg)
         log_file.write(msg + "\n")
@@ -32,39 +35,40 @@ def check_memory():
     log("[*] Initializing Application...")
     app = Application(headless=True)
 
-
     # 1. Start with GameplayScene
     log("[*] Creating GameplayScene...")
     scene = GameplayScene(app)
-    
+
     # We need to manually call setup/on_enter as SceneManager usually does
     # But let's just use SceneManager to be authentic
     log("[*] Pushing GameplayScene to SceneManager...")
     app.scene_manager.push(scene)
-    
+
     # Create a weak ref to track it
     scene_ref = weakref.ref(scene)
-    
+
     # Run a few updates to let subscriptions happen
     log("[*] Running updates...")
     app.update(0.1)
     app.update(0.1)
-    
+
     # 2. Switch to MainMenu (this should exit GameplayScene)
     log("[*] Switching to MainMenuScene...")
     app.scene_manager.replace(MainMenuScene(app))
-    
+
     # Drop local reference
     del scene
-    
+
     # Run updates to process events/cleanup if any
     log("[*] Running post-switch updates...")
     app.update(0.1)
-    
+
     # Force GC - DISABLED to test reference counting
-    log("[*] GC is NOT explicitly called. Relying on refcounting (unless triggered auto).")
+    log(
+        "[*] GC is NOT explicitly called. Relying on refcounting (unless triggered auto)."
+    )
     # gc.collect()
-    
+
     # Check if scene is still alive
     obj = scene_ref()
 
@@ -76,10 +80,10 @@ def check_memory():
         log("Referrers:")
         refs = gc.get_referrers(obj)
         for ref in refs:
-             # Filter out the locals from get_referrers call itself if any
+            # Filter out the locals from get_referrers call itself if any
             if ref is refs:
                 continue
-            
+
             if isinstance(ref, dict):
                 # Try to identify what object owns this dict (usually __dict__)
                 found_owner = False
@@ -89,13 +93,15 @@ def check_memory():
                         found_owner = True
                         break
                 if not found_owner:
-                    log(f" - dict: {list(ref.keys())[:5]}...") # only show first few keys
+                    log(
+                        f" - dict: {list(ref.keys())[:5]}..."
+                    )  # only show first few keys
             elif isinstance(ref, list):
                 log(f" - list (len={len(ref)})")
             elif hasattr(ref, "__name__"):
-                 log(f" - {type(ref)}: {ref.__name__}")
+                log(f" - {type(ref)}: {ref.__name__}")
             else:
-                 log(f" - {type(ref)}")
+                log(f" - {type(ref)}")
 
 
 if __name__ == "__main__":

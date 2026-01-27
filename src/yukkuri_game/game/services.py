@@ -2,7 +2,7 @@
 Module defining core game services.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 import os
 import msgspec
 import dataclasses

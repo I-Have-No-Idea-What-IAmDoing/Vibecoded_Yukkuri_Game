@@ -4,7 +4,13 @@ Flight System Module.
 
 from ...engine.ecs import System, World
 from ..components import Transform
-from ..yukkuri_components import Flight, FlightState, Needs, EmotionalState, YukkuriStats
+from ..yukkuri_components import (
+    Flight,
+    FlightState,
+    Needs,
+    EmotionalState,
+    YukkuriStats,
+)
 from ..skill_service import SkillService
 from ..skill_constants import SkillId
 
@@ -39,7 +45,7 @@ class FlightSystem(System):
         self, world: World, entity: int, flight: Flight, transform: Transform, dt: float
     ) -> None:
         skill_service = world.services.try_get(SkillService)
-        
+
         stats = world.try_get_component(entity, YukkuriStats)
         agility = stats.agility if stats else 1.0
 

@@ -18,6 +18,7 @@ from yukkuri_game.game.components import Transform
 from yukkuri_game.game.ai.utility_selector import UtilitySelector
 from yukkuri_game.game.ai.utility import UtilityAIEngine
 from yukkuri_game.game.systems.perception_system import PerceptionSystem
+from yukkuri_game.game.services import TimeService
 
 
 class TestSocialContext:
@@ -27,6 +28,10 @@ class TestSocialContext:
         # Register mock engine
         engine = UtilityAIEngine(MagicMock())
         w.services.register(engine, UtilityAIEngine)
+        # Register TimeService
+        time_service = TimeService()
+        w.services.register(time_service, TimeService)
+
         # Register PerceptionSystem
         perception = PerceptionSystem()
         w.add_system(perception)
@@ -53,7 +58,13 @@ class TestSocialContext:
         ai = world.get_component(observer_id, AIState)
         ai.visible_entities.add(target_id)
         # Run systems (PerceptionSystem is registered)
-        world.update(0.1)
+        time_service = world.services.try_get(TimeService)
+        
+        time_service.update(0.1)
+        world.update(0.1) # Register detection
+        
+        time_service.update(0.6)
+        world.update(0.6) # Advance past buffer
 
     def test_same_type_is_neutral_by_default(self, world):
         """Same type entities should be Neutral by default (unless affinity exists)."""
