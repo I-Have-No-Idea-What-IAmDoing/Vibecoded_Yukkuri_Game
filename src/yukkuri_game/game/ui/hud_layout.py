@@ -324,7 +324,7 @@ class HudLayout:
             manager=self.manager,
             container=self.bottom_panel,
             tool_tip_text="Remove waste and dirt from the ground",
-            object_id="clean_button",
+            object_id=ObjectID(class_id="clean_button"),
         )
 
     def create_selection_window(
@@ -459,6 +459,7 @@ class HudLayout:
             value_range=(0, 100),
             manager=self.manager,
             container=self.settings_window,
+            tool_tip_text="Adjust Master Volume",
         )
 
         # BGM Volume
@@ -474,6 +475,7 @@ class HudLayout:
             value_range=(0, 100),
             manager=self.manager,
             container=self.settings_window,
+            tool_tip_text="Adjust Background Music Volume",
         )
 
         # SFX Volume
@@ -489,6 +491,7 @@ class HudLayout:
             value_range=(0, 100),
             manager=self.manager,
             container=self.settings_window,
+            tool_tip_text="Adjust Sound Effects Volume",
         )
 
         # Window Settings
@@ -510,6 +513,7 @@ class HudLayout:
             relative_rect=pygame.Rect(130, 140, 200, 30),
             manager=self.manager,
             container=self.settings_window,
+            tool_tip_text="Change Window Resolution",
         )
 
         self.settings_controls["fullscreen_btn"] = UIButton(
@@ -517,6 +521,7 @@ class HudLayout:
             text="Fullscreen: ON" if fullscreen else "Fullscreen: OFF",
             manager=self.manager,
             container=self.settings_window,
+            tool_tip_text="Toggle Fullscreen Mode",
         )
         self.settings_controls["fullscreen_value"] = fullscreen
 
