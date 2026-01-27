@@ -1,0 +1,1 @@
+## 2024-05-22 - Fixing Button Theming in PygameGUI **Learning:** `pygame_gui` themes using `element.class` require `object_id=ObjectID(class_id="class_name")`, not just `object_id="class_name"` (which sets the ID). Always verify theme selectors in `ui_theme.json`. **Action:** Use `ObjectID` for class-based styling.

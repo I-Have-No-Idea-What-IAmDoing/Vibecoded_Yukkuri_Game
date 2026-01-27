@@ -80,6 +80,11 @@ class HudEvents:
             "clean_btn": lambda: self.event_bus.publish(CleanToolRequestedEvent()),
         }
 
+    def _play_click(self) -> None:
+        """Plays the UI click sound."""
+        if self.audio_manager:
+            self.audio_manager.play_sound("click")
+
     def _save_game(self) -> None:
         """Publishes a SaveGameRequest."""
         # Default filename for UI-based save
@@ -139,16 +144,20 @@ class HudEvents:
                 hasattr(self.layout, attr_name)
                 and getattr(self.layout, attr_name) == ui_element
             ):
+                self._play_click()
                 handler()
                 return True
 
         if self._handle_settings_buttons(ui_element):
+            self._play_click()
             return True
 
         if self._handle_buy_buttons(ui_element):
+            self._play_click()
             return True
 
         if self._handle_selection_buttons(ui_element):
+            self._play_click()
             return True
 
         return False
