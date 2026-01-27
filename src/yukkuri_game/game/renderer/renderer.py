@@ -31,7 +31,7 @@ class Renderer:
         self.backend.begin_frame()
 
         # Sort layers and iterate
-        sorted_layers = sorted(self._layers.keys())
+        sorted_layers = sorted(self._layers)
 
         for layer_id in sorted_layers:
             commands = self._layers[layer_id]
