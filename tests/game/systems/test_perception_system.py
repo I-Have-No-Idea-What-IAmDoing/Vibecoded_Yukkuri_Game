@@ -118,6 +118,11 @@ class TestPerceptionSystem:
         system._update_blackboard(
             world, entity_id, ai_state, blackboard, trans, current_time=100.0
         )
+        
+        # Advance time to bypass reaction delay (0.5s default)
+        system._update_blackboard(
+            world, entity_id, ai_state, blackboard, trans, current_time=101.0
+        )
 
         assert blackboard.visible_targets[target_id].relation == "Prey"
         assert blackboard.closest_food_id == target_id

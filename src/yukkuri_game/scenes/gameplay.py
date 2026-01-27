@@ -200,11 +200,15 @@ class GameplayScene(Scene):
             # Initialize AI Debug
             self.hud.init_ai_debug(self.camera)
 
-            self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
-            self.event_bus.subscribe(CycleSpeedRequest, lambda e: self.cycle_speed())
-            self.event_bus.subscribe(ResolutionChangedEvent, self.on_resolution_changed)
-            self.event_bus.subscribe(SaveGameRequest, lambda e: self.save(e.filename))
-            self.event_bus.subscribe(LoadGameRequest, lambda e: self.load(e.filename))
+            # Initialize AI Debug
+            self.hud.init_ai_debug(self.camera)
+
+        # Logic Event Handlers (Must run even in headless mode)
+        self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
+        self.event_bus.subscribe(CycleSpeedRequest, lambda e: self.cycle_speed())
+        self.event_bus.subscribe(ResolutionChangedEvent, self.on_resolution_changed)
+        self.event_bus.subscribe(SaveGameRequest, lambda e: self.save(e.filename))
+        self.event_bus.subscribe(LoadGameRequest, lambda e: self.load(e.filename))
 
     def on_exit(self) -> None:
         """
@@ -239,6 +243,11 @@ class GameplayScene(Scene):
         # Clear local audio resources
         if hasattr(self, "audio") and self.audio:
             self.audio.clear()
+
+        # Cleanup Event Bus to break reference cycles
+        # This removes all subscribers, including the lambdas capturing 'self'
+        if hasattr(self, "event_bus") and self.event_bus:
+            self.event_bus.clear()
 
     def toggle_pause(self) -> None:
         """Toggles the pause state."""

@@ -11,7 +11,7 @@ dependencies = [
     "loguru>=0.7.3",
     "py_trees>=2.4.0",
     "pymunk>=7.2.0",
-    "esper>=3.4",
+    "esper>=3.6",
     "msgspec>=0.20.0",
     "simpleeval>=1.0.3",
     "pygame-render>=1.4.2",
@@ -23,8 +23,9 @@ dev = [
     "pytest>=9.0.1",
     "psutil>=7.2.1",
     "mypy>=1.8.0",
-    "ruff>=0.4.0",
-    "ty>=0.0.1a14",
+    "ruff>=0.14",
+    "ty>=0.0.14",
+    "types-psutil>=7.2.1.20260116",
 ]
 
 [build-system]

@@ -113,11 +113,12 @@ class MoveToTarget(Action):
                     if hit is None:
                         use_direct_steering = True
                     elif hit.shape:
-                        target_phys = self.world.try_get_component(
-                            ai.current_target_id, PhysicsBody
-                        )
-                        if target_phys and hit.shape.body == target_phys.body:
-                            use_direct_steering = True
+                        if ai.current_target_id != -1:
+                            target_phys = self.world.try_get_component(
+                                ai.current_target_id, PhysicsBody
+                            )
+                            if target_phys and hit.shape.body == target_phys.body:
+                                use_direct_steering = True
 
             if use_direct_steering:
                 if dist_to_target < self.acceptance_radius:
@@ -146,6 +147,15 @@ class MoveToTarget(Action):
                 if ai.path:
                     ai.path = None
                 return Status.RUNNING
+
+        if target_pos:
+            dist_sq = (target_pos - current_pos).length_squared
+            if dist_sq < self.acceptance_radius * self.acceptance_radius:
+                controller.target_velocity = pymunk.Vec2d(0, 0)
+                ai.path = None
+                if self.world.has_component(self.entity_id, MoveCommand):
+                    self.world.remove_component(self.entity_id, MoveCommand)
+                return Status.SUCCESS
 
         # Pathfinding (Async)
         if ai.path is None:
@@ -213,9 +223,11 @@ class MoveToTarget(Action):
                 path_dest = ai.state_data.get("path_destination")
                 if path_dest:
                     drift_threshold_sq = 2500.0
-                    target_phys = self.world.try_get_component(
-                        ai.current_target_id, PhysicsBody
-                    )
+                    target_phys = None
+                    if ai.current_target_id != -1:
+                        target_phys = self.world.try_get_component(
+                            ai.current_target_id, PhysicsBody
+                        )
                     if target_phys and target_phys.body:
                         t_speed = target_phys.body.velocity.length
                         val = max(20.0, 50.0 - (t_speed * 0.3))

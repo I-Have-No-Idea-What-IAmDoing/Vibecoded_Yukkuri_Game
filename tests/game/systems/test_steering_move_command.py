@@ -18,6 +18,7 @@ class TestSteeringMoveCommand:
     def world(self):
         w = MagicMock(spec=World)
         w.services = MagicMock()
+        w.try_get_component.return_value = None
         return w
 
     @pytest.fixture

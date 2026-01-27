@@ -35,6 +35,7 @@ from ..yukkuri_components import (
 from ..trait_service import TraitService
 from .hunger_system import HungerSystem
 from .social_system import SocialSystem
+from ..prefabs.effects import create_floating_text
 
 
 class InteractionSystem(System):
@@ -151,7 +152,7 @@ class InteractionSystem(System):
         dist = math.hypot(
             transform.x - target_transform.x, transform.y - target_transform.y
         )
-        if dist > 70.0:  # 70px threshold for movement jitter.
+        if dist > 75.0:  # 75px threshold for movement jitter and physics.
             return False
 
         # Dispatch: Item Consumption
@@ -183,7 +184,14 @@ class InteractionSystem(System):
             # Predation Dodge Check
             if target_stats.agility > stats.agility * 1.5:
                 logger.info(f"Yukkuri {target_id} dodged predation from {entity}!")
-                # TODO: Spawn "Miss!" text popup
+                create_floating_text(
+                    world,
+                    target_transform.x,
+                    target_transform.y - 20,
+                    "Miss!",
+                    (255, 50, 50),
+                    size=24
+                )
                 return True
 
             if self._check_predation_allowed(world, entity):

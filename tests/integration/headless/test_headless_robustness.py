@@ -5,6 +5,8 @@ from yukkuri_game.testing.driver import (
     GameDriver,
     KeyPress,
     WaitUntilScene,
+    InjectInput,
+    WaitFrames,
 )
 from yukkuri_game.scenes.gameplay import GameplayScene
 from yukkuri_game.scenes.main_menu import MainMenuScene
@@ -81,8 +83,13 @@ def test_input_injection(game_driver: GameDriver):
         (
             step
             for step in [
-                KeyPress(pygame.K_ESCAPE),
-                WaitUntilScene(MainMenuScene, timeout=2.0),
+                # Split KeyPress to avoid race condition where MainMenu sees the same frame's input
+                # 1. Press Down to trigger Pause -> Main Menu
+                InjectInput([pygame.event.Event(pygame.KEYDOWN, {"key": pygame.K_ESCAPE})]),
+                WaitFrames(1), # Ensure one tick to clear _keys_down input buffer
+                WaitUntilScene(MainMenuScene, timeout=5.0),
+                # 2. Release Up (consumed by Main Menu but won't trigger quit as it's just release)
+                InjectInput([pygame.event.Event(pygame.KEYUP, {"key": pygame.K_ESCAPE})]),
             ]
         )
     )

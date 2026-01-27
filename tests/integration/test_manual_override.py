@@ -48,9 +48,14 @@ def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
     # 500 distance / 100 speed = 5 seconds. Plus interaction time.
     driver.run_for(seconds=10.0)
 
+    # Check if item exists (debug)
+    # from yukkuri_game.game.components import ItemStats
+    item_remains = driver.world.entity_exists(item_id)
+    # assert not item_remains, "Item should have been eaten"
+
     # After finishing, manual_override should be cleared
     assert ai.manual_override is False, (
-        "Manual override should be cleared after action completion"
+        f"Manual override should be cleared. Item exists? {item_remains}. Action: {ai.current_action}."
     )
 
     # And AI should have picked a new action (likely Idle or Wander)

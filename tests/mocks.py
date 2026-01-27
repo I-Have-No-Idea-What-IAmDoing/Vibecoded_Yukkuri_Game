@@ -38,3 +38,6 @@ class MockAudioManager:
 
     def reset_mocks(self) -> None:
         self.played_sounds.clear()
+
+    def clear(self) -> None:
+        pass

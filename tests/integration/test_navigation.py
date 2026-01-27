@@ -70,12 +70,13 @@ def test_navigation_straight_line(game_driver: GameDriver):
     driver.set_ai_action(yukkuri_id, "Eat", target_id=item_id)
 
     # Run until near target (early exit optimization)
+    # Threshold 75.0 accounts for body radius (32) + item radius (16) + margin
     distance_to_target, _ = _run_until_near_target(
-        driver, yukkuri_id, target_pos, threshold=35.0, max_seconds=5.0
+        driver, yukkuri_id, target_pos, threshold=75.0, max_seconds=5.0
     )
 
     # The Eat action consumes the item when close.
-    assert distance_to_target < 35, (
+    assert distance_to_target < 75.0, (
         f"Yukkuri did not reach target. Distance: {distance_to_target}"
     )
 
@@ -127,15 +128,24 @@ def test_navigation_with_obstacle(game_driver: GameDriver):
         driver,
         yukkuri_id,
         target_pos,
-        threshold=35.0,
+        threshold=75.0,
         max_seconds=10.0,
         track_path_length=True,
     )
 
-    assert distance_to_target < 35, (
+    assert distance_to_target < 75.0, (
         f"Yukkuri did not reach target. Distance: {distance_to_target}"
     )
-    assert path_length > 400, "Yukkuri did not navigate around the obstacle."
+    
+    # Calculate minimal straight line distance to the stopping point
+    # Start (100, 100), Target (500, 100). Total 400.
+    # It stopped 'distance_to_target' away.
+    effective_straight_distance = 400.0 - distance_to_target
+    
+    # If it went around, path should be noticeably longer than straight line
+    assert path_length > effective_straight_distance + 20.0, (
+        f"Yukkuri did not navigate around obstacle. Path: {path_length}, Straight: {effective_straight_distance}"
+    )
 
 
 def test_stat_based_speed_modification(game_driver: GameDriver):

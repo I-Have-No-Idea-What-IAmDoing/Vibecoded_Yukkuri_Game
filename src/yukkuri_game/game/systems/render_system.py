@@ -319,10 +319,12 @@ class RenderSystem(System):
             width = abs(end_x - start_x) + 2 * buffer
             height = abs(end_y - start_y) + 2 * buffer
 
-            return sector_map.get_entities_in_rect(min_x, min_y, width, height)
+            # Filter out invalid entity IDs (e.g. -1) that might have leaked into the sector map
+            entities = sector_map.get_entities_in_rect(min_x, min_y, width, height)
+            return [e for e in entities if e >= 0]
         else:
             return [
-                e for e, _ in world.get_components_tuple(Transform)
+                e for e, _ in world.get_components_tuple(Transform) if e >= 0
             ]  # Fallback: all entities.
 
     def _rebuild_background_cache(self, sw: int, sh: int) -> None:

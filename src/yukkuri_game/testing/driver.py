@@ -280,10 +280,17 @@ class GameDriver:
         from ..game.entity_factory import EntityFactory
 
         if not self.world:
+            logger.error("create_yukkuri failed: No World")
             return -1
         factory = self.world.services.try_get(EntityFactory)
         if factory:
-            return int(factory.create_yukkuri(type_id, x, y))
+            try:
+                return int(factory.create_yukkuri(type_id, x, y))
+            except Exception as e:
+                logger.error(f"create_yukkuri failed with exception: {e}")
+                return -1
+        
+        logger.error("create_yukkuri failed: No EntityFactory in services")
         return -1
 
     def create_item(self, type_id: str, x: float, y: float) -> int:
@@ -480,7 +487,7 @@ class GameDriver:
         """Advances the game by one fixed time step."""
         # 0. Check if game is running
         if hasattr(self.game, "running") and not self.game.running:
-            return
+            raise RuntimeError("Game stopped running during simulation tick")
 
             # 1. Handle Events
             # Cast to Any first for dynamic dispatch
@@ -493,7 +500,7 @@ class GameDriver:
 
         # Check again if game stopped running after event processing
         if hasattr(self.game, "running") and not self.game.running:
-            return
+            raise RuntimeError("Game stopped running after event processing")
 
         # 2. Update Game State
         if hasattr(self.game, "update"):

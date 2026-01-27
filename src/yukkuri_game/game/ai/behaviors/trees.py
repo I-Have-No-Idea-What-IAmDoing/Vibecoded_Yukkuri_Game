@@ -91,7 +91,7 @@ def build_eat_behavior(
         stat_criteria="nutrition",
     )
     move_to_food = MoveToTarget(
-        name="Move To Food", entity_id=entity_id, world=world, acceptance_radius=60.0
+        name="Move To Food", entity_id=entity_id, world=world, acceptance_radius=75.0
     )
     interact_food = Interact(name="Interact Food", entity_id=entity_id, world=world)
 

@@ -59,7 +59,7 @@ class Interact(Action):
             return Status.FAILURE
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
-        if dist <= 50.0:
+        if dist <= 75.0:
             if not self.world.has_component(self.entity_id, InteractionRequest):
                 self.world.add_component(
                     self.entity_id,
@@ -105,7 +105,7 @@ class SocialInteract(Action):
             return Status.FAILURE
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
-        if dist <= 60.0:
+        if dist <= 75.0:
             if not self.world.has_component(self.entity_id, InteractionRequest):
                 self.world.add_component(
                     self.entity_id,

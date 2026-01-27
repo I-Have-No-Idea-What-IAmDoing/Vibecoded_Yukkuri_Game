@@ -10,7 +10,6 @@ import contextlib
 import uuid
 from collections.abc import Iterator
 from typing import (
-    TYPE_CHECKING,
     Any,
     TypeVar,
 )
@@ -242,7 +241,7 @@ class World:
         """
         self._switch()
         try:
-            return esper.component_for_entity(entity, component_type)  # type: ignore[no-any-return]
+            return esper.component_for_entity(entity, component_type)
 
         except KeyError:
             return None
@@ -260,7 +259,7 @@ class World:
             The component instance if found, otherwise None.
         """
         self._switch()
-        return esper.try_component(entity, component_type)  # type: ignore[no-any-return]
+        return esper.try_component(entity, component_type)
 
     def has_component(self, entity: int, component_type: type[Any]) -> bool:
         """
@@ -336,7 +335,7 @@ class World:
             (Entity ID, (Component1, Component2, ...))
         """
         self._switch()
-        return esper.get_components(*component_types)  # type: ignore[no-any-return]
+        return esper.get_components(*component_types)
 
     def get_all_components(self, entity: int) -> tuple[Any, ...]:
         """
@@ -350,7 +349,7 @@ class World:
         """
         self._switch()
         try:
-            return esper.components_for_entity(entity)  # type: ignore[no-any-return]
+            return esper.components_for_entity(entity)
         except KeyError:
             return ()
 
@@ -408,20 +407,7 @@ class World:
             pass
 
 
-if TYPE_CHECKING:
-
-    class ProcessorBase:
-        """
-        Type hint helper for Esper Processors.
-        """
-
-        def process(self, dt: float) -> None: ...
-
-else:
-    ProcessorBase = esper.Processor
-
-
-class System(ProcessorBase):
+class System(esper.Processor):
     """
     Base class for all ECS Systems.
 
