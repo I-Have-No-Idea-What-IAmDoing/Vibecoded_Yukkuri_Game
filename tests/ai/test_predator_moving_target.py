@@ -52,7 +52,7 @@ class TestPredatorMovingTarget(unittest.TestCase):
         self.world.add_system(self.steering_system)
         self.world.add_system(self.visibility_system)
 
-        time.sleep(0.1)
+        # time.sleep(0.1) # Removed unnecessary sleep
         self.space = pymunk.Space()
 
         # We need PhysicsSystem or similar to update physics?
@@ -157,7 +157,7 @@ class TestPredatorMovingTarget(unittest.TestCase):
 
                 dist = prey_trans.x - pred_trans.x
                 positions_log.append(dist)
-                time.sleep(0.001)
+                # time.sleep(0.001) # Removed unnecessary sleep in deterministic loop
 
             final_dist = positions_log[-1]
             min_dist = min(positions_log)

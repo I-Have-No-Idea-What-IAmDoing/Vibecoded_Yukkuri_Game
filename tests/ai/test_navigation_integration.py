@@ -41,7 +41,7 @@ class TestNavigationIntegration(unittest.TestCase):
         self.world.add_system(self.nav_update_system)
 
         # Start thread
-        time.sleep(0.1)
+        # time.sleep(0.1) # Removed unnecessary sleep
 
         # Space for physics bodies (needed for pymunk shapes)
         self.space = pymunk.Space()
@@ -112,7 +112,7 @@ class TestNavigationIntegration(unittest.TestCase):
             if ai_state_comp.state_data and ai_state_comp.state_data.get("path_failed"):
                 self.fail("Pathfinding reported failure")
 
-            time.sleep(0.01)
+            # time.sleep(0.01) # Removed unnecessary sleep
 
         self.assertTrue(found_path, "Path was not found in time")
         self.assertIsNotNone(path)
