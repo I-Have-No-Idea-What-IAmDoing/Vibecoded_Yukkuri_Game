@@ -13,18 +13,18 @@ Key Features:
 -   Deterministic mode for testing and replays.
 """
 
-import threading
 import queue
+import threading
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional
-from loguru import logger
 from enum import IntEnum
 
-from .navigation_grid import NavigationGrid
+from loguru import logger
+
+from .hpa import AStar, ClusterGraph, StringPuller
 from .navigation_constants import TraversalCapability
-from .hpa import ClusterGraph, AStar, StringPuller
+from .navigation_grid import NavigationGrid
 
 
 class ObstacleType(IntEnum):
@@ -52,8 +52,8 @@ class PathRequest:
     priority: int
     timestamp: float
     entity_id: int
-    start: Tuple[int, int] = field(compare=False)
-    end: Tuple[int, int] = field(compare=False)
+    start: tuple[int, int] = field(compare=False)
+    end: tuple[int, int] = field(compare=False)
     capabilities: int = field(compare=False)
 
 
@@ -62,7 +62,7 @@ class PathResult:
     """Result of a pathfinding request."""
 
     entity_id: int
-    path: List[Tuple[float, float]]  # World coordinates
+    path: list[tuple[float, float]]  # World coordinates
     success: bool
     is_partial: bool = False
 
@@ -87,7 +87,7 @@ class NavigationService:
         grid_step_size (int): Size of each grid cell in pixels.
         deterministic_mode (bool): If True, runs logic synchronously for determinism.
         grid (NavigationGrid): The underlying navigation grid.
-        cluster_graph (ClusterGraph): The hierarchical HPA* graph.
+        cluster_graphs (dict[int, ClusterGraph]): The hierarchical HPA* graphs.
         request_queue (queue.PriorityQueue): queue for pending PathRequests.
         result_queue (queue.Queue): queue for completed PathResults.
     """
@@ -117,17 +117,17 @@ class NavigationService:
         self.grid = NavigationGrid(world_width, world_height, grid_step_size)
 
         # HPA* Cluster Graphs - one per traversal capability
-        self.cluster_graphs: Dict[int, ClusterGraph] = {}
+        self.cluster_graphs: dict[int, ClusterGraph] = {}
         for cap in [TraversalCapability.WALK, TraversalCapability.FLY]:
             self.cluster_graphs[cap] = ClusterGraph(self.grid)
             self.cluster_graphs[cap].build_graph(capability=cap)
 
         # Async Logic
-        self.request_queue = queue.PriorityQueue()
-        self.result_queue = queue.Queue()
+        self.request_queue: queue.PriorityQueue[PathRequest] = queue.PriorityQueue()
+        self.result_queue: queue.Queue[PathResult] = queue.Queue()
 
         # Path cache: (start_cluster, end_cluster, capabilities) -> abstract path IDs
-        self._path_cache: dict = {}
+        self._path_cache: dict[tuple[tuple[int, int], tuple[int, int], int], list[str]] = {}
 
         # Dirty flag triggers graph rebuild on next worker cycle.
         self._dirty = False
@@ -138,7 +138,7 @@ class NavigationService:
         self.use_multiprocessing = False  # Reserved for future enhancement
 
         self._running = True
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
 
         if not self.deterministic_mode:
             self._thread = threading.Thread(
@@ -200,8 +200,8 @@ class NavigationService:
     def request_path(
         self,
         entity_id: int,
-        start: Tuple[float, float],
-        end: Tuple[float, float],
+        start: tuple[float, float],
+        end: tuple[float, float],
         capabilities: int = TraversalCapability.WALK,
         priority: int = 2,
         timestamp: float | None = None,
@@ -211,11 +211,11 @@ class NavigationService:
 
         Args:
             entity_id (int): Requesting entity's ID (for result matching).
-            start (Tuple[float, float]): World coordinates of starting position.
-            end (Tuple[float, float]): World coordinates of destination.
+            start (tuple[float, float]): World coordinates of starting position.
+            end (tuple[float, float]): World coordinates of destination.
             capabilities (int): Bitfield of TraversalCapability flags.
             priority (int): Lower value = higher priority (0=urgent, 2=normal).
-            timestamp (Optional[float]): Request time for deterministic ordering.
+            timestamp (float | None): Request time for deterministic ordering.
         """
         # Drop low-priority requests when queue is congested.
         if self.request_queue.qsize() > 50 and priority > 2:
@@ -279,14 +279,14 @@ class NavigationService:
                 logger.error(f"Error in navigation update: {e}")
                 traceback.print_exc()
 
-    def get_results(self) -> List[PathResult]:
+    def get_results(self) -> list[PathResult]:
         """
         Retrieves all completed path results from the queue.
 
         This method should be called from the Main Thread.
 
         Returns:
-            List[PathResult]: A list of completed path results.
+            list[PathResult]: A list of completed path results.
         """
         results = []
         try:
@@ -499,16 +499,25 @@ class NavigationService:
 
     def _refine_cached_path(
         self,
-        cached_abstract: list,
-        start_pos: Tuple[int, int],
-        end_pos: Tuple[int, int],
+        cached_abstract: list[str],
+        start_pos: tuple[int, int],
+        end_pos: tuple[int, int],
         capability: int,
-    ) -> Optional[List[Tuple[int, int]]]:
+    ) -> list[tuple[int, int]] | None:
         """
         Refines a cached abstract path for specific start/end positions.
 
         Connects the start position to the first cached node, and the last
         cached node to the end position, reusing the cached middle section.
+
+        Args:
+            cached_abstract (list[str]): The abstract path from cache.
+            start_pos (tuple[int, int]): Start position.
+            end_pos (tuple[int, int]): End position.
+            capability (int): Traversal capability.
+
+        Returns:
+            list[tuple[int, int]] | None: The refined path or None.
         """
         if not cached_abstract:
             return None
@@ -517,7 +526,7 @@ class NavigationService:
         graph = self.get_graph(capability)
 
         # Build full abstract path: start -> cached -> end
-        full_path = []
+        full_path: list[tuple[int, int]] = []
 
         # Connect start to first cached node
         first_node = graph.graph_nodes.get(cached_abstract[0])
@@ -557,8 +566,16 @@ class NavigationService:
 
         return full_path
 
-    def _to_world(self, grid_pos: Tuple[int, int]) -> Tuple[float, float]:
-        """Converts grid coordinates to world coordinates."""
+    def _to_world(self, grid_pos: tuple[int, int]) -> tuple[float, float]:
+        """
+        Converts grid coordinates to world coordinates.
+
+        Args:
+            grid_pos (tuple[int, int]): Grid coordinates.
+
+        Returns:
+            tuple[float, float]: World coordinates.
+        """
         return (
             float(grid_pos[0] * self.grid_step_size),
             float(grid_pos[1] * self.grid_step_size),
@@ -602,8 +619,12 @@ class NavigationService:
             self._dirty = True
 
     def find_path(
-        self, start, end, can_fly=False, timestamp: float | None = None
-    ) -> List[Tuple[float, float]]:
+        self,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        can_fly: bool = False,
+        timestamp: float | None = None,
+    ) -> list[tuple[float, float]]:
         """
         Blocking synchronous pathfinding.
 
@@ -611,13 +632,13 @@ class NavigationService:
         and blocking the main thread is acceptable (or when using deterministic mode).
 
         Args:
-            start (Tuple[float, float]): Start world position.
-            end (Tuple[float, float]): End world position.
+            start (tuple[float, float]): Start world position.
+            end (tuple[float, float]): End world position.
             can_fly (bool): If True, uses FLY capability.
-            timestamp (Optional[float]): Timestamp for request ordering.
+            timestamp (float | None): Timestamp for request ordering.
 
         Returns:
-            List[Tuple[float, float]]: The calculated path, or empty list if failed.
+            list[tuple[float, float]]: The calculated path, or empty list if failed.
         """
         logger.debug(f"find_path called: {start} -> {end}")
         req = PathRequest(
@@ -637,8 +658,16 @@ class NavigationService:
         logger.debug(f"find_path finished. Success: {result.success}")
         return result.path if result.success else []
 
-    def _to_grid(self, pos: Tuple[float, float]) -> Tuple[int, int]:
-        """Converts world coordinates to grid coordinates."""
+    def _to_grid(self, pos: tuple[float, float]) -> tuple[int, int]:
+        """
+        Converts world coordinates to grid coordinates.
+
+        Args:
+            pos (tuple[float, float]): World coordinates.
+
+        Returns:
+            tuple[int, int]: Grid coordinates.
+        """
         gx = int(round(pos[0] / self.grid_step_size))
         gy = int(round(pos[1] / self.grid_step_size))
         gx = max(0, min(gx, self.grid.width - 1))

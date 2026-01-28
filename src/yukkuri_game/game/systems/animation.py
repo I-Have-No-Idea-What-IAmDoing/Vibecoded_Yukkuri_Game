@@ -20,14 +20,14 @@ Data Structure:
 -   Sprite sheets are standard grids of frames.
 """
 
-from typing import Dict, Optional, Any
+from typing import Any
 
-from ...engine.ecs import System, World, Component
+from ...engine.ecs import Component, System, World
 from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
-from ..components import Sprite, Animator, LODComponent
-from ..yukkuri_components import AIState, YukkuriStats, register_archetype
+from ..components import Animator, LODComponent, Sprite
 from ..events import AnimationEvent
+from ..yukkuri_components import AIState, YukkuriStats, register_archetype
 
 
 class Animation(Component):
@@ -40,13 +40,13 @@ class Animation(Component):
         speed (float): Playback speed multiplier.
         facing_right (bool): True if facing right, False if facing left.
         sprite_sheet_id (str): ID of the sprite sheet resource.
-        animations (Dict[str, Any]): Dictionary of available animation states.
+        animations (dict[str, Any]): Dictionary of available animation states.
     """
 
     def __init__(
         self,
         sprite_sheet_id: str,
-        animations: Dict[str, Any],
+        animations: dict[str, Any],
         default_anim: str = "idle",
     ):
         """
@@ -54,7 +54,7 @@ class Animation(Component):
 
         Args:
             sprite_sheet_id (str): Resource ID for the sprite sheet.
-            animations (Dict[str, Any]): Animation data (frames, loops, etc.).
+            animations (dict[str, Any]): Animation data (frames, loops, etc.).
             default_anim (str): Initial animation state.
         """
         self.sprite_sheet_id = sprite_sheet_id
@@ -73,12 +73,12 @@ class AnimationSystem(System):
     Driven by state changes (idle, walk, run, etc.) and time deltas.
     """
 
-    def __init__(self, event_bus: Optional[EventBus] = None):
+    def __init__(self, event_bus: EventBus | None = None):
         """
         Initializes the AnimationSystem.
 
         Args:
-            event_bus (Optional[EventBus]): The event bus.
+            event_bus (EventBus | None): The event bus.
         """
         self.event_bus = event_bus
         self.frame_count: int = 0
@@ -312,7 +312,7 @@ class AnimationSystem(System):
             self._switch_animation(animator, target_anim)
 
     def _update_dynamic_sprite(
-        self, world: World, entity: int, sprite: Sprite, rm: Optional[ResourceManager]
+        self, world: World, entity: int, sprite: Sprite, rm: ResourceManager | None
     ) -> None:
         """
         Updates the sprite image based on AIState if no Animator is present.
@@ -321,7 +321,7 @@ class AnimationSystem(System):
             world (World): The ECS World.
             entity (int): The entity ID.
             sprite (Sprite): The sprite component.
-            rm (Optional[ResourceManager]): The resource manager.
+            rm (ResourceManager | None): The resource manager.
         """
         if not rm:
             return

@@ -2,10 +2,11 @@
 Module for the Context Menu UI.
 """
 
+from typing import Any, Callable
+
 import pygame
 import pygame_gui
 from pygame_gui.elements import UIPanel, UISelectionList
-from typing import Callable, Any, Optional
 
 
 class ContextMenu:
@@ -15,8 +16,8 @@ class ContextMenu:
     Attributes:
         manager (pygame_gui.UIManager): The UI Manager.
         window_rect (pygame.Rect): The rectangle of the menu.
-        selection_list (UISelectionList): The list of options.
-        on_action (Callable[[str, Any], None]): Callback when an action is selected.
+        selection_list (UISelectionList | None): The list of options.
+        on_action (Callable[[str, Any], None] | None): Callback when an action is selected.
         target_data (Any): Data associated with the current context (e.g., Entity ID).
     """
 
@@ -28,9 +29,9 @@ class ContextMenu:
             manager (pygame_gui.UIManager): The UI Manager.
         """
         self.manager = manager
-        self.panel: Optional[UIPanel] = None
-        self.selection_list: Optional[UISelectionList] = None
-        self.on_action: Optional[Callable[[str, Any], None]] = None
+        self.panel: UIPanel | None = None
+        self.selection_list: UISelectionList | None = None
+        self.on_action: Callable[[str, Any], None] | None = None
         self.target_data: Any = None
         self.active = False
         self.options: list[tuple[str, str]] = []  # (Label, ActionID)

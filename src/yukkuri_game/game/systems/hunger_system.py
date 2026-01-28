@@ -16,15 +16,15 @@ Skill Integration:
 """
 
 import math
-from typing import cast, Optional
+from typing import cast
 
-from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
+from ...engine.ecs import System, World
 from ...engine.types import EntityID
-from ..components import Transform, InteractionRequest
-from ..yukkuri_components import YukkuriStats, Needs, ItemStats, AIState, EmotionalState
-from ..skill_service import SkillService
+from ..components import InteractionRequest, Transform
 from ..skill_constants import SkillId
+from ..skill_service import SkillService
+from ..yukkuri_components import AIState, EmotionalState, ItemStats, Needs, YukkuriStats
 
 
 class HungerSystem(System):
@@ -35,15 +35,15 @@ class HungerSystem(System):
     Consumption requests are dispatched here from InteractionSystem.
 
     Attributes:
-        audio (Optional[AudioManager]): Audio manager for sound effects.
-        skill_service (Optional[SkillService]): Service for skill progression.
+        audio (AudioManager | None): Audio manager for sound effects.
+        skill_service (SkillService | None): Service for skill progression.
     """
 
     def __init__(self) -> None:
         """Initializes the HungerSystem."""
         super().__init__()
-        self.audio: Optional[AudioManager] = None
-        self.skill_service: Optional[SkillService] = None
+        self.audio: AudioManager | None = None
+        self.skill_service: SkillService | None = None
 
     def update(self, world: World, dt: float) -> None:
         """

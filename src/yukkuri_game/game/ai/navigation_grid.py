@@ -1,13 +1,14 @@
-import numpy as np
 import math
 from dataclasses import dataclass
-from typing import Tuple, Optional
-from .navigation_constants import TraversalCapability, TerrainType
+
+import numpy as np
+
+from .navigation_constants import TerrainType, TraversalCapability
 
 
 @dataclass(slots=True)
 class NavNode:
-    position: Tuple[int, int]
+    position: tuple[int, int]
     access_mask: int
     cost: float = 1.0
 
@@ -45,8 +46,17 @@ class NavigationGrid:
         self.cells["access_mask"] = default_mask
         self.cells["cost"] = TerrainType.GRASS.value  # Default cost
 
-    def get_node(self, x: int, y: int) -> Optional[NavNode]:
-        """Returns a NavNode object for the given grid coordinates."""
+    def get_node(self, x: int, y: int) -> NavNode | None:
+        """
+        Returns a NavNode object for the given grid coordinates.
+
+        Args:
+            x (int): Grid X coordinate.
+            y (int): Grid Y coordinate.
+
+        Returns:
+            NavNode | None: The node if coordinates are valid, else None.
+        """
         if 0 <= x < self.width and 0 <= y < self.height:
             cell = self.cells[x, y]
             return NavNode(
@@ -55,7 +65,15 @@ class NavigationGrid:
         return None
 
     def set_obstacle(self, x: int, y: int, mask: int, cost: float = 1.0) -> None:
-        """Sets the obstacle mask and cost at the given coordinates."""
+        """
+        Sets the obstacle mask and cost at the given coordinates.
+
+        Args:
+            x (int): Grid X coordinate.
+            y (int): Grid Y coordinate.
+            mask (int): Traversal capability mask.
+            cost (float): Movement cost. Defaults to 1.0.
+        """
         if 0 <= x < self.width and 0 <= y < self.height:
             self.cells[x, y]["access_mask"] = mask
             self.cells[x, y]["cost"] = cost
@@ -71,8 +89,17 @@ class NavigationGrid:
     ) -> None:
         """
         Updates a rectangular area.
+
         If is_blocking is True, the bits in block_mask are CLEARED (removed from allowed capabilities).
         If is_blocking is False, the bits in block_mask are SET (added to allowed capabilities).
+
+        Args:
+            world_x (float): Center X in world coordinates.
+            world_y (float): Center Y in world coordinates.
+            width (float): Width in world units.
+            height (float): Height in world units.
+            is_blocking (bool): True to remove capabilities (block), False to add (clear).
+            block_mask (int): The capability bits to modify.
         """
         half_w = width / 2
         half_h = height / 2
@@ -102,7 +129,17 @@ class NavigationGrid:
                 np.bitwise_or(view, np.uint8(block_mask), out=view)
 
     def is_walkable(self, x: int, y: int, capability_mask: int) -> bool:
-        """Checks if a cell is traversable by an entity with the given capability mask."""
+        """
+        Checks if a cell is traversable by an entity with the given capability mask.
+
+        Args:
+            x (int): Grid X coordinate.
+            y (int): Grid Y coordinate.
+            capability_mask (int): The entity's capabilities.
+
+        Returns:
+            bool: True if traversable.
+        """
         if 0 <= x < self.width and 0 <= y < self.height:
             cell_mask = self.cells[x, y]["access_mask"]
             # If any bit overlaps, it is traversable?
@@ -110,10 +147,20 @@ class NavigationGrid:
             # Usually: The cell defines "what can traverse here".
             # E.g. Cell=WALK. Entity=WALK. (WALK & WALK) > 0 -> OK.
             # Cell=FLY. Entity=WALK. (FLY & WALK) == 0 -> Blocked.
-            return (cell_mask & capability_mask) > 0
+            return bool((cell_mask & capability_mask) > 0)
         return False
 
     def get_cost(self, x: int, y: int) -> float:
+        """
+        Gets the movement cost for a cell.
+
+        Args:
+            x (int): Grid X coordinate.
+            y (int): Grid Y coordinate.
+
+        Returns:
+            float: Movement cost. Returns infinity if out of bounds.
+        """
         if 0 <= x < self.width and 0 <= y < self.height:
             return self.cells[x, y]["cost"]
         return float("inf")

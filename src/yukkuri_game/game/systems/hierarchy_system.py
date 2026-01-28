@@ -20,20 +20,20 @@ Composite Collider:
 -   Structure rebuilt when mount hierarchy changes (structure_dirty flag).
 """
 
-import pymunk
 import math
-from typing import Dict, Optional
 
+import pymunk
 from loguru import logger
+
 from ...engine import rng
 from ...engine.ecs import System, World
+from ..collision_constants import CollisionCategories
 from ..components import (
     Mount,
-    Transform,
-    PhysicsBody,
     PendingDismount,
+    PhysicsBody,
+    Transform,
 )
-from ..collision_constants import CollisionCategories
 
 # Controls the spiral search pattern for finding free landing spots
 _DISMOUNT_DEFAULT_RADIUS = 10.0  # Default entity collision radius if unknown
@@ -78,7 +78,7 @@ class HierarchySystem(System):
         self.process_dismounts(world, dt)
 
     def process_structure_update(
-        self, world: World, root_entity: int, mounts: Dict[int, Mount]
+        self, world: World, root_entity: int, mounts: dict[int, Mount]
     ) -> None:
         """
         Updates the Root's physics body shapes to represent the stack ("The Totem Pole").
@@ -87,7 +87,7 @@ class HierarchySystem(System):
         Args:
             world (World): The ECS World.
             root_entity (int): The root entity ID.
-            mounts (Dict[int, Mount]): Dictionary of all Mount components.
+            mounts (dict[int, Mount]): Dictionary of all Mount components.
         """
         mount = mounts.get(root_entity)
         if not mount or not mount.structure_dirty:
@@ -156,7 +156,7 @@ class HierarchySystem(System):
         mount.structure_dirty = False
 
     def process_entity(
-        self, world: World, root_entity: int, mounts: Dict[int, Mount]
+        self, world: World, root_entity: int, mounts: dict[int, Mount]
     ) -> None:
         """
         Iteratively update children of this entity using a stack.
@@ -164,7 +164,7 @@ class HierarchySystem(System):
         Args:
             world (World): The ECS World.
             root_entity (int): The root entity ID.
-            mounts (Dict[int, Mount]): Dictionary of all Mount components.
+            mounts (dict[int, Mount]): Dictionary of all Mount components.
         """
         root_pos = None
         root_rot = 0.0
@@ -324,7 +324,7 @@ class HierarchySystem(System):
 
     def find_free_spot(
         self, space: pymunk.Space, start_pos: pymunk.Vec2d, shape: pymunk.Shape
-    ) -> Optional[pymunk.Vec2d]:
+    ) -> pymunk.Vec2d | None:
         """
         Searches for a free spot using a spiral pattern.
         Uses point_query (or reusing the same temp shape if possible) to ensure the full volume fits.
@@ -336,7 +336,7 @@ class HierarchySystem(System):
             shape (pymunk.Shape): The shape of the entity.
 
         Returns:
-            Optional[pymunk.Vec2d]: A free position, or None if not found.
+            pymunk.Vec2d | None: A free position, or None if not found.
         """
         max_radius = _DISMOUNT_MAX_SEARCH_RADIUS
         current_r = 0.0

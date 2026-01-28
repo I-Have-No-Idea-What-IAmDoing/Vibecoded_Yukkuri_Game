@@ -3,14 +3,16 @@ AI Debug Renderer.
 Provides debug visualization for the Utility AI and Behavior system.
 """
 
+from typing import TYPE_CHECKING
+
 import pygame
-from typing import TYPE_CHECKING, Tuple
+
+from ..components import MoveCommand, Transform
+from ..yukkuri_components import AIState, Blackboard
 
 if TYPE_CHECKING:
-    from ..camera import Camera
     from ...engine.ecs import World
-from ..components import Transform, MoveCommand
-from ..yukkuri_components import AIState, Blackboard
+    from ..camera import Camera
 
 
 class AIDebugRenderer:
@@ -48,7 +50,7 @@ class AIDebugRenderer:
 
         self._draw_ai_interactions(surface, world)
 
-    def _world_to_screen(self, wx: float, wy: float) -> Tuple[int, int]:
+    def _world_to_screen(self, wx: float, wy: float) -> tuple[int, int]:
         """Converts world coordinates to screen coordinates."""
         sx, sy = self.camera.world_to_screen_fast(wx, wy)
         return (int(sx), int(sy))

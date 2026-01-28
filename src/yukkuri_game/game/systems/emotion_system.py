@@ -28,23 +28,21 @@ Personality Drift:
 -   Simulates "returning to normal" after events that shifted personality.
 """
 
-from typing import Dict, List, Tuple, Optional
-
-from ...engine.ecs import System, World
-from ..yukkuri_components import (
-    YukkuriStats,
-    Needs,
-    Dead,
-    Personality,
-    EmotionalState,
-    Skills,
-)
-from ..components import LightSource, Transform
-from ..trait_service import TraitService
-from ..services import TimeService
-from ..skill_service import SkillService
 from ...config import StatDecaySettings
 from ...engine import rng
+from ...engine.ecs import System, World
+from ..components import LightSource, Transform
+from ..services import TimeService
+from ..skill_service import SkillService
+from ..trait_service import TraitService
+from ..yukkuri_components import (
+    Dead,
+    EmotionalState,
+    Needs,
+    Personality,
+    Skills,
+    YukkuriStats,
+)
 
 SECONDS_PER_DAY = TimeService.GAME_DAY_LENGTH
 
@@ -61,7 +59,7 @@ class EmotionSystem(System):
 
     Attributes:
         settings (StatDecaySettings): Stat decay configuration.
-        trait_service (Optional[TraitService]): Trait service.
+        trait_service (TraitService | None): Trait service.
         last_day_index (int): Index of the last day for skill decay tracking.
     """
 
@@ -76,7 +74,7 @@ class EmotionSystem(System):
             settings (StatDecaySettings): Stat decay configuration (rates for hunger, energy, etc.).
         """
         self.settings = settings
-        self.trait_service: Optional[TraitService] = None
+        self.trait_service: TraitService | None = None
         self.last_day_index = -1
 
     def update(self, world: World, dt: float) -> None:
@@ -124,7 +122,7 @@ class EmotionSystem(System):
                 world, entity, stats, needs, game_dt, dt, is_night, light_sources
             )
 
-    def _get_active_lights(self, world: World) -> List[Tuple[Transform, LightSource]]:
+    def _get_active_lights(self, world: World) -> list[tuple[Transform, LightSource]]:
         """
         Returns a list of active light sources.
 
@@ -132,7 +130,7 @@ class EmotionSystem(System):
             world (World): The ECS World.
 
         Returns:
-            List[Tuple[Transform, LightSource]]: List of active light source components and their transforms.
+            list[tuple[Transform, LightSource]]: List of active light source components and their transforms.
         """
         lights = []
         for ent, (trans, light) in world.get_components_tuple(Transform, LightSource):
@@ -171,7 +169,7 @@ class EmotionSystem(System):
         game_dt: float,
         dt: float,
         is_night: bool,
-        light_sources: List[Tuple[Transform, LightSource]],
+        light_sources: list[tuple[Transform, LightSource]],
     ) -> None:
         """
         Applies decay for a single entity.
@@ -184,7 +182,7 @@ class EmotionSystem(System):
             game_dt (float): The game delta time.
             dt (float): The physics delta time.
             is_night (bool): Whether it is currently night.
-            light_sources (List[Tuple[Transform, LightSource]]): List of active light sources.
+            light_sources (list[tuple[Transform, LightSource]]): List of active light sources.
         """
         emotional_state = world.get_component(entity, EmotionalState)
         personality = world.get_component(entity, Personality)
@@ -234,16 +232,16 @@ class EmotionSystem(System):
             self._drift_personality(personality, dt)
 
     def _calculate_multipliers(
-        self, personality: Optional[Personality]
-    ) -> Dict[str, float]:
+        self, personality: Personality | None
+    ) -> dict[str, float]:
         """
         Calculates decay multipliers based on traits.
 
         Args:
-            personality (Optional[Personality]): The personality component.
+            personality (Personality | None): The personality component.
 
         Returns:
-            Dict[str, float]: Multipliers for various stats.
+            dict[str, float]: Multipliers for various stats.
         """
         mults = {
             "hunger": 1.0,
@@ -270,24 +268,24 @@ class EmotionSystem(System):
     def _update_emotional_state(
         self,
         emotional_state: EmotionalState,
-        trans: Optional[Transform],
+        trans: Transform | None,
         dt: float,
         game_dt: float,
         is_night: bool,
-        light_sources: List[Tuple[Transform, LightSource]],
-        multipliers: Dict[str, float],
+        light_sources: list[tuple[Transform, LightSource]],
+        multipliers: dict[str, float],
     ) -> None:
         """
         Updates stress and happiness.
 
         Args:
             emotional_state (EmotionalState): The emotional state component.
-            trans (Optional[Transform]): The transform component.
+            trans (Transform | None): The transform component.
             dt (float): The physics delta time.
             game_dt (float): The game delta time.
             is_night (bool): Whether it is currently night.
-            light_sources (List[Tuple[Transform, LightSource]]): List of active light sources.
-            multipliers (Dict[str, float]): Decay multipliers.
+            light_sources (list[tuple[Transform, LightSource]]): List of active light sources.
+            multipliers (dict[str, float]): Decay multipliers.
         """
         # Darkness Stress
         if is_night and trans:

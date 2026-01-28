@@ -5,21 +5,20 @@ Manages entity inventory interactions, including picking up items from the world
 and dropping items back into the world.
 """
 
-from typing import Optional
-
 from loguru import logger
+
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ...engine.resource_manager import ResourceManager
 from ...engine.events import InventoryChangedEvent
+from ...engine.resource_manager import ResourceManager
 from ..components import Transform
+from ..entity_factory import EntityFactory
 from ..inventory_component import (
     InventoryComponent,
-    InventoryPickupRequest,
     InventoryDropRequest,
+    InventoryPickupRequest,
 )
 from ..yukkuri_components import ItemStats
-from ..entity_factory import EntityFactory
 
 
 class InventorySystem(System):
@@ -30,8 +29,8 @@ class InventorySystem(System):
     def __init__(self) -> None:
         """Initializes the InventorySystem."""
         super().__init__()
-        self.event_bus: Optional[EventBus] = None
-        self.resource_manager: Optional[ResourceManager] = None
+        self.event_bus: EventBus | None = None
+        self.resource_manager: ResourceManager | None = None
 
     def update(self, world: World, dt: float) -> None:
         """

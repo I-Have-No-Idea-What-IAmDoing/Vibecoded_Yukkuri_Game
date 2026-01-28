@@ -1,24 +1,26 @@
 import math
-from typing import Any, Optional, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
+
 from py_trees.common import Status
 
-from ...base_action import Action
+from yukkuri_game.engine.types import EntityID
+
 from ....components import (
-    Transform,
     LightSource,
-)
-from ....yukkuri_components import (
-    AIState,
-    YukkuriStats,
-    ItemStats,
-    Predator,
-    Blackboard,
-    Flight,
+    Transform,
 )
 from ....services import GameService
-from ...navigation_service import NavigationService
+from ....yukkuri_components import (
+    AIState,
+    Blackboard,
+    Flight,
+    ItemStats,
+    Predator,
+    YukkuriStats,
+)
+from ...base_action import Action
 from ...navigation_constants import TraversalCapability
-from yukkuri_game.engine.types import EntityID
+from ...navigation_service import NavigationService
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -33,6 +35,15 @@ class FindItem(Action):
     """
 
     def __init__(self, name: str, entity_id: int, world: "World", stat_criteria: str):
+        """
+        Initializes the FindItem action.
+
+        Args:
+            name (str): The name of the node.
+            entity_id (int): The entity ID.
+            world (World): The ECS World.
+            stat_criteria (str): The item stat to optimize for.
+        """
         super().__init__(name, entity_id, world)
         self.stat_criteria = stat_criteria
 
@@ -99,6 +110,14 @@ class FindLightSource(Action):
     """
 
     def __init__(self, name: str, entity_id: int, world: "World"):
+        """
+        Initializes the FindLightSource action.
+
+        Args:
+            name (str): The name of the node.
+            entity_id (int): The entity ID.
+            world (World): The ECS World.
+        """
         super().__init__(name, entity_id, world)
 
     def update(self) -> Status:
@@ -144,9 +163,18 @@ class FindPrey(Action):
         self,
         name: str = "Find Prey",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
     ):
+        """
+        Initializes the FindPrey action.
+
+        Args:
+            name (str): The name of the node.
+            entity_id (int | None): The entity ID.
+            world (World | None): The ECS World.
+            blackboard (Any | None): The blackboard.
+        """
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:
@@ -161,7 +189,7 @@ class FindPrey(Action):
         if ai is None or predator is None or trans is None:
             return Status.FAILURE
 
-        candidates = []
+        candidates: list[tuple[int, float]] = []
 
         # Check Items
         for ent, (i_stats, i_trans) in self.world.get_components_tuple(
@@ -220,7 +248,22 @@ class FindThreat(Action):
     Finds the closest threat from Blackboard.
     """
 
-    def __init__(self, name="Find Threat", entity_id=None, world=None, blackboard=None):
+    def __init__(
+        self,
+        name: str = "Find Threat",
+        entity_id: int | None = None,
+        world: "World | None" = None,
+        blackboard: Any | None = None,
+    ):
+        """
+        Initializes the FindThreat action.
+
+        Args:
+            name (str): The name of the node.
+            entity_id (int | None): The entity ID.
+            world (World | None): The ECS World.
+            blackboard (Any | None): The blackboard.
+        """
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:
@@ -251,6 +294,15 @@ class FindSocialTarget(Action):
     """
 
     def __init__(self, name: str, entity_id: int, world: "World", criteria: str):
+        """
+        Initializes the FindSocialTarget action.
+
+        Args:
+            name (str): The name of the node.
+            entity_id (int): The entity ID.
+            world (World): The ECS World.
+            criteria (str): Matching criteria ("friend", "enemy", "any").
+        """
         super().__init__(name, entity_id, world)
         self.criteria = criteria
 
@@ -314,7 +366,22 @@ class PickFood(Action):
     Selects the closest food from the blackboard.
     """
 
-    def __init__(self, name="Pick Food", entity_id=None, world=None, blackboard=None):
+    def __init__(
+        self,
+        name: str = "Pick Food",
+        entity_id: int | None = None,
+        world: "World | None" = None,
+        blackboard: Any | None = None,
+    ):
+        """
+        Initializes the PickFood action.
+
+        Args:
+            name (str): The name of the node.
+            entity_id (int | None): The entity ID.
+            world (World | None): The ECS World.
+            blackboard (Any | None): The blackboard.
+        """
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:
