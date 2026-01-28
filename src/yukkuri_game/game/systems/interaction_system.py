@@ -17,25 +17,26 @@ Request Lifecycle:
 """
 
 import math
-from typing import cast, Optional
+from typing import cast
+
 from loguru import logger
 
-from ...engine.ecs import System, World
 from ...engine.audio import AudioManager
+from ...engine.ecs import System, World
 from ...engine.types import EntityID
-from ..components import Transform, InteractionRequest
+from ..components import InteractionRequest, Transform
+from ..prefabs.effects import create_floating_text
+from ..trait_service import TraitService
 from ..yukkuri_components import (
-    YukkuriStats,
-    Needs,
-    ItemStats,
     AIState,
+    ItemStats,
+    Needs,
     Personality,
     Predator,
+    YukkuriStats,
 )
-from ..trait_service import TraitService
 from .hunger_system import HungerSystem
 from .social_system import SocialSystem
-from ..prefabs.effects import create_floating_text
 
 
 class InteractionSystem(System):
@@ -46,19 +47,19 @@ class InteractionSystem(System):
     circular dependencies during initialization.
 
     Attributes:
-        audio (Optional[AudioManager]): Audio manager.
-        trait_service (Optional[TraitService]): Trait service.
-        hunger_system (Optional[HungerSystem]): Hunger system.
-        social_system (Optional[SocialSystem]): Social system.
+        audio (AudioManager | None): Audio manager.
+        trait_service (TraitService | None): Trait service.
+        hunger_system (HungerSystem | None): Hunger system.
+        social_system (SocialSystem | None): Social system.
     """
 
     def __init__(self) -> None:
         """Initializes the InteractionSystem."""
         super().__init__()
-        self.audio: Optional[AudioManager] = None
-        self.trait_service: Optional[TraitService] = None
-        self.hunger_system: Optional[HungerSystem] = None
-        self.social_system: Optional[SocialSystem] = None
+        self.audio: AudioManager | None = None
+        self.trait_service: TraitService | None = None
+        self.hunger_system: HungerSystem | None = None
+        self.social_system: SocialSystem | None = None
 
     def update(self, world: World, dt: float) -> None:
         """

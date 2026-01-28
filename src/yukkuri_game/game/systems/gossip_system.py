@@ -14,24 +14,25 @@ Propagation Mechanics:
 -   Low-value gossip is filtered by WITNESS_THRESHOLD.
 """
 
-from typing import cast, Optional
 import math
+from typing import cast
+
 import pymunk
 
 from ...engine.ecs import System, World
-from ...engine.types import EntityID
 from ...engine.event_bus import EventBus
-from ..yukkuri_components import (
-    GossipQueue,
-    GossipPacket,
-    YukkuriStats,
-    RelationshipRegistry,
-)
+from ...engine.types import EntityID
 from ..components import Transform
 from ..events import SocialInteractionEvent
+from ..trait_service import TraitService
+from ..yukkuri_components import (
+    GossipPacket,
+    GossipQueue,
+    RelationshipRegistry,
+    YukkuriStats,
+)
 from .physics import PhysicsSystem
 from .sector_system import SectorMap
-from ..trait_service import TraitService
 
 
 class GossipSystem(System):
@@ -41,9 +42,9 @@ class GossipSystem(System):
 
     Attributes:
         event_bus (EventBus): The event bus instance.
-        physics_system (Optional[PhysicsSystem]): The physics system instance.
-        sector_map (Optional[SectorMap]): The sector map instance.
-        trait_service (Optional[TraitService]): The trait service instance.
+        physics_system (PhysicsSystem | None): The physics system instance.
+        sector_map (SectorMap | None): The sector map instance.
+        trait_service (TraitService | None): The trait service instance.
     """
 
     # Minimum gossip value required to be recorded as a witness
@@ -74,9 +75,9 @@ class GossipSystem(System):
         super().__init__()
         self.event_bus = event_bus
         self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
-        self.physics_system: Optional[PhysicsSystem] = None
-        self.sector_map: Optional[SectorMap] = None
-        self.trait_service: Optional[TraitService] = None
+        self.physics_system: PhysicsSystem | None = None
+        self.sector_map: SectorMap | None = None
+        self.trait_service: TraitService | None = None
 
     def update(self, world: World, dt: float) -> None:
         """

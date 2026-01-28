@@ -1,6 +1,6 @@
 import random
+
 import numpy as np
-from typing import Optional
 
 
 class RNG:
@@ -9,7 +9,7 @@ class RNG:
     Wraps standard random functions.
     """
 
-    _instance: Optional["RNG"] = None
+    _instance: "RNG | None" = None
     _seed: int | float | str | bytes | bytearray | None = None
 
     @classmethod

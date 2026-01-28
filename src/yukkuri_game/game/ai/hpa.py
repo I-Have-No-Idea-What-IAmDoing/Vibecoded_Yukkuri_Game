@@ -23,8 +23,8 @@ References:
 
 import heapq
 import math
-from typing import List, Tuple, Dict, Optional
 from dataclasses import dataclass, field
+
 from .navigation_grid import NavigationGrid
 
 
@@ -35,10 +35,16 @@ CLUSTER_SIZE = 8
 
 @dataclass
 class GraphEdge:
-    """Represents a weighted edge in the abstract cluster graph."""
+    """
+    Represents a weighted edge in the abstract cluster graph.
+
+    Attributes:
+        target_node_id (str): The ID of the target node this edge connects to.
+        weight (float): The cost of traversing this edge (distance * terrain cost).
+    """
 
     target_node_id: str
-    weight: float  # Path cost (accumulated tile costs * distance)
+    weight: float
 
 
 @dataclass
@@ -49,12 +55,18 @@ class GraphNode:
     Nodes are placed at cluster boundary entrances and connected to other
     nodes within the same cluster (intra-cluster) and adjacent clusters
     (inter-cluster).
+
+    Attributes:
+        id (str): Unique identifier. Format: "x_y" for permanent, "temp_x_y" for temporary.
+        position (tuple[int, int]): Grid coordinates (x, y).
+        edges (list[GraphEdge]): List of edges connecting to other nodes.
+        cluster_coords (tuple[int, int]): Grid coordinates of the cluster this node belongs to.
     """
 
-    id: str  # Format: "x_y" for permanent, "temp_x_y" for temporary
-    position: Tuple[int, int]  # Grid coordinates
-    edges: List[GraphEdge] = field(default_factory=list)
-    cluster_coords: Tuple[int, int] = (0, 0)  # Which cluster this node belongs to
+    id: str
+    position: tuple[int, int]
+    edges: list[GraphEdge] = field(default_factory=list)
+    cluster_coords: tuple[int, int] = (0, 0)
 
 
 class AStar:
@@ -65,7 +77,7 @@ class AStar:
     """
 
     @staticmethod
-    def heuristic(a: Tuple[int, int], b: Tuple[int, int]) -> float:
+    def heuristic(a: tuple[int, int], b: tuple[int, int]) -> float:
         """
         Computes octile distance heuristic for 8-directional movement.
 
@@ -73,8 +85,8 @@ class AStar:
         while cardinal movements are cost 1.
 
         Args:
-            a: Start position (x, y).
-            b: End position (x, y).
+            a (tuple[int, int]): Start position (x, y).
+            b (tuple[int, int]): End position (x, y).
 
         Returns:
             float: Estimated cost.
@@ -86,28 +98,28 @@ class AStar:
     @staticmethod
     def search(
         grid: NavigationGrid,
-        start: Tuple[int, int],
-        goal: Tuple[int, int],
+        start: tuple[int, int],
+        goal: tuple[int, int],
         capability: int,
-        bounds: Optional[Tuple[int, int, int, int]] = None,
-    ) -> Optional[List[Tuple[int, int]]]:
+        bounds: tuple[int, int, int, int] | None = None,
+    ) -> list[tuple[int, int]] | None:
         """
         Runs A* search.
 
         Args:
             grid (NavigationGrid): The search grid.
-            start (Tuple[int, int]): Start position (x, y).
-            goal (Tuple[int, int]): Goal position (x, y).
+            start (tuple[int, int]): Start position (x, y).
+            goal (tuple[int, int]): Goal position (x, y).
             capability (int): Traversal capability mask.
-            bounds (Optional[Tuple[int, int, int, int]]): Optional search bounds (min_x, min_y, max_x, max_y).
+            bounds (tuple[int, int, int, int] | None): Optional search bounds (min_x, min_y, max_x, max_y).
 
         Returns:
-            Optional[List[Tuple[int, int]]]: The path from start to goal (inclusive), or None if not found.
+            list[tuple[int, int]] | None: The path from start to goal (inclusive), or None if not found.
         """
-        frontier = []
+        frontier: list[tuple[float, tuple[int, int]]] = []
         heapq.heappush(frontier, (0, start))
-        came_from: Dict[Tuple[int, int], Optional[Tuple[int, int]]] = {start: None}
-        cost_so_far: Dict[Tuple[int, int], float] = {start: 0}
+        came_from: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
+        cost_so_far: dict[tuple[int, int], float] = {start: 0}
 
         while frontier:
             _, current = heapq.heappop(frontier)
@@ -156,7 +168,7 @@ class AStar:
 
         # Reconstruct path
         path = []
-        curr = goal
+        curr: tuple[int, int] | None = goal
         while curr is not None:
             path.append(curr)
             curr = came_from[curr]
@@ -179,11 +191,18 @@ class Cluster:
         min_y (int): World grid min Y (inclusive).
         max_x (int): World grid max X (inclusive).
         max_y (int): World grid max Y (inclusive).
-        nodes (Dict[Tuple[int, int], str]): Map of entrance position to node ID.
+        nodes (dict[tuple[int, int], str]): Map of entrance position to node ID.
     """
 
     def __init__(self, cx: int, cy: int, grid: NavigationGrid):
-        """Initialize cluster with grid coordinates (cx, cy)."""
+        """
+        Initialize cluster with grid coordinates (cx, cy).
+
+        Args:
+            cx (int): Cluster X index.
+            cy (int): Cluster Y index.
+            grid (NavigationGrid): Reference to the navigation grid.
+        """
         self.cx = cx
         self.cy = cy
         self.grid = grid
@@ -195,15 +214,29 @@ class Cluster:
         self.max_y = min((cy + 1) * CLUSTER_SIZE - 1, grid.height - 1)
 
         # Maps grid position -> node ID for entrance nodes in this cluster
-        self.nodes: Dict[Tuple[int, int], str] = {}
+        self.nodes: dict[tuple[int, int], str] = {}
 
-    def add_node(self, pos: Tuple[int, int], node_id: str) -> None:
-        """Registers an entrance node within this cluster."""
+    def add_node(self, pos: tuple[int, int], node_id: str) -> None:
+        """
+        Registers an entrance node within this cluster.
+
+        Args:
+            pos (tuple[int, int]): The grid position of the node.
+            node_id (str): The unique ID of the node.
+        """
         if self.contains(pos):
             self.nodes[pos] = node_id
 
-    def contains(self, pos: Tuple[int, int]) -> bool:
-        """Returns True if the position falls within this cluster's bounds."""
+    def contains(self, pos: tuple[int, int]) -> bool:
+        """
+        Returns True if the position falls within this cluster's bounds.
+
+        Args:
+            pos (tuple[int, int]): The grid position to check.
+
+        Returns:
+            bool: True if inside bounds.
+        """
         x, y = pos
         return self.min_x <= x <= self.max_x and self.min_y <= y <= self.max_y
 
@@ -220,20 +253,26 @@ class ClusterGraph:
     """
 
     def __init__(self, grid: NavigationGrid):
-        """Initialize the cluster graph for the given navigation grid."""
+        """
+        Initialize the cluster graph for the given navigation grid.
+
+        Args:
+            grid (NavigationGrid): The navigation grid.
+        """
         self.grid = grid
         self.cluster_w = int(math.ceil(grid.width / CLUSTER_SIZE))
         self.cluster_h = int(math.ceil(grid.height / CLUSTER_SIZE))
 
         # Cluster storage: (cx, cy) -> Cluster
-        self.clusters: Dict[Tuple[int, int], Cluster] = {}
+        self.clusters: dict[tuple[int, int], Cluster] = {}
 
         # Global abstract graph: node ID -> GraphNode
-        self.graph_nodes: Dict[str, GraphNode] = {}
+        self.graph_nodes: dict[str, GraphNode] = {}
 
         self._init_clusters()
 
     def _init_clusters(self) -> None:
+        """Initializes the cluster grid."""
         for cy in range(self.cluster_h):
             for cx in range(self.cluster_w):
                 self.clusters[(cx, cy)] = Cluster(cx, cy, self.grid)
@@ -283,6 +322,19 @@ class ClusterGraph:
         is_horizontal: bool,
         capability: int,
     ) -> None:
+        """
+        Finds and creates entrance nodes along the shared border of two clusters.
+
+        Scans the boundary for contiguous walkable segments (gaps) and places a node
+        at the center of each gap.
+
+        Args:
+            c1 (Cluster): First cluster.
+            c2 (Cluster): Second cluster.
+            border_idx (int): The index of the border (x or y coordinate).
+            is_horizontal (bool): True if scanning a vertical border (moving along y), False otherwise.
+            capability (int): Traversal capability mask.
+        """
         # Scan along the common border
         if is_horizontal:
             shared_len = min(c1.max_y, c2.max_y) - max(c1.min_y, c2.min_y) + 1
@@ -335,6 +387,17 @@ class ClusterGraph:
         end_k: int,
         is_horizontal: bool,
     ) -> None:
+        """
+        Creates nodes and an edge connecting two clusters through a specific gap.
+
+        Args:
+            c1 (Cluster): First cluster.
+            c2 (Cluster): Second cluster.
+            border_val (int): The coordinate of the border line.
+            start_k (int): Start index of the gap.
+            end_k (int): End index of the gap.
+            is_horizontal (bool): Orientation of the border scan.
+        """
         # Place one node at the midpoint of the gap.
         mid_k = (start_k + end_k) // 2
 
@@ -352,7 +415,17 @@ class ClusterGraph:
         node1.edges.append(GraphEdge(node2.id, cost))
         node2.edges.append(GraphEdge(node1.id, cost))
 
-    def _get_or_create_node(self, cluster: Cluster, pos: Tuple[int, int]) -> GraphNode:
+    def _get_or_create_node(self, cluster: Cluster, pos: tuple[int, int]) -> GraphNode:
+        """
+        Retrieves an existing node at the given position or creates a new one.
+
+        Args:
+            cluster (Cluster): The cluster the node belongs to.
+            pos (tuple[int, int]): Grid position.
+
+        Returns:
+            GraphNode: The requested node.
+        """
         if pos in cluster.nodes:
             return self.graph_nodes[cluster.nodes[pos]]
 
@@ -363,7 +436,15 @@ class ClusterGraph:
         return node
 
     def _connect_internal_nodes(self, cluster: Cluster, capability: int) -> None:
-        """Connect all node pairs within a cluster via local A*."""
+        """
+        Connect all node pairs within a cluster via local A*.
+
+        This builds the "intra-cluster" edges, representing traversability across the cluster.
+
+        Args:
+            cluster (Cluster): The cluster to process.
+            capability (int): Traversal capability mask.
+        """
         nodes_in_cluster = list(cluster.nodes.values())
 
         for i in range(len(nodes_in_cluster)):
@@ -395,19 +476,34 @@ class ClusterGraph:
                     n1.edges.append(GraphEdge(n2.id, cost))
                     n2.edges.append(GraphEdge(n1.id, cost))
 
-    def get_cluster_for_pos(self, pos: Tuple[int, int]) -> Optional[Cluster]:
-        """Returns the cluster containing the given grid position."""
+    def get_cluster_for_pos(self, pos: tuple[int, int]) -> Cluster | None:
+        """
+        Returns the cluster containing the given grid position.
+
+        Args:
+            pos (tuple[int, int]): Grid coordinates.
+
+        Returns:
+            Cluster | None: The cluster instance or None if out of bounds.
+        """
         cx = pos[0] // CLUSTER_SIZE
         cy = pos[1] // CLUSTER_SIZE
         return self.clusters.get((cx, cy))
 
     def insert_temporary_node(
-        self, pos: Tuple[int, int], capability: int
-    ) -> Optional[GraphNode]:
+        self, pos: tuple[int, int], capability: int
+    ) -> GraphNode | None:
         """
         Temporarily inserts a node (start or goal) into the graph.
         Connects it to all entrances in its cluster via local A*.
         Returns the created node, or None if position is blocked.
+
+        Args:
+            pos (tuple[int, int]): Grid position.
+            capability (int): Traversal capability mask.
+
+        Returns:
+            GraphNode | None: The temporary node or None.
         """
         if not self.grid.is_walkable(pos[0], pos[1], capability):
             return None
@@ -442,7 +538,12 @@ class ClusterGraph:
         return node
 
     def remove_temporary_node(self, node: GraphNode) -> None:
-        """Removes a temporary node and its edges from the graph."""
+        """
+        Removes a temporary node and its edges from the graph.
+
+        Args:
+            node (GraphNode): The node to remove.
+        """
         if node.id not in self.graph_nodes:
             return
 
@@ -454,8 +555,16 @@ class ClusterGraph:
 
         del self.graph_nodes[node.id]
 
-    def _calculate_path_cost(self, path: List[Tuple[int, int]]) -> float:
-        """Calculate the cost of a path."""
+    def _calculate_path_cost(self, path: list[tuple[int, int]]) -> float:
+        """
+        Calculate the cost of a path.
+
+        Args:
+            path (list[tuple[int, int]]): The path to calculate cost for.
+
+        Returns:
+            float: Total path cost.
+        """
         cost = 0.0
         for i in range(len(path) - 1):
             p_a = path[i]
@@ -466,18 +575,25 @@ class ClusterGraph:
 
     def abstract_search(
         self, start_node: GraphNode, goal_node: GraphNode
-    ) -> Optional[List[str]]:
+    ) -> list[str] | None:
         """
         A* search on the abstract graph (cluster entrances).
         Returns a list of node IDs representing the abstract path.
+
+        Args:
+            start_node (GraphNode): Starting node.
+            goal_node (GraphNode): Goal node.
+
+        Returns:
+            list[str] | None: List of node IDs in the path, or None if no path found.
         """
         if start_node.id == goal_node.id:
             return [start_node.id]
 
-        frontier = []
+        frontier: list[tuple[float, str]] = []
         heapq.heappush(frontier, (0.0, start_node.id))
-        came_from: Dict[str, Optional[str]] = {start_node.id: None}
-        cost_so_far: Dict[str, float] = {start_node.id: 0.0}
+        came_from: dict[str, str | None] = {start_node.id: None}
+        cost_so_far: dict[str, float] = {start_node.id: 0.0}
 
         while frontier:
             _, current_id = heapq.heappop(frontier)
@@ -510,7 +626,7 @@ class ClusterGraph:
 
         # Reconstruct path
         path = []
-        curr_id: Optional[str] = goal_node.id
+        curr_id: str | None = goal_node.id
         while curr_id is not None:
             path.append(curr_id)
             curr_id = came_from[curr_id]
@@ -518,11 +634,18 @@ class ClusterGraph:
         return path
 
     def refine_abstract_path(
-        self, abstract_path: List[str], capability: int
-    ) -> Optional[List[Tuple[int, int]]]:
+        self, abstract_path: list[str], capability: int
+    ) -> list[tuple[int, int]] | None:
         """
         Converts abstract path (node IDs) to a detailed grid path.
         For each pair of consecutive nodes, runs local A* to get the detailed segment.
+
+        Args:
+            abstract_path (list[str]): List of node IDs.
+            capability (int): Traversal capability mask.
+
+        Returns:
+            list[tuple[int, int]] | None: Detailed grid path or None.
         """
         if not abstract_path:
             return None
@@ -531,7 +654,7 @@ class ClusterGraph:
             node = self.graph_nodes.get(abstract_path[0])
             return [node.position] if node else None
 
-        detailed_path: List[Tuple[int, int]] = []
+        detailed_path: list[tuple[int, int]] = []
 
         for i in range(len(abstract_path) - 1):
             node_a = self.graph_nodes.get(abstract_path[i])
@@ -582,18 +705,18 @@ class StringPuller:
 
     @staticmethod
     def smooth_path(
-        path: List[Tuple[int, int]], grid: NavigationGrid, capability: int
-    ) -> List[Tuple[int, int]]:
+        path: list[tuple[int, int]], grid: NavigationGrid, capability: int
+    ) -> list[tuple[int, int]]:
         """
         Smooths a jagged grid path into a straighter path by 'pulling' the string tight.
 
         Args:
-            path: Input path as list of (x, y) tuples.
-            grid: Navigation grid.
-            capability: Traversal capability mask.
+            path (list[tuple[int, int]]): Input path as list of (x, y) tuples.
+            grid (NavigationGrid): Navigation grid.
+            capability (int): Traversal capability mask.
 
         Returns:
-            Smoothed path.
+            list[tuple[int, int]]: Smoothed path.
         """
         if len(path) <= 2:
             return path
@@ -623,12 +746,21 @@ class StringPuller:
     @staticmethod
     def has_line_of_sight(
         grid: NavigationGrid,
-        start: Tuple[int, int],
-        end: Tuple[int, int],
+        start: tuple[int, int],
+        end: tuple[int, int],
         capability: int,
     ) -> bool:
         """
         Checks if a direct line exists between start and end using Bresenham's algorithm.
+
+        Args:
+            grid (NavigationGrid): The navigation grid.
+            start (tuple[int, int]): Start point.
+            end (tuple[int, int]): End point.
+            capability (int): Traversal capability mask.
+
+        Returns:
+            bool: True if line of sight is clear.
         """
         x0, y0 = start
         x1, y1 = end

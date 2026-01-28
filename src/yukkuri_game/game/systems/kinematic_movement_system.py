@@ -26,18 +26,18 @@ Fixed Timestep:
 -   Decoupled from render framerate for consistent physics behavior.
 """
 
-from typing import Optional, Dict
 import math
+
 import pymunk
 from loguru import logger
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import PhysicsFixedUpdateEvent
-from ..components import PhysicsBody, MovementController, Transform
 from ..collision_constants import CollisionCategories
-from ..yukkuri_components import Flight, FlightState, YukkuriStats
+from ..components import MovementController, PhysicsBody, Transform
 from ..skill_service import SkillService
+from ..yukkuri_components import Flight, FlightState, YukkuriStats
 from .physics import PhysicsSystem
 
 
@@ -60,22 +60,22 @@ class KinematicMovementSystem(System):
     -   Composite shape support (stacked entities).
 
     Attributes:
-        space (Optional[pymunk.Space]): Physics space reference.
+        space (pymunk.Space | None): Physics space reference.
         skin_width (float): Collision skin width.
-        event_bus (Optional[EventBus]): EventBus reference.
-        _kinematic_world (Optional[World]): World reference for fixed updates.
-        _poly_radius_cache (Dict[pymunk.Poly, float]): Cache for polygon radii.
-        skill_service (Optional[SkillService]): SkillService reference.
+        event_bus (EventBus | None): EventBus reference.
+        _kinematic_world (World | None): World reference for fixed updates.
+        _poly_radius_cache (dict[pymunk.Poly, float]): Cache for polygon radii.
+        skill_service (SkillService | None): SkillService reference.
     """
 
     def __init__(self) -> None:
         """Initializes the KinematicMovementSystem."""
-        self.space: Optional[pymunk.Space] = None
+        self.space: pymunk.Space | None = None
         self.skin_width = 0.01  # Collision skin to prevent surface penetration
-        self.event_bus: Optional[EventBus] = None
-        self._kinematic_world: Optional[World] = None
-        self._poly_radius_cache: Dict[pymunk.Poly, float] = {}
-        self.skill_service: Optional[SkillService] = None
+        self.event_bus: EventBus | None = None
+        self._kinematic_world: World | None = None
+        self._poly_radius_cache: dict[pymunk.Poly, float] = {}
+        self.skill_service: SkillService | None = None
 
     def on_fixed_update(self, event: PhysicsFixedUpdateEvent) -> None:
         """
@@ -276,6 +276,7 @@ class KinematicMovementSystem(System):
             controller (MovementController): The movement controller component.
             trans (Transform): The entity's transform component.
             dt (float): Fixed delta time.
+            agility (float): Agility modifier for acceleration.
 
         Returns:
             float: The distance actually moved.
@@ -326,7 +327,7 @@ class KinematicMovementSystem(System):
             target_pos = current_pos + move_delta
 
             # Perform Sweep for ALL shapes in the body
-            best_hit: Optional[pymunk.SegmentQueryInfo | FakeHit] = None
+            best_hit: pymunk.SegmentQueryInfo | FakeHit | None = None
             best_alpha = 1.0
 
             for shape in body.shapes:
