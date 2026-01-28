@@ -1,5 +1,4 @@
 import pygame
-from typing import Tuple, Optional, Dict, List
 from loguru import logger
 
 
@@ -12,10 +11,10 @@ class AtlasNode:
 
     def __init__(self, rc: pygame.Rect):
         self.rc = rc
-        self.child: Optional[Tuple["AtlasNode", "AtlasNode"]] = None
-        self.image_id: Optional[str] = None
+        self.child: tuple["AtlasNode", "AtlasNode"] | None = None
+        self.image_id: str | None = None
 
-    def insert(self, img_id: str, width: int, height: int) -> Optional[pygame.Rect]:
+    def insert(self, img_id: str, width: int, height: int) -> pygame.Rect | None:
         # If not a leaf, try inserting into children
         if self.child:
             res = self.child[0].insert(img_id, width, height)
@@ -77,14 +76,14 @@ class TextureAtlas:
     Manages a large surface composed of many smaller textures.
     """
 
-    def __init__(self, size: Tuple[int, int] = (2048, 2048)):
+    def __init__(self, size: tuple[int, int] = (2048, 2048)):
         self.size = size
         self.surface = pygame.Surface(size, pygame.SRCALPHA)
         self.root = AtlasNode(pygame.Rect(0, 0, size[0], size[1]))
-        self.mapping: Dict[str, pygame.Rect] = {}
-        self.failed_to_pack: List[str] = []
+        self.mapping: dict[str, pygame.Rect] = {}
+        self.failed_to_pack: list[str] = []
 
-    def add_image(self, name: str, surface: pygame.Surface) -> Optional[pygame.Rect]:
+    def add_image(self, name: str, surface: pygame.Surface) -> pygame.Rect | None:
         """
         Adds an image to the atlas. Returns the Rect it occupied, or None if full.
         """
@@ -102,7 +101,7 @@ class TextureAtlas:
             self.failed_to_pack.append(name)
             return None
 
-    def get_region(self, name: str) -> Optional[pygame.Surface]:
+    def get_region(self, name: str) -> pygame.Surface | None:
         """
         Returns a subsurface for the given image name.
         """

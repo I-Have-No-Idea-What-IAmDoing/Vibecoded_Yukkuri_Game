@@ -22,18 +22,18 @@ Output:
 -   Populates AIState.visible_entities for use by AI decision making.
 """
 
-import pymunk
 import math
-from typing import Dict, Optional, Set, Tuple
+
+import pymunk
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import ComponentAddedEvent, ComponentRemovedEvent
-from ..components import Vision, Transform, PhysicsBody
+from ...engine.types import EntityID
+from ..collision_constants import CollisionCategories
+from ..components import PhysicsBody, Transform, Vision
 from ..yukkuri_components import AIState, Flight
 from .physics import PhysicsSystem
-from ..collision_constants import CollisionCategories
-from ...engine.types import EntityID
 
 
 class VisibilitySystem(System):
@@ -45,12 +45,12 @@ class VisibilitySystem(System):
     to spread workload across frames.
 
     Attributes:
-        space (Optional[pymunk.Space]): The physics space.
+        space (pymunk.Space | None): The physics space.
         update_index (int): Index for batch processing.
         batch_size (float): Fraction of observers processed per frame.
-        body_to_entity (Dict[pymunk.Body, int]): Map of physics bodies to entity IDs.
-        event_bus (Optional[EventBus]): The event bus.
-        visibility_cache (Dict[int, Tuple[Set[EntityID], float, float]]): Cache for visibility results.
+        body_to_entity (dict[pymunk.Body, int]): Map of physics bodies to entity IDs.
+        event_bus (EventBus | None): The event bus.
+        visibility_cache (dict[int, tuple[set[EntityID], float, float]]): Cache for visibility results.
         cache_threshold (float): Movement threshold for cache invalidation.
     """
 
@@ -62,14 +62,14 @@ class VisibilitySystem(System):
 
     def __init__(self) -> None:
         """Initializes the VisibilitySystem."""
-        self.space: Optional[pymunk.Space] = None
+        self.space: pymunk.Space | None = None
         self.update_index = 0
         self.batch_size = self.DEFAULT_BATCH_SIZE
-        self.body_to_entity: Dict[pymunk.Body, int] = {}
-        self.event_bus: Optional[EventBus] = None
+        self.body_to_entity: dict[pymunk.Body, int] = {}
+        self.event_bus: EventBus | None = None
 
         # Visibility cache: entity_id -> (visible_set, cached_x, cached_y)
-        self.visibility_cache: Dict[int, Tuple[Set[EntityID], float, float]] = {}
+        self.visibility_cache: dict[int, tuple[set[EntityID], float, float]] = {}
         self.cache_threshold: float = self.CACHE_THRESHOLD
 
     def on_component_added(self, event: ComponentAddedEvent) -> None:
@@ -150,7 +150,7 @@ class VisibilitySystem(System):
         trans: Transform,
         ai: AIState,
         world: World,
-        phys_comp: Optional[PhysicsBody],
+        phys_comp: PhysicsBody | None,
     ) -> None:
         """
         Calculates visible entities for a single observer.
@@ -162,7 +162,7 @@ class VisibilitySystem(System):
             trans (Transform): The transform component.
             ai (AIState): The AI state component to update.
             world (World): The ECS World.
-            phys_comp (Optional[PhysicsBody]): The physics component of the observer.
+            phys_comp (PhysicsBody | None): The physics component of the observer.
         """
         # Reuse cached result if observer hasn't moved significantly.
         if entity in self.visibility_cache:
@@ -175,7 +175,7 @@ class VisibilitySystem(System):
                 ai.visible_entities = cached_visible
                 return
 
-        visible: Set[EntityID] = set()
+        visible: set[EntityID] = set()
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
         obs_angle = phys_comp.body.angle if phys_comp else 0.0

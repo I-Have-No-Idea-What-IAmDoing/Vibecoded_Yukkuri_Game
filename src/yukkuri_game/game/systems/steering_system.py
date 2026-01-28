@@ -14,18 +14,18 @@ Processing occurs in two phases:
 """
 
 import math
-from typing import Optional, Tuple
+
 import pymunk
 from loguru import logger
 
 from ...engine import rng
 from ...engine.ecs import System, World
 from ..components import (
-    Transform,
-    MovementController,
-    SteeringComponent,
-    PhysicsBody,
     MoveCommand,
+    MovementController,
+    PhysicsBody,
+    SteeringComponent,
+    Transform,
 )
 from ..yukkuri_components import AIState, YukkuriStats
 from .physics import PhysicsSystem
@@ -355,14 +355,14 @@ class SteeringSystem(System):
 
     def _calculate_steering_forces(
         self,
-        space: Optional[pymunk.Space],
+        space: pymunk.Space | None,
         current_pos: pymunk.Vec2d,
         phys: PhysicsBody,
         movement: MovementController,
         steering: SteeringComponent,
-        target_body: Optional[pymunk.Body] = None,
-        target_entity_id: Optional[int] = None,
-    ) -> Tuple[pymunk.Vec2d, pymunk.Vec2d]:
+        target_body: pymunk.Body | None = None,
+        target_entity_id: int | None = None,
+    ) -> tuple[pymunk.Vec2d, pymunk.Vec2d]:
         """
         Calculates separation and obstacle avoidance steering forces.
 
@@ -371,16 +371,16 @@ class SteeringSystem(System):
         (forward, +30°, -30°) to detect obstacles ahead.
 
         Args:
-            space (Optional[pymunk.Space]): Pymunk physics space for queries.
+            space (pymunk.Space | None): Pymunk physics space for queries.
             current_pos (pymunk.Vec2d): Entity's current position.
             phys (PhysicsBody): Entity's physics body (for self-exclusion).
             movement (MovementController): Movement controller with current velocity.
             steering (SteeringComponent): Steering parameters (radii, weights).
-            target_body (Optional[pymunk.Body]): Optional body to exclude from avoidance.
-            target_entity_id (Optional[int]): Optional entity ID to exclude.
+            target_body (pymunk.Body | None): Optional body to exclude from avoidance.
+            target_entity_id (int | None): Optional entity ID to exclude.
 
         Returns:
-            Tuple[pymunk.Vec2d, pymunk.Vec2d]: Tube of (separation_force, avoidance_force) vectors.
+            tuple[pymunk.Vec2d, pymunk.Vec2d]: Tube of (separation_force, avoidance_force) vectors.
         """
         separation_force = pymunk.Vec2d(0, 0)
         avoidance_force = pymunk.Vec2d(0, 0)

@@ -2,13 +2,15 @@
 Scene Manager Module.
 """
 
-from typing import Optional, TYPE_CHECKING, Any
-import pygame
-import msgspec
 import gc
+from typing import TYPE_CHECKING, Any
+
+import msgspec
+import pygame
 from loguru import logger
-from .scene import Scene, SceneContext
+
 from .migration import MigrationRegistry
+from .scene import Scene, SceneContext
 
 if TYPE_CHECKING:
     pass
@@ -25,12 +27,12 @@ class SceneManager:
         self.persistent_data: dict[str, Any] = {}
 
     @property
-    def current_scene(self) -> Optional["Scene"]:
+    def current_scene(self) -> Scene | None:
         """
         Gets the current active scene (the one on top of the stack).
 
         Returns:
-            Optional[Scene]: The current scene, or None if the stack is empty.
+            Scene | None: The current scene, or None if the stack is empty.
         """
         return self._scenes[-1] if self._scenes else None
 

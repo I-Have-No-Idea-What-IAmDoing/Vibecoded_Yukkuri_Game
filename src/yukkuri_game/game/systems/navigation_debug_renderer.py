@@ -3,15 +3,16 @@ Navigation Debug Renderer.
 Provides debug visualization for the HPA* navigation system.
 """
 
-import pygame
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from ..ai.navigation_service import NavigationService
-    from ..camera import Camera
-    from ...engine.ecs import World
+import pygame
 
 from ..ai.navigation_constants import TraversalCapability
+
+if TYPE_CHECKING:
+    from ...engine.ecs import World
+    from ..ai.navigation_service import NavigationService
+    from ..camera import Camera
 
 
 class NavigationDebugRenderer:
@@ -61,7 +62,7 @@ class NavigationDebugRenderer:
         self._draw_active_paths(surface, world)
         self._draw_steering_vectors(surface, world)
 
-    def _world_to_screen(self, wx: float, wy: float) -> Tuple[int, int]:
+    def _world_to_screen(self, wx: float, wy: float) -> tuple[int, int]:
         """Converts world coordinates to screen coordinates."""
         sx = wx - self.camera.camera_x + self.camera.width / 2
         sy = wy - self.camera.camera_y + self.camera.height / 2
@@ -108,7 +109,10 @@ class NavigationDebugRenderer:
             )
 
     def _draw_entrances(
-        self, surface: pygame.Surface, capability: int, color: tuple
+        self,
+        surface: pygame.Surface,
+        capability: int,
+        color: tuple[int, int, int, int],
     ) -> None:
         """Draws circles at entrance nodes and lines for edges for the given capability."""
         cell_size = self.nav_service.grid_step_size
@@ -183,7 +187,7 @@ class NavigationDebugRenderer:
 
     def _draw_steering_vectors(self, surface: pygame.Surface, world: "World") -> None:
         """Draws red arrows for steering forces."""
-        from ..components import Transform, MovementController, SteeringComponent
+        from ..components import MovementController, SteeringComponent, Transform
 
         for ent, (transform, movement, steering) in world.get_components_tuple(
             Transform, MovementController, SteeringComponent

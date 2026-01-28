@@ -1,16 +1,37 @@
+from typing import TYPE_CHECKING, Any
+
 import pymunk
-from typing import TYPE_CHECKING
 from py_trees.common import Status
-from ...base_action import Action
+
 from ....components import MovementController
-from ....yukkuri_components import Needs, EmotionalState
+from ....yukkuri_components import EmotionalState, Needs
+from ...base_action import Action
 
 if TYPE_CHECKING:
-    pass
+    from yukkuri_game.engine.ecs import World
 
 
 class Sleep(Action):
-    def __init__(self, name="Sleep", entity_id=None, world=None, blackboard=None):
+    """
+    Action to sleep and recover energy.
+    """
+
+    def __init__(
+        self,
+        name: str = "Sleep",
+        entity_id: int | None = None,
+        world: "World | None" = None,
+        blackboard: Any | None = None,
+    ):
+        """
+        Initializes the Sleep action.
+
+        Args:
+            name (str): Behavior name.
+            entity_id (int | None): Entity ID.
+            world (World | None): ECS World.
+            blackboard (Any | None): Blackboard.
+        """
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:

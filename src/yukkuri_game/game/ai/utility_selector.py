@@ -2,25 +2,25 @@
 Module defining the UtilitySelector behavior tree node.
 """
 
-from typing import Optional, Any, TYPE_CHECKING
-from py_trees.common import Status
+from typing import TYPE_CHECKING, Any
+
 from loguru import logger
+from py_trees.common import Status
 
-from .utility import UtilityAIEngine
-from .base_action import Action
-
+from ..services import TimeService
+from ..trait_service import TraitService
 from ..yukkuri_components import (
     AIState,
-    YukkuriStats,
+    Blackboard,
+    EmotionalState,
     Needs,
     Personality,
-    EmotionalState,
-    Skills,
     Predator,
-    Blackboard,
+    Skills,
+    YukkuriStats,
 )
-from ..trait_service import TraitService
-from ..services import TimeService
+from .base_action import Action
+from .utility import UtilityAIEngine
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
@@ -32,15 +32,15 @@ class UtilitySelector(Action):
     Updates AIState.current_action.
 
     Attributes:
-        engine (Optional[UtilityAIEngine]): The utility AI engine.
-        trait_service (Optional[TraitService]): The trait service.
+        engine (UtilityAIEngine | None): The utility AI engine.
+        trait_service (TraitService | None): The trait service.
     """
 
     def __init__(
         self,
         name: str = "Utility Selector",
         entity_id: int | None = None,
-        world: Optional["World"] = None,
+        world: "World | None" = None,
         blackboard: Any | None = None,
     ):
         """
@@ -48,9 +48,9 @@ class UtilitySelector(Action):
 
         Args:
             name (str): The name of the node.
-            entity_id (Optional[int]): The ID of the entity.
-            world (Optional[World]): The ECS World.
-            blackboard (Optional[Any]): The blackboard for data sharing.
+            entity_id (int | None): The ID of the entity.
+            world (World | None): The ECS World.
+            blackboard (Any | None): The blackboard for data sharing.
         """
         super().__init__(name, entity_id, world, blackboard)
         self.engine: UtilityAIEngine | None = None
@@ -59,9 +59,6 @@ class UtilitySelector(Action):
     def initialise(self) -> None:
         """
         Initializes the selector, attempting to fetch the UtilityAIEngine service.
-
-        Returns:
-            None
         """
         # Try to get engine if not set
         if self.world and not self.engine:

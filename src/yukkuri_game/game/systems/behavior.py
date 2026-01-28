@@ -11,15 +11,14 @@ Key features:
 """
 
 from collections import deque
-from typing import Dict, Set
 
 import py_trees
 from py_trees.common import Status
 
 from ...engine.ecs import System, World
+from ..ai.behavior import create_yukkuri_behavior_tree
 from ..components import LODComponent
 from ..yukkuri_components import AIState
-from ..ai.behavior import create_yukkuri_behavior_tree
 
 
 class BehaviorSystem(System):
@@ -33,11 +32,11 @@ class BehaviorSystem(System):
     Attributes:
         world_w (float): The width of the world boundary.
         world_h (float): The height of the world boundary.
-        trees (Dict[int, py_trees.trees.BehaviourTree]): Map of entity IDs to behavior trees.
+        trees (dict[int, py_trees.trees.BehaviourTree]): Map of entity IDs to behavior trees.
         update_queue (deque[int]): Queue for round-robin scheduling.
-        last_update_times (Dict[int, float]): Map of entity IDs to last tick timestamp.
+        last_update_times (dict[int, float]): Map of entity IDs to last tick timestamp.
         total_time (float): Accumulated simulation time.
-        stable_entities (Set[int]): Set of entities currently in a stable state (SUCCESS).
+        stable_entities (set[int]): Set of entities currently in a stable state (SUCCESS).
     """
 
     def __init__(self, world_width: float, world_height: float):
@@ -50,12 +49,12 @@ class BehaviorSystem(System):
         """
         self.world_w = world_width
         self.world_h = world_height
-        self.trees: Dict[int, py_trees.trees.BehaviourTree] = {}
+        self.trees: dict[int, py_trees.trees.BehaviourTree] = {}
 
         self.update_queue: deque[int] = deque()
         self.max_updates_per_frame = 10  # Configurable performance definition
 
-        self.last_update_times: Dict[int, float] = {}
+        self.last_update_times: dict[int, float] = {}
         self.total_time: float = 0.0
 
         # Performance Optimization: Tick Throttling
@@ -64,7 +63,7 @@ class BehaviorSystem(System):
 
         # Throttling multiplier for entities in specific states (e.g. Sleeping)
         self.stable_tick_multiplier: float = 3.0
-        self.stable_entities: Set[int] = set()
+        self.stable_entities: set[int] = set()
 
     def update(self, world: World, dt: float) -> None:
         """

@@ -18,22 +18,22 @@ Relationship Resolution Priority:
 """
 
 import math
-from typing import cast, Optional, Dict, Set
+from typing import cast
 
 from ...engine.ecs import System, World
-from ...engine.types import EntityID
-from ...engine.events import EntityDestroyedEvent
 from ...engine.event_bus import EventBus
+from ...engine.events import EntityDestroyedEvent
+from ...engine.types import EntityID
 from ..components import Transform
 from ..yukkuri_components import (
     AIState,
     Blackboard,
-    TargetInfo,
+    ItemStats,
     LastKnownPosition,
-    YukkuriStats,
     Predator,
     RelationshipRegistry,
-    ItemStats,
+    TargetInfo,
+    YukkuriStats,
 )
 
 
@@ -46,8 +46,8 @@ class PerceptionSystem(System):
     from the "what does it mean to me" logic.
 
     Attributes:
-        _last_update_times (Dict[int, float]): Timestamp of last update per entity.
-        _last_visible_set_ids (Dict[int, int]): ID of the visible entity set from the last frame.
+        _last_update_times (dict[int, float]): Timestamp of last update per entity.
+        _last_visible_set_ids (dict[int, int]): ID of the visible entity set from the last frame.
         _subscribed (bool): Whether the system has subscribed to event bus events.
     """
 
@@ -64,16 +64,16 @@ class PerceptionSystem(System):
     def __init__(self) -> None:
         """Initializes the PerceptionSystem."""
         super().__init__()
-        self._last_update_times: Dict[int, float] = {}
-        self._last_visible_set_ids: Dict[int, int] = {}
+        self._last_update_times: dict[int, float] = {}
+        self._last_visible_set_ids: dict[int, int] = {}
         self._subscribed = False
 
-    def initialize(self, world: Optional[World] = None) -> None:
+    def initialize(self, world: World | None = None) -> None:
         """
         Sets up event subscriptions.
 
         Args:
-            world (Optional[World]): The ECS World.
+            world (World | None): The ECS World.
         """
         target_world = world
         if target_world is None and hasattr(self, "ecs_world"):
@@ -171,7 +171,7 @@ class PerceptionSystem(System):
 
         # Memory management
         previously_visible = set(blackboard.visible_targets.keys())
-        currently_visible: Set[EntityID] = set()
+        currently_visible: set[EntityID] = set()
 
         # Reset Census
         blackboard.nearby_friends = 0
@@ -266,9 +266,9 @@ class PerceptionSystem(System):
         world: World,
         self_id: int,
         target_id: int,
-        my_stats: Optional[YukkuriStats],
-        my_predator: Optional[Predator],
-        my_relations: Optional[RelationshipRegistry],
+        my_stats: YukkuriStats | None,
+        my_predator: Predator | None,
+        my_relations: RelationshipRegistry | None,
     ) -> str:
         """
         Determines the social stance towards a target.
@@ -277,9 +277,9 @@ class PerceptionSystem(System):
             world (World): The ECS World.
             self_id (int): The entity ID of the observer.
             target_id (int): The entity ID of the target.
-            my_stats (Optional[YukkuriStats]): The observer's stats.
-            my_predator (Optional[Predator]): The observer's predator component.
-            my_relations (Optional[RelationshipRegistry]): The observer's relationship registry.
+            my_stats (YukkuriStats | None): The observer's stats.
+            my_predator (Predator | None): The observer's predator component.
+            my_relations (RelationshipRegistry | None): The observer's relationship registry.
 
         Returns:
             str: "Friend", "Enemy", "Neutral", "Prey", "Threat", or "Family".
