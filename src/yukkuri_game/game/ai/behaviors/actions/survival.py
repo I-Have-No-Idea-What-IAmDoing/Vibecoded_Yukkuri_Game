@@ -43,7 +43,7 @@ class Sleep(Action):
         if controller:
             controller.target_velocity = pymunk.Vec2d(0, 0)
 
-        dt = 0.016
+        dt = self.world.dt
         needs = self.world.try_get_component(self.entity_id, Needs)
         if needs:
             needs.energy += 10.0 * dt

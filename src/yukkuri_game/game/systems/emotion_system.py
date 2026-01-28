@@ -297,7 +297,7 @@ class EmotionSystem(System):
                     break
 
             if not in_light:
-                emotional_state.stress += self.DARKNESS_STRESS_RATE * dt
+                emotional_state.stress += self.DARKNESS_STRESS_RATE * game_dt
 
         # Stress Decay
         stress_decay_rate = getattr(self.settings, "stress", 5.0)

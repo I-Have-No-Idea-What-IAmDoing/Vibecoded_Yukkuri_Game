@@ -127,7 +127,9 @@ class NavigationService:
         self.result_queue: queue.Queue[PathResult] = queue.Queue()
 
         # Path cache: (start_cluster, end_cluster, capabilities) -> abstract path IDs
-        self._path_cache: dict[tuple[tuple[int, int], tuple[int, int], int], list[str]] = {}
+        self._path_cache: dict[
+            tuple[tuple[int, int], tuple[int, int], int], list[str]
+        ] = {}
 
         # Dirty flag triggers graph rebuild on next worker cycle.
         self._dirty = False

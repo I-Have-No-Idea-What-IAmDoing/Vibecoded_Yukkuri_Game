@@ -1,5 +1,5 @@
 import math
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, cast, Optional
 
 from py_trees.common import Status
 

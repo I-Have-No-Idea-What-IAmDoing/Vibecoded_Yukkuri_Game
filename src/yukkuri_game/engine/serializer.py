@@ -257,6 +257,8 @@ class WorldSerializer:
                                 setattr(
                                     component, field_name, EntityID(-1)
                                 )  # Dangling.
+                        else:
+                            pass
 
                     elif self._is_container_of_entity_ref(field_type):
                         origin = get_origin(field_type)

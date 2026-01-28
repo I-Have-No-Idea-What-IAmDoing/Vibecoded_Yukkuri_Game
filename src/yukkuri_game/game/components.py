@@ -415,7 +415,7 @@ class MoveCommand:
     """
 
     target_pos: Vector2 = field(default_factory=lambda: Vector2(0, 0))
-    target_entity_id: int | None = None
+    target_entity_id: EntityID | None = None
     speed_multiplier: float = 1.0
     altitude: float = 0.0
     use_pathfinding: bool = True

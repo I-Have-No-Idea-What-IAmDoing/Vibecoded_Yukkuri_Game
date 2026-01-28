@@ -161,7 +161,14 @@ class InventorySystem(System):
                         logger.error(
                             f"Failed to spawn dropped item {item_type_id}: {e}"
                         )
-                        inventory.add(item_type_id, removed, 999)
+                        stack_limit = 99
+                        if self.resource_manager:
+                            item_data = self.resource_manager.item_types.get(
+                                item_type_id
+                            )
+                            if item_data:
+                                stack_limit = getattr(item_data, "stack_size", 99)
+                        inventory.add(item_type_id, removed, stack_limit)
 
             else:
                 logger.debug(

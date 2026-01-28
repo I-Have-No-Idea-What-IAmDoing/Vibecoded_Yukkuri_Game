@@ -246,16 +246,9 @@ class EatPrey(Action):
         if target_controller:
             target_controller.target_velocity = pymunk.Vec2d(0, 0)
 
-        # Calculate dt based on system time if available, or fallback
-        # Since Actions don't get dt passed, we estimate it or look it up
-        dt = 0.016
-        current_time = self.world.time
-        if self.last_update_time > 0:
-            dt = current_time - self.last_update_time
-        self.last_update_time = current_time
-
-        # Clamp dt to avoid massive jumps on lag spikes or pause
-        dt = max(0.001, min(0.1, dt))
+        # Use consistent world delta time
+        dt = self.world.dt
+        self.last_update_time = self.world.time
 
         damage = predator.dps * dt
         target_needs.health -= damage
