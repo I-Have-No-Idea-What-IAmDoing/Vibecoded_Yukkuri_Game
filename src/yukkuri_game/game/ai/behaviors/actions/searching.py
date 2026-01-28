@@ -192,7 +192,7 @@ class FindPrey(Action):
             target_trans = self.world.try_get_component(ent, Transform)
             if not target_trans:
                 continue
-            
+
             # Distance check
             dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
             if dist > predator.prey_sense_radius:
@@ -200,7 +200,7 @@ class FindPrey(Action):
 
             # Type/Tag check
             is_prey = False
-            
+
             # Check ItemStats
             i_stats = self.world.try_get_component(ent, ItemStats)
             if i_stats:
@@ -212,7 +212,9 @@ class FindPrey(Action):
                     "cookie",
                 ):
                     is_prey = True
-                elif "BeanPaste" in predator.prey_tags and i_stats.type_id == "beanpaste":
+                elif (
+                    "BeanPaste" in predator.prey_tags and i_stats.type_id == "beanpaste"
+                ):
                     is_prey = True
 
             # Check YukkuriStats

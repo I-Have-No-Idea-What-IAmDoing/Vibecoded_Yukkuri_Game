@@ -179,6 +179,7 @@ class EatPrey(Action):
         # Lazy load SectorMap
         if self.sector_map is None:
             from ....systems.sector_system import SectorMap
+
             self.sector_map = self.world.services.try_get(SectorMap)
 
         ai = self.world.get_component(self.entity_id, AIState)
@@ -207,7 +208,7 @@ class EatPrey(Action):
 
         # Social Defense (Rescue) Check
         rescue_radius = 60.0
-        
+
         # Use SectorMap if available for optimization
         potential_defenders = []
         if self.sector_map:
@@ -222,11 +223,11 @@ class EatPrey(Action):
                 continue
             if defender_id == ai.current_target_id:
                 continue
-            
+
             # Fetch components required for check
             d_stats = self.world.try_get_component(defender_id, YukkuriStats)
             d_trans = self.world.try_get_component(defender_id, Transform)
-            
+
             if not d_stats or not d_trans:
                 continue
 
@@ -252,7 +253,7 @@ class EatPrey(Action):
         if self.last_update_time > 0:
             dt = current_time - self.last_update_time
         self.last_update_time = current_time
-        
+
         # Clamp dt to avoid massive jumps on lag spikes or pause
         dt = max(0.001, min(0.1, dt))
 
