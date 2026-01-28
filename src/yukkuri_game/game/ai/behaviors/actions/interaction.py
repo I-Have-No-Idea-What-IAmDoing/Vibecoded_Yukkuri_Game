@@ -163,14 +163,23 @@ class EatPrey(Action):
         """
         super().__init__(name, entity_id, world, blackboard)
         self._eating_progress: float = 0.0
+        self.sector_map: Any = None
+        self.last_update_time: float = 0.0
 
     def initialise(self) -> None:
         self._eating_progress = 0.0
+        if self.world:
+            self.last_update_time = self.world.time
 
     def update(self) -> Status:
         super().update()
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
+
+        # Lazy load SectorMap
+        if self.sector_map is None:
+            from ....systems.sector_system import SectorMap
+            self.sector_map = self.world.services.try_get(SectorMap)
 
         ai = self.world.get_component(self.entity_id, AIState)
         predator = self.world.get_component(self.entity_id, Predator)
@@ -198,13 +207,29 @@ class EatPrey(Action):
 
         # Social Defense (Rescue) Check
         rescue_radius = 60.0
-        for defender_id, (d_stats, d_trans) in self.world.get_components_tuple(
-            YukkuriStats, Transform
-        ):
+        
+        # Use SectorMap if available for optimization
+        potential_defenders = []
+        if self.sector_map:
+            potential_defenders = self.sector_map.get_entities_in_radius(
+                target_trans.x, target_trans.y, rescue_radius
+            )
+        else:
+            potential_defenders = self.world.get_all_entities()
+
+        for defender_id in potential_defenders:
             if defender_id == self.entity_id:
                 continue
             if defender_id == ai.current_target_id:
                 continue
+            
+            # Fetch components required for check
+            d_stats = self.world.try_get_component(defender_id, YukkuriStats)
+            d_trans = self.world.try_get_component(defender_id, Transform)
+            
+            if not d_stats or not d_trans:
+                continue
+
             if self.world.has_component(defender_id, Predator):
                 continue
 
@@ -220,7 +245,17 @@ class EatPrey(Action):
         if target_controller:
             target_controller.target_velocity = pymunk.Vec2d(0, 0)
 
+        # Calculate dt based on system time if available, or fallback
+        # Since Actions don't get dt passed, we estimate it or look it up
         dt = 0.016
+        current_time = self.world.time
+        if self.last_update_time > 0:
+            dt = current_time - self.last_update_time
+        self.last_update_time = current_time
+        
+        # Clamp dt to avoid massive jumps on lag spikes or pause
+        dt = max(0.001, min(0.1, dt))
+
         damage = predator.dps * dt
         target_needs.health -= damage
 

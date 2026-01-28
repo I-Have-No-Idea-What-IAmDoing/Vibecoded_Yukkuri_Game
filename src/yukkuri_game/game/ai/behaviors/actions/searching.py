@@ -22,6 +22,7 @@ from yukkuri_game.engine.types import EntityID
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
+    from yukkuri_game.game.systems.sector_system import SectorMap
 
 
 class FindItem(Action):
@@ -138,6 +139,7 @@ class FindLightSource(Action):
 class FindPrey(Action):
     """
     Finds a target entity that matches the predator's prey tags.
+    Optimized to use SectorMap for spatial queries.
     """
 
     def __init__(
@@ -148,6 +150,7 @@ class FindPrey(Action):
         blackboard: Any | None = None,
     ):
         super().__init__(name, entity_id, world, blackboard)
+        self.sector_map: Optional["SectorMap"] = None
 
     def update(self) -> Status:
         super().update()
@@ -161,46 +164,68 @@ class FindPrey(Action):
         if ai is None or predator is None or trans is None:
             return Status.FAILURE
 
+        # Lazy load SectorMap
+        if self.sector_map is None:
+            from ....systems.sector_system import SectorMap
+
+            self.sector_map = self.world.services.try_get(SectorMap)
+
         candidates = []
 
-        # Check Items
-        for ent, (i_stats, i_trans) in self.world.get_components_tuple(
-            ItemStats, Transform
-        ):
-            is_prey = False
-            if i_stats.type_id in predator.prey_tags:
-                is_prey = True
-            elif "Food" in predator.prey_tags and i_stats.type_id in (
-                "beanpaste",
-                "food",
-                "cookie",
-            ):
-                is_prey = True
-            elif "BeanPaste" in predator.prey_tags and i_stats.type_id == "beanpaste":
-                is_prey = True
+        # Use efficient spatial query if available
+        potential_targets = []
+        if self.sector_map:
+            potential_targets = self.sector_map.get_entities_in_radius(
+                trans.x, trans.y, predator.prey_sense_radius
+            )
+        else:
+            # Fallback to expensive full scan
+            potential_targets = self.world.get_all_entities()
 
-            if is_prey:
-                dist = math.hypot(i_trans.x - trans.x, i_trans.y - trans.y)
-                if dist <= predator.prey_sense_radius:
-                    candidates.append((ent, dist))
-
-        # Check Yukkuris
-        for ent, (y_stats, y_trans) in self.world.get_components_tuple(
-            YukkuriStats, Transform
-        ):
+        # Filter candidates
+        for ent in potential_targets:
             if ent == self.entity_id:
                 continue
 
+            # We need to manually check distance if we used SectorMap (it returns a superset)
+            # Fetch components safely
+            target_trans = self.world.try_get_component(ent, Transform)
+            if not target_trans:
+                continue
+            
+            # Distance check
+            dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
+            if dist > predator.prey_sense_radius:
+                continue
+
+            # Type/Tag check
             is_prey = False
-            if y_stats.type_id in predator.prey_tags:
-                is_prey = True
-            if "Yukkuri" in predator.prey_tags:
-                is_prey = True
+            
+            # Check ItemStats
+            i_stats = self.world.try_get_component(ent, ItemStats)
+            if i_stats:
+                if i_stats.type_id in predator.prey_tags:
+                    is_prey = True
+                elif "Food" in predator.prey_tags and i_stats.type_id in (
+                    "beanpaste",
+                    "food",
+                    "cookie",
+                ):
+                    is_prey = True
+                elif "BeanPaste" in predator.prey_tags and i_stats.type_id == "beanpaste":
+                    is_prey = True
+
+            # Check YukkuriStats
+            if not is_prey:
+                y_stats = self.world.try_get_component(ent, YukkuriStats)
+                if y_stats:
+                    if y_stats.type_id in predator.prey_tags:
+                        is_prey = True
+                    if "Yukkuri" in predator.prey_tags:
+                        is_prey = True
 
             if is_prey:
-                dist = math.hypot(y_trans.x - trans.x, y_trans.y - trans.y)
-                if dist <= predator.prey_sense_radius:
-                    candidates.append((ent, dist))
+                candidates.append((ent, dist))
 
         if not candidates:
             return Status.FAILURE

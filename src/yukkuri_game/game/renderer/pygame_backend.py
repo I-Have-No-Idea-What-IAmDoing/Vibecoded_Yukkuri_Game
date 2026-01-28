@@ -1,4 +1,4 @@
-from typing import Any
+
 from collections import OrderedDict
 import pygame
 from .backend import RenderBackend
