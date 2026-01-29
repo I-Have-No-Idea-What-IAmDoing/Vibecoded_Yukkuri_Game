@@ -223,8 +223,6 @@ class MoveToTarget(Action):
                         ai.state_data = {}
                     ai.state_data["path_requesting"] = True
                     ai.state_data["path_request_time"] = self.world.time
-                    with open("debug_test.log", "a") as f:
-                        f.write(f"MoveToTarget: Requesting Path. Time={self.world.time}\n")
                     ai.state_data["path_destination"] = (target_pos.x, target_pos.y)
                     if "path_failed" in ai.state_data:
                         del ai.state_data["path_failed"]
@@ -508,6 +506,11 @@ class FleePredator(Action):
             if flee_vec.length > 0:
                 flee_vec = flee_vec.normalized() * self.speed
                 controller.target_velocity = flee_vec
+                
+                # Critical: Remove conflicting MoveCommands so SteeringSystem doesn't override us
+                if self.world.has_component(self.entity_id, MoveCommand):
+                    self.world.remove_component(self.entity_id, MoveCommand)
+                
                 return Status.RUNNING
 
         return Status.FAILURE
@@ -559,8 +562,6 @@ class FleeFromTarget(Action):
 
         target_trans = self.world.try_get_component(target_id, Transform)
         if not target_trans:
-            with open("debug_test.log", "a") as f:
-                f.write("MoveToTarget: FAILURE. No Target Pos.\n")
             return Status.FAILURE
 
         dx = target_trans.x - trans.x

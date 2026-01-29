@@ -369,9 +369,6 @@ def create_yukkuri_behavior_tree(
         if not ai:
             return False
         result = bool(ai.current_action == goal_name)
-        if goal_name == "Eat" and not result:
-             with open("debug_test.log", "a") as f:
-                 f.write(f"CheckGoal(Eat) FAILED. Current={ai.current_action}\n")
         return result
 
     def check_target_exists() -> bool:

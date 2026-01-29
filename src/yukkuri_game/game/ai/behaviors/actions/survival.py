@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING, Any
 import pymunk
 from py_trees.common import Status
 
-from ....components import MovementController
-from ....yukkuri_components import EmotionalState, Needs
+from ....components import MovementController, MoveCommand
+from ....yukkuri_components import EmotionalState, Needs, AIState
 from ...base_action import Action
 
 if TYPE_CHECKING:
@@ -42,6 +42,14 @@ class Sleep(Action):
         controller = self.world.try_get_component(self.entity_id, MovementController)
         if controller:
             controller.target_velocity = pymunk.Vec2d(0, 0)
+
+        # Clear active MoveCommands and existing paths
+        if self.world.has_component(self.entity_id, MoveCommand):
+            self.world.remove_component(self.entity_id, MoveCommand)
+        
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        if ai and ai.path:
+            ai.path = None
 
         dt = self.world.dt
         needs = self.world.try_get_component(self.entity_id, Needs)

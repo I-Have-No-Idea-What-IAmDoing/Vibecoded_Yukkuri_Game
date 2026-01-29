@@ -9,6 +9,7 @@ from loguru import logger
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
+from ...engine import rng
 from ...engine.events import InventoryChangedEvent
 from ...engine.resource_manager import ResourceManager
 from ..components import Transform
@@ -143,7 +144,10 @@ class InventorySystem(System):
 
                     try:
                         for _ in range(removed):
-                            entity_factory.create_item(item_type_id, spawn_x, spawn_y)
+                            # Spread dropped items slightly
+                            offset_x = rng.uniform(-10, 10)
+                            offset_y = rng.uniform(-10, 10)
+                            entity_factory.create_item(item_type_id, spawn_x + offset_x, spawn_y + offset_y)
 
                         if self.event_bus:
                             self.event_bus.publish(

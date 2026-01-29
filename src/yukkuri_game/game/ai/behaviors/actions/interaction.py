@@ -63,14 +63,10 @@ class Interact(Action):
             return Status.FAILURE
 
         if ai.current_target_id == -1:
-            with open("debug_test.log", "a") as f:
-                f.write(f"Interact: FAILURE. No Target ID. Entity={self.entity_id}\n")
             return Status.FAILURE
 
         target_trans = self.world.get_component(ai.current_target_id, Transform)
         if target_trans is None:
-            with open("debug_test.log", "a") as f:
-                f.write(f"Interact: FAILURE. No Target Transform. TargetID={ai.current_target_id}\n")
             return Status.FAILURE
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)

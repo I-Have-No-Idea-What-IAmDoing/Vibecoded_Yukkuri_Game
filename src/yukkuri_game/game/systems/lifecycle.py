@@ -95,12 +95,6 @@ class LifecycleSystem(System):
                 # Tag as Dead
                 world.add_component(entity, Dead())
 
-                # Emit Event
-                if event_bus:
-                    transform = world.get_component(entity, Transform)
-                    pos = (transform.x, transform.y) if transform else (0, 0)
-                    event_bus.publish(EntityDiedEvent(entity, pos))
-
                 # Disable AI
                 if world.has_component(entity, AIState):
                     world.remove_component(entity, AIState)
@@ -108,6 +102,12 @@ class LifecycleSystem(System):
                 sprite = world.get_component(entity, Sprite)
                 if sprite:
                     sprite.flip_y = True  # Flip upside down as death indicator.
+
+                # Emit Event
+                if event_bus:
+                    transform = world.get_component(entity, Transform)
+                    pos = (transform.x, transform.y) if transform else (0, 0)
+                    event_bus.publish(EntityDiedEvent(entity, pos))
 
     def _handle_growth(self, world: World) -> None:
         """

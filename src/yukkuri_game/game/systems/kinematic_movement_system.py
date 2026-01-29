@@ -93,8 +93,7 @@ class KinematicMovementSystem(System):
             logger.warning(
                 "KinematicMovementSystem: Fixed update skipped because world is not initialized."
             )
-        with open("debug_test.log", "a") as f:
-             f.write(f"KinematicMovementSystem: FixedUpdate. DT={event.dt}\n")
+
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -285,8 +284,7 @@ class KinematicMovementSystem(System):
         """
         body = phys.body
         start_pos = body.position
-        with open("debug_test.log", "a") as f:
-             f.write(f"KMS: Moving Entity. Pos={start_pos}, TargetVel={controller.target_velocity}\n")
+
 
         # 1. Virtual Physics Integration
         input_vector = controller.target_velocity

@@ -111,8 +111,7 @@ class NavigationService:
         self.world_width = world_width
         self.world_height = world_height
         self.grid_step_size = grid_step_size
-        with open("debug_test.log", "a") as f:
-            f.write(f"NavigationService Init: Step={self.grid_step_size}\n")
+        self.grid_step_size = grid_step_size
         self.deterministic_mode = deterministic_mode
 
         # Unified Grid
@@ -584,8 +583,6 @@ class NavigationService:
             float(grid_pos[0] * self.grid_step_size),
             float(grid_pos[1] * self.grid_step_size),
         )
-        with open("debug_test.log", "a") as f:
-            f.write(f"NavToWorld: Grid={grid_pos}, Step={self.grid_step_size}, World={res}\n")
         return res
 
     def update_obstacle_rect(

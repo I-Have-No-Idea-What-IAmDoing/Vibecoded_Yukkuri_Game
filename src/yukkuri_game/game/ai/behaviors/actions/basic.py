@@ -2,8 +2,8 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from py_trees.common import Status
 
-from ....components import PhysicsBody
-from ....yukkuri_components import EmotionalState
+from ....components import PhysicsBody, MovementController, MoveCommand
+from ....yukkuri_components import EmotionalState, AIState
 from ...base_action import Action
 
 if TYPE_CHECKING:
@@ -43,9 +43,24 @@ class Idle(Action):
         if self.world is None or self.entity_id is None:
             return Status.SUCCESS
 
-        phys = self.world.get_component(self.entity_id, PhysicsBody)
-        if phys:
-            phys.body.velocity = (0, 0)
+        # Ensure MovementController targets zero
+        controller = self.world.try_get_component(self.entity_id, MovementController)
+        if controller:
+            controller.target_velocity = (0, 0)
+            # Optional: Hard stop physics to prevent sliding if desired
+            # phys = self.world.try_get_component(self.entity_id, PhysicsBody)
+            # if phys:
+            #     phys.body.velocity = (0, 0)
+
+        # Remove any lingering MoveCommands that would override our stop
+        if self.world.has_component(self.entity_id, MoveCommand):
+            self.world.remove_component(self.entity_id, MoveCommand)
+
+        # Also clear path to prevent resumption of path following
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        if ai and ai.path:
+            ai.path = None
+
         return Status.SUCCESS
 
 

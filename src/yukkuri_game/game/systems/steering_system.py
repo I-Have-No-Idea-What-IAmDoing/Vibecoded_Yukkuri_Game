@@ -85,8 +85,7 @@ class SteeringSystem(System):
             current_pos = pymunk.Vec2d(trans.x, trans.y)
             target_pos = pymunk.Vec2d(move_cmd.target_pos.x, move_cmd.target_pos.y)
 
-            with open("debug_test.log", "a") as f:
-                f.write(f"SteeringSystem: Processing MoveCommand. Cur={current_pos}, Tgt={target_pos}\n")
+
 
             # Track moving entity by updating target position each frame.
             if move_cmd.target_entity_id is not None:

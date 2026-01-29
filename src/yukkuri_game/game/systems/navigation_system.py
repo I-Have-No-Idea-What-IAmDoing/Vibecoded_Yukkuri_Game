@@ -32,11 +32,9 @@ class NavigationSystem(System):
 
         results = nav_service.get_results()
         if results:
-             with open("debug_test.log", "a") as f:
-                 f.write(f"NavigationSystem: Got {len(results)} results.\n")
+
         for result in results:
-            with open("debug_test.log", "a") as f:
-                f.write(f"NavResult: Entity={result.entity_id}, Success={result.success}, Partial={result.is_partial}, Len={len(result.path) if result.path else 0}\n")
+
             # Update entity AIState
             ai_state = world.try_get_component(result.entity_id, AIState)
 
