@@ -102,6 +102,8 @@ class LifecycleSettings(msgspec.Struct):
     breeding_energy_threshold: float = 80.0
     breeding_cost: float = 50.0
     breeding_chance: float = 0.001
+    growth_health_restore: float = 50.0
+    child_max_health_bonus: float = 50.0
 
 
 class SocialSettings(msgspec.Struct):

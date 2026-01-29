@@ -49,8 +49,6 @@ class LifecycleSystem(System):
     """
 
     # Growth constants
-    CHILD_MAX_HEALTH_BONUS = 50  # Extra max health when becoming Child
-    GROWTH_HEALTH_RESTORE = 50  # Health restored on any growth transition
     BREEDING_SPAWN_OFFSET = 20.0  # Random offset range for baby spawn position
 
     def __init__(self, settings: LifecycleSettings):
@@ -151,7 +149,7 @@ class LifecycleSystem(System):
         scale_multiplier: float,
     ) -> None:
         """
-        Performs the growth transition.
+        Performs the growth transition, updating stats, health, and scale.
 
         Args:
             world (World): The ECS World.
@@ -159,8 +157,8 @@ class LifecycleSystem(System):
             stats (YukkuriStats): The entity's stats.
             needs (Needs): The entity's needs.
             transform (Transform): The entity's transform.
-            new_stage (str): The new growth stage.
-            scale_multiplier (float): The scale multiplier.
+            new_stage (str): The new growth stage name.
+            scale_multiplier (float): The factor to scale the entity by.
         """
         logger.info(
             f"{stats.name} is growing from {stats.growth_stage} to {new_stage}!"
@@ -173,9 +171,9 @@ class LifecycleSystem(System):
 
         # Adjust Stats
         if new_stage == "Child":
-            needs.max_health += self.CHILD_MAX_HEALTH_BONUS
+            needs.max_health += self.settings.child_max_health_bonus
 
-        needs.health += self.GROWTH_HEALTH_RESTORE  # Heal on growth
+        needs.health += self.settings.growth_health_restore  # Heal on growth
         if needs.health > needs.max_health:
             needs.health = needs.max_health
 
@@ -196,7 +194,7 @@ class LifecycleSystem(System):
 
     def _handle_breeding(self, world: World) -> None:
         """
-        Handles breeding logic.
+        Handles breeding logic. Check eligibility and spawn offspring.
 
         Args:
             world (World): The ECS World.
@@ -207,22 +205,41 @@ class LifecycleSystem(System):
             if world.has_component(entity, Dead):
                 continue
 
-            # Must be Adult to breed
-            if stats.growth_stage != "Adult":
-                continue
+            if self._should_breed(world, entity, stats, needs):
+                self._breed(world, entity, stats, needs, transform)
 
-            emotional = world.get_component(entity, EmotionalState)
-            happiness = 0.0
-            if emotional:
-                happiness = emotional.happiness
+    def _should_breed(
+        self, world: World, entity: int, stats: YukkuriStats, needs: Needs
+    ) -> bool:
+        """
+        Determines if an entity meets the conditions to breed.
 
-            if (
-                happiness >= self.settings.breeding_happiness_threshold
-                and needs.energy >= self.settings.breeding_energy_threshold
-            ):
-                # Chance to breed
-                if rng.random_float() < self.settings.breeding_chance:
-                    self._breed(world, entity, stats, needs, transform)
+        Args:
+            world (World): The ECS World.
+            entity (int): Entity ID.
+            stats (YukkuriStats): The entity's stats.
+            needs (Needs): The entity's needs.
+
+        Returns:
+            bool: True if eligible and luck roll succeeds.
+        """
+        # Must be Adult
+        if stats.growth_stage != "Adult":
+            return False
+
+        emotional = world.get_component(entity, EmotionalState)
+        happiness = 0.0
+        if emotional:
+            happiness = emotional.happiness
+
+        if (
+            happiness >= self.settings.breeding_happiness_threshold
+            and needs.energy >= self.settings.breeding_energy_threshold
+        ):
+            # Chance to breed
+            return rng.random_float() < self.settings.breeding_chance
+
+        return False
 
     def _breed(
         self,
@@ -233,7 +250,7 @@ class LifecycleSystem(System):
         parent_transform: Transform,
     ) -> None:
         """
-        Executes breeding action.
+        Executes breeding action (cost deduction and spawning).
 
         Args:
             world (World): The ECS World.

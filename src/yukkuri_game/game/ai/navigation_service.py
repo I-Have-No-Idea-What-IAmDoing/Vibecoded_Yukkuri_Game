@@ -372,7 +372,8 @@ class NavigationService:
             req (PathRequest): The request to process.
 
         Returns:
-            PathResult with world-coordinate path on success.
+            PathResult: The result containing the calculated path (world coordinates)
+            and success status.
         """
         logger.debug(f"_process_request start: {req.start} -> {req.end}")
         start_pos = req.start
@@ -622,45 +623,7 @@ class NavigationService:
             self.grid.update_obstacle_rect(x, y, width, height, is_blocking, block_mask)
             self._dirty = True
 
-    def find_path(
-        self,
-        start: tuple[float, float],
-        end: tuple[float, float],
-        can_fly: bool = False,
-        timestamp: float | None = None,
-    ) -> list[tuple[float, float]]:
-        """
-        Blocking synchronous pathfinding.
 
-        Note: This is intended for legacy code or cases where immediate results are required
-        and blocking the main thread is acceptable (or when using deterministic mode).
-
-        Args:
-            start (tuple[float, float]): Start world position.
-            end (tuple[float, float]): End world position.
-            can_fly (bool): If True, uses FLY capability.
-            timestamp (float | None): Timestamp for request ordering.
-
-        Returns:
-            list[tuple[float, float]]: The calculated path, or empty list if failed.
-        """
-        logger.debug(f"find_path called: {start} -> {end}")
-        req = PathRequest(
-            priority=0,
-            timestamp=timestamp if timestamp is not None else time.time(),
-            entity_id=-1,  # Dummy ID
-            start=self._to_grid(start),
-            end=self._to_grid(end),
-            capabilities=TraversalCapability.FLY
-            if can_fly
-            else TraversalCapability.WALK,
-        )
-        # Lock to prevent race with graph rebuild
-        with self._state_lock:
-            result = self._process_request(req)
-
-        logger.debug(f"find_path finished. Success: {result.success}")
-        return result.path if result.success else []
 
     def _to_grid(self, pos: tuple[float, float]) -> tuple[int, int]:
         """

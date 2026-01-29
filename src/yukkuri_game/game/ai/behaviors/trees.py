@@ -72,84 +72,92 @@ class BehaviorRegistry:
         return cls._target_requirements.get(goal_name)
 
 
-def build_eat_behavior(
-    entity_id: int,
-    world: "World",
-    width: int,
-    height: int,
-    check_goal_fn: Callable[[str], bool],
-    check_target_fn: Callable[[], bool],
-) -> Behaviour:
-    eat_sequence = py_trees.composites.Sequence(name="Eat Sequence", memory=False)
-    is_eating = Check(name="Goal=Eat?", check_fn=lambda: check_goal_fn("Eat"))
-    eat_execution = py_trees.composites.Sequence(name="Eat Execution", memory=False)
 
-    find_food = FindItem(
-        name="Find Best Food",
-        entity_id=entity_id,
-        world=world,
-        stat_criteria="nutrition",
-    )
-    move_to_food = MoveToTarget(
-        name="Move To Food", entity_id=entity_id, world=world, acceptance_radius=100.0
-    )
-    interact_food = Interact(name="Interact Food", entity_id=entity_id, world=world)
+def build_need_satisfaction_behavior(
+    goal_name: str,
+    find_action_class: type[Behaviour],
+    interaction_action_class: type[Behaviour],
+    stat_criteria: str | None = None,
+    acceptance_radius: float = 50.0,
+    consume_target: bool = False,
+) -> Callable[
+    [int, "World", int, int, Callable[[str], bool], Callable[[], bool]], Behaviour
+]:
+    """
+    Factory that creates a behavior builder for standard need satisfaction loops.
+    Pattern: Check Goal -> Sequence [Find Target -> Move To Target -> Interact]
 
-    eat_execution.add_children([find_food, move_to_food, interact_food])
-    eat_sequence.add_children([is_eating, eat_execution])
-    return eat_sequence
+    Args:
+        goal_name (str): The name of the goal (e.g., "Eat", "Sleep").
+        find_action_class (type[Behaviour]): Action class to find the target.
+        interaction_action_class (type[Behaviour]): Action class to interact with target.
+        stat_criteria (str | None): Criteria for finding target (e.g., "nutrition").
+        acceptance_radius (float): Distance to stop from target.
+        consume_target (bool): Whether interaction consumes the target.
 
+    Returns:
+        Callable: A builder function compatible with BehaviorRegistry.
+    """
 
-def build_sleep_behavior(
-    entity_id: int,
-    world: "World",
-    width: int,
-    height: int,
-    check_goal_fn: Callable[[str], bool],
-    check_target_fn: Callable[[], bool],
-) -> Behaviour:
-    sleep_sequence = py_trees.composites.Sequence(name="Sleep Sequence", memory=False)
-    is_sleeping = Check(name="Goal=Sleep?", check_fn=lambda: check_goal_fn("Sleep"))
-    sleep_execution = py_trees.composites.Sequence(name="Sleep Execution", memory=False)
+    def builder(
+        entity_id: int,
+        world: "World",
+        width: int,
+        height: int,
+        check_goal_fn: Callable[[str], bool],
+        check_target_fn: Callable[[], bool],
+    ) -> Behaviour:
+        sequence_name = f"{goal_name} Sequence"
+        root = py_trees.composites.Sequence(name=sequence_name, memory=False)
 
-    find_bed = FindItem(
-        name="Find Best Bed", entity_id=entity_id, world=world, stat_criteria="comfort"
-    )
-    move_to_bed = MoveToTarget(
-        name="Move To Bed", entity_id=entity_id, world=world, acceptance_radius=60.0
-    )
-    do_sleep = Sleep(name="Sleep In Bed", entity_id=entity_id, world=world)
+        # 1. Check if this is the current goal
+        is_goal = Check(
+            name=f"Goal={goal_name}?", check_fn=lambda: check_goal_fn(goal_name)
+        )
 
-    sleep_execution.add_children([find_bed, move_to_bed, do_sleep])
-    sleep_sequence.add_children([is_sleeping, sleep_execution])
-    return sleep_sequence
+        # 2. Execution Sequence
+        execution = py_trees.composites.Sequence(
+            name=f"{goal_name} Execution", memory=False
+        )
 
+        # 2.1 Find Target
+        find_kwargs = {
+            "name": f"Find Best {goal_name} Target",
+            "entity_id": entity_id,
+            "world": world,
+        }
+        if stat_criteria:
+            find_kwargs["stat_criteria"] = stat_criteria
 
-def build_play_behavior(
-    entity_id: int,
-    world: "World",
-    width: int,
-    height: int,
-    check_goal_fn: Callable[[str], bool],
-    check_target_fn: Callable[[], bool],
-) -> Behaviour:
-    play_sequence = py_trees.composites.Sequence(name="Play Sequence", memory=False)
-    is_playing = Check(name="Goal=Play?", check_fn=lambda: check_goal_fn("Play"))
-    play_execution = py_trees.composites.Sequence(name="Play Execution", memory=False)
+        find_action = find_action_class(**find_kwargs)
 
-    find_toy = FindItem(
-        name="Find Best Toy", entity_id=entity_id, world=world, stat_criteria="fun"
-    )
-    move_to_toy = MoveToTarget(
-        name="Move To Toy", entity_id=entity_id, world=world, acceptance_radius=60.0
-    )
-    interact_toy = Interact(
-        name="Play With Toy", entity_id=entity_id, world=world, consume=False
-    )
+        # 2.2 Move To Target
+        move_action = MoveToTarget(
+            name=f"Move To {goal_name} Target",
+            entity_id=entity_id,
+            world=world,
+            acceptance_radius=acceptance_radius,
+        )
 
-    play_execution.add_children([find_toy, move_to_toy, interact_toy])
-    play_sequence.add_children([is_playing, play_execution])
-    return play_sequence
+        # 2.3 Interact
+        interact_kwargs = {
+            "name": f"Do {goal_name}",
+            "entity_id": entity_id,
+            "world": world,
+        }
+        # Only pass 'consume' if the class accepts it (Interact does, Sleep does not)
+        if consume_target and interaction_action_class == Interact:
+            interact_kwargs["consume"] = True
+        elif interaction_action_class == Interact:
+            interact_kwargs["consume"] = False
+
+        interact_action = interaction_action_class(**interact_kwargs)
+
+        execution.add_children([find_action, move_action, interact_action])
+        root.add_children([is_goal, execution])
+        return root
+
+    return builder
 
 
 def build_wander_behavior(
@@ -433,9 +441,27 @@ BehaviorRegistry.register_goal("Hunt", build_hunt_behavior, required_component=P
 BehaviorRegistry.register_goal("Wander", build_wander_behavior)
 BehaviorRegistry.register_goal("SeekLight", build_seek_light_behavior)
 BehaviorRegistry.register_goal("Flee", build_flee_behavior)
-BehaviorRegistry.register_goal("Eat", build_eat_behavior, required_component=Needs)
-BehaviorRegistry.register_goal("Play", build_play_behavior, required_component=Needs)
+
+# Generic Need Satisfaction Registrations
+BehaviorRegistry.register_goal(
+    "Eat",
+    build_need_satisfaction_behavior(
+        "Eat", FindItem, Interact, "nutrition", 100.0, True
+    ),
+    required_component=Needs,
+)
+BehaviorRegistry.register_goal(
+    "Play",
+    build_need_satisfaction_behavior("Play", FindItem, Interact, "fun", 60.0, False),
+    required_component=Needs,
+)
+BehaviorRegistry.register_goal(
+    "Sleep",
+    build_need_satisfaction_behavior("Sleep", FindItem, Sleep, "comfort", 60.0, False),
+    required_component=Needs,
+)
+
 BehaviorRegistry.register_goal("Talk", build_standard_interaction_behavior("Talk"))
 BehaviorRegistry.register_goal("Dance", build_standard_interaction_behavior("Dance"))
 BehaviorRegistry.register_goal("Fight", build_standard_interaction_behavior("Fight"))
-BehaviorRegistry.register_goal("Sleep", build_sleep_behavior, required_component=Needs)
+

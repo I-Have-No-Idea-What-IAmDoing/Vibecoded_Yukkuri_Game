@@ -7,6 +7,9 @@ from ..ai.navigation_service import NavigationService
 from ..yukkuri_components import AIState
 from ..components import Transform
 
+# Squared distance threshold for reaching a path node (30px ^ 2)
+PATH_NODE_REACHED_THRESHOLD_SQ = 900.0
+
 
 class NavigationSystem(System):
     """
@@ -31,39 +34,41 @@ class NavigationSystem(System):
         nav_service.update(world.time)
 
         results = nav_service.get_results()
-        if results:
+        if not results:
+            return
 
         for result in results:
-
             # Update entity AIState
             ai_state = world.try_get_component(result.entity_id, AIState)
 
-            if ai_state:
-                # Clear requesting flag
-                if ai_state.state_data:
-                    ai_state.state_data["path_requesting"] = False
+            if not ai_state:
+                continue
 
-                if result.success:
-                    ai_state.path = result.path
+            # Clear requesting flag
+            if ai_state.state_data:
+                ai_state.state_data["path_requesting"] = False
 
-                    # Prune start node to prevent backtracking.
-                    if ai_state.path and len(ai_state.path) > 1:
-                        trans = world.try_get_component(result.entity_id, Transform)
-                        if trans:
-                            px, py = ai_state.path[0]
-                            dx = px - trans.x
-                            dy = py - trans.y
-                            dist_sq = dx * dx + dy * dy
+            if result.success:
+                ai_state.path = result.path
 
-                            # Skip if within grid step distance.
-                            if dist_sq < 900.0:
-                                ai_state.path.pop(0)
+                # Prune start node to prevent backtracking.
+                if ai_state.path and len(ai_state.path) > 1:
+                    trans = world.try_get_component(result.entity_id, Transform)
+                    if trans:
+                        px, py = ai_state.path[0]
+                        dx = px - trans.x
+                        dy = py - trans.y
+                        dist_sq = dx * dx + dy * dy
 
-                    if result.is_partial:
-                        if ai_state.state_data is None:
-                            ai_state.state_data = {}
-                        ai_state.state_data["path_is_partial"] = True
-                else:
+                        # Skip if within grid step distance.
+                        if dist_sq < PATH_NODE_REACHED_THRESHOLD_SQ:
+                            ai_state.path.pop(0)
+
+                if result.is_partial:
                     if ai_state.state_data is None:
                         ai_state.state_data = {}
-                    ai_state.state_data["path_failed"] = True
+                    ai_state.state_data["path_is_partial"] = True
+            else:
+                if ai_state.state_data is None:
+                    ai_state.state_data = {}
+                ai_state.state_data["path_failed"] = True
