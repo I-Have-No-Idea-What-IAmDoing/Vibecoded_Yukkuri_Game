@@ -111,7 +111,7 @@ class MoveToTarget(Action):
             ai.current_target_id in ai.visible_entities
         )
 
-        if is_visible and target_pos:
+        if (is_visible or ai.manual_override) and target_pos:
             dist_to_target = (target_pos - current_pos).length
             use_direct_steering = False
 
@@ -137,7 +137,6 @@ class MoveToTarget(Action):
                             if target_phys and hit.shape.body == target_phys.body:
                                 use_direct_steering = True
 
-            if use_direct_steering:
                 if dist_to_target < self.acceptance_radius:
                     controller.target_velocity = pymunk.Vec2d(0, 0)
                     ai.path = None

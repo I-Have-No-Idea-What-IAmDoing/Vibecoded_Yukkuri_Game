@@ -155,7 +155,7 @@ class InteractionSystem(System):
         dist = math.hypot(
             transform.x - target_transform.x, transform.y - target_transform.y
         )
-        if dist > 75.0:  # 75px threshold for movement jitter and physics.
+        if dist > 110.0:  # 110px threshold for movement jitter and physics.
             return False
 
         # Dispatch: Item Consumption

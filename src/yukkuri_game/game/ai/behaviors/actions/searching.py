@@ -59,6 +59,9 @@ class FindItem(Action):
         if ai is None or trans is None:
             return Status.FAILURE
 
+        if ai.manual_override and ai.current_target_id != -1:
+            return Status.SUCCESS
+
         game_service = self.world.services.try_get(GameService)
         best_item = -1
 
@@ -132,6 +135,9 @@ class FindLightSource(Action):
         if not ai or not trans:
             return Status.FAILURE
 
+        if ai.manual_override and ai.current_target_id != -1:
+            return Status.SUCCESS
+
         best_dist = float("inf")
         best_light = -1
 
@@ -191,6 +197,9 @@ class FindPrey(Action):
 
         if ai is None or predator is None or trans is None:
             return Status.FAILURE
+
+        if ai.manual_override and ai.current_target_id != -1:
+            return Status.SUCCESS
 
         # Lazy load SectorMap
         if self.sector_map is None:
@@ -304,6 +313,9 @@ class FindThreat(Action):
         if not ai or not blackboard_comp:
             return Status.FAILURE
 
+        if ai.manual_override and ai.current_target_id != -1:
+            return Status.SUCCESS
+
         threat_id = blackboard_comp.closest_threat_id
         if threat_id is not None and threat_id != -1:
             ai.current_target_id = cast(EntityID, threat_id)
@@ -344,6 +356,9 @@ class FindSocialTarget(Action):
 
         if ai is None or my_stats is None or trans is None:
             return Status.FAILURE
+
+        if ai.manual_override and ai.current_target_id != -1:
+            return Status.SUCCESS
 
         nearby_yukkuris = self.world.get_entities_with(YukkuriStats, Transform)
 
@@ -418,6 +433,9 @@ class PickFood(Action):
         ai = self.world.get_component(self.entity_id, AIState)
         if not ai:
             return Status.FAILURE
+
+        if ai.manual_override and ai.current_target_id != -1:
+            return Status.SUCCESS
         bb = self.world.try_get_component(self.entity_id, Blackboard)
         if bb and bb.closest_food_id:
             ai.current_target_id = cast(EntityID, bb.closest_food_id)

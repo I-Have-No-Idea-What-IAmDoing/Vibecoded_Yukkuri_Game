@@ -105,7 +105,7 @@ class HungerSystem(System):
             consumer_transform.x - target_transform.x,
             consumer_transform.y - target_transform.y,
         )
-        if dist > 75.0:
+        if dist > 110.0:
             return False
 
         # Stat Effects

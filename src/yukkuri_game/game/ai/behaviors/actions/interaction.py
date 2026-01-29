@@ -77,7 +77,7 @@ class Interact(Action):
         
 
 
-        if dist <= 75.0:
+        if dist <= 110.0:
             if not self.world.has_component(self.entity_id, InteractionRequest):
                 self.world.add_component(
                     self.entity_id,
