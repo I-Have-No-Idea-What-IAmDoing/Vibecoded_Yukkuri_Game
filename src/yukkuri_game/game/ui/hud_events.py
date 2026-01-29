@@ -236,16 +236,18 @@ class HudEvents:
                 if self.confirmation_dialog:
                     self.confirmation_dialog.kill()
 
+                DIALOG_WIDTH, DIALOG_HEIGHT = 300, 200
+                center_x = (self.layout.width - DIALOG_WIDTH) // 2
+                center_y = (self.layout.height - DIALOG_HEIGHT) // 2
+                dialog_rect = pygame.Rect(center_x, center_y, DIALOG_WIDTH, DIALOG_HEIGHT)
+
+                entity_str = "entity" if count == 1 else "entities"
                 self.confirmation_dialog = UIConfirmationDialog(
-                    rect=pygame.Rect(0, 0, 300, 200),
+                    rect=dialog_rect,
                     manager=self.layout.manager,
-                    action_long_desc=f"Are you sure you want to sell {count} entity/entities?",
+                    action_long_desc=f"Are you sure you want to sell {count} {entity_str}?",
                     window_title="Confirm Sale",
                 )
-                # Center the dialog
-                center_x = (self.layout.width - 300) // 2
-                center_y = (self.layout.height - 200) // 2
-                self.confirmation_dialog.set_position((center_x, center_y))
             return True
 
         if panel.train_btn and ui_element == panel.train_btn:
