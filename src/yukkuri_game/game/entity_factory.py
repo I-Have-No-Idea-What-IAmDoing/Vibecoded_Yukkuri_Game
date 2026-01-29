@@ -6,7 +6,7 @@ including Yukkuris, items, and effects. It manages archetype loading and
 delegates to specific prefab creation functions.
 """
 
-import tomllib
+import msgspec
 from pathlib import Path
 
 from loguru import logger
@@ -58,7 +58,12 @@ class EntityFactory:
 
         try:
             with open(path, "rb") as f:
-                data = tomllib.load(f)
+                # Use msgspec to decode directly into a dictionary for flexibility
+                # or into a struct if ArchetypeConfig matches the TOML structure exactly.
+                # Here we continue to load as dict to support the manual field mapping logic
+                # which handles nested structures (priorities.list, prey_tags.tags)
+                # that might not blindly map to ArchetypeConfig's flat storage.
+                data = msgspec.toml.decode(f.read())
 
             config = ArchetypeConfig()
             config.archetype_id = data.get("archetype_id", archetype_id)

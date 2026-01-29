@@ -7,12 +7,9 @@ from .behaviors import (
     # Trees / Builders
     BehaviorRegistry,
     create_yukkuri_behavior_tree,
-    build_eat_behavior,
     build_flee_behavior,
     build_hunt_behavior,
-    build_play_behavior,
     build_seek_light_behavior,
-    build_sleep_behavior,
     build_standard_interaction_behavior,
     build_wander_behavior,
     # Actions
@@ -40,12 +37,9 @@ __all__ = [
     # Trees / Builders
     "BehaviorRegistry",
     "create_yukkuri_behavior_tree",
-    "build_eat_behavior",
     "build_flee_behavior",
     "build_hunt_behavior",
-    "build_play_behavior",
     "build_seek_light_behavior",
-    "build_sleep_behavior",
     "build_standard_interaction_behavior",
     "build_wander_behavior",
     # Actions

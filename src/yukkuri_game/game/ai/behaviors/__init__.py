@@ -1,15 +1,13 @@
 from .trees import (
     BehaviorRegistry as BehaviorRegistry,
     create_yukkuri_behavior_tree as create_yukkuri_behavior_tree,
-    build_eat_behavior as build_eat_behavior,
     build_flee_behavior as build_flee_behavior,
     build_hunt_behavior as build_hunt_behavior,
-    build_play_behavior as build_play_behavior,
     build_seek_light_behavior as build_seek_light_behavior,
-    build_sleep_behavior as build_sleep_behavior,
     build_standard_interaction_behavior as build_standard_interaction_behavior,
     build_wander_behavior as build_wander_behavior,
 )
+
 from .actions import (
     Idle as Idle,
     Check as Check,

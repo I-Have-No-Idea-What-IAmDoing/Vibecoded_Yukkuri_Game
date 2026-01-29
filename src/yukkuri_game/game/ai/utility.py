@@ -394,28 +394,15 @@ class UtilityAIEngine:
                 if cons.curve_type == "threshold":
                     threshold = cons.params.get("threshold", 0.5)
 
-                    # Warn about thresholds that are too high for boolean inputs
-                    if (
-                        cons.input_key in ("is_night", "is_predator")
-                        and threshold >= 0.5
-                    ):
+                    # Generic warning for suspicious thresholds (> 1.0)
+                    # Most normalized inputs are 0-1, or counts which are normalized.
+                    # A threshold > 1.0 usually implies the user forgot to normalize or is using raw values.
+                    if threshold > 1.0:
                         warnings.append(
                             f"Action '{action_name}', Consideration '{cons.name}': "
-                            f"Threshold {threshold} may be too high for boolean input "
-                            f"'{cons.input_key}' (1.0 normalizes to 0.01). "
-                            f"Consider using threshold=0.005."
-                        )
-
-                    # Warn about thresholds >= 1.0 for count inputs
-                    if (
-                        cons.input_key in ("nearby_friends", "nearby_enemies")
-                        and threshold >= 1.0
-                    ):
-                        warnings.append(
-                            f"Action '{action_name}', Consideration '{cons.name}': "
-                            f"Threshold {threshold} is too high for count input "
-                            f"'{cons.input_key}' (count of 1 normalizes to 0.01). "
-                            f"Consider using threshold=0.01."
+                            f"Threshold {threshold} is > 1.0. "
+                            f"Ensure input '{cons.input_key}' is normalized correctly, "
+                            f"or if this is intended behavior."
                         )
 
         # Log warnings
