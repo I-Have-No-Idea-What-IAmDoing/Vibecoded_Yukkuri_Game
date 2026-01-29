@@ -4,6 +4,7 @@ Module for handling UI events from the HUD.
 
 import pygame
 import pygame_gui
+from pygame_gui.windows import UIConfirmationDialog
 from typing import Any, TYPE_CHECKING
 from collections.abc import Callable
 from ...engine.event_bus import EventBus
@@ -66,6 +67,10 @@ class HudEvents:
         self.audio_manager: AudioManager | None = None
         if hasattr(self.world.services, "try_get"):
             self.audio_manager = self.world.services.try_get(AudioManager)
+
+        # Confirmation Dialog State
+        self.confirmation_dialog: UIConfirmationDialog | None = None
+        self.pending_sell_entities: list[int] = []
 
         # Listen for Level Up events
         self.event_bus.subscribe(LevelUpEvent, self.on_level_up)
@@ -133,6 +138,14 @@ class HudEvents:
 
         if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
             return True
+
+        if event.type == pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED:
+            if event.ui_element == self.confirmation_dialog:
+                for entity_id in self.pending_sell_entities:
+                    self.event_bus.publish(SellEntityRequest(entity_id))
+                self.pending_sell_entities = []
+                self.confirmation_dialog = None
+                return True
 
         if event.type != pygame_gui.UI_BUTTON_PRESSED:
             return False
@@ -214,8 +227,27 @@ class HudEvents:
         panel = self.layout.entity_info_panel
 
         if panel.sell_btn and ui_element == panel.sell_btn:
-            for entity_id in self.selected_entities:
-                self.event_bus.publish(SellEntityRequest(entity_id))
+            # Confirm before selling
+            count = len(self.selected_entities)
+            if count > 0:
+                self.pending_sell_entities = list(self.selected_entities)
+
+                # Close existing dialog if any
+                if self.confirmation_dialog:
+                    self.confirmation_dialog.kill()
+
+                DIALOG_WIDTH, DIALOG_HEIGHT = 300, 200
+                center_x = (self.layout.width - DIALOG_WIDTH) // 2
+                center_y = (self.layout.height - DIALOG_HEIGHT) // 2
+                dialog_rect = pygame.Rect(center_x, center_y, DIALOG_WIDTH, DIALOG_HEIGHT)
+
+                entity_str = "entity" if count == 1 else "entities"
+                self.confirmation_dialog = UIConfirmationDialog(
+                    rect=dialog_rect,
+                    manager=self.layout.manager,
+                    action_long_desc=f"Are you sure you want to sell {count} {entity_str}?",
+                    window_title="Confirm Sale",
+                )
             return True
 
         if panel.train_btn and ui_element == panel.train_btn:

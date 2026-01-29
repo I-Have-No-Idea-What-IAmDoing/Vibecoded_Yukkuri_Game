@@ -297,15 +297,41 @@ class TestHudEvents:
         hud_layout.entity_info_panel = MagicMock()
         hud_layout.entity_info_panel.sell_btn = MagicMock()
 
+
         hud_events.selected_entities = [123]
 
+        # 1. Click Sell Button
         event = MagicMock()
         event.type = pygame_gui.UI_BUTTON_PRESSED
         event.ui_element = hud_layout.entity_info_panel.sell_btn
 
-        assert hud_events.process_event(event) is True
-        # Check that SellEntityRequest was published
-        mock_event_bus.publish.assert_called_with(SellEntityRequest(123))
+        # Mock UIConfirmationDialog to avoid real instantiation issues in test
+        with patch("yukkuri_game.game.ui.hud_events.UIConfirmationDialog") as MockDialog:
+            mock_dialog_instance = MockDialog.return_value
+
+            assert hud_events.process_event(event) is True
+
+            # Verify Dialog was created
+            MockDialog.assert_called_once()
+            assert hud_events.confirmation_dialog == mock_dialog_instance
+            assert hud_events.pending_sell_entities == [123]
+
+            # Verify SellEntityRequest was NOT yet published
+            mock_event_bus.publish.assert_not_called()
+
+            # 2. Confirm the Dialog
+            confirm_event = MagicMock()
+            confirm_event.type = pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED
+            confirm_event.ui_element = mock_dialog_instance
+
+            assert hud_events.process_event(confirm_event) is True
+
+            # Verify SellEntityRequest WAS published
+            mock_event_bus.publish.assert_called_with(SellEntityRequest(123))
+
+            # Verify cleanup
+            assert hud_events.confirmation_dialog is None
+            assert hud_events.pending_sell_entities == []
 
     def test_process_event_train_entity(self, hud_events, hud_layout, mock_event_bus):
         # Setup selection window elements
