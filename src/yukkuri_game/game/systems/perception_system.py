@@ -148,18 +148,38 @@ class PerceptionSystem(System):
     ) -> None:
         """
         Populates the Blackboard with analyzed targets.
+        """
+        # 1. Reset Census Data
+        blackboard.nearby_friends = 0
+        blackboard.nearby_enemies = 0
+        blackboard.nearby_prey = 0
+        blackboard.closest_threat_id = None
+        blackboard.closest_food_id = None
 
-        Args:
-            world (World): The ECS World.
-            entity_id (int): The entity ID.
-            ai_state (AIState): The AI state component.
-            blackboard (Blackboard): The blackboard component.
-            trans (Transform): The transform component.
-            current_time (float): The current simulation time.
+        # 2. Analyze visible targets & update census
+        currently_visible = self._update_census_and_targets(
+            world, entity_id, ai_state, blackboard, trans, current_time
+        )
+
+        # 3. Manage Short-Term Memory (Object Permanence)
+        self._manage_memory(blackboard, currently_visible, current_time)
+
+    def _update_census_and_targets(
+        self,
+        world: World,
+        entity_id: int,
+        ai_state: AIState,
+        blackboard: Blackboard,
+        trans: Transform,
+        current_time: float,
+    ) -> set[EntityID]:
+        """
+        Iterates over visible entities, resolves relationships, and updates census.
+
+        Returns:
+            set[EntityID]: The set of currently visible entity IDs.
         """
         my_pos = (trans.x, trans.y)
-
-        # Context components
         my_stats = world.try_get_component(entity_id, YukkuriStats)
         my_predator = world.try_get_component(entity_id, Predator)
         my_relations = world.try_get_component(entity_id, RelationshipRegistry)
@@ -169,21 +189,11 @@ class PerceptionSystem(System):
         if my_stats and my_stats.agility > 0:
             reaction_delay = 0.5 / my_stats.agility
 
-        # Memory management
-        previously_visible = set(blackboard.visible_targets.keys())
-        currently_visible: set[EntityID] = set()
-
-        # Reset Census
-        blackboard.nearby_friends = 0
-        blackboard.nearby_enemies = 0
-        blackboard.nearby_prey = 0
-        blackboard.closest_threat_id = None
-        blackboard.closest_food_id = None
-
         closest_threat_dist = float("inf")
         closest_food_dist = float("inf")
 
-        # Analyze current view
+        currently_visible: set[EntityID] = set()
+
         for target_id in ai_state.visible_entities:
             target_trans = world.try_get_component(target_id, Transform)
             if not target_trans:
@@ -215,8 +225,7 @@ class PerceptionSystem(System):
             blackboard.visible_targets[target_id] = target_info
             currently_visible.add(target_id)
 
-            # Reaction Buffering:
-            # AI ignores the target for census purposes until reaction time has passed.
+            # Reaction Buffering
             if (current_time - detected_at) < reaction_delay:
                 continue
 
@@ -241,8 +250,22 @@ class PerceptionSystem(System):
                     closest_food_dist = distance
                     blackboard.closest_food_id = target_id
 
-        # Handle entities leaving view (Short-term Memory)
+        return currently_visible
+
+    def _manage_memory(
+        self,
+        blackboard: Blackboard,
+        currently_visible: set[EntityID],
+        current_time: float,
+    ) -> None:
+        """
+        Updates short-term memory for entities that have just moved out of view.
+        Also cleans up expired memories.
+        """
+        previously_visible = set(blackboard.visible_targets.keys())
         lost_targets = previously_visible - currently_visible
+
+        # Add lost targets to memory
         for lost_id in lost_targets:
             if lost_id in blackboard.visible_targets:
                 old_info = blackboard.visible_targets[lost_id]

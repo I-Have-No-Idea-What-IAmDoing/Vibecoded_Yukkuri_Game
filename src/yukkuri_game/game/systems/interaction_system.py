@@ -183,38 +183,72 @@ class InteractionSystem(System):
         # Special case: eating another Yukkuri (requires trait permission)
         target_stats = world.get_component(target_id, YukkuriStats)
         if target_stats and request.consume:
-            # Predation Dodge Check
-            if target_stats.agility > stats.agility * 1.5:
-                logger.info(f"Yukkuri {target_id} dodged predation from {entity}!")
-                create_floating_text(
-                    world,
-                    target_transform.x,
-                    target_transform.y - 20,
-                    "Miss!",
-                    (255, 50, 50),
-                    size=24,
-                )
-                return True
+            return self._handle_predation(
+                world, entity, target_id, stats, target_stats, target_transform
+            )
 
-            if self._check_predation_allowed(world, entity):
-                # Execute Predation
-                needs = world.get_component(entity, Needs)
-                if needs:
-                    needs.hunger = max(0, needs.hunger - 50.0)  # Big meal
-                if self.audio:
-                    self.audio.play_sound("eat")
+        return False
 
-                world.destroy_entity(target_id)
-                ai = world.get_component(entity, AIState)
-                if ai and ai.current_target_id == target_id:
-                    ai.current_target_id = cast(EntityID, -1)
-                logger.info(f"Entity {entity} ate Yukkuri {target_id} (Predation).")
-            else:
-                logger.debug(
-                    f"Entity {entity} attempted to eat Yukkuri {target_id} but lacks permission/trait."
-                )
+    def _handle_predation(
+        self,
+        world: World,
+        predator_id: int,
+        prey_id: int,
+        predator_stats: YukkuriStats,
+        prey_stats: YukkuriStats,
+        prey_transform: Transform,
+    ) -> bool:
+        """
+        Handles the complexity of one Yukkuri eating another (Predation).
 
-            # Predation request (valid or permission-failed) is considered handled by this system
+        Args:
+            world: The ECS World.
+            predator_id: ID of the attacker.
+            prey_id: ID of the victim.
+            predator_stats: Stats of the attacker.
+            prey_stats: Stats of the victim.
+            prey_transform: Transform of the victim (for floating text).
+
+        Returns:
+            bool: True (always handled, whether successful or not).
+        """
+        # 1. Agility Check / Dodge
+        # If prey is significantly faster, they can dodge.
+        if prey_stats.agility > predator_stats.agility * 1.5:
+            logger.info(f"Yukkuri {prey_id} dodged predation from {predator_id}!")
+            create_floating_text(
+                world,
+                prey_transform.x,
+                prey_transform.y - 20,
+                "Miss!",
+                (255, 50, 50),
+                size=24,
+            )
             return True
+
+        # 2. Permission Check
+        if self._check_predation_allowed(world, predator_id):
+            # 3. Execute Predation
+            needs = world.get_component(predator_id, Needs)
+            if needs:
+                needs.hunger = max(0, needs.hunger - 50.0)  # Big meal
+
+            if self.audio:
+                self.audio.play_sound("eat")
+
+            world.destroy_entity(prey_id)
+
+            # Clear AI Target if it fits
+            ai = world.get_component(predator_id, AIState)
+            if ai and ai.current_target_id == prey_id:
+                ai.current_target_id = cast(EntityID, -1)
+
+            logger.info(f"Entity {predator_id} ate Yukkuri {prey_id} (Predation).")
+        else:
+            logger.debug(
+                f"Entity {predator_id} attempted to eat Yukkuri {prey_id} but lacks permission/trait."
+            )
+
+        return True
 
         return False

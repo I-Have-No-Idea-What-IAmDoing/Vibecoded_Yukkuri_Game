@@ -253,41 +253,10 @@ class SocialSystem(System):
         Returns:
             float: A compatibility score (typically centered around 0 to 100).
         """
-        base_compatibility = 0.0
-
-        if subject_pers.axis and other_pers.axis:
-            diff_kind = abs(subject_pers.axis.kindness - other_pers.axis.kindness)
-            diff_ener = abs(subject_pers.axis.energy - other_pers.axis.energy)
-            diff_brav = abs(subject_pers.axis.bravery - other_pers.axis.bravery)
-            diff_gree = abs(subject_pers.axis.greed - other_pers.axis.greed)
-
-            total_diff = diff_kind + diff_ener + diff_brav + diff_gree
-            # Identical personalities yield max compatibility.
-            base_compatibility += self.BASE_COMPATIBILITY_SCORE - (
-                total_diff / self.COMPATIBILITY_DIVISOR
-            )
-
-        if self.trait_service:
-            for my_trait in subject_pers.traits:
-                trait_data = self.trait_service.get_trait(my_trait)
-                if not trait_data:
-                    continue
-
-                if isinstance(trait_data, dict):
-                    td_dict = cast(dict[str, Any], trait_data)
-                    social_mods = td_dict.get("social_modifiers", {})
-                else:
-                    social_mods = getattr(trait_data, "social_modifiers", {})
-
-                if "compatibility" not in social_mods:
-                    continue
-
-                comp_map = social_mods["compatibility"]
-                for other_trait in other_pers.traits:
-                    if other_trait in comp_map:
-                        base_compatibility += comp_map[other_trait]
-
-        return base_compatibility
+        from ..social.opinion_calculator import OpinionCalculator
+        return OpinionCalculator.calculate_base_compatibility(
+            subject_pers, other_pers, self.trait_service
+        )
 
     def on_social_interaction(self, event: SocialInteractionEvent) -> None:
         """
@@ -584,11 +553,16 @@ class SocialSystem(System):
         modifiers = self._get_attr(data, "modifiers", {})
         event_type = self._get_attr(data, "type", "GENERIC")
 
-        d_affinity, d_trust, d_fear, d_familiarity = self._calculate_impact_deltas(
+        # Use OpinionCalculator for impact logic
+        from ..social.opinion_calculator import OpinionCalculator
+
+        d_affinity, d_trust, d_fear, d_familiarity = OpinionCalculator.calculate_impact_deltas(
             world, subject_id, other_id, social_impact, modifiers, base_impact_score
         )
 
-        self._update_emotional_state(world, subject_id, base_impact_score)
+        emotional = world.get_component(subject_id, EmotionalState)
+        if emotional:
+            OpinionCalculator.update_emotional_state(emotional, base_impact_score)
 
         rel.trust = max(0, min(100, rel.trust + d_trust))
         rel.fear = max(0, min(100, rel.fear + d_fear))
@@ -608,112 +582,6 @@ class SocialSystem(System):
             registry = RelationshipRegistry()
             world.add_component(entity_id, registry)
         return registry
-
-    MAX_HAPPINESS = 100.0
-    MIN_HAPPINESS = -100.0
-    MAX_STRESS = 100.0
-    MIN_STRESS = 0.0
-    IMPACT_THRESHOLD_MAJOR_NEGATIVE = -15.0
-    IMPACT_THRESHOLD_MAJOR_POSITIVE = 15.0
-    EMOTIONAL_CHANGE_AMOUNT = 20.0
-
-    def _calculate_impact_deltas(
-        self,
-        world: World,
-        subject_id: int,
-        other_id: int,
-        social_impact: dict[str, float],
-        modifiers: dict[str, dict[str, float]],
-        base_impact_score: float,
-    ) -> tuple[float, float, float, float]:
-        """
-        Calculates impact deltas considering personality and traits.
-
-        Args:
-            world (World): The ECS World.
-            subject_id (int): Subject entity ID.
-            other_id (int): Other entity ID.
-            social_impact (dict): Base impact values.
-            modifiers (dict): Trait-based modifiers.
-            base_impact_score (float): Raw impact score of the interaction.
-
-        Returns:
-            tuple[float, float, float, float]: Deltas for affinity, trust, fear, familiarity.
-        """
-        d_affinity = social_impact.get("affinity", 0.0)
-        d_trust = social_impact.get("trust", 0.0)
-        d_fear = social_impact.get("fear", 0.0)
-        d_familiarity = social_impact.get("familiarity", 0.0)
-
-        subject_personality = world.get_component(subject_id, Personality)
-        if subject_personality:
-            # Apply trait modifiers
-            for trait in subject_personality.traits:
-                key = f"trait:{trait}"
-                if key in modifiers:
-                    mod = modifiers[key]
-                    d_affinity += mod.get("affinity", 0.0)
-                    d_trust += mod.get("trust", 0.0)
-                    d_fear += mod.get("fear", 0.0)
-
-            # Apply conditional modifiers
-            evaluator = world.services.try_get(ConditionEvaluator)
-            if evaluator:
-                actor_context = evaluator.build_context(world, other_id)
-                for key, mod in modifiers.items():
-                    if key.startswith("trait:") or key.startswith("mood:"):
-                        continue
-
-                    if evaluator.evaluate(key, actor_context):
-                        d_affinity += mod.get("affinity", 0.0)
-                        d_trust += mod.get("trust", 0.0)
-                        d_fear += mod.get("fear", 0.0)
-
-            # Apply personality axis multipliers
-            kindness = 0
-            if subject_personality.axis:
-                kindness = subject_personality.axis.kindness
-
-            if base_impact_score > 0:
-                comp_mult = max(0.1, 1.0 + (kindness / 100.0))
-                d_affinity *= comp_mult
-                d_trust *= comp_mult
-            elif base_impact_score < 0:
-                comp_mult = max(0.1, 1.0 - (kindness / 100.0))
-                d_affinity *= comp_mult
-                d_trust *= comp_mult
-                d_fear *= comp_mult
-
-        return d_affinity, d_trust, d_fear, d_familiarity
-
-    def _update_emotional_state(
-        self, world: World, subject_id: int, base_impact_score: float
-    ) -> None:
-        """
-        Updates emotional state based on interaction impact.
-
-        Major positive/negative events shift happiness and stress immediately.
-
-        Args:
-            world (World): The ECS World.
-            subject_id (int): Entity ID.
-            base_impact_score (float): Impact magnitude.
-        """
-        emotional = world.get_component(subject_id, EmotionalState)
-        if emotional:
-            if base_impact_score < self.IMPACT_THRESHOLD_MAJOR_NEGATIVE:
-                emotional.happiness = max(
-                    self.MIN_HAPPINESS,
-                    emotional.happiness - self.EMOTIONAL_CHANGE_AMOUNT,
-                )
-                emotional.stress = min(
-                    self.MAX_STRESS, emotional.stress + self.EMOTIONAL_CHANGE_AMOUNT
-                )
-            elif base_impact_score > self.IMPACT_THRESHOLD_MAJOR_POSITIVE:
-                emotional.happiness = min(
-                    self.MAX_HAPPINESS,
-                    emotional.happiness + self.EMOTIONAL_CHANGE_AMOUNT,
-                )
 
     def _add_memory_headline(
         self,
