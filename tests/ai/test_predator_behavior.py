@@ -13,7 +13,13 @@ from py_trees.common import Status
 
 @pytest.fixture
 def world():
-    return World()
+    w = World()
+    from yukkuri_game.game.services import TimeService
+    time_service = TimeService()
+    # Mock dt for tests to be 0.016
+    time_service.delta_time = 0.016
+    w.services.register(TimeService, time_service)
+    return w
 
 
 @pytest.fixture

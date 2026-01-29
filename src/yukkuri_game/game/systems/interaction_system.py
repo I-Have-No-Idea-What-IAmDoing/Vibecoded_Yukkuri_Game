@@ -139,6 +139,8 @@ class InteractionSystem(System):
         Returns:
             bool: True if the request was handled and should be removed.
         """
+        with open("debug_test.log", "a") as f:
+            f.write(f"InteractionSystem: Handling Req from {entity} to {request.target_id}. Action={request.action}\n")
         target_id = request.target_id
 
         # Validation

@@ -91,7 +91,7 @@ def build_eat_behavior(
         stat_criteria="nutrition",
     )
     move_to_food = MoveToTarget(
-        name="Move To Food", entity_id=entity_id, world=world, acceptance_radius=75.0
+        name="Move To Food", entity_id=entity_id, world=world, acceptance_radius=50.0
     )
     interact_food = Interact(name="Interact Food", entity_id=entity_id, world=world)
 
@@ -368,7 +368,11 @@ def create_yukkuri_behavior_tree(
         ai = world.get_component(entity_id, AIState)
         if not ai:
             return False
-        return bool(ai.current_action == goal_name)
+        result = bool(ai.current_action == goal_name)
+        if goal_name == "Eat" and not result:
+             with open("debug_test.log", "a") as f:
+                 f.write(f"CheckGoal(Eat) FAILED. Current={ai.current_action}\n")
+        return result
 
     def check_target_exists() -> bool:
         ai = world.get_component(entity_id, AIState)
@@ -433,7 +437,7 @@ BehaviorRegistry.register_goal("Wander", build_wander_behavior)
 BehaviorRegistry.register_goal("SeekLight", build_seek_light_behavior)
 BehaviorRegistry.register_goal("Flee", build_flee_behavior)
 BehaviorRegistry.register_goal("Eat", build_eat_behavior, required_component=Needs)
-BehaviorRegistry.register_goal("Play", build_play_behavior(), required_component=Needs)
+BehaviorRegistry.register_goal("Play", build_play_behavior, required_component=Needs)
 BehaviorRegistry.register_goal("Talk", build_standard_interaction_behavior("Talk"))
 BehaviorRegistry.register_goal("Dance", build_standard_interaction_behavior("Dance"))
 BehaviorRegistry.register_goal("Fight", build_standard_interaction_behavior("Fight"))

@@ -115,12 +115,12 @@ class Scene(ABC):
         self.world.update(dt)
 
     @abstractmethod
-    def render(self) -> None:
+    def render(self, alpha: float) -> None:
         """
-        Render the scene.
+        Renders the scene.
 
-        Returns:
-            None
+        Args:
+            alpha (float): Interpolation factor (0.0 to 1.0).
         """
         pass
 

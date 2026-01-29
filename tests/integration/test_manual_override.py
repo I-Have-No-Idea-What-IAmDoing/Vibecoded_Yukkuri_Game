@@ -13,7 +13,7 @@ def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
 
     # Create a yukkuri and a target item
     start_pos = (100, 100)
-    target_pos = (500, 100)
+    target_pos = (200, 100)
     yukkuri_id = driver.create_yukkuri("reimu", *start_pos)
     item_id = driver.create_item("cookie", *target_pos)
 
@@ -33,7 +33,7 @@ def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
     stats.hunger = 0  # Full, so Eat utility should be low
     stats.energy = 100
 
-    driver.run_for(seconds=1.0)
+    driver.run_for(seconds=0.2)
 
     # Action should still be Eat because of override
     assert ai.current_action == "Eat"
@@ -51,7 +51,7 @@ def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
     # Check if item exists (debug)
     # from yukkuri_game.game.components import ItemStats
     item_remains = driver.world.entity_exists(item_id)
-    # assert not item_remains, "Item should have been eaten"
+    assert not item_remains, "Item should have been eaten"
 
     # After finishing, manual_override should be cleared
     assert ai.manual_override is False, (

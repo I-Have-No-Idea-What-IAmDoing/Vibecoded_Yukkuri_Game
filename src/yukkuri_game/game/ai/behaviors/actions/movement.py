@@ -143,6 +143,7 @@ class MoveToTarget(Action):
                     ai.path = None
                     if self.world.has_component(self.entity_id, MoveCommand):
                         self.world.remove_component(self.entity_id, MoveCommand)
+
                     return Status.SUCCESS
 
                 speed_modifier = 1.0
@@ -163,6 +164,8 @@ class MoveToTarget(Action):
 
                 if ai.path:
                     ai.path = None
+                
+
                 return Status.RUNNING
 
         if target_pos:
@@ -172,6 +175,7 @@ class MoveToTarget(Action):
                 ai.path = None
                 if self.world.has_component(self.entity_id, MoveCommand):
                     self.world.remove_component(self.entity_id, MoveCommand)
+
                 return Status.SUCCESS
 
         # Pathfinding (Async)
@@ -220,6 +224,8 @@ class MoveToTarget(Action):
                         ai.state_data = {}
                     ai.state_data["path_requesting"] = True
                     ai.state_data["path_request_time"] = self.world.time
+                    with open("debug_test.log", "a") as f:
+                        f.write(f"MoveToTarget: Requesting Path. Time={self.world.time}\n")
                     ai.state_data["path_destination"] = (target_pos.x, target_pos.y)
                     if "path_failed" in ai.state_data:
                         del ai.state_data["path_failed"]
@@ -310,11 +316,15 @@ class MoveToTarget(Action):
                 if needs.energy < LOW_ENERGY_THRESHOLD:
                     speed_modifier = 0.5
 
+                next_point = pymunk.Vec2d(*ai.path[0])
+
                 self.world.add_component(
                     self.entity_id,
                     MoveCommand(
                         target_pos=next_point,
-                        target_entity_id=None,
+                        target_entity_id=(
+                            ai.current_target_id if ai.current_target_id != -1 else None
+                        ),
                         speed_multiplier=speed_modifier,
                         priority=2,
                     ),
@@ -330,6 +340,10 @@ class MoveToTarget(Action):
         if dist_to_final < self.acceptance_radius:
             controller.target_velocity = pymunk.Vec2d(0, 0)
             ai.path = []
+        if dist_to_final < self.acceptance_radius:
+            controller.target_velocity = pymunk.Vec2d(0, 0)
+            ai.path = []
+
             return Status.SUCCESS
 
         return Status.RUNNING
@@ -546,6 +560,8 @@ class FleeFromTarget(Action):
 
         target_trans = self.world.try_get_component(target_id, Transform)
         if not target_trans:
+            with open("debug_test.log", "a") as f:
+                f.write("MoveToTarget: FAILURE. No Target Pos.\n")
             return Status.FAILURE
 
         dx = target_trans.x - trans.x

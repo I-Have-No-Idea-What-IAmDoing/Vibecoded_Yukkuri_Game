@@ -234,10 +234,21 @@ class Application:
         if self.screen is None:
             return
 
-        self.screen.fill((0, 0, 0))
-        self.scene_manager.render()
-        self.ui_manager.draw_ui(self.screen)
-        pygame.display.flip()
+        # Render
+        if not self.headless:
+            # Calculate interpolation factor (alpha)
+            # alpha = accumulator / fixed_dt
+            # This represents how far we are between the previous physics step and the next one.
+            alpha = 0.0
+            if self.fixed_dt > 0:
+                alpha = self.accumulator / self.fixed_dt
+                # Clamp alpha to [0.0, 1.0] to prevent extrapolation artifacts
+                alpha = max(0.0, min(1.0, alpha))
+
+            self.screen.fill((0, 0, 0))
+            self.scene_manager.render(alpha)
+            self.ui_manager.draw_ui(self.screen)
+            pygame.display.flip()
 
     def init_render_system_headless(self) -> None:
         """

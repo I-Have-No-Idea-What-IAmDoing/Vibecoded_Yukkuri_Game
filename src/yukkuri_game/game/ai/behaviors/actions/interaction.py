@@ -63,13 +63,20 @@ class Interact(Action):
             return Status.FAILURE
 
         if ai.current_target_id == -1:
+            with open("debug_test.log", "a") as f:
+                f.write(f"Interact: FAILURE. No Target ID. Entity={self.entity_id}\n")
             return Status.FAILURE
 
         target_trans = self.world.get_component(ai.current_target_id, Transform)
         if target_trans is None:
+            with open("debug_test.log", "a") as f:
+                f.write(f"Interact: FAILURE. No Target Transform. TargetID={ai.current_target_id}\n")
             return Status.FAILURE
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
+        
+
+
         if dist <= 75.0:
             if not self.world.has_component(self.entity_id, InteractionRequest):
                 self.world.add_component(
@@ -78,6 +85,9 @@ class Interact(Action):
                         target_id=ai.current_target_id, consume=self.consume
                     ),
                 )
+
+            if ai.manual_override:
+                ai.manual_override = False
             return Status.SUCCESS
 
         return Status.RUNNING
@@ -135,7 +145,9 @@ class SocialInteract(Action):
                         action=self.interaction_type,
                     ),
                 )
-                return Status.SUCCESS
+            if ai.manual_override:
+                ai.manual_override = False
+            return Status.SUCCESS
 
         return Status.RUNNING
 
@@ -165,11 +177,16 @@ class EatPrey(Action):
         self._eating_progress: float = 0.0
         self.sector_map: Any = None
         self.last_update_time: float = 0.0
+        self.time_service: Any = None
 
     def initialise(self) -> None:
         self._eating_progress = 0.0
         if self.world:
             self.last_update_time = self.world.time
+            # Get TimeService
+            from .....services import TimeService
+
+            self.time_service = self.world.services.try_get(TimeService)
 
     def update(self) -> Status:
         super().update()
@@ -246,20 +263,30 @@ class EatPrey(Action):
         if target_controller:
             target_controller.target_velocity = pymunk.Vec2d(0, 0)
 
-        # Use consistent world delta time
-        dt = self.world.dt
+        # Use TimeService for dt
+        dt = 0.016  # Fallback
+        if self.time_service:
+            dt = self.time_service.delta_time
+
         self.last_update_time = self.world.time
 
         damage = predator.dps * dt
         target_needs.health -= damage
 
         if target_needs.health <= 0:
-            self.world.destroy_entity(ai.current_target_id)
+            try:
+                self.world.destroy_entity(ai.current_target_id)
+            except KeyError:
+                # Entity already destroyed (e.g. by another predator)
+                pass
+
             my_needs = self.world.get_component(self.entity_id, Needs)
             if my_needs:
                 my_needs.hunger = max(0.0, my_needs.hunger - 50.0)
 
             ai.current_target_id = cast(EntityID, -1)
+            if ai.manual_override:
+                ai.manual_override = False
             return Status.SUCCESS
 
         return Status.RUNNING

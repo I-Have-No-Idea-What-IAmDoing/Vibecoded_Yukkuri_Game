@@ -30,7 +30,7 @@ class MockScene(Scene):
     def update(self, dt: float) -> None:
         self.update_called = True
 
-    def render(self) -> None:
+    def render(self, alpha: float = 1.0) -> None:
         self.render_called = True
 
     def handle_event(self, event) -> None:
@@ -102,7 +102,7 @@ def test_delegation():
     sm.update(0.1)
     assert scene.update_called
 
-    sm.render()
+    sm.render(1.0)
     assert scene.render_called
 
     event = MagicMock()

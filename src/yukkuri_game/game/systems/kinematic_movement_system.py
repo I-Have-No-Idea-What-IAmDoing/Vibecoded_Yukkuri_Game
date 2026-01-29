@@ -93,6 +93,8 @@ class KinematicMovementSystem(System):
             logger.warning(
                 "KinematicMovementSystem: Fixed update skipped because world is not initialized."
             )
+        with open("debug_test.log", "a") as f:
+             f.write(f"KinematicMovementSystem: FixedUpdate. DT={event.dt}\n")
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -283,6 +285,8 @@ class KinematicMovementSystem(System):
         """
         body = phys.body
         start_pos = body.position
+        with open("debug_test.log", "a") as f:
+             f.write(f"KMS: Moving Entity. Pos={start_pos}, TargetVel={controller.target_velocity}\n")
 
         # 1. Virtual Physics Integration
         input_vector = controller.target_velocity
@@ -454,8 +458,10 @@ class KinematicMovementSystem(System):
                 move_delta = pymunk.Vec2d(0, 0)
                 break
 
-        body.position = current_pos
+        phys.body.position = current_pos
         controller.current_velocity = velocity
+        # Sync Pymunk velocity so dynamic bodies react correctly to collisions with this kinematic body
+        phys.body.velocity = velocity
 
         return (body.position - start_pos).length
 

@@ -441,30 +441,27 @@ class GameplayScene(Scene):
 
                 self.hud.update(dt)
 
-    def render(self) -> None:
+    def render(self, alpha: float) -> None:
         """
         Renders the scene.
+
+        Args:
+            alpha (float): Interpolation factor.
         """
-        self.render_world()
+        self.render_world(alpha)
 
         if not self.application.headless and self.hud and self.application.screen:
             self.hud.draw(self.application.screen)
             self.ui_manager.draw_ui(self.application.screen)
 
-    def render_world(self) -> None:
+    def render_world(self, alpha: float) -> None:
         """
         Renders the game world entities.
+
+        Args:
+            alpha (float): Interpolation factor.
         """
         if hasattr(self, "render_system") and self.render_system:
-            alpha = 1.0
-            accumulator = getattr(self.application, "accumulator", 0.0)
-            fixed_dt = getattr(self.application, "fixed_dt", 0.0)
-
-            if accumulator > 0 and fixed_dt > 0:
-                alpha = accumulator / fixed_dt
-                # Clamp alpha just in case
-                alpha = max(0.0, min(1.0, alpha))
-
             # Pass alpha instead of dt to render_system.update
             # RenderSystem.update expects (world, dt), but we re-purpose second arg for alpha
             self.render_system.update(self.world, alpha)

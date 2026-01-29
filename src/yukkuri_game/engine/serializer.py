@@ -259,6 +259,14 @@ class WorldSerializer:
                                 )  # Dangling.
                         else:
                             pass
+                    elif field_name.endswith("_id") and field_type is int:
+                        # Generic int field that looks like an ID but isn't typed as EntityID
+                        # This won't be remapped!
+                        logger.warning(
+                            f"Field '{field_name}' in component '{type(component).__name__}' for entity {new_entity} "
+                            f"is typed as 'int' but looks like an ID. It will NOT be remapped! "
+                            f"Use 'EntityID' type hint if this is an entity reference."
+                        )
 
                     elif self._is_container_of_entity_ref(field_type):
                         origin = get_origin(field_type)

@@ -105,9 +105,12 @@ class MainMenuScene(Scene):
         super().update(dt)
         self.ui_manager.update(dt)
 
-    def render(self) -> None:
+    def render(self, alpha: float) -> None:
         """
         Renders the scene.
+
+        Args:
+            alpha (float): Interpolation factor.
         """
         if self.application.screen:
             self.ui_manager.draw_ui(self.application.screen)

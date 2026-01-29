@@ -165,15 +165,15 @@ class SceneManager:
         if self.current_scene:
             self.current_scene.update(dt)
 
-    def render(self) -> None:
+    def render(self, alpha: float) -> None:
         """
-        Render the current scene.
+        Renders the current scene.
 
-        Returns:
-            None
+        Args:
+            alpha (float): Interpolation factor (0.0 to 1.0) between physics steps.
         """
         if self.current_scene:
-            self.current_scene.render()
+            self.current_scene.render(alpha)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         """

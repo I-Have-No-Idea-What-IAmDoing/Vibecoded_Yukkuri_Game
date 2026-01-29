@@ -609,8 +609,15 @@ class GameDriver:
             self.game.init_render_system_headless()
 
         # Force a render to the surface (logic loop doesn't do it)
-        if hasattr(self.game, "render"):
-            self.game.render()
+        # Manually render for screenshots, bypassing Application.render's headless check
+        if self.game and self.game.screen:
+            self.game.screen.fill((0, 0, 0))
+            if hasattr(self.game, "scene_manager"):
+                # Pass alpha=1.0 for full interpolation
+                try:
+                    self.game.scene_manager.render(1.0)
+                except TypeError:
+                    self.game.scene_manager.render()
 
         if self.game and hasattr(self.game, "screen") and self.game.screen:
             pygame.image.save(self.game.screen, filename)
