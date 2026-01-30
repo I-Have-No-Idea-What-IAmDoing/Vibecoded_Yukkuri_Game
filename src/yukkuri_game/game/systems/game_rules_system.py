@@ -51,7 +51,7 @@ class GameRulesSystem(System):
         """
         self.event_bus = event_bus
         self.world: World | None = None
-        
+
         self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
         self.event_bus.subscribe(PunishEntityRequest, self.on_punish_entity)
         self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)

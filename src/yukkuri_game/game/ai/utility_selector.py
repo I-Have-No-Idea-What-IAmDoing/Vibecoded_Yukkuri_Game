@@ -7,17 +7,10 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 from py_trees.common import Status
 
-from ..services import TimeService
 from ..trait_service import TraitService
 from ..yukkuri_components import (
     AIState,
-    Blackboard,
-    EmotionalState,
-    Needs,
     Personality,
-    Predator,
-    Skills,
-    YukkuriStats,
 )
 from .base_action import Action
 from .utility import UtilityAIEngine

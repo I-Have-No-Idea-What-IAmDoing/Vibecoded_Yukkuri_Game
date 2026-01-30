@@ -623,8 +623,6 @@ class NavigationService:
             self.grid.update_obstacle_rect(x, y, width, height, is_blocking, block_mask)
             self._dirty = True
 
-
-
     def _to_grid(self, pos: tuple[float, float]) -> tuple[int, int]:
         """
         Converts world coordinates to grid coordinates.

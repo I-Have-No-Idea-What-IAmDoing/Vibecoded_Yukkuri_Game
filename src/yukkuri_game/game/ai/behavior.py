@@ -12,6 +12,9 @@ from .behaviors import (
     build_seek_light_behavior,
     build_standard_interaction_behavior,
     build_wander_behavior,
+    build_eat_behavior,
+    build_play_behavior,
+    build_sleep_behavior,
     # Actions
     Idle,
     Check,
@@ -41,7 +44,11 @@ __all__ = [
     "build_hunt_behavior",
     "build_seek_light_behavior",
     "build_standard_interaction_behavior",
+    "build_standard_interaction_behavior",
     "build_wander_behavior",
+    "build_eat_behavior",
+    "build_play_behavior",
+    "build_sleep_behavior",
     # Actions
     "Idle",
     "Check",

@@ -46,7 +46,7 @@ class Sleep(Action):
         # Clear active MoveCommands and existing paths
         if self.world.has_component(self.entity_id, MoveCommand):
             self.world.remove_component(self.entity_id, MoveCommand)
-        
+
         ai = self.world.try_get_component(self.entity_id, AIState)
         if ai and ai.path:
             ai.path = None

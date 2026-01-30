@@ -4,6 +4,7 @@ Opinion Calculator - Pure Logic for Social Math.
 Extracts the mathematical logic for calculating compatibility,
 interaction impacts, and emotional updates from the SocialSystem.
 """
+
 from typing import Any, cast
 
 from ...engine.ecs import World

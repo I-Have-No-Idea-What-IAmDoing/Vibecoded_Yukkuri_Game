@@ -239,7 +239,9 @@ class HudEvents:
                 DIALOG_WIDTH, DIALOG_HEIGHT = 300, 200
                 center_x = (self.layout.width - DIALOG_WIDTH) // 2
                 center_y = (self.layout.height - DIALOG_HEIGHT) // 2
-                dialog_rect = pygame.Rect(center_x, center_y, DIALOG_WIDTH, DIALOG_HEIGHT)
+                dialog_rect = pygame.Rect(
+                    center_x, center_y, DIALOG_WIDTH, DIALOG_HEIGHT
+                )
 
                 entity_str = "entity" if count == 1 else "entities"
                 self.confirmation_dialog = UIConfirmationDialog(

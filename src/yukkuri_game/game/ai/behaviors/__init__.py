@@ -6,6 +6,9 @@ from .trees import (
     build_seek_light_behavior as build_seek_light_behavior,
     build_standard_interaction_behavior as build_standard_interaction_behavior,
     build_wander_behavior as build_wander_behavior,
+    build_eat_behavior as build_eat_behavior,
+    build_play_behavior as build_play_behavior,
+    build_sleep_behavior as build_sleep_behavior,
 )
 
 from .actions import (

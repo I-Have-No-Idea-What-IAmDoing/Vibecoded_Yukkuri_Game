@@ -46,7 +46,7 @@ class UtilityContextBuilder:
         """
         stats = world.get_component(entity_id, YukkuriStats)
         needs = world.get_component(entity_id, Needs)
-        
+
         if not stats or not needs:
             return None
 

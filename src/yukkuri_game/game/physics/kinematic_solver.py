@@ -4,11 +4,12 @@ Kinematic Solver - Pure Physics Logic.
 Extracts the 'sweep-and-slide' and penetration resolution logic from the system
 to allow for easier testing and usage outside of the ECS cycle.
 """
+
 import math
 import pymunk
-from loguru import logger
 
 from ..components import MovementController, PhysicsBody, Transform
+
 
 class FakeHit:
     """Synthetic hit result for fallback overlap detection."""

@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from py_trees.common import Status
 
-from ....components import PhysicsBody, MovementController, MoveCommand
+from ....components import MovementController, MoveCommand
 from ....yukkuri_components import EmotionalState, AIState
 from ...base_action import Action
 

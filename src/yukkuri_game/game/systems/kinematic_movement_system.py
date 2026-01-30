@@ -26,8 +26,6 @@ Fixed Timestep:
 -   Decoupled from render framerate for consistent physics behavior.
 """
 
-import math
-
 import pymunk
 from loguru import logger
 
@@ -39,9 +37,6 @@ from ..components import MovementController, PhysicsBody, Transform
 from ..skill_service import SkillService
 from ..yukkuri_components import Flight, FlightState, YukkuriStats
 from .physics import PhysicsSystem
-
-
-
 
 
 class KinematicMovementSystem(System):
@@ -69,9 +64,10 @@ class KinematicMovementSystem(System):
         self.event_bus: EventBus | None = None
         self._kinematic_world: World | None = None
         self.skill_service: SkillService | None = None
-        
+
         # New Solver
         from ..physics.kinematic_solver import KinematicSolver
+
         self.solver = KinematicSolver()
 
     def on_fixed_update(self, event: PhysicsFixedUpdateEvent) -> None:
@@ -83,7 +79,7 @@ class KinematicMovementSystem(System):
         """
         if not self.space:
             return
-            
+
         # Ensure solver has the space
         if self.solver.space != self.space:
             self.solver.set_space(self.space)
@@ -108,13 +104,13 @@ class KinematicMovementSystem(System):
             if physics_system:
                 self.space = physics_system.space
                 self.solver.set_space(self.space)
-        
+
         if not self.event_bus:
             self.event_bus = world.services.try_get(EventBus)
             if self.event_bus:
                 self.event_bus.subscribe(PhysicsFixedUpdateEvent, self.on_fixed_update)
                 self._kinematic_world = world
-        
+
         self.skill_service = world.services.try_get(SkillService)
         self._kinematic_world = world
 
@@ -168,7 +164,9 @@ class KinematicMovementSystem(System):
             agility = stats.agility if stats else 1.0
 
             # Use Solver for movement
-            dist_moved = self.solver.move_and_slide(phys, controller, trans, dt, agility)
+            dist_moved = self.solver.move_and_slide(
+                phys, controller, trans, dt, agility
+            )
 
             # Award athletics XP based on distance traveled.
             if dist_moved > 0.1 and self.skill_service:

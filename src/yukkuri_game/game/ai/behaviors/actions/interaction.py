@@ -70,8 +70,6 @@ class Interact(Action):
             return Status.FAILURE
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
-        
-
 
         if dist <= 110.0:
             if not self.world.has_component(self.entity_id, InteractionRequest):

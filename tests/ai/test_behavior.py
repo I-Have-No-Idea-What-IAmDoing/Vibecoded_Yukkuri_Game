@@ -1,6 +1,7 @@
 import pytest
 import pymunk
 from py_trees.common import Status
+from yukkuri_game.game.ai.navigation_service import PathResult
 
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, MovementController
@@ -24,10 +25,14 @@ def world_and_entity():
     # Mock navigation service
     class MockNavService(NavigationService):
         def __init__(self, world_width: int, world_height: int):
-            pass
+            super().__init__(world_width, world_height, deterministic_mode=True)
 
         def find_path(self, start, end, can_fly=False):
             return [end]  # Simple straight path
+
+        def request_path(self, entity_id, start, end, capabilities=0, priority=2, timestamp=None):
+            path = self.find_path(start, end)
+            self.result_queue.put(PathResult(entity_id, path, True))
 
     world.services.register(MockNavService(1000, 1000), NavigationService)
 
@@ -45,6 +50,15 @@ def test_movetotarget_reaches_target(world_and_entity):
 
     for _ in range(20):  # Increased steps just in case
         status = action.update()
+        
+        # Simulate NavigationSystem
+        nav = world.services.get(NavigationService)
+        results = nav.get_results()
+        for res in results:
+            if res.success:
+                ai = world.get_component(res.entity_id, AIState)
+                ai.path = res.path
+
         if status == Status.SUCCESS:
             break
 
@@ -124,10 +138,13 @@ def test_movetotarget_falls_back_to_direct_movement_if_no_path(world_and_entity)
     # Mock failing navigation service that returns empty path
     class MockFailingNavService(NavigationService):
         def __init__(self, world_width: int, world_height: int):
-            pass
+            super().__init__(world_width, world_height, deterministic_mode=True)
 
         def find_path(self, start, end, can_fly=False):
             return []
+            
+        def request_path(self, entity_id, start, end, capabilities=0, priority=2, timestamp=None):
+            self.result_queue.put(PathResult(entity_id, [], False))
 
     world.services.register(
         MockFailingNavService(1000, 1000), NavigationService, replace=True
@@ -138,6 +155,18 @@ def test_movetotarget_falls_back_to_direct_movement_if_no_path(world_and_entity)
 
     # Should be RUNNING (attempting direct movement), not FAILURE
     # Should be RUNNING (attempting direct movement), not FAILURE
+    assert status == Status.RUNNING
+    
+    # Process the failed path result
+    nav = world.services.get(NavigationService)
+    results = nav.get_results()
+    for res in results:
+        if not res.success:
+            ai_state = world.get_component(res.entity_id, AIState)
+            ai_state.state_data["path_failed"] = True
+            
+    # Update again to trigger fallback
+    status = action.update()
     assert status == Status.RUNNING
     
     # Check that a MoveCommand was issued (new architecture)

@@ -147,7 +147,9 @@ class InventorySystem(System):
                             # Spread dropped items slightly
                             offset_x = rng.uniform(-10, 10)
                             offset_y = rng.uniform(-10, 10)
-                            entity_factory.create_item(item_type_id, spawn_x + offset_x, spawn_y + offset_y)
+                            entity_factory.create_item(
+                                item_type_id, spawn_x + offset_x, spawn_y + offset_y
+                            )
 
                         if self.event_bus:
                             self.event_bus.publish(

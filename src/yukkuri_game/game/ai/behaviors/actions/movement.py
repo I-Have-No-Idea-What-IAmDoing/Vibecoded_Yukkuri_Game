@@ -137,6 +137,7 @@ class MoveToTarget(Action):
                             if target_phys and hit.shape.body == target_phys.body:
                                 use_direct_steering = True
 
+            if use_direct_steering:
                 if dist_to_target < self.acceptance_radius:
                     controller.target_velocity = pymunk.Vec2d(0, 0)
                     ai.path = None
@@ -163,7 +164,6 @@ class MoveToTarget(Action):
 
                 if ai.path:
                     ai.path = None
-                
 
                 return Status.RUNNING
 
@@ -506,11 +506,11 @@ class FleePredator(Action):
             if flee_vec.length > 0:
                 flee_vec = flee_vec.normalized() * self.speed
                 controller.target_velocity = flee_vec
-                
+
                 # Critical: Remove conflicting MoveCommands so SteeringSystem doesn't override us
                 if self.world.has_component(self.entity_id, MoveCommand):
                     self.world.remove_component(self.entity_id, MoveCommand)
-                
+
                 return Status.RUNNING
 
         return Status.FAILURE

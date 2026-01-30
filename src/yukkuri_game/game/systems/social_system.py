@@ -254,6 +254,7 @@ class SocialSystem(System):
             float: A compatibility score (typically centered around 0 to 100).
         """
         from ..social.opinion_calculator import OpinionCalculator
+
         return OpinionCalculator.calculate_base_compatibility(
             subject_pers, other_pers, self.trait_service
         )
@@ -556,8 +557,10 @@ class SocialSystem(System):
         # Use OpinionCalculator for impact logic
         from ..social.opinion_calculator import OpinionCalculator
 
-        d_affinity, d_trust, d_fear, d_familiarity = OpinionCalculator.calculate_impact_deltas(
-            world, subject_id, other_id, social_impact, modifiers, base_impact_score
+        d_affinity, d_trust, d_fear, d_familiarity = (
+            OpinionCalculator.calculate_impact_deltas(
+                world, subject_id, other_id, social_impact, modifiers, base_impact_score
+            )
         )
 
         emotional = world.get_component(subject_id, EmotionalState)

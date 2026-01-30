@@ -72,7 +72,6 @@ class BehaviorRegistry:
         return cls._target_requirements.get(goal_name)
 
 
-
 def build_need_satisfaction_behavior(
     goal_name: str,
     find_action_class: type[Behaviour],
@@ -442,26 +441,36 @@ BehaviorRegistry.register_goal("Wander", build_wander_behavior)
 BehaviorRegistry.register_goal("SeekLight", build_seek_light_behavior)
 BehaviorRegistry.register_goal("Flee", build_flee_behavior)
 
+# Generic Need Satisfaction Behaviors
+build_eat_behavior = build_need_satisfaction_behavior(
+    "Eat", FindItem, Interact, "nutrition", 100.0, True
+)
+
+build_play_behavior = build_need_satisfaction_behavior(
+    "Play", FindItem, Interact, "fun", 60.0, False
+)
+
+build_sleep_behavior = build_need_satisfaction_behavior(
+    "Sleep", FindItem, Sleep, "comfort", 60.0, False
+)
+
 # Generic Need Satisfaction Registrations
 BehaviorRegistry.register_goal(
     "Eat",
-    build_need_satisfaction_behavior(
-        "Eat", FindItem, Interact, "nutrition", 100.0, True
-    ),
+    build_eat_behavior,
     required_component=Needs,
 )
 BehaviorRegistry.register_goal(
     "Play",
-    build_need_satisfaction_behavior("Play", FindItem, Interact, "fun", 60.0, False),
+    build_play_behavior,
     required_component=Needs,
 )
 BehaviorRegistry.register_goal(
     "Sleep",
-    build_need_satisfaction_behavior("Sleep", FindItem, Sleep, "comfort", 60.0, False),
+    build_sleep_behavior,
     required_component=Needs,
 )
 
 BehaviorRegistry.register_goal("Talk", build_standard_interaction_behavior("Talk"))
 BehaviorRegistry.register_goal("Dance", build_standard_interaction_behavior("Dance"))
 BehaviorRegistry.register_goal("Fight", build_standard_interaction_behavior("Fight"))
-
