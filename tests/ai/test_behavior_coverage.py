@@ -18,7 +18,9 @@ from yukkuri_game.game.systems.interaction_system import InteractionSystem
 
 def test_move_to_target_success():
     world = World()
-    nav_service = MagicMock(spec=NavigationService)
+    nav_service = MagicMock()
+    # Explicitly configure the method on the mock
+    nav_service.find_path.return_value = [(95, 0), (100, 0)]
     world.services.register(nav_service, NavigationService)
 
     entity = world.create_entity()
@@ -104,28 +106,24 @@ def test_interact_fallback():
 def test_find_item():
     world = World()
     game_service = MagicMock(spec=GameService)
-    world.services.register(game_service)
+    world.services.register(game_service, GameService)
 
     # Mock EventBus to prevent 'Mock object has no attribute publish' error
     # when ECS tries to publish ComponentAddedEvent
     event_bus = MagicMock(spec=EventBus)
     world.services.register(event_bus, EventBus)
 
-    # We need to ensure try_get returns the correct mock based on the type
-    def try_get_side_effect(service_type):
-        if service_type == GameService:
-            return game_service
-        if service_type == EventBus:
-            return event_bus
-        return None
-
-    world.services.try_get = MagicMock(side_effect=try_get_side_effect)
+    # Ensure try_get returns the registered services
+    # (The default implementation of World.services should handle this if we register correctly,
+    # but mocks sometimes behave oddly if not fully spec'd.
+    # explicit registration above is safer than side_effect if the registry works.)
 
     entity = world.create_entity()
     world.add_component(entity, AIState())
     world.add_component(entity, Transform(x=0, y=0))
 
     # Mock find_best_item
+    # It should return an entity ID (int)
     game_service.find_best_item.return_value = 999
 
     action = FindItem(
@@ -137,3 +135,4 @@ def test_find_item():
     assert status == Status.SUCCESS
     ai = world.get_component(entity, AIState)
     assert ai.current_target_id == 999
+

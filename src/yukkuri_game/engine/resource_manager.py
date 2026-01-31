@@ -25,6 +25,7 @@ from .data_models import (
 )
 from .atlas import TextureAtlas
 from .lazy_loader import LazyLoader
+from .exceptions import ResourceLoadError
 
 T = TypeVar("T")
 
@@ -291,7 +292,7 @@ class ResourceManager:
             The requested item if `requested_key` is provided, otherwise None.
 
         Raises:
-            KeyError: If the file cannot be loaded or the requested key is missing.
+            ResourceLoadError: If the file cannot be loaded or the requested key is missing.
         """
         # Determine which LazyLoader to populate based on attr name.
         mapping = getattr(
@@ -312,9 +313,7 @@ class ResourceManager:
         logger.info(f"Lazy Loading Monolithic File: {file}")
         data = self.load_toml_model(file, model)
         if not data:
-            if requested_key:
-                raise KeyError(f"Could not load data file {file}")
-            return None
+            raise ResourceLoadError(f"Failed to load critical data file: {file}")
 
         real_dict = getattr(data, attr)
 
@@ -327,7 +326,9 @@ class ResourceManager:
             if requested_key in real_dict:
                 return real_dict[requested_key]
             else:
-                raise KeyError(f"Key {requested_key} not found in {file}")
+                raise ResourceLoadError(
+                    f"Key '{requested_key}' not found in {file} (Attribute: {attr})"
+                )
 
         return None
 

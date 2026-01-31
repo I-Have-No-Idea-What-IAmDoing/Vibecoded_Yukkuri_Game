@@ -2,6 +2,8 @@
 Input Manager Module.
 """
 
+from typing import Any
+from loguru import logger
 from enum import IntEnum
 import pygame
 
@@ -83,6 +85,68 @@ class InputManager:
                 "pan": 2,
             }
         }
+
+        self._validate_mappings()
+
+    def _validate_mappings(self) -> None:
+        """
+        Validates the key and mouse mappings.
+
+        Raises:
+            ValueError: If a key or button is not a valid integer.
+        """
+        for context, mappings in self._key_mappings.items():
+            for action, keys in mappings.items():
+                if not all(isinstance(k, int) for k in keys):
+                    raise ValueError(
+                        f"Invalid key code in mapping for {context.name}.{action}: {keys}"
+                    )
+
+        for context, mappings in self._mouse_mappings.items():
+            for action, btn in mappings.items():
+                if not isinstance(btn, int):
+                    raise ValueError(
+                        f"Invalid mouse button in mapping for {context.name}.{action}: {btn}"
+                    )
+
+    def load_key_mappings(self, config: dict[str, Any]) -> None:
+        """
+        Loads key mappings from a configuration dictionary.
+
+        This method allows for runtime remapping of keys.
+
+        Args:
+            config: Dictionary containing key mappings.
+                    Structure: { "GAMEPLAY": { "action": [key_code, ...] }, ... }
+
+        Raises:
+            ValueError: If the configuration is invalid.
+        """
+        try:
+            # Deep update to avoid wiping unmentioned keys
+            for context_name, actions in config.items():
+                try:
+                    context = InputContext[context_name.upper()]
+                except KeyError:
+                    logger.warning(f"Unknown input context: {context_name}")
+                    continue
+
+                if context not in self._key_mappings:
+                    self._key_mappings[context] = {}
+
+                for action, keys in actions.items():
+                    if not isinstance(keys, list) or not all(
+                        isinstance(k, int) for k in keys
+                    ):
+                        raise ValueError(f"Invalid mapping for {action}: {keys}")
+
+                    self._key_mappings[context][action] = keys
+
+            self._validate_mappings()
+
+        except Exception as e:
+            logger.error(f"Failed to load key mappings: {e}")
+            raise
 
     def set_context(self, context: InputContext, active: bool = True) -> None:
         """
