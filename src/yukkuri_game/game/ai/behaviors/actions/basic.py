@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING, Any, Callable
+import pymunk
 
 from py_trees.common import Status
 
@@ -46,7 +47,7 @@ class Idle(Action):
         # Ensure MovementController targets zero
         controller = self.world.try_get_component(self.entity_id, MovementController)
         if controller:
-            controller.target_velocity = (0, 0)
+            controller.target_velocity = pymunk.Vec2d(0, 0)
             # Optional: Hard stop physics to prevent sliding if desired
             # phys = self.world.try_get_component(self.entity_id, PhysicsBody)
             # if phys:

@@ -313,6 +313,7 @@ class ResourceManager:
         logger.info(f"Lazy Loading Monolithic File: {file}")
         data = self.load_toml_model(file, model)
         if not data:
+            logger.warning(f"DEBUG: Failed to load critical data file: {file}")
             raise ResourceLoadError(f"Failed to load critical data file: {file}")
 
         real_dict = getattr(data, attr)
@@ -326,6 +327,7 @@ class ResourceManager:
             if requested_key in real_dict:
                 return real_dict[requested_key]
             else:
+                logger.warning(f"DEBUG: Key '{requested_key}' not found in {file} (Attribute: {attr})")
                 raise ResourceLoadError(
                     f"Key '{requested_key}' not found in {file} (Attribute: {attr})"
                 )

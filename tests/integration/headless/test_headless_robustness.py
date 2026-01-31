@@ -46,16 +46,7 @@ def test_rendering_verification(game_driver: GameDriver, tmp_path):
 
     # Note: Application init logs are captured if we wrap creation, but here we wrap usage.
     # We can check if any warning/error occurred.
-    try:
-        logs.assert_not_logged("Error")
-    except AssertionError as e:
-        print("\nCaptured Logs:")
-        for record in logs.records:
-            # record is a loguru Message object, which str() converts to the formatted message.
-            # To get level, we access record.record['level'].name
-            level = record.record["level"].name
-            print(f"{level}: {record}")
-        raise e
+    logs.assert_not_logged("Error")
 
     # Load and check content
     img = pygame.image.load(screenshot_path)
