@@ -16,11 +16,9 @@ def TestEnvironment() -> Generator[None, None, None]:
     Yields:
         None
     """
-    # Cache original values
     original_video = os.environ.get("SDL_VIDEODRIVER")
     original_audio = os.environ.get("SDL_AUDIODRIVER")
 
-    # Set headless drivers
     os.environ["SDL_VIDEODRIVER"] = "dummy"
     # Use 'dummy' or 'disk' for audio to prevent hardware requirement
     os.environ["SDL_AUDIODRIVER"] = "dummy"
@@ -28,7 +26,6 @@ def TestEnvironment() -> Generator[None, None, None]:
     try:
         yield
     finally:
-        # Restore video driver
         if original_video is not None:
             os.environ["SDL_VIDEODRIVER"] = original_video
         else:
@@ -36,7 +33,6 @@ def TestEnvironment() -> Generator[None, None, None]:
             if "SDL_VIDEODRIVER" in os.environ:
                 del os.environ["SDL_VIDEODRIVER"]
 
-        # Restore audio driver
         if original_audio is not None:
             os.environ["SDL_AUDIODRIVER"] = original_audio
         else:

@@ -9,7 +9,6 @@ from ...yukkuri_components import (
 )
 from ..utility_selector import UtilitySelector
 
-# Import Actions
 from .actions.basic import Idle, Check, CheckEmotion
 from .actions.movement import MoveToTarget, Wander, Swoop, FleePredator, FleeFromTarget
 from .actions.searching import (
@@ -435,7 +434,6 @@ def create_yukkuri_behavior_tree(
     return root_selector
 
 
-# Registrations
 BehaviorRegistry.register_goal("Hunt", build_hunt_behavior, required_component=Predator)
 BehaviorRegistry.register_goal("Wander", build_wander_behavior)
 BehaviorRegistry.register_goal("SeekLight", build_seek_light_behavior)

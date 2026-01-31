@@ -1,5 +1,5 @@
 import math
-from typing import TYPE_CHECKING, Any, cast, Optional
+from typing import TYPE_CHECKING, Any, cast
 
 from py_trees.common import Status
 
@@ -184,7 +184,7 @@ class FindPrey(Action):
             blackboard (Any | None): The blackboard.
         """
         super().__init__(name, entity_id, world, blackboard)
-        self.sector_map: Optional["SectorMap"] = None
+        self.sector_map: "SectorMap" | None = None
 
     def update(self) -> Status:
         super().update()

@@ -29,6 +29,7 @@ from typing import (
     get_args,
 )
 from collections.abc import Iterable
+import types
 import typing
 import msgspec
 from loguru import logger
@@ -322,7 +323,10 @@ class WorldSerializer:
         if tp is EntityID:
             return True
         origin = get_origin(tp)
-        if origin is typing.Union:  # Check for Optional[EntityID]
+        if origin in (
+            typing.Union,
+            types.UnionType,
+        ):  # Check for Optional[EntityID] or EntityID | None
             args = get_args(tp)
             # Optional[T] is Union[T, NoneType]
             return EntityID in args

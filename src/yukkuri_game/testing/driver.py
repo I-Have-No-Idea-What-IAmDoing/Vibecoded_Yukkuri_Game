@@ -253,7 +253,6 @@ class GameDriver:
 
                 scene_type = GameplayScene
 
-        # Clear existing scene
         if self.game.scene_manager.current_scene:
             self.game.scene_manager.pop()
 
@@ -262,7 +261,6 @@ class GameDriver:
         new_scene = scene_type(self.game)
         self.game.scene_manager.push(new_scene)
 
-        # Ensure we are ready
         self.setup()
 
     def create_yukkuri(self, type_id: str, x: float, y: float) -> int:
@@ -367,7 +365,7 @@ class GameDriver:
             pass
 
         self.game.quit()  # type: ignore[union-attr]
-        # Break cycle
+        # Break reference cycle to allow garbage collection
         self.game = None
 
     def wait_until_scene(self, scene_type: type, timeout: float = 10.0) -> None:
@@ -485,11 +483,9 @@ class GameDriver:
 
     def _tick(self) -> None:
         """Advances the game by one fixed time step."""
-        # 0. Check if game is running
         if hasattr(self.game, "running") and not self.game.running:
             raise RuntimeError("Game stopped running during simulation tick")
 
-            # 1. Handle Events
             # Cast to Any first for dynamic dispatch
             if hasattr(self.game, "handle_events"):
                 cast(Any, self.game).handle_events()
@@ -502,7 +498,6 @@ class GameDriver:
         if hasattr(self.game, "running") and not self.game.running:
             raise RuntimeError("Game stopped running after event processing")
 
-        # 2. Update Game State
         if hasattr(self.game, "update"):
             self.game.update(self.fixed_dt)
         elif hasattr(self.game, "tick"):
