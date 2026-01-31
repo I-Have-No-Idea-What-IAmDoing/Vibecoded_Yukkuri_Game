@@ -58,7 +58,6 @@ class HUD:
         self.width = 1280
         self.height = 720
 
-        # Initialize Components
         self.layout = HudLayout(
             self.manager, self.width, self.height, rm.yukkuri_types, rm.item_types
         )
@@ -69,13 +68,11 @@ class HUD:
 
         self.renderer = HudRenderer(self.layout, self.world)
 
-        # Context Menu
         self.context_menu = ContextMenu(self.manager)
 
         # Inventory Panel (with event_bus for event-driven actions)
         self.inventory_panel = InventoryPanel(self.manager, self.world, self.event_bus)
 
-        # State
         self.selected_entities: list[int] = []
         self.show_debug = False
         self.fps = 0.0
@@ -84,7 +81,6 @@ class HUD:
         self.navigation_debug_renderer: NavigationDebugRenderer | None = None
         self.ai_debug_renderer: AIDebugRenderer | None = None
 
-        # Subscribe to events
         self.event_bus.subscribe(EntitySelectedEvent, self.on_entity_selected)
         self.event_bus.subscribe(GamePausedEvent, self.on_game_paused)
         self.event_bus.subscribe(LogMessageEvent, self.on_log_message)

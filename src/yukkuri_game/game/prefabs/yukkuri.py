@@ -80,6 +80,17 @@ def create_yukkuri(
     try:
 
         def _get_attr(d: Any, k: str, default: Any = None) -> Any:
+            """
+            Helper to safely retrieve attributes from either a dict or an object.
+
+            Args:
+                d (Any): The source object (dict or class instance).
+                k (str): The key or attribute name.
+                default (Any): The default value to return if not found.
+
+            Returns:
+                Any: The retrieved value or default.
+            """
             if isinstance(d, dict):
                 return d.get(k, default)
             return getattr(d, k, default)
@@ -103,10 +114,8 @@ def create_yukkuri(
         frame_duration = _get_attr(data, "frame_duration", 0.1)
         loop = _get_attr(data, "loop", True)
 
-        # Core Components
         world.add_component(entity, Transform(x=x, y=y, scale=scale))
 
-        # Sprite Creation
         sprite = Sprite(
             image_name=image,
             width=width,
