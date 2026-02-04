@@ -1,20 +1,23 @@
 """
 Lighting subsystem benchmark.
+
+This module provides tools for benchmarking the performance of the lighting engine,
+comparing cached vs uncached rendering paths.
 """
 
-import time
 import argparse
-import json
-import statistics
-from ..engine import rng
-import pygame
 import csv
-from typing import Any
+import json
 import logging
+import statistics
+import time
+from typing import Any
 
-from ..game.renderer.pygame_backend import PygameBackend
+import pygame
+
+from ..engine import rng
 from ..game.renderer.commands import LightCommand, OccluderCommand
-
+from ..game.renderer.pygame_backend import PygameBackend
 
 # Reuse utils from the main benchmark module
 
@@ -25,6 +28,12 @@ logger = logging.getLogger(__name__)
 class LightingBenchmarkRunner:
     """
     Runs performance benchmarks for the lighting subsystem.
+
+    Attributes:
+        num_lights (int): Number of lights to simulate.
+        num_occluders (int): Number of occluders to simulate.
+        iterations (int): Number of frames to measure.
+        seed (int): Random seed.
     """
 
     def __init__(
@@ -33,7 +42,16 @@ class LightingBenchmarkRunner:
         num_occluders: int = 50,
         iterations: int = 20,
         seed: int = 42,
-    ):
+    ) -> None:
+        """
+        Initializes the LightingBenchmarkRunner.
+
+        Args:
+            num_lights (int): Number of lights. Defaults to 20.
+            num_occluders (int): Number of occluders. Defaults to 50.
+            iterations (int): Number of iterations. Defaults to 20.
+            seed (int): Random seed. Defaults to 42.
+        """
         self.num_lights = num_lights
         self.num_occluders = num_occluders
         self.iterations = iterations
@@ -42,6 +60,9 @@ class LightingBenchmarkRunner:
     def run(self) -> dict[str, Any]:
         """
         Runs the benchmark.
+
+        Returns:
+            dict[str, Any]: The benchmark results.
         """
         logger.info(
             f"Running lighting benchmark: Lights={self.num_lights}, Occluders={self.num_occluders}, "
@@ -152,6 +173,9 @@ class LightingBenchmarkRunner:
 
 
 def main() -> None:
+    """
+    Main entry point for lighting benchmark.
+    """
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
     )

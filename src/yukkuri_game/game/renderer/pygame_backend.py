@@ -1,12 +1,23 @@
+"""
+Pygame Renderer Backend.
+
+This module provides the `PygameBackend` implementation of the `RenderBackend` protocol.
+It uses native Pygame drawing functions and the custom `SoftwareLightingEngine` for
+lighting and shadows.
+"""
+
 from collections import OrderedDict
+from typing import Any
+
 import pygame
+
 from .backend import RenderBackend
 from .commands import (
+    LightCommand,
+    OccluderCommand,
+    ShadowCommand,
     SpriteCommand,
     TextCommand,
-    LightCommand,
-    ShadowCommand,
-    OccluderCommand,
 )
 from .software_lighting import SoftwareLightingEngine
 
@@ -14,9 +25,24 @@ from .software_lighting import SoftwareLightingEngine
 class PygameBackend(RenderBackend):
     """
     Software renderer backend using native Pygame drawing and custom shadow casting.
+
+    Attributes:
+        screen (pygame.Surface): The main display surface.
+        ambient_color (tuple[int, int, int, int]): The ambient light color.
+        lighting_engine (SoftwareLightingEngine): The lighting system.
+        font_cache (dict): Cache of Pygame fonts.
+        shadow_surface_cache (dict): Cache of small shadow surfaces.
+        text_cache (OrderedDict): LRU cache of rendered text surfaces.
+        max_text_cache_size (int): Max size of the text cache.
     """
 
-    def __init__(self, screen: pygame.Surface):
+    def __init__(self, screen: pygame.Surface) -> None:
+        """
+        Initializes the PygameBackend.
+
+        Args:
+            screen (pygame.Surface): The main display surface.
+        """
         self.screen = screen
 
         # State
@@ -40,9 +66,20 @@ class PygameBackend(RenderBackend):
         self.max_text_cache_size = 500
 
     def clear(self, color: tuple[int, int, int]) -> None:
+        """
+        Clears the screen with the specified color.
+
+        Args:
+            color (tuple[int, int, int]): The RGB color.
+        """
         self.screen.fill(color)
 
     def begin_frame(self) -> None:
+        """
+        Prepares for a new frame.
+
+        Resizes the lighting engine if necessary and clears it.
+        """
         # Sync size if changed
         w, h = self.screen.get_size()
         if self.lighting_engine.native_size != (w, h):
@@ -52,6 +89,11 @@ class PygameBackend(RenderBackend):
         self.lighting_engine.clear((c[0], c[1], c[2]))
 
     def end_frame(self) -> None:
+        """
+        Finalizes the frame.
+
+        Composites the lighting overlay onto the screen.
+        """
         # Render Lighting Overlay
         # (Lights have already been processed into the engine via draw_light)
         # We just get the final surface and blit it.
@@ -59,15 +101,39 @@ class PygameBackend(RenderBackend):
         self.screen.blit(lightmap, (0, 0), special_flags=pygame.BLEND_MULT)
 
     def draw_sprite(self, cmd: SpriteCommand) -> None:
+        """
+        Draws a sprite.
+
+        Args:
+            cmd (SpriteCommand): The sprite command.
+        """
         self._render_sprite(cmd)
 
     def draw_text(self, cmd: TextCommand) -> None:
+        """
+        Draws text.
+
+        Args:
+            cmd (TextCommand): The text command.
+        """
         self._render_text(cmd)
 
     def draw_shadow(self, cmd: ShadowCommand) -> None:
+        """
+        Draws a blob shadow.
+
+        Args:
+            cmd (ShadowCommand): The shadow command.
+        """
         self._render_shadow(cmd)
 
     def draw_light(self, cmd: LightCommand) -> None:
+        """
+        Process a light source.
+
+        Args:
+            cmd (LightCommand): The light command.
+        """
         # Submit directly to engine
         self.lighting_engine.render_light(
             cmd.position,
@@ -80,6 +146,12 @@ class PygameBackend(RenderBackend):
         )
 
     def draw_occluder(self, cmd: OccluderCommand) -> None:
+        """
+        Process an occluder.
+
+        Args:
+            cmd (OccluderCommand): The occluder command.
+        """
         # Submit directly to engine
         # Calculate AABB immediately if not present
         if not cmd.vertices:
@@ -99,6 +171,12 @@ class PygameBackend(RenderBackend):
         )
 
     def set_ambient_light(self, color: tuple[int, int, int, int]) -> None:
+        """
+        Sets the ambient light color.
+
+        Args:
+            color (tuple[int, int, int, int]): RGBA color.
+        """
         self.ambient_color = color
 
     def draw_line(
@@ -108,9 +186,24 @@ class PygameBackend(RenderBackend):
         color: tuple[int, int, int],
         width: int = 1,
     ) -> None:
+        """
+        Draws a line.
+
+        Args:
+            start (tuple[float, float]): Start point.
+            end (tuple[float, float]): End point.
+            color (tuple[int, int, int]): RGB color.
+            width (int): Line width. Defaults to 1.
+        """
         pygame.draw.line(self.screen, color, start, end, width)
 
     def toggle_lighting_debug(self, enabled: bool) -> None:
+        """
+        Toggles lighting debug mode.
+
+        Args:
+            enabled (bool): Enable/Disable flag.
+        """
         self.lighting_engine.toggle_debug(enabled)
 
     # Internal Rendering Methods

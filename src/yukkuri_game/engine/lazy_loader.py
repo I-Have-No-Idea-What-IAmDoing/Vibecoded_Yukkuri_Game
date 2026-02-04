@@ -1,15 +1,34 @@
-from typing import TypeVar, Callable, Any, Iterator, MutableMapping
+"""
+Lazy Loader Module.
+
+This module provides the `LazyLoader` class, a specialized dictionary-like structure
+that defers the loading of its values until they are explicitly accessed. This is
+particularly useful for managing large sets of game resources or data that may not
+all be needed immediately upon startup.
+"""
+
+from collections.abc import Iterator, MutableMapping
+from typing import Any, Callable, TypeVar
+
 from loguru import logger
 
 T = TypeVar("T")
 
 
-class LazyLoader(MutableMapping):
+class LazyLoader(MutableMapping[str, Any]):
     """
     A dictionary-like object that defers loading of values until they are accessed.
 
     This is useful for loading large datasets (like thousands of item definitions)
     only when the game actually needs them.
+
+    Attributes:
+        _load_func (Callable[[str], Any]): Function to load a value given a key.
+        _cache (dict[str, Any]): Internal cache of loaded values.
+        _known_keys (set[str]): Set of keys known to exist (but potentially not loaded).
+        _initializer (Callable[[], None] | None): Optional function to initialize the loader (e.g. monolithic load).
+        _initialized (bool): Whether the initializer has been run.
+        _lock (threading.RLock): Lock for thread safety.
     """
 
     def __init__(
@@ -17,12 +36,14 @@ class LazyLoader(MutableMapping):
         load_function: Callable[[str], Any],
         keys: Iterator[str] | None = None,
         initializer: Callable[[], None] | None = None,
-    ):
+    ) -> None:
         """
+        Initializes the LazyLoader.
+
         Args:
-            load_function: A function that takes a key and returns the value.
-            keys: Optional initial set of keys that exist (but aren't loaded).
-            initializer: Optional function to call before iteration or counting (e.g. to load all keys).
+            load_function (Callable[[str], Any]): A function that takes a key and returns the value.
+            keys (Iterator[str] | None): Optional initial set of keys that exist (but aren't loaded).
+            initializer (Callable[[], None] | None): Optional function to call before iteration or counting.
         """
         import threading
 
@@ -36,7 +57,9 @@ class LazyLoader(MutableMapping):
         self._lock = threading.RLock()
 
     def _ensure_initialized(self) -> None:
-        """Call the initializer if it hasn't been called yet."""
+        """
+        Ensures that the initializer has been called.
+        """
         with self._lock:
             if not self._initialized and self._initializer:
                 logger.info("Triggering LazyLoader initialization...")
@@ -44,16 +67,24 @@ class LazyLoader(MutableMapping):
                 self._initialized = True
 
     def __getitem__(self, key: str) -> Any:
+        """
+        Retrieves the value for the given key, loading it if necessary.
+
+        Args:
+            key (str): The key to look up.
+
+        Returns:
+            Any: The loaded value.
+
+        Raises:
+            KeyError: If the key cannot be found or loaded.
+        """
         # Check cache first (quick read lock check)
         with self._lock:
             if key in self._cache:
                 return self._cache[key]
 
-        # Prioritize single item load if possible (outside lock if it's slow IO? No, cache update needs lock)
-        # Actually, self._load_func might be slow IO.
-        # But if we don't lock, two threads might load same thing.
-        # Given it's a lazy loader, double loading is better than corruption, but dict access must be locked.
-
+        # Prioritize single item load if possible
         try:
             val = self._load_func(key)
             if val is not None:
@@ -76,11 +107,24 @@ class LazyLoader(MutableMapping):
         raise KeyError(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
+        """
+        Sets the value for the given key.
+
+        Args:
+            key (str): The key to set.
+            value (Any): The value to store.
+        """
         with self._lock:
             self._cache[key] = value
             self._known_keys.add(key)
 
     def __delitem__(self, key: str) -> None:
+        """
+        Deletes the value associated with the given key.
+
+        Args:
+            key (str): The key to delete.
+        """
         with self._lock:
             if key in self._cache:
                 del self._cache[key]
@@ -88,16 +132,38 @@ class LazyLoader(MutableMapping):
                 self._known_keys.remove(key)
 
     def __iter__(self) -> Iterator[str]:
+        """
+        Returns an iterator over the keys.
+
+        Triggers initialization to ensure all keys are known.
+
+        Returns:
+            Iterator[str]: An iterator over the keys.
+        """
         self._ensure_initialized()
         with self._lock:
             # Return a list copy so iteration is safe from modification
             return iter(list(self._known_keys.union(self._cache.keys())))
 
     def __len__(self) -> int:
+        """
+        Returns the number of items.
+
+        Triggers initialization to ensure the count is accurate.
+
+        Returns:
+            int: The number of items.
+        """
         self._ensure_initialized()
         with self._lock:
             return len(self._known_keys.union(self._cache.keys()))
 
     def __repr__(self) -> str:
+        """
+        Returns a string representation of the LazyLoader.
+
+        Returns:
+            str: String representation.
+        """
         with self._lock:
             return f"LazyLoader(cached={len(self._cache)}, total={len(self)})"

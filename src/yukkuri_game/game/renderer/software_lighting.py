@@ -1,3 +1,11 @@
+"""
+Software Lighting Engine Module.
+
+This module provides the `SoftwareLightingEngine`, an optimized software-based
+lighting system for Pygame. It handles lightmaps, shadow casting, and spatial
+partitioning, and includes optimizations such as NumPy integration and surface pooling.
+"""
+
 import pygame
 
 # Try to import numpy for fast gradient generation
@@ -12,15 +20,36 @@ except ImportError:
 class SurfacePool:
     """
     Pool of reusable surfaces to eliminate allocation overhead.
-    Surfaces are keyed by size and reused across frames.
+
+    Surfaces are keyed by size and reused across frames to prevent frequent
+    allocation and deallocation of large surfaces.
+
+    Attributes:
+        _pool (dict[tuple[int, int], list[pygame.Surface]]): The pool of available surfaces.
+        _max_pool_size (int): The maximum number of surfaces to keep per size.
     """
 
-    def __init__(self, max_pool_size: int = 32):
+    def __init__(self, max_pool_size: int = 32) -> None:
+        """
+        Initializes the SurfacePool.
+
+        Args:
+            max_pool_size (int): Maximum number of surfaces per size key. Defaults to 32.
+        """
         self._pool: dict[tuple[int, int], list[pygame.Surface]] = {}
         self._max_pool_size = max_pool_size
 
     def acquire(self, width: int, height: int) -> pygame.Surface:
-        """Get a surface from the pool or create a new one."""
+        """
+        Get a surface from the pool or create a new one.
+
+        Args:
+            width (int): Width of the surface.
+            height (int): Height of the surface.
+
+        Returns:
+            pygame.Surface: A cleared surface of the requested size.
+        """
         key = (width, height)
         if key in self._pool and self._pool[key]:
             surf = self._pool[key].pop()
@@ -30,7 +59,12 @@ class SurfacePool:
         return pygame.Surface((width, height), pygame.SRCALPHA)
 
     def release(self, surf: pygame.Surface) -> None:
-        """Return a surface to the pool for reuse."""
+        """
+        Return a surface to the pool for reuse.
+
+        Args:
+            surf (pygame.Surface): The surface to release.
+        """
         key = surf.get_size()
         if key not in self._pool:
             self._pool[key] = []
@@ -42,6 +76,7 @@ class SurfacePool:
 class SoftwareLightingEngine:
     """
     Optimized software lighting engine for Pygame.
+
     Handles lightmaps, shadow casting, and spatial partitioning.
 
     Performance optimizations:
@@ -49,9 +84,29 @@ class SoftwareLightingEngine:
     - Surface pooling to eliminate allocation overhead
     - Optimized shadow calculations with reduced Python overhead
     - Fast path for 1.0 scale (no transform needed)
+
+    Attributes:
+        scale (float): The lighting resolution scale factor.
+        native_size (tuple[int, int]): The native screen resolution.
+        lightmap_size (tuple[int, int]): The size of the internal lightmap.
+        lightmap (pygame.Surface): The main lightmap surface.
+        cell_size (int): Size of spatial grid cells.
+        grid (dict): Spatial grid for occluder lookup.
+        occluders (list): List of all registered occluders.
+        light_texture_cache (dict): Cache for generated light gradient textures.
+        static_light_cache (dict): Cache for static light renderings.
+        surface_pool (SurfacePool): Pool for temporary surfaces.
+        debug (bool): Whether debug mode is enabled.
     """
 
-    def __init__(self, screen_size: tuple[int, int], scale: float = 1.0):
+    def __init__(self, screen_size: tuple[int, int], scale: float = 1.0) -> None:
+        """
+        Initializes the SoftwareLightingEngine.
+
+        Args:
+            screen_size (tuple[int, int]): The native screen resolution (width, height).
+            scale (float): Resolution scale for the lightmap (0.0 to 1.0). Defaults to 1.0.
+        """
         self.scale = scale
         self.native_size = screen_size
         self.lightmap_size = (int(screen_size[0] * scale), int(screen_size[1] * scale))
@@ -86,15 +141,34 @@ class SoftwareLightingEngine:
         self.debug: bool = False
 
     def toggle_debug(self, enabled: bool) -> None:
+        """
+        Toggles debug visualization.
+
+        Args:
+            enabled (bool): True to enable, False to disable.
+        """
         self.debug = enabled
 
     def resize(self, width: int, height: int) -> None:
+        """
+        Resizes the lightmap to match the new screen dimensions.
+
+        Args:
+            width (int): New width.
+            height (int): New height.
+        """
         self.native_size = (width, height)
         self.lightmap = pygame.Surface(
             (int(width * self.scale), int(height * self.scale))
         )
 
     def clear(self, ambient_color: tuple[int, int, int]) -> None:
+        """
+        Clears the lightmap and resets per-frame data (occluders, grid).
+
+        Args:
+            ambient_color (tuple[int, int, int]): The base ambient color to fill.
+        """
         # Fill lightmap with ambient
         self.lightmap.fill(ambient_color)
         self.occluders.clear()
@@ -107,7 +181,10 @@ class SoftwareLightingEngine:
     ) -> None:
         """
         Registers an occluder and adds it to the spatial grid.
-        aabb: (min_x, max_x, min_y, max_y)
+
+        Args:
+            aabb (tuple[float, float, float, float]): Bounding box (min_x, max_x, min_y, max_y).
+            vertices (list[tuple[float, float]]): List of polygon vertices.
         """
         self.occluders.append((aabb, vertices))
 
@@ -139,13 +216,13 @@ class SoftwareLightingEngine:
         Renders a single light with shadows onto the lightmap.
 
         Args:
-            position: Light position in screen space.
-            radius: Light radius.
-            color: Light color (RGB).
-            intensity: Light intensity multiplier.
-            soft_shadows: If True, blur shadow edges for a softer look.
-            static: If True, cache the light+shadow surface for reuse.
-            entity_id: Unique ID for caching static lights.
+            position (tuple[float, float]): Light position in screen space.
+            radius (float): Light radius.
+            color (tuple[int, int, int]): Light color (RGB).
+            intensity (float): Light intensity multiplier.
+            soft_shadows (bool): If True, blur shadow edges for a softer look. Defaults to True.
+            static (bool): If True, cache the light+shadow surface for reuse. Defaults to False.
+            entity_id (int): Unique ID for caching static lights. Defaults to -1.
         """
         lx, ly = position
 
@@ -226,8 +303,22 @@ class SoftwareLightingEngine:
     ) -> pygame.Surface:
         """
         Draws the light texture and applies subtractive shadow volumes.
+
         Supports soft shadows via low-res blur.
-        Returns the rendered light surface for potential caching.
+
+        Args:
+            clip_rect (pygame.Rect): The visible clipping rectangle.
+            sr_key (int): Quantized radius key.
+            lx (float): Light x position.
+            ly (float): Light y position.
+            radius (float): Light radius.
+            color (tuple[int, int, int]): Light color.
+            intensity (float): Light intensity.
+            occluders (list): List of relevant occluders.
+            soft_shadows (bool): Whether to use soft shadows. Defaults to True.
+
+        Returns:
+            pygame.Surface: The rendered light surface (before releasing to pool).
         """
         # Surface size is determined by the clipped area
         surf_w, surf_h = clip_rect.size
@@ -311,10 +402,18 @@ class SoftwareLightingEngine:
 
         Technique:
         1. Render hard shadows to a low-resolution surface (1/3 scale).
-        2. Upscale the shadow mask back to full resolution using bilinear interpolation (smoothscale).
+        2. Upscale the shadow mask back to full resolution using bilinear interpolation.
         3. Multiply the light surface by this blurred shadow mask.
 
-        This aproximates a gaussian blur without the high cost of per-pixel convolution.
+        Args:
+            light_surf (pygame.Surface): The light surface to draw on.
+            sr_key (int): Quantized radius.
+            lx (float): Light x.
+            ly (float): Light y.
+            offset_x (int): Viewport offset x.
+            offset_y (int): Viewport offset y.
+            radius (float): Light radius.
+            occluders (list): List of occluders.
         """
         surf_size = sr_key * 2
 
@@ -412,7 +511,18 @@ class SoftwareLightingEngine:
     ) -> None:
         """
         Optimized shadow volume drawing with reduced Python overhead.
+
         Pre-computes common values and minimizes per-vertex calculations.
+
+        Args:
+            light_surf (pygame.Surface): The light surface.
+            sr_key (int): Radius key.
+            lx (float): Light x.
+            ly (float): Light y.
+            offset_x (int): X offset.
+            offset_y (int): Y offset.
+            radius (float): Radius.
+            occluders (list): Occluders list.
         """
         # No Need for hx/hy centering offset when drawing relative to clip origin
         extrude_dist = radius * 2.0
@@ -492,6 +602,16 @@ class SoftwareLightingEngine:
 
         Uses vectorized operations to calculate all shadow quad vertices for an occluder in parallel.
         This provides a significant speedup over standard Python loops for geometry processing.
+
+        Args:
+            light_surf (pygame.Surface): The light surface.
+            sr_key (int): Radius key.
+            lx (float): Light x.
+            ly (float): Light y.
+            offset_x (int): X offset.
+            offset_y (int): Y offset.
+            radius (float): Radius.
+            occluders (list): Occluders list.
         """
         extrude_dist = radius * 2.0
         scale = self.scale
@@ -747,7 +867,11 @@ class SoftwareLightingEngine:
     def get_surface(self) -> pygame.Surface:
         """
         Returns the final lightmap.
+
         Fast path: skip transform if scale is 1.0 (native resolution).
+
+        Returns:
+            pygame.Surface: The lightmap surface.
         """
         # Fast path - no scaling needed
         if self.scale == 1.0:
@@ -760,6 +884,14 @@ class SoftwareLightingEngine:
     ) -> list[tuple[tuple[float, float, float, float], list[tuple[float, float]]]]:
         """
         Returns a list of occluders (aabb, vertices) that overlap the light's bounding box.
+
+        Args:
+            lx (float): Light x.
+            ly (float): Light y.
+            radius (float): Radius.
+
+        Returns:
+            list: List of relevant occluders.
         """
         candidates = []
         seen = set()
