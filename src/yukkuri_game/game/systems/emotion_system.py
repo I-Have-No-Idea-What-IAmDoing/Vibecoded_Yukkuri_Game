@@ -104,7 +104,6 @@ class EmotionSystem(System):
             # Prevent spiral of death
             updates_count += 1
             if updates_count >= self.MAX_UPDATES_PER_FRAME:
-                self.accumulated_dt = 0.0
                 break
 
     def _run_throttled_update(self, world: World, dt: float) -> None:
