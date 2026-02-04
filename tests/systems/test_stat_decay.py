@@ -53,6 +53,7 @@ class TestEmotionSystem(unittest.TestCase):
 
         system = EmotionSystem(settings=StatDecaySettings())
         dt = 1.0
+        # dt=1.0 fits within MAX_UPDATES_PER_FRAME (2.0s)
         system.update(mock_world, dt)
 
         # Expected values
@@ -100,8 +101,11 @@ class TestEmotionSystem(unittest.TestCase):
         mock_world.get_component.side_effect = get_component
 
         system = EmotionSystem(settings=StatDecaySettings())
-        dt = 10.0
-        system.update(mock_world, dt)
+        # Simulate 10 seconds in 1-second chunks to avoid throttling clamp
+        total_time = 10.0
+        step = 1.0
+        for _ in range(int(total_time / step)):
+            system.update(mock_world, step)
 
         # Hunger: 99 + 20 = 119 -> Clamp 100
         # Energy: 1 - 5 = -4 -> Clamp 0
@@ -129,8 +133,11 @@ class TestEmotionSystem(unittest.TestCase):
         mock_world.get_component.return_value = None
 
         system = EmotionSystem(settings=StatDecaySettings())
-        dt = 10.0
-        system.update(mock_world, dt)
+        # Simulate 10 seconds in 1-second chunks
+        total_time = 10.0
+        step = 1.0
+        for _ in range(int(total_time / step)):
+            system.update(mock_world, step)
 
         self.assertGreaterEqual(needs.cleanliness, 0.0)
         self.assertEqual(needs.cleanliness, 0.0)

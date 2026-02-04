@@ -66,6 +66,10 @@ class EmotionSystem(System):
     # Stress gained per second in darkness without light
     DARKNESS_STRESS_RATE: float = 5.0
 
+    # Optimization: Update at 10 Hz (every 100ms)
+    UPDATE_INTERVAL: float = 0.1
+    MAX_UPDATES_PER_FRAME: int = 20
+
     def __init__(self, settings: StatDecaySettings):
         """
         Initializes the EmotionSystem.
@@ -79,16 +83,11 @@ class EmotionSystem(System):
 
         # Optimization: Accumulator for throttling updates
         self.accumulated_dt = 0.0
-        self.update_interval = 0.1  # Update at 10 Hz (every 100ms)
 
     def update(self, world: World, dt: float) -> None:
         """
         Decays stats and emotional state for all entities with YukkuriStats.
-
-        Also handles:
-        -   Global skill decay (daily).
-        -   Game time vs Physics time scaling.
-        -   Night-time stress modifiers.
+        Uses a fixed-step loop to ensure simulation consistency.
 
         Args:
             world (World): The ECS World.
@@ -96,13 +95,26 @@ class EmotionSystem(System):
         """
         # Throttle updates to improve performance
         self.accumulated_dt += dt
-        if self.accumulated_dt < self.update_interval:
-            return
 
-        # Use the accumulated time delta for this update step
-        dt = self.accumulated_dt
-        self.accumulated_dt = 0.0
+        updates_count = 0
+        while self.accumulated_dt >= self.UPDATE_INTERVAL:
+            self._run_throttled_update(world, self.UPDATE_INTERVAL)
+            self.accumulated_dt -= self.UPDATE_INTERVAL
 
+            # Prevent spiral of death
+            updates_count += 1
+            if updates_count >= self.MAX_UPDATES_PER_FRAME:
+                self.accumulated_dt = 0.0
+                break
+
+    def _run_throttled_update(self, world: World, dt: float) -> None:
+        """
+        Internal method containing the core update logic.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Fixed delta time step.
+        """
         # Lazy initialization
         if self.trait_service is None:
             self.trait_service = world.services.try_get(TraitService)
