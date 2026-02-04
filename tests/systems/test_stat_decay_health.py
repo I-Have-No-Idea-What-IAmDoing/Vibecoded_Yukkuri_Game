@@ -31,7 +31,7 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         mock_world.get_component.return_value = None
 
         system = EmotionSystem(settings=StatDecaySettings())
-        dt = 0.0  # No decay
+        dt = 0.2  # Sufficient dt to trigger throttled update
         system.update(mock_world, dt)
 
         # Health should be clamped to max_health
@@ -60,7 +60,7 @@ class TestEmotionSystemHealthClamp(unittest.TestCase):
         mock_world.get_component.return_value = None
 
         system = EmotionSystem(settings=StatDecaySettings())
-        dt = 0.0  # No decay
+        dt = 0.2  # Sufficient dt to trigger throttled update
         system.update(mock_world, dt)
 
         # Health should be clamped to 0

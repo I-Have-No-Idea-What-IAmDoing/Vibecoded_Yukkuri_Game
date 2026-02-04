@@ -56,7 +56,7 @@ def test_stat_decay_with_trait_modifier(decay_settings, mock_trait_service):
     system.update(world, 1.0)
 
     # Expected: Base (1.0) * Modifier (1.5) * dt (1.0) = 1.5
-    assert needs.hunger == 1.5
+    assert needs.hunger == pytest.approx(1.5)
 
 
 def test_stat_decay_without_trait_modifier(decay_settings, mock_trait_service):
@@ -78,7 +78,7 @@ def test_stat_decay_without_trait_modifier(decay_settings, mock_trait_service):
     system.update(world, 1.0)
 
     # Expected: Base (1.0) * Modifier (1.0) * dt (1.0) = 1.0
-    assert needs.hunger == 1.0
+    assert needs.hunger == pytest.approx(1.0)
 
 
 def test_stat_decay_multiple_modifiers(decay_settings, mock_trait_service):
@@ -121,4 +121,4 @@ def test_stat_decay_multiple_modifiers(decay_settings, mock_trait_service):
     system.update(world, 1.0)
 
     # Expected: Base (1.0) * Mod1 (1.5) * Mod2 (2.0) * dt (1.0) = 3.0
-    assert needs.hunger == 3.0
+    assert needs.hunger == pytest.approx(3.0)

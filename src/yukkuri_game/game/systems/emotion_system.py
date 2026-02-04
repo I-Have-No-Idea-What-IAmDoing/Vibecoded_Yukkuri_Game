@@ -66,6 +66,10 @@ class EmotionSystem(System):
     # Stress gained per second in darkness without light
     DARKNESS_STRESS_RATE: float = 5.0
 
+    # Optimization: Update at 10 Hz (every 100ms)
+    UPDATE_INTERVAL: float = 0.1
+    MAX_UPDATES_PER_FRAME: int = 20
+
     def __init__(self, settings: StatDecaySettings):
         """
         Initializes the EmotionSystem.
@@ -77,18 +81,38 @@ class EmotionSystem(System):
         self.trait_service: TraitService | None = None
         self.last_day_index = -1
 
+        # Optimization: Accumulator for throttling updates
+        self.accumulated_dt = 0.0
+
     def update(self, world: World, dt: float) -> None:
         """
         Decays stats and emotional state for all entities with YukkuriStats.
-
-        Also handles:
-        -   Global skill decay (daily).
-        -   Game time vs Physics time scaling.
-        -   Night-time stress modifiers.
+        Uses a fixed-step loop to ensure simulation consistency.
 
         Args:
             world (World): The ECS World.
             dt (float): Delta time (physics time).
+        """
+        # Throttle updates to improve performance
+        self.accumulated_dt += dt
+
+        updates_count = 0
+        while self.accumulated_dt >= self.UPDATE_INTERVAL:
+            self._run_throttled_update(world, self.UPDATE_INTERVAL)
+            self.accumulated_dt -= self.UPDATE_INTERVAL
+
+            # Prevent spiral of death
+            updates_count += 1
+            if updates_count >= self.MAX_UPDATES_PER_FRAME:
+                break
+
+    def _run_throttled_update(self, world: World, dt: float) -> None:
+        """
+        Internal method containing the core update logic.
+
+        Args:
+            world (World): The ECS World.
+            dt (float): Fixed delta time step.
         """
         # Lazy initialization
         if self.trait_service is None:
