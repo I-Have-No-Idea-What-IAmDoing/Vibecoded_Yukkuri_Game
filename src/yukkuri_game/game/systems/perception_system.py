@@ -109,6 +109,14 @@ class PerceptionSystem(System):
 
         current_time = world.time
 
+        # Pre-fetch component maps to avoid repeated try_get_component calls
+        # Optimization: O(1) dictionary lookups instead of function calls and checks.
+        stats_map = world.get_components(YukkuriStats)
+        predator_map = world.get_components(Predator)
+        relationship_map = world.get_components(RelationshipRegistry)
+        item_map = world.get_components(ItemStats)
+        transform_map = world.get_components(Transform)
+
         # Iterate entities that have AI + Blackboard + Transform
         entities = world.get_components_tuple(AIState, Blackboard, Transform)
 
@@ -132,7 +140,17 @@ class PerceptionSystem(System):
 
             if should_update:
                 self._update_blackboard(
-                    world, entity_id, ai_state, blackboard, trans, current_time
+                    world,
+                    entity_id,
+                    ai_state,
+                    blackboard,
+                    trans,
+                    current_time,
+                    stats_map,
+                    predator_map,
+                    relationship_map,
+                    item_map,
+                    transform_map,
                 )
                 self._last_update_times[entity_id] = current_time
                 self._last_visible_set_ids[entity_id] = visible_set_id
@@ -145,6 +163,11 @@ class PerceptionSystem(System):
         blackboard: Blackboard,
         trans: Transform,
         current_time: float,
+        stats_map: dict[int, YukkuriStats],
+        predator_map: dict[int, Predator],
+        relationship_map: dict[int, RelationshipRegistry],
+        item_map: dict[int, ItemStats],
+        transform_map: dict[int, Transform],
     ) -> None:
         """
         Populates the Blackboard with analyzed targets.
@@ -158,7 +181,16 @@ class PerceptionSystem(System):
 
         # 2. Analyze visible targets & update census
         currently_visible = self._update_census_and_targets(
-            world, entity_id, ai_state, blackboard, trans, current_time
+            entity_id,
+            ai_state,
+            blackboard,
+            trans,
+            current_time,
+            stats_map,
+            predator_map,
+            relationship_map,
+            item_map,
+            transform_map,
         )
 
         # 3. Manage Short-Term Memory (Object Permanence)
@@ -166,12 +198,16 @@ class PerceptionSystem(System):
 
     def _update_census_and_targets(
         self,
-        world: World,
         entity_id: int,
         ai_state: AIState,
         blackboard: Blackboard,
         trans: Transform,
         current_time: float,
+        stats_map: dict[int, YukkuriStats],
+        predator_map: dict[int, Predator],
+        relationship_map: dict[int, RelationshipRegistry],
+        item_map: dict[int, ItemStats],
+        transform_map: dict[int, Transform],
     ) -> set[EntityID]:
         """
         Iterates over visible entities, resolves relationships, and updates census.
@@ -180,9 +216,9 @@ class PerceptionSystem(System):
             set[EntityID]: The set of currently visible entity IDs.
         """
         my_pos = (trans.x, trans.y)
-        my_stats = world.try_get_component(entity_id, YukkuriStats)
-        my_predator = world.try_get_component(entity_id, Predator)
-        my_relations = world.try_get_component(entity_id, RelationshipRegistry)
+        my_stats = stats_map.get(entity_id)
+        my_predator = predator_map.get(entity_id)
+        my_relations = relationship_map.get(entity_id)
 
         # Reaction Time (Agility)
         reaction_delay = 0.5
@@ -195,7 +231,7 @@ class PerceptionSystem(System):
         currently_visible: set[EntityID] = set()
 
         for target_id in ai_state.visible_entities:
-            target_trans = world.try_get_component(target_id, Transform)
+            target_trans = transform_map.get(target_id)
             if not target_trans:
                 continue
 
@@ -203,7 +239,14 @@ class PerceptionSystem(System):
             distance = math.hypot(target_pos[0] - my_pos[0], target_pos[1] - my_pos[1])
 
             relation = self._resolve_relation(
-                world, entity_id, target_id, my_stats, my_predator, my_relations
+                entity_id,
+                target_id,
+                my_stats,
+                my_predator,
+                my_relations,
+                stats_map,
+                predator_map,
+                relationship_map,
             )
 
             # Persistence: Keep original detection time if known
@@ -244,7 +287,7 @@ class PerceptionSystem(System):
                     blackboard.closest_food_id = target_id
 
             # Food Item Check
-            target_item = world.try_get_component(target_id, ItemStats)
+            target_item = item_map.get(target_id)
             if target_item and target_item.nutrition > 0:
                 if distance < closest_food_dist:
                     closest_food_dist = distance
@@ -286,29 +329,33 @@ class PerceptionSystem(System):
 
     def _resolve_relation(
         self,
-        world: World,
         self_id: int,
         target_id: int,
         my_stats: YukkuriStats | None,
         my_predator: Predator | None,
         my_relations: RelationshipRegistry | None,
+        stats_map: dict[int, YukkuriStats],
+        predator_map: dict[int, Predator],
+        relationship_map: dict[int, RelationshipRegistry],
     ) -> str:
         """
         Determines the social stance towards a target.
 
         Args:
-            world (World): The ECS World.
             self_id (int): The entity ID of the observer.
             target_id (int): The entity ID of the target.
             my_stats (YukkuriStats | None): The observer's stats.
             my_predator (Predator | None): The observer's predator component.
             my_relations (RelationshipRegistry | None): The observer's relationship registry.
+            stats_map (dict[int, YukkuriStats]): Pre-fetched map of YukkuriStats components.
+            predator_map (dict[int, Predator]): Pre-fetched map of Predator components.
+            relationship_map (dict[int, RelationshipRegistry]): Pre-fetched map of RelationshipRegistry components.
 
         Returns:
             str: "Friend", "Enemy", "Neutral", "Prey", "Threat", or "Family".
         """
-        target_stats = world.try_get_component(target_id, YukkuriStats)
-        target_predator = world.try_get_component(target_id, Predator)
+        target_stats = stats_map.get(target_id)
+        target_predator = predator_map.get(target_id)
 
         # 1. Biological (Predator/Prey)
         if my_predator and target_stats:
@@ -329,9 +376,7 @@ class PerceptionSystem(System):
                 return "Family"
 
             if my_relations.family_group_id and target_stats:
-                target_relations = world.try_get_component(
-                    target_id, RelationshipRegistry
-                )
+                target_relations = relationship_map.get(target_id)
                 if (
                     target_relations
                     and target_relations.family_group_id == my_relations.family_group_id

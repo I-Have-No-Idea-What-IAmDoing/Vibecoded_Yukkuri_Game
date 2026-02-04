@@ -29,3 +29,7 @@
 ## 2026-10-29 - [Renderer Pipeline Double-Sort]
 **Learning:** `Renderer` was sorting commands by `(layer, z_index)` and `PygameBackend` was buffering and sorting them *again*. Removing the backend buffer and sorting, and using immediate rendering with bucketed layers in `Renderer` eliminated the double-sort and list overhead, yielding a ~7% frame time improvement.
 **Action:** Use "immediate mode" for backends where possible. Organize render queues by layer (buckets) to avoid expensive global sorting and allow faster per-layer sorts (using `attrgetter`).
+
+## 2026-02-02 - [Perception System Component Lookups]
+**Learning:** `PerceptionSystem` was performing O(Observers * Targets) component lookups via `world.try_get_component` which incurs significant function call and wrapper overhead. Pre-fetching component maps (`world.get_components`) at the start of the frame reduced tick time by ~28% (from 154ms to 110ms for 500 observers).
+**Action:** When a system iterates O(N*M) times over entities, pre-fetch component maps into dictionaries to replace O(K) lookup overhead with O(1) dict access.
