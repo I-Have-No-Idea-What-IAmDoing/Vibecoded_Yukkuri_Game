@@ -7,6 +7,7 @@ from yukkuri_game.game.yukkuri_components import (
     YukkuriStats,
     Predator,
     RelationshipRegistry,
+    ItemStats,
 )
 from yukkuri_game.game.components import Transform
 from yukkuri_game.engine.ecs import World
@@ -31,24 +32,29 @@ class TestPerceptionSystem:
         blackboard = Blackboard()
         trans = Transform(x=0, y=0)
 
-        # Setup components retrieval for Observer
-        world.try_get_component.side_effect = lambda e, c: None
+        # Setup maps
+        stats_map = {}
+        predator_map = {}
+        relationship_map = {}
+        item_map = {}
 
         # Setup Target Entity 2
         target_trans = Transform(x=10, y=0)
-
-        def try_get_component_mock(e, c):
-            if e == target_id and c == Transform:
-                return target_trans
-            if e == entity_id and c == YukkuriStats:
-                return None
-            return None
-
-        world.try_get_component.side_effect = try_get_component_mock
+        transform_map = {target_id: target_trans}
 
         # Run update logic manually
         system._update_blackboard(
-            world, entity_id, ai_state, blackboard, trans, current_time=100.0
+            world,
+            entity_id,
+            ai_state,
+            blackboard,
+            trans,
+            current_time=100.0,
+            stats_map=stats_map,
+            predator_map=predator_map,
+            relationship_map=relationship_map,
+            item_map=item_map,
+            transform_map=transform_map
         )
 
         assert target_id in blackboard.visible_targets
@@ -73,55 +79,40 @@ class TestPerceptionSystem:
         target_stats = YukkuriStats(name="Target", type_id="FoodType")
         target_trans = Transform(x=10, y=0)
 
-        def try_get_component_mock(e, c):
-            if e == entity_id:
-                if c == Predator:
-                    return my_predator
-                if c == YukkuriStats:
-                    return None
-            if e == target_id:
-                if c == Transform:
-                    return target_trans
-                if c == YukkuriStats:
-                    return target_stats
-            return None
-
-        world.try_get_component.side_effect = try_get_component_mock
-
-        # Mocking world.get_components_tuple is not needed for _update_blackboard
-        # But we need to mock world.try_get_component calls inside the system Update
-
-        # Actually, let's inject components directly via the mocked world if we could,
-        # but since we're calling _update_blackboard directly, we just need to ensure
-        # world.try_get_component returns the right things.
-
-        # Re-rig the mock for this specific test case flow
-        def robust_get_component(e, c):
-            if e == entity_id:
-                if c == Predator:
-                    return my_predator
-                if c == YukkuriStats:
-                    return None
-                if c == RelationshipRegistry:
-                    return None
-            if e == target_id:
-                if c == Transform:
-                    return target_trans
-                if c == YukkuriStats:
-                    return target_stats
-                if c == Predator:
-                    return None
-            return None
-
-        world.try_get_component.side_effect = robust_get_component
+        # Maps
+        stats_map = {target_id: target_stats}
+        predator_map = {entity_id: my_predator}
+        relationship_map = {}
+        item_map = {}
+        transform_map = {target_id: target_trans}
 
         system._update_blackboard(
-            world, entity_id, ai_state, blackboard, trans, current_time=100.0
+            world,
+            entity_id,
+            ai_state,
+            blackboard,
+            trans,
+            current_time=100.0,
+            stats_map=stats_map,
+            predator_map=predator_map,
+            relationship_map=relationship_map,
+            item_map=item_map,
+            transform_map=transform_map
         )
         
         # Advance time to bypass reaction delay (0.5s default)
         system._update_blackboard(
-            world, entity_id, ai_state, blackboard, trans, current_time=101.0
+            world,
+            entity_id,
+            ai_state,
+            blackboard,
+            trans,
+            current_time=101.0,
+            stats_map=stats_map,
+            predator_map=predator_map,
+            relationship_map=relationship_map,
+            item_map=item_map,
+            transform_map=transform_map
         )
 
         assert blackboard.visible_targets[target_id].relation == "Prey"
@@ -137,13 +128,25 @@ class TestPerceptionSystem:
         trans = Transform(x=0, y=0)
         target_trans = Transform(x=10, y=0)
 
-        # 1. First update: Target is visible
-        world.try_get_component.side_effect = (
-            lambda e, c: target_trans if (e == target_id and c == Transform) else None
-        )
+        stats_map = {}
+        predator_map = {}
+        relationship_map = {}
+        item_map = {}
+        transform_map = {target_id: target_trans}
 
+        # 1. First update: Target is visible
         system._update_blackboard(
-            world, entity_id, ai_state, blackboard, trans, current_time=100.0
+            world,
+            entity_id,
+            ai_state,
+            blackboard,
+            trans,
+            current_time=100.0,
+            stats_map=stats_map,
+            predator_map=predator_map,
+            relationship_map=relationship_map,
+            item_map=item_map,
+            transform_map=transform_map
         )
         assert target_id in blackboard.visible_targets
 
@@ -151,7 +154,17 @@ class TestPerceptionSystem:
         ai_state.visible_entities = set()
 
         system._update_blackboard(
-            world, entity_id, ai_state, blackboard, trans, current_time=101.0
+            world,
+            entity_id,
+            ai_state,
+            blackboard,
+            trans,
+            current_time=101.0,
+            stats_map=stats_map,
+            predator_map=predator_map,
+            relationship_map=relationship_map,
+            item_map=item_map,
+            transform_map=transform_map
         )
 
         assert target_id not in blackboard.visible_targets
@@ -161,7 +174,17 @@ class TestPerceptionSystem:
         # 3. Third update: Memory expires
         # MEMORY_DURATION is 10.0, so we need > 10s elapsed
         system._update_blackboard(
-            world, entity_id, ai_state, blackboard, trans, current_time=120.0
+            world,
+            entity_id,
+            ai_state,
+            blackboard,
+            trans,
+            current_time=120.0,
+            stats_map=stats_map,
+            predator_map=predator_map,
+            relationship_map=relationship_map,
+            item_map=item_map,
+            transform_map=transform_map
         )
 
         assert target_id not in blackboard.short_term_memory
