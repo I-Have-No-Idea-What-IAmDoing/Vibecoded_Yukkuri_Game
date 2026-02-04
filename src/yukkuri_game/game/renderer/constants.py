@@ -1,4 +1,15 @@
+"""
+Renderer Constants Module.
+
+This module defines constant values used throughout the rendering system.
+"""
+
+
 class RenderConstants:
+    """
+    Constant values for rendering configuration.
+    """
+
     GRID_SIZE: int = 100
     GRID_COLOR: tuple[int, int, int] = (70, 70, 70)
     GRID_COLOR_FLOAT: tuple[float, float, float, float] = (

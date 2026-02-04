@@ -1,11 +1,16 @@
 """
 Gameplay Scene.
+
+This module defines the `GameplayScene`, which is the primary interactive scene
+where the game simulation occurs. It manages the lifecycle of game systems, UI,
+and world state.
 """
 
+import json
 import os
-from pathlib import Path
 from datetime import datetime
-from typing import ClassVar, Any, TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pygame
 import pygame_gui
@@ -45,12 +50,43 @@ from ..game.ui.hud import HUD
 class GameplayScene(Scene):
     """
     The main gameplay scene.
+
     Manages the game world, systems, and UI.
+
+    Attributes:
+        is_setup (bool): Whether the scene has been initialized.
+        paused (bool): Whether the game simulation is paused.
+        time_scale (float): The current speed multiplier for game time.
+        ui_manager (pygame_gui.UIManager): The UI manager for this scene.
+        dt (float): The delta time for the current frame.
+        render_system (RenderSystem | None): The rendering system.
+        day_night_system (DayNightSystem | None): The day/night cycle system.
+        hud (HUD | None): The Heads-Up Display manager.
+        game_config (Any): The loaded game configuration.
+        camera (Camera): The game camera.
+        audio (AudioManager): The audio manager.
+        physics_system (PhysicsSystem): The physics system.
+        event_manager (EventManager): The event manager.
+        event_bus (Any): The event bus.
+        input_manager (InputManager): The input manager.
+        loader (GameLoader): The game loader.
+        economy_service (EconomyService): The economy service.
+        time_service (TimeService): The time service.
+        settings_service (SettingsService): The settings service.
+        game_service (GameService): The game service.
+        serializer (WorldSerializer): The world serializer.
+        input_system (Any): The input system.
     """
 
     INJECTIONS: ClassVar[dict[str, type]] = {"money": int, "time": float}
 
-    def __init__(self, application: Application):
+    def __init__(self, application: Application) -> None:
+        """
+        Initializes the GameplayScene.
+
+        Args:
+            application (Application): The main application instance.
+        """
         super().__init__(application)
         self.is_setup = False
         self.paused = False
@@ -97,6 +133,8 @@ class GameplayScene(Scene):
     def on_enter(self) -> None:
         """
         Called when the scene becomes active.
+
+        Sets up the UI resolution.
         """
         logger.info("Entered Gameplay Scene")
         # setup is called by SceneManager before on_enter
@@ -105,7 +143,14 @@ class GameplayScene(Scene):
         )
 
     def setup(self, context: SceneContext) -> None:
-        """Sets up the game environment."""
+        """
+        Sets up the game environment.
+
+        Initializes systems, services, and loads content.
+
+        Args:
+            context (SceneContext): Context data passed from the previous scene.
+        """
         # Load Config
         self.game_config = load_config()
 
@@ -162,12 +207,14 @@ class GameplayScene(Scene):
         # Headless mode intentionally skips auto-population for test control.
 
     def _apply_initial_settings(self) -> None:
+        """Applies initial settings from the SettingsService."""
         audio_settings = self.settings_service.settings.audio
         self.audio.set_master_volume(audio_settings.master_volume)
         self.audio.set_bgm_volume(audio_settings.bgm_volume)
         self.audio.set_sfx_volume(audio_settings.sfx_volume)
 
     def _setup_event_handlers(self) -> None:
+        """Sets up event subscriptions and initializes render-dependent systems."""
         # If running headlessly (tests), we skip rendering systems to avoid opening a window.
         if not self.application.headless and self.application.screen:
             self.render_system = RenderSystem(
@@ -213,7 +260,8 @@ class GameplayScene(Scene):
     def on_exit(self) -> None:
         """
         Called when the scene is exited.
-        Clears UI and syncs global state.
+
+        Clears UI, shuts down services, and syncs global state.
         """
         logger.info("Exited Gameplay Scene")
         self.ui_manager.clear_and_reset()
@@ -254,7 +302,7 @@ class GameplayScene(Scene):
         self.paused = not self.paused
 
     def cycle_speed(self) -> None:
-        """Cycles through game speed multipliers."""
+        """Cycles through game speed multipliers (1.0 -> 2.0 -> 5.0 -> 0.5)."""
         speeds = [1.0, 2.0, 5.0, 0.5]
         try:
             current_idx = speeds.index(self.time_scale)
@@ -324,11 +372,12 @@ class GameplayScene(Scene):
 
     def save(self, filepath: str) -> None:
         """
-        Save the game state (Level + Global).
-        We'll save global state to a sidecar file or handle it via SceneManager.
-        To keep it simple per requirements:
-        - Save entities using WorldSerializer (msgpack)
-        - Save global state (money, time) to json sidecar
+        Saves the game state (Level + Global).
+
+        Saves entity data to a msgpack file and global state to a JSON sidecar.
+
+        Args:
+            filepath (str): The base filepath for saving.
         """
         base_path, _ = os.path.splitext(filepath)
         global_path = base_path + ".global.json"
@@ -338,8 +387,6 @@ class GameplayScene(Scene):
         self.serializer.save_to_file(level_path)
 
         # Save Global Data
-        import json
-
         global_data = {
             "money": self.economy_service.get_money(),
             "time": self.time_service.time_elapsed,
@@ -350,7 +397,12 @@ class GameplayScene(Scene):
         logger.info(f"Game saved to {level_path} and {global_path}")
 
     def load(self, filepath: str) -> None:
-        """Load the game world."""
+        """
+        Loads the game world from files.
+
+        Args:
+            filepath (str): The base filepath to load from.
+        """
         base_path, _ = os.path.splitext(filepath)
         global_path = base_path + ".global.json"
         level_path = base_path + ".level.msgpack"
@@ -372,8 +424,6 @@ class GameplayScene(Scene):
             nav_service.reset()
 
         # Load Global Data
-        import json
-
         with open(global_path) as f:
             global_data = json.load(f)
 
@@ -406,7 +456,7 @@ class GameplayScene(Scene):
         Updates the scene logic.
 
         Args:
-            dt (float): Delta time.
+            dt (float): Delta time in seconds.
         """
         self.dt = dt
         self.ui_manager.update(dt)
@@ -446,7 +496,7 @@ class GameplayScene(Scene):
         Renders the scene.
 
         Args:
-            alpha (float): Interpolation factor.
+            alpha (float): Interpolation factor (0.0 to 1.0).
         """
         self.render_world(alpha)
 
@@ -459,7 +509,7 @@ class GameplayScene(Scene):
         Renders the game world entities.
 
         Args:
-            alpha (float): Interpolation factor.
+            alpha (float): Interpolation factor (0.0 to 1.0).
         """
         if hasattr(self, "render_system") and self.render_system:
             # Pass alpha instead of dt to render_system.update

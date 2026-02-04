@@ -1,24 +1,28 @@
 """
-Benchmarking utility for performance regression testing.
+Benchmarking Utility Module.
+
+This module provides tools for running performance regression tests on the game.
+It measures FPS, frame time consistency, and simulation speed, optionally tracking
+CPU and memory usage.
 """
 
-import time
-import sys
 import argparse
-import json
-import statistics
-import platform
-import gc
-import csv
-from typing import Any
-from ..engine import rng
-import logging
 import cProfile
+import csv
+import gc
+import json
+import logging
+import platform
+import statistics
+import sys
+import time
+from typing import Any
 
-from ..testing.driver import GameDriver
-from ..testing.environment import TestEnvironment
+from ..engine import rng
 from ..engine.application import Application
 from ..scenes.gameplay import GameplayScene
+from ..testing.driver import GameDriver
+from ..testing.environment import TestEnvironment
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -40,6 +44,13 @@ except ImportError:
 class BenchmarkRunner:
     """
     Runs performance benchmarks for the game.
+
+    Attributes:
+        num_entities (int): Number of entities to spawn.
+        duration_seconds (float): Game time duration to simulate per iteration.
+        iterations (int): Number of iterations to run.
+        warmup_seconds (float): Warmup time in seconds before measurement starts.
+        seed (int | None): Random seed for reproducibility.
     """
 
     def __init__(
@@ -49,7 +60,7 @@ class BenchmarkRunner:
         iterations: int = 3,
         warmup_seconds: float = 2.0,
         seed: int | None = None,
-    ):
+    ) -> None:
         """
         Initializes the BenchmarkRunner.
 
@@ -58,7 +69,7 @@ class BenchmarkRunner:
             duration_seconds (float): Game time duration to simulate per iteration.
             iterations (int): Number of iterations to run.
             warmup_seconds (float): Warmup time in seconds before measurement starts.
-            seed (Optional[int]): Random seed for reproducibility.
+            seed (int | None): Random seed for reproducibility.
         """
         self.num_entities = num_entities
         self.duration_seconds = duration_seconds
@@ -67,21 +78,36 @@ class BenchmarkRunner:
         self.seed = seed
 
     def _get_process_memory(self) -> float:
-        """Returns current process memory usage in MB."""
+        """
+        Returns current process memory usage.
+
+        Returns:
+            float: Memory usage in MB.
+        """
         if psutil:
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024
         return 0.0
 
     def _get_process_cpu(self) -> float:
-        """Returns current process CPU usage percentage."""
+        """
+        Returns current process CPU usage percentage.
+
+        Returns:
+            float: CPU usage percentage.
+        """
         if psutil:
             process = psutil.Process()
             return process.cpu_percent(interval=None)
         return 0.0
 
     def _get_system_info(self) -> dict[str, str]:
-        """Returns system information."""
+        """
+        Returns system information.
+
+        Returns:
+            dict[str, str]: A dictionary containing system details (OS, CPU, etc.).
+        """
         info = {
             "system": platform.system(),
             "release": platform.release(),
@@ -112,7 +138,7 @@ class BenchmarkRunner:
             profile_output (str): Filename to save profile stats.
 
         Returns:
-            Dict[str, Any]: The benchmark results.
+            dict[str, Any]: The benchmark results dictionary.
         """
         fps_results: list[float] = []
         speed_ratio_results: list[float] = []
@@ -335,6 +361,10 @@ class BenchmarkRunner:
 def compare_results(current: dict[str, Any], baseline: dict[str, Any]) -> None:
     """
     Compares current results with baseline and prints difference.
+
+    Args:
+        current (dict[str, Any]): Current benchmark results.
+        baseline (dict[str, Any]): Baseline benchmark results.
     """
     print("\n--- Baseline Comparison ---")
 
@@ -370,10 +400,14 @@ def compare_results(current: dict[str, Any], baseline: dict[str, Any]) -> None:
             print(f"{label}: Could not find metric in one of the results.")
 
 
-def export_csv(results: dict[str, Any], filepath: str):
+def export_csv(results: dict[str, Any], filepath: str) -> None:
     """
     Exports raw frame times to CSV.
-    Format: iteration, frame_index, frame_time_ms
+    Format: iteration, frame_index, frame_time_ms.
+
+    Args:
+        results (dict[str, Any]): Benchmark results.
+        filepath (str): Output file path.
     """
     try:
         with open(filepath, "w", newline="") as f:
@@ -390,7 +424,10 @@ def export_csv(results: dict[str, Any], filepath: str):
         logger.error(f"Failed to write CSV: {e}")
 
 
-def main():
+def main() -> None:
+    """
+    Main entry point for the benchmark runner.
+    """
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
     )

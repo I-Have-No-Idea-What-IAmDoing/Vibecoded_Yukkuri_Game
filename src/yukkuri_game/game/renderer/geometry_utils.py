@@ -1,10 +1,26 @@
+"""
+Geometry Utilities Module.
+
+This module provides utility functions for generating and caching render geometry,
+particularly for occluders and physics shapes.
+"""
+
 import math
+
 import pymunk
-from ..components import Transform, Occluder, Sprite, PhysicsBody
+from ..components import Occluder, PhysicsBody, Sprite, Transform
 
 
 class GeometryUtils:
-    """Utilities for generating render geometry."""
+    """
+    Utilities for generating render geometry.
+
+    Attributes:
+        CIRCLE_OCCLUDER_SEGMENTS (int): Number of segments for circle approximation.
+        _CIRCLE_CACHE (list[tuple[float, float]] | None): Cached unit circle vertices.
+        _STATIC_CACHE (dict[int, list[tuple[float, float]]]): Cache for static occluder vertices.
+        _STATIC_CACHE_KEYS (dict[int, tuple]): Keys to validate static cache (transform state).
+    """
 
     CIRCLE_OCCLUDER_SEGMENTS = 12
     _CIRCLE_CACHE: list[tuple[float, float]] | None = None
@@ -16,7 +32,12 @@ class GeometryUtils:
 
     @classmethod
     def get_circle_vertices(cls) -> list[tuple[float, float]]:
-        """Returns cached unit circle vertices."""
+        """
+        Returns cached unit circle vertices.
+
+        Returns:
+            list[tuple[float, float]]: List of (x, y) vertices for a unit circle.
+        """
         if cls._CIRCLE_CACHE is None:
             cls._CIRCLE_CACHE = []
             for i in range(cls.CIRCLE_OCCLUDER_SEGMENTS):
@@ -38,9 +59,21 @@ class GeometryUtils:
     ) -> list[tuple[float, float]]:
         """
         Calculates world-space vertices for an occluder.
+
+        Handles polygon shapes, physics bodies, sprites, and fallback boxes.
+        Supports caching for static objects.
+
         Args:
-            override_x (float): Optional override for X position (e.g. interpolated).
-            override_y (float): Optional override for Y position.
+            entity_id (int): The entity ID.
+            transform (Transform): The transform component.
+            occluder (Occluder): The occluder component.
+            sprite (Sprite | None): Optional sprite component for dimensions.
+            body (PhysicsBody | None): Optional physics body for shape data.
+            override_x (float | None): Optional override for X position (e.g. interpolated).
+            override_y (float | None): Optional override for Y position.
+
+        Returns:
+            list[tuple[float, float]]: List of world-space vertices.
         """
         # Check cache for static objects
         if occluder.static:
@@ -184,6 +217,12 @@ class GeometryUtils:
 
     @classmethod
     def clear_cache(cls, entity_id: int) -> None:
+        """
+        Clears the static cache for a specific entity.
+
+        Args:
+            entity_id (int): The entity ID to clear.
+        """
         if entity_id in cls._STATIC_CACHE:
             del cls._STATIC_CACHE[entity_id]
         if entity_id in cls._STATIC_CACHE_KEYS:

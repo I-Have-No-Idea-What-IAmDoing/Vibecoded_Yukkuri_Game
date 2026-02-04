@@ -1,5 +1,8 @@
 """
-Main Menu Scene.
+Main Menu Scene Module.
+
+This module provides the `MainMenuScene`, which serves as the entry point for the
+user interaction, allowing them to start the game or quit.
 """
 
 import os
@@ -8,9 +11,10 @@ from pathlib import Path
 import pygame
 import pygame_gui
 from loguru import logger
-from ..engine.scene import Scene
+
 from ..engine.application import Application
-from ..engine.input_manager import InputManager, InputContext
+from ..engine.input_manager import InputContext, InputManager
+from ..engine.scene import Scene
 
 
 class MainMenuScene(Scene):
@@ -27,12 +31,12 @@ class MainMenuScene(Scene):
         quit_button (pygame_gui.elements.UIButton): The quit button element.
     """
 
-    def __init__(self, application: Application):
+    def __init__(self, application: Application) -> None:
         """
         Initializes the MainMenuScene.
 
         Args:
-            application: The main application instance.
+            application (Application): The main application instance.
         """
         super().__init__(application)
         # Compute absolute path for theme file (relative to project root)
@@ -60,7 +64,9 @@ class MainMenuScene(Scene):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        """Sets up the main menu UI."""
+        """
+        Sets up the main menu UI elements (Start, Quit buttons).
+        """
         center_x = self.application.width / 2
         center_y = self.application.height / 2
 
@@ -79,6 +85,7 @@ class MainMenuScene(Scene):
     def on_enter(self) -> None:
         """
         Called when the scene is entered.
+
         Sets up the UI resolution.
         """
         logger.info("Entered Main Menu Scene")
@@ -90,6 +97,7 @@ class MainMenuScene(Scene):
     def on_exit(self) -> None:
         """
         Called when the scene is exited.
+
         Clears the UI manager.
         """
         logger.info("Exited Main Menu Scene")
@@ -100,7 +108,7 @@ class MainMenuScene(Scene):
         Updates the scene.
 
         Args:
-            dt: Delta time.
+            dt (float): Delta time in seconds.
         """
         super().update(dt)
         self.ui_manager.update(dt)
@@ -110,7 +118,7 @@ class MainMenuScene(Scene):
         Renders the scene.
 
         Args:
-            alpha (float): Interpolation factor.
+            alpha (float): Interpolation factor (0.0 to 1.0).
         """
         if self.application.screen:
             self.ui_manager.draw_ui(self.application.screen)
@@ -120,7 +128,7 @@ class MainMenuScene(Scene):
         Handles input events.
 
         Args:
-            event: The Pygame event.
+            event (pygame.event.Event): The Pygame event.
         """
         self.ui_manager.process_events(event)
         # InputManager processing is handled by Application
