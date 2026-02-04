@@ -347,9 +347,9 @@ class PerceptionSystem(System):
             my_stats (YukkuriStats | None): The observer's stats.
             my_predator (Predator | None): The observer's predator component.
             my_relations (RelationshipRegistry | None): The observer's relationship registry.
-            stats_map (dict): Cached stats.
-            predator_map (dict): Cached predators.
-            relationship_map (dict): Cached relationships.
+            stats_map (dict[int, YukkuriStats]): Pre-fetched map of YukkuriStats components.
+            predator_map (dict[int, Predator]): Pre-fetched map of Predator components.
+            relationship_map (dict[int, RelationshipRegistry]): Pre-fetched map of RelationshipRegistry components.
 
         Returns:
             str: "Friend", "Enemy", "Neutral", "Prey", "Threat", or "Family".
