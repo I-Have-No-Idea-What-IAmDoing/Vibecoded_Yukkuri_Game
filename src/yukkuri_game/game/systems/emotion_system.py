@@ -77,6 +77,10 @@ class EmotionSystem(System):
         self.trait_service: TraitService | None = None
         self.last_day_index = -1
 
+        # Optimization: Accumulator for throttling updates
+        self.accumulated_dt = 0.0
+        self.update_interval = 0.1  # Update at 10 Hz (every 100ms)
+
     def update(self, world: World, dt: float) -> None:
         """
         Decays stats and emotional state for all entities with YukkuriStats.
@@ -90,6 +94,15 @@ class EmotionSystem(System):
             world (World): The ECS World.
             dt (float): Delta time (physics time).
         """
+        # Throttle updates to improve performance
+        self.accumulated_dt += dt
+        if self.accumulated_dt < self.update_interval:
+            return
+
+        # Use the accumulated time delta for this update step
+        dt = self.accumulated_dt
+        self.accumulated_dt = 0.0
+
         # Lazy initialization
         if self.trait_service is None:
             self.trait_service = world.services.try_get(TraitService)
