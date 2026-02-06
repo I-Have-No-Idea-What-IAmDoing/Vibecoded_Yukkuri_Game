@@ -29,6 +29,13 @@ class SkillService:
     """
 
     def __init__(self, world: World, settings: SkillsSettings | None = None):
+        """
+        Initializes the SkillService.
+
+        Args:
+            world (World): The ECS world instance.
+            settings (SkillsSettings | None): Configuration settings.
+        """
         self.world = world
         self.settings = settings if settings else SkillsSettings()
         self.skill_definitions: dict[str, Any] = {}
@@ -48,6 +55,9 @@ class SkillService:
         """
         Initializes the Skills component for an entity if it doesn't exist,
         and ensures all defined skills are present.
+
+        Args:
+            entity_id (int): The entity ID.
         """
         if not self.world.entity_exists(entity_id):
             return
@@ -74,6 +84,9 @@ class SkillService:
     def recalculate_passions(self, entity_id: int) -> None:
         """
         Recalculates passion levels for all skills based on traits.
+
+        Args:
+            entity_id (int): The entity ID.
         """
         skills = self.world.get_component(entity_id, Skills)
         personality = self.world.get_component(entity_id, Personality)
@@ -106,9 +119,14 @@ class SkillService:
     def add_xp(self, entity_id: int, skill_id: str, amount: float) -> None:
         """
         Adds XP to a skill.
+
         Formula: XP_gain = Base * Passion * IntelligenceFactor * SoftCapMultiplier
         Intelligence is roughly derived from Discipline or Learning stat if available.
-        For now we use 1.0 as intellience multiplier default or based on stats.
+
+        Args:
+            entity_id (int): The entity ID.
+            skill_id (str): The skill identifier.
+            amount (float): The amount of XP to add.
         """
         skills = self.world.get_component(entity_id, Skills)
         if not skills or skill_id not in skills.states:
@@ -164,7 +182,14 @@ class SkillService:
         self._check_level_up(entity_id, skill_id, state)
 
     def _check_level_up(self, entity_id: int, skill_id: str, state: SkillState) -> None:
-        """Checks if the skill should level up."""
+        """
+        Checks if the skill should level up.
+
+        Args:
+            entity_id (int): The entity ID.
+            skill_id (str): The skill identifier.
+            state (SkillState): The current skill state.
+        """
         required = self.get_required_xp(state.level)
         while state.current_xp >= required:
             state.current_xp -= required
@@ -179,15 +204,28 @@ class SkillService:
             required = self.get_required_xp(state.level)
 
     def get_required_xp(self, level: int) -> float:
-        """Formula: Base * (Exponent)^L"""
+        """
+        Calculates required XP for a level.
+
+        Formula: Base * (Exponent)^L
+
+        Args:
+            level (int): The level.
+
+        Returns:
+            float: Required XP.
+        """
         return self.settings.xp_base * (self.settings.xp_exponent**level)
 
     def apply_decay(self, entity_id: int) -> None:
         """
         Applies decay to all skills for an entity based on time since last use.
-        This calculates accumulated decay since last use.
 
+        This calculates accumulated decay since last use.
         Formula: Loss = DecayRate * (DaysSinceLastUse - GracePeriod)
+
+        Args:
+            entity_id (int): The entity ID.
         """
         skills = self.world.get_component(entity_id, Skills)
         if not skills:

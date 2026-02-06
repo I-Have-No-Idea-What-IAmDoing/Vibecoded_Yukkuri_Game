@@ -31,6 +31,14 @@ class InventoryComponent:
     def can_add(self, item_type_id: str, count: int = 1, stack_limit: int = 99) -> bool:
         """
         Checks if the item(s) can be added to the inventory.
+
+        Args:
+            item_type_id (str): The type of item.
+            count (int): Number of items to add.
+            stack_limit (int): Maximum stack size.
+
+        Returns:
+            bool: True if items can be added, False otherwise.
         """
         remaining = count
 
@@ -56,7 +64,14 @@ class InventoryComponent:
     def add(self, item_type_id: str, count: int = 1, stack_limit: int = 99) -> int:
         """
         Adds item(s) to the inventory.
-        Returns the quantity that was successfully added.
+
+        Args:
+            item_type_id (str): The type of item.
+            count (int): Number of items to add.
+            stack_limit (int): Maximum stack size.
+
+        Returns:
+            int: The quantity that was successfully added.
         """
         remaining = count
 
@@ -84,7 +99,13 @@ class InventoryComponent:
     def remove(self, item_type_id: str, count: int = 1) -> int:
         """
         Removes item(s) from the inventory.
-        Returns the quantity actually removed.
+
+        Args:
+            item_type_id (str): The type of item.
+            count (int): Number of items to remove.
+
+        Returns:
+            int: The quantity actually removed.
         """
         remaining_to_remove = count
 
@@ -113,6 +134,13 @@ class InventoryComponent:
     def has(self, item_type_id: str, count: int = 1) -> bool:
         """
         Checks if the inventory contains at least `count` of the item.
+
+        Args:
+            item_type_id (str): The type of item.
+            count (int): Number of items to check for.
+
+        Returns:
+            bool: True if inventory contains at least `count` of the item.
         """
         total = 0
         for item in self.items:
@@ -125,6 +153,12 @@ class InventoryComponent:
     def get_total(self, item_type_id: str) -> int:
         """
         Returns the total count of an item type in the inventory.
+
+        Args:
+            item_type_id (str): The type of item.
+
+        Returns:
+            int: The total count of the item.
         """
         return sum(
             item.quantity for item in self.items if item.item_type_id == item_type_id

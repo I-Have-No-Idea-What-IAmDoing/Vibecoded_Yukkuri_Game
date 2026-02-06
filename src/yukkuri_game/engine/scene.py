@@ -59,13 +59,11 @@ class Scene(ABC):
     def register_component(self, component_type: type) -> None:
         """
         Register a component type for serialization support.
+
         Must be called during setup/init for any component that might be saved/loaded.
 
         Args:
-            component_type (Type): The component type to register.
-
-        Returns:
-            None
+            component_type (type): The component type to register.
         """
         self.registered_components.add(component_type)
 

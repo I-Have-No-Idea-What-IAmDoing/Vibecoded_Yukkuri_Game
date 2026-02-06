@@ -30,7 +30,7 @@ class Camera:
         Initializes the Camera.
 
         Args:
-            settings: World settings configuration.
+            settings (WorldSettings | None): World settings configuration.
         """
         _settings = settings if settings is not None else WorldSettings()
         self.width = _settings.width
@@ -64,8 +64,8 @@ class Camera:
         Sets the aspect ratio correction factors.
 
         Args:
-            x: Horizontal aspect correction.
-            y: Vertical aspect correction.
+            x (float): Horizontal aspect correction.
+            y (float): Vertical aspect correction.
         """
         self.correction_x = x
         self.correction_y = y
@@ -73,12 +73,13 @@ class Camera:
     def update_matrices(self, screen_w: int, screen_h: int, alpha: float = 1.0) -> None:
         """
         Updates cached transformation matrices using interpolation.
+
         Call this at the beginning of a render frame.
 
         Args:
-            screen_w: Screen width.
-            screen_h: Screen height.
-            alpha: Interpolation factor (0.0 to 1.0).
+            screen_w (int): Screen width.
+            screen_h (int): Screen height.
+            alpha (float): Interpolation factor (0.0 to 1.0).
         """
         # Interpolate camera position and zoom
         curr_zoom = self.prev_zoom + (self.zoom - self.prev_zoom) * alpha
@@ -101,10 +102,10 @@ class Camera:
         Formula: screen = (world - camera) * zoom + screen_center
 
         Args:
-            wx: World x-coordinate.
-            wy: World y-coordinate.
-            screen_w: Screen width.
-            screen_h: Screen height.
+            wx (float): World x-coordinate.
+            wy (float): World y-coordinate.
+            screen_w (int): Screen width.
+            screen_h (int): Screen height.
 
         Returns:
             tuple[float, float]: (screen_x, screen_y)
@@ -121,11 +122,12 @@ class Camera:
     def world_to_screen_fast(self, wx: float, wy: float) -> tuple[float, float]:
         """
         Optimized version of world_to_screen that uses cached values.
+
         Requires update_matrices() to be called first in the frame.
 
         Args:
-            wx: World x-coordinate.
-            wy: World y-coordinate.
+            wx (float): World x-coordinate.
+            wy (float): World y-coordinate.
 
         Returns:
             tuple[float, float]: (screen_x, screen_y)
@@ -152,15 +154,15 @@ class Camera:
     ) -> tuple[float, float]:
         """
         Converts screen coordinates to world coordinates.
-        Inverse of world_to_screen.
 
+        Inverse of world_to_screen.
         Formula: world = (screen - screen_center) / zoom + camera
 
         Args:
-            sx: Screen x-coordinate.
-            sy: Screen y-coordinate.
-            screen_w: Screen width.
-            screen_h: Screen height.
+            sx (float): Screen x-coordinate.
+            sy (float): Screen y-coordinate.
+            screen_w (int): Screen width.
+            screen_h (int): Screen height.
 
         Returns:
             tuple[float, float]: (world_x, world_y)
@@ -176,9 +178,9 @@ class Camera:
         Handles input for camera control (zoom and pan).
 
         Args:
-            event: The Pygame event.
-            screen_w: Screen width.
-            screen_h: Screen height.
+            event (pygame.event.Event): The Pygame event.
+            screen_w (int): Screen width.
+            screen_h (int): Screen height.
         """
         zoom_amount = 0.0
         if event.type == pygame.MOUSEWHEEL:
@@ -218,11 +220,12 @@ class Camera:
     def update(self, dt: float) -> None:
         """
         Updates the camera state (e.g., smooth zoom).
+
         This method now only handles smooth zoom interpolation.
         Keyboard/mouse movement is handled by process_input().
 
         Args:
-            dt: Delta time.
+            dt (float): Delta time.
         """
         # Save previous state for interpolation
         self.prev_camera_x = self.camera_x
@@ -236,11 +239,12 @@ class Camera:
     def process_input(self, input_manager: "InputManager", dt: float) -> None:
         """
         Processes camera input using the InputManager.
+
         Should be called every frame.
 
         Args:
-            input_manager: The input manager instance.
-            dt: Delta time.
+            input_manager (InputManager): The input manager instance.
+            dt (float): Delta time.
         """
         # Keyboard Movement
         speed = 500.0 * dt / self.zoom  # Adjust by zoom for consistent feel

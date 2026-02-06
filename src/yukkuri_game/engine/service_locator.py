@@ -37,11 +37,8 @@ class ServiceLocator:
 
         Args:
             instance (Any): The service instance to register.
-            service_type (Optional[Type[Any]]): The type key to use for registration. If None, the instance's type is used.
+            service_type (type[Any] | None): The type key to use for registration. If None, the instance's type is used.
             replace (bool): If True, allows overwriting an existing service of the same type. Defaults to False.
-
-        Returns:
-            None
 
         Raises:
             ValueError: If the service is already registered and replace is False.
@@ -58,7 +55,7 @@ class ServiceLocator:
         Retrieves a service instance by its type.
 
         Args:
-            service_type (Type[T]): The type of the service to retrieve.
+            service_type (type[T]): The type of the service to retrieve.
 
         Returns:
             T: The registered service instance.
@@ -78,10 +75,10 @@ class ServiceLocator:
         Tries to retrieve a service instance by its type.
 
         Args:
-            service_type (Type[T]): The type of the service to retrieve.
+            service_type (type[T]): The type of the service to retrieve.
 
         Returns:
-            Optional[T]: The registered service instance, or None if not found.
+            T | None: The registered service instance, or None if not found.
         """
         return self._services.get(service_type)
 

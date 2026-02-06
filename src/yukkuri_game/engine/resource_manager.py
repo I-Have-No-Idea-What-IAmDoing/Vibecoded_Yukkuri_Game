@@ -67,9 +67,9 @@ class ResourceManager:
         Initializes the ResourceManager.
 
         Args:
-            data_dir: Directory containing TOML data files. Defaults to "data".
-            assets_dir: Directory containing image and sound assets. Defaults to "assets".
-            image_cache_limit: Maximum items for the image LRU cache. Defaults to 100.
+            data_dir (str): Directory containing TOML data files. Defaults to "data".
+            assets_dir (str): Directory containing image and sound assets. Defaults to "assets".
+            image_cache_limit (int): Maximum items for the image LRU cache. Defaults to 100.
         """
         self.data_dir = data_dir
         self.assets_dir = assets_dir
@@ -95,11 +95,11 @@ class ResourceManager:
         Loads and parses a TOML file into a structured model.
 
         Args:
-            filepath: Path to the TOML file, relative to `self.data_dir`.
-            model: The `msgspec.Struct` type definition to parse the data into.
+            filepath (str): Path to the TOML file, relative to `self.data_dir`.
+            model (type[T]): The `msgspec.Struct` type definition to parse the data into.
 
         Returns:
-            The parsed data object of type `T`, or None if the operation fails.
+            T | None: The parsed data object of type `T`, or None if the operation fails.
         """
         full_path = os.path.join(self.data_dir, filepath)
         try:
@@ -119,11 +119,11 @@ class ResourceManager:
         Serializes and saves a structured model to a TOML file.
 
         Args:
-            filepath: Destination path, relative to `self.data_dir`.
-            data: The `msgspec.Struct` object to serialize.
+            filepath (str): Destination path, relative to `self.data_dir`.
+            data (msgspec.Struct): The `msgspec.Struct` object to serialize.
 
         Returns:
-            True if the file was successfully written, False otherwise.
+            bool: True if the file was successfully written, False otherwise.
         """
         full_path = os.path.join(self.data_dir, filepath)
         try:
@@ -141,10 +141,10 @@ class ResourceManager:
         Resolves the absolute path for an image file.
 
         Args:
-            filename: Name of the image file (e.g., "sprite.png").
+            filename (str): Name of the image file (e.g., "sprite.png").
 
         Returns:
-            The absolute file path to the image.
+            str: The absolute file path to the image.
         """
         return os.path.join(self.assets_dir, "images", filename)
 
@@ -160,10 +160,10 @@ class ResourceManager:
         5. Store in LRU cache if packing fails.
 
         Args:
-            filename: The filename of the image to load.
+            filename (str): The filename of the image to load.
 
         Returns:
-            The requested pygame.Surface. Returns a magenta placeholder if loading fails.
+            pygame.Surface: The requested pygame.Surface. Returns a magenta placeholder if loading fails.
         """
         # Strategy 1: Atlas Lookup
         atlas_surf = self.atlas.get_region(filename)
@@ -283,13 +283,13 @@ class ResourceManager:
         it returns that specific item after populating the cache.
 
         Args:
-            file: TOML filename.
-            model: Data model class.
-            attr: Attribute name in the data model that contains the dictionary of items.
-            requested_key: Specific key to return immediately (optional).
+            file (str): TOML filename.
+            model (type[T]): Data model class.
+            attr (str): Attribute name in the data model that contains the dictionary of items.
+            requested_key (str | None): Specific key to return immediately (optional).
 
         Returns:
-            The requested item if `requested_key` is provided, otherwise None.
+            Any: The requested item if `requested_key` is provided, otherwise None.
 
         Raises:
             ResourceLoadError: If the file cannot be loaded or the requested key is missing.

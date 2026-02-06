@@ -46,6 +46,14 @@ class GameLoader:
     def __init__(
         self, world: World, application: "Application", game_config: "GameConfig"
     ):
+        """
+        Initializes the GameLoader.
+
+        Args:
+            world (World): The ECS world.
+            application (Application): The application instance.
+            game_config (GameConfig): The game configuration.
+        """
         self.world = world
         self.application = application
         self.game_config = game_config
@@ -58,7 +66,16 @@ class GameLoader:
         physics_system: PhysicsSystem,
         event_bus: EventBus,
     ) -> None:
-        """Registers services to the world."""
+        """
+        Registers services to the world.
+
+        Args:
+            context (SceneContext): The scene context.
+            audio (AudioManager): The audio manager.
+            camera (Camera): The camera.
+            physics_system (PhysicsSystem): The physics system.
+            event_bus (EventBus): The event bus.
+        """
         self.world.services.register(audio, AudioManager)
         self.world.services.register(camera, Camera)
         self.world.services.register(physics_system, PhysicsSystem)

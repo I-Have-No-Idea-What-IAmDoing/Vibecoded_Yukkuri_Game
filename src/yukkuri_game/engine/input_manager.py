@@ -97,8 +97,8 @@ class InputManager:
         This method allows for runtime remapping of keys.
 
         Args:
-            config: Dictionary containing key mappings.
-                    Structure: { "GAMEPLAY": { "action": [key_code, ...] }, ... }
+            config (dict[str, Any]): Dictionary containing key mappings.
+                Structure: { "GAMEPLAY": { "action": [key_code, ...] }, ... }
 
         Raises:
             ValueError: If the configuration is invalid.

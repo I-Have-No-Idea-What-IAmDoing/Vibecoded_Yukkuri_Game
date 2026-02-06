@@ -107,6 +107,20 @@ class SurfaceCache:
     ) -> pygame.Surface | None:
         """
         Creates the transformed surface.
+
+        Args:
+            image_name (str): The name of the base image.
+            frame_index (int): The current frame index.
+            frame_count (int): Total frames.
+            sprite_width (int): Width of a single sprite frame.
+            sprite_height (int): Height of a single sprite frame.
+            scale (float): Scaling factor.
+            rotation (float): Rotation angle in degrees.
+            flip_x (bool): Whether to flip horizontally.
+            flip_y (bool): Whether to flip vertically.
+
+        Returns:
+            Optional[pygame.Surface]: The newly created surface, or None if creation failed.
         """
         img = self.rm.load_image(image_name)
         img_width, img_height = img.get_size()

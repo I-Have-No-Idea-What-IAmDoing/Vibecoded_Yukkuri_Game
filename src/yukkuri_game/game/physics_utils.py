@@ -25,6 +25,23 @@ def add_physics_body(
 ) -> None:
     """
     Adds a physics body to an entity.
+
+    Args:
+        world (World): The ECS world.
+        entity (int): The entity ID.
+        shape_type (str): "circle" or "box".
+        mass (float): Mass of the body.
+        position (tuple[float, float]): Initial position (x, y).
+        radius_or_size (Any): Radius (float) or size (tuple[float, float]).
+        collision_category (int): Bitmask category.
+        collision_mask (int): Bitmask mask.
+        elasticity (float): Bounciness. Defaults to 0.5.
+        friction (float): Surface friction. Defaults to 0.5.
+        set_userdata (bool): If True, sets entity ID as body userdata. Defaults to False.
+        body_type (int): Pymunk body type. Defaults to DYNAMIC.
+
+    Raises:
+        ValueError: If shape_type is unknown.
     """
     physics_system = world.services.try_get(PhysicsSystem)
     if not physics_system:
@@ -62,7 +79,15 @@ def add_physics_body(
 
 
 def get_yukkuri_radius(growth_stage: str) -> float:
-    """Returns the radius for a given growth stage."""
+    """
+    Returns the radius for a given growth stage.
+
+    Args:
+        growth_stage (str): "Baby", "Child", or "Adult".
+
+    Returns:
+        float: The radius in pixels.
+    """
     if growth_stage == "Adult":
         return 20.0
     elif growth_stage == "Child":

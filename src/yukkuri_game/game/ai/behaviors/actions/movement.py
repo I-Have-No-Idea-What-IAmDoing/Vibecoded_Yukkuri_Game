@@ -99,7 +99,7 @@ class MoveToTarget(Action):
             )
 
         if target_pos is None:
-            controller.target_velocity = pygame.Vector2(0, 0)
+            controller.target_velocity = pymunk.Vec2d(0, 0)
             if self.world.has_component(self.entity_id, MoveCommand):
                 self.world.remove_component(self.entity_id, MoveCommand)
             return Status.FAILURE
@@ -335,12 +335,8 @@ class MoveToTarget(Action):
         dist_to_final = (target_pos - current_pos).length
 
         if dist_to_final < self.acceptance_radius:
-            controller.target_velocity = pygame.Vector2(0, 0)
+            controller.target_velocity = pymunk.Vec2d(0, 0)
             ai.path = []
-        if dist_to_final < self.acceptance_radius:
-            controller.target_velocity = pygame.Vector2(0, 0)
-            ai.path = []
-
             return Status.SUCCESS
 
         return Status.RUNNING

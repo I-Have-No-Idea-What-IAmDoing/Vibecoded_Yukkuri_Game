@@ -83,6 +83,7 @@ def build_need_satisfaction_behavior(
 ]:
     """
     Factory that creates a behavior builder for standard need satisfaction loops.
+
     Pattern: Check Goal -> Sequence [Find Target -> Move To Target -> Interact]
 
     Args:
@@ -94,7 +95,7 @@ def build_need_satisfaction_behavior(
         consume_target (bool): Whether interaction consumes the target.
 
     Returns:
-        Callable: A builder function compatible with BehaviorRegistry.
+        Callable[[int, World, int, int, Callable[[str], bool], Callable[[], bool]], Behaviour]: A builder function compatible with BehaviorRegistry.
     """
 
     def builder(
