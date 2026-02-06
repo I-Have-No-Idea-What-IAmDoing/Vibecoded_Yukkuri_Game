@@ -33,3 +33,7 @@
 ## 2026-02-02 - [Perception System Component Lookups]
 **Learning:** `PerceptionSystem` was performing O(Observers * Targets) component lookups via `world.try_get_component` which incurs significant function call and wrapper overhead. Pre-fetching component maps (`world.get_components`) at the start of the frame reduced tick time by ~28% (from 154ms to 110ms for 500 observers).
 **Action:** When a system iterates O(N*M) times over entities, pre-fetch component maps into dictionaries to replace O(K) lookup overhead with O(1) dict access.
+
+## 2026-02-05 - [Perception System Throttling]
+**Learning:** `PerceptionSystem` was paying the cost of building O(N) component maps every frame, even though entities are throttled to update only 10 times/second (often resulting in 0 updates per frame). By checking if any entity actually needs updating *before* building the maps, we saved significant overhead (frame time reduced by ~50%).
+**Action:** When a system processes a subset of entities (throttled/conditional), perform the condition check first and gather the work list before performing expensive setup steps like bulk component fetching.

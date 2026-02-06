@@ -109,23 +109,16 @@ class PerceptionSystem(System):
 
         current_time = world.time
 
-        # Pre-fetch component maps to avoid repeated try_get_component calls
-        # Optimization: O(1) dictionary lookups instead of function calls and checks.
-        stats_map = world.get_components(YukkuriStats)
-        predator_map = world.get_components(Predator)
-        relationship_map = world.get_components(RelationshipRegistry)
-        item_map = world.get_components(ItemStats)
-        transform_map = world.get_components(Transform)
-
         # Iterate entities that have AI + Blackboard + Transform
         entities = world.get_components_tuple(AIState, Blackboard, Transform)
 
+        # Identify entities that actually need updates
+        to_update = []
         for entity_id, (ai_state, blackboard, trans) in entities:
             # Throttling Logic:
             # Update if timer expired OR if the set of visible entities has changed physically
             # (checked via object ID, assuming VisibilitySystem replaces the set on change).
 
-            # Fix: Ensure current_visible_id is defined (it was missing in original code)
             visible_set_id = id(ai_state.visible_entities)
 
             time_expired = (
@@ -136,24 +129,40 @@ class PerceptionSystem(System):
                 entity_id, 0
             )
 
-            should_update = time_expired or visibility_changed
+            if time_expired or visibility_changed:
+                to_update.append((entity_id, ai_state, blackboard, trans))
 
-            if should_update:
-                self._update_blackboard(
-                    world,
-                    entity_id,
-                    ai_state,
-                    blackboard,
-                    trans,
-                    current_time,
-                    stats_map,
-                    predator_map,
-                    relationship_map,
-                    item_map,
-                    transform_map,
-                )
-                self._last_update_times[entity_id] = current_time
-                self._last_visible_set_ids[entity_id] = visible_set_id
+        if not to_update:
+            return
+
+        # Pre-fetch component maps to avoid repeated try_get_component calls
+        # Optimization: O(1) dictionary lookups instead of function calls and checks.
+        # Only build maps if we have entities to process.
+        stats_map = world.get_components(YukkuriStats)
+        predator_map = world.get_components(Predator)
+        relationship_map = world.get_components(RelationshipRegistry)
+        item_map = world.get_components(ItemStats)
+        transform_map = world.get_components(Transform)
+
+        for entity_id, ai_state, blackboard, trans in to_update:
+            self._update_blackboard(
+                world,
+                entity_id,
+                ai_state,
+                blackboard,
+                trans,
+                current_time,
+                stats_map,
+                predator_map,
+                relationship_map,
+                item_map,
+                transform_map,
+            )
+
+            # Update timestamps and IDs
+            visible_set_id = id(ai_state.visible_entities)
+            self._last_update_times[entity_id] = current_time
+            self._last_visible_set_ids[entity_id] = visible_set_id
 
     def _update_blackboard(
         self,
