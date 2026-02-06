@@ -51,7 +51,12 @@ class Sleep(Action):
         if ai and ai.path:
             ai.path = None
 
-        dt = self.world.dt
+        # Get delta time from TimeService (World doesn't have a dt property)
+        from .....services import TimeService
+
+        time_service = self.world.services.try_get(TimeService)
+        dt = time_service.delta_time if time_service else 0.016
+
         needs = self.world.try_get_component(self.entity_id, Needs)
         if needs:
             needs.energy += 10.0 * dt

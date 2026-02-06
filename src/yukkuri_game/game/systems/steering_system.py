@@ -380,7 +380,7 @@ class SteeringSystem(System):
             target_entity_id (int | None): Optional entity ID to exclude.
 
         Returns:
-            tuple[pymunk.Vec2d, pymunk.Vec2d]: Tube of (separation_force, avoidance_force) vectors.
+            tuple[pymunk.Vec2d, pymunk.Vec2d]: Tuple of (separation_force, avoidance_force) vectors.
         """
         separation_force = pymunk.Vec2d(0, 0)
         avoidance_force = pymunk.Vec2d(0, 0)

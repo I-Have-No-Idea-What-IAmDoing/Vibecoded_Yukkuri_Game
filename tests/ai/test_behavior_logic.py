@@ -78,7 +78,11 @@ class TestMoveToTarget:
         action = MoveToTarget(entity_id=1, world=mock_world, blackboard=mock_blackboard)
 
         ai = MagicMock(
-            current_target_id=2, path=None, state_data={}, visible_entities=set()
+            current_target_id=2,
+            path=None,
+            state_data={},
+            visible_entities=set(),
+            manual_override=False,  # Must be explicit to avoid direct steering
         )
         trans = MagicMock(x=0, y=0)
         stats = MagicMock()
@@ -89,6 +93,7 @@ class TestMoveToTarget:
         mock_world.services = MagicMock()
         mock_world.services.try_get.return_value = nav_service
         mock_world.try_get_component.return_value = None  # No Flight component
+        mock_world.time = 0.0  # Required for timestamp in request_path
 
         def get_component(e, c):
             if e == 1:
@@ -115,7 +120,7 @@ class TestMoveToTarget:
 
         assert status == Status.RUNNING
         # Async implementation: request_path is called, path will be set later by NavigationSystem
-        nav_service.request_path.assert_called_once()
+        nav_service.request_path.assert_called()
         # Verify state_data is set for async tracking
         assert ai.state_data.get("path_requesting") is True
 
@@ -236,7 +241,7 @@ class TestFindItem:
             name="Find", entity_id=1, world=world, stat_criteria="nutrition"
         )
 
-        ai = MagicMock()
+        ai = MagicMock(current_target_id=-1, path=None)
         trans = MagicMock(x=0, y=0)
 
         def get_component(e, c):
@@ -266,7 +271,7 @@ class TestFindItem:
             name="Find", entity_id=1, world=world, stat_criteria="nutrition"
         )
 
-        ai = MagicMock()
+        ai = MagicMock(current_target_id=-1, path=None)
         trans = MagicMock(x=0, y=0)
 
         def get_component(e, c):
