@@ -57,6 +57,7 @@ class InputManager:
                 "left": [pygame.K_LEFT, pygame.K_a],
                 "right": [pygame.K_RIGHT, pygame.K_d],
                 "pause": [pygame.K_ESCAPE],
+                "toggle_pause": [pygame.K_SPACE, pygame.K_p],
                 "interact": [pygame.K_z],
                 "debug_toggle": [pygame.K_F3],
                 "screenshot": [pygame.K_F12],
