@@ -29,7 +29,7 @@ class MigrationRegistry:
         Registers a migration function for a component.
 
         Args:
-            component_class (Type): The component class.
+            component_class (type): The component class.
             from_version (int): The version to migrate from.
             to_version (int): The version to migrate to.
             func (MigrationFunc): The function that transforms the data dict.
@@ -57,12 +57,12 @@ class MigrationRegistry:
 
         Args:
             component_name (str): The name of the component.
-            data (Dict[str, Any]): The raw data dictionary.
+            data (dict[str, Any]): The raw data dictionary.
             current_version (int): The version of the data.
             target_version (int): The target version (usually component class version).
 
         Returns:
-            Dict[str, Any]: The migrated data.
+            dict[str, Any]: The migrated data.
         """
         if current_version >= target_version:
             return data

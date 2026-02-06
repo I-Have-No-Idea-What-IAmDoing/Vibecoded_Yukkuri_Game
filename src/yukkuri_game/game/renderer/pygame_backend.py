@@ -7,7 +7,6 @@ lighting and shadows.
 """
 
 from collections import OrderedDict
-from typing import Any
 
 import pygame
 

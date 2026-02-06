@@ -215,9 +215,10 @@ class InputSystem(System):
                 dy = my - self.drag_start_screen_pos[1]
                 drag_dist = (dx * dx + dy * dy) ** 0.5
 
-            self._handle_selection(
-                world, self.drag_start_pos, self.drag_end_pos, drag_dist
-            )
+            if self.drag_end_pos:  # Add check to satisfy type checker
+                self._handle_selection(
+                    world, self.drag_start_pos, self.drag_end_pos, drag_dist
+                )
 
             self.drag_start_pos = None
             self.drag_end_pos = None

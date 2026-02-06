@@ -24,6 +24,12 @@ class AIDebugRenderer:
     """
 
     def __init__(self, camera: "Camera"):
+        """
+        Initializes the AIDebugRenderer.
+
+        Args:
+            camera (Camera): The game camera.
+        """
         self.camera = camera
         self.enabled = False
         self.font = pygame.font.SysFont("Arial", 12)
@@ -43,7 +49,12 @@ class AIDebugRenderer:
     def render(self, surface: pygame.Surface, world: "World") -> None:
         """
         Renders all AI debug visuals.
+
         Call this after the main render pass.
+
+        Args:
+            surface (pygame.Surface): The surface to draw on.
+            world (World): The ECS World.
         """
         if not self.enabled:
             return

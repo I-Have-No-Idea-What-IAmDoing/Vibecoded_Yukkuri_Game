@@ -250,5 +250,3 @@ class InteractionSystem(System):
             )
 
         return True
-
-        return False
