@@ -31,6 +31,7 @@ from ..game.ai.navigation_service import NavigationService
 from ..game.camera import Camera
 from ..game.events import (
     CycleSpeedRequest,
+    GamePausedEvent,
     LoadGameRequest,
     ResolutionChangedEvent,
     SaveGameRequest,
@@ -300,6 +301,7 @@ class GameplayScene(Scene):
     def toggle_pause(self) -> None:
         """Toggles the pause state."""
         self.paused = not self.paused
+        self.event_bus.publish(GamePausedEvent(self.paused))
 
     def cycle_speed(self) -> None:
         """Cycles through game speed multipliers (1.0 -> 2.0 -> 5.0 -> 0.5)."""
@@ -526,6 +528,9 @@ class GameplayScene(Scene):
         self.ui_manager.process_events(event)
         # InputManager processing is handled by Application
         # Camera input is now handled by InputSystem via process_input()
+
+        if self.input_manager.is_action_just_pressed("toggle_pause"):
+            self.toggle_pause()
 
         if self.input_manager.is_action_just_pressed("pause"):
             # Update global state before leaving

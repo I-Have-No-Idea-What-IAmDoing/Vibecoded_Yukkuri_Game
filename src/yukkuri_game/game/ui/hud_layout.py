@@ -175,7 +175,7 @@ class HudLayout:
             text="Pause",
             manager=self.manager,
             container=self.top_panel,
-            tool_tip_text="Pause/Resume the game",
+            tool_tip_text="Pause/Resume the game (Space)",
             object_id=ObjectID(class_id="control_button"),
         )
 
