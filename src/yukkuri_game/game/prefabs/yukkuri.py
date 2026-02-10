@@ -3,42 +3,45 @@ Prefab functions for Yukkuri entities.
 """
 
 from typing import Any
-from yukkuri_game.engine import rng
+
 import pymunk
+
+from yukkuri_game.engine import rng
 
 from ...engine.ecs import World
 from ...engine.resource_manager import ResourceManager
-from ..components import (
-    Transform,
-    Sprite,
-    Selectable,
-    MovementController,
-    VisualTransform,
-    Vision,
-    Mount,
-    SteeringComponent,
-)
-from ..yukkuri_components import (
-    YukkuriStats,
-    Needs,
-    AIState,
-    Personality,
-    RelationshipRegistry,
-    EmotionalState,
-    PersonalityAxis,
-    GossipQueue,
-    Flight,
-    FlightState,
-    Predator,
-    register_archetype,
-)
-from ..components_persistence import StableIDComponent, Persistable
 from ..collision_constants import CollisionCategories
-from ..trait_service import TraitService
+from ..components import (
+    Mount,
+    MovementController,
+    Selectable,
+    Sprite,
+    SteeringComponent,
+    Transform,
+    Vision,
+    VisualTransform,
+)
+from ..components_persistence import Persistable, StableIDComponent
+from ..inventory_component import InventoryComponent
+from ..physics_utils import add_physics_body, get_yukkuri_radius
 from ..skill_service import SkillService
 from ..systems.physics import PhysicsSystem
-from ..physics_utils import add_physics_body, get_yukkuri_radius
-from ..inventory_component import InventoryComponent
+from ..trait_service import TraitService
+from ..utils.animation_helpers import build_animator_from_data
+from ..yukkuri_components import (
+    AIState,
+    EmotionalState,
+    Flight,
+    FlightState,
+    GossipQueue,
+    Needs,
+    Personality,
+    PersonalityAxis,
+    Predator,
+    RelationshipRegistry,
+    YukkuriStats,
+    register_archetype,
+)
 
 
 def create_yukkuri(
@@ -101,7 +104,7 @@ def create_yukkuri(
         max_health = _get_attr(data, "max_health", 100)
 
         # Determine growth stage and scale based on age using shared constants
-        from ..yukkuri_constants import get_growth_stage_and_scale, STAGE_BABY
+        from ..yukkuri_constants import STAGE_BABY, get_growth_stage_and_scale
 
         growth_stage, scale = get_growth_stage_and_scale(age)
 
@@ -128,52 +131,17 @@ def create_yukkuri(
         world.add_component(entity, sprite)
 
         # Animator Creation (Enables Events and State logic)
-        from ..components import Animator, AnimationDefinition
-
-        anims = {}
-        if hasattr(data, "animations") and data.animations:
-            # Load data-driven animations
-            for name, definition in data.animations.items():
-                # Convert msgspec struct or dict to Component definition
-                # Use dict unpacking if compatible or manual mapping
-                # Definition is msgspec Struct from data_models, Component likely expects similar or dict
-                # Let's map explicitly to be safe
-                anim_def = AnimationDefinition(
-                    name=definition.name,
-                    frames=definition.frames,
-                    frame_duration=definition.frame_duration,
-                    loop=definition.loop,
-                    ping_pong=definition.ping_pong,
-                    events=definition.events,
-                    image=definition.image,
-                    width=definition.width,
-                    height=definition.height,
-                )
-                anims[name.lower()] = anim_def
-
-        # Fallback: If no explicit animations but sprite has frames, create default "idle"
-        if not anims and frame_count > 1:
-            # Create a default "idle" or "walk" animation from all frames
-            anims["idle"] = AnimationDefinition(
-                name="idle",
-                frames=list(range(frame_count)),
-                frame_duration=frame_duration,
-                loop=loop,
-            )
-            anims["walk"] = anims["idle"]  # Alias
-
-        if anims:
-            initial_anim = "idle"
-            if "idle" not in anims:
-                initial_anim = next(iter(anims.keys()))
-
-            animator = Animator(
-                animations=anims,
-                current_animation=initial_anim,
-                current_frame_index=0,
-                timer=0.0,
-                speed=1.0,
-            )
+        animator = build_animator_from_data(
+            data,
+            frame_count=frame_count,
+            frame_duration=frame_duration,
+            loop=loop,
+            default_anim="idle",
+        )
+        if animator:
+            if not (hasattr(data, "animations") and data.animations):
+                if "idle" in animator.animations:
+                    animator.animations["walk"] = animator.animations["idle"]
             world.add_component(entity, animator)
             # Disable legacy sprite self-animation to avoid conflict?
             # AnimationSystem prioritizes Animator, but Sprite.is_animating might cause double updates?
@@ -190,7 +158,6 @@ def create_yukkuri(
         if rm.tuning:
             visuals = rm.tuning.visuals.movement
             movement_controller.bob_height = visuals.bob_height
-            movement_controller.bob_speed = visuals.bob_speed
             movement_controller.bob_speed = visuals.bob_speed
         world.add_component(entity, movement_controller)
         world.add_component(entity, SteeringComponent())

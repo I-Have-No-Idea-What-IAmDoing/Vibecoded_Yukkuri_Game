@@ -116,12 +116,12 @@ class Sprite:
         flip_x (bool): Whether to flip the sprite horizontally. Defaults to False.
         flip_y (bool): Whether to flip the sprite vertically. Defaults to False.
         alpha (int): Transparency level (0-255). Defaults to 255 (opaque).
-        frame_count (int): Total number of animation frames. Defaults to 1.
-        frame_duration (float): Duration of each frame in seconds. Defaults to 0.1.
-        current_frame (int): The current frame index. Defaults to 0.
-        timer (float): Accumulator for animation timing. Defaults to 0.0.
-        loop (bool): Whether the animation should loop. Defaults to True.
-        is_animating (bool): Whether the animation is currently playing. Defaults to True.
+        frame_count (int): Total number of animation frames for legacy sprite animation. Defaults to 1.
+        frame_duration (float): Duration of each frame in seconds for legacy animation. Defaults to 0.1.
+        current_frame (int): The current frame index for legacy animation. Defaults to 0.
+        timer (float): Accumulator for legacy animation timing. Defaults to 0.0.
+        loop (bool): Whether the legacy animation should loop. Defaults to True.
+        is_animating (bool): Whether legacy sprite animation is currently playing. Defaults to True.
     """
 
     image_name: str

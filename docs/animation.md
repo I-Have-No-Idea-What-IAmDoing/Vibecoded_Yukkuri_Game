@@ -48,6 +48,15 @@ The `Animator` component manages the playback of animations at runtime.
 -   **AI Integration**: The `AIState` component automatically syncs with the `Animator`. If the AI enters an action (e.g., "Eat"), the system looks for an animation named "eat" and plays it.
 -   **System Overrides**: Certain gameplay systems can override the AI animation. For example, the `FlightSystem` forces "fly" or "swoop" animations when a Yukkuri is airborne, regardless of its current AI action.
 
+## Legacy Sprite Animation Fallback
+
+If an entity does **not** have an `Animator` component, the engine falls back to legacy sprite animation:
+
+-   Frame-based animation uses `Sprite.frame_count`, `Sprite.frame_duration`, and `Sprite.is_animating`.
+-   AI-driven sprite swapping (e.g., `reimu_sleeping.png`) only runs in this fallback mode.
+
+This preserves behavior for types that define no explicit animations and use a single image or frame-based sprites.
+
 ## Event Handling
 
 When an animation triggers an event defined in the `events` map, an `AnimationEvent` is fired. Systems can subscribe to this event to perform gameplay logic synchronized with visuals.

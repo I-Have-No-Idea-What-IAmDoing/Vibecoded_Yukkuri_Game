@@ -111,7 +111,6 @@ class NavigationService:
         self.world_width = world_width
         self.world_height = world_height
         self.grid_step_size = grid_step_size
-        self.grid_step_size = grid_step_size
         self.deterministic_mode = deterministic_mode
 
         # Unified Grid
@@ -249,60 +248,6 @@ class NavigationService:
         )
 
         self.request_queue.put(req)
-
-    def find_path(
-        self,
-        start: tuple[float, float],
-        end: tuple[float, float],
-        capabilities: int = TraversalCapability.WALK,
-        timeout: float = 1.0,
-    ) -> list[tuple[float, float]]:
-        """
-        Synchronous legacy wrapper for pathfinding.
-
-        Args:
-            start (tuple[float, float]): World coordinates of starting position.
-            end (tuple[float, float]): World coordinates of destination.
-            capabilities (int): Bitfield of TraversalCapability flags.
-            timeout (float): Max time to wait for a result.
-
-        Returns:
-            list[tuple[float, float]]: Path in world coordinates (empty if not found).
-        """
-        entity_id = -1
-        self.request_path(
-            entity_id,
-            start,
-            end,
-            capabilities=capabilities,
-            priority=0,
-            timestamp=time.time(),
-        )
-
-        if self.deterministic_mode:
-            self.update(time.time())
-
-        deadline = time.time() + timeout
-        other_results: list[PathResult] = []
-
-        while time.time() < deadline:
-            try:
-                result = self.result_queue.get_nowait()
-            except queue.Empty:
-                time.sleep(0.01)
-                continue
-
-            if result.entity_id == entity_id:
-                for other in other_results:
-                    self.result_queue.put(other)
-                return result.path if result.success else []
-
-            other_results.append(result)
-
-        for other in other_results:
-            self.result_queue.put(other)
-
-        return []
 
     def update(self, current_time: float) -> None:
         """

@@ -5,8 +5,8 @@ Handles sprite animation states, frame updates, and rendering for entities.
 Driven by state changes (idle, walk, run, etc.) and time deltas.
 
 Components:
--   Animation: Stores current state, speed, frame index, and sprite sheet reference.
--   AnimationSystem: Updates Animation components based on game time.
+-   Animator: Stores current animation state and playback parameters.
+-   AnimationSystem: Updates Animator and Sprite components based on game time.
 
 Features:
 -   State-based animations (mapped to rows/indices in sprite sheet).
@@ -20,49 +20,12 @@ Data Structure:
 -   Sprite sheets are standard grids of frames.
 """
 
-from typing import Any
-
-from ...engine.ecs import Component, System, World
+from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
 from ..components import Animator, LODComponent, Sprite
 from ..events import AnimationEvent
 from ..yukkuri_components import AIState, YukkuriStats, register_archetype
-
-
-class Animation(Component):
-    """
-    Component storing animation state for an entity.
-
-    Attributes:
-        current_animation (str): Name of the current animation state (e.g., "idle").
-        frame_index (float): Current frame index (float for sub-frame smoothing).
-        speed (float): Playback speed multiplier.
-        facing_right (bool): True if facing right, False if facing left.
-        sprite_sheet_id (str): ID of the sprite sheet resource.
-        animations (dict[str, Any]): Dictionary of available animation states.
-    """
-
-    def __init__(
-        self,
-        sprite_sheet_id: str,
-        animations: dict[str, Any],
-        default_anim: str = "idle",
-    ):
-        """
-        Initializes the Animation component.
-
-        Args:
-            sprite_sheet_id (str): Resource ID for the sprite sheet.
-            animations (dict[str, Any]): Animation data (frames, loops, etc.).
-            default_anim (str): Initial animation state.
-        """
-        self.sprite_sheet_id = sprite_sheet_id
-        self.animations = animations
-        self.current_animation = default_anim
-        self.frame_index = 0.0
-        self.speed = 1.0
-        self.facing_right = True
 
 
 class AnimationSystem(System):
@@ -121,7 +84,7 @@ class AnimationSystem(System):
             if ai_state:
                 self._sync_ai_animation(world, entity_id, animator, ai_state)
 
-        # Handle Legacy Sprite Animation (if no Animator)
+        # Legacy sprite animation fallback when no Animator is present.
         rm = world.services.try_get(ResourceManager)
 
         for entity, sprite in world.get_components(Sprite).items():
@@ -316,6 +279,7 @@ class AnimationSystem(System):
     ) -> None:
         """
         Updates the sprite image based on AIState if no Animator is present.
+        This runs only for entities without an Animator component.
 
         Args:
             world (World): The ECS World.

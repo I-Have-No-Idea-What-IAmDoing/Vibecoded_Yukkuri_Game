@@ -22,14 +22,15 @@ Scoring:
 -   Trait overrides allow personality-driven behavior modifications.
 """
 
-from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING
 import math
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
 from loguru import logger
 
 if TYPE_CHECKING:
-    from ..yukkuri_components import Personality
     from ..trait_service import TraitService
+    from ..yukkuri_components import Personality
 
 
 @dataclass
@@ -350,7 +351,7 @@ class UtilityAIEngine:
         """
         try:
             # Import here to avoid circular dependency
-            from .behavior import BehaviorRegistry
+            from .behaviors import BehaviorRegistry
 
             registered_behaviors = BehaviorRegistry.get_goals()
 

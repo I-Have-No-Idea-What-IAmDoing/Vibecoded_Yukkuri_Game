@@ -3,24 +3,27 @@ Prefab for Item entities.
 """
 
 from typing import Any
+
 import pymunk
+
 from ...engine.ecs import World
 from ...engine.resource_manager import ResourceManager
+from ..ai.navigation_service import NavigationService, ObstacleType
+from ..collision_constants import CollisionCategories
 from ..components import (
-    Transform,
-    Sprite,
-    Selectable,
-    VisualTransform,
-    PhysicsBody,
+    FlickerStyle,
     LightSource,
     Occluder,
-    FlickerStyle,
+    PhysicsBody,
+    Selectable,
+    Sprite,
+    Transform,
+    VisualTransform,
 )
-from ..yukkuri_components import ItemStats, Poop
-from ..components_persistence import StableIDComponent, Persistable
-from ..collision_constants import CollisionCategories
+from ..components_persistence import Persistable, StableIDComponent
 from ..systems.physics import PhysicsSystem
-from ..ai.navigation_service import NavigationService, ObstacleType
+from ..utils.animation_helpers import build_animator_from_data
+from ..yukkuri_components import ItemStats, Poop
 
 
 def create_item(world: World, type_id: str, x: float, y: float) -> int:
@@ -61,18 +64,27 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
     frame_duration = _get_attr(data, "frame_duration", 0.1)
     loop = _get_attr(data, "loop", True)
 
-    world.add_component(
-        entity,
-        Sprite(
-            image_name=image,
-            width=width,
-            height=height,
-            frame_count=frame_count,
-            frame_duration=frame_duration,
-            loop=loop,
-            is_animating=(frame_count > 1),
-        ),
+    sprite = Sprite(
+        image_name=image,
+        width=width,
+        height=height,
+        frame_count=frame_count,
+        frame_duration=frame_duration,
+        loop=loop,
+        is_animating=(frame_count > 1),
     )
+    world.add_component(entity, sprite)
+
+    animator = build_animator_from_data(
+        data,
+        frame_count=frame_count,
+        frame_duration=frame_duration,
+        loop=loop,
+        default_anim="idle",
+    )
+    if animator:
+        world.add_component(entity, animator)
+        sprite.is_animating = False
     world.add_component(entity, Selectable())
     has_shadow = type_id == "ball"
     world.add_component(entity, VisualTransform(has_drop_shadow=has_shadow))

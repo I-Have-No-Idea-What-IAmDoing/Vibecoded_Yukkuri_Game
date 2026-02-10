@@ -291,19 +291,6 @@ class AudioManager:
             except pygame.error:
                 pass
 
-    def set_volume(self, volume: float) -> None:
-        """
-        Sets the global volume for all sounds (Legacy support).
-        Maps to master volume.
-
-        Args:
-            volume (float): The volume level between 0.0 (mute) and 1.0 (max).
-
-        Returns:
-            None
-        """
-        self.set_master_volume(volume)
-
     def clear(self) -> None:
         """
         Stops all playback and clears loaded sounds to free memory.

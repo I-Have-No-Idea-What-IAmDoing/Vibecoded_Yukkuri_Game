@@ -2,19 +2,20 @@
 Module defining core game services.
 """
 
-from typing import Any
-import os
-import msgspec
 import dataclasses
 import math
+import os
+from typing import Any
+
+import msgspec
 
 from ..engine.ecs import World
+from . import components, components_persistence, yukkuri_components
 from .components import Transform
 from .components_persistence import StableIDComponent
-from .yukkuri_components import ItemStats, Skills
 from .skill_constants import SkillId
 from .systems.sector_system import SectorMap
-from . import components, components_persistence, yukkuri_components
+from .yukkuri_components import ItemStats, Skills
 
 BASE_SCAVENGING_RADIUS = 500.0
 SCAVENGING_RADIUS_PER_LEVEL = 50.0
@@ -95,15 +96,6 @@ class TimeService:
         game_dt = physics_dt * self.game_delta_multiplier
         self._time_elapsed += game_dt
         return game_dt
-
-    def add_time(self, dt: float) -> None:
-        """
-        Adds time to the total elapsed time (legacy compatibility).
-
-        Args:
-            dt (float): The time delta to add.
-        """
-        self._time_elapsed += dt
 
     @property
     def time_of_day(self) -> float:
@@ -549,8 +541,9 @@ class PersistenceService:
         entities_data = data.get("entities", [])
 
         # Use WorldSerializer for robust loading and reference remapping
-        from ..engine.serializer import WorldSerializer
         import inspect
+
+        from ..engine.serializer import WorldSerializer
 
         # Gather all component types from modules.
         component_types = []

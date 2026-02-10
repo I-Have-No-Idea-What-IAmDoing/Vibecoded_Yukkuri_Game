@@ -16,7 +16,7 @@ import py_trees
 from py_trees.common import Status
 
 from ...engine.ecs import System, World
-from ..ai.behavior import create_yukkuri_behavior_tree
+from ..ai.behaviors import create_yukkuri_behavior_tree
 from ..components import LODComponent
 from ..yukkuri_components import AIState
 
