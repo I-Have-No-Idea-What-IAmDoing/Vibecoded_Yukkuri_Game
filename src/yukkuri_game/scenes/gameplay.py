@@ -248,9 +248,6 @@ class GameplayScene(Scene):
             # Initialize AI Debug
             self.hud.init_ai_debug(self.camera)
 
-            # Initialize AI Debug
-            self.hud.init_ai_debug(self.camera)
-
         # Logic Event Handlers (Must run even in headless mode)
         self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
         self.event_bus.subscribe(CycleSpeedRequest, lambda e: self.cycle_speed())

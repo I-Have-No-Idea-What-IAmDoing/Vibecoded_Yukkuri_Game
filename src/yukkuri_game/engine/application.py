@@ -4,15 +4,17 @@ Application Module.
 
 import gc
 import os
+from typing import Any
+
 import pygame
 import pygame_gui
-from typing import Any
 from loguru import logger
+
+from .audio import AudioManager
+from .event_manager import EventManager, GamePhase
+from .input_manager import InputManager
 from .resource_manager import ResourceManager
 from .scene_manager import SceneManager
-from .input_manager import InputManager
-from .event_manager import EventManager, GamePhase
-from .audio import AudioManager
 
 
 class Application:
@@ -89,35 +91,22 @@ class Application:
         self, width: int, height: int, fullscreen: bool = False
     ) -> None:
         """
-        Initializes the display and lighting engine.
+        Initializes the display surface.
 
         Args:
             width: Width of the display.
             height: Height of the display.
             fullscreen: Whether to enable fullscreen mode.
         """
+        self.lights_engine = None  # OpenGL backend currently disabled.
+
         if self.headless:
             self.screen = pygame.display.set_mode((width, height))
-            self.lights_engine = None  # Force software rendering in headless.
-            logger.info("Headless mode: forced software rendering (PygameBackend).")
-
+            logger.info("Headless mode: using software rendering (PygameBackend).")
         else:
-            try:
-                # OpenGL backend disabled - using PygameBackend (software renderer).
-                self.lights_engine = None
-
-                flags = pygame.FULLSCREEN if fullscreen else 0
-                self.screen = pygame.display.set_mode((width, height), flags)
-                pygame.display.set_caption(self.title)
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to initialize LightingEngine: {e}. Falling back to standard Pygame display."
-                )
-                self.lights_engine = None
-                flags = pygame.FULLSCREEN if fullscreen else 0
-                self.screen = pygame.display.set_mode((width, height), flags)
-                pygame.display.set_caption(self.title)
+            flags = pygame.FULLSCREEN if fullscreen else 0
+            self.screen = pygame.display.set_mode((width, height), flags)
+            pygame.display.set_caption(self.title)
 
     def change_resolution(
         self,
@@ -259,9 +248,7 @@ class Application:
         if self.scene_manager.current_scene and hasattr(
             self.scene_manager.current_scene, "init_render_system_headless"
         ):
-            from typing import Any, cast
-
-            scene = cast(Any, self.scene_manager.current_scene)
+            scene: Any = self.scene_manager.current_scene
             scene.init_render_system_headless()
 
     def quit(self) -> None:
@@ -273,8 +260,10 @@ class Application:
             while self.scene_manager.current_scene:  # Pop all scenes for cleanup.
                 self.scene_manager.pop()
 
-        if hasattr(self, "audio") and isinstance(self.audio, AudioManager):
-            self.audio.clear()
+        # Use getattr to avoid static attribute access issues if `audio` was never set.
+        audio = getattr(self, "audio", None)
+        if isinstance(audio, AudioManager):
+            audio.clear()
 
         if self.resources:
             self.resources.clear()

@@ -5,7 +5,7 @@ Persistence Components.
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(slots=True)
 class StableIDComponent:
     """
     Component for persistent identity.
@@ -18,7 +18,7 @@ class StableIDComponent:
     id: int
 
 
-@dataclass
+@dataclass(slots=True)
 class Persistable:
     """
     Marker component for entities that should be saved to disk.

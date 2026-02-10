@@ -105,7 +105,7 @@ class World:
 
         Optimized to avoid redundant context switches if this world is already active.
         """
-        if esper.current_world is not self.name and esper.current_world != self.name:
+        if esper.current_world != self.name:
             esper.switch_world(self.name)
 
     @contextlib.contextmanager

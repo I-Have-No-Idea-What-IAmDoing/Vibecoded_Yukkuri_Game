@@ -3,13 +3,11 @@ Module for managing audio playback.
 """
 
 import os
-import sys
-import pygame
-from loguru import logger
+from collections import OrderedDict
 from typing import Any
 
-
-from collections import OrderedDict
+import pygame
+from loguru import logger
 
 
 class AudioManager:
@@ -67,27 +65,15 @@ class AudioManager:
             None
         """
         if os.path.exists(config_path):
-            if sys.version_info >= (3, 11):
-                import tomllib
-            else:
-                try:
-                    import tomli as tomllib
-                except ImportError:
-                    tomllib = None
+            import tomllib
 
-            if tomllib:
-                try:
-                    with open(config_path, "rb") as f:
-                        sounds = tomllib.load(f)
-                        for name, path in sounds.get("sounds", {}).items():
-                            # Config loads are considered "normal" loads, but arguably could be preloads?
-                            # For now, treat them as normal LRU candidates unless explicitly preloaded.
-                            self.load_sound(name, path)
-                except Exception as e:
-                    logger.error(f"Failed to load sound config from {config_path}: {e}")
-                    self._load_fallback_sounds()
-            else:
-                logger.warning("tomllib not available, falling back to default sounds.")
+            try:
+                with open(config_path, "rb") as f:
+                    sounds = tomllib.load(f)
+                    for name, path in sounds.get("sounds", {}).items():
+                        self.load_sound(name, path)
+            except Exception as e:
+                logger.error(f"Failed to load sound config from {config_path}: {e}")
                 self._load_fallback_sounds()
         else:
             self._load_fallback_sounds()

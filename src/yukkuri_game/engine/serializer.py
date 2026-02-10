@@ -342,7 +342,7 @@ class WorldSerializer:
             bool: True if it is a container of EntityID.
         """
         origin = get_origin(tp)
-        if origin in (list, set, list, set):
+        if origin in (list, set):
             args = get_args(tp)
             if args and self._is_entity_ref(args[0]):
                 return True
@@ -359,7 +359,7 @@ class WorldSerializer:
             bool: True if the key type is EntityID.
         """
         origin = get_origin(tp)
-        if origin in (dict, dict):
+        if origin is dict:
             args = get_args(tp)
             if args and self._is_entity_ref(args[0]):
                 return True

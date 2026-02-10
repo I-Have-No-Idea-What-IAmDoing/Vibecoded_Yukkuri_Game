@@ -2,10 +2,11 @@
 Event Manager Module for Phase-Based Event System.
 """
 
-from typing import Any
 from collections.abc import Callable
 from enum import Enum, auto
-from .event_bus import EventBus, Event
+from typing import Any
+
+from .event_bus import Event, EventBus
 
 
 class GamePhase(Enum):
@@ -16,7 +17,6 @@ class GamePhase(Enum):
     PRE_UPDATE = auto()
     UPDATE = auto()
     POST_UPDATE = auto()
-    RENDER = auto()
 
 
 class EventManager:

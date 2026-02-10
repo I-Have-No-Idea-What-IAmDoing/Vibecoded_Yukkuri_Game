@@ -7,25 +7,25 @@ It implements lazy loading for data files to optimize startup time and memory us
 """
 
 import os
-from typing import Any, TypeVar
 from collections import OrderedDict
+from typing import Any, TypeVar
 
 import msgspec
 import pygame
 from loguru import logger
 
+from .atlas import TextureAtlas
 from .data_models import (
-    YukkuriData,
-    ItemData,
     AIData,
     GameTuning,
+    InteractionData,
+    ItemData,
     SkillData,
     TraitData,
-    InteractionData,
+    YukkuriData,
 )
-from .atlas import TextureAtlas
-from .lazy_loader import LazyLoader
 from .exceptions import ResourceLoadError
+from .lazy_loader import LazyLoader
 
 T = TypeVar("T")
 
@@ -295,25 +295,21 @@ class ResourceManager:
             ResourceLoadError: If the file cannot be loaded or the requested key is missing.
         """
         # Determine which LazyLoader to populate based on attr name.
-        mapping = getattr(
-            self,
-            "yukkuri_types"
-            if attr == "yukkuris"
-            else "item_types"
-            if attr == "items"
-            else "ai_actions"
-            if attr == "actions"
-            else "skills"
-            if attr == "skills"
-            else "traits"
-            if attr == "traits"
-            else "interactions",
-        )
+        attr_to_loader = {
+            "yukkuris": "yukkuri_types",
+            "items": "item_types",
+            "actions": "ai_actions",
+            "skills": "skills",
+            "traits": "traits",
+            "interaction": "interactions",
+        }
+        loader_name = attr_to_loader.get(attr, attr)
+        mapping = getattr(self, loader_name)
 
         logger.info(f"Lazy Loading Monolithic File: {file}")
         data = self.load_toml_model(file, model)
         if not data:
-            logger.warning(f"DEBUG: Failed to load critical data file: {file}")
+            logger.error(f"Failed to load critical data file: {file}")
             raise ResourceLoadError(f"Failed to load critical data file: {file}")
 
         real_dict = getattr(data, attr)
@@ -327,7 +323,9 @@ class ResourceManager:
             if requested_key in real_dict:
                 return real_dict[requested_key]
             else:
-                logger.warning(f"DEBUG: Key '{requested_key}' not found in {file} (Attribute: {attr})")
+                logger.error(
+                    f"Key '{requested_key}' not found in {file} (Attribute: {attr})"
+                )
                 raise ResourceLoadError(
                     f"Key '{requested_key}' not found in {file} (Attribute: {attr})"
                 )

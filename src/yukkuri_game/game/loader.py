@@ -4,31 +4,31 @@ Responsible for initializing and registering game services and systems.
 """
 
 import inspect
-import pygame_gui
 from typing import TYPE_CHECKING
 
+import pygame_gui
+
+from ..engine.audio import AudioManager
 from ..engine.ecs import World
 from ..engine.event_bus import EventBus
-from ..engine.audio import AudioManager
 from ..game import (
     components,
     components_persistence,
-    yukkuri_components,
     inventory_component,
+    yukkuri_components,
 )
+from ..game.ai.navigation_service import NavigationService
+from ..game.ai.utility import UtilityAIEngine
+from ..game.camera import Camera
+from ..game.entity_factory import EntityFactory
 from ..game.services import EconomyService, GameService, InputService, TimeService
 from ..game.settings_service import SettingsService
-from ..game.systems.physics import PhysicsSystem
-from ..game.systems.flight_system import FlightSystem
-from ..game.systems.sector_system import SectorMap, SectorSystem
-from ..game.systems.lod_system import LODSystem
-from ..game.trait_service import TraitService
 from ..game.skill_service import SkillService
-from ..game.camera import Camera
+from ..game.systems.lod_system import LODSystem
+from ..game.systems.physics import PhysicsSystem
+from ..game.systems.sector_system import SectorMap, SectorSystem
+from ..game.trait_service import TraitService
 from ..game.utils.evaluator import ConditionEvaluator
-from ..game.entity_factory import EntityFactory
-from ..game.ai.utility import UtilityAIEngine
-from ..game.ai.navigation_service import NavigationService
 from ..system_registry import SystemRegistry
 
 if TYPE_CHECKING:
@@ -138,11 +138,6 @@ class GameLoader:
             NavigationService,
         )
 
-        from ..game.systems.navigation_system import NavigationSystem
-
-        nav_system = NavigationSystem()
-        self.world.add_system(nav_system)
-
     def _init_sector_system(self) -> None:
         """Initializes and registers the Sector System and Map."""
         world_width = 3000
@@ -189,11 +184,7 @@ class GameLoader:
             physics_system,
         )
 
-        # Register Flight System
-        flight_system = FlightSystem()
-        self.world.add_system(flight_system)
-
-        # Register LOD System
+        # LOD System is not part of SystemRegistry, register it here.
         lod_system = LODSystem()
         self.world.add_system(lod_system)
 
