@@ -6,9 +6,10 @@ systems via a publish-subscribe pattern. It promotes loose coupling by allowing
 producers and consumers to interact without direct references to each other.
 """
 
-from typing import Any, TypeVar
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any, TypeVar
+
 from loguru import logger
 
 
@@ -32,7 +33,8 @@ class EventBus:
     """
     A lightweight, type-safe Event Bus.
 
-    Manages subscriptions and publication of events.
+    Manages subscriptions and publication of events. Handlers execute synchronously
+    in registration order, and exceptions are caught per handler to keep the bus running.
 
     Attributes:
         _subscribers: A mapping of Event types to a list of callable handlers.
@@ -77,8 +79,8 @@ class EventBus:
         """
         Broadcasts an event to all registered subscribers.
 
-        Handlers are executed synchronously in the order they were registered.
-        Exceptions within handlers are caught and logged to prevent system crashes.
+        Handlers are executed synchronously in registration order. Exceptions are
+        caught per handler and logged so that one failure does not block others.
 
         Args:
             event: The event instance to broadcast.

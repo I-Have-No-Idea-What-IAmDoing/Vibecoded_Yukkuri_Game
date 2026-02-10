@@ -80,52 +80,54 @@ class SystemRegistry:
         input_system = InputSystem(camera)
         world.add_system(input_system)
 
+        def add_system(system, service_type=None) -> None:
+            if service_type is not None:
+                world.services.register(system, service_type)
+            world.add_system(system)
+
         # Systems are processed in the order they are added.
         # 1. Time & Physics (Simulation Core)
-        world.add_system(TimeSystem())
-        world.add_system(physics_system)
+        add_system(TimeSystem())
+        add_system(physics_system)
 
-        world.add_system(EmotionSystem(settings=game_config.rules.stat_decay))
-        world.add_system(LifecycleSystem(settings=game_config.rules.lifecycle))
+        add_system(EmotionSystem(settings=game_config.rules.stat_decay))
+        add_system(LifecycleSystem(settings=game_config.rules.lifecycle))
 
         # Navigation & AI
-        world.add_system(NavigationSystem())
-        world.add_system(NavigationUpdateSystem())
-        world.add_system(BehaviorSystem(float(camera.width), float(camera.height)))
+        add_system(NavigationSystem())
+        add_system(NavigationUpdateSystem())
+        add_system(BehaviorSystem(float(camera.width), float(camera.height)))
 
         # Movement Pipeline
-        world.add_system(SteeringSystem())
-        world.add_system(KinematicMovementSystem())
-        world.add_system(FlightSystem())  # Handles flight stamina/altitude logic
-        world.add_system(HierarchySystem())
-        world.add_system(VisualMovementSystem())
-        world.add_system(ConstructionSystem())
-        world.add_system(AnimationSystem())
-        world.add_system(VisibilitySystem())
-        world.add_system(
+        add_system(SteeringSystem())
+        add_system(KinematicMovementSystem())
+        add_system(FlightSystem())  # Handles flight stamina/altitude logic
+        add_system(HierarchySystem())
+        add_system(VisualMovementSystem())
+        add_system(ConstructionSystem())
+        add_system(AnimationSystem())
+        add_system(VisibilitySystem())
+        add_system(
             PerceptionSystem()
         )  # Proposal 4: Populates Blackboard from visibility
-        world.add_system(PoopSystem())
-        world.add_system(FeedbackSystem(world))
+        add_system(PoopSystem())
+        add_system(FeedbackSystem(world))
 
         hunger_system = HungerSystem()
-        world.services.register(hunger_system, HungerSystem)
-        world.add_system(hunger_system)
+        add_system(hunger_system, HungerSystem)
 
-        world.add_system(InteractionSystem())
+        add_system(InteractionSystem())
 
         social_system = SocialSystem(event_bus)
-        world.services.register(social_system, SocialSystem)
-        world.add_system(social_system)
+        add_system(social_system, SocialSystem)
 
-        world.add_system(GossipSystem(event_bus))
-        world.add_system(FamilySystem())
-        world.add_system(GameRulesSystem(event_bus))
-        world.add_system(InventorySystem())
+        add_system(GossipSystem(event_bus))
+        add_system(FamilySystem())
+        add_system(GameRulesSystem(event_bus))
+        add_system(InventorySystem())
 
         # Mouse Light System (disabled by default)
         mouse_light_system = MouseLightSystem(world, camera)
-        world.add_system(mouse_light_system)
-        world.services.register(mouse_light_system, MouseLightSystem)
+        add_system(mouse_light_system, MouseLightSystem)
 
         return input_system

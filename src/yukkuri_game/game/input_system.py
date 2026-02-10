@@ -2,27 +2,30 @@
 Module defining the InputSystem logic.
 """
 
-import pygame
 from typing import TYPE_CHECKING
-from ..engine.ecs import System, World
-from ..engine.event_bus import EventBus, Event
+
+import pygame
+
 from ..engine.audio import AudioManager
+from ..engine.ecs import System, World
+from ..engine.event_bus import Event, EventBus
 from ..engine.input_manager import InputManager
+from .components import Selectable, Transform
 from .events import (
-    PlacementStartedEvent,
-    EntitySelectedEvent,
-    PlacementRequestedEvent,
-    PlacementCancelledEvent,
     CleanToolRequestedEvent,
     ContextMenuRequestedEvent,
+    EntitySelectedEvent,
+    PlacementCancelledEvent,
+    PlacementRequestedEvent,
+    PlacementStartedEvent,
 )
-from .components import Transform, Selectable
-from .yukkuri_components import Poop
 from .services import InputService, TimeService
+from .yukkuri_components import Poop
 
 if TYPE_CHECKING:
-    from .camera import Camera
     import pygame_gui
+
+    from .camera import Camera
 
 
 class InputSystem(System):
@@ -69,6 +72,16 @@ class InputSystem(System):
             ui_manager (pygame_gui.UIManager): The UI manager.
         """
         self.ui_manager = ui_manager
+
+    def _play_sound(self, sound_name: str) -> None:
+        """
+        Plays a sound effect if the audio manager is available.
+
+        Args:
+            sound_name (str): The sound effect name to play.
+        """
+        if self.audio:
+            self.audio.play_sound(sound_name)
 
     def on_placement_started(self, event: Event) -> None:
         """
@@ -175,8 +188,7 @@ class InputSystem(System):
                             self.input_service.place_entity_type,
                         )
                     )
-                if self.audio:
-                    self.audio.play_sound("place")
+                self._play_sound("place")
 
                 # Check for Shift Key (Multiple Placement) using InputManager
                 is_shift_pressed = self.input_manager.is_action_pressed("shift")
@@ -189,8 +201,7 @@ class InputSystem(System):
                 self._handle_cleaning(world, wx, wy)
                 return
 
-            if self.audio:
-                self.audio.play_sound("click")
+            self._play_sound("click")
 
             self.drag_start_pos = (wx, wy)
             self.drag_end_pos = (wx, wy)
@@ -232,8 +243,7 @@ class InputSystem(System):
 
             # Cancel Placement
             if self.input_service and self.input_service.is_placing:
-                if self.audio:
-                    self.audio.play_sound("cancel")
+                self._play_sound("cancel")
                 self.input_service.cancel_placement()
                 if self.event_bus:
                     self.event_bus.publish(PlacementCancelledEvent())
@@ -241,8 +251,7 @@ class InputSystem(System):
 
             # Cancel Cleaning
             if not handled and self.input_service and self.input_service.is_cleaning:
-                if self.audio:
-                    self.audio.play_sound("cancel")
+                self._play_sound("cancel")
                 self.input_service.stop_cleaning()
                 handled = True
 
@@ -382,8 +391,7 @@ class InputSystem(System):
                 found = True
 
         if found:
-            if self.audio:
-                self.audio.play_sound("click")
+            self._play_sound("click")
 
     def _check_hover(
         self, world: World, wx: float, wy: float, mx: int, my: int

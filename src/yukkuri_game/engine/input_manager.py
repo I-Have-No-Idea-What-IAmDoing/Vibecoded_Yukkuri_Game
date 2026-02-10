@@ -200,7 +200,7 @@ class InputManager:
         self._mouse_buttons_up.clear()
         self._mouse_wheel = 0.0
 
-    def _is_consumed(
+    def _is_consumed_by_higher_priority(
         self, key_or_btn: int, current_context: InputContext, is_mouse: bool = False
     ) -> bool:
         """
@@ -218,22 +218,27 @@ class InputManager:
         Returns:
             bool: True if the input is consumed by a higher priority context, False otherwise.
         """
-        for context in self._active_contexts:
-            if context.value > current_context.value:
-                if is_mouse:
-                    if (
-                        context in self._mouse_mappings
-                        and key_or_btn in self._mouse_mappings[context].values()
-                    ):
-                        return True
-                else:
-                    if context in self._key_mappings:
-                        for keys_list in self._key_mappings[context].values():
-                            if key_or_btn in keys_list:
-                                return True
+        sorted_contexts = sorted(
+            self._active_contexts, key=lambda c: c.value, reverse=True
+        )
+        for context in sorted_contexts:
+            if context.value <= current_context.value:
+                continue
+
+            if is_mouse:
+                if (
+                    context in self._mouse_mappings
+                    and key_or_btn in self._mouse_mappings[context].values()
+                ):
+                    return True
+            else:
+                if context in self._key_mappings:
+                    for keys_list in self._key_mappings[context].values():
+                        if key_or_btn in keys_list:
+                            return True
         return False
 
-    def _check_action_in_collection(
+    def _action_triggered_in_collections(
         self, action: str, key_collection: set[int], mouse_collection: set[int]
     ) -> bool:
         """
@@ -259,14 +264,18 @@ class InputManager:
                 if keys_list:
                     for key in keys_list:
                         if key in key_collection:
-                            if not self._is_consumed(key, context, is_mouse=False):
+                            if not self._is_consumed_by_higher_priority(
+                                key, context, is_mouse=False
+                            ):
                                 return True
 
             # Check Mouse
             if context in self._mouse_mappings:
                 btn = self._mouse_mappings[context].get(action)
                 if btn and btn in mouse_collection:
-                    if not self._is_consumed(btn, context, is_mouse=True):
+                    if not self._is_consumed_by_higher_priority(
+                        btn, context, is_mouse=True
+                    ):
                         return True
 
         return False
@@ -281,7 +290,7 @@ class InputManager:
         Returns:
             bool: True if the action is currently active.
         """
-        return self._check_action_in_collection(
+        return self._action_triggered_in_collections(
             action, self._keys_pressed, self._mouse_buttons
         )
 
@@ -295,7 +304,7 @@ class InputManager:
         Returns:
             bool: True if the action was just pressed.
         """
-        return self._check_action_in_collection(
+        return self._action_triggered_in_collections(
             action, self._keys_down, self._mouse_buttons_down
         )
 
@@ -309,7 +318,7 @@ class InputManager:
         Returns:
             bool: True if the action was just released.
         """
-        return self._check_action_in_collection(
+        return self._action_triggered_in_collections(
             action, self._keys_up, self._mouse_buttons_up
         )
 

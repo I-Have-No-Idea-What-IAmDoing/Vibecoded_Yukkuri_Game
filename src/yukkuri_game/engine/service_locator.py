@@ -2,7 +2,7 @@
 Module defining the ServiceLocator pattern.
 """
 
-from typing import TypeVar, Any
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -46,7 +46,8 @@ class ServiceLocator:
         key = service_type if service_type else type(instance)
 
         if key in self._services and not replace:
-            raise ValueError(f"Service of type {key.__name__} is already registered.")
+            type_name = getattr(key, "__name__", str(key))
+            raise ValueError(f"Service of type {type_name} is already registered.")
 
         self._services[key] = instance
 
@@ -81,6 +82,18 @@ class ServiceLocator:
             T | None: The registered service instance, or None if not found.
         """
         return self._services.get(service_type)
+
+    def is_registered(self, service_type: type[Any]) -> bool:
+        """
+        Checks whether a service type is registered.
+
+        Args:
+            service_type (type[Any]): The type of the service to check.
+
+        Returns:
+            bool: True if the service is registered, False otherwise.
+        """
+        return service_type in self._services
 
     def clear(self) -> None:
         """

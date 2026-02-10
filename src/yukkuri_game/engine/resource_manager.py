@@ -29,6 +29,23 @@ from .lazy_loader import LazyLoader
 
 T = TypeVar("T")
 
+YUKKURI_TYPES_FILE = "yukkuris/types.toml"
+ITEMS_FILE = "items/items.toml"
+AI_ACTIONS_FILE = "ai/actions.toml"
+SKILLS_FILE = "skills/skills.toml"
+TRAITS_FILE = "traits/traits.toml"
+INTERACTIONS_FILE = "ai/interactions.toml"
+
+# Maps monolithic TOML attribute names to the corresponding LazyLoader field on the ResourceManager.
+ATTR_TO_LOADER = {
+    "yukkuris": "yukkuri_types",
+    "items": "item_types",
+    "actions": "ai_actions",
+    "skills": "skills",
+    "traits": "traits",
+    "interaction": "interactions",
+}
+
 
 class ResourceManager:
     """
@@ -216,55 +233,49 @@ class ResourceManager:
         """
         self.yukkuri_types = LazyLoader(
             load_function=lambda k: self._load_monolithic(
-                "yukkuris/types.toml", YukkuriData, "yukkuris", k
+                YUKKURI_TYPES_FILE, YukkuriData, "yukkuris", k
             ),
             initializer=lambda: self._load_monolithic(
-                "yukkuris/types.toml", YukkuriData, "yukkuris"
+                YUKKURI_TYPES_FILE, YukkuriData, "yukkuris"
             ),
         )
 
         self.item_types = LazyLoader(
             load_function=lambda k: self._load_monolithic(
-                "items/items.toml", ItemData, "items", k
+                ITEMS_FILE, ItemData, "items", k
             ),
-            initializer=lambda: self._load_monolithic(
-                "items/items.toml", ItemData, "items"
-            ),
+            initializer=lambda: self._load_monolithic(ITEMS_FILE, ItemData, "items"),
         )
 
         self.ai_actions = LazyLoader(
             load_function=lambda k: self._load_monolithic(
-                "ai/actions.toml", AIData, "actions", k
+                AI_ACTIONS_FILE, AIData, "actions", k
             ),
             initializer=lambda: self._load_monolithic(
-                "ai/actions.toml", AIData, "actions"
+                AI_ACTIONS_FILE, AIData, "actions"
             ),
         )
 
         self.skills = LazyLoader(
             load_function=lambda k: self._load_monolithic(
-                "skills/skills.toml", SkillData, "skills", k
+                SKILLS_FILE, SkillData, "skills", k
             ),
-            initializer=lambda: self._load_monolithic(
-                "skills/skills.toml", SkillData, "skills"
-            ),
+            initializer=lambda: self._load_monolithic(SKILLS_FILE, SkillData, "skills"),
         )
 
         self.traits = LazyLoader(
             load_function=lambda k: self._load_monolithic(
-                "traits/traits.toml", TraitData, "traits", k
+                TRAITS_FILE, TraitData, "traits", k
             ),
-            initializer=lambda: self._load_monolithic(
-                "traits/traits.toml", TraitData, "traits"
-            ),
+            initializer=lambda: self._load_monolithic(TRAITS_FILE, TraitData, "traits"),
         )
 
         self.interactions = LazyLoader(
             load_function=lambda k: self._load_monolithic(
-                "ai/interactions.toml", InteractionData, "interaction", k
+                INTERACTIONS_FILE, InteractionData, "interaction", k
             ),
             initializer=lambda: self._load_monolithic(
-                "ai/interactions.toml", InteractionData, "interaction"
+                INTERACTIONS_FILE, InteractionData, "interaction"
             ),
         )
 
@@ -295,15 +306,7 @@ class ResourceManager:
             ResourceLoadError: If the file cannot be loaded or the requested key is missing.
         """
         # Determine which LazyLoader to populate based on attr name.
-        attr_to_loader = {
-            "yukkuris": "yukkuri_types",
-            "items": "item_types",
-            "actions": "ai_actions",
-            "skills": "skills",
-            "traits": "traits",
-            "interaction": "interactions",
-        }
-        loader_name = attr_to_loader.get(attr, attr)
+        loader_name = ATTR_TO_LOADER.get(attr, attr)
         mapping = getattr(self, loader_name)
 
         logger.info(f"Lazy Loading Monolithic File: {file}")
