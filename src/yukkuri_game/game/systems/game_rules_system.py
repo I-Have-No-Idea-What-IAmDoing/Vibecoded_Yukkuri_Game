@@ -18,20 +18,21 @@ Game Balance Notes:
 """
 
 from loguru import logger
+
+from ...engine.audio import AudioManager
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ...engine.audio import AudioManager
 from ..components import Transform
-from ..yukkuri_components import YukkuriStats, Needs, EmotionalState
-from ..services import EconomyService
 from ..events import (
-    TrainEntityRequest,
-    PunishEntityRequest,
-    SellEntityRequest,
+    EntityPunishedEvent,
     EntitySoldEvent,
     EntityTrainedEvent,
-    EntityPunishedEvent,
+    PunishEntityRequest,
+    SellEntityRequest,
+    TrainEntityRequest,
 )
+from ..services import EconomyService
+from ..yukkuri_components import EmotionalState, Needs, YukkuriStats
 
 
 class GameRulesSystem(System):
@@ -55,6 +56,13 @@ class GameRulesSystem(System):
         self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
         self.event_bus.subscribe(PunishEntityRequest, self.on_punish_entity)
         self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
+
+    def initialize(self) -> None:
+        """
+        Captures world reference on registration.
+        """
+        if hasattr(self, "ecs_world"):
+            self.world = self.ecs_world
 
     def update(self, world: World, dt: float) -> None:
         """

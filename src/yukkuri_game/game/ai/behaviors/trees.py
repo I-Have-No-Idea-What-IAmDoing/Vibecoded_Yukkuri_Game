@@ -1,25 +1,26 @@
-from typing import Callable, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
+
 import py_trees
 from py_trees.behaviour import Behaviour
 
 from ...yukkuri_components import (
     AIState,
+    ItemStats,
     Needs,
     Predator,
 )
 from ..utility_selector import UtilitySelector
-
-from .actions.basic import Idle, Check, CheckEmotion
-from .actions.movement import MoveToTarget, Wander, Swoop, FleePredator, FleeFromTarget
+from .actions.basic import Check, CheckEmotion, Idle
+from .actions.interaction import EatPrey, Interact, SocialInteract
+from .actions.movement import FleeFromTarget, FleePredator, MoveToTarget, Swoop, Wander
 from .actions.searching import (
     FindItem,
     FindLightSource,
     FindPrey,
+    FindSocialTarget,
     FindThreat,
     PickFood,
-    FindSocialTarget,
 )
-from .actions.interaction import Interact, EatPrey, SocialInteract
 from .actions.survival import Sleep
 
 if TYPE_CHECKING:
@@ -457,17 +458,17 @@ build_sleep_behavior = build_need_satisfaction_behavior(
 BehaviorRegistry.register_goal(
     "Eat",
     build_eat_behavior,
-    required_component=Needs,
+    required_component=ItemStats,
 )
 BehaviorRegistry.register_goal(
     "Play",
     build_play_behavior,
-    required_component=Needs,
+    required_component=ItemStats,
 )
 BehaviorRegistry.register_goal(
     "Sleep",
     build_sleep_behavior,
-    required_component=Needs,
+    required_component=ItemStats,
 )
 
 BehaviorRegistry.register_goal("Talk", build_standard_interaction_behavior("Talk"))

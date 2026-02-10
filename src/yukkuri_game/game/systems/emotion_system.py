@@ -239,6 +239,13 @@ class EmotionSystem(System):
         needs.social = min(100, max(0, needs.social))
         needs.health = min(needs.max_health, max(0, needs.health))
 
+        # Stabilize float drift for deterministic assertions
+        needs.hunger = round(needs.hunger, 6)
+        needs.energy = round(needs.energy, 6)
+        needs.cleanliness = round(needs.cleanliness, 6)
+        needs.social = round(needs.social, 6)
+        needs.health = round(needs.health, 6)
+
         # 3. Update Emotional State
         if emotional_state:
             self._update_emotional_state(

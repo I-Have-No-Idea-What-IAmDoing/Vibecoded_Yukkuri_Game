@@ -5,24 +5,24 @@ import pymunk
 from py_trees.common import Status
 
 from yukkuri_game.engine import rng
+from yukkuri_game.engine.types import EntityID
 
-from ...base_action import Action
 from ....components import (
-    Transform,
-    PhysicsBody,
-    MovementController,
     MoveCommand,
+    MovementController,
+    PhysicsBody,
+    Transform,
 )
 from ....yukkuri_components import (
     AIState,
-    Needs,
     Flight,
     FlightState,
+    Needs,
     Predator,
 )
-from ...navigation_service import NavigationService
+from ...base_action import Action
 from ...navigation_constants import TraversalCapability
-from yukkuri_game.engine.types import EntityID
+from ...navigation_service import NavigationService
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -336,7 +336,7 @@ class MoveToTarget(Action):
 
         if dist_to_final < self.acceptance_radius:
             controller.target_velocity = pymunk.Vec2d(0, 0)
-            ai.path = []
+            ai.path = None
             return Status.SUCCESS
 
         return Status.RUNNING

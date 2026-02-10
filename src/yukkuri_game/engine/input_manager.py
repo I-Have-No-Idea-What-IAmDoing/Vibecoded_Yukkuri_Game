@@ -2,10 +2,11 @@
 Input Manager Module.
 """
 
-from typing import Any
-from loguru import logger
 from enum import IntEnum
+from typing import Any
+
 import pygame
+from loguru import logger
 
 
 class InputContext(IntEnum):
@@ -87,10 +88,6 @@ class InputManager:
             }
         }
 
-
-
-
-
     def load_key_mappings(self, config: dict[str, Any]) -> None:
         """
         Loads key mappings from a configuration dictionary.
@@ -118,9 +115,10 @@ class InputManager:
 
                 for action, keys in actions.items():
                     if not isinstance(keys, list):
-                         logger.warning(f"Invalid mapping format for {action}: {keys}")
-                         continue
-                    
+                        raise ValueError(f"Invalid mapping format for {action}: {keys}")
+                    if not all(isinstance(key, int) for key in keys):
+                        raise ValueError(f"Invalid key codes for {action}: {keys}")
+
                     self._key_mappings[context][action] = keys
 
         except Exception as e:

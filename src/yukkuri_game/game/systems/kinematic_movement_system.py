@@ -164,9 +164,7 @@ class KinematicMovementSystem(System):
             agility = stats.agility if stats else 1.0
 
             # Use Solver for movement
-            dist_moved = self.solver.move_and_slide(
-                phys, controller, trans, dt, agility
-            )
+            dist_moved = self.move_and_slide(phys, controller, trans, dt, agility)
 
             # Award athletics XP based on distance traveled.
             if dist_moved > 0.1 and self.skill_service:
@@ -175,6 +173,29 @@ class KinematicMovementSystem(System):
             # Sync Transform back
             trans.x = phys.body.position.x
             trans.y = phys.body.position.y
+
+    def move_and_slide(
+        self,
+        phys: PhysicsBody,
+        controller: MovementController,
+        trans: Transform,
+        dt: float,
+        agility: float = 1.0,
+    ) -> float:
+        """
+        Wrapper for solver movement to allow mocking in tests.
+        """
+        if self.space and self.solver.space != self.space:
+            self.solver.set_space(self.space)
+        return self.solver.move_and_slide(phys, controller, trans, dt, agility)
+
+    def resolve_penetration(self, phys: PhysicsBody, pos: pymunk.Vec2d) -> pymunk.Vec2d:
+        """
+        Wrapper for solver penetration resolution to allow tests to access it.
+        """
+        if self.space and self.solver.space != self.space:
+            self.solver.set_space(self.space)
+        return self.solver.resolve_penetration(phys, pos)
 
     def _update_flight_collision_filter(
         self, phys: PhysicsBody, flight: Flight

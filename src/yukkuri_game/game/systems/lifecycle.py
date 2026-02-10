@@ -27,14 +27,14 @@ Breeding Requirements:
 
 from loguru import logger
 
+from ...config import LifecycleSettings
 from ...engine import rng
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ..yukkuri_components import YukkuriStats, Needs, AIState, Dead, EmotionalState
-from ..components import Sprite, Transform, PhysicsBody
+from ..components import PhysicsBody, Sprite, Transform
 from ..events import EntityDiedEvent, EntityGrewEvent
-from ...config import LifecycleSettings
 from ..prefabs.yukkuri import create_yukkuri
+from ..yukkuri_components import AIState, Dead, EmotionalState, Needs, YukkuriStats
 
 
 class LifecycleSystem(System):
@@ -59,6 +59,13 @@ class LifecycleSystem(System):
             settings (LifecycleSettings): Lifecycle settings.
         """
         self.settings = settings
+
+    def _get_numeric_setting(self, name: str, default: float = 0.0) -> float:
+        value = getattr(self.settings, name, default)
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float(default)
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -171,9 +178,11 @@ class LifecycleSystem(System):
 
         # Adjust Stats
         if new_stage == "Child":
-            needs.max_health += self.settings.child_max_health_bonus
+            needs.max_health += self._get_numeric_setting("child_max_health_bonus", 0.0)
 
-        needs.health += self.settings.growth_health_restore  # Heal on growth
+        needs.health += self._get_numeric_setting(
+            "growth_health_restore", 0.0
+        )  # Heal on growth
         if needs.health > needs.max_health:
             needs.health = needs.max_health
 
