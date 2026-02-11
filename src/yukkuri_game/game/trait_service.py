@@ -2,11 +2,14 @@
 Module for managing personality traits and social interaction definitions.
 """
 
+from collections.abc import MutableMapping
 from typing import Any
+
 from loguru import logger
+
+from ..engine.data_models import InteractionDefinition, TraitDefinition
 from ..engine.ecs import World
 from ..engine.resource_manager import ResourceManager
-from ..engine.data_models import TraitDefinition, InteractionDefinition
 
 
 class TraitService:
@@ -14,9 +17,9 @@ class TraitService:
     Service responsible for loading and providing access to Personality Traits and Interaction definitions.
 
     Attributes:
-        world (Optional[World]): The ECS world instance.
-        traits (Dict[str, TraitDefinition]): Loaded trait data.
-        interactions (Dict[str, InteractionDefinition]): Loaded interaction data.
+        world (World | None): The ECS world instance.
+        traits (MutableMapping[str, TraitDefinition]): Loaded trait data.
+        interactions (MutableMapping[str, InteractionDefinition]): Loaded interaction data.
     """
 
     def __init__(self, world: World | None = None):
@@ -24,20 +27,17 @@ class TraitService:
         Initializes the TraitService.
 
         Args:
-            world (Optional[World]): The ECS World instance.
+            world (World | None): The ECS World instance.
         """
         self.world = world
-        self.traits: dict[str, TraitDefinition] = {}
-        self.interactions: dict[str, InteractionDefinition] = {}
+        self.traits: MutableMapping[str, TraitDefinition] = {}
+        self.interactions: MutableMapping[str, InteractionDefinition] = {}
 
         self.load_data()
 
     def load_data(self) -> None:
         """
         Loads trait and interaction data from ResourceManager.
-
-        Returns:
-            None
         """
         if not self.world:
             logger.warning("TraitService initialized without World, cannot load data.")
@@ -62,7 +62,7 @@ class TraitService:
             trait_id (str): The ID of the trait to retrieve.
 
         Returns:
-            Optional[TraitDefinition]: The trait definition, or None if not found.
+            TraitDefinition | None: The trait definition, or None if not found.
         """
         return self.traits.get(trait_id)
 
@@ -74,7 +74,7 @@ class TraitService:
             interaction_id (str): The ID of the interaction to retrieve.
 
         Returns:
-            Optional[InteractionDefinition]: The interaction definition, or None if not found.
+            InteractionDefinition | None: The interaction definition, or None if not found.
         """
         return self.interactions.get(interaction_id)
 
@@ -83,7 +83,7 @@ class TraitService:
         Returns a list of all available trait IDs.
 
         Returns:
-            List[str]: A list of trait IDs.
+            list[str]: A list of trait IDs.
         """
         return list(self.traits.keys())
 
@@ -96,7 +96,7 @@ class TraitService:
             traits (set[str]): A set of trait IDs to calculate overrides for.
 
         Returns:
-            Dict[str, Any]: A dictionary of AI consideration overrides.
+            dict[str, Any]: A dictionary of AI consideration overrides.
         """
         overrides = {}
         for trait_id in sorted(traits):

@@ -24,16 +24,18 @@ Event Integration:
 - Subscribes to WorldClearedEvent for full reset
 """
 
-import pymunk
 import math
+
+import pymunk
+
 from ...engine.ecs import System, World
-from ...engine.event_bus import EventBus, Event
+from ...engine.event_bus import Event, EventBus
 from ...engine.events import (
     EntityDestroyedEvent,
     PhysicsFixedUpdateEvent,
     WorldClearedEvent,
 )
-from ..components import Transform, PhysicsBody
+from ..components import PhysicsBody, Transform
 
 
 class PhysicsSystem(System):
@@ -42,6 +44,13 @@ class PhysicsSystem(System):
 
     Pymunk is source of truth for entity positions. After each step,
     body positions are copied to Transform for rendering and game logic.
+
+    Attributes:
+        space (pymunk.Space): The Pymunk physics space.
+        accumulator (float): Time accumulator for fixed timestep.
+        time_step (float): The fixed timestep duration (default 1/60s).
+        max_frame_time (float): Maximum frame time to simulate per update.
+        event_bus (EventBus | None): Reference to the event bus.
     """
 
     # Default physics timestep (60 FPS equivalent)

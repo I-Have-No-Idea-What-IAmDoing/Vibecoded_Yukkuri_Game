@@ -18,8 +18,8 @@ class AudioManager:
         enabled (bool): Whether audio is enabled (initialized successfully).
         sounds (OrderedDict[str, pygame.mixer.Sound]): A cache of loaded sound objects.
         sound_cache_limit (int): Maximum number of sound effects in memory.
-        preloaded_sounds (Set[str]): Sounds that should never be evicted from the cache.
-        music (Optional[Any]): The current background music (not currently used).
+        preloaded_sounds (set[str]): Sounds that should never be evicted from the cache.
+        music (Any | None): The current background music (not currently used).
         master_volume (float): The global volume level (0.0 to 1.0).
         bgm_volume (float): The background music volume level (0.0 to 1.0).
         sfx_volume (float): The sound effects volume level (0.0 to 1.0).

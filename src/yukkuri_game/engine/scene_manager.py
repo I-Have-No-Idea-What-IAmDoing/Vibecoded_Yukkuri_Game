@@ -2,6 +2,8 @@
 Scene Manager Module.
 """
 
+from __future__ import annotations
+
 import gc
 from typing import TYPE_CHECKING, Any
 
@@ -19,6 +21,10 @@ if TYPE_CHECKING:
 class SceneManager:
     """
     Manages a stack of Scene objects and handles global persistence state.
+
+    Attributes:
+        _scenes (list[Scene]): The stack of active scenes.
+        persistent_data (dict[str, Any]): Global persistent data storage.
     """
 
     def __init__(self) -> None:
@@ -36,7 +42,7 @@ class SceneManager:
         """
         return self._scenes[-1] if self._scenes else None
 
-    def push(self, scene: "Scene") -> None:
+    def push(self, scene: Scene) -> None:
         """
         Push a new scene onto the stack.
 
@@ -69,7 +75,7 @@ class SceneManager:
             scene.destroy()
             gc.collect()  # Break cyclic references (Events -> Handlers -> Scene).
 
-    def replace(self, scene: "Scene") -> None:
+    def replace(self, scene: Scene) -> None:
         """
         Replace the current scene with a new one.
 

@@ -2,30 +2,36 @@
 Service for managing Skill mechanics: XP gain, Leveling, and Decay.
 """
 
+from collections.abc import MutableMapping
 from typing import Any
 
 from loguru import logger
 
+from ..config import SkillsSettings
 from ..engine.ecs import World
+from ..engine.event_bus import EventBus
+from ..engine.resource_manager import ResourceManager
+from .events import LevelUpEvent
+from .services import TimeService
+from .skill_constants import PassionLevel
+from .trait_service import TraitService
 from .yukkuri_components import (
+    EmotionalState,
+    Personality,
     Skills,
     SkillState,
-    Personality,
     YukkuriStats,
-    EmotionalState,
 )
-from .skill_constants import PassionLevel
-from .services import TimeService
-from .trait_service import TraitService
-from ..engine.event_bus import EventBus
-from .events import LevelUpEvent
-from ..engine.resource_manager import ResourceManager
-from ..config import SkillsSettings
 
 
 class SkillService:
     """
     Manages skills for entities.
+
+    Attributes:
+        world (World): The ECS world instance.
+        settings (SkillsSettings): Configuration settings.
+        skill_definitions (MutableMapping[str, Any]): Loaded skill definitions.
     """
 
     def __init__(self, world: World, settings: SkillsSettings | None = None):
@@ -38,7 +44,7 @@ class SkillService:
         """
         self.world = world
         self.settings = settings if settings else SkillsSettings()
-        self.skill_definitions: dict[str, Any] = {}
+        self.skill_definitions: MutableMapping[str, Any] = {}
         self.load_skill_definitions()
 
     def load_skill_definitions(self) -> None:

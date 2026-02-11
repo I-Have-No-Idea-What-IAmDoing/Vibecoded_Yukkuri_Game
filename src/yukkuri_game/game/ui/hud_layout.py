@@ -2,21 +2,24 @@
 Module defining the HUD layout and UI element creation.
 """
 
+from collections.abc import MutableMapping
+from typing import Any, cast
+
 import pygame
 import pygame_gui
-from typing import Any, cast
-from ...engine.data_models import UserSettings
-from pygame_gui.elements import (
-    UIPanel,
-    UILabel,
-    UIButton,
-    UIWindow,
-    UITextBox,
-    UIHorizontalSlider,
-    UIDropDownMenu,
-    UIScrollingContainer,
-)
 from pygame_gui.core import ObjectID
+from pygame_gui.elements import (
+    UIButton,
+    UIDropDownMenu,
+    UIHorizontalSlider,
+    UILabel,
+    UIPanel,
+    UIScrollingContainer,
+    UITextBox,
+    UIWindow,
+)
+
+from ...engine.data_models import UserSettings
 from .custom_elements import NonBlockingTextBox
 from .entity_info_panel import EntityInfoPanel
 
@@ -31,8 +34,8 @@ class HudLayout:
         ui_manager: pygame_gui.UIManager,
         width: int,
         height: int,
-        yukkuri_types: dict[str, Any] | None = None,
-        item_types: dict[str, Any] | None = None,
+        yukkuri_types: MutableMapping[str, Any] | None = None,
+        item_types: MutableMapping[str, Any] | None = None,
     ):
         """
         Initializes the HudLayout.
@@ -41,16 +44,18 @@ class HudLayout:
             ui_manager (pygame_gui.UIManager): The pygame_gui UIManager.
             width (int): The width of the screen.
             height (int): The height of the screen.
-            yukkuri_types (dict): Dictionary of available Yukkuri types.
-            item_types (dict): Dictionary of available Item types.
+            yukkuri_types (MutableMapping[str, Any]): Dictionary of available Yukkuri types.
+            item_types (MutableMapping[str, Any]): Dictionary of available Item types.
         """
         self.manager: pygame_gui.UIManager = ui_manager
         self.width: int = width
         self.height: int = height
-        self.yukkuri_types: dict[str, Any] = (
+        self.yukkuri_types: MutableMapping[str, Any] = (
             yukkuri_types if yukkuri_types is not None else {}
         )
-        self.item_types: dict[str, Any] = item_types if item_types is not None else {}
+        self.item_types: MutableMapping[str, Any] = (
+            item_types if item_types is not None else {}
+        )
 
         # Elements
         self.top_panel: UIPanel | None = None
@@ -148,9 +153,6 @@ class HudLayout:
     def _create_top_bar(self) -> None:
         """
         Creates the top UI panel and its children.
-
-        Returns:
-            None
         """
         self.top_panel = UIPanel(
             relative_rect=pygame.Rect(0, 0, self.width, 50), manager=self.manager
@@ -218,9 +220,6 @@ class HudLayout:
     def _create_bottom_bar(self) -> None:
         """
         Creates the bottom UI panel and its children.
-
-        Returns:
-            None
         """
         self.bottom_panel = UIPanel(
             relative_rect=pygame.Rect(0, self.height - 100, self.width, 100),
@@ -349,9 +348,6 @@ class HudLayout:
     def close_selection_window(self) -> None:
         """
         Closes and cleans up the selection window.
-
-        Returns:
-            None
         """
         if self.entity_info_panel:
             self.entity_info_panel.close()
@@ -363,9 +359,6 @@ class HudLayout:
     def create_debug_window(self) -> None:
         """
         Creates the debug window.
-
-        Returns:
-            None
         """
         if self.debug_window:
             self.debug_window.kill()
@@ -393,9 +386,6 @@ class HudLayout:
     def close_debug_window(self) -> None:
         """
         Closes the debug window.
-
-        Returns:
-            None
         """
         if self.debug_window:
             self.debug_window.kill()
@@ -409,7 +399,7 @@ class HudLayout:
         Creates the settings window.
 
         Args:
-            current_settings (Union[Dict[str, Any], UserSettings]): Current settings values.
+            current_settings (dict[str, Any] | UserSettings): Current settings values.
         """
         # Close existing window if any
         if self.settings_window:
@@ -459,8 +449,10 @@ class HudLayout:
             value_range=(0, 100),
             manager=self.manager,
             container=self.settings_window,
-            tool_tip_text="Adjust Master Volume",
         )
+        self.settings_controls["master_slider"].set_tooltip_text(
+            "Adjust Master Volume"
+        )  # type: ignore
 
         # BGM Volume
         UILabel(
@@ -475,8 +467,10 @@ class HudLayout:
             value_range=(0, 100),
             manager=self.manager,
             container=self.settings_window,
-            tool_tip_text="Adjust Background Music Volume",
         )
+        self.settings_controls["bgm_slider"].set_tooltip_text(
+            "Adjust Background Music Volume"
+        )  # type: ignore
 
         # SFX Volume
         UILabel(
@@ -491,8 +485,10 @@ class HudLayout:
             value_range=(0, 100),
             manager=self.manager,
             container=self.settings_window,
-            tool_tip_text="Adjust Sound Effects Volume",
         )
+        self.settings_controls["sfx_slider"].set_tooltip_text(
+            "Adjust Sound Effects Volume"
+        )  # type: ignore
 
         # Window Settings
 
@@ -513,8 +509,10 @@ class HudLayout:
             relative_rect=pygame.Rect(130, 140, 200, 30),
             manager=self.manager,
             container=self.settings_window,
-            tool_tip_text="Change Window Resolution",
         )
+        self.settings_controls["resolution_dropdown"].set_tooltip_text(
+            "Change Window Resolution"
+        )  # type: ignore
 
         self.settings_controls["fullscreen_btn"] = UIButton(
             relative_rect=pygame.Rect(130, 180, 200, 30),
@@ -554,9 +552,6 @@ class HudLayout:
     def create_hover_tooltip(self) -> None:
         """
         Creates the hover tooltip label if it doesn't exist.
-
-        Returns:
-            None
         """
         if self.hover_tooltip_label is None:
             self.hover_tooltip_label = NonBlockingTextBox(
@@ -574,9 +569,6 @@ class HudLayout:
         Args:
             text (str): Text to display.
             pos (tuple[int, int]): Screen position (x, y).
-
-        Returns:
-            None
         """
         if not self.hover_tooltip_label:
             self.create_hover_tooltip()

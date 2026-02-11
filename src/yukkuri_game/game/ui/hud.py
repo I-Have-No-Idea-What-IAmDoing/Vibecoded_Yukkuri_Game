@@ -2,35 +2,36 @@
 Module defining the HUD logic.
 """
 
+from typing import TYPE_CHECKING
+
 import pygame
 import pygame_gui
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..ai.navigation_service import NavigationService
     from ..camera import Camera
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
+from ...engine.events import InventoryChangedEvent
+from ...engine.resource_manager import ResourceManager
 from ..events import (
+    ContextMenuRequestedEvent,
     EntitySelectedEvent,
     GamePausedEvent,
-    LogMessageEvent,
-    ContextMenuRequestedEvent,
-    InventoryViewRequestedEvent,
     InventoryItemActionEvent,
+    InventoryViewRequestedEvent,
+    LogMessageEvent,
 )
-from ...engine.events import InventoryChangedEvent
+from ..systems.ai_debug_renderer import AIDebugRenderer
+from ..systems.navigation_debug_renderer import NavigationDebugRenderer
 from ..yukkuri_components import YukkuriStats
-from ...engine.resource_manager import ResourceManager
+from .context_menu import ContextMenu
+from .hud_events import HudEvents
 
 # Import new components
 from .hud_layout import HudLayout
-from .hud_events import HudEvents
 from .hud_renderer import HudRenderer
-from .context_menu import ContextMenu
 from .inventory_panel import InventoryPanel
-from ..systems.navigation_debug_renderer import NavigationDebugRenderer
-from ..systems.ai_debug_renderer import AIDebugRenderer
 
 
 class HUD:
@@ -40,6 +41,24 @@ class HUD:
     Manages the UI layout, event handling, and rendering of game status and entity information.
     This class acts as a facade, delegating responsibilities to specialized sub-components:
     HudLayout, HudEvents, and HudRenderer.
+
+    Attributes:
+        manager (pygame_gui.UIManager): The UI manager.
+        world (World): The ECS world.
+        event_bus (EventBus): The event bus.
+        width (int): Screen width.
+        height (int): Screen height.
+        layout (HudLayout): The layout manager.
+        events (HudEvents): The event handler.
+        renderer (HudRenderer): The renderer.
+        context_menu (ContextMenu): The context menu.
+        inventory_panel (InventoryPanel): The inventory panel.
+        selected_entities (list[int]): List of selected entity IDs.
+        show_debug (bool): Whether debug info is shown.
+        fps (float): Current FPS.
+        lighting_debug (bool): Whether lighting debug is enabled.
+        navigation_debug_renderer (NavigationDebugRenderer | None): Debug renderer for navigation.
+        ai_debug_renderer (AIDebugRenderer | None): Debug renderer for AI.
     """
 
     def __init__(self, ui_manager: pygame_gui.UIManager, world: World):

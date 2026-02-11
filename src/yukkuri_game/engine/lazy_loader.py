@@ -7,6 +7,7 @@ particularly useful for managing large sets of game resources or data that may n
 all be needed immediately upon startup.
 """
 
+import threading
 from collections.abc import Iterator, MutableMapping
 from typing import Any, Callable, TypeVar
 
@@ -15,7 +16,7 @@ from loguru import logger
 T = TypeVar("T")
 
 
-class LazyLoader(MutableMapping[str, Any]):
+class LazyLoader(MutableMapping[str, T]):
     """
     A dictionary-like object that defers loading of values until they are accessed.
 
@@ -23,8 +24,8 @@ class LazyLoader(MutableMapping[str, Any]):
     only when the game actually needs them.
 
     Attributes:
-        _load_func (Callable[[str], Any]): Function to load a value given a key.
-        _cache (dict[str, Any]): Internal cache of loaded values.
+        _load_func (Callable[[str], T | None]): Function to load a value given a key.
+        _cache (dict[str, T]): Internal cache of loaded values.
         _known_keys (set[str]): Set of keys known to exist (but potentially not loaded).
         _initializer (Callable[[], None] | None): Optional function to initialize the loader (e.g. monolithic load).
         _initialized (bool): Whether the initializer has been run.
@@ -33,7 +34,7 @@ class LazyLoader(MutableMapping[str, Any]):
 
     def __init__(
         self,
-        load_function: Callable[[str], Any],
+        load_function: Callable[[str], T | None],
         keys: Iterator[str] | None = None,
         initializer: Callable[[], None] | None = None,
     ) -> None:
@@ -41,14 +42,12 @@ class LazyLoader(MutableMapping[str, Any]):
         Initializes the LazyLoader.
 
         Args:
-            load_function (Callable[[str], Any]): A function that takes a key and returns the value.
+            load_function (Callable[[str], T | None]): A function that takes a key and returns the value.
             keys (Iterator[str] | None): Optional initial set of keys that exist (but aren't loaded).
             initializer (Callable[[], None] | None): Optional function to call before iteration or counting.
         """
-        import threading
-
         self._load_func = load_function
-        self._cache: dict[str, Any] = {}
+        self._cache: dict[str, T] = {}
         # We can maintain a set of 'known' keys if we scan directories,
         # otherwise we just attempt load on miss.
         self._known_keys: set[str] = set(keys) if keys else set()
@@ -66,7 +65,7 @@ class LazyLoader(MutableMapping[str, Any]):
                 self._initializer()
                 self._initialized = True
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> T:
         """
         Retrieves the value for the given key, loading it if necessary.
 
@@ -74,7 +73,7 @@ class LazyLoader(MutableMapping[str, Any]):
             key (str): The key to look up.
 
         Returns:
-            Any: The loaded value.
+            T: The loaded value.
 
         Raises:
             KeyError: If the key cannot be found or loaded.
@@ -106,13 +105,13 @@ class LazyLoader(MutableMapping[str, Any]):
 
         raise KeyError(key)
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: T) -> None:
         """
         Sets the value for the given key.
 
         Args:
             key (str): The key to set.
-            value (Any): The value to store.
+            value (T): The value to store.
         """
         with self._lock:
             self._cache[key] = value

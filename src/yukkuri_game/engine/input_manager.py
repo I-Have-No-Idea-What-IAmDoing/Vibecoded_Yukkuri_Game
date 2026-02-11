@@ -24,17 +24,17 @@ class InputManager:
     Manages input state and contexts with priority-based consumption.
 
     Attributes:
-        _active_contexts (Set[InputContext]): The set of currently active input contexts.
-        _keys_pressed (Set[int]): Set of keys currently held down.
-        _keys_down (Set[int]): Set of keys pressed in the current frame.
-        _keys_up (Set[int]): Set of keys released in the current frame.
-        _mouse_buttons (Set[int]): Set of mouse buttons currently held down.
-        _mouse_buttons_down (Set[int]): Set of mouse buttons pressed in the current frame.
-        _mouse_buttons_up (Set[int]): Set of mouse buttons released in the current frame.
-        _mouse_pos (Tuple[int, int]): The current mouse position (x, y).
+        _active_contexts (set[InputContext]): The set of currently active input contexts.
+        _keys_pressed (set[int]): Set of keys currently held down.
+        _keys_down (set[int]): Set of keys pressed in the current frame.
+        _keys_up (set[int]): Set of keys released in the current frame.
+        _mouse_buttons (set[int]): Set of mouse buttons currently held down.
+        _mouse_buttons_down (set[int]): Set of mouse buttons pressed in the current frame.
+        _mouse_buttons_up (set[int]): Set of mouse buttons released in the current frame.
+        _mouse_pos (tuple[int, int]): The current mouse position (x, y).
         _mouse_wheel (float): The mouse wheel delta.
-        _key_mappings (Dict[InputContext, Dict[str, int]]): Mapping of contexts to key actions.
-        _mouse_mappings (Dict[InputContext, Dict[str, int]]): Mapping of contexts to mouse actions.
+        _key_mappings (dict[InputContext, dict[str, list[int]]]): Mapping of contexts to key actions.
+        _mouse_mappings (dict[InputContext, dict[str, int]]): Mapping of contexts to mouse actions.
     """
 
     def __init__(self) -> None:
@@ -246,8 +246,8 @@ class InputManager:
 
         Args:
             action (str): The name of the action to check.
-            key_collection (Set[int]): The set of keys to check (e.g., pressed, down).
-            mouse_collection (Set[int]): The set of mouse buttons to check.
+            key_collection (set[int]): The set of keys to check (e.g., pressed, down).
+            mouse_collection (set[int]): The set of mouse buttons to check.
 
         Returns:
             bool: True if the action is triggered, False otherwise.
@@ -327,7 +327,7 @@ class InputManager:
         Returns the current mouse position.
 
         Returns:
-            Tuple[int, int]: The (x, y) coordinates of the mouse.
+            tuple[int, int]: The (x, y) coordinates of the mouse.
         """
         return self._mouse_pos
 

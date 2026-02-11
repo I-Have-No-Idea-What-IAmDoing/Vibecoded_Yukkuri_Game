@@ -9,10 +9,7 @@ It integrates with the `ServiceLocator` and `EventBus` for system-wide communica
 import contextlib
 import uuid
 from collections.abc import Iterator
-from typing import (
-    Any,
-    TypeVar,
-)
+from typing import Any, TypeVar
 
 import esper
 
@@ -29,13 +26,11 @@ T = TypeVar("T")
 
 class Component:
     """
-    Base class for all components.
+    Base class for all ECS components.
 
     While `esper` allows any object to be a component, inheriting from this class
     ensures explicit typing and provides a hook for potential future extensions.
     """
-
-    pass
 
 
 class World:
@@ -52,9 +47,9 @@ class World:
 
     def __init__(self) -> None:
         """Initializes a new ECS World with a unique ID and service locator."""
-        self.name = str(uuid.uuid4())
-        self.services = ServiceLocator()
-        self._next_stable_id = 1
+        self.name: str = str(uuid.uuid4())
+        self.services: ServiceLocator = ServiceLocator()
+        self._next_stable_id: int = 1
         self._active_entities: set[int] = set()
 
         # Register this world with esper's global context system.
@@ -242,7 +237,6 @@ class World:
         self._switch()
         try:
             return esper.component_for_entity(entity, component_type)
-
         except KeyError:
             return None
 
@@ -441,7 +435,6 @@ class System(esper.Processor):
 
         Override this to perform setup tasks like subscribing to events.
         """
-        pass
 
     def update(self, world: World, dt: float) -> None:
         """

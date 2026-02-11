@@ -172,6 +172,7 @@ class YukkuriStats(Component):
         quality_score (float): Calculated value/quality metric.
         discipline (float): Training level (0-100).
         intelligence (float): Intelligence multiplier.
+        agility (float): Agility multiplier.
     """
 
     name: str
@@ -185,12 +186,12 @@ class YukkuriStats(Component):
     agility: float = 1.0
 
     @property
-    def archetype(self) -> "YukkuriArchetype | None":
+    def archetype(self) -> YukkuriArchetype | None:
         """
         Retrieves the shared archetype data from the global cache.
 
         Returns:
-            Optional[YukkuriArchetype]: The cached archetype, or None if not registered.
+            YukkuriArchetype | None: The cached archetype, or None if not registered.
         """
         return _ARCHETYPE_CACHE.get(self.type_id)
 
@@ -215,9 +216,9 @@ class YukkuriStats(Component):
         Value is derived from badges, emotional state, health, and age.
 
         Args:
-            needs: Optional Needs component to factor in health penalty.
-            emotional_state: Optional EmotionalState to factor in happiness.
-            stats_config: Optional configuration settings for value weights.
+            needs (Needs | None): Optional Needs component to factor in health penalty.
+            emotional_state (EmotionalState | None): Optional EmotionalState to factor in happiness.
+            stats_config (StatsSettings | None): Optional configuration settings for value weights.
 
         Returns:
             int: The calculated value.
