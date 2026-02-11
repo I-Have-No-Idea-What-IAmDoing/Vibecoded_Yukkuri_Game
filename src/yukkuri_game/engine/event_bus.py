@@ -22,8 +22,6 @@ class Event:
     Subclasses must be decorated with `@dataclass(frozen=True)`.
     """
 
-    pass
-
 
 E = TypeVar("E", bound=Event)
 EventHandler = Callable[[E], None]
@@ -49,15 +47,15 @@ class EventBus:
         Registers a callback function for a specific event type.
 
         Args:
-            event_type: The class of the event to listen for.
-            handler: The function to execute when the event is published.
-                     Must accept a single argument of type `event_type`.
+            event_type (type[E]): The class of the event to listen for.
+            handler (EventHandler[E]): The function to execute when the event is published.
+                                       Must accept a single argument of type `event_type`.
         """
         if event_type not in self._subscribers:
             self._subscribers[event_type] = []
 
         # Type-casting needed as Dict is invariant, but runtime behavior is safe.
-        self._subscribers[event_type].append(handler)
+        self._subscribers[event_type].append(handler)  # type: ignore
 
     def unsubscribe(self, event_type: type[E], handler: EventHandler[E]) -> None:
         """
@@ -66,12 +64,12 @@ class EventBus:
         Safe to call even if the handler was never registered.
 
         Args:
-            event_type: The class of the event.
-            handler: The function to remove.
+            event_type (type[E]): The class of the event.
+            handler (EventHandler[E]): The function to remove.
         """
         if event_type in self._subscribers:
             try:
-                self._subscribers[event_type].remove(handler)
+                self._subscribers[event_type].remove(handler)  # type: ignore
             except ValueError:
                 pass
 
@@ -83,7 +81,7 @@ class EventBus:
         caught per handler and logged so that one failure does not block others.
 
         Args:
-            event: The event instance to broadcast.
+            event (Event): The event instance to broadcast.
         """
         event_type = type(event)
         if event_type in self._subscribers:

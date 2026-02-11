@@ -29,6 +29,8 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 
 if TYPE_CHECKING:
+    from ...engine.data_models import AIAction
+    from ...engine.resource_manager import ResourceManager
     from ..trait_service import TraitService
     from ..yukkuri_components import Personality
 
@@ -43,6 +45,7 @@ class Consideration:
         input_key (str): Context key to read (e.g., "hunger", "is_night").
         curve_type (str): Response curve type ("linear", "logit", "threshold").
         params (dict[str, float]): Curve parameters (varies by curve type).
+        _warned_keys (set[str]): Internal cache of missing keys to prevent log spam.
     """
 
     name: str
@@ -232,7 +235,7 @@ class UtilityAIEngine:
         actions (dict[str, Action]): A dictionary of available actions.
     """
 
-    def __init__(self, resource_manager: Any) -> None:
+    def __init__(self, resource_manager: "ResourceManager") -> None:
         """
         Initializes the UtilityAIEngine.
 
@@ -249,13 +252,13 @@ class UtilityAIEngine:
         for act_name, act_data in data.items():
             self.actions[act_name] = self._parse_action(act_name, act_data)
 
-    def _parse_action(self, name: str, data: Any) -> Action:
+    def _parse_action(self, name: str, data: "Any | AIAction") -> Action:
         """
         Parses action data (either from dict or msgspec struct) into an Action object.
 
         Args:
             name (str): The name of the action.
-            data (Any): The action data (dict or msgspec struct).
+            data (Any | AIAction): The action data (dict or msgspec struct).
 
         Returns:
             Action: The parsed Action object.
@@ -263,7 +266,7 @@ class UtilityAIEngine:
         considerations = []
 
         if isinstance(data, dict):
-            cons_list = data.get("considerations", [])
+            cons_list = data.get("considerations", [])  # type: ignore
             for cons_data in cons_list:
                 considerations.append(
                     Consideration(
@@ -274,9 +277,10 @@ class UtilityAIEngine:
                     )
                 )
 
-            weight = data.get("weight", 1.0)
-            effects = data.get("effects", {})
+            weight = data.get("weight", 1.0)  # type: ignore
+            effects = data.get("effects", {})  # type: ignore
         else:
+            # Assuming data is AIAction
             for cons_obj in data.considerations:
                 considerations.append(
                     Consideration(

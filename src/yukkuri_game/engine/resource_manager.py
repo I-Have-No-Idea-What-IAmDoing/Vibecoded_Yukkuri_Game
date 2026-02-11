@@ -16,13 +16,19 @@ from loguru import logger
 
 from .atlas import TextureAtlas
 from .data_models import (
+    AIAction,
     AIData,
     GameTuning,
     InteractionData,
+    InteractionDefinition,
     ItemData,
+    ItemType,
     SkillData,
+    SkillDefinition,
     TraitData,
+    TraitDefinition,
     YukkuriData,
+    YukkuriType,
 )
 from .exceptions import ResourceLoadError
 from .lazy_loader import LazyLoader
@@ -65,13 +71,13 @@ class ResourceManager:
         atlas (TextureAtlas): Dynamic texture atlas for efficient sprite management.
         sounds (dict[str, pygame.mixer.Sound]): Cache of loaded sound effects.
         configs (dict[str, Any]): General configuration storage.
-        yukkuri_types (LazyLoader): Lazy-loaded registry of Yukkuri definitions.
-        item_types (LazyLoader): Lazy-loaded registry of item definitions.
-        ai_actions (LazyLoader): Lazy-loaded registry of AI actions.
+        yukkuri_types (LazyLoader[YukkuriType]): Lazy-loaded registry of Yukkuri definitions.
+        item_types (LazyLoader[ItemType]): Lazy-loaded registry of item definitions.
+        ai_actions (LazyLoader[AIAction]): Lazy-loaded registry of AI actions.
         tuning (GameTuning | None): Global game tuning parameters (loaded eagerly).
-        skills (LazyLoader): Lazy-loaded registry of skills.
-        traits (LazyLoader): Lazy-loaded registry of traits.
-        interactions (LazyLoader): Lazy-loaded registry of interaction definitions.
+        skills (LazyLoader[SkillDefinition]): Lazy-loaded registry of skills.
+        traits (LazyLoader[TraitDefinition]): Lazy-loaded registry of traits.
+        interactions (LazyLoader[InteractionDefinition]): Lazy-loaded registry of interaction definitions.
     """
 
     def __init__(
@@ -96,16 +102,18 @@ class ResourceManager:
         self.sounds: dict[str, pygame.mixer.Sound] = {}
         self.configs: dict[str, Any] = {}
 
-        # Optimized data structures using LazyLoader to defer parsing cost.
-        self.yukkuri_types: Any = {}
-        self.item_types: Any = {}
-        self.ai_actions: Any = {}
-        self.tuning: GameTuning | None = None
-        self.skills: Any = {}
-        self.traits: Any = {}
-        self.interactions: Any = {}
+        # Placeholders - initialized in load_all_data
+        self.yukkuri_types: LazyLoader[YukkuriType]
+        self.item_types: LazyLoader[ItemType]
+        self.ai_actions: LazyLoader[AIAction]
+        self.skills: LazyLoader[SkillDefinition]
+        self.traits: LazyLoader[TraitDefinition]
+        self.interactions: LazyLoader[InteractionDefinition]
 
+        self.tuning: GameTuning | None = None
         self.image_cache_limit = image_cache_limit
+
+        self.load_all_data()
 
     def load_toml_model(self, filepath: str, model: type[T]) -> T | None:
         """
@@ -231,54 +239,7 @@ class ResourceManager:
         This setup ensures that monolithic TOML files are not parsed until a specific
         resource from them is requested, significantly improving initial startup time.
         """
-        self.yukkuri_types = LazyLoader(
-            load_function=lambda k: self._load_monolithic(
-                YUKKURI_TYPES_FILE, YukkuriData, "yukkuris", k
-            ),
-            initializer=lambda: self._load_monolithic(
-                YUKKURI_TYPES_FILE, YukkuriData, "yukkuris"
-            ),
-        )
-
-        self.item_types = LazyLoader(
-            load_function=lambda k: self._load_monolithic(
-                ITEMS_FILE, ItemData, "items", k
-            ),
-            initializer=lambda: self._load_monolithic(ITEMS_FILE, ItemData, "items"),
-        )
-
-        self.ai_actions = LazyLoader(
-            load_function=lambda k: self._load_monolithic(
-                AI_ACTIONS_FILE, AIData, "actions", k
-            ),
-            initializer=lambda: self._load_monolithic(
-                AI_ACTIONS_FILE, AIData, "actions"
-            ),
-        )
-
-        self.skills = LazyLoader(
-            load_function=lambda k: self._load_monolithic(
-                SKILLS_FILE, SkillData, "skills", k
-            ),
-            initializer=lambda: self._load_monolithic(SKILLS_FILE, SkillData, "skills"),
-        )
-
-        self.traits = LazyLoader(
-            load_function=lambda k: self._load_monolithic(
-                TRAITS_FILE, TraitData, "traits", k
-            ),
-            initializer=lambda: self._load_monolithic(TRAITS_FILE, TraitData, "traits"),
-        )
-
-        self.interactions = LazyLoader(
-            load_function=lambda k: self._load_monolithic(
-                INTERACTIONS_FILE, InteractionData, "interaction", k
-            ),
-            initializer=lambda: self._load_monolithic(
-                INTERACTIONS_FILE, InteractionData, "interaction"
-            ),
-        )
-
+        self._initialize_loaders()
         # Tuning data is small and accessed frequently, so we load it eagerly.
         self.tuning = self.load_toml_model("yukkuri_tuning.toml", GameTuning)
 
@@ -354,3 +315,53 @@ class ResourceManager:
 
         self.tuning = None
         logger.info("ResourceManager cleared.")
+
+    def _initialize_loaders(self) -> None:
+        """Initializes all lazy loaders."""
+        self.yukkuri_types = LazyLoader(
+            load_function=lambda k: self._load_monolithic(
+                YUKKURI_TYPES_FILE, YukkuriData, "yukkuris", k
+            ),
+            initializer=lambda: self._load_monolithic(
+                YUKKURI_TYPES_FILE, YukkuriData, "yukkuris"
+            ),
+        )
+
+        self.item_types = LazyLoader(
+            load_function=lambda k: self._load_monolithic(
+                ITEMS_FILE, ItemData, "items", k
+            ),
+            initializer=lambda: self._load_monolithic(ITEMS_FILE, ItemData, "items"),
+        )
+
+        self.ai_actions = LazyLoader(
+            load_function=lambda k: self._load_monolithic(
+                AI_ACTIONS_FILE, AIData, "actions", k
+            ),
+            initializer=lambda: self._load_monolithic(
+                AI_ACTIONS_FILE, AIData, "actions"
+            ),
+        )
+
+        self.skills = LazyLoader(
+            load_function=lambda k: self._load_monolithic(
+                SKILLS_FILE, SkillData, "skills", k
+            ),
+            initializer=lambda: self._load_monolithic(SKILLS_FILE, SkillData, "skills"),
+        )
+
+        self.traits = LazyLoader(
+            load_function=lambda k: self._load_monolithic(
+                TRAITS_FILE, TraitData, "traits", k
+            ),
+            initializer=lambda: self._load_monolithic(TRAITS_FILE, TraitData, "traits"),
+        )
+
+        self.interactions = LazyLoader(
+            load_function=lambda k: self._load_monolithic(
+                INTERACTIONS_FILE, InteractionData, "interaction", k
+            ),
+            initializer=lambda: self._load_monolithic(
+                INTERACTIONS_FILE, InteractionData, "interaction"
+            ),
+        )

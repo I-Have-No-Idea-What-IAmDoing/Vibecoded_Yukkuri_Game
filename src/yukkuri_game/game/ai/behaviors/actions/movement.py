@@ -1,3 +1,10 @@
+"""
+Movement Actions for Behavior Trees.
+
+This module defines Behavior Tree action nodes related to entity movement,
+such as moving to a target, wandering, fleeing, and swooping.
+"""
+
 import math
 from typing import TYPE_CHECKING, Any, cast
 
@@ -65,6 +72,12 @@ class MoveToTarget(Action):
         self.acceptance_radius = acceptance_radius
 
     def update(self) -> Status:
+        """
+        Updates the movement logic.
+
+        Returns:
+            Status: The execution status (RUNNING, SUCCESS, FAILURE).
+        """
         super().update()
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
@@ -378,6 +391,7 @@ class Wander(Action):
         self.move_action: MoveToTarget | None = None
 
     def initialise(self) -> None:
+        """Initializes the wander target."""
         if self.world is None or self.entity_id is None:
             return
 
@@ -394,6 +408,12 @@ class Wander(Action):
         )
 
     def update(self) -> Status:
+        """
+        Updates the wander logic by delegating to MoveToTarget.
+
+        Returns:
+            Status: The execution status.
+        """
         if self.move_action:
             return self.move_action.update()
         return Status.FAILURE
@@ -423,6 +443,12 @@ class Swoop(Action):
         super().__init__(name, entity_id, world, blackboard)
 
     def update(self) -> Status:
+        """
+        Updates the swoop logic.
+
+        Returns:
+            Status: The execution status.
+        """
         super().update()
         if not self.world or self.entity_id is None:
             return Status.FAILURE
@@ -473,6 +499,12 @@ class FleePredator(Action):
         self.speed = speed
 
     def update(self) -> Status:
+        """
+        Updates the flee logic.
+
+        Returns:
+            Status: The execution status.
+        """
         super().update()
         if not self.world or self.entity_id is None:
             return Status.FAILURE
@@ -542,6 +574,12 @@ class FleeFromTarget(Action):
         self.flee_dist = dist
 
     def update(self) -> Status:
+        """
+        Updates the flee target logic.
+
+        Returns:
+            Status: The execution status.
+        """
         super().update()
         if not self.world or self.entity_id is None:
             return Status.FAILURE

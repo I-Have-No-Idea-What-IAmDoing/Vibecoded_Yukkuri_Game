@@ -19,7 +19,7 @@ class ServiceLocator:
     Allows registering and retrieving service instances by their class type.
 
     Attributes:
-        _services (Dict[Type[Any], Any]): A dictionary mapping service types to service instances.
+        _services (dict[type[Any], Any]): A dictionary mapping service types to service instances.
     """
 
     def __init__(self) -> None:
@@ -100,9 +100,6 @@ class ServiceLocator:
         Clears all registered services.
         Calls shutdown() on services if they have it.
         Useful for testing or resetting state.
-
-        Returns:
-            None
         """
         for service in self._services.values():
             if hasattr(service, "shutdown") and callable(service.shutdown):
