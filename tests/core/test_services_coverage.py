@@ -25,7 +25,7 @@ class TestTimeService:
         service = TimeService()
         assert service.time_elapsed == 0.0
 
-        service.add_time(1.5)
+        service.time_elapsed = 1.5
         assert service.time_elapsed == 1.5
 
         service.time_elapsed = 10.0

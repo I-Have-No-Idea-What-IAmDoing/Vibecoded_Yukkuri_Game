@@ -7,6 +7,34 @@ from yukkuri_game.game.ai.navigation_service import NavigationService, ObstacleT
 from yukkuri_game.game.ai.navigation_constants import TraversalCapability
 
 
+def _find_path_sync(
+    nav: NavigationService,
+    start: tuple[float, float],
+    goal: tuple[float, float],
+    capabilities: int = TraversalCapability.WALK,
+) -> list[tuple[float, float]]:
+    """Request a path and process it synchronously.
+
+    Args:
+        nav: NavigationService in deterministic_mode.
+        start: Start position.
+        goal: Goal position.
+        capabilities: Traversal capability flags.
+
+    Returns:
+        The computed path, or [].
+    """
+    nav.request_path(
+        entity_id=0, start=start, end=goal,
+        capabilities=capabilities,
+    )
+    nav.update(0)
+    results = nav.get_results()
+    if results and results[0].success:
+        return results[0].path
+    return []
+
+
 class TestNavigationServiceDualGrids:
     """Tests for navigation grid capabilities (Unified Grid)."""
 
@@ -49,18 +77,20 @@ class TestNavigationServiceDualGrids:
 
     def test_find_path_ground_blocked_by_low_obstacle(self, nav):
         """Ground path should be blocked by low obstacles."""
-        # Block a cell with LOW obstacle at (100, 0) which is grid (2, 0)
         nav.update_obstacle_rect(
-            100.0, 0.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.LOW
+            100.0, 0.0, 50.0, 50.0, walkable=False,
+            obstacle_type=ObstacleType.LOW,
+        )
+        nav.update(0)  # rebuild graph after obstacle
+
+        path = _find_path_sync(
+            nav, (0.0, 0.0), (200.0, 0.0),
+            capabilities=TraversalCapability.WALK,
         )
 
-        # Try to path from (0,0) to (200,0)
-        path = nav.find_path((0.0, 0.0), (200.0, 0.0), can_fly=False)
-
-        # Path should exist but avoid the blocked cell
         assert path is not None
         assert len(path) > 0
-        
+
         # Check if any point is exactly at the blockage.
         blocked = False
         for px, py in path:
@@ -70,13 +100,16 @@ class TestNavigationServiceDualGrids:
 
     def test_find_path_air_ignores_low_obstacle(self, nav):
         """Air path should ignore low obstacles."""
-        # Block with LOW obstacle at (100, 0)
         nav.update_obstacle_rect(
-            100.0, 0.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.LOW
+            100.0, 0.0, 50.0, 50.0, walkable=False,
+            obstacle_type=ObstacleType.LOW,
         )
+        nav.update(0)  # rebuild graph after obstacle
 
-        # Find path as flying unit
-        path = nav.find_path((0.0, 0.0), (200.0, 0.0), can_fly=True)
+        path = _find_path_sync(
+            nav, (0.0, 0.0), (200.0, 0.0),
+            capabilities=TraversalCapability.FLY,
+        )
 
         assert path is not None
         assert len(path) > 0

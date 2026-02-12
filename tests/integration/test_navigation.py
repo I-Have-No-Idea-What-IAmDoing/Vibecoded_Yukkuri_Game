@@ -131,8 +131,16 @@ def test_navigation_with_obstacle(game_driver: GameDriver):
     # Validate pathfinding detours around the obstacle
     assert nav is not None, "NavigationService not available"
 
-    path = nav.find_path(start_pos, target_pos, capabilities=TraversalCapability.WALK)
-    assert path, "Pathfinding failed to return a path."
+    nav.request_path(
+        entity_id=0,
+        start=start_pos,
+        end=target_pos,
+        capabilities=TraversalCapability.WALK,
+    )
+    nav.update(0)
+    results = nav.get_results()
+    assert results and results[0].success, "Pathfinding failed."
+    path = results[0].path
 
     # Obstacle bounds: centered at (300, 100), size 64x64
     min_x, max_x = obstacle_pos[0] - 32, obstacle_pos[0] + 32

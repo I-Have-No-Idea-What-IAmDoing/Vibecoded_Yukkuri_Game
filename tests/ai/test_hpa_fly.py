@@ -5,6 +5,34 @@ from yukkuri_game.game.ai.navigation_service import NavigationService, ObstacleT
 from yukkuri_game.game.ai.navigation_constants import TraversalCapability
 
 
+def _find_path_sync(
+    nav: NavigationService,
+    start: tuple[float, float],
+    goal: tuple[float, float],
+    capabilities: int = TraversalCapability.WALK,
+) -> list[tuple[float, float]]:
+    """Request a path and process it synchronously.
+
+    Args:
+        nav: NavigationService in deterministic_mode.
+        start: Start position.
+        goal: Goal position.
+        capabilities: Traversal capability flags.
+
+    Returns:
+        The computed path, or [].
+    """
+    nav.request_path(
+        entity_id=0, start=start, end=goal,
+        capabilities=capabilities,
+    )
+    nav.update(0)
+    results = nav.get_results()
+    if results and results[0].success:
+        return results[0].path
+    return []
+
+
 class TestHPAFlying:
     """Tests HPA behavior for flying units across clusters."""
 
@@ -38,11 +66,17 @@ class TestHPAFlying:
         nav.update(0)
 
         # 1. Verify Walk Path fails
-        path_walk = nav.find_path((0, 0), (250, 0), can_fly=False)
+        path_walk = _find_path_sync(
+            nav, (0, 0), (250, 0),
+            capabilities=TraversalCapability.WALK,
+        )
         assert len(path_walk) == 0, "Walk path should be blocked"
 
         # 2. Verify Fly Path succeeds
-        path_fly = nav.find_path((0, 0), (250, 0), can_fly=True)
+        path_fly = _find_path_sync(
+            nav, (0, 0), (250, 0),
+            capabilities=TraversalCapability.FLY,
+        )
         assert len(path_fly) > 0, "Fly path should be found"
 
         # 3. Verify WALK graph has NO edges between Cluster 0 and 1

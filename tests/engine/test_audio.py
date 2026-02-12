@@ -106,15 +106,15 @@ class TestAudio(unittest.TestCase):
         audio = AudioManager()
         audio.load_sound("test", "test.wav")
 
-        audio.set_volume(0.8)
+        audio.set_master_volume(0.8)
         self.assertEqual(audio.master_volume, 0.8)
         mock_sound_instance.set_volume.assert_called_with(0.8 * audio.sfx_volume)
 
         # Test clamping
-        audio.set_volume(1.5)
+        audio.set_master_volume(1.5)
         self.assertEqual(audio.master_volume, 1.0)
 
-        audio.set_volume(-0.5)
+        audio.set_master_volume(-0.5)
         self.assertEqual(audio.master_volume, 0.0)
 
     @patch("pygame.mixer.music.set_volume")

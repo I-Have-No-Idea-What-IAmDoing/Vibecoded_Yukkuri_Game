@@ -33,13 +33,13 @@ class TestInputManager(unittest.TestCase):
         # GAMEPLAY: up -> K_UP
 
         # Check if GAMEPLAY "up" is consumed by MENU
-        is_consumed = self.input_manager._is_consumed(
+        is_consumed = self.input_manager._is_consumed_by_higher_priority(
             K_UP, InputContext.GAMEPLAY, is_mouse=False
         )
         self.assertTrue(is_consumed, "K_UP should be consumed by MENU context")
 
         # Check if MENU "up" is consumed (should be False as no higher context)
-        is_consumed = self.input_manager._is_consumed(
+        is_consumed = self.input_manager._is_consumed_by_higher_priority(
             K_UP, InputContext.MENU, is_mouse=False
         )
         self.assertFalse(is_consumed, "K_UP should NOT be consumed for MENU context")
