@@ -6,7 +6,6 @@ from py_trees.behaviour import Behaviour
 from ...yukkuri_components import (
     AIState,
     ItemStats,
-    Needs,
     Predator,
 )
 from ..utility_selector import UtilitySelector

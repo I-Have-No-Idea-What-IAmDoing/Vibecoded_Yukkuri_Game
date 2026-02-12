@@ -3,13 +3,16 @@ Scene Management Module.
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, ClassVar
+
 import pygame
+from loguru import logger
+
 from .ecs import World
-from .resource_manager import ResourceManager
-from .input_manager import InputManager
 from .event_manager import EventManager
+from .input_manager import InputManager
+from .resource_manager import ResourceManager
 from .serializer import WorldSerializer
 from ..game.components_persistence import Persistable, StableIDComponent
 
@@ -173,10 +176,10 @@ class Scene(ABC):
         """
         if not self.registered_components:
             # Warn developer if they forgot to register components
-            from loguru import logger
-
             logger.warning(
-                f"Loading scene {self.__class__.__name__} with no registered components. Deserialization may fail."
+                f"Loading scene {self.__class__.__name__} "
+                "with no registered components. "
+                "Deserialization may fail."
             )
 
         serializer = WorldSerializer(self.world, self.registered_components)

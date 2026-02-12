@@ -12,7 +12,7 @@ from yukkuri_game.game.yukkuri_components import (
 )
 from yukkuri_game.game.components import Transform, MovementController
 from yukkuri_game.game.ai.navigation_service import NavigationService, ObstacleType
-from yukkuri_game.game.ai.behavior import FleePredator
+from yukkuri_game.game.ai.behaviors import FleePredator
 from py_trees.common import Status
 from yukkuri_game.game.ai.navigation_constants import TraversalCapability
 

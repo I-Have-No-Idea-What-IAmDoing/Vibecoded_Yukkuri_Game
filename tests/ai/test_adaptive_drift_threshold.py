@@ -11,7 +11,7 @@ from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.ai.navigation_service import NavigationService
 from yukkuri_game.game.components import Transform, MovementController, PhysicsBody
 from yukkuri_game.game.yukkuri_components import AIState, Needs
-from yukkuri_game.game.ai.behavior import MoveToTarget
+from yukkuri_game.game.ai.behaviors import MoveToTarget
 from yukkuri_game.game.services import TimeService
 
 

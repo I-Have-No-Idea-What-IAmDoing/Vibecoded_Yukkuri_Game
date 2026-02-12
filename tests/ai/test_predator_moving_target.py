@@ -23,7 +23,7 @@ from yukkuri_game.game.components import (
     Vision,
 )
 from yukkuri_game.game.yukkuri_components import AIState, Needs
-from yukkuri_game.game.ai.behavior import MoveToTarget
+from yukkuri_game.game.ai.behaviors import MoveToTarget
 
 
 class TestPredatorMovingTarget(unittest.TestCase):

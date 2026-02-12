@@ -1,8 +1,9 @@
 """
-The systems package contains ECS systems that implement game logic.
+ECS systems implementing core game logic.
 
-This includes:
-- Simulation system (AI, stats)
+Includes systems for rendering, physics, AI behavior,
+navigation, animation, emotion, social interaction,
+hunger, lifecycle, inventory, and environmental effects.
 """
 
 from .sector_system import SectorMap as SectorMap

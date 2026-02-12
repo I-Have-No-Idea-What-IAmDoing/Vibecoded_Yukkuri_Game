@@ -110,9 +110,9 @@ def test_validate_actions_warning():
     # This test requires patching BehaviorRegistry to simulate missing implementation
     # We patch the module where UtilityAIEngine imports BehaviorRegistry from
     # Since UtilityAIEngine does 'from .behavior import BehaviorRegistry' inside the method,
-    # we need to patch 'src.yukkuri_game.game.ai.behavior.BehaviorRegistry'
+    # we need to patch 'yukkuri_game.game.ai.behaviors.BehaviorRegistry'
 
-    with patch("yukkuri_game.game.ai.behavior.BehaviorRegistry") as mock_registry:
+    with patch("yukkuri_game.game.ai.behaviors.BehaviorRegistry") as mock_registry:
         mock_registry.get_goals.return_value = {}  # No behaviors registered
 
         # Setup engine with an action "Eat"

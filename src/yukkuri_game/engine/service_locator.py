@@ -4,6 +4,8 @@ Module defining the ServiceLocator pattern.
 
 from typing import Any, TypeVar
 
+from loguru import logger
+
 T = TypeVar("T")
 
 
@@ -106,15 +108,15 @@ class ServiceLocator:
                 try:
                     service.shutdown()
                 except Exception:
-                    from loguru import logger
-
-                    logger.exception(f"Error shutting down service {service}")
+                    logger.exception(
+                        f"Error shutting down service {service}"
+                    )
             elif hasattr(service, "cleanup") and callable(service.cleanup):
                 try:
                     service.cleanup()
                 except Exception:
-                    from loguru import logger
-
-                    logger.exception(f"Error cleaning up service {service}")
+                    logger.exception(
+                        f"Error cleaning up service {service}"
+                    )
 
         self._services.clear()

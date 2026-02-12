@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 from py_trees.common import Status
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
-from yukkuri_game.game.ai.behavior import MoveToTarget, Interact, FindItem
+from yukkuri_game.game.ai.behaviors import MoveToTarget, Interact, FindItem
 from yukkuri_game.game.yukkuri_components import AIState, ItemStats, YukkuriStats, Needs
 from yukkuri_game.game.components import (
     Transform,

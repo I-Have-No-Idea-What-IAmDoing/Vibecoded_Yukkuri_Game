@@ -95,30 +95,6 @@ class ComponentRemovedEvent(Event):
 
 # Gameplay Events
 @dataclass(frozen=True)
-class PauseEvent(Event):
-    """
-    Event triggered to toggle the pause state.
-
-    Attributes:
-        paused (bool): True if the game is paused, False otherwise.
-    """
-
-    paused: bool
-
-
-@dataclass(frozen=True)
-class SpeedChangeEvent(Event):
-    """
-    Event triggered to change the game simulation speed.
-
-    Attributes:
-        speed (float): The new speed multiplier.
-    """
-
-    speed: float
-
-
-@dataclass(frozen=True)
 class PhysicsFixedUpdateEvent(Event):
     """
     Event triggered after a fixed physics timestep.

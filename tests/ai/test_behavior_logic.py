@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 import py_trees
 from py_trees.common import Status
-from yukkuri_game.game.ai.behavior import (
+from yukkuri_game.game.ai.behaviors import (
     MoveToTarget,
     Interact,
     FindItem,

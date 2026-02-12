@@ -8,7 +8,7 @@ from unittest.mock import Mock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.ai.utility import Consideration, Action, UtilityAIEngine
 from yukkuri_game.game.ai.utility_selector import UtilitySelector
-from yukkuri_game.game.ai.behavior import FleePredator
+from yukkuri_game.game.ai.behaviors import FleePredator
 from yukkuri_game.game.yukkuri_components import (
     AIState,
     YukkuriStats,

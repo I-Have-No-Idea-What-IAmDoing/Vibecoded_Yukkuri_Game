@@ -276,7 +276,7 @@ class InventoryItemActionEvent(Event):
     quantity: int = 1
 
 
-# --- Proposal 4: Unified AI Architecture Events ---
+# AI Architecture Events
 
 
 @dataclass(frozen=True)
