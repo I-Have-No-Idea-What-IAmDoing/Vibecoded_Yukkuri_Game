@@ -56,6 +56,7 @@ class PygameBackend(RenderBackend):
         self.shadow_surface_cache: dict[
             tuple[int, int, tuple[int, int, int, int]], pygame.Surface
         ] = {}  # (rx, ry, color) -> Surface
+        self.MAX_SHADOW_CACHE_SIZE = 1000
 
         # Text Cache (LRU)
         # Key: (text, size, color, font_name)
@@ -277,9 +278,12 @@ class PygameBackend(RenderBackend):
             self.lighting_engine.surface_pool.release(s)
 
         else:
-            # Small shadows: Cache them
+            # Small shadows: Cache them (Clear-on-full)
             key = (rx, ry, cmd.color)
             if key not in self.shadow_surface_cache:
+                if len(self.shadow_surface_cache) >= self.MAX_SHADOW_CACHE_SIZE:
+                    self.shadow_surface_cache.clear()
+
                 s = pygame.Surface((rx * 2, ry * 2), pygame.SRCALPHA)
                 pygame.draw.ellipse(s, cmd.color, s.get_rect())
                 self.shadow_surface_cache[key] = s
