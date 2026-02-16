@@ -53,10 +53,10 @@ class PygameBackend(RenderBackend):
 
         # Caches
         self.font_cache: dict[tuple[int, str | None], pygame.font.Font] = {}
-        self.shadow_surface_cache: dict[
+        self.shadow_surface_cache: OrderedDict[
             tuple[int, int, tuple[int, int, int, int]], pygame.Surface
-        ] = {}  # (rx, ry, color) -> Surface
-        self.MAX_SHADOW_CACHE_SIZE = 1000
+        ] = OrderedDict()  # (rx, ry, color) -> Surface
+        self.max_shadow_cache_size = 1000
 
         # Text Cache (LRU)
         # Key: (text, size, color, font_name)
