@@ -278,15 +278,17 @@ class PygameBackend(RenderBackend):
             self.lighting_engine.surface_pool.release(s)
 
         else:
-            # Small shadows: Cache them (Clear-on-full)
+            # Small shadows: Cache them (LRU)
             key = (rx, ry, cmd.color)
             if key not in self.shadow_surface_cache:
-                if len(self.shadow_surface_cache) >= self.MAX_SHADOW_CACHE_SIZE:
-                    self.shadow_surface_cache.clear()
+                if len(self.shadow_surface_cache) >= self.max_shadow_cache_size:
+                    self.shadow_surface_cache.popitem(last=False)
 
                 s = pygame.Surface((rx * 2, ry * 2), pygame.SRCALPHA)
                 pygame.draw.ellipse(s, cmd.color, s.get_rect())
                 self.shadow_surface_cache[key] = s
+            else:
+                self.shadow_surface_cache.move_to_end(key)
 
             s = self.shadow_surface_cache[key]
             dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
