@@ -53,9 +53,10 @@ class PygameBackend(RenderBackend):
 
         # Caches
         self.font_cache: dict[tuple[int, str | None], pygame.font.Font] = {}
-        self.shadow_surface_cache: dict[
+        self.shadow_surface_cache: OrderedDict[
             tuple[int, int, tuple[int, int, int, int]], pygame.Surface
-        ] = {}  # (rx, ry, color) -> Surface
+        ] = OrderedDict()  # (rx, ry, color) -> Surface
+        self.max_shadow_cache_size = 1000
 
         # Text Cache (LRU)
         # Key: (text, size, color, font_name)
@@ -277,12 +278,17 @@ class PygameBackend(RenderBackend):
             self.lighting_engine.surface_pool.release(s)
 
         else:
-            # Small shadows: Cache them
+            # Small shadows: Cache them (LRU)
             key = (rx, ry, cmd.color)
             if key not in self.shadow_surface_cache:
+                if len(self.shadow_surface_cache) >= self.max_shadow_cache_size:
+                    self.shadow_surface_cache.popitem(last=False)
+
                 s = pygame.Surface((rx * 2, ry * 2), pygame.SRCALPHA)
                 pygame.draw.ellipse(s, cmd.color, s.get_rect())
                 self.shadow_surface_cache[key] = s
+            else:
+                self.shadow_surface_cache.move_to_end(key)
 
             s = self.shadow_surface_cache[key]
             dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))

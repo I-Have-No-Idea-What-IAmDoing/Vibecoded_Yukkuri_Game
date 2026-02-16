@@ -37,3 +37,7 @@
 ## 2026-02-05 - [Perception System Throttling]
 **Learning:** `PerceptionSystem` was paying the cost of building O(N) component maps every frame, even though entities are throttled to update only 10 times/second (often resulting in 0 updates per frame). By checking if any entity actually needs updating *before* building the maps, we saved significant overhead (frame time reduced by ~50%).
 **Action:** When a system processes a subset of entities (throttled/conditional), perform the condition check first and gather the work list before performing expensive setup steps like bulk component fetching.
+
+## 2026-02-12 - [Render Cache Thrashing]
+**Learning:** `PygameBackend` shadow cache was growing unbounded due to continuous altitude changes causing unique shadow keys (rx, ry, alpha). Additionally, `SurfaceCache` (max 200) was thrashing with 300+ rotating entities.
+**Action:** Quantize continuous rendering parameters (like altitude-based shadow size) to improve cache hit rates. Use bounded caches (clear-on-full or LRU) for dynamic assets to prevent memory leaks. Increased `SurfaceCache` to 2000 to handle larger scenes.

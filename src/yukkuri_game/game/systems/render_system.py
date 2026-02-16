@@ -104,7 +104,7 @@ class RenderSystem(System):
         self.screen = screen
         self.rm = world.services.get(ResourceManager)
         self.camera = world.services.get(Camera)
-        self.surface_cache = SurfaceCache(self.rm)
+        self.surface_cache = SurfaceCache(self.rm, max_size=2000)
 
         backend: RenderBackend
         # Select backend: OpenGLBackend if lights_engine is available, else PygameBackend.
@@ -512,6 +512,9 @@ class RenderSystem(System):
                 height_factor = min(
                     1.0, max(0.0, flight.altitude / flight.max_altitude)
                 )
+                # Quantize height factor to reduce shadow cache thrashing (20 steps)
+                height_factor = round(height_factor * 20.0) / 20.0
+
                 # Scale: 100% -> 60% size as altitude increases
                 shadow_radius_x *= 1.0 - 0.4 * height_factor
                 shadow_radius_y *= 1.0 - 0.4 * height_factor
