@@ -6,7 +6,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..components import AnimationDefinition, Animator
+from ...engine.data_models import AnimationDefinition
+from ..components import Animator
 
 
 def build_animator_from_data(

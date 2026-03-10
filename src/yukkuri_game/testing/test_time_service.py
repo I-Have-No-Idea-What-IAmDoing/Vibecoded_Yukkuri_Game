@@ -3,7 +3,7 @@ from yukkuri_game.game.services import TimeService
 
 
 class TestTimeService(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.time_service = TimeService()
 
     def test_initialization(self) -> None:

@@ -55,7 +55,7 @@ class EventBus:
             self._subscribers[event_type] = []
 
         # Type-casting needed as Dict is invariant, but runtime behavior is safe.
-        self._subscribers[event_type].append(handler)  # type: ignore
+        self._subscribers[event_type].append(handler)
 
     def unsubscribe(self, event_type: type[E], handler: EventHandler[E]) -> None:
         """
@@ -69,7 +69,7 @@ class EventBus:
         """
         if event_type in self._subscribers:
             try:
-                self._subscribers[event_type].remove(handler)  # type: ignore
+                self._subscribers[event_type].remove(handler)
             except ValueError:
                 pass
 

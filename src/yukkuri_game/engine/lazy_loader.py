@@ -9,7 +9,7 @@ all be needed immediately upon startup.
 
 import threading
 from collections.abc import Iterator, MutableMapping
-from typing import Any, Callable, TypeVar
+from typing import Callable, TypeVar
 
 from loguru import logger
 

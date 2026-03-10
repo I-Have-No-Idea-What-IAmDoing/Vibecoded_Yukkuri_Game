@@ -74,13 +74,13 @@ class MainMenuScene(Scene):
             relative_rect=pygame.Rect((center_x - 100, center_y - 50), (200, 50)),
             text="Start Game",
             manager=self.ui_manager,
-        )
+        )  # type: ignore[no-untyped-call]
 
         self.quit_button = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect((center_x - 100, center_y + 20), (200, 50)),
             text="Quit",
             manager=self.ui_manager,
-        )
+        )  # type: ignore[no-untyped-call]
 
     def on_enter(self) -> None:
         """
@@ -92,7 +92,7 @@ class MainMenuScene(Scene):
         # Ensure we have the right resolution for UI
         self.ui_manager.set_window_resolution(
             (self.application.width, self.application.height)
-        )
+        )  # type: ignore[no-untyped-call]
 
     def on_exit(self) -> None:
         """
@@ -101,7 +101,7 @@ class MainMenuScene(Scene):
         Clears the UI manager.
         """
         logger.info("Exited Main Menu Scene")
-        self.ui_manager.clear_and_reset()
+        self.ui_manager.clear_and_reset()  # type: ignore[no-untyped-call]
 
     def update(self, dt: float) -> None:
         """
@@ -111,7 +111,7 @@ class MainMenuScene(Scene):
             dt (float): Delta time in seconds.
         """
         super().update(dt)
-        self.ui_manager.update(dt)
+        self.ui_manager.update(dt)  # type: ignore[no-untyped-call]
 
     def render(self, alpha: float) -> None:
         """
@@ -121,7 +121,7 @@ class MainMenuScene(Scene):
             alpha (float): Interpolation factor (0.0 to 1.0).
         """
         if self.application.screen:
-            self.ui_manager.draw_ui(self.application.screen)
+            self.ui_manager.draw_ui(self.application.screen)  # type: ignore[no-untyped-call]
 
     def handle_event(self, event: pygame.event.Event) -> None:
         """
@@ -130,7 +130,7 @@ class MainMenuScene(Scene):
         Args:
             event (pygame.event.Event): The Pygame event.
         """
-        self.ui_manager.process_events(event)
+        self.ui_manager.process_events(event)  # type: ignore[no-untyped-call]
         # InputManager processing is handled by Application
 
         if self.input_manager.is_action_just_pressed("cancel"):

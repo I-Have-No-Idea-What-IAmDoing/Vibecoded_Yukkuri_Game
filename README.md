@@ -23,7 +23,6 @@ The **Yukkuri Raising Game** is a simulation game developed in Python using `pyg
 - Python 3.11 or higher.
 
 ### Installation
-### Installation
 1.  **Clone the repository**:
     ```bash
     git clone https://github.com/yourusername/yukkuri-raising-game.git
@@ -197,8 +196,6 @@ def calculate_quality_score(self, yukkuri_stats: YukkuriStats) -> int:
 
 ### Testing
 Run tests using `pytest`. The tests use a headless driver to simulate game logic without a window.
-```bash
-pytest
 ```bash
 uv run scripts/test.py
 # Or directly:

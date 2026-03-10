@@ -162,5 +162,5 @@ class NavigationGrid:
             float: Movement cost. Returns infinity if out of bounds.
         """
         if 0 <= x < self.width and 0 <= y < self.height:
-            return self.cells[x, y]["cost"]
+            return float(self.cells[x, y]["cost"])
         return float("inf")

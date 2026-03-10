@@ -137,11 +137,11 @@ class KinematicSolver:
                     if not self.space:
                         continue
                     infos = self.space.shape_query(shape)
-                    for info in infos:
-                        if info.shape.body == body or info.shape.sensor:
+                    for sq_info in infos:
+                        if sq_info.shape.body == body or sq_info.shape.sensor:
                             continue
 
-                        contact_set = info.contact_point_set
+                        contact_set = sq_info.contact_point_set
                         if len(contact_set.points) > 0:
                             min_dist = 0.0
                             for p in contact_set.points:

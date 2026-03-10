@@ -86,7 +86,7 @@ class BenchmarkRunner:
         """
         if psutil:
             process = psutil.Process()
-            return process.memory_info().rss / 1024 / 1024
+            return float(process.memory_info().rss / 1024 / 1024)
         return 0.0
 
     def _get_process_cpu(self) -> float:
@@ -98,7 +98,7 @@ class BenchmarkRunner:
         """
         if psutil:
             process = psutil.Process()
-            return process.cpu_percent(interval=None)
+            return float(process.cpu_percent(interval=None))
         return 0.0
 
     def _get_system_info(self) -> dict[str, str]:

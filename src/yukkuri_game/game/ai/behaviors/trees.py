@@ -120,7 +120,7 @@ def build_need_satisfaction_behavior(
         )
 
         # 2.1 Find Target
-        find_kwargs = {
+        find_kwargs: dict[str, Any] = {
             "name": f"Find Best {goal_name} Target",
             "entity_id": entity_id,
             "world": world,
@@ -128,7 +128,7 @@ def build_need_satisfaction_behavior(
         if stat_criteria:
             find_kwargs["stat_criteria"] = stat_criteria
 
-        find_action = find_action_class(**find_kwargs)
+        find_action = find_action_class(**find_kwargs)  # type: ignore[arg-type]
 
         # 2.2 Move To Target
         move_action = MoveToTarget(
@@ -233,7 +233,7 @@ def build_hunt_behavior(
 
     from ...yukkuri_components import Flight
 
-    def can_fly_check():
+    def can_fly_check() -> bool:
         f = world.try_get_component(entity_id, Flight)
         return f is not None and f.stamina > 20.0
 
@@ -286,7 +286,10 @@ def build_flee_behavior(
     return root
 
 
-def build_standard_interaction_behavior(goal_name: str):
+def build_standard_interaction_behavior(goal_name: str) -> Callable[
+    [int, "World", int, int, Callable[[str], bool], Callable[[], bool]],
+    Behaviour,
+]:
     def builder(
         entity_id: int,
         world: "World",
@@ -305,7 +308,7 @@ def build_standard_interaction_behavior(goal_name: str):
             name="Target Selector", memory=False
         )
 
-        def has_valid_target():
+        def has_valid_target() -> bool:
             ai = world.try_get_component(entity_id, AIState)
             return ai and ai.current_target_id != -1
 

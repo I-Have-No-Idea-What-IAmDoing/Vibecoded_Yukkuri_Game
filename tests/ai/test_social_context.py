@@ -109,7 +109,7 @@ class TestSocialContext:
         assert captured_context["nearby_friends"] == 0.0
         assert captured_context["nearby_enemies"] == 0.0
 
-    @pytest.mark.skip(reason="RelationshipRegistry key mismatch needing investigation")
+
     def test_high_affinity_is_friend(self, world):
         """High affinity makes diff type a friend."""
         me = self.create_yukkuri(world, "reimu", 0, 0)
@@ -133,7 +133,7 @@ class TestSocialContext:
         assert captured_context["nearby_friends"] == 1.0
         assert captured_context["nearby_enemies"] == 0.0
 
-    @pytest.mark.skip(reason="RelationshipRegistry key mismatch needing investigation")
+
     def test_low_affinity_is_enemy(self, world):
         """Low affinity makes same/diff type an enemy."""
         me = self.create_yukkuri(world, "reimu", 0, 0)

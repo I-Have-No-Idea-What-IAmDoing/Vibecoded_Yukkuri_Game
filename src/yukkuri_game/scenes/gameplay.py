@@ -262,7 +262,7 @@ class GameplayScene(Scene):
         Clears UI, shuts down services, and syncs global state.
         """
         logger.info("Exited Gameplay Scene")
-        self.ui_manager.clear_and_reset()
+        self.ui_manager.clear_and_reset()  # type: ignore[no-untyped-call]
 
         # Cleanup HUD listeners
         if self.hud:
@@ -343,7 +343,7 @@ class GameplayScene(Scene):
                 self.day_night_system.render_system = self.render_system
 
         # Update local UI Manager
-        self.ui_manager.set_window_resolution((event.width, event.height))
+        self.ui_manager.set_window_resolution((event.width, event.height))  # type: ignore[no-untyped-call]
 
         # Update HUD layout
         if self.hud:
@@ -458,7 +458,7 @@ class GameplayScene(Scene):
             dt (float): Delta time in seconds.
         """
         self.dt = dt
-        self.ui_manager.update(dt)
+        self.ui_manager.update(dt)  # type: ignore[no-untyped-call]
 
         self.event_manager.process_phase(GamePhase.PRE_UPDATE)
 
@@ -501,7 +501,7 @@ class GameplayScene(Scene):
 
         if not self.application.headless and self.hud and self.application.screen:
             self.hud.draw(self.application.screen)
-            self.ui_manager.draw_ui(self.application.screen)
+            self.ui_manager.draw_ui(self.application.screen)  # type: ignore[no-untyped-call]
 
     def render_world(self, alpha: float) -> None:
         """
@@ -522,7 +522,7 @@ class GameplayScene(Scene):
         Args:
             event (pygame.event.Event): The Pygame event.
         """
-        self.ui_manager.process_events(event)
+        self.ui_manager.process_events(event)  # type: ignore[no-untyped-call]
         # InputManager processing is handled by Application
         # Camera input is now handled by InputSystem via process_input()
 

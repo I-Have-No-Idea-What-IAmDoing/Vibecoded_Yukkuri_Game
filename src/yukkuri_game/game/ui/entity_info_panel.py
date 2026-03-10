@@ -23,7 +23,7 @@ class SafeUIScrollingContainer(UIScrollingContainer):
     which causes hide() to be called during initialization before attributes are set.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         """
         Initializes the SafeUIScrollingContainer.
 
@@ -34,7 +34,7 @@ class SafeUIScrollingContainer(UIScrollingContainer):
         self.vert_scroll_bar = None
         self.horiz_scroll_bar = None
         self._root_container = None
-        self._view_container = None
+        self._view_container: Any = None
         super().__init__(*args, **kwargs)
 
 
@@ -150,7 +150,7 @@ class EntityInfoPanel:
             None
         """
         if self.window:
-            self.window.kill()
+            self.window.kill()  # type: ignore[no-untyped-call]
             self.window = None
             self.tabbed_panel = None
             self.stats_text_box = None
@@ -167,7 +167,7 @@ class EntityInfoPanel:
         tab_id = self.tabbed_panel.add_tab("Stats")
         container = self.tabbed_panel.tabs[tab_id]["container"]
 
-        self.stats_scroll = SafeUIScrollingContainer(
+        self.stats_scroll = SafeUIScrollingContainer(  # type: ignore[no-untyped-call]
             relative_rect=pygame.Rect(
                 0, 0, container.rect.width, container.rect.height
             ),
@@ -198,7 +198,7 @@ class EntityInfoPanel:
         tab_id = self.tabbed_panel.add_tab("Skills")
         container = self.tabbed_panel.tabs[tab_id]["container"]
 
-        self.skills_scroll = SafeUIScrollingContainer(
+        self.skills_scroll = SafeUIScrollingContainer(  # type: ignore[no-untyped-call]
             relative_rect=pygame.Rect(
                 0, 0, container.rect.width, container.rect.height
             ),

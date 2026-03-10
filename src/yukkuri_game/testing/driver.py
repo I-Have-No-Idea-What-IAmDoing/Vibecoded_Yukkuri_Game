@@ -131,7 +131,7 @@ class LogCapture:
     Captures log records for assertion.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.records = []
         self.handler_id = None
 
@@ -397,7 +397,7 @@ class GameDriver:
             List[int]: List of entity IDs.
         """
         if self.world:
-            return self.world.get_entities_with(*components)
+            return cast(list[int], self.world.get_entities_with(*components))
         return []
 
     def assert_entity_count(self, count: int, *components: type) -> None:
@@ -612,7 +612,7 @@ class GameDriver:
                 try:
                     self.game.scene_manager.render(1.0)
                 except TypeError:
-                    self.game.scene_manager.render()
+                    self.game.scene_manager.render(1.0)
 
         if self.game and hasattr(self.game, "screen") and self.game.screen:
             pygame.image.save(self.game.screen, filename)

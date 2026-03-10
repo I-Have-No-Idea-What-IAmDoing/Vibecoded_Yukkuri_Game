@@ -3,7 +3,7 @@ from yukkuri_game.game.services import EconomyService
 
 
 class TestEconomyService(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.economy = EconomyService(1000)
 
     def test_initialization(self) -> None:

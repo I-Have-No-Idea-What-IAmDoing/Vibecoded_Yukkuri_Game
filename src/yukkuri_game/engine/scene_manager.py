@@ -134,7 +134,7 @@ class SceneManager:
                         hydration_data = data.copy()
                         hydration_data.pop("_version_", None)
 
-                        obj = msgspec.convert(hydration_data, expected_type)
+                        obj: Any = msgspec.convert(hydration_data, expected_type)
 
                         # Cache hydrated object to avoid re-hydration.
                         context_data[key] = obj

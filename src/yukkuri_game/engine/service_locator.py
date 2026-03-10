@@ -2,7 +2,7 @@
 Module defining the ServiceLocator pattern.
 """
 
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from loguru import logger
 
@@ -71,7 +71,7 @@ class ServiceLocator:
             raise ServiceNotFoundError(
                 f"Service of type {service_type.__name__} not found."
             )
-        return service
+        return cast(T, service)
 
     def try_get(self, service_type: type[T]) -> T | None:
         """
