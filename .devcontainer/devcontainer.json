@@ -1,0 +1,26 @@
+{
+    "name": "Yukkuri Game Dev",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "runArgs": [
+        "--userns=keep-id"
+    ],
+    "updateRemoteUserUID": false,
+    "remoteUser": "vscode",
+    "postCreateCommand": "uv sync",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": ".venv/bin/python"
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff",
+                "tamasfe.even-better-toml"
+            ]
+        }
+    }
+}
