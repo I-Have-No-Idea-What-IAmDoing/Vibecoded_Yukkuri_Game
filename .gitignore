@@ -182,3 +182,13 @@ tmp/
 temp/
 .zed/
 screenshots/
+
+# AI Agent Data (should not be committed)
+.gemini/
+.jules/
+
+# Debug artifacts
+debug_test.log
+
+# Ty type checker
+.ty/

@@ -25,6 +25,17 @@ The agent will pause and interview you in rounds, covering:
 - **Technical Architecture**: Stack, data, security.
 - **Edge Cases**: Error handling, offline states, race conditions.
 
+### Project-Specific Areas to Cover
+
+For this ECS-based game, specs should also address:
+- **Components**: New or modified ECS components with field definitions
+- **Systems**: New or modified systems with update logic and execution order
+- **Services**: Any new services to register on the World's ServiceLocator
+- **Events**: New EventBus events for inter-system communication
+- **Data Models**: New `msgspec.Struct` definitions for config/data files
+- **Test Plan**: Specific test scenarios using `GameDriver` from `testing/driver.py`
+- **Existing Patterns**: Reference `docs/ARCHITECTURE.md` and `docs/ECS_GUIDE.md`
+
 ## Final Output
 
 The agent rewrites your original file into a comprehensive, implementation-ready specification document.
@@ -34,3 +45,4 @@ The agent rewrites your original file into a comprehensive, implementation-ready
 - **Prevents ambiguity**: Forces decisions on "obvious" things that aren't actually obvious.
 - **Saves dev time**: Coding against a strict spec is much faster than guessing.
 - **Documents decisions**: The final spec serves as the source of truth for the project.
+
