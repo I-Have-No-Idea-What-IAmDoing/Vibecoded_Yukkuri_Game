@@ -22,7 +22,7 @@ The system consists of three main components located in `src/yukkuri_game/testin
     *   It executes "Scenarios" (test scripts) defined as Python generators.
     *   It handles input injection and screenshots.
 
-2.  **`TestEnvironment` (`src/yukkuri_game/testing/environment.py`)**:
+2.  **`test_environment` (`src/yukkuri_game/testing/environment.py`)**:
     *   A context manager that configures the environment variables (`SDL_VIDEODRIVER=dummy`, `SDL_AUDIODRIVER=dummy`) to prevent Pygame from trying to open real windows or audio devices.
     *   This is crucial for running tests on servers or CI runners.
 
@@ -35,13 +35,13 @@ The system consists of three main components located in `src/yukkuri_game/testin
 
 ### 1. Setting up the Environment
 
-Use the `TestEnvironment` context manager to ensure your test doesn't try to open a window. This is typically done in a `conftest.py` fixture or directly in the test function.
+Use the `test_environment` context manager to ensure your test doesn't try to open a window. This is typically done in a `conftest.py` fixture or directly in the test function.
 
 ```python
-from src.yukkuri_game.testing.environment import TestEnvironment
+from src.yukkuri_game.testing.environment import test_environment
 
 def test_my_feature():
-    with TestEnvironment():
+    with test_environment():
         # Your test code here
         pass
 ```
@@ -78,17 +78,30 @@ def my_scenario(game):
     yield Screenshot("screenshots/test_result.png")
 ```
 
-### 3. Running the Test with `GameDriver`
+### 3. Helper Methods
+
+The `GameDriver` provides several typed helpers for querying state and asserting conditions without writing boilerplate loops:
+
+*   **Component Helpers**:
+    *   `driver.get_component(entity_id, ComponentType)`: Retrieves a specific component safely, returning `None` if not found.
+    *   `driver.assert_component(entity_id, ComponentType, predicate)`: Asserts a component matches a condition with a clean error message.
+*   **Event Helpers**:
+    *   `driver.get_events(EventType)`: Returns a filtered list of all intercepted events of that type.
+    *   `driver.assert_event_published(EventType, count=None)`: Asserts an event was published exactly `count` times, or at least once if omitted.
+*   **Execution Helpers**:
+    *   `driver.run_until(predicate, timeout=10.0)`: Bypasses the need to yield a generator; runs the game directly until the condition is met or times out.
+
+### 4. Running the Test with `GameDriver`
 
 Instantiate the `YukkuriGame` and `GameDriver`, then run the scenario.
 
 ```python
 from src.yukkuri_game.main import YukkuriGame
 from src.yukkuri_game.testing.driver import GameDriver
-from src.yukkuri_game.testing.environment import TestEnvironment
+from src.yukkuri_game.testing.environment import test_environment
 
 def test_game_interaction():
-    with TestEnvironment():
+    with test_environment():
         # Initialize game in headless mode
         game = YukkuriGame(headless=True)
         driver = GameDriver(game)

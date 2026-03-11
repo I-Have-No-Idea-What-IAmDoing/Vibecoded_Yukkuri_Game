@@ -8,7 +8,7 @@ from collections.abc import Generator
 
 
 @contextlib.contextmanager
-def TestEnvironment() -> Generator[None, None, None]:
+def test_environment() -> Generator[None, None, None]:
     """
     Context manager that sets up a safe environment for headless testing.
     Sets SDL_VIDEODRIVER to 'dummy' and restores original environment variables afterwards.

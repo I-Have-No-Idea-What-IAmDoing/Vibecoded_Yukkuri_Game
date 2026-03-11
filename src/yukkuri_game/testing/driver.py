@@ -6,7 +6,8 @@ from ..engine import rng
 import pygame
 import os
 import io
-from typing import Any, cast
+import types
+from typing import Any, cast, TypeVar
 from collections.abc import Generator, Callable
 from dataclasses import dataclass
 from collections import deque
@@ -16,6 +17,9 @@ from ..engine.event_bus import Event
 from ..game.services import TimeService
 from ..game.components import Transform
 
+
+T = TypeVar("T")
+E = TypeVar("E", bound=Event)
 
 # --- Predicates & Commands ---
 
@@ -132,16 +136,24 @@ class LogCapture:
     """
 
     def __init__(self) -> None:
-        self.records = []
-        self.handler_id = None
+        """Initializes the log capture."""
+        self.records: list[str] = []
+        self.handler_id: int | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "LogCapture":
+        """Starts capturing log records."""
         self.handler_id = logger.add(
             lambda msg: self.records.append(msg), format="{message}"
         )
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
+        """Stops capturing log records."""
         if self.handler_id is not None:
             logger.remove(self.handler_id)
 
@@ -187,7 +199,9 @@ class GameDriver:
         self.simulated_time = 0.0
         self.frame_count = 0
         self._scenario_deadline: float | None = None
-        self.event_history: deque = deque(maxlen=100)
+        self.event_history: deque[Event] = deque(maxlen=100)
+        self._original_publish: Callable[[Event], None] | None = None
+        self._rng_seeded = False
 
     def seed_rng(self, seed: int = 42) -> None:
         """
@@ -197,6 +211,7 @@ class GameDriver:
             seed (int): The seed value.
         """
         rng.seed(seed)
+        self._rng_seeded = True
         try:
             import numpy as np
 
@@ -209,21 +224,24 @@ class GameDriver:
         Sets up the game instance.
         Ensures headless mode and active scene.
         """
-        self.seed_rng()
+        if not self._rng_seeded:
+            self.seed_rng()
         if hasattr(self.game, "set_headless") and not self.game.headless:
             # Cast to Any to allow calling method detected via hasattr
             cast(Any, self.game).set_headless(True)
 
         # Hook event bus for logging
         if isinstance(self.game, Application) and hasattr(self.game, "event_manager"):
-            # We want to intercept events to store them in history
-            original_publish = self.game.event_manager.bus.publish
+            # Ensure we don't double-patch if setup() is called again (e.g. reload_scene)
+            if self._original_publish is None:
+                self._original_publish = self.game.event_manager.bus.publish
+                original_publish = self._original_publish
 
-            def intercepted_publish(event: Event) -> None:
-                self.event_history.append(event)
-                original_publish(event)
+                def intercepted_publish(event: Event) -> None:
+                    self.event_history.append(event)
+                    original_publish(event)
 
-            self.game.event_manager.bus.publish = cast(Any, intercepted_publish)
+                self.game.event_manager.bus.publish = cast(Any, intercepted_publish)
 
         # Application initializes on creation. Ensure GameplayScene is active.
         if isinstance(self.game, Application):
@@ -357,12 +375,14 @@ class GameDriver:
 
     def cleanup(self) -> None:
         """Cleans up the game instance."""
-        # Remove event bus hook to break circular reference
-        if isinstance(self.game, Application) and hasattr(self.game, "event_manager"):
-            # Restore original publish if we could (optional, but breaking the cycle is key)
-            # The cycle is: self -> game -> event_manager -> bus -> publish -> intercepted -> self
-            # We can just clear the game reference or unpatch
-            pass
+        # Restore original event bus publish to break circular reference
+        if (
+            self._original_publish is not None
+            and isinstance(self.game, Application)
+            and hasattr(self.game, "event_manager")
+        ):
+            self.game.event_manager.bus.publish = self._original_publish
+            self._original_publish = None
 
         self.game.quit()  # type: ignore[union-attr]
         # Break reference cycle to allow garbage collection
@@ -414,6 +434,33 @@ class GameDriver:
             f"but found {len(entities)}: {entities}"
         )
 
+    def get_events(self, event_type: type[E]) -> list[E]:
+        """
+        Returns all captured events of a specific type.
+        
+        Args:
+            event_type (type[E]): The event class to filter by.
+            
+        Returns:
+            list[E]: A list of matching events.
+        """
+        return [e for e in self.event_history if isinstance(e, event_type)]
+
+    def assert_event_published(self, event_type: type[E], count: int | None = None) -> None:
+        """
+        Asserts that an event of the given type was published.
+        
+        Args:
+            event_type (type[E]): The event class to check.
+            count (int | None): The exact number of times it should have been published. 
+                                Default is None (which means > 0 times).
+        """
+        events = self.get_events(event_type)
+        if count is None:
+            assert len(events) > 0, f"Expected event {event_type.__name__} was never published."
+        else:
+            assert len(events) == count, f"Expected {event_type.__name__} to be published {count} times, but was {len(events)} times."
+
     def run_scenario(
         self, scenario_gen: Generator[Any, None, None], timeout: float = 10.0
     ) -> None:
@@ -442,6 +489,9 @@ class GameDriver:
 
                 self._check_global_timeout()
 
+                if hasattr(self.game, "running") and not self.game.running:
+                    raise RuntimeError("Game stopped running before step execution")
+
                 if isinstance(step, WaitUntil):
                     self._wait_until(step)
                 elif isinstance(step, WaitFrames):
@@ -466,7 +516,11 @@ class GameDriver:
                 else:
                     pass
         except Exception as e:
-            self.save_screenshot(f"screenshots/failure_{self.frame_count}.png")
+            try:
+                self.save_screenshot(f"screenshots/failure_{self.frame_count}.png")
+            except Exception as se:
+                logger.warning(f"Could not save failure screenshot: {se}")
+
             # Dump logs/events
             log_filename = f"screenshots/failure_{self.frame_count}.log"
             os.makedirs(os.path.dirname(log_filename), exist_ok=True)
@@ -486,13 +540,13 @@ class GameDriver:
         if hasattr(self.game, "running") and not self.game.running:
             raise RuntimeError("Game stopped running during simulation tick")
 
-            # Cast to Any first for dynamic dispatch
-            if hasattr(self.game, "handle_events"):
-                cast(Any, self.game).handle_events()
-            elif hasattr(self.game, "process_events"):
-                cast(Any, self.game).process_events()
-            else:
-                pygame.event.pump()
+        # Process events each tick
+        if hasattr(self.game, "handle_events"):
+            cast(Any, self.game).handle_events()
+        elif hasattr(self.game, "process_events"):
+            cast(Any, self.game).process_events()
+        else:
+            pygame.event.pump()
 
         # Check again if game stopped running after event processing
         if hasattr(self.game, "running") and not self.game.running:
@@ -545,6 +599,17 @@ class GameDriver:
         while self.simulated_time < target_time:
             self._tick()
 
+    def run_until(self, predicate: Callable[[], bool], timeout: float = 10.0, description: str = "condition") -> None:
+        """
+        Runs the simulation until the predicate returns True or timeout occurs.
+        
+        Args:
+            predicate (Callable[[], bool]): The condition to wait for.
+            timeout (float): The maximum simulated time (in seconds) to wait. Defaults to 10.0.
+            description (str): A description of the condition for error messages.
+        """
+        self._wait_until(WaitUntil(predicate, timeout, description))
+
     def get_transform(self, entity_id: int) -> Any | None:
         """
         Retrieves the Transform component for an entity.
@@ -559,6 +624,35 @@ class GameDriver:
         if not self.world:
             return None
         return self.world.get_component(entity_id, Transform)
+
+    def get_component(self, entity_id: int, comp_type: type[T]) -> T | None:
+        """
+        Retrieves a specific component from an entity.
+
+        Args:
+            entity_id (int): The entity ID.
+            comp_type (Type[T]): The class of the component.
+
+        Returns:
+            Optional[T]: The component, or None if not found.
+        """
+        if not self.world:
+            return None
+        return self.world.get_component(entity_id, comp_type)
+
+    def assert_component(self, entity_id: int, comp_type: type[T], predicate: Callable[[T], bool], message: str = "") -> None:
+        """
+        Asserts that a component satisfies a given condition.
+
+        Args:
+            entity_id (int): The entity ID.
+            comp_type (Type[T]): The class of the component.
+            predicate (Callable[[T], bool]): The condition to check.
+            message (str): Optional context message for the assertion error.
+        """
+        comp = self.get_component(entity_id, comp_type)
+        assert comp is not None, f"Entity {entity_id} does not have component {comp_type.__name__}"
+        assert predicate(comp), f"Assertion failed for {comp_type.__name__} on entity {entity_id}: {message}"
 
     def reset(self) -> None:
         """
@@ -612,7 +706,7 @@ class GameDriver:
                 try:
                     self.game.scene_manager.render(1.0)
                 except TypeError:
-                    self.game.scene_manager.render(1.0)
+                    self.game.scene_manager.render()
 
         if self.game and hasattr(self.game, "screen") and self.game.screen:
             pygame.image.save(self.game.screen, filename)

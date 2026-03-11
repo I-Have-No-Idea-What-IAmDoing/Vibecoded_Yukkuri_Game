@@ -22,7 +22,7 @@ from ..engine import rng
 from ..engine.application import Application
 from ..scenes.gameplay import GameplayScene
 from ..testing.driver import GameDriver
-from ..testing.environment import TestEnvironment
+from ..testing.environment import test_environment
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -165,7 +165,7 @@ class BenchmarkRunner:
 
         successful_iterations = 0
 
-        with TestEnvironment():
+        with test_environment():
             for i in range(self.iterations):
                 driver = None
                 try:

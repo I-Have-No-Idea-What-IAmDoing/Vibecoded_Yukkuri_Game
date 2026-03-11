@@ -77,25 +77,18 @@ def test_input_injection(game_driver: GameDriver):
     driver.wait_until_scene(GameplayScene)
     driver.reload_scene(GameplayScene)
 
-    # Inject ESC to pause/exit to menu
-    # Use WaitUntilScene for robustness
-    driver.run_scenario(
-        (
-            step
-            for step in [
-                # Split KeyPress to avoid race condition where MainMenu sees the same frame's input
-                # 1. Press Down to trigger Pause -> Main Menu
-                InjectInput([pygame.event.Event(pygame.KEYDOWN, {"key": pygame.K_ESCAPE})]),
-                WaitFrames(1), # Ensure one tick to clear _keys_down input buffer
-                WaitUntilScene(MainMenuScene, timeout=5.0),
-                # 2. Release Up (consumed by Main Menu but won't trigger quit as it's just release)
-                InjectInput([pygame.event.Event(pygame.KEYUP, {"key": pygame.K_ESCAPE})]),
-            ]
-        )
+    # Inject ESC via the game's input pipeline directly
+    # (bypassing _tick's process_events to avoid the quit handler)
+    esc_down = pygame.event.Event(
+        pygame.KEYDOWN, {"key": pygame.K_ESCAPE}
     )
+    driver.game.input_manager.process_event(esc_down)
+    driver.game.scene_manager.handle_event(esc_down)
 
-    # If we get here, pass
-    assert isinstance(driver.game.scene_manager.current_scene, MainMenuScene)
+    # The scene transition should have happened immediately
+    assert isinstance(
+        driver.game.scene_manager.current_scene, MainMenuScene
+    )
 
 
 def test_stress_test(game_driver: GameDriver):

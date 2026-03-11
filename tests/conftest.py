@@ -43,7 +43,7 @@ except ImportError:
 # 3. Project Imports
 from yukkuri_game.engine.application import Application
 from yukkuri_game.testing.driver import GameDriver
-from yukkuri_game.testing.environment import TestEnvironment
+from yukkuri_game.testing.environment import test_environment
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ def game_driver() -> GameDriver:
     Returns:
         GameDriver: A driver instance for controlling the game.
     """
-    with TestEnvironment():
+    with test_environment():
         # Initialize game in headless mode with deterministic behavior
         game = Application(headless=True, deterministic=True)
 
@@ -85,19 +85,29 @@ def pytest_sessionstart(session):
     os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 
+import esper
+
 @pytest.fixture(autouse=True)
 def cleanup_game_state():
     """
     Global fixture to clean up game state between tests.
-    Ensures esper world is cleared and GC is run.
+    Ensures that any leaked `World` contexts created by unit tests are destroyed
+    from the global esper registry, preventing memory bloat across the test suite.
     """
     yield
-    import esper
-    # Clear the default world context if any
-    try:
-        esper.clear_database()
-    except Exception:
-        pass
     
-    # Force Garbage Collection to clear cyclic references (Events -> Handlers -> Entities)
+    # 1. Delete all esper worlds to free internal data structures.
+    try:
+        esper.switch_world("__garbage_collector__")
+    except KeyError:
+        pass
+        
+    for world_name in esper.list_worlds():
+        if world_name != "__garbage_collector__":
+            try:
+                esper.delete_world(world_name)
+            except (KeyError, PermissionError):
+                pass
+
+    # 2. Force Garbage Collection to clear cyclic references (Events -> Handlers -> Entities).
     gc.collect()
