@@ -207,7 +207,7 @@ class HudEvents:
             image_name = data.get("image", "")
 
             economy = self.world.services.get(EconomyService)
-            if economy.get_money() >= cost:
+            if economy.money >= cost:
                 self.event_bus.publish(
                     PlacementStartedEvent(type_id, cost, category, image_name)
                 )

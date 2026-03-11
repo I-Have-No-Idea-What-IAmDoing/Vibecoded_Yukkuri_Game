@@ -34,7 +34,7 @@ def test_economy_initial_state(economy_service: EconomyService) -> None:
     """
     Tests initial money value.
     """
-    assert economy_service.get_money() == 1000
+    assert economy_service.money == 1000
 
 
 def test_economy_add_money(economy_service: EconomyService) -> None:
@@ -42,7 +42,7 @@ def test_economy_add_money(economy_service: EconomyService) -> None:
     Tests adding money.
     """
     economy_service.add_money(500)
-    assert economy_service.get_money() == 1500
+    assert economy_service.money == 1500
 
 
 def test_economy_remove_money(economy_service: EconomyService) -> None:
@@ -50,10 +50,10 @@ def test_economy_remove_money(economy_service: EconomyService) -> None:
     Tests removing money.
     """
     assert economy_service.remove_money(500) is True
-    assert economy_service.get_money() == 500
+    assert economy_service.money == 500
 
     assert economy_service.remove_money(1000) is False
-    assert economy_service.get_money() == 500
+    assert economy_service.money == 500
 
 
 def test_economy_set_money(economy_service: EconomyService) -> None:
@@ -61,10 +61,10 @@ def test_economy_set_money(economy_service: EconomyService) -> None:
     Tests setting money directly.
     """
     economy_service.set_money(2000)
-    assert economy_service.get_money() == 2000
+    assert economy_service.money == 2000
 
     economy_service.set_money(-100)
-    assert economy_service.get_money() == 0
+    assert economy_service.money == 0
 
 
 @pytest.fixture
@@ -163,7 +163,7 @@ def test_persistence_round_trip(setup_world: tuple[World, PersistenceService]) -
     world.destroy_entity(i_id)
     world.destroy_entity(broken_id)
 
-    assert economy.get_money() == 0
+    assert economy.money == 0
     assert time_service.time_elapsed == 0.0
     assert not world.entity_exists(y_id)
 
@@ -171,7 +171,7 @@ def test_persistence_round_trip(setup_world: tuple[World, PersistenceService]) -
     persistence.load_game(save_file)
 
     # Verify
-    assert economy.get_money() == 1234
+    assert economy.money == 1234
     assert time_service.time_elapsed == 123.45
 
     # Check entities

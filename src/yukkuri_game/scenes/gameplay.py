@@ -272,7 +272,7 @@ class GameplayScene(Scene):
         # Sync back global state to Application/SceneManager
         if hasattr(self, "economy_service") and self.economy_service:
             self.application.scene_manager.set_global_data(
-                "money", self.economy_service.get_money()
+                "money", self.economy_service.money
             )
         if hasattr(self, "time_service") and self.time_service:
             self.application.scene_manager.set_global_data(
@@ -387,7 +387,7 @@ class GameplayScene(Scene):
 
         # Save Global Data
         global_data = {
-            "money": self.economy_service.get_money(),
+            "money": self.economy_service.money,
             "time": self.time_service.time_elapsed,
         }
         with open(global_path, "w") as f:
@@ -532,7 +532,7 @@ class GameplayScene(Scene):
         if self.input_manager.is_action_just_pressed("pause"):
             # Update global state before leaving
             self.application.scene_manager.set_global_data(
-                "money", self.economy_service.get_money()
+                "money", self.economy_service.money
             )
             self.application.scene_manager.set_global_data(
                 "time", self.time_service.time_elapsed

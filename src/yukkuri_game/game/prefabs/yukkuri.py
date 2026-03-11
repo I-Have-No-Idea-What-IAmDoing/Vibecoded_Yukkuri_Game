@@ -40,7 +40,6 @@ from ..yukkuri_components import (
     Predator,
     RelationshipRegistry,
     YukkuriStats,
-    register_archetype,
 )
 
 
@@ -164,8 +163,6 @@ def create_yukkuri(
         # Shadow logic: All Yukkuris have shadows but Flandre has special handling via Flight
         world.add_component(entity, VisualTransform(has_drop_shadow=True))
 
-        # Archetype Registration (Flyweight)
-        register_archetype(type_id, data)
 
         # Yukkuri Stats and Needs
         stats = YukkuriStats(

@@ -19,24 +19,24 @@ def test_economy_service_basics() -> None:
     Tests basic economy operations (add, remove, set).
     """
     service = EconomyService(initial_money=100)
-    assert service.get_money() == 100
+    assert service.money == 100
 
     service.add_money(50)
-    assert service.get_money() == 150
+    assert service.money == 150
 
     success = service.remove_money(100)
     assert success is True
-    assert service.get_money() == 50
+    assert service.money == 50
 
     success = service.remove_money(100)
     assert success is False
-    assert service.get_money() == 50
+    assert service.money == 50
 
     service.set_money(500)
-    assert service.get_money() == 500
+    assert service.money == 500
 
     service.set_money(-10)
-    assert service.get_money() == 0
+    assert service.money == 0
 
     with pytest.raises(ValueError):
         service.add_money(-10)
@@ -192,7 +192,7 @@ def test_load_game(persistence_world: MagicMock) -> None:
             success = service.load_game("test.json")
 
     assert success is True
-    assert economy.get_money() == 999
+    assert economy.money == 999
     assert time_svc.time_elapsed == 60.0
 
     # Verification: Check if entity was created in world

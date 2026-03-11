@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
 from yukkuri_game.game.services import (
     TimeService,
     EconomyService,
@@ -35,12 +35,12 @@ class TestTimeService:
 class TestEconomyService:
     def test_initial_money(self) -> None:
         service = EconomyService(initial_money=500)
-        assert service.get_money() == 500
+        assert service.money == 500
 
     def test_add_money(self) -> None:
         service = EconomyService(100)
         service.add_money(50)
-        assert service.get_money() == 150
+        assert service.money == 150
 
         with pytest.raises(ValueError):
             service.add_money(-10)
@@ -48,10 +48,10 @@ class TestEconomyService:
     def test_remove_money(self) -> None:
         service = EconomyService(100)
         assert service.remove_money(50) is True
-        assert service.get_money() == 50
+        assert service.money == 50
 
         assert service.remove_money(60) is False
-        assert service.get_money() == 50
+        assert service.money == 50
 
         with pytest.raises(ValueError):
             service.remove_money(-10)
@@ -59,10 +59,10 @@ class TestEconomyService:
     def test_set_money(self) -> None:
         service = EconomyService(100)
         service.set_money(200)
-        assert service.get_money() == 200
+        assert service.money == 200
 
         service.set_money(-50)
-        assert service.get_money() == 0
+        assert service.money == 0
 
 
 class TestInputService:
@@ -130,7 +130,7 @@ class TestPersistenceService:
 
         # Mock EconomyService
         mock_economy = MagicMock(spec=EconomyService)
-        mock_economy.get_money.return_value = 500
+        type(mock_economy).money = PropertyMock(return_value=500)
         # Mock world.services
         mock_world.services = MagicMock()
         mock_world.services.try_get.side_effect = (

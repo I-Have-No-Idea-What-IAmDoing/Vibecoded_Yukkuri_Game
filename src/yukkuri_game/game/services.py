@@ -2,17 +2,16 @@
 Module defining core game services.
 """
 
-import dataclasses
 import math
 import os
 from typing import Any
 
 import msgspec
+from loguru import logger
 
 from ..engine.ecs import World
 from . import components, components_persistence, yukkuri_components
 from .components import Transform
-from .components_persistence import StableIDComponent
 from .skill_constants import SkillId
 from .systems.sector_system import SectorMap
 from .yukkuri_components import ItemStats, Skills
@@ -166,7 +165,8 @@ class EconomyService:
         """
         self._money = initial_money
 
-    def get_money(self) -> int:
+    @property
+    def money(self) -> int:
         """
         Returns the current amount of money.
 
@@ -465,47 +465,36 @@ class PersistenceService:
         # Save Economy
         economy = self.world.services.try_get(EconomyService)
         if economy:
-            data["money"] = economy.get_money()
+            data["money"] = economy.money
 
         # Save Time
         time_svc = self.world.services.try_get(TimeService)
         if time_svc:
             data["time"] = time_svc.time_elapsed
 
+        # Gather all component types from modules.
+        # This is required by WorldSerializer
+        import inspect
+        from . import components, components_persistence, yukkuri_components
+        from ..engine.serializer import WorldSerializer
+
+        component_types = []
+        for module in [components, components_persistence, yukkuri_components]:
+            for name, obj in inspect.getmembers(module):
+                if inspect.isclass(obj) and (
+                    hasattr(obj, "__dataclass_fields__")
+                    or issubclass(obj, msgspec.Struct)
+                ):
+                    component_types.append(obj)
+
+        serializer = WorldSerializer(self.world, component_types)
+        
         # Save Entities
-        entities = self.world.get_all_entities()
-        serialized_entities = []
-
-        for ent in entities:
-            components_data = {}
-
-            all_comps = self.world.get_all_components(ent)
-            for comp in all_comps:
-                comp_type_name = type(comp).__name__
-
-                comp_dict = {}
-                try:
-                    if isinstance(comp, msgspec.Struct):
-                        comp_dict = msgspec.to_builtins(comp)
-                    elif hasattr(comp, "__dataclass_fields__"):
-                        comp_dict = dataclasses.asdict(comp)
-                    elif hasattr(comp, "__dict__"):
-                        comp_dict = comp.__dict__
-
-                    comp_dict = self._serialize_object(comp_dict)
-                    components_data[comp_type_name] = comp_dict
-                except (TypeError, ValueError, AttributeError):
-                    pass  # Skip un-serializable components (e.g. pygame surfaces).
-
-            if components_data:
-                ent_data = {"entity_id": ent, "components": components_data}
-                stable_id = self.world.try_get_component(ent, StableIDComponent)
-                if stable_id:
-                    ent_data["stable_id"] = stable_id.id
-
-                serialized_entities.append(ent_data)
-
-        data["entities"] = serialized_entities
+        try:
+            data["entities"] = serializer.get_persistable_entities_data()
+        except Exception as e:
+            logger.error(f"Failed to serialize game state: {e}", exc_info=True)
+            raise
 
         with open(filepath, "wb") as f:
             f.write(msgspec.msgpack.encode(data))

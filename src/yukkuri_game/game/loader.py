@@ -120,13 +120,9 @@ class GameLoader:
 
     def _init_navigation_service(self) -> None:
         """Initializes the Navigation Service."""
-        world_width = 3000
-        world_height = 3000
-        grid_step_size = 25  # Default from NavigationService constructor
-        if self.game_config:
-            world_width = self.game_config.world.width
-            world_height = self.game_config.world.height
-            grid_step_size = self.game_config.world.grid_step_size
+        world_width = self.game_config.world.width
+        world_height = self.game_config.world.height
+        grid_step_size = getattr(self.game_config.world, "grid_step_size", 25)
 
         self.world.services.register(
             NavigationService(
@@ -140,15 +136,9 @@ class GameLoader:
 
     def _init_sector_system(self) -> None:
         """Initializes and registers the Sector System and Map."""
-        world_width = 3000
-        world_height = 3000
-        sector_size = 500.0
-
-        if self.game_config:
-            world_width = self.game_config.world.width
-            world_height = self.game_config.world.height
-            if hasattr(self.game_config.world, "sector_size"):
-                sector_size = self.game_config.world.sector_size
+        world_width = self.game_config.world.width
+        world_height = self.game_config.world.height
+        sector_size = getattr(self.game_config.world, "sector_size", 500.0)
 
         sector_system = SectorSystem(
             width=world_width, height=world_height, sector_size=sector_size
@@ -192,7 +182,7 @@ class GameLoader:
         return input_system
 
     def collect_component_types(self) -> list[type]:
-        """Collects all component types for serialization."""
+        """Collects all component types defined in component modules for serialization."""
         comp_types = []
         for module in [
             components,
@@ -201,6 +191,6 @@ class GameLoader:
             inventory_component,
         ]:
             for _, obj in inspect.getmembers(module):
-                if inspect.isclass(obj):
+                if inspect.isclass(obj) and obj.__module__ == module.__name__:
                     comp_types.append(obj)
         return comp_types

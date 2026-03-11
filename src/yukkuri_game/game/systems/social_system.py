@@ -224,18 +224,17 @@ class SocialSystem(System):
             rel_data (RelationshipData): The relationship data to update.
             force_compatibility_update (bool): Whether to force recalculation of base compatibility.
         """
-        if not self.trait_service:
-            return
+        if force_compatibility_update or rel_data.base_compatibility == 0.0:
+            if not self.trait_service:
+                return
 
-        subject_pers = world.get_component(subject_id, Personality)
-        other_pers = world.get_component(other_id, Personality)
+            subject_pers = world.get_component(subject_id, Personality)
+            other_pers = world.get_component(other_id, Personality)
 
-        if subject_pers and other_pers:
-            # We could optimize by only calculating this once or on change,
-            # but current logic calculates it every update cycle.
-            rel_data.base_compatibility = self._calculate_base_compatibility(
-                subject_pers, other_pers
-            )
+            if subject_pers and other_pers:
+                rel_data.base_compatibility = self._calculate_base_compatibility(
+                    subject_pers, other_pers
+                )
 
         memory_score = rel_data.core_sentiment_sum + rel_data.trivial_sentiment_sum
         rel_data.affinity = rel_data.base_compatibility + memory_score

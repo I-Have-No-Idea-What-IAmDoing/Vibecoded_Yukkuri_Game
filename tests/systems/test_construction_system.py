@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 from yukkuri_game.game.systems.construction_system import ConstructionSystem
 from yukkuri_game.game.events import PlacementRequestedEvent
 from yukkuri_game.game.services import EconomyService
@@ -33,7 +33,7 @@ class TestConstructionSystem(unittest.TestCase):
 
     def test_placement_requested_success(self) -> None:
         # Setup adequate funds
-        self.economy_service_mock.get_money.return_value = 200
+        type(self.economy_service_mock).money = PropertyMock(return_value=200)
 
         event = PlacementRequestedEvent(100.0, 100.0, "reimu", 100, "yukkuri")
         self.construction_system.on_placement_requested(event)
@@ -46,7 +46,7 @@ class TestConstructionSystem(unittest.TestCase):
 
     def test_placement_requested_insufficient_funds(self) -> None:
         # Setup inadequate funds
-        self.economy_service_mock.get_money.return_value = 50
+        type(self.economy_service_mock).money = PropertyMock(return_value=50)
 
         event = PlacementRequestedEvent(100.0, 100.0, "reimu", 100, "yukkuri")
         self.construction_system.on_placement_requested(event)
@@ -58,7 +58,7 @@ class TestConstructionSystem(unittest.TestCase):
         self.factory_mock.create_yukkuri.assert_not_called()
 
     def test_placement_requested_item(self) -> None:
-        self.economy_service_mock.get_money.return_value = 200
+        type(self.economy_service_mock).money = PropertyMock(return_value=200)
 
         event = PlacementRequestedEvent(100.0, 100.0, "cookie", 10, "item")
         self.construction_system.on_placement_requested(event)

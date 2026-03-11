@@ -17,9 +17,9 @@ import queue
 import threading
 import time
 import traceback
+import types
 from dataclasses import dataclass, field
 from enum import IntEnum
-
 from loguru import logger
 
 from .hpa import AStar, ClusterGraph, StringPuller
@@ -156,7 +156,12 @@ class NavigationService:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
         """Context manager exit; handles shutdown."""
         self.shutdown()
 

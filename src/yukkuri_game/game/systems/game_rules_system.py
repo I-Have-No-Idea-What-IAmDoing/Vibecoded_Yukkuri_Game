@@ -118,7 +118,7 @@ class GameRulesSystem(System):
             economy = self.world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(
-                f"Sold {stats.name} for {value}. Total Money: {economy.get_money()}"
+                f"Sold {stats.name} for {value}. Total Money: {economy.money}"
             )
 
             # Get position for visual feedback spawn point

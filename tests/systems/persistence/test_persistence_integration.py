@@ -165,7 +165,7 @@ def test_persistence_round_trip(setup_persistence_world):
     persistence.load_game(save_file)
 
     # Verify
-    assert economy.get_money() == 1234
+    assert economy.money == 1234
     assert time_service.time_elapsed == 123.45
 
     # Check entities

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
 import pygame_gui
 from pygame_gui.core.interfaces import IContainerLikeInterface
 from yukkuri_game.game.ui.hud_events import HudEvents
@@ -42,7 +42,7 @@ def mock_world():
     input_service.drag_current_pos = (10, 10)
 
     economy_service = MagicMock(spec=EconomyService)
-    economy_service.get_money.return_value = 1000
+    type(economy_service).money = PropertyMock(return_value=1000)
 
     time_service = MagicMock(spec=TimeService)
     time_service.time_elapsed = 125  # 2 min 5 sec
@@ -287,7 +287,7 @@ class TestHudEvents:
 
         # Override money return value
         economy = mock_world.services.get(EconomyService)
-        economy.get_money.return_value = 50
+        type(economy).money = PropertyMock(return_value=50)
 
         assert hud_events.process_event(event) is True  # Handled, but no action
         mock_event_bus.publish.assert_not_called()

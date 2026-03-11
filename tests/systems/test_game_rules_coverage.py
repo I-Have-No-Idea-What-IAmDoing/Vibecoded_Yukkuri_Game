@@ -25,7 +25,7 @@ def game_rules_env():
     world.add_system(system)
 
     economy = Mock(spec=EconomyService)
-    economy.get_money.return_value = 1000
+    economy.money = 1000
     world.services.register(economy, EconomyService)
 
     audio = Mock(spec=AudioManager)

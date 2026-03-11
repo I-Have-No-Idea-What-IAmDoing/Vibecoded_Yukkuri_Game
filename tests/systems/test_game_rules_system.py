@@ -64,7 +64,7 @@ def test_game_rules_sell_yukkuri(game_rules_world) -> None:
     world.add_component(yukkuri, needs)
     world.add_component(yukkuri, emotional)
 
-    initial_money = economy.get_money()
+    initial_money = economy.money
 
     # Calculate expected value
     # Base 100
@@ -78,7 +78,7 @@ def test_game_rules_sell_yukkuri(game_rules_world) -> None:
     value = system.sell_yukkuri(yukkuri)
 
     assert value == expected_value
-    assert economy.get_money() == initial_money + expected_value
+    assert economy.money == initial_money + expected_value
 
     # Entity should be destroyed
     assert not world.entity_exists(yukkuri)
@@ -96,11 +96,11 @@ def test_game_rules_sell_invalid_entity(game_rules_world) -> None:
     # Entity without stats
     item = world.create_entity()
 
-    initial_money = economy.get_money()
+    initial_money = economy.money
     value = system.sell_yukkuri(item)
 
     assert value == 0
-    assert economy.get_money() == initial_money
+    assert economy.money == initial_money
     # Entity remains (sell_yukkuri checks for stats before destroying)
     # If stats missing, it returns 0 and does NOT destroy.
     assert world.entity_exists(item)

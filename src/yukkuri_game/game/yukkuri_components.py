@@ -10,7 +10,9 @@ Key Features:
 - **Headline System**: Implements memory management in `RelationshipData`.
 """
 
+import bisect
 from dataclasses import dataclass, field
+from collections import deque
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -41,20 +43,7 @@ class YukkuriArchetype:
     type_data: "YukkuriType | None" = None
 
 
-# Module-level Flyweight cache: type_id -> YukkuriArchetype
-_ARCHETYPE_CACHE: dict[str, YukkuriArchetype] = {}
-
-
-def register_archetype(type_id: str, type_data: "YukkuriType") -> None:
-    """
-    Registers a type configuration into the Flyweight cache.
-
-    Args:
-        type_id (str): The unique type identifier.
-        type_data (YukkuriType): The configuration object to cache.
-    """
-    if type_id not in _ARCHETYPE_CACHE:
-        _ARCHETYPE_CACHE[type_id] = YukkuriArchetype(type_data=type_data)
+# Module-level Flyweight
 
 
 # ==============================================================================
@@ -185,24 +174,7 @@ class YukkuriStats(Component):
     intelligence: float = 1.0
     agility: float = 1.0
 
-    @property
-    def archetype(self) -> YukkuriArchetype | None:
-        """
-        Retrieves the shared archetype data from the global cache.
 
-        Returns:
-            YukkuriArchetype | None: The cached archetype, or None if not registered.
-        """
-        return _ARCHETYPE_CACHE.get(self.type_id)
-
-    def get_intelligence(self) -> float:
-        """
-        Retrieves the intelligence stat.
-
-        Returns:
-            float: The intelligence value.
-        """
-        return self.intelligence
 
     def calculate_value(
         self,
@@ -321,7 +293,7 @@ class RelationshipData:
     core_sentiment_sum: float = 0.0
 
     # Memory Buffers
-    trivial_buffer: list[MemoryHeadline] = field(default_factory=list)
+    trivial_buffer: deque[MemoryHeadline] = field(default_factory=deque)
     core_buffer: list[MemoryHeadline] = field(default_factory=list)
 
     # Constants
@@ -354,7 +326,7 @@ class RelationshipData:
     def _add_trivial_memory(self, headline: MemoryHeadline) -> None:
         """Adds to trivial buffer (FIFO)."""
         if len(self.trivial_buffer) >= self.TRIVIAL_MAX_LEN:
-            removed = self.trivial_buffer.pop(0)  # Remove oldest
+            removed = self.trivial_buffer.popleft()  # Remove oldest
             self.trivial_sentiment_sum -= removed.sentiment
 
         self.trivial_buffer.append(headline)
@@ -477,18 +449,17 @@ class GossipQueue(Component):
         # 2. Handle duplicate: update if new packet has higher value
         if duplicate_index != -1:
             if packet.value > self.priority_queue[duplicate_index].value:
-                self.priority_queue[duplicate_index] = packet
-                self.priority_queue.sort(key=lambda x: x.value, reverse=True)
+                del self.priority_queue[duplicate_index]
+                bisect.insort(self.priority_queue, packet, key=lambda x: -x.value)
             return
 
         # 3. Add or replace lowest
         if len(self.priority_queue) < max_length:
-            self.priority_queue.append(packet)
-            self.priority_queue.sort(key=lambda x: x.value, reverse=True)
+            bisect.insort(self.priority_queue, packet, key=lambda x: -x.value)
         else:
             if packet.value > self.priority_queue[-1].value:
-                self.priority_queue[-1] = packet
-                self.priority_queue.sort(key=lambda x: x.value, reverse=True)
+                self.priority_queue.pop()
+                bisect.insort(self.priority_queue, packet, key=lambda x: -x.value)
 
 
 @dataclass(slots=True)

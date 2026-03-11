@@ -163,7 +163,7 @@ class SkillService:
         stats = self.world.get_component(entity_id, YukkuriStats)
         int_factor = 1.0
         if stats:
-            int_factor = stats.get_intelligence()
+            int_factor = stats.intelligence
 
         final_xp = amount * state.passion * int_factor * gain_multiplier
 

@@ -72,7 +72,7 @@ class ConstructionSystem(System):
             return
 
         if self.economy_service and self.factory:
-            if self.economy_service.get_money() >= event.cost:
+            if self.economy_service.money >= event.cost:
                 try:
                     if event.entity_type == "yukkuri":
                         self.factory.create_yukkuri(event.type_id, event.x, event.y)

@@ -4,6 +4,7 @@ Module for Entity Info Panel logic.
 
 import pygame
 import pygame_gui
+from typing import Any
 from pygame_gui.elements import (
     UIWindow,
     UITextBox,

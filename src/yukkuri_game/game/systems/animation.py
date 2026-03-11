@@ -25,7 +25,7 @@ from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
 from ..components import Animator, LODComponent, Sprite
 from ..events import AnimationEvent
-from ..yukkuri_components import AIState, YukkuriStats, register_archetype
+from ..yukkuri_components import AIState, YukkuriStats
 
 
 class AnimationSystem(System):
@@ -302,26 +302,19 @@ class AnimationSystem(System):
         # Determine base image name
         base_image = None
 
-        # 1. Try Archetype (Flyweight) - FAST
-        if stats.archetype and stats.archetype.type_data:
-            data = stats.archetype.type_data
-            if hasattr(data, "image"):
-                base_image = data.image
-            elif hasattr(data, "get"):
-                base_image = data.get("image")
+        # Pull from ResourceManager
+        base_image = None
+        yukkuri_type = rm.yukkuri_types.get(stats.type_id)
+        if not yukkuri_type:
+            return
 
-        # 2. Fallback to ResourceManager (self-healing cache).
+        if isinstance(yukkuri_type, dict):
+            base_image = yukkuri_type.get("image")
+        else:
+            base_image = getattr(yukkuri_type, "image", None)
+
         if not base_image:
-            yukkuri_type = rm.yukkuri_types.get(stats.type_id)
-            if not yukkuri_type:
-                return
-
-            register_archetype(stats.type_id, yukkuri_type)
-
-            if isinstance(yukkuri_type, dict):
-                base_image = yukkuri_type.get("image")
-            else:
-                base_image = yukkuri_type.image
+            return
 
         # Determine target image based on action
         action = ai_state.current_action

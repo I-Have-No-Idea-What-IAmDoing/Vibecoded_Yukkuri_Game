@@ -77,7 +77,7 @@ class HudRenderer:
         """Updates the top bar (Money)."""
         economy = self.world.services.get(EconomyService)
         if self.layout.money_label:
-            self.layout.money_label.set_text(f"Money: ${economy.get_money()}")
+            self.layout.money_label.set_text(f"Money: ${economy.money}")
 
     def _update_time_display(self) -> None:
         """
@@ -515,7 +515,7 @@ class HudRenderer:
         debug_text = (
             f"<b>FPS:</b> {self.fps:.2f}<br>"
             f"<b>Entities:</b> {entity_count}<br>"
-            f"<b>Money:</b> {economy.get_money()}<br>"
+            f"<b>Money:</b> {economy.money}<br>"
             f"<b>Time Scale:</b> {time_scale_str}<br>"
         )
 
