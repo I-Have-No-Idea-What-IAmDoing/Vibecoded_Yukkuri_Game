@@ -17,7 +17,7 @@ Traditional game testing often involves unit tests for individual components (li
 The system consists of three main components located in `src/yukkuri_game/testing/`:
 
 1.  **`GameDriver` (`src/yukkuri_game/testing/driver.py`)**:
-    *   The core controller that wraps a `YukkuriGame` instance.
+    *   The core controller that wraps an `Application` instance.
     *   It manages the game loop tick-by-tick using a fixed time step (`fixed_dt`).
     *   It executes "Scenarios" (test scripts) defined as Python generators.
     *   It handles input injection and screenshots.
@@ -26,8 +26,8 @@ The system consists of three main components located in `src/yukkuri_game/testin
     *   A context manager that configures the environment variables (`SDL_VIDEODRIVER=dummy`, `SDL_AUDIODRIVER=dummy`) to prevent Pygame from trying to open real windows or audio devices.
     *   This is crucial for running tests on servers or CI runners.
 
-3.  **Headless Support in `YukkuriGame`**:
-    *   The `YukkuriGame` class (and its parent `GameLoop`) accepts a `headless=True` flag.
+3.  **Headless Support in `Application`**:
+    *   The `Application` class (and its parent `GameLoop`) accepts a `headless=True` flag.
     *   In headless mode, rendering systems are skipped during the normal update loop to save resources.
     *   However, the `GameDriver` can force a render pass when a screenshot is requested.
 
@@ -64,15 +64,15 @@ A scenario is a Python generator function that yields commands. The `GameDriver`
 ```python
 from src.yukkuri_game.testing.driver import WaitFrames, WaitUntil, Click, Screenshot
 
-def my_scenario(game):
+def my_scenario(driver):
     # Wait for the game to stabilize
     yield WaitFrames(60)
 
     # Click on a button at (100, 100)
     yield Click(100, 100)
 
-    # Wait until a Yukkuri appears
-    yield WaitUntil(lambda: game.world.get_entity_count() > 0)
+    # Wait until simulation time passes 2.0s
+    yield WaitUntil(lambda: driver.simulated_time > 2.0)
 
     # Take a screenshot
     yield Screenshot("screenshots/test_result.png")
@@ -93,18 +93,21 @@ The `GameDriver` provides several typed helpers for querying state and asserting
 
 ### 4. Running the Test with `GameDriver`
 
-Instantiate the `YukkuriGame` and `GameDriver`, then run the scenario.
+Instantiate the `Application` and `GameDriver`, then run the scenario.
 
 ```python
-from src.yukkuri_game.main import YukkuriGame
+from src.yukkuri_game.engine.application import Application
 from src.yukkuri_game.testing.driver import GameDriver
 from src.yukkuri_game.testing.environment import test_environment
 
 def test_game_interaction():
     with test_environment():
-        # Initialize game in headless mode
-        game = YukkuriGame(headless=True)
+        # Initialize game in headless mode with deterministic behavior
+        game = Application(headless=True, deterministic=True)
         driver = GameDriver(game)
+
+        # Ensure driver is setup (pushes initial scene)
+        driver.setup()
 
         # Define the scenario
         def scenario():
@@ -115,7 +118,7 @@ def test_game_interaction():
         driver.run_scenario(scenario(), timeout=5.0)
 
         # Assertions after the scenario
-        assert game.some_state == expected_value
+        assert driver.simulated_time >= 0
 ```
 
 ## Advanced Usage

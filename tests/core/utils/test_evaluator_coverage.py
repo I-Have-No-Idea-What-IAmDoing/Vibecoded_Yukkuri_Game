@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
+from loguru import logger
 from yukkuri_game.game.utils.evaluator import ConditionEvaluator
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import (
@@ -47,11 +48,21 @@ class TestConditionEvaluator:
         assert evaluator.evaluate("unknown > 10", {}) is False
 
     def test_evaluate_type_coercion(self, evaluator):
-        # Should return bool even if result is not bool, but log warning
-        # result 10 -> True
-        assert evaluator.evaluate("10", {}) is True
-        # result 0 -> False
-        assert evaluator.evaluate("0", {}) is False
+        messages = []
+        handler_id = logger.add(lambda msg: messages.append(msg))
+        try:
+            # Should return bool even if result is not bool, but log warning
+            assert evaluator.evaluate("10", {}) is True
+            assert evaluator.evaluate("0", {}) is False
+
+            log_msg = "evaluated to int"
+            assert any(log_msg in str(m) for m in messages)
+
+            messages.clear()
+            evaluator.evaluate("10 > 5", {})
+            assert not any(log_msg in str(m) for m in messages)
+        finally:
+            logger.remove(handler_id)
 
     def test_build_context_full(self, evaluator, world):
         entity_id = 1

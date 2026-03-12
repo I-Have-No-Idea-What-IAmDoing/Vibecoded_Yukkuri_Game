@@ -226,6 +226,34 @@ class TestProcessConsumption:
         # Entity should be marked destroyed
         assert not world.entity_exists(data["item_id"])
 
+    def test_play_does_not_consume_or_feed(self, setup_world):
+        """Playing (consume=False) increases happiness but ignores nutrition and destruction."""
+        data = setup_world
+        world = data["world"]
+        system = HungerSystem()
+
+        request = InteractionRequest(target_id=data["item_id"], consume=False)
+
+        system.process_consumption(
+            world,
+            data["consumer_id"],
+            request,
+            data["consumer_transform"],
+            data["consumer_stats"],
+            data["item_id"],
+            data["item_stats"],
+        )
+
+        # Assert Happiness Increased (fun is 10, start is 50 -> 60)
+        assert data["consumer_emotional"].happiness == 60
+
+        # Assert Hunger Unchanged (Nutrition ignored)
+        assert data["consumer_needs"].hunger == 50
+        assert data["consumer_needs"].bladder == 20
+
+        # Assert Item Still Exists
+        assert world.entity_exists(data["item_id"])
+
     def test_consumption_plays_sound(self, setup_world):
         """Eating plays 'eat' sound."""
         data = setup_world

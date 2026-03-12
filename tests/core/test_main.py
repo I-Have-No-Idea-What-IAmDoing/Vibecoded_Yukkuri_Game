@@ -66,7 +66,7 @@ def test_game_update(yukkuri_game_headless):
 
 def test_main_headless():
     """Test the main entry point in headless mode."""
-    # We need to ensure main imports YukkuriGame which matches what we expect
+    # We need to ensure main imports Application which matches what we expect
 
     with (
         patch("yukkuri_game.main.Application") as MockApp,
@@ -80,7 +80,7 @@ def test_main_headless():
             from yukkuri_game.main import main
 
             # We don't reload here because we want to test the 'main' function as is,
-            # but patching 'yukkuri_game.main.YukkuriGame' should work.
+            # but patching 'yukkuri_game.main.Application' should work.
             main()
 
             MockApp.assert_called_with(headless=True)
