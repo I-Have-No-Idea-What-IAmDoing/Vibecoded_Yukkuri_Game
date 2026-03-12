@@ -34,7 +34,8 @@ def test_image_comparison(game_driver: GameDriver, tmp_path):
     test_path = str(tmp_path / "test.png")
 
     # Should match exactly or very closely
-    assert driver.compare_screenshot(test_path, reference_path, tolerance=0.01)
+    # Tolerance increased to 5% to accommodate half-resolution lightmap smoothscale
+    assert driver.compare_screenshot(test_path, reference_path, tolerance=0.05)
 
 
 def test_image_comparison_failure(game_driver: GameDriver, tmp_path):

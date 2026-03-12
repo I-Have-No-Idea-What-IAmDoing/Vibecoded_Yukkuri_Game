@@ -579,43 +579,60 @@ class RenderSystem(System):
             if light:
                 radius = light.radius * self.camera.zoom
 
-                # Flicker Logic
-                intensity = light.intensity
-                if light.flicker_style != FlickerStyle.NONE:
-                    time_service = world.services.try_get(TimeService)
-                    time_elapsed = time_service.time_elapsed if time_service else 0.0
-
-                    if light.flicker_style == FlickerStyle.FIRE:
-                        noise = (
-                            math.sin(time_elapsed * 10.0 + ent) * 0.1
-                            + math.sin(time_elapsed * 23.0 + ent * 2) * 0.05
-                            + math.sin(time_elapsed * 47.0 + ent * 0.5) * 0.02
+                # Optimization #7: Skip lights whose bounding circle
+                # doesn't intersect the actual screen.
+                lsx, lsy = screen_pos
+                if (
+                    lsx + radius < 0
+                    or lsx - radius > sw
+                    or lsy + radius < 0
+                    or lsy - radius > sh
+                ):
+                    # Light is fully offscreen, skip shadow computation
+                    pass
+                else:
+                    # Flicker Logic
+                    intensity = light.intensity
+                    if light.flicker_style != FlickerStyle.NONE:
+                        time_service = world.services.try_get(TimeService)
+                        time_elapsed = (
+                            time_service.time_elapsed if time_service else 0.0
                         )
-                        intensity = light.intensity * (1.0 + noise)
-                    elif light.flicker_style == FlickerStyle.PULSE:
-                        intensity = light.intensity * (
-                            0.8 + 0.2 * math.sin(time_elapsed * math.pi)
+
+                        if light.flicker_style == FlickerStyle.FIRE:
+                            noise = (
+                                math.sin(time_elapsed * 10.0 + ent) * 0.1
+                                + math.sin(time_elapsed * 23.0 + ent * 2)
+                                * 0.05
+                                + math.sin(time_elapsed * 47.0 + ent * 0.5)
+                                * 0.02
+                            )
+                            intensity = light.intensity * (1.0 + noise)
+                        elif light.flicker_style == FlickerStyle.PULSE:
+                            intensity = light.intensity * (
+                                0.8
+                                + 0.2 * math.sin(time_elapsed * math.pi)
+                            )
+
+                    # Ensure color is RGBA
+                    color = light.color
+                    if len(color) == 3:
+                        color = (color[0], color[1], color[2], 255)
+
+                    self.renderer.submit(
+                        LightCommand(
+                            layer=LAYER_EFFECTS,
+                            z_index=iy,
+                            entity_id=ent,
+                            position=screen_pos,
+                            radius=radius,
+                            color=color,
+                            intensity=intensity,
+                            flicker_style=light.flicker_style,
+                            soft_shadows=light.soft_shadows,
+                            static=light.static,
                         )
-
-                # Ensure color is RGBA
-                color = light.color
-                if len(color) == 3:
-                    color = (color[0], color[1], color[2], 255)
-
-                self.renderer.submit(
-                    LightCommand(
-                        layer=LAYER_EFFECTS,
-                        z_index=iy,
-                        entity_id=ent,
-                        position=screen_pos,
-                        radius=radius,
-                        color=color,
-                        intensity=intensity,
-                        flicker_style=light.flicker_style,
-                        soft_shadows=light.soft_shadows,
-                        static=light.static,
                     )
-                )
 
             occluder = world.try_get_component(ent, Occluder)
             if occluder:
@@ -652,10 +669,16 @@ class RenderSystem(System):
         if len(world_verts) < 3:
             return
 
-        screen_verts = []
-        for wx, wy in world_verts:
-            sx, sy = self.camera.world_to_screen_fast(wx, wy)
-            screen_verts.append((sx, sy))
+        # Optimization #8: Inline coordinate transform to avoid
+        # per-vertex function call overhead from world_to_screen_fast.
+        zoom_x = self.camera._cached_zoom_x
+        zoom_y = self.camera._cached_zoom_y
+        off_x = self.camera._cached_offset_x
+        off_y = self.camera._cached_offset_y
+        screen_verts = [
+            (wx * zoom_x + off_x, wy * zoom_y + off_y)
+            for wx, wy in world_verts
+        ]
 
         self.renderer.submit(
             OccluderCommand(

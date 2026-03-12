@@ -280,12 +280,15 @@ class SoftwareLightingEngine:
             soft_shadows,
         )
 
-        # Cache the result for static lights
+        # Cache the result for static lights (copy BEFORE releasing to pool)
         if static and entity_id >= 0 and light_surf is not None:
             cache_key = (sr_key, color, int(intensity * 100), soft_shadows)
-            # Make a copy for the cache (the original goes back to the pool)
             cached_copy = light_surf.copy()
             self.static_light_cache[entity_id] = (cached_copy, cache_key)
+
+        # Release surface back to pool (AFTER potential copy)
+        if light_surf is not None:
+            self.surface_pool.release(light_surf)
 
     def _draw_light_shadow_volume(
         self,
@@ -376,14 +379,8 @@ class SoftwareLightingEngine:
         # Composite (clipped)
         self.lightmap.blit(light_surf, clip_rect, special_flags=pygame.BLEND_ADD)
 
-        # Return surface before releasing to pool (for caching)
-        result = light_surf
-
-        # Release surface back to pool
-        self.surface_pool.release(light_surf)
-
-        return result
-
+        # Return surface to caller for potential caching before pool release
+        return light_surf
     def _draw_soft_shadows(
         self,
         light_surf: pygame.Surface,

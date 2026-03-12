@@ -1,8 +1,5 @@
-"""
-Module for caching transformed surfaces to optimize rendering.
-"""
+"""Module for caching transformed surfaces to optimize rendering."""
 
-from collections import OrderedDict
 import pygame
 from ..engine.resource_manager import ResourceManager
 
@@ -24,9 +21,10 @@ class SurfaceCache:
         self.rm = resource_manager
         self.max_size = max_size
         # Key: (image_name, frame, width, height, scale, rotation, flip_x, flip_y)
-        self._cache: OrderedDict[
+        # Uses plain dict (insertion-ordered since Python 3.7) for LRU.
+        self._cache: dict[
             tuple[str, int, int, int, float, float, bool, bool], pygame.Surface
-        ] = OrderedDict()
+        ] = {}
 
     def get_surface(
         self,
@@ -69,8 +67,9 @@ class SurfaceCache:
         )
 
         if key in self._cache:
-            # Move to end (mark as recently used)
-            self._cache.move_to_end(key)
+            # Move to end (mark as recently used) via pop + re-insert
+            val = self._cache.pop(key)
+            self._cache[key] = val
             return self._cache[key]
 
         # Not in cache, create it
@@ -89,7 +88,9 @@ class SurfaceCache:
         if surface:
             self._cache[key] = surface
             if len(self._cache) > self.max_size:
-                self._cache.popitem(last=False)  # Remove the oldest item
+                # Remove the oldest item (first key in dict)
+                oldest = next(iter(self._cache))
+                del self._cache[oldest]
 
         return surface
 

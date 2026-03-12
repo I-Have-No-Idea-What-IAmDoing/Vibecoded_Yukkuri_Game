@@ -8,6 +8,7 @@ by Z-index before dispatching them to the underlying backend.
 
 from collections import defaultdict
 from operator import attrgetter
+from typing import Any
 
 from .backend import RenderBackend
 from .commands import (
@@ -41,6 +42,15 @@ class Renderer:
         # This also allows faster sorting within layers (only by z_index).
         self._layers: defaultdict[int, list[RenderCommand]] = defaultdict(list)
 
+        # Optimization: Dispatch table eliminates isinstance chain in the hot loop.
+        self._dispatch: dict[type, Any] = {
+            SpriteCommand: backend.draw_sprite,
+            TextCommand: backend.draw_text,
+            ShadowCommand: backend.draw_shadow,
+            LightCommand: backend.draw_light,
+            OccluderCommand: backend.draw_occluder,
+        }
+
     def submit(self, cmd: RenderCommand) -> None:
         """
         Add a command to the render queue.
@@ -60,6 +70,7 @@ class Renderer:
 
         # Sort layers and iterate
         sorted_layers = sorted(self._layers)
+        dispatch = self._dispatch
 
         for layer_id in sorted_layers:
             commands = self._layers[layer_id]
@@ -67,16 +78,7 @@ class Renderer:
             commands.sort(key=attrgetter("z_index"))
 
             for cmd in commands:
-                if isinstance(cmd, SpriteCommand):
-                    self.backend.draw_sprite(cmd)
-                elif isinstance(cmd, TextCommand):
-                    self.backend.draw_text(cmd)
-                elif isinstance(cmd, ShadowCommand):
-                    self.backend.draw_shadow(cmd)
-                elif isinstance(cmd, LightCommand):
-                    self.backend.draw_light(cmd)
-                elif isinstance(cmd, OccluderCommand):
-                    self.backend.draw_occluder(cmd)
+                dispatch[type(cmd)](cmd)
 
         # Clear command queue
         self._layers.clear()

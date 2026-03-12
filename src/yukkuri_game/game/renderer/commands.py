@@ -13,7 +13,7 @@ import pygame
 from ..components import FlickerStyle
 
 
-@dataclass
+@dataclass(slots=True)
 class RenderCommand:
     """
     Base class for all render commands.
@@ -27,7 +27,7 @@ class RenderCommand:
     z_index: float  # For sorting within a layer (usually y-coordinate)
 
 
-@dataclass
+@dataclass(slots=True)
 class SpriteCommand(RenderCommand):
     """
     Command to draw a sprite.
@@ -57,7 +57,7 @@ class SpriteCommand(RenderCommand):
     cache_key: tuple[Any, ...] | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class TextCommand(RenderCommand):
     """
     Command to draw text.
@@ -79,7 +79,7 @@ class TextCommand(RenderCommand):
     font_name: str | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class LightCommand(RenderCommand):
     """
     Command to update/draw a light source.
@@ -105,7 +105,7 @@ class LightCommand(RenderCommand):
     static: bool = False
 
 
-@dataclass
+@dataclass(slots=True)
 class ShadowCommand(RenderCommand):
     """
     Command to draw a simple blob shadow.
@@ -121,7 +121,7 @@ class ShadowCommand(RenderCommand):
     color: tuple[int, int, int, int] = (0, 0, 0, 100)
 
 
-@dataclass
+@dataclass(slots=True)
 class OccluderCommand(RenderCommand):
     """
     Command to define an occluder polygon.

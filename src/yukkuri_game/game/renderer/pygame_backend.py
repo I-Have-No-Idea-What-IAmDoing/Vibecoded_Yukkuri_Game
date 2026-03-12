@@ -6,8 +6,6 @@ It uses native Pygame drawing functions and the custom `SoftwareLightingEngine` 
 lighting and shadows.
 """
 
-from collections import OrderedDict
-
 import pygame
 
 from .backend import RenderBackend
@@ -49,20 +47,20 @@ class PygameBackend(RenderBackend):
 
         # New Lighting Engine
         w, h = screen.get_size()
-        self.lighting_engine = SoftwareLightingEngine((w, h))
+        self.lighting_engine = SoftwareLightingEngine((w, h), scale=0.5)
 
         # Caches
         self.font_cache: dict[tuple[int, str | None], pygame.font.Font] = {}
-        self.shadow_surface_cache: OrderedDict[
+        self.shadow_surface_cache: dict[
             tuple[int, int, tuple[int, int, int, int]], pygame.Surface
-        ] = OrderedDict()  # (rx, ry, color) -> Surface
+        ] = {}  # (rx, ry, color) -> Surface
         self.max_shadow_cache_size = 1000
 
         # Text Cache (LRU)
         # Key: (text, size, color, font_name)
-        self.text_cache: OrderedDict[
+        self.text_cache: dict[
             tuple[str, int, tuple[int, int, int], str | None], pygame.Surface
-        ] = OrderedDict()
+        ] = {}
         self.max_text_cache_size = 500
 
     def clear(self, color: tuple[int, int, int]) -> None:
@@ -233,14 +231,16 @@ class PygameBackend(RenderBackend):
         # Check cache
         key = (cmd.text, cmd.size, cmd.color, cmd.font_name)
         if key in self.text_cache:
-            self.text_cache.move_to_end(key)
+            val = self.text_cache.pop(key)
+            self.text_cache[key] = val
             surf = self.text_cache[key]
         else:
             font = self._get_font(cmd.size, cmd.font_name)
             surf = font.render(cmd.text, True, cmd.color)
             self.text_cache[key] = surf
             if len(self.text_cache) > self.max_text_cache_size:
-                self.text_cache.popitem(last=False)
+                oldest = next(iter(self.text_cache))
+                del self.text_cache[oldest]
 
         dest_rect = surf.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
 
@@ -282,13 +282,16 @@ class PygameBackend(RenderBackend):
             key = (rx, ry, cmd.color)
             if key not in self.shadow_surface_cache:
                 if len(self.shadow_surface_cache) >= self.max_shadow_cache_size:
-                    self.shadow_surface_cache.popitem(last=False)
+                    oldest = next(iter(self.shadow_surface_cache))
+                    del self.shadow_surface_cache[oldest]
 
                 s = pygame.Surface((rx * 2, ry * 2), pygame.SRCALPHA)
                 pygame.draw.ellipse(s, cmd.color, s.get_rect())
                 self.shadow_surface_cache[key] = s
             else:
-                self.shadow_surface_cache.move_to_end(key)
+                # Move to end (mark as recently used) via pop + re-insert
+                val = self.shadow_surface_cache.pop(key)
+                self.shadow_surface_cache[key] = val
 
             s = self.shadow_surface_cache[key]
             dest_rect = s.get_rect(center=(int(cmd.position[0]), int(cmd.position[1])))
