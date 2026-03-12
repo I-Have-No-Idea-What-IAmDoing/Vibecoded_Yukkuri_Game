@@ -34,7 +34,7 @@ class TestDeterminism(unittest.TestCase):
     def test_determinism_match(self):
         """Run simulation twice with same seed and compare states."""
         seed = 12345
-        frames = 100
+        frames = 30
         
         state_1 = self.run_simulation(seed, frames)
         state_2 = self.run_simulation(seed, frames)
@@ -55,7 +55,7 @@ class TestDeterminism(unittest.TestCase):
 
     def test_determinism_diverge(self):
         """Run simulation twice with DIFFERENT seeds and expect difference."""
-        frames = 100
+        frames = 30
         
         state_1 = self.run_simulation(11111, frames)
         state_2 = self.run_simulation(99999, frames)

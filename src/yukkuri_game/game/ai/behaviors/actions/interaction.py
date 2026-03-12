@@ -178,7 +178,7 @@ class EatPrey(Action):
         if self.world:
             self.last_update_time = self.world.time
             # Get TimeService
-            from .....services import TimeService
+            from ....services import TimeService
 
             self.time_service = self.world.services.try_get(TimeService)
 

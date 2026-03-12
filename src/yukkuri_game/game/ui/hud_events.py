@@ -234,7 +234,7 @@ class HudEvents:
 
                 # Close existing dialog if any
                 if self.confirmation_dialog:
-                    self.confirmation_dialog.kill()  # type: ignore[no-untyped-call]
+                    self.confirmation_dialog.kill()
 
                 DIALOG_WIDTH, DIALOG_HEIGHT = 300, 200
                 center_x = (self.layout.width - DIALOG_WIDTH) // 2
@@ -249,7 +249,7 @@ class HudEvents:
                     manager=self.layout.manager,
                     action_long_desc=f"Are you sure you want to sell {count} {entity_str}?",
                     window_title="Confirm Sale",
-                )  # type: ignore[no-untyped-call]
+                )
             return True
 
         if panel.train_btn and ui_element == panel.train_btn:

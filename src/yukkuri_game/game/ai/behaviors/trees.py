@@ -128,7 +128,7 @@ def build_need_satisfaction_behavior(
         if stat_criteria:
             find_kwargs["stat_criteria"] = stat_criteria
 
-        find_action = find_action_class(**find_kwargs)  # type: ignore[arg-type]
+        find_action = find_action_class(**find_kwargs)
 
         # 2.2 Move To Target
         move_action = MoveToTarget(
@@ -150,7 +150,7 @@ def build_need_satisfaction_behavior(
         elif interaction_action_class == Interact:
             interact_kwargs["consume"] = False
 
-        interact_action = interaction_action_class(**interact_kwargs)
+        interact_action = interaction_action_class(**interact_kwargs)  # type: ignore[arg-type]
 
         execution.add_children([find_action, move_action, interact_action])
         root.add_children([is_goal, execution])
@@ -310,7 +310,7 @@ def build_standard_interaction_behavior(goal_name: str) -> Callable[
 
         def has_valid_target() -> bool:
             ai = world.try_get_component(entity_id, AIState)
-            return ai and ai.current_target_id != -1
+            return bool(ai and ai.current_target_id != -1)
 
         find_selector.add_child(Check(name="Has Target?", check_fn=has_valid_target))
 

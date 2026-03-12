@@ -52,7 +52,7 @@ class Sleep(Action):
             ai.path = None
 
         # Get delta time from TimeService (World doesn't have a dt property)
-        from .....services import TimeService
+        from ....services import TimeService
 
         time_service = self.world.services.try_get(TimeService)
         dt = time_service.delta_time if time_service else 0.016

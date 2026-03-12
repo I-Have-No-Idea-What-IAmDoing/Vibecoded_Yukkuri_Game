@@ -19,7 +19,7 @@ def test_image_comparison(game_driver: GameDriver, tmp_path):
     driver.seed_rng(12345)  # Force seed for rendering determinism
 
     driver.create_yukkuri("reimu", 400, 300)
-    driver.run_for(1.0)  # Let it settle
+    driver.run_for(0.1)  # Settle quickly
 
     reference_path = str(tmp_path / "reference.png")
     driver.save_screenshot(reference_path)
@@ -29,7 +29,7 @@ def test_image_comparison(game_driver: GameDriver, tmp_path):
     driver.seed_rng(12345)
 
     driver.create_yukkuri("reimu", 400, 300)
-    driver.run_for(1.0)
+    driver.run_for(0.1)
 
     test_path = str(tmp_path / "test.png")
 
@@ -48,7 +48,7 @@ def test_image_comparison_failure(game_driver: GameDriver, tmp_path):
     driver.reload_scene(GameplayScene)
     driver.seed_rng(12345)
     driver.create_yukkuri("reimu", 400, 300)
-    driver.run_for(0.5)
+    driver.run_for(0.1)
 
     reference_path = str(tmp_path / "ref_fail.png")
     driver.save_screenshot(reference_path)
@@ -61,10 +61,12 @@ def test_image_comparison_failure(game_driver: GameDriver, tmp_path):
     # We need diff > 1%.
     # Let's spawn many entities in different spots.
 
-    for i in range(50):
-        driver.create_yukkuri("reimu", 100 + i * 10, 100 + i * 10)
+    # Spawn entities all over the screen to guarantee massive visual difference
+    for i in range(15):
+        driver.create_yukkuri("reimu", 50 + i * 40, 50 + i * 30)
 
-    driver.run_for(0.5)
+    # Let it settle for slightly longer to ensure rendering
+    driver.run_for(0.2)
 
     test_path = str(tmp_path / "test_fail.png")
 

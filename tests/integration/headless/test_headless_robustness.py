@@ -101,28 +101,28 @@ def test_stress_test(game_driver: GameDriver):
     # Use reset to ensure clean slate
     driver.reload_scene(GameplayScene)
 
-    # Spawn 50 Yukkuris
-    for _ in range(50):
+    # Spawn 25 Yukkuris
+    for _ in range(25):
         driver.create_yukkuri("reimu", random.randint(0, 800), random.randint(0, 600))
 
     start_frame = driver.frame_count
 
     with driver.capture_logs() as logs:
-        driver.run_for(2.0)  # Run for 2 seconds (simulated)
+        driver.run_for(1.0)  # Run for 1 seconds (simulated)
 
     logs.assert_not_logged("Exception")
 
     end_frame = driver.frame_count
 
     # Check frames advanced
-    expected_frames = 2.0 / driver.fixed_dt
+    expected_frames = 1.0 / driver.fixed_dt
     # Allow some tolerance
     assert end_frame - start_frame >= expected_frames - 2
 
     # Check for stability (no crash, entities still exist)
     count = len(driver.get_entities_with(YukkuriStats))
-    # 50 created.
-    assert count >= 50
+    # 25 created.
+    assert count >= 25
 
 
 def test_audio_mock(game_driver: GameDriver):

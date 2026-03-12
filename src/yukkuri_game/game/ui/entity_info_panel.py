@@ -151,7 +151,7 @@ class EntityInfoPanel:
             None
         """
         if self.window:
-            self.window.kill()  # type: ignore[no-untyped-call]
+            self.window.kill()
             self.window = None
             self.tabbed_panel = None
             self.stats_text_box = None
@@ -168,7 +168,7 @@ class EntityInfoPanel:
         tab_id = self.tabbed_panel.add_tab("Stats")
         container = self.tabbed_panel.tabs[tab_id]["container"]
 
-        self.stats_scroll = SafeUIScrollingContainer(  # type: ignore[no-untyped-call]
+        self.stats_scroll = SafeUIScrollingContainer(
             relative_rect=pygame.Rect(
                 0, 0, container.rect.width, container.rect.height
             ),
@@ -199,7 +199,7 @@ class EntityInfoPanel:
         tab_id = self.tabbed_panel.add_tab("Skills")
         container = self.tabbed_panel.tabs[tab_id]["container"]
 
-        self.skills_scroll = SafeUIScrollingContainer(  # type: ignore[no-untyped-call]
+        self.skills_scroll = SafeUIScrollingContainer(
             relative_rect=pygame.Rect(
                 0, 0, container.rect.width, container.rect.height
             ),

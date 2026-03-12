@@ -381,7 +381,7 @@ class GameDriver:
             and isinstance(self.game, Application)
             and hasattr(self.game, "event_manager")
         ):
-            self.game.event_manager.bus.publish = self._original_publish
+            self.game.event_manager.bus.publish = self._original_publish  # type: ignore[assignment]
             self._original_publish = None
 
         self.game.quit()  # type: ignore[union-attr]
@@ -706,7 +706,7 @@ class GameDriver:
                 try:
                     self.game.scene_manager.render(1.0)
                 except TypeError:
-                    self.game.scene_manager.render()
+                    self.game.scene_manager.render()  # type: ignore[call-arg]
 
         if self.game and hasattr(self.game, "screen") and self.game.screen:
             pygame.image.save(self.game.screen, filename)

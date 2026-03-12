@@ -242,7 +242,7 @@ class Application:
             self.scene_manager.current_scene, "init_render_system_headless"
         ):
             scene: Any = self.scene_manager.current_scene
-            scene.init_render_system_headless()
+            scene.init_render_system_headless()  # type: ignore[operator]
 
     def quit(self) -> None:
         """

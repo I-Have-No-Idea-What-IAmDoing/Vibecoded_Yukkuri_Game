@@ -3,7 +3,7 @@ Module defining the ConditionEvaluator for dynamic expression parsing.
 """
 
 from typing import Any
-from simpleeval import SimpleEval  # type: ignore[import-untyped]
+from simpleeval import SimpleEval
 from loguru import logger
 from ...engine.ecs import World
 from ..yukkuri_components import (

@@ -541,7 +541,7 @@ class HudRenderer:
             html_message=message,
             manager=self.layout.manager,
             window_title="Error",
-        )  # type: ignore[no-untyped-call]
+        )
 
     def _update_buy_button_highlights(self) -> None:
         """
@@ -561,13 +561,13 @@ class HudRenderer:
         # Update buy buttons
         for btn, data in self.layout.buy_buttons.items():
             if is_placing and data["type_id"] == current_type:
-                btn.select()  # type: ignore[no-untyped-call]
+                btn.select()
             else:
-                btn.unselect()  # type: ignore[no-untyped-call]
+                btn.unselect()
 
         # Update clean button
         if self.layout.clean_btn:
             if is_cleaning:
-                self.layout.clean_btn.select()  # type: ignore[no-untyped-call]
+                self.layout.clean_btn.select()
             else:
-                self.layout.clean_btn.unselect()  # type: ignore[no-untyped-call]
+                self.layout.clean_btn.unselect()

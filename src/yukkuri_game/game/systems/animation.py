@@ -309,7 +309,7 @@ class AnimationSystem(System):
             return
 
         if isinstance(yukkuri_type, dict):
-            base_image = yukkuri_type.get("image")
+            base_image = yukkuri_type.get("image")  # type: ignore[arg-type]
         else:
             base_image = getattr(yukkuri_type, "image", None)
 
