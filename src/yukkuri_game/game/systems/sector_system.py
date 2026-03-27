@@ -406,22 +406,13 @@ class SectorSystem(System):
         # Fallback Mode: Check all entities if EventBus is missing (for legacy tests)
         if hasattr(self, "_fallback_mode") and self._fallback_mode:
             for entity, (transform,) in world.get_components_tuple(Transform):
-                if (
-                    transform.x != transform.prev_x
-                    or transform.y != transform.prev_y
-                    or entity not in self.sector_map.entity_sectors
-                ):
+                moved = transform.x != transform.prev_x or transform.y != transform.prev_y
+                if moved or entity not in self.sector_map.entity_sectors:
                     self.sector_map.update_entity(entity, transform.x, transform.y)
 
-            for entity, (transform, occluder) in world.get_components_tuple(
-                Transform, Occluder
-            ):
-                if (
-                    transform.x != transform.prev_x
-                    or transform.y != transform.prev_y
-                    or entity not in self.occluder_map.entity_sectors
-                ):
-                    self.occluder_map.update_entity(entity, transform.x, transform.y)
+                if world.has_component(entity, Occluder):
+                    if moved or entity not in self.occluder_map.entity_sectors:
+                        self.occluder_map.update_entity(entity, transform.x, transform.y)
 
             # Periodic cleanup still needed
             self.cleanup_timer += dt
