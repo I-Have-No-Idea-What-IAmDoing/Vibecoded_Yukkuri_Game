@@ -136,7 +136,7 @@ class SocialSystem(System):
             world (World): The ECS World.
             now (float): Current game time.
         """
-        all_entities = world.get_entities_with(RelationshipRegistry)
+        all_entities = world.get_components_tuple(RelationshipRegistry)
         if not all_entities:
             return
 
@@ -145,8 +145,7 @@ class SocialSystem(System):
         end = min(start + self.CLEANUP_BATCH_SIZE, count)
 
         for i in range(start, end):
-            eid = all_entities[i]
-            registry = world.get_component(eid, RelationshipRegistry)
+            eid, (registry,) = all_entities[i]
             if registry:
                 self._cleanup_registry(world, eid, registry, now)
 

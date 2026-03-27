@@ -98,12 +98,9 @@ class FamilySystem(System):
         Args:
             world (World): The ECS World.
         """
-        entities = world.get_entities_with(RelationshipRegistry, YukkuriStats)
+        entities = world.get_components_tuple(RelationshipRegistry, YukkuriStats)
 
-        for entity in entities:
-            registry = world.get_component(entity, RelationshipRegistry)
-            stats = world.get_component(entity, YukkuriStats)
-
+        for entity, (registry, stats) in entities:
             if not registry or not stats:
                 continue
 
@@ -172,20 +169,15 @@ class FamilySystem(System):
             world (World): The ECS World.
             sector_map (SectorMap): The sector map service.
         """
-        entities = world.get_entities_with(
+        entities = world.get_components_tuple(
             RelationshipRegistry, YukkuriStats, Needs, Transform, AIState
         )
 
-        for eid in entities:
-            reg = world.get_component(eid, RelationshipRegistry)
+        for eid, (reg, stats, needs, trans, ai) in entities:
             if reg is None or reg.family_group_id is None:
                 continue
 
-            stats = world.get_component(eid, YukkuriStats)
-            needs = world.get_component(eid, Needs)
-            trans = world.get_component(eid, Transform)
-            ai = world.get_component(eid, AIState)
-            emotional = world.get_component(eid, EmotionalState)
+            emotional = world.try_get_component(eid, EmotionalState)
 
             if stats is None or needs is None or trans is None or ai is None:
                 continue
@@ -240,27 +232,21 @@ class FamilySystem(System):
         Args:
             world (World): The ECS World.
         """
-        entities = world.get_entities_with(
+        entities = world.get_components_tuple(
             RelationshipRegistry, YukkuriStats, Needs, Transform, AIState
         )
 
-        for i, eid in enumerate(entities):
-            reg = world.get_component(eid, RelationshipRegistry)
+        for i, (eid, (reg, stats, needs, trans, ai)) in enumerate(entities):
             if reg is None or reg.family_group_id is None:
                 continue
 
-            stats = world.get_component(eid, YukkuriStats)
-            needs = world.get_component(eid, Needs)
-            trans = world.get_component(eid, Transform)
-            ai = world.get_component(eid, AIState)
-            emotional = world.get_component(eid, EmotionalState)
+            emotional = world.try_get_component(eid, EmotionalState)
 
             if stats is None or needs is None or trans is None or ai is None:
                 continue
 
             for j in range(i + 1, len(entities)):
-                other_eid = entities[j]
-                other_reg = world.get_component(other_eid, RelationshipRegistry)
+                other_eid, (other_reg, other_stats, other_needs, other_trans, other_ai) = entities[j]
 
                 if (
                     other_reg is None
@@ -268,11 +254,7 @@ class FamilySystem(System):
                 ):
                     continue
 
-                other_trans = world.get_component(other_eid, Transform)
-                other_ai = world.get_component(other_eid, AIState)
-                other_stats = world.get_component(other_eid, YukkuriStats)
-                other_needs = world.get_component(other_eid, Needs)
-                other_emotional = world.get_component(other_eid, EmotionalState)
+                other_emotional = world.try_get_component(other_eid, EmotionalState)
 
                 if (
                     other_trans is None

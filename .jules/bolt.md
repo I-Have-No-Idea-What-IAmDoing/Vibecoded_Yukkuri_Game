@@ -41,3 +41,7 @@
 ## 2026-02-12 - [Render Cache Thrashing]
 **Learning:** `PygameBackend` shadow cache was growing unbounded due to continuous altitude changes causing unique shadow keys (rx, ry, alpha). Additionally, `SurfaceCache` (max 200) was thrashing with 300+ rotating entities.
 **Action:** Quantize continuous rendering parameters (like altitude-based shadow size) to improve cache hit rates. Use bounded caches (clear-on-full or LRU) for dynamic assets to prevent memory leaks. Increased `SurfaceCache` to 2000 to handle larger scenes.
+
+## 2026-10-31 - [ECS Query Iteration Optimization]
+**Learning:** `world.get_entities_with` does a `esper.get_components` query, extracts just the entity ID via a list comprehension, and discards the component references. The caller then typically iterates those entity IDs and calls `world.get_component(eid, ...)` inside a loop. `try_get_component` and `get_component` inside a loop is extremely slow in python compared to just iterating the components returned from `get_components_tuple`. Using `world.get_components_tuple(...)` is ~50x faster.
+**Action:** Never use `world.get_entities_with` followed by `world.get_component` in a loop. Always use `world.get_components_tuple` to retrieve the entity ID and all requested components in a single, fast iteration.
