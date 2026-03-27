@@ -102,17 +102,13 @@ class PoopSystem(System):
 
         # Environmental Effect
         # Find all poop entities
-        poop_entities = world.get_entities_with(Poop, Transform)
+        poop_entities = world.get_components_tuple(Poop, Transform)
         if not poop_entities:
             return
 
         # Optimization: In a large game, use a spatial grid. Here, O(N*M) is fine for small counts.
-        for p_ent in poop_entities:
-            p_trans = world.get_component(p_ent, Transform)
-            if p_trans is None:
-                continue
-
-            for y_ent, (y_stats, y_needs, y_trans) in world.get_components_tuple(
+        for _p_ent, (_p_poop, p_trans) in poop_entities:
+            for _y_ent, (_y_stats, y_needs, y_trans) in world.get_components_tuple(
                 YukkuriStats, Needs, Transform
             ):
                 # Distance check
