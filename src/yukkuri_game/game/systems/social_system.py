@@ -146,7 +146,8 @@ class SocialSystem(System):
 
         for i in range(start, end):
             eid, (registry,) = all_entities[i]
-            if registry:
+            eid, (registry,) = all_entities[i]
+            self._cleanup_registry(world, eid, registry, now)
                 self._cleanup_registry(world, eid, registry, now)
 
         self.cleanup_index = (self.cleanup_index + self.CLEANUP_BATCH_SIZE) % max(
