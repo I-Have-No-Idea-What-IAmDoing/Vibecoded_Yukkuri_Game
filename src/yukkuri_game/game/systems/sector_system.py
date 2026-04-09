@@ -28,11 +28,20 @@ Performance:
 
 from collections import defaultdict
 import math
+import pymunk
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ...engine.events import EntityDestroyedEvent
-from ..components import Transform, Occluder
+from ...engine.events import EntityDestroyedEvent, ComponentAddedEvent
+from ..components import (
+    Transform,
+    Occluder,
+    Velocity,
+    PhysicsBody,
+    Mount,
+    FloatingText,
+    MovementController,
+)
 
 
 class SectorMap:
@@ -322,12 +331,43 @@ class SectorSystem(System):
         self.event_bus = event_bus
         self._subscribed = False
 
+        # New entity tracking for optimization
+        self._new_entities: set[int] = set()
+        self._first_run: bool = True
+
         self.cleanup_timer = 0.0
         self.cleanup_interval = self.CLEANUP_INTERVAL  # Seconds
 
         if self.event_bus:
             self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
+            self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
             self._subscribed = True
+
+    def initialize(self) -> None:
+        """Initialize system and subscribe to events if not already done."""
+        if hasattr(self, "ecs_world"):
+            self._lazy_init(self.ecs_world)
+
+    def _lazy_init(self, world: World) -> None:
+        """Helper to initialize subscriptions with a specific world."""
+        if not self._subscribed:
+            # Try to get EventBus from world services
+            event_bus = world.services.try_get(EventBus)
+            if event_bus:
+                self.event_bus = event_bus
+                self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
+                self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
+                self._subscribed = True
+            else:
+                # Fallback: If no EventBus, we can't track new entities efficiently.
+                # Fallback to full iteration mode.
+                self._fallback_mode = True
+
+    def on_component_added(self, event: ComponentAddedEvent) -> None:
+        """Handler for component addition."""
+        # Track new transforms or occluders to ensure they get added to maps
+        if event.component_type == Transform or event.component_type == Occluder:
+            self._new_entities.add(event.entity_id)
 
     def on_entity_destroyed(self, event: EntityDestroyedEvent) -> None:
         """
@@ -343,17 +383,19 @@ class SectorSystem(System):
         """
         Updates entity positions in the SectorMap.
 
+        Optimization:
+        Instead of iterating ALL transforms every frame, we only iterate:
+        1. Newly created entities (via ComponentAddedEvent or _first_run)
+        2. Entities that are likely to move (Velocity, PhysicsBody, Mount, etc.)
+        3. Static entities are skipped after initial processing.
+
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
         """
-        # Lazy subscription if event_bus wasn't provided in init (backward compatibility)
+        # Ensure lazy init
         if not self._subscribed:
-            event_bus = world.services.try_get(EventBus)
-            if event_bus:
-                self.event_bus = event_bus
-                self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
-                self._subscribed = True
+            self._lazy_init(world)
 
         # Register map as service if not already.
         if not world.services.try_get(SectorMap):
@@ -361,26 +403,84 @@ class SectorSystem(System):
         if not world.services.try_get(OccluderMap):
             world.services.register(self.occluder_map, OccluderMap)
 
-        # Iterate all entities with Transform
-        for entity, (transform,) in world.get_components_tuple(Transform):
-            # Optimization: Only update sector map if entity moved or is not yet tracked
-            if (
-                transform.x != transform.prev_x
-                or transform.y != transform.prev_y
-                or entity not in self.sector_map.entity_sectors
-            ):
+        # Fallback Mode: Check all entities if EventBus is missing (for legacy tests)
+        if hasattr(self, "_fallback_mode") and self._fallback_mode:
+            for entity, (transform,) in world.get_components_tuple(Transform):
+                moved = transform.x != transform.prev_x or transform.y != transform.prev_y
+                if moved or entity not in self.sector_map.entity_sectors:
+                    self.sector_map.update_entity(entity, transform.x, transform.y)
+
+                if world.has_component(entity, Occluder):
+                    if moved or entity not in self.occluder_map.entity_sectors:
+                        self.occluder_map.update_entity(entity, transform.x, transform.y)
+
+            # Periodic cleanup still needed
+            self.cleanup_timer += dt
+            if self.cleanup_timer >= self.cleanup_interval:
+                self.cleanup_timer = 0.0
+                self.cleanup_dead_entities(world)
+            return
+
+        # 1. Handle First Run - Full Scan
+        # Catches entities created before system initialization or if events were missed
+        if self._first_run:
+            for entity, (transform,) in world.get_components_tuple(Transform):
+                self.sector_map.update_entity(entity, transform.x, transform.y)
+                if world.has_component(entity, Occluder):
+                    self.occluder_map.update_entity(entity, transform.x, transform.y)
+            self._first_run = False
+            self._new_entities.clear()  # Clear duplicates
+
+        # 2. Process New Entities (Added since last frame)
+        if self._new_entities:
+            for entity in self._new_entities:
+                transform = world.try_get_component(entity, Transform)
+                if transform:
+                    self.sector_map.update_entity(entity, transform.x, transform.y)
+                    if world.has_component(entity, Occluder):
+                        self.occluder_map.update_entity(entity, transform.x, transform.y)
+            self._new_entities.clear()
+
+        # 3. Process Moving Entities
+        # Use a set to avoid processing the same entity multiple times if it matches multiple criteria
+        processed_entities: set[int] = set()
+
+        def check_and_update(entity: int, transform: Transform) -> None:
+            if entity in processed_entities:
+                return
+            processed_entities.add(entity)
+
+            # Check for movement
+            if transform.x != transform.prev_x or transform.y != transform.prev_y:
                 self.sector_map.update_entity(entity, transform.x, transform.y)
 
-        # Update OccluderMap
-        for entity, (transform, occluder) in world.get_components_tuple(
-            Transform, Occluder
-        ):
-            if (
-                transform.x != transform.prev_x
-                or transform.y != transform.prev_y
-                or entity not in self.occluder_map.entity_sectors
-            ):
-                self.occluder_map.update_entity(entity, transform.x, transform.y)
+                # Update OccluderMap if present
+                if world.has_component(entity, Occluder):
+                    self.occluder_map.update_entity(entity, transform.x, transform.y)
+
+        # Iterate dynamic groups
+
+        # Velocity (Kinematic/Dynamic movement)
+        for ent, (t, _) in world.get_components_tuple(Transform, Velocity):
+            check_and_update(ent, t)
+
+        # PhysicsBody (Pymunk bodies, skip static ones)
+        for ent, (t, body) in world.get_components_tuple(Transform, PhysicsBody):
+            if body.body.body_type != pymunk.Body.STATIC:
+                check_and_update(ent, t)
+
+        # MovementController (Logic controlled movement)
+        for ent, (t, _) in world.get_components_tuple(Transform, MovementController):
+            check_and_update(ent, t)
+
+        # Mounts (Attached entities move with parents)
+        for ent, (t, mount) in world.get_components_tuple(Transform, Mount):
+            if mount.parent_id != -1:
+                check_and_update(ent, t)
+
+        # Floating Text (Visual movement)
+        for ent, (t, _) in world.get_components_tuple(Transform, FloatingText):
+            check_and_update(ent, t)
 
         # Periodic cleanup of dead entities
         self.cleanup_timer += dt

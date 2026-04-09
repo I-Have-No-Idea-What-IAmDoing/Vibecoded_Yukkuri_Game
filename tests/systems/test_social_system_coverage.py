@@ -48,14 +48,12 @@ class TestSocialSystem:
         reg.relationships[3] = RelationshipData(last_update=base_time)
 
         # Mock behavior to return correct components
-        def get_entities_with_side_effect(t):
-            if t == RelationshipRegistry:
-                return [e1]
-            if t == Personality:
-                return []
+        def get_components_tuple_side_effect(*args):
+            if args[0] == RelationshipRegistry:
+                return [(e1, (reg,))]
             return []
 
-        world.get_entities_with.side_effect = get_entities_with_side_effect
+        world.get_components_tuple.side_effect = get_components_tuple_side_effect
 
         def get_component_side_effect(e, t):
             if t == RelationshipRegistry:

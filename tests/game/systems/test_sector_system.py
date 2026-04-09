@@ -2,14 +2,21 @@
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.sector_system import SectorSystem
-from yukkuri_game.game.components import Transform
+from yukkuri_game.game.components import Transform, Velocity
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
 
 class TestSectorSystemOptimization:
     def test_optimization_logic(self):
         """Test that SectorSystem correctly optimizes updates."""
         world = World()
+        # Register EventBus to enable optimization mode
+        event_bus = EventBus()
+        world.services.register(event_bus, EventBus)
+
         sector_system = SectorSystem(width=1000, height=1000, sector_size=100)
+        world.add_system(sector_system) # Initializes system properly
+
         # Manually register the map since system does it in update usually
         world.services.register(sector_system.sector_map, type(sector_system.sector_map))
 
@@ -38,6 +45,10 @@ class TestSectorSystemOptimization:
 
         # 3. Moved Entity
         transform.x = 60
+        # Optimization logic requires entity to be dynamic (have Velocity/PhysicsBody etc)
+        # Add Velocity component to simulate dynamic entity
+        world.add_component(entity, Velocity(dx=10, dy=0))
+
         # NOTE: prev_x is NOT automatically updated by Transform. It's updated by PhysicsSystem usually.
         # But SectorSystem compares x vs prev_x.
         # If we only update x, then x != prev_x (50).
@@ -62,7 +73,12 @@ class TestSectorSystemOptimization:
         from yukkuri_game.game.components import Occluder
 
         world = World()
+        # Register EventBus to enable optimization mode
+        event_bus = EventBus()
+        world.services.register(event_bus, EventBus)
+
         sector_system = SectorSystem(width=1000, height=1000, sector_size=100)
+        world.add_system(sector_system)
 
         entity = world.create_entity(Transform(x=50, y=50), Occluder())
         transform = world.get_component(entity, Transform)
@@ -81,6 +97,9 @@ class TestSectorSystemOptimization:
 
         # 3. Moved
         transform.x = 60
+        # Add dynamic component to ensure update
+        world.add_component(entity, Velocity(dx=10, dy=0))
+
         sector_system.update(world, 0.1)
         sector_system.occluder_map.update_entity.assert_called_with(entity, 60, 50)
 
