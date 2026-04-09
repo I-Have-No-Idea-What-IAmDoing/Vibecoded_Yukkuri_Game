@@ -856,8 +856,7 @@ class SoftwareLightingEngine:
 
             fn = t
             # Multiply alpha logic
-            alpha_val = int(255 * intensity * (fn**2))
-            alpha_val = max(0, min(255, alpha_val))
+            alpha_val = min(255, int(255 * intensity * fn * fn))
 
             # Draw circle (Pygame clips automatically)
             # Use width=5 to fill gaps
