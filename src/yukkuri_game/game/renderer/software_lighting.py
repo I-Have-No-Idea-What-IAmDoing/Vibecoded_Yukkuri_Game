@@ -716,9 +716,9 @@ class SoftwareLightingEngine:
         falloff = falloff * intensity
 
         # Calculate RGB channels (vary intensity, not alpha)
-        r = (falloff * color[0]).astype(np.uint8)
-        g = (falloff * color[1]).astype(np.uint8)
-        b = (falloff * color[2]).astype(np.uint8)
+        r = np.clip(falloff * color[0], 0, 255).astype(np.uint8)
+        g = np.clip(falloff * color[1], 0, 255).astype(np.uint8)
+        b = np.clip(falloff * color[2], 0, 255).astype(np.uint8)
 
         # Create RGB surface (no alpha needed for additive blending)
         surf = pygame.Surface((size, size))
@@ -744,6 +744,8 @@ class SoftwareLightingEngine:
         surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
         center = (radius, radius)
 
+        # For Pygame fallback, we should also handle high intensity correctly
+        # though blending with alpha limits it to 255.
         base_alpha = max(0, min(255, int(255 * intensity)))
 
         # Use step of 2 for better performance while maintaining quality
@@ -815,9 +817,9 @@ class SoftwareLightingEngine:
         falloff = falloff * intensity
 
         # Colors
-        r = (falloff * color[0]).astype(np.uint8)
-        g = (falloff * color[1]).astype(np.uint8)
-        b = (falloff * color[2]).astype(np.uint8)
+        r = np.clip(falloff * color[0], 0, 255).astype(np.uint8)
+        g = np.clip(falloff * color[1], 0, 255).astype(np.uint8)
+        b = np.clip(falloff * color[2], 0, 255).astype(np.uint8)
 
         # Set pixels
         pixels = pygame.surfarray.pixels3d(target_surf)
@@ -853,7 +855,8 @@ class SoftwareLightingEngine:
                 continue
 
             fn = t
-            alpha_val = int(base_alpha * (fn**2))
+            # Multiply alpha logic
+            alpha_val = min(255, int(255 * intensity * fn * fn))
 
             # Draw circle (Pygame clips automatically)
             # Use width=5 to fill gaps

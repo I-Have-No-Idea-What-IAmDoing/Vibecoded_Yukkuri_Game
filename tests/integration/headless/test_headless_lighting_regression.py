@@ -82,11 +82,21 @@ def test_headless_lighting_regression(game_driver: GameDriver, tmp_path):
     center_y = game.height // 2
 
     # Check center pixels
-    center_color = img.get_at((center_x, center_y))
-    print(f"Center Pixel: {center_color}")
+    # Due to sub-pixel alignment and floating text rendering, the exact center pixel might fall
+    # on an anti-aliased edge or background. We check a small area around the center.
+    is_lit = False
+    max_color = img.get_at((center_x, center_y))
+    for y in range(center_y - 2, center_y + 3):
+        for x in range(center_x - 2, center_x + 3):
+            c = img.get_at((x, y))
+            if c.r > max_color.r:
+                max_color = c
+            if c.r > 100 or c.g > 100 or c.b > 100:
+                is_lit = True
+
+    print(f"Center Pixel (max nearby): {max_color}")
 
     # Verify it is bright enough (Lit)
     # Without lighting (just ambient 20,20,20), this would be very dark (< 30).
     # With lighting, it should be significantly brighter.
-    is_lit = center_color.r > 100 or center_color.g > 100 or center_color.b > 100
-    assert is_lit, f"Expected bright text (lit), got dark pixel {center_color}"
+    assert is_lit, f"Expected bright text (lit), got dark pixel {max_color}"
