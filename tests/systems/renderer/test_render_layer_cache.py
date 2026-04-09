@@ -67,7 +67,7 @@ class TestLayerCaching:
         screen = pygame.Surface((800, 600))
 
         render_system = RenderSystem(screen, world)
-        render_system.update(world, dt=0.016)
+        render_system.update(world, dt=1.0)
 
         assert render_system._background_cache is not None
         assert render_system._background_cache_valid is True
@@ -81,11 +81,11 @@ class TestLayerCaching:
         render_system = RenderSystem(screen, world)
 
         # First update builds cache
-        render_system.update(world, dt=0.016)
+        render_system.update(world, dt=1.0)
         first_cache = render_system._background_cache
 
         # Second update should reuse cache
-        render_system.update(world, dt=0.016)
+        render_system.update(world, dt=1.0)
         second_cache = render_system._background_cache
 
         # Same object reference means cache was NOT rebuilt
@@ -99,15 +99,17 @@ class TestLayerCaching:
         render_system = RenderSystem(screen, world)
 
         # First update builds cache
-        render_system.update(world, dt=0.016)
+        render_system.update(world, dt=1.0)
         initial_state = render_system._last_camera_state
 
         # Move camera significantly (more than cache margin of 200)
+        camera.prev_camera_x = camera.camera_x
+        camera.prev_camera_y = camera.camera_y
         camera.camera_x = 300.0
         camera.camera_y = 300.0
 
         # Update should detect change and invalidate
-        render_system.update(world, dt=0.016)
+        render_system.update(world, dt=1.0)
         new_state = render_system._last_camera_state
 
         # States should be different
@@ -122,40 +124,58 @@ class TestLayerCaching:
         render_system = RenderSystem(screen, world)
 
         # First update
-        render_system.update(world, dt=0.016)
+        render_system.update(world, dt=1.0)
         initial_state = render_system._last_camera_state
 
         # Move camera by 100 pixels (within 200px margin)
+        camera.prev_camera_x = camera.camera_x
+        camera.prev_camera_y = camera.camera_y
         camera.camera_x = 100.0
         camera.camera_y = 100.0
 
         # Update should NOT invalidate
-        render_system.update(world, dt=0.016)
+        render_system.update(world, dt=1.0)
         new_state = render_system._last_camera_state
 
         # State should be the same
         assert initial_state == new_state
 
     def test_cache_rebuilt_when_zoom_changes(self, pygame_init, mock_world):
-        """Cache should be rebuilt when zoom level changes."""
+        """Cache should be invalidated during zoom transitions.
+
+        During active zoom (zoom != target_zoom), the cache is bypassed
+        and the grid is drawn directly. Once zoom stabilizes, the
+        cache is rebuilt at the new zoom level.
+        """
         world, camera = mock_world
         screen = pygame.Surface((800, 600))
 
         render_system = RenderSystem(screen, world)
 
         # First update builds cache
-        render_system.update(world, dt=0.016)
-        initial_state = render_system._last_camera_state
+        render_system.update(world, dt=1.0)
+        assert render_system._background_cache_valid is True
 
-        # Change zoom
+        # Simulate zoom change (zoom != target_zoom triggers bypass)
+        camera.prev_zoom = camera.zoom
         camera.zoom = 1.5
+        camera.target_zoom = 2.0  # Different from zoom -> active transition
 
-        # Update should detect change
-        render_system.update(world, dt=0.016)
+        # Update should bypass cache and mark it invalid
+        render_system.update(world, dt=1.0)
+        assert render_system._background_cache_valid is False
+
+        # Now stabilize zoom (zoom == target_zoom)
+        camera.prev_zoom = camera.zoom
+        camera.zoom = 2.0
+        camera.target_zoom = 2.0
+        render_system.update(world, dt=1.0)
+
+        # Cache should be rebuilt at new zoom
+        assert render_system._background_cache_valid is True
         new_state = render_system._last_camera_state
-
-        # Zoom is part of state, so states should differ
-        assert initial_state != new_state
+        assert new_state is not None
+        assert new_state[2] == 2.0  # zoom component
 
     def test_cache_not_rebuilt_for_subpixel_movement(self, pygame_init, mock_world):
         """Cache should NOT be rebuilt for sub-pixel camera movements."""
@@ -165,15 +185,17 @@ class TestLayerCaching:
         render_system = RenderSystem(screen, world)
 
         # First update
-        render_system.update(world, dt=0.016)
+        render_system.update(world, dt=1.0)
         initial_state = render_system._last_camera_state
 
         # Move camera by less than 1 pixel (sub-pixel)
+        camera.prev_camera_x = camera.camera_x
+        camera.prev_camera_y = camera.camera_y
         camera.camera_x = 0.5
         camera.camera_y = 0.3
 
         # Update should NOT invalidate (int() rounds down to 0)
-        render_system.update(world, dt=0.016)
+        render_system.update(world, dt=1.0)
         new_state = render_system._last_camera_state
 
         # State should be the same (both round to 0)

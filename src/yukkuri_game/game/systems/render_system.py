@@ -156,63 +156,82 @@ class RenderSystem(System):
         self.renderer.clear_screen((50, 50, 50))  # Dark grey background
 
         # Manage Background Cache
-        # Optimization: Only invalidate cache if we scroll past the margin or zoom/screen size changes.
-        should_invalidate = False
-        if self._last_camera_state is None:
-            should_invalidate = True
-        else:
-            cached_x, cached_y, cached_zoom, cached_sw, cached_sh = (
-                self._last_camera_state
-            )
+        # Use interpolated zoom/position so grid matches entity rendering.
+        interp_zoom = self.camera._cached_zoom
+        interp_cam_x = self.camera._cached_cam_x
+        interp_cam_y = self.camera._cached_cam_y
 
-            # Invalidate if zoom or screen size changes
-            if cached_zoom != self.camera.zoom or cached_sw != sw or cached_sh != sh:
-                should_invalidate = True
-            else:
-                # Check if we scrolled past the margin
-                # diff is in screen pixels
-                diff_x = (cached_x - self.camera.camera_x) * self.camera.zoom
-                diff_y = (cached_y - self.camera.camera_y) * self.camera.zoom
-                margin = self.BACKGROUND_CACHE_MARGIN
-                if abs(diff_x) > margin or abs(diff_y) > margin:
-                    should_invalidate = True
-
-        if should_invalidate:
-            self._background_cache_valid = False
-            self._last_camera_state = (
-                int(self.camera.camera_x),
-                int(self.camera.camera_y),
-                self.camera.zoom,
-                sw,
-                sh,
-            )
+        # Detect if zoom is actively changing (smooth zoom in progress)
+        zoom_is_changing = abs(self.camera.zoom - self.camera.target_zoom) > 0.001
 
         # Skip grid when zoomed in past 5x (becomes sparse/useless)
-        if self.camera.zoom < 5.0:
-            if not self._background_cache_valid or not self._background_cache:
-                self._rebuild_background_cache(sw, sh)
-
-            if self._background_cache and self._last_camera_state is not None:
-                # Calculate sub-pixel offset for smooth scrolling.
-                cached_cam_x, cached_cam_y, _, _, _ = self._last_camera_state
-
-                diff_x = (cached_cam_x - self.camera.camera_x) * self.camera.zoom
-                diff_y = (cached_cam_y - self.camera.camera_y) * self.camera.zoom
-
-                final_x = (sw // 2) + diff_x
-                final_y = (sh // 2) + diff_y
-
-                self.renderer.submit(
-                    SpriteCommand(
-                        layer=LAYER_BACKGROUND,
-                        z_index=-9999,  # Ensure it's behind everything
-                        image=self._background_cache,
-                        position=(final_x, final_y),
-                        selected=False,
-                        alpha=255,
-                        cache_key=None,
+        if interp_zoom < 5.0:
+            if zoom_is_changing:
+                # During active zoom transitions, bypass the cache entirely
+                # and draw grid directly using world_to_screen_fast so it
+                # uses the exact same transform as entities.
+                self._draw_grid(sw, sh)
+                self._background_cache_valid = False
+            else:
+                # Zoom is stable: use the cached background for performance.
+                # Only invalidate cache if we scroll past the margin or
+                # screen size changes.
+                should_invalidate = False
+                if self._last_camera_state is None:
+                    should_invalidate = True
+                else:
+                    cached_x, cached_y, cached_zoom, cached_sw, cached_sh = (
+                        self._last_camera_state
                     )
-                )
+
+                    if (
+                        cached_zoom != interp_zoom
+                        or cached_sw != sw
+                        or cached_sh != sh
+                    ):
+                        should_invalidate = True
+                    else:
+                        diff_x = (cached_x - interp_cam_x) * interp_zoom
+                        diff_y = (cached_y - interp_cam_y) * interp_zoom
+                        margin = self.BACKGROUND_CACHE_MARGIN
+                        if abs(diff_x) > margin or abs(diff_y) > margin:
+                            should_invalidate = True
+
+                if should_invalidate:
+                    self._background_cache_valid = False
+                    self._last_camera_state = (
+                        int(interp_cam_x),
+                        int(interp_cam_y),
+                        interp_zoom,
+                        sw,
+                        sh,
+                    )
+
+                if not self._background_cache_valid or not self._background_cache:
+                    self._rebuild_background_cache(sw, sh)
+
+                if self._background_cache and self._last_camera_state is not None:
+                    cached_cam_x, cached_cam_y, _, _, _ = (
+                        self._last_camera_state
+                    )
+
+                    diff_x = (cached_cam_x - interp_cam_x) * interp_zoom
+                    diff_y = (cached_cam_y - interp_cam_y) * interp_zoom
+
+                    final_x = (sw // 2) + diff_x
+                    final_y = (sh // 2) + diff_y
+
+                    self.renderer.submit(
+                        SpriteCommand(
+                            layer=LAYER_BACKGROUND,
+                            z_index=-9999,
+                            image=self._background_cache,
+                            position=(final_x, final_y),
+                            selected=False,
+                            alpha=255,
+                            cache_key=None,
+                        )
+                    )
 
         # 2. Query Visible Entities
         visible_entities = self._get_visible_entities(world, sw, sh)
@@ -391,10 +410,10 @@ class RenderSystem(System):
         grid_size = RenderConstants.GRID_SIZE
         color = RenderConstants.GRID_COLOR
 
-        # Use override pos or current camera pos
-        cam_x = override_cam_pos[0] if override_cam_pos else self.camera.camera_x
-        cam_y = override_cam_pos[1] if override_cam_pos else self.camera.camera_y
-        zoom = self.camera.zoom
+        # Use override pos or current interpolated camera pos
+        cam_x = override_cam_pos[0] if override_cam_pos else self.camera._cached_cam_x
+        cam_y = override_cam_pos[1] if override_cam_pos else self.camera._cached_cam_y
+        zoom = self.camera._cached_zoom
 
         # Custom world_to_screen logic for this method to support override
         def world_to_screen(wx, wy):
@@ -446,7 +465,7 @@ class RenderSystem(System):
             # Custom calculation based on override pos
             half_w = screen_w / 2
             half_h = screen_h / 2
-            zoom = self.camera.zoom
+            zoom = self.camera._cached_zoom
 
             start_x = (0 - half_w) / zoom + cam_x
             start_y = (0 - half_h) / zoom + cam_y

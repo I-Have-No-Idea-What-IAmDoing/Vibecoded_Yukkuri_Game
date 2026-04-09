@@ -47,7 +47,7 @@ class PygameBackend(RenderBackend):
 
         # New Lighting Engine
         w, h = screen.get_size()
-        self.lighting_engine = SoftwareLightingEngine((w, h), scale=0.5)
+        self.lighting_engine = SoftwareLightingEngine((w, h), scale=0.75)
 
         # Caches
         self.font_cache: dict[tuple[int, str | None], pygame.font.Font] = {}

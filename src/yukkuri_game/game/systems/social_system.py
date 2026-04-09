@@ -566,7 +566,7 @@ class SocialSystem(System):
         if emotional:
             OpinionCalculator.update_emotional_state(emotional, base_impact_score)
 
-        rel.trust = max(0, min(100, rel.trust + d_trust))
+        rel.trust = max(-100, min(100, rel.trust + d_trust))
         rel.fear = max(0, min(100, rel.fear + d_fear))
         rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
 

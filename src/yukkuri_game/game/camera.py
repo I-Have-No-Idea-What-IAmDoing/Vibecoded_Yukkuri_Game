@@ -56,6 +56,11 @@ class Camera:
         self._cached_offset_x: float | None = None
         self._cached_offset_y: float | None = None
 
+        # Raw interpolated values (no aspect correction)
+        self._cached_zoom: float = 1.0
+        self._cached_cam_x: float = 0.0
+        self._cached_cam_y: float = 0.0
+
         self.correction_x = 1.0
         self.correction_y = 1.0
 
@@ -88,6 +93,11 @@ class Camera:
 
         self._cached_zoom_x = curr_zoom * self.correction_x
         self._cached_zoom_y = curr_zoom * self.correction_y
+
+        # Store raw interpolated values for systems that need them
+        self._cached_zoom = curr_zoom
+        self._cached_cam_x = curr_x
+        self._cached_cam_y = curr_y
 
         # Precompute offset: -camera * zoom + screen_center
         self._cached_offset_x = -curr_x * self._cached_zoom_x + screen_w / 2
