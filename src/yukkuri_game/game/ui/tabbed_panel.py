@@ -150,7 +150,7 @@ class TabbedPanel(UITabContainer):
         tab_id = len(self.tabs) - 1
         if self.current_container_index is None:
             self.current_container_index = tab_id
-            button.select()
+            button.select()  # type: ignore[no-untyped-call]
             container.show()
         else:
             container.hide()
@@ -170,7 +170,7 @@ class TabbedPanel(UITabContainer):
         Returns:
             None
         """
-        UIElement.rebuild(self)
+        UIElement.rebuild(self)  # type: ignore[no-untyped-call]
 
         if count is None:
             count = len(self.tabs)
@@ -194,7 +194,7 @@ class TabbedPanel(UITabContainer):
 
                 if i == self.current_container_index:
                     container.show()
-                    button.select()
+                    button.select()  # type: ignore[no-untyped-call]
                 else:
                     container.hide()
 
@@ -208,7 +208,7 @@ class TabbedPanel(UITabContainer):
                     continue
 
                 btn.max_dynamic_width = max_button_width
-                btn.rebuild()
+                btn.rebuild()  # type: ignore[no-untyped-call]
                 btn.set_relative_position((current_right, 0))
                 current_right += btn.rect.width
 
@@ -219,6 +219,6 @@ class TabbedPanel(UITabContainer):
 
                 if i == self.current_container_index:
                     container.show()
-                    btn.select()
+                    btn.select()  # type: ignore[no-untyped-call]
                 else:
                     container.hide()

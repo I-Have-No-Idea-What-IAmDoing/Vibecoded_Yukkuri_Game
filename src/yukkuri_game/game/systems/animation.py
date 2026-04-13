@@ -20,6 +20,8 @@ Data Structure:
 -   Sprite sheets are standard grids of frames.
 """
 
+from typing import Any, cast
+
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
@@ -309,9 +311,9 @@ class AnimationSystem(System):
             return
 
         if isinstance(yukkuri_type, dict):
-            base_image = yukkuri_type.get("image")  # type: ignore[arg-type]
+            base_image = cast(str | None, yukkuri_type.get(cast(Any, "image"), None))
         else:
-            base_image = getattr(yukkuri_type, "image", None)
+            base_image = cast(str | None, getattr(yukkuri_type, "image", None))
 
         if not base_image:
             return

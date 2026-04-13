@@ -241,7 +241,7 @@ class GameDriver:
                     self.event_history.append(event)
                     original_publish(event)
 
-                self.game.event_manager.bus.publish = cast(Any, intercepted_publish)
+                setattr(self.game.event_manager.bus, "publish", cast(Any, intercepted_publish))
 
         # Application initializes on creation. Ensure GameplayScene is active.
         if isinstance(self.game, Application):
@@ -381,12 +381,13 @@ class GameDriver:
             and isinstance(self.game, Application)
             and hasattr(self.game, "event_manager")
         ):
-            self.game.event_manager.bus.publish = self._original_publish  # type: ignore[assignment]
+            setattr(self.game.event_manager.bus, "publish", self._original_publish)
             self._original_publish = None
 
-        self.game.quit()  # type: ignore[union-attr]
+        if hasattr(self.game, "quit"):
+            self.game.quit()
         # Break reference cycle to allow garbage collection
-        self.game = None
+        self.game = None  # type: ignore[assignment]
 
     def wait_until_scene(self, scene_type: type, timeout: float = 10.0) -> None:
         """
@@ -638,7 +639,7 @@ class GameDriver:
         """
         if not self.world:
             return None
-        return self.world.get_component(entity_id, comp_type)
+        return cast(T | None, self.world.try_get_component(entity_id, comp_type))
 
     def assert_component(self, entity_id: int, comp_type: type[T], predicate: Callable[[T], bool], message: str = "") -> None:
         """
@@ -704,9 +705,9 @@ class GameDriver:
             if hasattr(self.game, "scene_manager"):
                 # Pass alpha=1.0 for full interpolation
                 try:
-                    self.game.scene_manager.render(1.0)
+                    getattr(self.game.scene_manager, "render")(1.0)
                 except TypeError:
-                    self.game.scene_manager.render()  # type: ignore[call-arg]
+                    getattr(self.game.scene_manager, "render")()
 
         if self.game and hasattr(self.game, "screen") and self.game.screen:
             pygame.image.save(self.game.screen, filename)

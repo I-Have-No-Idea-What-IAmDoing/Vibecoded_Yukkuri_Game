@@ -1,0 +1,1 @@
+# Codebase Health Summary\n\nOverall the health of the project is decent but there are a few type errors reported by mypy and ty that need to be addressed.\n

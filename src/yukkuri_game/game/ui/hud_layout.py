@@ -124,11 +124,11 @@ class HudLayout:
         Clears existing UI elements.
         """
         if self.top_panel:
-            self.top_panel.kill()
+            self.top_panel.kill()  # type: ignore[no-untyped-call]
             self.top_panel = None
 
         if self.bottom_panel:
-            self.bottom_panel.kill()
+            self.bottom_panel.kill()  # type: ignore[no-untyped-call]
             self.bottom_panel = None
 
         self.buy_buttons.clear()
@@ -361,7 +361,7 @@ class HudLayout:
         Creates the debug window.
         """
         if self.debug_window:
-            self.debug_window.kill()
+            self.debug_window.kill()  # type: ignore[no-untyped-call]
 
         self.debug_window = UIWindow(
             rect=pygame.Rect(10, 60, 300, 200),
@@ -388,7 +388,7 @@ class HudLayout:
         Closes the debug window.
         """
         if self.debug_window:
-            self.debug_window.kill()
+            self.debug_window.kill()  # type: ignore[no-untyped-call]
             self.debug_window = None
             self.debug_text_box = None
 
@@ -403,7 +403,7 @@ class HudLayout:
         """
         # Close existing window if any
         if self.settings_window:
-            self.settings_window.kill()
+            self.settings_window.kill()  # type: ignore[no-untyped-call]
 
         window_width = 400
         window_height = 350
@@ -450,7 +450,7 @@ class HudLayout:
             manager=self.manager,
             container=self.settings_window,
         )
-        self.settings_controls["master_slider"].set_tooltip_text(  # type: ignore[attr-defined]
+        getattr(self.settings_controls["master_slider"], "set_tooltip_text", lambda x: None)(
             "Adjust Master Volume"
         )
 
@@ -468,7 +468,7 @@ class HudLayout:
             manager=self.manager,
             container=self.settings_window,
         )
-        self.settings_controls["bgm_slider"].set_tooltip_text(  # type: ignore[attr-defined]
+        getattr(self.settings_controls["bgm_slider"], "set_tooltip_text", lambda x: None)(
             "Adjust Background Music Volume"
         )
 
@@ -486,7 +486,7 @@ class HudLayout:
             manager=self.manager,
             container=self.settings_window,
         )
-        self.settings_controls["sfx_slider"].set_tooltip_text(  # type: ignore[attr-defined]
+        getattr(self.settings_controls["sfx_slider"], "set_tooltip_text", lambda x: None)(
             "Adjust Sound Effects Volume"
         )
 
@@ -510,7 +510,7 @@ class HudLayout:
             manager=self.manager,
             container=self.settings_window,
         )
-        self.settings_controls["resolution_dropdown"].set_tooltip_text(  # type: ignore[attr-defined]
+        getattr(self.settings_controls["resolution_dropdown"], "set_tooltip_text", lambda x: None)(
             "Change Window Resolution"
         )
 
@@ -545,7 +545,7 @@ class HudLayout:
         Closes the settings window.
         """
         if self.settings_window:
-            self.settings_window.kill()
+            self.settings_window.kill()  # type: ignore[no-untyped-call]
             self.settings_window = None
             self.settings_controls = {}
 
@@ -560,7 +560,7 @@ class HudLayout:
                 manager=self.manager,
             )
             # Start hidden
-            self.hover_tooltip_label.hide()
+            self.hover_tooltip_label.hide()  # type: ignore[no-untyped-call]
 
     def update_hover_tooltip(self, text: str, pos: tuple[int, int]) -> None:
         """
@@ -576,7 +576,7 @@ class HudLayout:
         if text:
             if self.hover_tooltip_label:
                 if not self.hover_tooltip_label.visible:
-                    self.hover_tooltip_label.show()
+                    self.hover_tooltip_label.show()  # type: ignore[no-untyped-call]
 
                 # Only update if text changed (optimization)
                 if self.hover_tooltip_label.html_text != text:
@@ -606,4 +606,4 @@ class HudLayout:
 
         else:
             if self.hover_tooltip_label and self.hover_tooltip_label.visible:
-                self.hover_tooltip_label.hide()
+                self.hover_tooltip_label.hide()  # type: ignore[no-untyped-call]

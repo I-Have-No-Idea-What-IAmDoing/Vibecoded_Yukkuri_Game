@@ -151,7 +151,7 @@ class EntityInfoPanel:
             None
         """
         if self.window:
-            self.window.kill()
+            self.window.kill()  # type: ignore[no-untyped-call]
             self.window = None
             self.tabbed_panel = None
             self.stats_text_box = None

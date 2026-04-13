@@ -22,7 +22,7 @@ Layer System (z-ordering):
 """
 
 import math
-from typing import Any
+from typing import Any, cast
 import pygame
 
 from ...engine.ecs import System, World
@@ -381,7 +381,9 @@ class RenderSystem(System):
         self._background_cache.fill((0, 0, 0, 0))
 
         # Draw grid at integer camera position for cache stability.
-        cached_cam_x, cached_cam_y, _, _, _ = self._last_camera_state  # type: ignore[misc]
+        if self._last_camera_state is None:
+            return
+        cached_cam_x, cached_cam_y, _, _, _ = self._last_camera_state
 
         self._draw_grid(
             sw,
@@ -416,7 +418,7 @@ class RenderSystem(System):
         zoom = self.camera._cached_zoom
 
         # Custom world_to_screen logic for this method to support override
-        def world_to_screen(wx, wy):
+        def world_to_screen(wx: int | float, wy: int | float) -> tuple[float, float]:
             return ((wx - cam_x) * zoom + sw / 2, (wy - cam_y) * zoom + sh / 2)
 
         start_col, end_col, start_row, end_row = self._calculate_grid_bounds(
@@ -635,8 +637,11 @@ class RenderSystem(System):
 
                     # Ensure color is RGBA
                     color = light.color
+                    rgba_color: tuple[int, int, int, int]
                     if len(color) == 3:
-                        color = (color[0], color[1], color[2], 255)
+                        rgba_color = (color[0], color[1], color[2], 255)
+                    else:
+                        rgba_color = cast(tuple[int, int, int, int], color)
 
                     self.renderer.submit(
                         LightCommand(
@@ -645,7 +650,7 @@ class RenderSystem(System):
                             entity_id=ent,
                             position=screen_pos,
                             radius=radius,
-                            color=color,
+                            color=rgba_color,
                             intensity=intensity,
                             flicker_style=light.flicker_style,
                             soft_shadows=light.soft_shadows,
@@ -690,10 +695,10 @@ class RenderSystem(System):
 
         # Optimization #8: Inline coordinate transform to avoid
         # per-vertex function call overhead from world_to_screen_fast.
-        zoom_x = self.camera._cached_zoom_x
-        zoom_y = self.camera._cached_zoom_y
-        off_x = self.camera._cached_offset_x
-        off_y = self.camera._cached_offset_y
+        zoom_x = self.camera._cached_zoom_x or 1.0
+        zoom_y = self.camera._cached_zoom_y or 1.0
+        off_x = self.camera._cached_offset_x or 0.0
+        off_y = self.camera._cached_offset_y or 0.0
         screen_verts = [
             (wx * zoom_x + off_x, wy * zoom_y + off_y)
             for wx, wy in world_verts

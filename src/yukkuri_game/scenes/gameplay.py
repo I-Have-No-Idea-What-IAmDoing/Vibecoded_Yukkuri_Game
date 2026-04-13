@@ -233,7 +233,7 @@ class GameplayScene(Scene):
                 except ImportError:
                     DayNightSystem = None  # Should not happen in normal run
 
-            if DayNightSystem:
+            if DayNightSystem is not None:
                 self.day_night_system = DayNightSystem(self.world, self.render_system)
                 self.world.add_system(self.day_night_system)
 
@@ -262,7 +262,7 @@ class GameplayScene(Scene):
         Clears UI, shuts down services, and syncs global state.
         """
         logger.info("Exited Gameplay Scene")
-        self.ui_manager.clear_and_reset()
+        self.ui_manager.clear_and_reset()  # type: ignore[no-untyped-call]
 
         # Cleanup HUD listeners
         if self.hud:

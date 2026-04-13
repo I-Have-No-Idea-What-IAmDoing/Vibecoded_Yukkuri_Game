@@ -5,9 +5,9 @@ This module provides a registry class to handle the initialization and registrat
 of various Entity-Component-System (ECS) systems into the game world.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .engine.ecs import World
+from .engine.ecs import World, System
 from .engine.event_bus import EventBus
 from .game.input_system import InputSystem
 from .game.systems.animation import AnimationSystem
@@ -80,7 +80,7 @@ class SystemRegistry:
         input_system = InputSystem(camera)
         world.add_system(input_system)
 
-        def add_system(system, service_type=None) -> None:
+        def add_system(system: System, service_type: type[Any] | None = None) -> None:
             if service_type is not None:
                 world.services.register(system, service_type)
             world.add_system(system)

@@ -34,10 +34,12 @@ def setup_world(num_entities=5000, num_floating_text=1000):
 
     # Mock ResourceManager
     rm = ResourceManager()
+    from yukkuri_game.engine.lazy_loader import LazyLoader
+
     # We need to mock load_image to return a surface
     rm.load_image = lambda name: pygame.Surface((32, 32))  # type: ignore
-    rm.item_types = {}
-    rm.yukkuri_types = {}
+    rm.item_types = LazyLoader(lambda x: None)
+    rm.yukkuri_types = LazyLoader(lambda x: None)
     world.services.register(rm)
 
     # Camera

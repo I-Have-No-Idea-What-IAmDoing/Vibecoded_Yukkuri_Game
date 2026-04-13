@@ -55,7 +55,7 @@ class Sleep(Action):
         from ....services import TimeService
 
         time_service = self.world.services.try_get(TimeService)
-        dt = time_service.delta_time if time_service else 0.016
+        dt = time_service.game_delta_multiplier if time_service else 0.016
 
         needs = self.world.try_get_component(self.entity_id, Needs)
         if needs:

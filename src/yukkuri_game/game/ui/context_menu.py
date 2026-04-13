@@ -99,7 +99,7 @@ class ContextMenu:
     def hide(self) -> None:
         """Hides/Destroys the context menu."""
         if self.panel:
-            self.panel.kill()
+            self.panel.kill()  # type: ignore[no-untyped-call]
             self.panel = None
         self.selection_list = None
         self.active = False
