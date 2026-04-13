@@ -24,7 +24,7 @@ Scoring:
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
@@ -69,7 +69,7 @@ class Consideration:
         val = context.get(self.input_key, None)
         if val is None:
             if not hasattr(self, "_warned_keys"):
-                self._warned_keys = set()
+                self._warned_keys: set[str] = set()
             if self.input_key not in self._warned_keys:
                 logger.warning(
                     f"Consideration '{self.name}': Missing context key '{self.input_key}', defaulting to 0.0"
@@ -266,19 +266,22 @@ class UtilityAIEngine:
         considerations = []
 
         if isinstance(data, dict):
-            cons_list = data.get("considerations", [])  # type: ignore
+            # Tell mypy we know data is essentially Dict[str, Any] at runtime here
+            data_dict = cast(dict[str, Any], data)
+            cons_list = data_dict.get("considerations", [])
             for cons_data in cons_list:
+                cons_dict = cast(dict[str, Any], cons_data)
                 considerations.append(
                     Consideration(
-                        name=cons_data.get("name", "unknown"),
-                        input_key=cons_data.get("input"),
-                        curve_type=cons_data.get("curve"),
-                        params=cons_data.get("params", {}),
+                        name=str(cons_dict.get("name", "unknown")),
+                        input_key=str(cons_dict.get("input", "")),
+                        curve_type=str(cons_dict.get("curve", "")),
+                        params=cast(dict[str, Any], cons_dict.get("params", {})),
                     )
                 )
 
-            weight = data.get("weight", 1.0)  # type: ignore
-            effects = data.get("effects", {})  # type: ignore
+            weight = float(data_dict.get("weight", 1.0))
+            effects = cast(dict[str, float], data_dict.get("effects", {}))
         else:
             # Assuming data is AIAction
             for cons_obj in data.considerations:
@@ -294,11 +297,12 @@ class UtilityAIEngine:
             weight = data.weight
             effects = None
             if data.effects:
+                # The data structure allows mixed types, so we type ignore the individual items
                 effects = {
-                    "type": data.effects.type,
-                    "target_stat": data.effects.target_stat,
+                    "type": data.effects.type,  # type: ignore[dict-item]
+                    "target_stat": data.effects.target_stat,  # type: ignore[dict-item]
                     "consume": data.effects.consume,
-                    "stat_changes": data.effects.stat_changes,
+                    "stat_changes": data.effects.stat_changes,  # type: ignore[dict-item]
                 }
 
         return Action(

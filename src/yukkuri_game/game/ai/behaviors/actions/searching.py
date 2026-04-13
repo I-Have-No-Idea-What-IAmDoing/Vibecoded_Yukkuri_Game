@@ -1,5 +1,5 @@
 import math
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, cast, Optional
 
 from py_trees.common import Status
 
@@ -184,7 +184,7 @@ class FindPrey(Action):
             blackboard (Any | None): The blackboard.
         """
         super().__init__(name, entity_id, world, blackboard)
-        self.sector_map: "SectorMap" | None = None
+        self.sector_map: Optional["SectorMap"] = None
 
     def update(self) -> Status:
         super().update()
@@ -318,7 +318,7 @@ class FindThreat(Action):
 
         threat_id = blackboard_comp.closest_threat_id
         if threat_id is not None and threat_id != -1:
-            ai.current_target_id = cast(EntityID, threat_id)
+            ai.current_target_id = threat_id
             return Status.SUCCESS
 
         return Status.FAILURE
@@ -438,6 +438,6 @@ class PickFood(Action):
             return Status.SUCCESS
         bb = self.world.try_get_component(self.entity_id, Blackboard)
         if bb and bb.closest_food_id:
-            ai.current_target_id = cast(EntityID, bb.closest_food_id)
+            ai.current_target_id = bb.closest_food_id
             return Status.SUCCESS
         return Status.FAILURE

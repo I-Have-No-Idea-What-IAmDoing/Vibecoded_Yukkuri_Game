@@ -234,7 +234,7 @@ class HudEvents:
 
                 # Close existing dialog if any
                 if self.confirmation_dialog:
-                    self.confirmation_dialog.kill()
+                    self.confirmation_dialog.kill()  # type: ignore[no-untyped-call]
 
                 DIALOG_WIDTH, DIALOG_HEIGHT = 300, 200
                 center_x = (self.layout.width - DIALOG_WIDTH) // 2

@@ -61,7 +61,8 @@ module = [
     "pytest.*",
     "numpy.*",
     "pygame_light2d.*",
-    "pygame_render.*"
+    "pygame_render.*",
+    "simpleeval.*"
 ]
 ignore_missing_imports = true
 

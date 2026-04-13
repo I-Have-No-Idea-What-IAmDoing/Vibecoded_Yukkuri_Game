@@ -101,7 +101,7 @@ class MainMenuScene(Scene):
         Clears the UI manager.
         """
         logger.info("Exited Main Menu Scene")
-        self.ui_manager.clear_and_reset()
+        self.ui_manager.clear_and_reset()  # type: ignore[no-untyped-call]
 
     def update(self, dt: float) -> None:
         """

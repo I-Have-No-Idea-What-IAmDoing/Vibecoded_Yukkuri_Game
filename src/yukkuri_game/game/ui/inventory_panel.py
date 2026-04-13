@@ -136,7 +136,7 @@ class InventoryPanel:
     def close(self) -> None:
         """Closes the inventory window."""
         if self.window:
-            self.window.kill()
+            self.window.kill()  # type: ignore[no-untyped-call]
             self.window = None
             self.scroll_container = None
             self.entity_id = None
@@ -147,7 +147,7 @@ class InventoryPanel:
             return
 
         # Clear existing items by recreating container
-        self.scroll_container.kill()
+        self.scroll_container.kill()  # type: ignore[no-untyped-call]
         self.scroll_container = UIScrollingContainer(
             relative_rect=pygame.Rect(
                 0,

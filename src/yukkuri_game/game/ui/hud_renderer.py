@@ -393,11 +393,11 @@ class HudRenderer:
                                 # Show top headlines
                                 if rel_data.core_buffer:
                                     text += "<br>  Core:"
-                                    for h in rel_data.core_buffer[-2:]:  # Last 2
+                                    for h in list(rel_data.core_buffer)[-2:]:  # Last 2
                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f} {'(L)' if h.is_locked else ''}"
                                 if rel_data.trivial_buffer:
                                     text += "<br>  Trivial:"
-                                    for h in rel_data.trivial_buffer[-2:]:  # Last 2
+                                    for h in list(rel_data.trivial_buffer)[-2:]:  # Last 2
                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f}"
 
             else:
@@ -561,13 +561,13 @@ class HudRenderer:
         # Update buy buttons
         for btn, data in self.layout.buy_buttons.items():
             if is_placing and data["type_id"] == current_type:
-                btn.select()
+                btn.select()  # type: ignore[no-untyped-call]
             else:
-                btn.unselect()
+                btn.unselect()  # type: ignore[no-untyped-call]
 
         # Update clean button
         if self.layout.clean_btn:
             if is_cleaning:
-                self.layout.clean_btn.select()
+                self.layout.clean_btn.select()  # type: ignore[no-untyped-call]
             else:
-                self.layout.clean_btn.unselect()
+                self.layout.clean_btn.unselect()  # type: ignore[no-untyped-call]
