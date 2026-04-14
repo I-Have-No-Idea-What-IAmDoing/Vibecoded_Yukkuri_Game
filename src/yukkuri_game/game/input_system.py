@@ -271,20 +271,12 @@ class InputSystem(System):
         """
         # Re-use hover logic to find top-most entity
         hover_radius = 32.0
-        entities = world.get_entities_with(Transform, Selectable)
-        entity_list = list(entities)
+        # Optimization: Use get_components_tuple to iterate efficiently
+        components = world.get_components_tuple(Transform, Selectable)
 
         target_id = -1
-        for ent in reversed(entity_list):
-            if isinstance(ent, tuple):
-                entity_id = ent[0]
-            else:
-                entity_id = ent
-
-            trans = world.get_component(entity_id, Transform)
-            if trans is None:
-                continue
-
+        # Reversed to match Z-order (assuming order in list follows creation/render order)
+        for entity_id, (trans, selectable) in reversed(list(components)):
             dist = ((trans.x - wx) ** 2 + (trans.y - wy) ** 2) ** 0.5
             if dist < hover_radius:
                 target_id = entity_id

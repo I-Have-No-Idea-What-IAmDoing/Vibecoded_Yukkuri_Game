@@ -45,3 +45,11 @@
 ## 2026-10-31 - [ECS Query Iteration Optimization]
 **Learning:** `world.get_entities_with` does a `esper.get_components` query, extracts just the entity ID via a list comprehension, and discards the component references. The caller then typically iterates those entity IDs and calls `world.get_component(eid, ...)` inside a loop. `try_get_component` and `get_component` inside a loop is extremely slow in python compared to just iterating the components returned from `get_components_tuple`. Using `world.get_components_tuple(...)` is ~50x faster.
 **Action:** Never use `world.get_entities_with` followed by `world.get_component` in a loop. Always use `world.get_components_tuple` to retrieve the entity ID and all requested components in a single, fast iteration.
+
+## 2026-11-01 - [ECS Query Generator Reversal]
+**Learning:** `world.get_components_tuple()` returns a generator/iterator (via esper under the hood). If a system like `input_system` needs to iterate in reverse (e.g. for Z-order click detection), you must explicitly cast it to a list first (`reversed(list(components))`). Trying to call `reversed()` directly on a generator results in `TypeError: 'generator' object is not reversible`.
+**Action:** Always cast `get_components_tuple` results to a list before attempting reverse iteration or index-based access.
+
+## 2026-11-01 - [World Component Fetching Overreach]
+**Learning:** `world.try_get_component` and `world.get_component` have distinct semantics. `get_component` safely catches `KeyError` and returns `None` anyway. Needlessly changing `get_component` to `try_get_component` offers no actual performance benefit but risks introducing runtime crashes or test failures if mocks are misaligned.
+**Action:** Focus optimizations on bulk fetching (`get_components_tuple`). Avoid arbitrary swaps of single-fetch methods (`get_component` vs `try_get_component`) unless addressing a specific exception-handling bottleneck.

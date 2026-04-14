@@ -360,22 +360,16 @@ class FindSocialTarget(Action):
         if ai.manual_override and ai.current_target_id != -1:
             return Status.SUCCESS
 
-        nearby_yukkuris = self.world.get_entities_with(YukkuriStats, Transform)
+        nearby_yukkuris = self.world.get_components_tuple(YukkuriStats, Transform)
 
         best_target = -1
         min_dist = float("inf")
 
-        for uid in nearby_yukkuris:
+        for uid, (u_stats, u_trans) in nearby_yukkuris:
             if uid == self.entity_id:
                 continue
 
             if uid in ai.failed_targets:
-                continue
-
-            u_stats = self.world.get_component(uid, YukkuriStats)
-            u_trans = self.world.get_component(uid, Transform)
-
-            if u_stats is None or u_trans is None:
                 continue
 
             is_compatible = u_stats.type_id == my_stats.type_id
