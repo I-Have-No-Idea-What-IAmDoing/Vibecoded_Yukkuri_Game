@@ -224,8 +224,13 @@ class TestGameService:
         # Entity 2: Close, correct stat
         # Entity 3: Close, wrong stat
 
-        mock_world.get_entities_with.return_value = [1, 2, 3]
+        mock_world.get_components_tuple.return_value = [
+            (1, (MagicMock(nutrition=10), MagicMock(x=100, y=100))),
+            (2, (MagicMock(nutrition=10), MagicMock(x=10, y=10))),
+            (3, (MagicMock(nutrition=0), MagicMock(x=5, y=5))),
+        ]
 
+        # Keeping get_component side_effect just in case it's used elsewhere
         def get_component(e, c):
             if c == Transform:
                 if e == 1:
@@ -270,7 +275,7 @@ class TestGameService:
         item_pos = MagicMock(x=600, y=0)
         item_stats = MagicMock(nutrition=10)
 
-        mock_world.get_entities_with.return_value = [item_id]
+        mock_world.get_components_tuple.return_value = [(item_id, (item_stats, item_pos))]
 
         # Also need Personality for compatibility check in _update_opinion
         p_pers = MagicMock()

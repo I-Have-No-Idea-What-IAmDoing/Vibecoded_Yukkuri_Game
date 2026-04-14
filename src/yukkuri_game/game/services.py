@@ -379,34 +379,46 @@ class GameService:
                 )
 
         sector_map = self.world.services.try_get(SectorMap)
-        candidate_items = []
 
         if sector_map:
             nearby_entities = sector_map.get_entities_in_radius(
                 position[0], position[1], max_radius
             )
 
-            for entity in nearby_entities:
-                if self.world.has_component(entity, ItemStats):
-                    candidate_items.append(entity)
+            for item in nearby_entities:
+                if item in exclude_ids:
+                    continue
+                istats = self.world.get_component(item, ItemStats)
+                if not istats:
+                    continue
+                itrans = self.world.get_component(item, Transform)
+                if not itrans:
+                    continue
+                if getattr(istats, stat_criteria, 0.0) > 0:
+                    d = math.hypot(itrans.x - position[0], itrans.y - position[1])
+
+                    if d > max_radius:
+                        continue
+
+                    if d < best_dist:
+                        best_dist = d
+                        best_item = item
         else:  # Fallback to linear scan.
-            candidate_items = self.world.get_entities_with(ItemStats, Transform)
-
-        for item in candidate_items:
-            if item in exclude_ids:
-                continue
-
-            istats = self.world.get_component(item, ItemStats)
-            itrans = self.world.get_component(item, Transform)
-            if istats and itrans and getattr(istats, stat_criteria, 0.0) > 0:
-                d = math.hypot(itrans.x - position[0], itrans.y - position[1])
-
-                if d > max_radius:
+            # Optimization: Use get_components_tuple to iterate efficiently
+            components = self.world.get_components_tuple(ItemStats, Transform)
+            for item, (istats, itrans) in components:
+                if item in exclude_ids:
                     continue
 
-                if d < best_dist:
-                    best_dist = d
-                    best_item = item
+                if getattr(istats, stat_criteria, 0.0) > 0:
+                    d = math.hypot(itrans.x - position[0], itrans.y - position[1])
+
+                    if d > max_radius:
+                        continue
+
+                    if d < best_dist:
+                        best_dist = d
+                        best_item = item
 
         return best_item
 
