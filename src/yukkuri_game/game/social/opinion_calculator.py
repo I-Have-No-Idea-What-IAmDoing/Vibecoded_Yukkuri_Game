@@ -14,8 +14,11 @@ from ..trait_service import TraitService
 
 
 class OpinionCalculator:
-    """
-    Stateless calculator for social opinion math.
+    """Stateless calculator for social opinion math.
+
+    Provides pure logic methods for computing compatibility between entities,
+    evaluating the impact of social interactions, and updating emotional states.
+    All methods are static and do not maintain internal state.
     """
 
     BASE_COMPATIBILITY_SCORE = 100.0
@@ -34,8 +37,19 @@ class OpinionCalculator:
         other_pers: Personality,
         trait_service: TraitService | None,
     ) -> float:
-        """
-        Calculates base compatibility between two personalities.
+        """Calculates base compatibility between two personalities.
+
+        Computes a compatibility score by comparing the differences across four
+        personality axes (kindness, energy, bravery, greed) and applying trait-based
+        modifiers if a TraitService is provided.
+
+        Args:
+            subject_pers: The personality component of the evaluating entity.
+            other_pers: The personality component of the target entity.
+            trait_service: The service used to retrieve trait definitions and social modifiers.
+
+        Returns:
+            The calculated base compatibility score as a float.
         """
         base_compatibility = 0.0
 
@@ -81,8 +95,22 @@ class OpinionCalculator:
         modifiers: dict[str, dict[str, float]],
         base_impact_score: float,
     ) -> tuple[float, float, float, float]:
-        """
-        Calculates impact deltas considering personality and traits.
+        """Calculates impact deltas considering personality and traits.
+
+        Evaluates the base social impact of an interaction and adjusts it based on
+        the subject's traits, conditional modifiers evaluated via ConditionEvaluator,
+        and personality axis multipliers.
+
+        Args:
+            world: The active ECS world containing entity data.
+            subject_id: The entity ID of the subject processing the impact.
+            other_id: The entity ID of the target involved in the interaction.
+            social_impact: Base impact values for affinity, trust, fear, and familiarity.
+            modifiers: Additional conditional or trait-based modifiers to apply.
+            base_impact_score: The net score determining whether the interaction is positive or negative.
+
+        Returns:
+            A tuple containing delta values for (affinity, trust, fear, familiarity).
         """
         d_affinity = social_impact.get("affinity", 0.0)
         d_trust = social_impact.get("trust", 0.0)
@@ -91,7 +119,6 @@ class OpinionCalculator:
 
         subject_personality = world.get_component(subject_id, Personality)
         if subject_personality:
-            # Apply trait modifiers
             for trait in subject_personality.traits:
                 key = f"trait:{trait}"
                 if key in modifiers:
@@ -100,7 +127,6 @@ class OpinionCalculator:
                     d_trust += mod.get("trust", 0.0)
                     d_fear += mod.get("fear", 0.0)
 
-            # Apply conditional modifiers
             evaluator = world.services.try_get(ConditionEvaluator)
             if evaluator:
                 actor_context = evaluator.build_context(world, other_id)
@@ -113,7 +139,7 @@ class OpinionCalculator:
                         d_trust += mod.get("trust", 0.0)
                         d_fear += mod.get("fear", 0.0)
 
-            # Apply personality axis multipliers
+            # Kindness scales the impact magnitude: high kindness amplifies positive impacts and mitigates negative impacts.
             kindness = 0
             if subject_personality.axis:
                 kindness = subject_personality.axis.kindness
@@ -134,9 +160,15 @@ class OpinionCalculator:
     def update_emotional_state(
         emotional: EmotionalState, base_impact_score: float
     ) -> None:
-        """
-        Updates emotional state based on interaction impact.
-        Mutates the passed EmotionalState component directly.
+        """Updates emotional state based on interaction impact.
+
+        Mutates the passed EmotionalState component directly. Increases stress and
+        decreases happiness on major negative impacts, while increasing happiness
+        on major positive impacts. Clamps values to predefined bounds.
+
+        Args:
+            emotional: The emotional state component to mutate.
+            base_impact_score: The calculated score representing the interaction's severity.
         """
         if base_impact_score < OpinionCalculator.IMPACT_THRESHOLD_MAJOR_NEGATIVE:
             emotional.happiness = max(
