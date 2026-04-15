@@ -52,7 +52,8 @@ def test_find_prey(world, predator_entity, prey_entity):
     assert status == Status.SUCCESS
 
     ai = world.get_component(predator_entity, AIState)
-    assert getattr(ai, 'current_target_id', EntityID(-1)) == prey_entity
+    assert ai is not None
+    assert ai.current_target_id == prey_entity
 
 
 def test_find_prey_respects_range(world, predator_entity, prey_entity):

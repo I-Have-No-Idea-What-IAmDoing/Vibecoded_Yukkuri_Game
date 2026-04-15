@@ -58,8 +58,8 @@ def test_register_with_explicit_type() -> None:
 
     locator.register(service, service_type=CustomKey)
 
-    assert cast(Any, locator.get(CustomKey)) == service
-    assert cast(Any, locator.try_get(CustomKey)) == service
+    assert cast(Any, locator.get(CustomKey)) is service
+    assert cast(Any, locator.try_get(CustomKey)) is service
     assert locator.is_registered(CustomKey)
 
 

@@ -394,6 +394,7 @@ class TestDetectionRange:
         ai = world.get_component(predator, AIState)
         # Hunt action requires IsPredator and HasPrey thresholds to pass
         # If detection range is correctly using 500, the prey at 300 should be detected
-        assert getattr(ai, 'current_action', None) == "Hunt", (
+        assert ai is not None
+        assert ai.current_action == "Hunt", (
             "Predator with 500 sense radius should detect prey at 300 units"
         )
