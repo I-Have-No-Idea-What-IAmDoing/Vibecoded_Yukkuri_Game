@@ -1,3 +1,4 @@
+from yukkuri_game.engine.types import EntityID
 
 import unittest
 import sys
@@ -31,11 +32,11 @@ class TestInteractionLogic(unittest.TestCase):
         """Test that the 'Talk' behavior generates an InteractionRequest with action='Talk'."""
         
         # 1. Setup Target (Friend)
-        friend_id = self.world.create_entity(
+        friend_id = EntityID(self.world.create_entity(
             YukkuriStats(type_id="reimu", name="Friend"),
             Transform(x=120, y=100) # 20px away (within interaction range)
-        )
-        self.ai.current_target_id = friend_id
+        ))
+        if self.ai: self.ai.current_target_id = friend_id
         
         # 2. Build Behavior Tree for "Talk"
         builder = build_standard_interaction_behavior("Talk")
