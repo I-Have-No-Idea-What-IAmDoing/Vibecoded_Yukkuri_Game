@@ -1,3 +1,5 @@
+from typing import cast
+from yukkuri_game.game.yukkuri_components import Predator, AIState
 """
 Regression tests for Utility AI bugs.
 These tests ensure previously fixed bugs don't reappear.
@@ -381,7 +383,7 @@ class TestDetectionRange:
         pred_comp = world.get_component(predator, Predator)
         
         nearby_enemies = 0
-        if dist <= pred_comp.prey_sense_radius:
+        if dist <= cast(Predator, pred_comp).prey_sense_radius:
             nearby_enemies = 1
             
         world.add_component(predator, Blackboard(nearby_enemies=nearby_enemies))
@@ -392,6 +394,7 @@ class TestDetectionRange:
         ai = world.get_component(predator, AIState)
         # Hunt action requires IsPredator and HasPrey thresholds to pass
         # If detection range is correctly using 500, the prey at 300 should be detected
+        assert ai is not None
         assert ai.current_action == "Hunt", (
             "Predator with 500 sense radius should detect prey at 300 units"
         )

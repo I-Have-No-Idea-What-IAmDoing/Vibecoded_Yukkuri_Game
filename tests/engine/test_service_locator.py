@@ -1,3 +1,4 @@
+from typing import cast, Any
 """
 Tests for the ServiceLocator.
 """
@@ -57,8 +58,8 @@ def test_register_with_explicit_type() -> None:
 
     locator.register(service, service_type=CustomKey)
 
-    assert locator.get(CustomKey) is service
-    assert locator.try_get(CustomKey) is service
+    assert cast(Any, locator.get(CustomKey)) is service
+    assert cast(Any, locator.try_get(CustomKey)) is service
     assert locator.is_registered(CustomKey)
 
 

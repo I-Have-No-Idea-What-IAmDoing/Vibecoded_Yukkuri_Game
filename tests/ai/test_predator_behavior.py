@@ -1,3 +1,4 @@
+from yukkuri_game.engine.types import EntityID
 
 
 
@@ -51,6 +52,7 @@ def test_find_prey(world, predator_entity, prey_entity):
     assert status == Status.SUCCESS
 
     ai = world.get_component(predator_entity, AIState)
+    assert ai is not None
     assert ai.current_target_id == prey_entity
 
 

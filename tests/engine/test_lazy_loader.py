@@ -16,7 +16,7 @@ def test_lazy_loader_access():
             return "value"
         return None
 
-    loader = LazyLoader(mock_loader, keys={"exists", "will_load"})
+    loader: LazyLoader[str] = LazyLoader(mock_loader, keys={"exists", "will_load"})
     
     # Should not have loaded yet
     assert len(loaded_keys) == 0
@@ -39,7 +39,7 @@ def test_lazy_loader_access():
         _ = loader["will_load"]
 
 def test_lazy_loader_setitem():
-    loader = LazyLoader(lambda k: None)
+    loader: LazyLoader[str] = LazyLoader(lambda k: None)
     loader["new"] = "data"
     
     assert loader["new"] == "data"
