@@ -53,3 +53,7 @@
 ## 2026-11-01 - [World Component Fetching Overreach]
 **Learning:** `world.try_get_component` and `world.get_component` have distinct semantics. `get_component` safely catches `KeyError` and returns `None` anyway. Needlessly changing `get_component` to `try_get_component` offers no actual performance benefit but risks introducing runtime crashes or test failures if mocks are misaligned.
 **Action:** Focus optimizations on bulk fetching (`get_components_tuple`). Avoid arbitrary swaps of single-fetch methods (`get_component` vs `try_get_component`) unless addressing a specific exception-handling bottleneck.
+
+## 2026-11-02 - [Poop System Environment Effect Optimization]
+**Learning:** `PoopSystem` was iterating all poops (N) and all Yukkuris (M) every frame to apply smell effects, creating an O(N*M) bottleneck despite a comment suggesting a spatial grid. Refactoring to use the existing `SectorMap` combined with `esper` component pre-fetching (`world.get_components()`) reduced this to O(N * nearby) with O(1) attribute access, avoiding `try_get_component` overhead in the inner loop.
+**Action:** When calculating proximity effects between two sets of entities, always use the `SectorMap` spatial partition if available, and pre-fetch component maps for fast O(1) dict lookups inside the localized spatial loop.

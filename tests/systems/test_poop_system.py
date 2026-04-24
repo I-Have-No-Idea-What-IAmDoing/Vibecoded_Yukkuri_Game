@@ -110,7 +110,11 @@ def test_poop_smell_effect():
     # Mock EventBus
     event_bus = MagicMock(spec=EventBus)
     world.services.register(event_bus, EventBus)
-    world.services.try_get = MagicMock(return_value=event_bus)
+    def try_get_side_effect(service_type):
+        if service_type == EventBus:
+            return event_bus
+        return None
+    world.services.try_get = MagicMock(side_effect=try_get_side_effect)
 
     # Create Poop Entity
     poop_ent = world.create_entity()
@@ -143,7 +147,11 @@ def test_poop_smell_range():
     # Mock EventBus
     event_bus = MagicMock(spec=EventBus)
     world.services.register(event_bus, EventBus)
-    world.services.try_get = MagicMock(return_value=event_bus)
+    def try_get_side_effect(service_type):
+        if service_type == EventBus:
+            return event_bus
+        return None
+    world.services.try_get = MagicMock(side_effect=try_get_side_effect)
 
     # Poop far away
     poop_ent = world.create_entity()

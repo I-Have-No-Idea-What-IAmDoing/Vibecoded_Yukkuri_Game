@@ -106,15 +106,43 @@ class PoopSystem(System):
         if not poop_entities:
             return
 
-        # Optimization: In a large game, use a spatial grid. Here, O(N*M) is fine for small counts.
-        for _p_ent, (_p_poop, p_trans) in poop_entities:
-            for _y_ent, (_y_stats, y_needs, y_trans) in world.get_components_tuple(
-                YukkuriStats, Needs, Transform
-            ):
-                # Distance check
-                dist_sq = (p_trans.x - y_trans.x) ** 2 + (p_trans.y - y_trans.y) ** 2
+        from .sector_system import SectorMap
+        sector_map = world.services.try_get(SectorMap)
 
-                if dist_sq < self.poop_radius**2:
-                    # Constant decay if within radius
-                    y_needs.cleanliness -= self.smell_strength * dt
-                    y_needs.cleanliness = max(0, y_needs.cleanliness)
+        poop_radius = self.poop_radius
+        poop_radius_sq = poop_radius ** 2
+        smell_strength_dt = self.smell_strength * dt
+
+        if sector_map:
+            # Pre-fetch component maps for O(1) lookups
+            yukkuri_needs_map = world.get_components(Needs)
+            trans_map = world.get_components(Transform)
+            yukkuri_stats_map = world.get_components(YukkuriStats)
+
+            for _p_ent, (_p_poop, p_trans) in poop_entities:
+                px, py = p_trans.x, p_trans.y
+                nearby_entities = sector_map.get_entities_in_radius(px, py, poop_radius)
+
+                for _y_ent in nearby_entities:
+                    if _y_ent not in yukkuri_stats_map or _y_ent not in yukkuri_needs_map or _y_ent not in trans_map:
+                        continue
+
+                    y_trans = trans_map[_y_ent]
+
+                    dist_sq = (px - y_trans.x) ** 2 + (py - y_trans.y) ** 2
+                    if dist_sq < poop_radius_sq:
+                        y_needs = yukkuri_needs_map[_y_ent]
+                        y_needs.cleanliness = max(0.0, y_needs.cleanliness - smell_strength_dt)
+        else:
+            # Fallback for when SectorMap is not available (e.g. tests)
+            for _p_ent, (_p_poop, p_trans) in poop_entities:
+                for _y_ent, (_y_stats, y_needs, y_trans) in world.get_components_tuple(
+                    YukkuriStats, Needs, Transform
+                ):
+                    # Distance check
+                    dist_sq = (p_trans.x - y_trans.x) ** 2 + (p_trans.y - y_trans.y) ** 2
+
+                    if dist_sq < poop_radius_sq:
+                        # Constant decay if within radius
+                        y_needs.cleanliness -= smell_strength_dt
+                        y_needs.cleanliness = max(0.0, y_needs.cleanliness)
