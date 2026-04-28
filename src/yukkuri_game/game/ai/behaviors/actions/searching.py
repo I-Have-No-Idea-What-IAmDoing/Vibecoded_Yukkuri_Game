@@ -318,7 +318,9 @@ class FindThreat(Action):
 
         threat_id = blackboard_comp.closest_threat_id
         if threat_id is not None and threat_id != -1:
-            ai.current_target_id = threat_id
+            if ai.current_target_id != threat_id:
+                ai.current_target_id = threat_id
+                ai.path = None
             return Status.SUCCESS
 
         return Status.FAILURE
@@ -432,6 +434,8 @@ class PickFood(Action):
             return Status.SUCCESS
         bb = self.world.try_get_component(self.entity_id, Blackboard)
         if bb and bb.closest_food_id:
-            ai.current_target_id = bb.closest_food_id
+            if ai.current_target_id != bb.closest_food_id:
+                ai.current_target_id = bb.closest_food_id
+                ai.path = None
             return Status.SUCCESS
         return Status.FAILURE

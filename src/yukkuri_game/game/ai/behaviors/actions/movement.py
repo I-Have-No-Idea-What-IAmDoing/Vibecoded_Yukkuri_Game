@@ -535,6 +535,10 @@ class FleePredator(Action):
                 flee_vec = flee_vec.normalized() * self.speed
                 controller.target_velocity = flee_vec
 
+                ai = self.world.get_component(self.entity_id, AIState)
+                if ai:
+                    ai.path = None
+
                 # Critical: Remove conflicting MoveCommands so SteeringSystem doesn't override us
                 if self.world.has_component(self.entity_id, MoveCommand):
                     self.world.remove_component(self.entity_id, MoveCommand)
