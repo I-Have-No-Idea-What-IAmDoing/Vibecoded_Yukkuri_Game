@@ -1,6 +1,6 @@
 import pygame
 from unittest.mock import MagicMock
-from yukkuri_game.game.systems.render_system import RenderSystem
+from yukkuri_game.game.systems.rendering.system import RenderingSystem
 from yukkuri_game.game.components import Transform, Sprite, VisualTransform
 from yukkuri_game.game.camera import Camera
 from yukkuri_game.engine.ecs import World
@@ -21,7 +21,7 @@ def test_render_system_quantizes_scale():
     world.services.register(camera, service_type=Camera)
 
     # Initialize RenderSystem
-    render_system = RenderSystem(screen, world)
+    render_system = RenderingSystem(screen, world)
 
     # Mock SurfaceCache to spy on calls
     render_system.surface_cache = MagicMock(spec=SurfaceCache)

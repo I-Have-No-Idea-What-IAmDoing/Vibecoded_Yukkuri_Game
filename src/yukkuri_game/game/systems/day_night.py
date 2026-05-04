@@ -4,7 +4,7 @@ Day/Night Cycle System.
 
 from ...engine.ecs import System, World
 from ..services import TimeService
-from ..systems.render_system import RenderSystem
+from ..systems.rendering.system import RenderingSystem
 
 
 class DayNightSystem(System):
@@ -27,7 +27,7 @@ class DayNightSystem(System):
         (24.0, (40, 40, 70)),  # Midnight Loop
     ]
 
-    def __init__(self, world: World, renderer: RenderSystem) -> None:
+    def __init__(self, world: World, renderer: RenderingSystem) -> None:
         super().__init__()
         self.render_system = renderer
         self.time_service = world.services.get(TimeService)

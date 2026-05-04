@@ -44,7 +44,7 @@ from ..game.settings_service import SettingsService
 from ..game.systems.mouse_light_system import MouseLightSystem
 from ..game.systems.physics import PhysicsSystem
 from ..game.systems.physics_reconstruction import reconstruct_physics
-from ..game.systems.render_system import RenderSystem
+from ..game.systems.rendering.system import RenderingSystem
 from ..game.ui.hud import HUD
 
 
@@ -60,7 +60,7 @@ class GameplayScene(Scene):
         time_scale (float): The current speed multiplier for game time.
         ui_manager (pygame_gui.UIManager): The UI manager for this scene.
         dt (float): The delta time for the current frame.
-        render_system (RenderSystem | None): The rendering system.
+        render_system (RenderingSystem | None): The rendering system.
         day_night_system (DayNightSystem | None): The day/night cycle system.
         hud (HUD | None): The Heads-Up Display manager.
         game_config (Any): The loaded game configuration.
@@ -109,7 +109,7 @@ class GameplayScene(Scene):
         self.dt = 0.0
 
         # Runtime attributes
-        self.render_system: "RenderSystem | None" = None
+        self.render_system: "RenderingSystem | None" = None
         self.day_night_system: "DayNightSystem | None" = None
         self.hud: "HUD | None" = None
         self.hud_surface: pygame.Surface | None = None
@@ -218,7 +218,7 @@ class GameplayScene(Scene):
         """Sets up event subscriptions and initializes render-dependent systems."""
         # If running headlessly (tests), we skip rendering systems to avoid opening a window.
         if not self.application.headless and self.application.screen:
-            self.render_system = RenderSystem(
+            self.render_system = RenderingSystem(
                 self.application.screen,
                 self.world,
                 lights_engine=getattr(self.application, "lights_engine", None),
@@ -333,7 +333,7 @@ class GameplayScene(Scene):
         # Re-initialize RenderSystem to use the new LightingEngine instance
         # and update screen references.
         if hasattr(self, "render_system") and self.application.screen:
-            self.render_system = RenderSystem(
+            self.render_system = RenderingSystem(
                 self.application.screen,
                 self.world,
                 lights_engine=getattr(self.application, "lights_engine", None),
@@ -590,7 +590,7 @@ class GameplayScene(Scene):
         if (
             not hasattr(self, "render_system") or self.render_system is None
         ) and self.application.screen:
-            self.render_system = RenderSystem(
+            self.render_system = RenderingSystem(
                 self.application.screen,
                 self.world,
                 lights_engine=getattr(self.application, "lights_engine", None),
