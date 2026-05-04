@@ -20,8 +20,10 @@ from yukkuri_game.game.skill_service import SkillService
 
 class TestSocialInteractions(unittest.TestCase):
     def setUp(self):
-        self.world = World()
-        self.event_bus = EventBus()
+        from test_utils import make_configured_world
+        from yukkuri_game.engine.event_bus import EventBus
+        self.world = make_configured_world()
+        self.event_bus = self.world.services.get(EventBus)
         self.game_service = GameService(self.world)
 
         self.audio_manager = MagicMock()
@@ -67,8 +69,9 @@ class TestSocialInteractions(unittest.TestCase):
         self.skill_service = MagicMock(spec=SkillService)
         self.world.services.register(self.skill_service, SkillService)
 
-        self.social_system = SocialSystem(self.event_bus)
+        self.social_system = SocialSystem()
         self.world.services.register(self.social_system, SocialSystem)
+        self.world.add_system(self.social_system)
 
         self.interaction_system = InteractionSystem()
         self.world.add_system(self.interaction_system)

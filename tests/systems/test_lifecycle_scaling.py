@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from test_utils import make_configured_world
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
 from yukkuri_game.game.components import Transform
@@ -10,9 +10,9 @@ def test_lifecycle_scaling_correctness():
     Test that scale is correctly updated relative to the current scale during growth.
     """
     # Setup
-    world = World()
-    settings = MagicMock()
-    system = LifecycleSystem(settings)
+    world = make_configured_world()
+    system = LifecycleSystem()
+    world.add_system(system)
 
     entity = world.create_entity()
     # Correct initialization for a Baby is scale 0.5 (verified in EntityFactory)
@@ -47,9 +47,9 @@ def test_lifecycle_scaling_incorrect_initialization():
     If initialization is wrong (e.g. Baby at 1.0), it will propagate.
     This test documents the expected behavior of the new implementation.
     """
-    world = World()
-    settings = MagicMock()
-    system = LifecycleSystem(settings)
+    world = make_configured_world()
+    system = LifecycleSystem()
+    world.add_system(system)
 
     entity = world.create_entity()
     # Incorrect initialization: Baby at scale 1.0

@@ -8,7 +8,6 @@ of various Entity-Component-System (ECS) systems into the game world.
 from typing import TYPE_CHECKING, Any
 
 from .engine.ecs import World, System
-from .engine.event_bus import EventBus
 from .game.input_system import InputSystem
 from .game.systems.animation import AnimationSystem
 from .game.systems.behavior import BehaviorSystem
@@ -38,7 +37,6 @@ from .game.systems.visibility_system import VisibilitySystem
 from .game.systems.visual_movement_system import VisualMovementSystem
 
 if TYPE_CHECKING:
-    from .config import GameConfig
     from .game.camera import Camera
 
 
@@ -53,28 +51,22 @@ class SystemRegistry:
     @staticmethod
     def register_systems(
         world: World,
-        game_config: "GameConfig",
         camera: "Camera",
-        event_bus: EventBus,
         physics_system: PhysicsSystem,
     ) -> InputSystem:
         """
         Registers all game systems to the provided ECS World.
 
-        This method initializes various systems (Time, Physics, Emotion, etc.) with
-        necessary configurations and adds them to the world. It also registers
-        certain systems as services within the world's service locator.
+        All systems now fetch their dependencies (EventBus, GameConfig, etc.)
+        from the world's service locator via their initialize() lifecycle hook.
 
         Args:
             world: The ECS World instance to register systems with.
-            game_config: The game configuration object containing rules and settings.
-            camera: The camera object used for view-dependent systems and input.
-            event_bus: The event bus for inter-system communication.
+            camera: The camera object used for input handling.
             physics_system: The pre-initialized physics system.
 
         Returns:
-            The registered input system, which is returned so it can be accessed
-            for event handling in the main loop.
+            The registered input system.
         """
 
         input_system = InputSystem(camera)
@@ -90,13 +82,13 @@ class SystemRegistry:
         add_system(TimeSystem())
         add_system(physics_system)
 
-        add_system(EmotionSystem(settings=game_config.rules.stat_decay))
-        add_system(LifecycleSystem(settings=game_config.rules.lifecycle))
+        add_system(EmotionSystem())
+        add_system(LifecycleSystem())
 
         # Navigation & AI
         add_system(NavigationSystem())
         add_system(NavigationUpdateSystem())
-        add_system(BehaviorSystem(float(camera.width), float(camera.height)))
+        add_system(BehaviorSystem())
 
         # Movement Pipeline
         add_system(SteeringSystem())
@@ -111,23 +103,23 @@ class SystemRegistry:
             PerceptionSystem()
         )  # Proposal 4: Populates Blackboard from visibility
         add_system(PoopSystem())
-        add_system(FeedbackSystem(world))
+        add_system(FeedbackSystem())
 
         hunger_system = HungerSystem()
         add_system(hunger_system, HungerSystem)
 
         add_system(InteractionSystem())
 
-        social_system = SocialSystem(event_bus)
+        social_system = SocialSystem()
         add_system(social_system, SocialSystem)
 
-        add_system(GossipSystem(event_bus))
+        add_system(GossipSystem())
         add_system(FamilySystem())
-        add_system(GameRulesSystem(event_bus))
+        add_system(GameRulesSystem())
         add_system(InventorySystem())
 
         # Mouse Light System (disabled by default)
-        mouse_light_system = MouseLightSystem(world, camera)
+        mouse_light_system = MouseLightSystem()
         add_system(mouse_light_system, MouseLightSystem)
 
         return input_system

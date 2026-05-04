@@ -17,24 +17,27 @@ class MockResourceManager:
         return MagicMock()
 
 
+class test_dynamic_sprites:
+    pass
+
 def test_dynamic_sprite_switching():
     """
     Test that the AnimationSystem updates the sprite image based on AIState.current_action
     when no Animator is present.
     """
-    world = World()
+    from test_utils import make_configured_world
+    world = make_configured_world()
 
     # Register Mock ResourceManager
     mock_rm = MockResourceManager()
     # Correct registration: instance, then type
-    world.services.register(mock_rm, ResourceManager)
+    world.services.register(mock_rm, ResourceManager, replace=True)
 
     # Create entity with Sprite, AIState, and YukkuriStats
-    entity = world.create_entity(
-        Sprite(image_name="base_image.png", width=32, height=32),
-        AIState(current_action="Idle"),
-        YukkuriStats(name="Test", type_id="test_type"),
-    )
+    entity = world.create_entity()
+    world.add_component(entity, Sprite(image_name="base_image.png", width=32, height=32))
+    world.add_component(entity, AIState(current_action="Idle"))
+    world.add_component(entity, YukkuriStats(name="Test", type_id="test_type"))
 
     system = AnimationSystem()
     world.add_system(system)
@@ -66,19 +69,20 @@ def test_animator_precedence():
     """
     Test that if an Animator is present, it takes precedence (existing logic).
     """
-    world = World()
+    from test_utils import make_configured_world
+    world = make_configured_world()
     mock_rm = MockResourceManager()
-    world.services.register(mock_rm, ResourceManager)
+    world.services.register(mock_rm, ResourceManager, replace=True)
 
     # Create entity with Sprite, AIState, YukkuriStats AND Animator
-    entity = world.create_entity(
-        Sprite(image_name="base_image.png", width=32, height=32),
-        AIState(current_action="Sleeping"),
-        YukkuriStats(name="Test", type_id="test_type"),
-        Animator(animations={}),
-    )
+    entity = world.create_entity()
+    world.add_component(entity, Sprite(image_name="base_image.png", width=32, height=32))
+    world.add_component(entity, AIState(current_action="Sleeping"))
+    world.add_component(entity, YukkuriStats(name="Test", type_id="test_type"))
+    world.add_component(entity, Animator(animations={}))
 
     system = AnimationSystem()
+    world.add_system(system)
 
     # Even if we update, the new logic should check for Animator presence and skip.
     # So sprite.image_name should REMAIN "base_image.png" (or whatever Animator sets it to, here nothing).

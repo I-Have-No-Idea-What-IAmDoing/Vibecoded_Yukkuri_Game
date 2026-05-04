@@ -15,15 +15,18 @@ class MouseLightSystem(System):
     System that attaches a light source to the mouse cursor.
     """
 
-    def __init__(self, world: World, camera: Camera):
+    def __init__(self) -> None:
         super().__init__()
-        self.ecs_world = (
-            world  # Manually set ecs_world since System doesn't take it in init
-        )
-        self.camera = camera
-        self.input_service = world.services.get(InputService)
-        self.light_entity = self._create_mouse_light()
+        self.camera: Camera
+        self.input_service: InputService
+        self.light_entity = -1
         self.enabled = False  # Default to disabled
+
+    def initialize(self) -> None:
+        """Called when the system is added to the world."""
+        self.camera = self.ecs_world.services.get(Camera)
+        self.input_service = self.ecs_world.services.get(InputService)
+        self.light_entity = self._create_mouse_light()
 
     def _create_mouse_light(self) -> int:
         """Creates the mouse light entity."""

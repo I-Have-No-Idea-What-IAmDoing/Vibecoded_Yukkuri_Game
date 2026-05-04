@@ -23,14 +23,15 @@ class AIDebugRenderer:
     - Social Context lines (Green=Friend, Red=Enemy)
     """
 
-    def __init__(self, camera: "Camera"):
+    def __init__(self, world: "World"):
         """
         Initializes the AIDebugRenderer.
 
         Args:
-            camera (Camera): The game camera.
+            world (World): The ECS World instance to fetch services from.
         """
-        self.camera = camera
+        from ..camera import Camera
+        self.camera = world.services.get(Camera)
         self.enabled = False
         self.font = pygame.font.SysFont("Arial", 12)
 

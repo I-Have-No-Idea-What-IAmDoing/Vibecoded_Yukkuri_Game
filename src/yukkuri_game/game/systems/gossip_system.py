@@ -65,19 +65,20 @@ class GossipSystem(System):
     # Default maximum gossip packets per entity queue
     DEFAULT_MAX_GOSSIP_LENGTH = 10
 
-    def __init__(self, event_bus: EventBus):
+    def __init__(self) -> None:
         """
         Initializes the GossipSystem.
-
-        Args:
-            event_bus (EventBus): The event bus instance.
         """
         super().__init__()
-        self.event_bus = event_bus
-        self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
+        self.event_bus: EventBus
         self.physics_system: PhysicsSystem | None = None
         self.sector_map: SectorMap | None = None
         self.trait_service: TraitService | None = None
+
+    def initialize(self) -> None:
+        """Called when the system is added to the world."""
+        self.event_bus = self.ecs_world.services.get(EventBus)
+        self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
 
     def update(self, world: World, dt: float) -> None:
         """

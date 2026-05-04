@@ -1,12 +1,9 @@
-"""
-Unit tests for the DayNightSystem.
-"""
-
 from unittest.mock import MagicMock
-
+from test_utils import make_configured_world
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.day_night import DayNightSystem
 from yukkuri_game.game.services import TimeService
+from yukkuri_game.game.systems.rendering.system import RenderingSystem
 
 
 class TestDayNightSystemInitialization:
@@ -14,12 +11,15 @@ class TestDayNightSystemInitialization:
 
     def test_initialization(self) -> None:
         """DayNightSystem initializes with renderer and time service."""
-        world = World()
+        world = make_configured_world()
         time_service = TimeService()
-        world.services.register(time_service, TimeService)
+        world.services.register(time_service, TimeService, replace=True)
 
-        mock_renderer = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         assert system.render_system == mock_renderer
         assert system.time_service == time_service
@@ -30,11 +30,12 @@ class TestColorInterpolation:
 
     def test_interpolate_color_no_change(self) -> None:
         """Interpolation at t=0 returns first color."""
-        world = World()
-        time_service = TimeService()
-        world.services.register(time_service, TimeService)
-        mock_renderer = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        world = make_configured_world()
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         c1 = (100, 100, 100)
         c2 = (200, 200, 200)
@@ -44,11 +45,12 @@ class TestColorInterpolation:
 
     def test_interpolate_color_full_transition(self) -> None:
         """Interpolation at t=1 returns second color."""
-        world = World()
-        time_service = TimeService()
-        world.services.register(time_service, TimeService)
-        mock_renderer = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        world = make_configured_world()
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         c1 = (100, 100, 100)
         c2 = (200, 200, 200)
@@ -58,11 +60,12 @@ class TestColorInterpolation:
 
     def test_interpolate_color_midpoint(self) -> None:
         """Interpolation at t=0.5 returns midpoint color."""
-        world = World()
-        time_service = TimeService()
-        world.services.register(time_service, TimeService)
-        mock_renderer = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        world = make_configured_world()
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         c1 = (100, 100, 100)
         c2 = (200, 200, 200)
@@ -76,11 +79,12 @@ class TestAmbientColorCalculation:
 
     def test_midnight_color(self) -> None:
         """Midnight (0.0) returns dark blue color."""
-        world = World()
-        time_service = TimeService()
-        world.services.register(time_service, TimeService)
-        mock_renderer = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        world = make_configured_world()
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         color = system._get_ambient_color(0.0)
         # Midnight is (40, 40, 70)
@@ -88,11 +92,12 @@ class TestAmbientColorCalculation:
 
     def test_noon_color(self) -> None:
         """Noon (12.0) returns full brightness."""
-        world = World()
-        time_service = TimeService()
-        world.services.register(time_service, TimeService)
-        mock_renderer = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        world = make_configured_world()
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         color = system._get_ambient_color(12.0)
         # During day (8-17) is (255, 255, 255)
@@ -100,22 +105,24 @@ class TestAmbientColorCalculation:
 
     def test_morning_color(self) -> None:
         """Morning (8.0) returns full brightness."""
-        world = World()
-        time_service = TimeService()
-        world.services.register(time_service, TimeService)
-        mock_renderer = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        world = make_configured_world()
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         color = system._get_ambient_color(8.0)
         assert color[:3] == (255, 255, 255)
 
     def test_dawn_transition(self) -> None:
         """Dawn (6.0) is transitioning from dark to light."""
-        world = World()
-        time_service = TimeService()
-        world.services.register(time_service, TimeService)
-        mock_renderer = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        world = make_configured_world()
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         color = system._get_ambient_color(6.0)
         # 6.0 is (100, 100, 120)
@@ -123,11 +130,12 @@ class TestAmbientColorCalculation:
 
     def test_dusk_color(self) -> None:
         """Dusk (19.0) has reddish tint."""
-        world = World()
-        time_service = TimeService()
-        world.services.register(time_service, TimeService)
-        mock_renderer = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        world = make_configured_world()
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         color = system._get_ambient_color(19.0)
         # 19.0 is (150, 100, 100)
@@ -135,11 +143,12 @@ class TestAmbientColorCalculation:
 
     def test_time_wrapping(self) -> None:
         """Time wraps correctly over 24 hours."""
-        world = World()
-        time_service = TimeService()
-        world.services.register(time_service, TimeService)
-        mock_renderer = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        world = make_configured_world()
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         color_0 = system._get_ambient_color(0.0)
         color_24 = system._get_ambient_color(24.0)
@@ -154,14 +163,15 @@ class TestDayNightUpdate:
 
     def test_update_sets_ambient_light(self) -> None:
         """update() calls set_ambient_light on renderer."""
-        world = World()
-        time_service = TimeService()
+        world = make_configured_world()
+        time_service = world.services.get(TimeService)
         time_service.time_elapsed = 12.0 * 3600  # 12:00 noon in seconds
-        world.services.register(time_service, TimeService)
 
-        mock_renderer = MagicMock()
-        mock_renderer.set_ambient_light = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         system.update(world, 0.016)
 
@@ -172,14 +182,15 @@ class TestDayNightUpdate:
 
     def test_update_reads_time_service(self) -> None:
         """update() uses TimeService for current time."""
-        world = World()
-        time_service = TimeService()
+        world = make_configured_world()
+        time_service = world.services.get(TimeService)
         time_service.time_elapsed = 0.0  # Midnight (0:00)
-        world.services.register(time_service, TimeService)
 
-        mock_renderer = MagicMock()
-        mock_renderer.set_ambient_light = MagicMock()
-        system = DayNightSystem(world, mock_renderer)
+        mock_renderer = MagicMock(spec=RenderingSystem)
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         system.update(world, 0.016)
 
@@ -189,14 +200,15 @@ class TestDayNightUpdate:
 
     def test_update_handles_missing_set_ambient_light(self) -> None:
         """update() doesn't crash if renderer lacks set_ambient_light."""
-        world = World()
-        time_service = TimeService()
-        world.services.register(time_service, TimeService)
-
+        world = make_configured_world()
+        
         # Renderer without set_ambient_light
         mock_renderer = MagicMock(spec=[])
-        del mock_renderer.set_ambient_light
-        system = DayNightSystem(world, mock_renderer)
+        # del mock_renderer.set_ambient_light # No need if spec=[]
+        world.services.register(mock_renderer, RenderingSystem)
+        
+        system = DayNightSystem()
+        world.add_system(system)
 
         # Should not raise
         system.update(world, 0.016)

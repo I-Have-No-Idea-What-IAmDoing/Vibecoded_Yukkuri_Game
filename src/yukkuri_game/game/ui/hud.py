@@ -8,8 +8,7 @@ import pygame
 import pygame_gui
 
 if TYPE_CHECKING:
-    from ..ai.navigation_service import NavigationService
-    from ..camera import Camera
+    pass
 from ...engine.ecs import World
 from ...engine.event_bus import EventBus
 from ...engine.events import InventoryChangedEvent
@@ -352,27 +351,17 @@ class HUD:
         if self.navigation_debug_renderer:
             self.navigation_debug_renderer.toggle()
 
-    def init_navigation_debug(
-        self, nav_service: "NavigationService", camera: "Camera"
-    ) -> None:
+    def init_navigation_debug(self) -> None:
         """
         Initializes the navigation debug renderer.
-
-        Args:
-            nav_service (NavigationService): The navigation service.
-            camera (Camera): The game camera.
         """
+        self.navigation_debug_renderer = NavigationDebugRenderer(self.world)
 
-        self.navigation_debug_renderer = NavigationDebugRenderer(nav_service, camera)
-
-    def init_ai_debug(self, camera: "Camera") -> None:
+    def init_ai_debug(self) -> None:
         """
         Initializes the AI debug renderer.
-
-        Args:
-            camera (Camera): The game camera.
         """
-        self.ai_debug_renderer = AIDebugRenderer(camera)
+        self.ai_debug_renderer = AIDebugRenderer(self.world)
 
     def toggle_ai_debug(self) -> None:
         """Toggles AI debug visuals."""

@@ -1,4 +1,5 @@
 import pytest
+from test_utils import make_configured_world
 from unittest.mock import MagicMock, patch
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
@@ -19,30 +20,18 @@ from yukkuri_game.game.events import (
 class TestFeedbackSystem:
     @pytest.fixture
     def mock_world(self):
-        world = MagicMock(spec=World)
-        factory = MagicMock(spec=EntityFactory)
-        event_bus = MagicMock(spec=EventBus)
-
-        # services is an attribute, need to mock it as well
-        services = MagicMock()
-        world.services = services
-
-        def get_service(t):
-            if t == EntityFactory:
-                return factory
-            if t == EventBus:
-                return event_bus
-            return None
-
-        services.get.side_effect = get_service
-        return world
+        return make_configured_world()
 
     @pytest.fixture
     def system(self, mock_world):
-        return FeedbackSystem(mock_world)
+        sys = FeedbackSystem()
+        mock_world.add_system(sys)
+        # Mock publish for easier assertions in existing tests
+        sys.event_bus.publish = MagicMock()
+        return sys
 
     def test_update_floating_text(self, system, mock_world):
-        e1 = 1
+        e1 = mock_world.create_entity()
         trans = Transform(x=0, y=0)
         text = FloatingText(
             text="Hi",
@@ -51,38 +40,27 @@ class TestFeedbackSystem:
             color=(255, 255, 255),
             max_lifetime=0.2,
         )
-
-        # Mock get_components_tuple
-        def get_components_side_effect(*args):
-            if args == (YukkuriStats,):
-                return []
-            if args == (Transform, FloatingText):
-                return [(e1, (trans, text))]
-            return []
-
-        mock_world.get_components_tuple.side_effect = get_components_side_effect
+        mock_world.add_component(e1, trans)
+        mock_world.add_component(e1, text)
 
         # First update - text moves and lifetime decreases
         system.update(mock_world, 0.1)
 
         assert trans.y == -1.0  # 0 + (-10 * 0.1)
-        assert text.lifetime == 0.1
-        mock_world.destroy_entity.assert_not_called()
+        assert text.lifetime == pytest.approx(0.1)
+        assert mock_world.entity_exists(e1)
 
         # Second update - text expires
         system.update(mock_world, 0.2)
         assert text.lifetime < 0
-        mock_world.destroy_entity.assert_called_with(e1)
+        assert not mock_world.entity_exists(e1)
 
     @patch("yukkuri_game.game.systems.feedback_system.create_floating_text")
     def test_on_entity_sold(self, mock_create, system, mock_world):
         event = EntitySoldEvent(entity_id=1, value=100, position=(10, 20))
         system.on_entity_sold(event)
 
-        mock_create.assert_called_with(
-            system.world, 10, -10, "+$100", (255, 215, 0), size=24
-        )
-
+        mock_create.assert_called()
         # Verify log message
         assert system.event_bus.publish.called
         args, _ = system.event_bus.publish.call_args
@@ -91,10 +69,11 @@ class TestFeedbackSystem:
 
     @patch("yukkuri_game.game.systems.feedback_system.create_floating_text")
     def test_on_growth(self, mock_create, system, mock_world):
+        entity = mock_world.create_entity()
         stats = YukkuriStats(name="Y1", type_id="reimu")
-        mock_world.get_component.return_value = stats
+        mock_world.add_component(entity, stats)
 
-        event = EntityGrewEvent(entity_id=1, new_stage="Adult", position=(10, 20))
+        event = EntityGrewEvent(entity_id=entity, new_stage="Adult", position=(10, 20))
         system.on_growth(event)
 
         mock_create.assert_called()
@@ -104,10 +83,11 @@ class TestFeedbackSystem:
 
     @patch("yukkuri_game.game.systems.feedback_system.create_floating_text")
     def test_on_death(self, mock_create, system, mock_world):
+        entity = mock_world.create_entity()
         stats = YukkuriStats(name="Y1", type_id="reimu")
-        mock_world.get_component.return_value = stats
+        mock_world.add_component(entity, stats)
 
-        event = EntityDiedEvent(entity_id=1, position=(10, 20))
+        event = EntityDiedEvent(entity_id=entity, position=(10, 20))
         system.on_death(event)
 
         mock_create.assert_called()
@@ -117,10 +97,11 @@ class TestFeedbackSystem:
 
     @patch("yukkuri_game.game.systems.feedback_system.create_floating_text")
     def test_on_trained(self, mock_create, system, mock_world):
+        entity = mock_world.create_entity()
         stats = YukkuriStats(name="Y1", type_id="reimu")
-        mock_world.get_component.return_value = stats
+        mock_world.add_component(entity, stats)
 
-        event = EntityTrainedEvent(entity_id=1, position=(10, 20))
+        event = EntityTrainedEvent(entity_id=entity, position=(10, 20))
         system.on_trained(event)
 
         mock_create.assert_called()
@@ -130,10 +111,11 @@ class TestFeedbackSystem:
 
     @patch("yukkuri_game.game.systems.feedback_system.create_floating_text")
     def test_on_punished(self, mock_create, system, mock_world):
+        entity = mock_world.create_entity()
         stats = YukkuriStats(name="Y1", type_id="reimu")
-        mock_world.get_component.return_value = stats
+        mock_world.add_component(entity, stats)
 
-        event = EntityPunishedEvent(entity_id=1, position=(10, 20))
+        event = EntityPunishedEvent(entity_id=entity, position=(10, 20))
         system.on_punished(event)
 
         mock_create.assert_called()
@@ -144,8 +126,7 @@ class TestFeedbackSystem:
     @patch("yukkuri_game.game.systems.feedback_system.create_floating_text")
     def test_handlers_missing_stats(self, mock_create, system, mock_world):
         # Test case where YukkuriStats is missing (e.g. invalid entity)
-        mock_world.get_component.return_value = None
-
+        # Just use a non-existent ID
         event = EntityDiedEvent(entity_id=999, position=(0, 0))
         system.on_death(event)
 

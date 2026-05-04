@@ -1,4 +1,5 @@
 import pytest
+from test_utils import make_configured_world
 from unittest.mock import Mock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
@@ -19,9 +20,8 @@ from yukkuri_game.game.services import EconomyService
 
 @pytest.fixture
 def game_rules_env():
-    world = World()
-    event_bus = EventBus()
-    system = GameRulesSystem(event_bus)
+    world = make_configured_world()
+    system = GameRulesSystem()
     world.add_system(system)
 
     economy = Mock(spec=EconomyService)
@@ -31,6 +31,7 @@ def game_rules_env():
     audio = Mock(spec=AudioManager)
     world.services.register(audio, AudioManager)
 
+    event_bus = world.services.get(EventBus)
     return world, system, event_bus, economy, audio
 
 
@@ -126,3 +127,4 @@ def test_action_on_missing_components(game_rules_env):
     event_bus.publish(PunishEntityRequest(entity))
 
     assert world.entity_exists(entity)
+

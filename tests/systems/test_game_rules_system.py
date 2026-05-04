@@ -3,6 +3,7 @@ Tests for the GameRulesSystem.
 """
 
 import pytest
+from test_utils import make_configured_world
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.game_rules_system import GameRulesSystem
 from yukkuri_game.engine.ecs import World
@@ -47,7 +48,7 @@ def test_game_rules_sell_yukkuri(game_rules_world) -> None:
     """
     world, economy, _, _, _, event_bus = game_rules_world
 
-    system = GameRulesSystem(event_bus)
+    system = GameRulesSystem()
     world.add_system(system)
 
     # Create mock yukkuri
@@ -90,7 +91,7 @@ def test_game_rules_sell_invalid_entity(game_rules_world) -> None:
     """
     world, economy, _, _, _, event_bus = game_rules_world
 
-    system = GameRulesSystem(event_bus)
+    system = GameRulesSystem()
     world.add_system(system)
 
     # Entity without stats
@@ -104,3 +105,4 @@ def test_game_rules_sell_invalid_entity(game_rules_world) -> None:
     # Entity remains (sell_yukkuri checks for stats before destroying)
     # If stats missing, it returns 0 and does NOT destroy.
     assert world.entity_exists(item)
+

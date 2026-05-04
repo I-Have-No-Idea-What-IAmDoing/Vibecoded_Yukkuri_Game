@@ -89,20 +89,20 @@ class SocialSystem(System):
     # Memories with importance above this threshold are promoted to the core buffer.
     MEMORY_IMPORTANCE_THRESHOLD = 50.0
 
-    def __init__(self, event_bus: EventBus):
+    def __init__(self) -> None:
         """
         Initializes the SocialSystem.
-
-        Args:
-            event_bus (EventBus): Wide-event bus for social event handling.
         """
         super().__init__()
         self.trait_service: TraitService | None = None
         self.skill_service: SkillService | None = None
         self.audio: AudioManager | None = None
         self.cleanup_index = 0
-        self.event_bus = event_bus
         self.headline_counter = 0
+
+    def initialize(self) -> None:
+        """Called when the system is added to the world."""
+        self.event_bus = self.ecs_world.services.get(EventBus)
 
     def update(self, world: World, dt: float) -> None:
         """

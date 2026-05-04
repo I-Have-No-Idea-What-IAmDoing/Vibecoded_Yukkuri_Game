@@ -6,6 +6,7 @@ import pytest
 import pymunk
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.components import Transform, MovementController, SteeringComponent, PhysicsBody
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, AIState, ItemStats
 from yukkuri_game.game.systems.behavior import BehaviorSystem
@@ -24,9 +25,18 @@ def simulation_world() -> tuple[World, int, int]:
     """
     Sets up a world with a Yukkuri and an Item for simulation tests.
     """
+    from yukkuri_game.config import GameConfig
     world = World()
     world.services.register(GameService(world))
     world.services.register(NavigationService(1000, 1000, deterministic_mode=True))
+    world.services.register(MagicMock(spec=EventBus), EventBus)
+
+    # Provide a minimal GameConfig so BehaviorSystem.initialize() can read world dims.
+    config = MagicMock(spec=GameConfig)
+    config.world.width = 1000
+    config.world.height = 1000
+    config.rules.stat_decay = StatDecaySettings(hunger=2.0, cleanliness=2.0)
+    world.services.register(config, GameConfig)
 
     # Create Yukkuri
     yukkuri = world.create_entity()
@@ -54,18 +64,22 @@ def simulation_world() -> tuple[World, int, int]:
 
 
 @pytest.fixture
-def systems() -> tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem, NavigationSystem, SteeringSystem]:
+def systems(simulation_world) -> tuple[BehaviorSystem, EmotionSystem, MagicMock, InteractionSystem, NavigationSystem, SteeringSystem]:
     """
     Sets up the systems used in the simulation tests.
+    Systems are added to the world so their initialize() hooks fire.
     """
+    world, _, _ = simulation_world
     mock_ai_engine = MagicMock()
     # Default behavior: return "Idle"
     mock_ai_engine.select_action.return_value = "Idle"
 
-    behavior_system = BehaviorSystem(world_width=1000, world_height=1000)
-    stat_decay_system = EmotionSystem(
-        StatDecaySettings(hunger=2.0, cleanliness=2.0)
-    )  # Set specific decay rates
+    behavior_system = BehaviorSystem()
+    world.add_system(behavior_system)
+
+    stat_decay_system = EmotionSystem()
+    world.add_system(stat_decay_system)
+
     interaction_system = InteractionSystem()
     navigation_system = NavigationSystem()
     steering_system = SteeringSystem()

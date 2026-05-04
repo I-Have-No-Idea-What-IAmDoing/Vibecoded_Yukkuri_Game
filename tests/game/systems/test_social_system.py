@@ -20,15 +20,16 @@ def world():
     # Mock services
     w.services.register(MagicMock(), TraitService)
     w.services.register(MagicMock(time_elapsed=100.0), TimeService)
+    w.services.register(MagicMock(spec=EventBus), EventBus)
     return w
 
 @pytest.fixture
-def event_bus():
-    return MagicMock(spec=EventBus)
+def event_bus(world):
+    return world.services.get(EventBus)
 
 @pytest.fixture
-def social_system(world, event_bus):
-    system = SocialSystem(event_bus)
+def social_system(world):
+    system = SocialSystem()
     world.add_system(system)
     return system
 

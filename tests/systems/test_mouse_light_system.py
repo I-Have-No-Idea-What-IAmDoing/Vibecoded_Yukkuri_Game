@@ -24,8 +24,8 @@ class TestMouseLightSystem:
 
     @pytest.fixture
     def system(self, world, mock_camera):
-        # We need to mock pygame before importing/using system if it uses it at module level
-        # But here it uses it inside methods mostly, except for module import
+        from yukkuri_game.game.camera import Camera
+        world.services.register(mock_camera, Camera)
         with patch(
             "yukkuri_game.game.systems.mouse_light_system.pygame"
         ) as mock_pygame:
@@ -33,7 +33,8 @@ class TestMouseLightSystem:
                 800,
                 600,
             )
-            sys = MouseLightSystem(world, mock_camera)
+            sys = MouseLightSystem()
+            world.add_system(sys)
             yield sys
 
     def test_initialization(self, system, world):

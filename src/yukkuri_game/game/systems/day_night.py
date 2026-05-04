@@ -27,10 +27,15 @@ class DayNightSystem(System):
         (24.0, (40, 40, 70)),  # Midnight Loop
     ]
 
-    def __init__(self, world: World, renderer: RenderingSystem) -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self.render_system = renderer
-        self.time_service = world.services.get(TimeService)
+        self.render_system: RenderingSystem
+        self.time_service: TimeService
+
+    def initialize(self) -> None:
+        """Called when the system is added to the world."""
+        self.render_system = self.ecs_world.services.get(RenderingSystem)
+        self.time_service = self.ecs_world.services.get(TimeService)
 
     def _interpolate_color(
         self, c1: tuple[int, int, int], c2: tuple[int, int, int], t: float

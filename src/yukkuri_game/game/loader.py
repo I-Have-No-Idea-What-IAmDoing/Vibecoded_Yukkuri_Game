@@ -29,10 +29,10 @@ from ..game.systems.physics import PhysicsSystem
 from ..game.systems.sector_system import SectorMap, SectorSystem
 from ..game.trait_service import TraitService
 from ..game.utils.evaluator import ConditionEvaluator
+from ..config import GameConfig
 from ..system_registry import SystemRegistry
 
 if TYPE_CHECKING:
-    from ..config import GameConfig
     from ..engine.application import Application
     from ..engine.scene import SceneContext
     from ..game.input_system import InputSystem
@@ -80,6 +80,7 @@ class GameLoader:
         self.world.services.register(camera, Camera)
         self.world.services.register(physics_system, PhysicsSystem)
         self.world.services.register(event_bus, EventBus)
+        self.world.services.register(self.game_config, GameConfig)
 
         # Inject Global State
         money = context.data.get("money", 1000)
@@ -161,16 +162,13 @@ class GameLoader:
     def register_systems(
         self,
         camera: Camera,
-        event_bus: EventBus,
         physics_system: PhysicsSystem,
         ui_manager: "pygame_gui.UIManager",
     ) -> "InputSystem":
         """Registers all game systems."""
         input_system = SystemRegistry.register_systems(
             self.world,
-            self.game_config,
             camera,
-            event_bus,
             physics_system,
         )
 

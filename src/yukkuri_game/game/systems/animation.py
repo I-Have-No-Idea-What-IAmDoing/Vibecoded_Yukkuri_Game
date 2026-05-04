@@ -38,15 +38,17 @@ class AnimationSystem(System):
     Driven by state changes (idle, walk, run, etc.) and time deltas.
     """
 
-    def __init__(self, event_bus: EventBus | None = None):
+    def __init__(self) -> None:
         """
         Initializes the AnimationSystem.
-
-        Args:
-            event_bus (EventBus | None): The event bus.
         """
-        self.event_bus = event_bus
+        super().__init__()
+        self.event_bus: EventBus | None = None
         self.frame_count: int = 0
+
+    def initialize(self) -> None:
+        """Called when the system is added to the world."""
+        self.event_bus = self.ecs_world.services.get(EventBus)
 
     def update(self, world: World, dt: float) -> None:
         """

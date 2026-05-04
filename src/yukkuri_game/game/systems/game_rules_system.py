@@ -43,26 +43,24 @@ class GameRulesSystem(System):
     by event subscriptions established in __init__.
     """
 
-    def __init__(self, event_bus: EventBus):
+    def __init__(self) -> None:
         """
         Initializes the GameRulesSystem.
-
-        Args:
-            event_bus (EventBus): The event bus instance.
         """
-        self.event_bus = event_bus
+        self.event_bus: EventBus
         self.world: World | None = None
+
+    def initialize(self) -> None:
+        """
+        Captures world reference on registration and subscribes to events.
+        """
+        if hasattr(self, "ecs_world"):
+            self.world = self.ecs_world
+        self.event_bus = self.ecs_world.services.get(EventBus)
 
         self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
         self.event_bus.subscribe(PunishEntityRequest, self.on_punish_entity)
         self.event_bus.subscribe(SellEntityRequest, self.on_sell_entity)
-
-    def initialize(self) -> None:
-        """
-        Captures world reference on registration.
-        """
-        if hasattr(self, "ecs_world"):
-            self.world = self.ecs_world
 
     def update(self, world: World, dt: float) -> None:
         """

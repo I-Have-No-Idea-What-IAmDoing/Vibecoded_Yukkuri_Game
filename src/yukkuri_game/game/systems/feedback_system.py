@@ -30,15 +30,17 @@ class FeedbackSystem(System):
         world (World): The ECS World.
     """
 
-    def __init__(self, world: World):
+    def __init__(self) -> None:
         """
         Initializes the FeedbackSystem.
-
-        Args:
-            world (World): The ECS World.
         """
-        self.event_bus: EventBus | None = world.services.get(EventBus)
-        self.world = world
+        self.event_bus: EventBus | None = None
+        self.world: World | None = None
+
+    def initialize(self) -> None:
+        """Called when the system is added to the world."""
+        self.world = self.ecs_world
+        self.event_bus = self.ecs_world.services.get(EventBus)
 
         # Subscribe to events
         if self.event_bus:

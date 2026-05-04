@@ -70,19 +70,23 @@ class EmotionSystem(System):
     UPDATE_INTERVAL: float = 0.1
     MAX_UPDATES_PER_FRAME: int = 20
 
-    def __init__(self, settings: StatDecaySettings):
+    def __init__(self) -> None:
         """
         Initializes the EmotionSystem.
-
-        Args:
-            settings (StatDecaySettings): Stat decay configuration (rates for hunger, energy, etc.).
         """
-        self.settings = settings
+        super().__init__()
+        self.settings: StatDecaySettings
         self.trait_service: TraitService | None = None
         self.last_day_index = -1
 
         # Optimization: Accumulator for throttling updates
         self.accumulated_dt = 0.0
+
+    def initialize(self) -> None:
+        """Called when the system is added to the world."""
+        from ...config import GameConfig
+        config = self.ecs_world.services.get(GameConfig)
+        self.settings = config.rules.stat_decay
 
     def update(self, world: World, dt: float) -> None:
         """

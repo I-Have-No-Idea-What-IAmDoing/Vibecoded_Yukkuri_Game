@@ -39,17 +39,21 @@ class BehaviorSystem(System):
         stable_entities (set[int]): Set of entities currently in a stable state (SUCCESS).
     """
 
-    def __init__(self, world_width: float, world_height: float):
+    def __init__(self) -> None:
         """
         Initializes the BehaviorSystem.
-
-        Args:
-            world_width (float): The width of the world.
-            world_height (float): The height of the world.
         """
-        self.world_w = world_width
-        self.world_h = world_height
+        super().__init__()
+        self.world_w: float = 0.0
+        self.world_h: float = 0.0
         self.trees: dict[int, py_trees.trees.BehaviourTree] = {}
+
+    def initialize(self) -> None:
+        """Called when the system is added to the world."""
+        from ...config import GameConfig
+        config = self.ecs_world.services.get(GameConfig)
+        self.world_w = float(config.world.width)
+        self.world_h = float(config.world.height)
 
         self.update_queue: deque[int] = deque()
         self.max_updates_per_frame = 10  # Configurable performance definition

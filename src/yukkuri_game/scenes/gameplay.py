@@ -191,7 +191,7 @@ class GameplayScene(Scene):
 
         # Systems
         self.input_system = self.loader.register_systems(
-            self.camera, self.event_bus, self.physics_system, self.ui_manager
+            self.camera, self.physics_system, self.ui_manager
         )
 
         self.is_setup = True
@@ -223,6 +223,7 @@ class GameplayScene(Scene):
                 self.world,
                 lights_engine=getattr(self.application, "lights_engine", None),
             )
+            self.world.services.register(self.render_system, RenderingSystem)
 
             # Day/Night System
             if TYPE_CHECKING:
@@ -234,7 +235,7 @@ class GameplayScene(Scene):
                     DayNightSystem = None  # Should not happen in normal run
 
             if DayNightSystem is not None:
-                self.day_night_system = DayNightSystem(self.world, self.render_system)
+                self.day_night_system = DayNightSystem()
                 self.world.add_system(self.day_night_system)
 
             # HUD
@@ -243,10 +244,10 @@ class GameplayScene(Scene):
             # Initialize navigation debug renderer
             nav_service = self.world.services.try_get(NavigationService)
             if nav_service:
-                self.hud.init_navigation_debug(nav_service, self.camera)
+                self.hud.init_navigation_debug()
 
             # Initialize AI Debug
-            self.hud.init_ai_debug(self.camera)
+            self.hud.init_ai_debug()
 
         # Logic Event Handlers (Must run even in headless mode)
         self.event_bus.subscribe(TogglePauseRequest, lambda e: self.toggle_pause())
@@ -595,3 +596,4 @@ class GameplayScene(Scene):
                 self.world,
                 lights_engine=getattr(self.application, "lights_engine", None),
             )
+            self.world.services.register(self.render_system, RenderingSystem)

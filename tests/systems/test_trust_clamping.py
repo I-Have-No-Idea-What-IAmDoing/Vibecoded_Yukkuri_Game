@@ -5,6 +5,7 @@ hostile interactions, matching its documented range of -100 to 100.
 """
 
 import pytest
+from test_utils import make_configured_world
 from unittest.mock import Mock
 
 from yukkuri_game.engine.ecs import World
@@ -25,14 +26,13 @@ from yukkuri_game.game.yukkuri_components import (
 @pytest.fixture
 def trust_env():
     """Set up a minimal social environment for trust tests."""
-    world = World()
-    event_bus = EventBus()
+    world = make_configured_world()
 
     trait_service = Mock(spec=TraitService)
     trait_service.get_trait.return_value = None
     world.services.register(trait_service, TraitService)
 
-    social = SocialSystem(event_bus)
+    social = SocialSystem()
     social.trait_service = trait_service
     world.add_system(social)
 

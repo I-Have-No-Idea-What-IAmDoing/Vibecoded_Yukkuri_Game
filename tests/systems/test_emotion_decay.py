@@ -3,6 +3,7 @@ Tests for the Emotion Decay system.
 """
 
 import pytest
+from test_utils import make_configured_world
 from yukkuri_game.game.yukkuri_components import (
     EmotionalState,
     Personality,
@@ -21,22 +22,26 @@ def world() -> World:
     Returns:
         World: A new ECS World instance.
     """
-    return World()
+    settings = StatDecaySettings()
+    settings.stress = 10.0
+    settings.happiness = 10.0
+    world = make_configured_world(stat_decay_settings=settings)
+    from yukkuri_game.game.services import TimeService
+    world.services.get(TimeService).scale = 1.0
+    return world
 
 
 @pytest.fixture  # type: ignore[misc]
-def emotion_system() -> EmotionSystem:
+def emotion_system(world: World) -> EmotionSystem:
     """
     Creates an EmotionSystem with accelerated decay rates for testing.
 
     Returns:
         EmotionSystem: The configured EmotionSystem.
     """
-    settings = StatDecaySettings()
-    # Speed up decay for testing
-    settings.stress = 10.0
-    settings.happiness = 10.0
-    return EmotionSystem(settings)
+    system = EmotionSystem()
+    world.add_system(system)
+    return system
 
 
 def test_stress_decay(world: World, emotion_system: EmotionSystem) -> None:

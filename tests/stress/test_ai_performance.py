@@ -21,11 +21,19 @@ from yukkuri_game.engine.input_manager import InputManager
 class TestAIPerformance:
     @pytest.fixture
     def world(self):
+        from unittest.mock import MagicMock
+        from yukkuri_game.config import GameConfig
+        from yukkuri_game.engine.event_bus import EventBus
         world = World()
         # Mock services required by systems
         world.services.register(GameService, MagicMock())
         world.services.register(TimeService, MagicMock())
         world.services.register(InputManager, MagicMock())
+        world.services.register(MagicMock(spec=EventBus), EventBus)
+        config = MagicMock(spec=GameConfig)
+        config.world.width = 1000
+        config.world.height = 1000
+        world.services.register(config, GameConfig)
         return world
 
     def test_stress_predator_prey(self, world):
@@ -36,7 +44,8 @@ class TestAIPerformance:
         # Systems
         perception_sys = PerceptionSystem()
         steering_sys = SteeringSystem()
-        behavior_sys = BehaviorSystem(world_width=1000, world_height=1000)
+        behavior_sys = BehaviorSystem()
+        world.add_system(behavior_sys)
 
         # Setup 100 entities
         for i in range(100):

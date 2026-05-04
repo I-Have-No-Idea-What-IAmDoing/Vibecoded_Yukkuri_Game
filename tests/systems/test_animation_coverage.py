@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
+from test_utils import make_configured_world
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.animation import AnimationSystem
 from yukkuri_game.game.components import Sprite, Animator
 from yukkuri_game.game.yukkuri_components import AIState
@@ -7,9 +9,12 @@ from yukkuri_game.engine.data_models import AnimationDefinition
 
 
 def test_animation_event_trigger():
-    world = World()
-    event_bus = MagicMock()
-    system = AnimationSystem(event_bus)
+    world = make_configured_world()
+    event_bus = world.services.get(EventBus)
+    event_bus.publish = MagicMock()
+    
+    system = AnimationSystem()
+    world.add_system(system)
 
     # Define animation with event
     anim_def = AnimationDefinition(
@@ -35,8 +40,9 @@ def test_animation_event_trigger():
 
 
 def test_sync_ai_animation():
-    world = World()
+    world = make_configured_world()
     system = AnimationSystem()
+    world.add_system(system)
 
     anim_def_idle = AnimationDefinition(name="idle", frames=[0], frame_duration=1.0)
     anim_def_walk = AnimationDefinition(
@@ -61,8 +67,9 @@ def test_sync_ai_animation():
 
 
 def test_auto_transition():
-    world = World()
+    world = make_configured_world()
     system = AnimationSystem()
+    world.add_system(system)
 
     # Anim 1: plays once then transitions to Anim 2
     anim1 = AnimationDefinition(
@@ -90,8 +97,9 @@ def test_auto_transition():
 
 
 def test_ping_pong_animation():
-    world = World()
+    world = make_configured_world()
     system = AnimationSystem()
+    world.add_system(system)
 
     anim = AnimationDefinition(
         name="pingpong", frames=[0, 1, 2], frame_duration=0.1, ping_pong=True

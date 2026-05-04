@@ -3,6 +3,7 @@ Tests for Social System Logic Regression.
 """
 
 import pytest
+from test_utils import make_configured_world
 from unittest.mock import Mock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.social_system import SocialSystem
@@ -22,11 +23,10 @@ from yukkuri_game.engine.types import EntityID
 
 @pytest.fixture
 def social_env():
-    world = World()
-    event_bus = EventBus()
+    world = make_configured_world()
 
     # We need both SocialSystem and InteractionSystem
-    social_system = SocialSystem(event_bus)
+    social_system = SocialSystem()
     world.services.register(social_system, SocialSystem)
     world.add_system(social_system)
 

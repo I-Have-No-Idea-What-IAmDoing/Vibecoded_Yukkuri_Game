@@ -8,8 +8,10 @@ import py_trees
 
 class TestBehaviorSystemCleanup(unittest.TestCase):
     def setUp(self):
-        self.world = World()
-        self.system = BehaviorSystem(100.0, 100.0)
+        from test_utils import make_configured_world
+        self.world = make_configured_world()
+        self.system = BehaviorSystem()
+        self.world.add_system(self.system)
 
         # Need to mock create_yukkuri_behavior_tree because it depends on other components/systems
         # and we only want to test the system logic, not the tree construction itself

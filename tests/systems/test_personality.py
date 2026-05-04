@@ -1,10 +1,5 @@
-import sys
-import os
 from unittest.mock import MagicMock
-
-# Ensure src is in path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
-
+from test_utils import make_configured_world
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.trait_service import TraitService
@@ -40,7 +35,7 @@ def test_trait_service_loading():
     # Fix: Need world and resource manager for TraitService
     from yukkuri_game.engine.resource_manager import ResourceManager
 
-    world = World()
+    world = make_configured_world()
     rm = MagicMock(spec=ResourceManager)
     # TraitService loads traits as TraitDefinition objects
     t1 = TraitDefinition(name="Gesu", description="Gesu trait")
@@ -101,7 +96,7 @@ def test_utility_engine_overrides():
 
 
 def test_social_system():
-    world = World()
+    world = make_configured_world()
 
     # Mock TraitService
     ts = MagicMock(spec=TraitService)
@@ -115,9 +110,8 @@ def test_social_system():
     ts.get_interaction.side_effect = lambda name: hit_data if name == "Hit" else None
 
     world.services.register(ts, TraitService)
-    event_bus = EventBus()
 
-    sys = SocialSystem(event_bus)
+    sys = SocialSystem()
     world.add_system(sys)  # Needed to inject ecs_world
 
     p1 = world.create_entity()

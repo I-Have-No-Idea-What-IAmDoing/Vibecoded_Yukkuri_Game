@@ -1,13 +1,18 @@
-from yukkuri_game.engine.ecs import World
+from test_utils import make_configured_world
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.config import StatDecaySettings
 
 
 def test_starvation_decay():
-    world = World()
+    from yukkuri_game.game.services import TimeService
     settings = StatDecaySettings(starvation_damage=10.0)
-    system = EmotionSystem(settings)
+    world = make_configured_world(stat_decay_settings=settings)
+    
+    # Set time scale to 1.0
+    world.services.get(TimeService).scale = 1.0
+    
+    system = EmotionSystem()
     world.add_system(system)
 
     # Create a Yukkuri entity
@@ -32,7 +37,9 @@ def test_starvation_decay():
 
     # Run simulation for 1 second
     dt = 1.0
-    world.update(dt)
+    # Throttled system needs to be updated directly if world.update(dt) doesn't run enough loops
+    # but EmotionSystem uses world.time for its own throttling.
+    system.update(world, dt)
 
     # Check if health has decreased
     # Expected: 100 - 10 * 1 = 90
@@ -41,9 +48,14 @@ def test_starvation_decay():
 
 
 def test_no_decay_when_not_starving():
-    world = World()
+    from yukkuri_game.game.services import TimeService
     settings = StatDecaySettings(starvation_damage=10.0)
-    system = EmotionSystem(settings)
+    world = make_configured_world(stat_decay_settings=settings)
+    
+    # Set time scale to 1.0
+    world.services.get(TimeService).scale = 1.0
+    
+    system = EmotionSystem()
     world.add_system(system)
 
     entity = world.create_entity()
@@ -54,7 +66,7 @@ def test_no_decay_when_not_starving():
     needs = Needs(
         max_health=100.0,
         health=100.0,
-        hunger=90.0,  # Decreased from 99.0 so that adding 2.0 decay doesn't exceed 100.0
+        hunger=90.0,  # Not starving
         energy=50.0,
         cleanliness=50.0,
     )
@@ -65,6 +77,6 @@ def test_no_decay_when_not_starving():
     world.add_component(entity, emotional)
 
     dt = 1.0
-    world.update(dt)
+    system.update(world, dt)
 
     assert needs.health == 100.0

@@ -1,4 +1,5 @@
 import pytest
+from test_utils import make_configured_world
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, Personality
@@ -6,6 +7,7 @@ from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.engine.data_models import TraitDefinition
+from yukkuri_game.game.services import TimeService
 
 
 @pytest.fixture
@@ -28,11 +30,12 @@ def mock_trait_service():
 
 
 def test_stat_decay_with_trait_modifier(decay_settings, mock_trait_service):
-    world = World()
+    world = make_configured_world(stat_decay_settings=decay_settings)
     # Explicitly register as TraitService type because mock has type MagicMock
     world.services.register(mock_trait_service, service_type=TraitService)
 
-    system = EmotionSystem(decay_settings)
+    system = EmotionSystem()
+    world.add_system(system)
 
     # Setup trait data
     # GLUTTON: hunger_decay = 1.5
@@ -52,6 +55,9 @@ def test_stat_decay_with_trait_modifier(decay_settings, mock_trait_service):
     world.add_component(entity, needs)
     world.add_component(entity, Personality(traits={"GLUTTON"}))
 
+    # Set time scale to 1.0 for simpler math (1s physics = 1s game)
+    world.services.get(TimeService).scale = 1.0
+
     # Update for 1 second
     system.update(world, 1.0)
 
@@ -60,10 +66,14 @@ def test_stat_decay_with_trait_modifier(decay_settings, mock_trait_service):
 
 
 def test_stat_decay_without_trait_modifier(decay_settings, mock_trait_service):
-    world = World()
+    world = make_configured_world(stat_decay_settings=decay_settings)
     world.services.register(mock_trait_service, service_type=TraitService)
 
-    system = EmotionSystem(decay_settings)
+    system = EmotionSystem()
+    world.add_system(system)
+
+    # Set time scale to 1.0
+    world.services.get(TimeService).scale = 1.0
 
     # Create entity
     entity = world.create_entity()
@@ -82,10 +92,14 @@ def test_stat_decay_without_trait_modifier(decay_settings, mock_trait_service):
 
 
 def test_stat_decay_multiple_modifiers(decay_settings, mock_trait_service):
-    world = World()
+    world = make_configured_world(stat_decay_settings=decay_settings)
     world.services.register(mock_trait_service, service_type=TraitService)
 
-    system = EmotionSystem(decay_settings)
+    system = EmotionSystem()
+    world.add_system(system)
+
+    # Set time scale to 1.0
+    world.services.get(TimeService).scale = 1.0
 
     # Setup trait data
     # GLUTTON: hunger_decay = 1.5

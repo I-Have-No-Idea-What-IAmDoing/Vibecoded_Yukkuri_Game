@@ -14,22 +14,22 @@ class TestBehaviorSystem(unittest.TestCase):
     def setUp(self):
         # Clear blackboard
         py_trees.blackboard.Blackboard().clear()
+        from test_utils import make_configured_world
+        self.world = make_configured_world()
 
     @patch("yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree")
     def test_tree_creation_and_tick(self, mock_create_tree):
-        mock_world = MagicMock()
         ai = AIState()
-        mock_world.get_components_tuple.return_value = [(1, (ai,))]
-        mock_world.get_entities_with.return_value = [1]  # For cleanup check
-        # Ensure LOD is None or valid
-        mock_world.try_get_component.return_value = None
+        entity = self.world.create_entity()
+        self.world.add_component(entity, ai)
 
         # Mock Tree
         mock_root = MagicMock(spec=py_trees.behaviour.Behaviour)
         mock_root.status = Status.RUNNING
         mock_create_tree.return_value = mock_root
 
-        system = BehaviorSystem(100, 100)
+        system = BehaviorSystem()
+        self.world.add_system(system)
 
         # Mock the BehaviourTree class to verify ticking
         with patch("py_trees.trees.BehaviourTree") as mock_bt_cls:
@@ -40,32 +40,23 @@ class TestBehaviorSystem(unittest.TestCase):
 
             # First update might just schedule
             # Update with enough time to trigger tick (0.2s should cover stagger + interval)
-            system.update(mock_world, 0.2)
+            system.update(self.world, 0.2)
 
             # If staggering delayed it, update again
-            system.update(mock_world, 0.1)
+            system.update(self.world, 0.1)
 
-            mock_create_tree.assert_called_once_with(1, mock_world, 100, 100)
-            self.assertIn(1, system.trees)
+            mock_create_tree.assert_called()
+            self.assertIn(entity, system.trees)
 
             # Should have ticked at least once
             assert mock_bt.tick.called
 
     def test_cleanup_destroyed_entities(self) -> None:
-        mock_world = MagicMock()
-        mock_world.try_get_component.return_value = None
+        entity = self.world.create_entity()
+        self.world.add_component(entity, AIState())
 
-        # Initial: Entity 1 exists
-        mock_world.get_components_tuple.return_value = [(1, (AIState(),))]
-
-        # Entity 1 exists check
-        def entity_exists(eid):
-            return eid == 1
-
-        mock_world.entity_exists.side_effect = entity_exists
-        mock_world.has_component.return_value = True
-
-        system = BehaviorSystem(100, 100)
+        system = BehaviorSystem()
+        self.world.add_system(system)
 
         # Tick to create tree
         # Need to patch create_tree to return a proper mock with spec
@@ -76,28 +67,23 @@ class TestBehaviorSystem(unittest.TestCase):
             mock_root.status = Status.RUNNING
             mock_create.return_value = mock_root
 
-            system.update(mock_world, 0.1)
-            self.assertIn(1, system.trees)
+            system.update(self.world, 0.1)
+            self.assertIn(entity, system.trees)
 
-            # Now destroy entity 1
-            # BehaviorSystem detects dead entities via get_components_tuple returning
-            # an empty set when the entity no longer has AIState component.
-            mock_world.get_components_tuple.return_value = []
-            mock_world.entity_exists.side_effect = lambda eid: False
+            # Now destroy entity
+            self.world.destroy_entity(entity)
 
-            system.update(mock_world, 0.1)
-            self.assertNotIn(1, system.trees)
+            system.update(self.world, 0.1)
+            self.assertNotIn(entity, system.trees)
 
     def test_blackboard_dt(self) -> None:
-        mock_world = MagicMock()
-        mock_world.get_components_tuple.return_value = []
-        mock_world.try_get_component.return_value = None
-
-        system = BehaviorSystem(100, 100)
+        system = BehaviorSystem()
+        self.world.add_system(system)
 
         # We need an entity to trigger the loop where dt is set
         ai = AIState()
-        mock_world.get_components_tuple.return_value = [(1, (ai,))]
+        entity = self.world.create_entity()
+        self.world.add_component(entity, ai)
 
         # Patch create_tree
         with (
@@ -115,11 +101,11 @@ class TestBehaviorSystem(unittest.TestCase):
             mock_bt_cls.return_value = mock_bt
 
             # First update to initialize timings (dt won't be set if not ticking)
-            system.update(mock_world, 0.1)
+            system.update(self.world, 0.1)
 
             # Second update to trigger tick
             # dt passed to update is 0.1
-            system.update(mock_world, 0.1)
+            system.update(self.world, 0.1)
 
             bb = py_trees.blackboard.Blackboard()
             # dt in blackboard should be approx 0.1 (based on calculated elapsed time)

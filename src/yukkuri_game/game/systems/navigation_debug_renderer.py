@@ -24,9 +24,11 @@ class NavigationDebugRenderer:
     - Steering vectors (red rays from entities)
     """
 
-    def __init__(self, nav_service: "NavigationService", camera: "Camera"):
-        self.nav_service = nav_service
-        self.camera = camera
+    def __init__(self, world: "World"):
+        from ..ai.navigation_service import NavigationService
+        from ..camera import Camera
+        self.nav_service = world.services.get(NavigationService)
+        self.camera = world.services.get(Camera)
         self.enabled = False
 
         # Colors

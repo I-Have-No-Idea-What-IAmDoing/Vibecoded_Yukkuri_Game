@@ -1,4 +1,5 @@
 import pytest
+from test_utils import make_configured_world
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.social_system import SocialSystem
 from yukkuri_game.engine.event_bus import EventBus
@@ -12,7 +13,9 @@ def event_bus():
 
 @pytest.fixture
 def social_system(event_bus):
-    return SocialSystem(event_bus)
+    system = SocialSystem()
+    world.add_system(system)
+    return system
 
 
 @pytest.fixture

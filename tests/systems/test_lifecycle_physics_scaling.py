@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from test_utils import make_configured_world
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
 from yukkuri_game.game.components import Transform, PhysicsBody
@@ -12,9 +12,9 @@ def test_lifecycle_physics_scaling_proportional():
     respecting the entity's current size (e.g. for non-standard sized entities).
     """
     # Setup
-    world = World()
-    settings = MagicMock()
-    system = LifecycleSystem(settings)
+    world = make_configured_world()
+    system = LifecycleSystem()
+    world.add_system(system)
 
     entity = world.create_entity()
 

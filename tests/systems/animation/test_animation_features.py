@@ -10,9 +10,11 @@ from yukkuri_game.game.events import AnimationEvent
 
 class TestAnimationFeatures(unittest.TestCase):
     def setUp(self):
-        self.world = World()
-        self.event_bus = EventBus()
-        self.system = AnimationSystem(self.event_bus)
+        from test_utils import make_configured_world
+        self.world = make_configured_world()
+        self.event_bus = self.world.services.get(EventBus)
+        self.system = AnimationSystem()
+        self.world.add_system(self.system)
 
         # Mock Event Handler
         self.event_handler = MagicMock()

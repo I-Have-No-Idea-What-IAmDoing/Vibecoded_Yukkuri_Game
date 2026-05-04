@@ -1,19 +1,35 @@
 import pytest
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.config import StatDecaySettings
+from unittest.mock import MagicMock
+
+
+def _make_world_with_settings(settings: StatDecaySettings) -> tuple["World", "EmotionSystem"]:
+    """Helper: creates a World with EmotionSystem using the given StatDecaySettings."""
+    from yukkuri_game.config import GameConfig
+
+    world = World()
+    # Provide a minimal GameConfig mock so initialize() can fetch settings.
+    config = MagicMock(spec=GameConfig)
+    config.rules.stat_decay = settings
+    world.services.register(config, GameConfig)
+    world.services.register(MagicMock(spec=EventBus), EventBus)
+
+    system = EmotionSystem()
+    world.add_system(system)  # triggers initialize()
+    return world, system
 
 
 def test_stat_decay_integration():
     """Test that EmotionSystem uses the configured rates."""
-    # Create a custom config
     custom_settings = StatDecaySettings(
         hunger=10.0, happiness=1.0, energy=2.0, cleanliness=5.0, age=0.5
     )
 
-    system = EmotionSystem(settings=custom_settings)
-    world = World()
+    world, system = _make_world_with_settings(custom_settings)
 
     # Create an entity with YukkuriStats
     entity = world.create_entity()
@@ -46,8 +62,7 @@ def test_stat_decay_integration():
 
 def test_stat_decay_integration_default():
     """Test that EmotionSystem uses default rates if no settings provided."""
-    system = EmotionSystem(settings=StatDecaySettings())  # Default settings
-    world = World()
+    world, system = _make_world_with_settings(StatDecaySettings())  # Default settings
 
     entity = world.create_entity()
     stats = YukkuriStats(name="Test", type_id="test")

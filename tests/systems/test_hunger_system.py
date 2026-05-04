@@ -31,11 +31,14 @@ class TestHungerSystemInitialization:
 
     def test_update_loads_services(self) -> None:
         """update() loads services from world."""
-        world = World()
+        from test_utils import make_configured_world
+        world = make_configured_world()
         audio = MagicMock(spec=AudioManager)
         skill_service = MagicMock(spec=SkillService)
-        world.services.register(audio, AudioManager)
-        world.services.register(skill_service, SkillService)
+        
+        # Register mocks (overwriting defaults from make_configured_world if any)
+        world.services.register(audio, AudioManager, replace=True)
+        world.services.register(skill_service, SkillService, replace=True)
 
         system = HungerSystem()
         system.update(world, 0.016)
@@ -50,7 +53,8 @@ class TestProcessConsumption:
     @pytest.fixture
     def setup_world(self):
         """Create a world with consumer and item entities."""
-        world = World()
+        from test_utils import make_configured_world
+        world = make_configured_world()
 
         # Consumer entity
         consumer_id = world.create_entity()

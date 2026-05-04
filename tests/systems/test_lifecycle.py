@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch
+from test_utils import make_configured_world
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
 from yukkuri_game.game.yukkuri_components import (
     YukkuriStats,
@@ -12,22 +13,25 @@ from yukkuri_game.game.components import Sprite, Transform
 from yukkuri_game.config import LifecycleSettings
 from yukkuri_game.engine.ecs import World
 
-
-@pytest.fixture
-def lifecycle_system():
-    settings = LifecycleSettings(
-        baby_age_threshold=100.0,
-        child_age_threshold=300.0,
-        breeding_happiness_threshold=80.0,
-        breeding_energy_threshold=80.0,
-        breeding_chance=1.0,  # 100% chance for testing
-    )
-    return LifecycleSystem(settings)
+_TEST_LIFECYCLE_SETTINGS = LifecycleSettings(
+    baby_age_threshold=100.0,
+    child_age_threshold=300.0,
+    breeding_happiness_threshold=80.0,
+    breeding_energy_threshold=80.0,
+    breeding_chance=1.0,  # 100% chance for testing
+)
 
 
 @pytest.fixture
 def world():
-    return World()
+    return make_configured_world(lifecycle_settings=_TEST_LIFECYCLE_SETTINGS)
+
+
+@pytest.fixture
+def lifecycle_system(world):
+    system = LifecycleSystem()
+    world.add_system(system)
+    return system
 
 
 def test_handle_death(lifecycle_system, world):

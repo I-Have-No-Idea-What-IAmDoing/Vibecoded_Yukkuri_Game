@@ -4,6 +4,7 @@ Merged from test_gossip_system.py, test_gossip_system_game.py, and test_gossip_s
 """
 
 import pytest
+from test_utils import make_configured_world
 from unittest.mock import MagicMock
 import pymunk
 from yukkuri_game.game.systems.gossip_system import GossipSystem
@@ -35,8 +36,12 @@ class TestGossipSystem:
 
     @pytest.fixture
     def system(self, event_bus):
-        sys = GossipSystem(event_bus)
-        sys.ecs_world = MagicMock(spec=World)
+        sys = GossipSystem()
+        world = MagicMock(spec=World)
+        world.services = MagicMock()
+        world.services.get.side_effect = lambda t: event_bus if t == EventBus else None
+        sys.ecs_world = world
+        sys.initialize()
         return sys
 
     @pytest.fixture
@@ -246,8 +251,7 @@ class TestGossipExchangeIntegrity:
         from yukkuri_game.game.systems.interaction_system import InteractionSystem
         from yukkuri_game.game.skill_service import SkillService
 
-        world = World()
-        event_bus = EventBus()
+        world = make_configured_world()
 
         audio_manager = MagicMock(spec=AudioManager)
         world.services.register(audio_manager, AudioManager)
@@ -264,11 +268,12 @@ class TestGossipExchangeIntegrity:
         skill_service = MagicMock(spec=SkillService)
         world.services.register(skill_service, SkillService)
 
-        social_system = SocialSystem(event_bus)
+        social_system = SocialSystem()
         world.services.register(social_system, SocialSystem)
+        world.add_system(social_system)
 
-        gossip_system = GossipSystem(event_bus)
-        gossip_system.ecs_world = world
+        gossip_system = GossipSystem()
+        world.add_system(gossip_system)
 
         interaction_system = InteractionSystem()
         world.add_system(interaction_system)

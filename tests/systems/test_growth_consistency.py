@@ -1,4 +1,5 @@
 import pytest
+from test_utils import make_configured_world
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
 from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
@@ -34,10 +35,12 @@ def resource_manager():
 
 @pytest.fixture
 def world(resource_manager):
-    w = World()
-    # Mock services
-    w.services.get = MagicMock(return_value=resource_manager)
-    w.services.try_get = MagicMock(return_value=None)
+    w = make_configured_world()
+    # Register MockResourceManager as the ResourceManager service
+    # We need to import the actual ResourceManager type for the key
+    from yukkuri_game.engine.resource_manager import ResourceManager
+
+    w.services.register(resource_manager, ResourceManager)
     return w
 
 
@@ -47,9 +50,18 @@ def entity_factory(world):
 
 
 @pytest.fixture
-def lifecycle_system(entity_factory):
-    settings = LifecycleSettings(baby_age_threshold=100.0, child_age_threshold=300.0)
-    return LifecycleSystem(settings)
+def lifecycle_system(entity_factory, world):
+    from yukkuri_game.config import GameConfig
+
+    config = world.services.get(GameConfig)
+    # The system will use world.add_system -> initialize() -> fetch from config
+    # We can override the config settings here if needed
+    config.rules.lifecycle.baby_age_threshold = 100.0
+    config.rules.lifecycle.child_age_threshold = 300.0
+
+    system = LifecycleSystem()
+    world.add_system(system)
+    return system
 
 
 def test_growth_max_health_inconsistency(lifecycle_system, entity_factory, world):

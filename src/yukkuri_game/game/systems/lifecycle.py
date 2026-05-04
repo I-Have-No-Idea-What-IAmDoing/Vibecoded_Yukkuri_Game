@@ -51,14 +51,18 @@ class LifecycleSystem(System):
     # Growth constants
     BREEDING_SPAWN_OFFSET = 20.0  # Random offset range for baby spawn position
 
-    def __init__(self, settings: LifecycleSettings):
+    def __init__(self) -> None:
         """
         Initializes the LifecycleSystem.
-
-        Args:
-            settings (LifecycleSettings): Lifecycle settings.
         """
-        self.settings = settings
+        super().__init__()
+        self.settings: LifecycleSettings
+
+    def initialize(self) -> None:
+        """Called when the system is added to the world."""
+        from ...config import GameConfig
+        config = self.ecs_world.services.get(GameConfig)
+        self.settings = config.rules.lifecycle
 
     def _get_numeric_setting(self, name: str, default: float = 0.0) -> float:
         value = getattr(self.settings, name, default)

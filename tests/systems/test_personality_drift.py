@@ -3,6 +3,7 @@ Tests for Personality Drift mechanics.
 """
 
 import pytest
+from test_utils import make_configured_world
 from yukkuri_game.game.yukkuri_components import Personality, PersonalityAxis
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.config import StatDecaySettings
@@ -17,19 +18,20 @@ def world() -> World:
     Returns:
         World: A new ECS World instance.
     """
-    return World()
+    return make_configured_world()
 
 
 @pytest.fixture  # type: ignore[misc]
-def emotion_system() -> EmotionSystem:
+def emotion_system(world: World) -> EmotionSystem:
     """
     Creates an EmotionSystem for testing.
 
     Returns:
         EmotionSystem: A new EmotionSystem instance.
     """
-    settings = StatDecaySettings()
-    return EmotionSystem(settings)
+    system = EmotionSystem()
+    world.add_system(system)
+    return system
 
 
 def test_personality_drift(world: World, emotion_system: EmotionSystem) -> None:
