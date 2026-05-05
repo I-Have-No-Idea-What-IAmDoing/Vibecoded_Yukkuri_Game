@@ -13,7 +13,7 @@ from ..engine.ecs import World
 from . import components, components_persistence, yukkuri_components
 from .components import Transform
 from .skill_constants import SkillId
-from .systems.sector_system import SectorMap
+from .systems.spatial_system import SpatialService
 from .yukkuri_components import ItemStats, Skills
 
 BASE_SCAVENGING_RADIUS = 500.0
@@ -351,7 +351,7 @@ class GameService:
     ) -> int:
         """
         Finds the best item near a position based on criteria.
-        Uses SectorMap for efficient spatial query.
+        Uses SpatialService for efficient spatial query.
 
         Args:
             position (tuple[float, float]): The search origin (x, y).
@@ -378,10 +378,10 @@ class GameService:
                     level * SCAVENGING_RADIUS_PER_LEVEL
                 )
 
-        sector_map = self.world.services.try_get(SectorMap)
+        spatial_service = self.world.services.try_get(SpatialService)
 
-        if sector_map:
-            nearby_entities = sector_map.get_entities_in_radius(
+        if spatial_service:
+            nearby_entities = spatial_service.get_entities_in_radius(
                 position[0], position[1], max_radius
             )
 

@@ -16,7 +16,7 @@ Most systems operate independently via the ECS and Event Bus, but some have expl
 graph TD
     A[GameLoader] --> B(ServiceLocator)
     B --> C[PhysicsSystem]
-    B --> D[SectorMap]
+    B --> D[SpatialService]
     B --> E[TraitService]
     
     F[GossipSystem] -->|Witnessing| D
@@ -35,7 +35,7 @@ graph TD
 ## Key Systems
 
 ### 1. Social & Gossip (`GossipSystem`, `SocialSystem`)
-- **GossipSystem**: Handles the "hearing" and transmission of information. Uses `SectorMap` to efficiently find nearby witnesses to events.
+- **GossipSystem**: Handles the "hearing" and transmission of information. Uses `SpatialService` to efficiently find nearby witnesses to events.
 - **SocialSystem**: Manages relationships and social stats (happiness, bonding).
 
 ### 2. Biological (`HungerSystem`, `PoopSystem`, `Lifecycle`)

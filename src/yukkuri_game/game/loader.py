@@ -26,7 +26,7 @@ from ..game.settings_service import SettingsService
 from ..game.skill_service import SkillService
 from ..game.systems.lod_system import LODSystem
 from ..game.systems.physics import PhysicsSystem
-from ..game.systems.sector_system import SectorMap, SectorSystem
+from ..game.systems.spatial_system import SpatialService, SpatialSystem
 from ..game.trait_service import TraitService
 from ..game.utils.evaluator import ConditionEvaluator
 from ..config import GameConfig
@@ -117,7 +117,7 @@ class GameLoader:
         self.world.services.register(evaluator, ConditionEvaluator)
 
         self._init_navigation_service()
-        self._init_sector_system()
+        self._init_spatial_system()
 
     def _init_navigation_service(self) -> None:
         """Initializes the Navigation Service."""
@@ -135,17 +135,17 @@ class GameLoader:
             NavigationService,
         )
 
-    def _init_sector_system(self) -> None:
+    def _init_spatial_system(self) -> None:
         """Initializes and registers the Sector System and Map."""
         world_width = self.game_config.world.width
         world_height = self.game_config.world.height
         sector_size = getattr(self.game_config.world, "sector_size", 500.0)
 
-        sector_system = SectorSystem(
+        spatial_system = SpatialSystem(
             width=world_width, height=world_height, sector_size=sector_size
         )
-        self.world.services.register(sector_system.sector_map, SectorMap)
-        self.world.add_system(sector_system)
+        self.world.services.register(spatial_system.spatial_service, SpatialService)
+        self.world.add_system(spatial_system)
 
     def register_factories_and_managers(self) -> None:
         """Registers factories and managers."""

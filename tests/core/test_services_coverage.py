@@ -212,7 +212,7 @@ class TestGameService:
         # We need world.services to exist
         world = MagicMock(spec=World)
         world.services = MagicMock()
-        # Mock try_get for SectorMap
+        # Mock try_get for SpatialService
         world.services.try_get.return_value = None
         return world
 

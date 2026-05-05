@@ -100,7 +100,7 @@ The `EmotionalState` component tracks dynamic feelings, which combine with Brave
 The **Gossip System** allows AI agents to learn about events they did not personally witness, creating a dynamic reputation network.
 
 ### 1. Witnessing
-When a significant event (Social Interaction, Fight, etc.) occurs, the `GossipSystem` identifies nearby entities using the **SectorMap**.
+When a significant event (Social Interaction, Fight, etc.) occurs, the `GossipSystem` identifies nearby entities using the **SpatialService**.
 *   **Visual Witness**: Must have Line of Sight to the event.
 *   **Auditory Witness**: Range based on sound magnitude (e.g. `Scream` > `Talk`).
 

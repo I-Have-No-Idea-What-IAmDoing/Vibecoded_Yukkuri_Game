@@ -44,7 +44,7 @@ from ..components import (
 )
 
 
-class SectorMap:
+class SpatialService:
     """
     Grid-based spatial index for efficient proximity queries.
 
@@ -60,11 +60,12 @@ class SectorMap:
         rows (int): Number of rows in the grid.
         sectors (dict[tuple[int, int], set[int]]): Map of (col, row) to set of entity IDs.
         entity_sectors (dict[int, tuple[int, int]]): Reverse lookup of entity ID to (col, row).
+        body_to_entity (dict[pymunk.Body, int]): Map of physics bodies to entity IDs (populated by SpatialSystem).
     """
 
     def __init__(self, width: float, height: float, sector_size: float):
         """
-        Initializes the SectorMap.
+        Initializes the SpatialService.
 
         Args:
             width (float): Total world width in pixels.
@@ -84,6 +85,9 @@ class SectorMap:
 
         # Reverse lookup: entity_id -> current (col, row)
         self.entity_sectors: dict[int, tuple[int, int]] = {}
+
+        # Physics body to entity mapping for raycasts
+        self.body_to_entity: dict[pymunk.Body, int] = {}
 
     def get_sector_coords(self, x: float, y: float) -> tuple[int, int]:
         """
@@ -280,26 +284,120 @@ class SectorMap:
 
         return result
 
+    def get_nearest_entity(
+        self, world: World, x: float, y: float, component_filter: type | None = None, max_radius: float = 1000.0, exclude_ids: set[int] | None = None, predicate: "typing.Callable[[int], bool] | None" = None
+    ) -> int:
+        """
+        Finds the nearest entity to a position using the spatial grid.
 
-class OccluderMap(SectorMap):
+        Args:
+            world (World): The ECS World.
+            x (float): Origin X coordinate.
+            y (float): Origin Y coordinate.
+            component_filter (type | None): Optional component type to filter by.
+            max_radius (float): Maximum search radius.
+            exclude_ids (set[int] | None): Set of entity IDs to ignore.
+            predicate (Callable[[int], bool] | None): Optional custom filter function.
+
+        Returns:
+            int: Entity ID, or -1 if none found.
+        """
+        if exclude_ids is None:
+            exclude_ids = set()
+
+        candidates = self.get_entities_in_radius(x, y, max_radius)
+        best_dist = float("inf")
+        best_ent = -1
+
+        for ent in candidates:
+            if ent in exclude_ids:
+                continue
+            if component_filter and not world.has_component(ent, component_filter):
+                continue
+            if predicate and not predicate(ent):
+                continue
+
+            trans = world.try_get_component(ent, Transform)
+            if not trans:
+                continue
+
+            dist = math.hypot(trans.x - x, trans.y - y)
+            if dist < best_dist and dist <= max_radius:
+                best_dist = dist
+                best_ent = ent
+
+        return best_ent
+
+    def raycast(
+        self, world: World, start_x: float, start_y: float, end_x: float, end_y: float, shape_filter: pymunk.ShapeFilter | None = None, exclude_id: int = -1
+    ) -> tuple[int, float, float] | None:
+        """
+        Performs a raycast using the physics engine and returns the first entity hit.
+
+        Args:
+            world (World): The ECS World.
+            start_x (float): Ray start X.
+            start_y (float): Ray start Y.
+            end_x (float): Ray end X.
+            end_y (float): Ray end Y.
+            shape_filter (pymunk.ShapeFilter | None): Optional collision filter.
+            exclude_id (int): Entity ID to ignore (usually the raycaster).
+
+        Returns:
+            tuple[int, float, float] | None: (entity_id, hit_x, hit_y) or None.
+        """
+        from .physics import PhysicsSystem
+        
+        physics_system = world.services.try_get(PhysicsSystem)
+        if not physics_system or not physics_system.space:
+            return None
+
+        start_pos = (start_x, start_y)
+        end_pos = (end_x, end_y)
+        qfilter = shape_filter or pymunk.ShapeFilter()
+
+        hit = physics_system.space.segment_query_first(start_pos, end_pos, 1.0, qfilter)
+        if not hit:
+            return None
+
+        if hit.shape and hit.shape.body:
+            body = hit.shape.body
+            ent_id = self.body_to_entity.get(body)
+            if ent_id is not None and ent_id != exclude_id:
+                return (ent_id, hit.point.x, hit.point.y)
+
+            # If we hit ourselves (exclude_id), do full query to find next hit
+            hits = physics_system.space.segment_query(start_pos, end_pos, 1.0, qfilter)
+            for h in sorted(hits, key=lambda x: x.alpha):
+                if not h.shape or not h.shape.body or h.shape.sensor:
+                    continue
+                h_ent_id = self.body_to_entity.get(h.shape.body)
+                if h_ent_id is not None and h_ent_id != exclude_id:
+                    return (h_ent_id, h.point.x, h.point.y)
+
+        return None
+
+
+class OccluderMap(SpatialService):
     """
-    Specialized SectorMap for entities with Occluder components.
+    Specialized SpatialService for entities with Occluder components.
     Allows efficient querying of only occluders in a region.
     """
 
     pass
 
 
-class SectorSystem(System):
+class SpatialSystem(System):
     """
-    System responsible for keeping the SectorMap updated with entity positions.
+    System responsible for keeping the SpatialService updated with entity positions.
 
     Attributes:
-        sector_map (SectorMap): The main entity sector map.
+        spatial_service (SpatialService): The main entity sector map.
         occluder_map (OccluderMap): The occluder sector map.
         event_bus (EventBus | None): The event bus.
         cleanup_timer (float): Timer for periodic cleanup.
         cleanup_interval (float): Interval for cleanup in seconds.
+        body_to_entity (dict[pymunk.Body, int]): Maintains physics body mappings.
     """
 
     # World bounds and partitioning defaults
@@ -318,7 +416,7 @@ class SectorSystem(System):
         sector_size: float = DEFAULT_SECTOR_SIZE,
     ):
         """
-        Initializes the SectorSystem.
+        Initializes the SpatialSystem.
 
         Args:
             event_bus (EventBus | None): The event bus.
@@ -326,7 +424,7 @@ class SectorSystem(System):
             height (float): World height.
             sector_size (float): Size of sectors.
         """
-        self.sector_map = SectorMap(width, height, sector_size)
+        self.spatial_service = SpatialService(width, height, sector_size)
         self.occluder_map = OccluderMap(width, height, sector_size)
         self.event_bus = event_bus
         self._subscribed = False
@@ -337,10 +435,14 @@ class SectorSystem(System):
 
         self.cleanup_timer = 0.0
         self.cleanup_interval = self.CLEANUP_INTERVAL  # Seconds
+        self.body_to_entity: dict[pymunk.Body, int] = {}
+        self.spatial_service.body_to_entity = self.body_to_entity
 
         if self.event_bus:
             self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
             self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
+            from ...engine.events import ComponentRemovedEvent
+            self.event_bus.subscribe(ComponentRemovedEvent, self.on_component_removed)
             self._subscribed = True
 
     def initialize(self) -> None:
@@ -357,6 +459,8 @@ class SectorSystem(System):
                 self.event_bus = event_bus
                 self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
                 self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
+                from ...engine.events import ComponentRemovedEvent
+                self.event_bus.subscribe(ComponentRemovedEvent, self.on_component_removed)
                 self._subscribed = True
             else:
                 # Fallback: If no EventBus, we can't track new entities efficiently.
@@ -368,6 +472,14 @@ class SectorSystem(System):
         # Track new transforms or occluders to ensure they get added to maps
         if event.component_type == Transform or event.component_type == Occluder:
             self._new_entities.add(event.entity_id)
+        elif event.component_type == PhysicsBody:
+            self.body_to_entity[event.component.body] = event.entity_id
+
+    def on_component_removed(self, event: "ComponentRemovedEvent") -> None:
+        """Handler for component removal."""
+        if event.component_type == PhysicsBody:
+            if event.component and event.component.body in self.body_to_entity:
+                del self.body_to_entity[event.component.body]
 
     def on_entity_destroyed(self, event: EntityDestroyedEvent) -> None:
         """
@@ -376,12 +488,12 @@ class SectorSystem(System):
         Args:
             event (EntityDestroyedEvent): The event data.
         """
-        self.sector_map.remove_entity(event.entity_id)
+        self.spatial_service.remove_entity(event.entity_id)
         self.occluder_map.remove_entity(event.entity_id)
 
     def update(self, world: World, dt: float) -> None:
         """
-        Updates entity positions in the SectorMap.
+        Updates entity positions in the SpatialService.
 
         Optimization:
         Instead of iterating ALL transforms every frame, we only iterate:
@@ -398,8 +510,8 @@ class SectorSystem(System):
             self._lazy_init(world)
 
         # Register map as service if not already.
-        if not world.services.try_get(SectorMap):
-            world.services.register(self.sector_map, SectorMap)
+        if not world.services.try_get(SpatialService):
+            world.services.register(self.spatial_service, SpatialService)
         if not world.services.try_get(OccluderMap):
             world.services.register(self.occluder_map, OccluderMap)
 
@@ -407,8 +519,8 @@ class SectorSystem(System):
         if hasattr(self, "_fallback_mode") and self._fallback_mode:
             for entity, (transform,) in world.get_components_tuple(Transform):
                 moved = transform.x != transform.prev_x or transform.y != transform.prev_y
-                if moved or entity not in self.sector_map.entity_sectors:
-                    self.sector_map.update_entity(entity, transform.x, transform.y)
+                if moved or entity not in self.spatial_service.entity_sectors:
+                    self.spatial_service.update_entity(entity, transform.x, transform.y)
 
                 if world.has_component(entity, Occluder):
                     if moved or entity not in self.occluder_map.entity_sectors:
@@ -425,7 +537,7 @@ class SectorSystem(System):
         # Catches entities created before system initialization or if events were missed
         if self._first_run:
             for entity, (transform,) in world.get_components_tuple(Transform):
-                self.sector_map.update_entity(entity, transform.x, transform.y)
+                self.spatial_service.update_entity(entity, transform.x, transform.y)
                 if world.has_component(entity, Occluder):
                     self.occluder_map.update_entity(entity, transform.x, transform.y)
             self._first_run = False
@@ -436,7 +548,7 @@ class SectorSystem(System):
             for entity in self._new_entities:
                 transform = world.try_get_component(entity, Transform)
                 if transform:
-                    self.sector_map.update_entity(entity, transform.x, transform.y)
+                    self.spatial_service.update_entity(entity, transform.x, transform.y)
                     if world.has_component(entity, Occluder):
                         self.occluder_map.update_entity(entity, transform.x, transform.y)
             self._new_entities.clear()
@@ -452,7 +564,7 @@ class SectorSystem(System):
 
             # Check for movement
             if transform.x != transform.prev_x or transform.y != transform.prev_y:
-                self.sector_map.update_entity(entity, transform.x, transform.y)
+                self.spatial_service.update_entity(entity, transform.x, transform.y)
 
                 # Update OccluderMap if present
                 if world.has_component(entity, Occluder):
@@ -490,19 +602,19 @@ class SectorSystem(System):
 
     def cleanup_dead_entities(self, world: World) -> None:
         """
-        Removes entities from SectorMap that no longer exist in the world or have no Transform.
+        Removes entities from SpatialService that no longer exist in the world or have no Transform.
 
         Args:
             world (World): The ECS World.
         """
         # Cleanup main sector map
         to_remove = []
-        for entity_id in self.sector_map.entity_sectors.keys():
+        for entity_id in self.spatial_service.entity_sectors.keys():
             if not world.has_component(entity_id, Transform):
                 to_remove.append(entity_id)
 
         for entity_id in to_remove:
-            self.sector_map.remove_entity(entity_id)
+            self.spatial_service.remove_entity(entity_id)
 
         # Cleanup occluder map
         to_remove_occluder = []

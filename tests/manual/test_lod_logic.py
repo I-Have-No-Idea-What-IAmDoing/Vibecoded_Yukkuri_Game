@@ -9,7 +9,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.service_locator import ServiceLocator
 from yukkuri_game.game.systems.lod_system import LODSystem
-from yukkuri_game.game.systems.sector_system import SectorSystem, SectorMap
+from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService
 from yukkuri_game.game.components import Transform, LODComponent
 from yukkuri_game.game.camera import Camera
 
@@ -28,7 +28,7 @@ def main():
     sl.register(camera, Camera)
     
     # Setup Systems
-    sector_system = SectorSystem(width=4000, height=4000)
+    spatial_system = SpatialSystem(width=4000, height=4000)
     lod_system = LODSystem(enable_lod=True, update_interval=1) # Update every frame for test
     
     # Create Entities
@@ -47,16 +47,16 @@ def main():
     world.add_component(e3, Transform(x=2000, y=0))
     world.add_component(e3, LODComponent())
     
-    # Register SectorMap manually as system update normally does it
-    sl.register(sector_system.sector_map, SectorMap)
+    # Register SpatialService manually as system update normally does it
+    sl.register(spatial_system.spatial_service, SpatialService)
     
     # Run loop
     logger.info("Running LOD Test...")
     camera.camera_x = 0
     camera.camera_y = 0
 
-    # Must update SectorSystem so entities are in the map!
-    sector_system.update(world, 0.016)
+    # Must update SpatialSystem so entities are in the map!
+    spatial_system.update(world, 0.016)
     lod_system.update(world, 0.016)
     
     c1 = world.get_component(e1, LODComponent)

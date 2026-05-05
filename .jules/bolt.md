@@ -3,11 +3,11 @@
 **Action:** Prefer `get_components_tuple` for multi-component iteration. Update mocks when changing ECS query patterns.
 
 ## 2025-05-21 - [Sector System Optimization]
-**Learning:** `SectorSystem` was rebuilding the spatial map for every entity every frame, consuming ~13ms for 5000 static entities. Adding a simple dirty check (`x != prev_x`) reduced this to ~4ms (3x speedup).
+**Learning:** `SpatialSystem` was rebuilding the spatial map for every entity every frame, consuming ~13ms for 5000 static entities. Adding a simple dirty check (`x != prev_x`) reduced this to ~4ms (3x speedup).
 **Action:** Always check for state changes before performing expensive spatial updates, especially for systems iterating over all entities.
 
 ## 2026-10-24 - [Render System Optimization]
-**Learning:** `RenderSystem` was iterating all `FloatingText` entities every frame, regardless of visibility. By using the pre-calculated `visible_entities` list from `SectorMap`, we reduced checks from O(Total) to O(Visible).
+**Learning:** `RenderSystem` was iterating all `FloatingText` entities every frame, regardless of visibility. By using the pre-calculated `visible_entities` list from `SpatialService`, we reduced checks from O(Total) to O(Visible).
 **Action:** Use `visible_entities` for all renderable components, not just Sprites.
 
 ## 2026-10-25 - [Perception Throttling & Cache Identity]
@@ -55,5 +55,5 @@
 **Action:** Focus optimizations on bulk fetching (`get_components_tuple`). Avoid arbitrary swaps of single-fetch methods (`get_component` vs `try_get_component`) unless addressing a specific exception-handling bottleneck.
 
 ## 2026-11-02 - [Poop System Environment Effect Optimization]
-**Learning:** `PoopSystem` was iterating all poops (N) and all Yukkuris (M) every frame to apply smell effects, creating an O(N*M) bottleneck despite a comment suggesting a spatial grid. Refactoring to use the existing `SectorMap` combined with `esper` component pre-fetching (`world.get_components()`) reduced this to O(N * nearby) with O(1) attribute access, avoiding `try_get_component` overhead in the inner loop.
-**Action:** When calculating proximity effects between two sets of entities, always use the `SectorMap` spatial partition if available, and pre-fetch component maps for fast O(1) dict lookups inside the localized spatial loop.
+**Learning:** `PoopSystem` was iterating all poops (N) and all Yukkuris (M) every frame to apply smell effects, creating an O(N*M) bottleneck despite a comment suggesting a spatial grid. Refactoring to use the existing `SpatialService` combined with `esper` component pre-fetching (`world.get_components()`) reduced this to O(N * nearby) with O(1) attribute access, avoiding `try_get_component` overhead in the inner loop.
+**Action:** When calculating proximity effects between two sets of entities, always use the `SpatialService` spatial partition if available, and pre-fetch component maps for fast O(1) dict lookups inside the localized spatial loop.

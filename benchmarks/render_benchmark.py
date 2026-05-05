@@ -6,7 +6,7 @@ import pygame
 
 from yukkuri_game.engine.ecs import World  # noqa: E402
 from yukkuri_game.game.systems.render_system import RenderSystem  # noqa: E402
-from yukkuri_game.game.systems.sector_system import SectorSystem  # noqa: E402
+from yukkuri_game.game.systems.spatial_system import SpatialSystem  # noqa: E402
 from yukkuri_game.game.components import (
     Transform,
     FloatingText,
@@ -47,8 +47,8 @@ def setup_world(num_entities=5000, num_floating_text=1000):
     world.services.register(camera)
 
     # Systems
-    sector_system = SectorSystem(width=10000, height=10000)
-    world.add_system(sector_system)
+    spatial_system = SpatialSystem(width=10000, height=10000)
+    world.add_system(spatial_system)
 
     render_system = RenderSystem(screen, world)
     world.add_system(render_system)
@@ -82,8 +82,8 @@ def setup_world(num_entities=5000, num_floating_text=1000):
             ),
         )
 
-    # Ensure SectorSystem updates
-    sector_system.update(world, 0.1)
+    # Ensure SpatialSystem updates
+    spatial_system.update(world, 0.1)
 
     return world, render_system
 

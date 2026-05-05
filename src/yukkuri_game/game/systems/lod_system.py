@@ -5,7 +5,7 @@ Module defining the LOD (Level of Detail) System.
 from ...engine.ecs import System, World
 from ..components import Transform, LODComponent
 from ..camera import Camera
-from .sector_system import SectorMap
+from .spatial_system import SpatialService
 
 
 class LODSystem(System):
@@ -57,21 +57,21 @@ class LODSystem(System):
         self.frame_count = 0
 
         camera = world.services.try_get(Camera)
-        sector_map = world.services.try_get(SectorMap)
+        spatial_service = world.services.try_get(SpatialService)
 
         if not camera:
             return
 
-        # Optimization: Use SectorMap to only query entities in visual range
-        if not sector_map:
-            # Fallback to O(N) if no SectorMap
+        # Optimization: Use SpatialService to only query entities in visual range
+        if not spatial_service:
+            # Fallback to O(N) if no SpatialService
             self._update_naive(world, camera.camera_x, camera.camera_y)
             return
 
-        self._update_optimized(world, sector_map, camera.camera_x, camera.camera_y)
+        self._update_optimized(world, spatial_service, camera.camera_x, camera.camera_y)
 
     def _update_optimized(
-        self, world: World, sector_map: SectorMap, cx: float, cy: float
+        self, world: World, spatial_service: SpatialService, cx: float, cy: float
     ) -> None:
         """
         Optimized update using Spatial Partitioning.
@@ -86,8 +86,8 @@ class LODSystem(System):
         rect_w = self.med_dist * 2
         rect_h = self.med_dist * 2
 
-        # Get potential entities from SectorMap
-        visible_ids = sector_map.get_entities_in_rect(rect_x, rect_y, rect_w, rect_h)
+        # Get potential entities from SpatialService
+        visible_ids = spatial_service.get_entities_in_rect(rect_x, rect_y, rect_w, rect_h)
 
         high_dist_sq = self.high_dist * self.high_dist
         med_dist_sq = self.med_dist * self.med_dist

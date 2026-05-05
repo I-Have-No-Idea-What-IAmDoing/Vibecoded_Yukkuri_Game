@@ -106,14 +106,14 @@ class PoopSystem(System):
         if not poop_entities:
             return
 
-        from .sector_system import SectorMap
-        sector_map = world.services.try_get(SectorMap)
+        from .spatial_system import SpatialService
+        spatial_service = world.services.try_get(SpatialService)
 
         poop_radius = self.poop_radius
         poop_radius_sq = poop_radius ** 2
         smell_strength_dt = self.smell_strength * dt
 
-        if sector_map:
+        if spatial_service:
             # Pre-fetch component maps for O(1) lookups
             yukkuri_needs_map = world.get_components(Needs)
             trans_map = world.get_components(Transform)
@@ -121,7 +121,7 @@ class PoopSystem(System):
 
             for _p_ent, (_p_poop, p_trans) in poop_entities:
                 px, py = p_trans.x, p_trans.y
-                nearby_entities = sector_map.get_entities_in_radius(px, py, poop_radius)
+                nearby_entities = spatial_service.get_entities_in_radius(px, py, poop_radius)
 
                 for _y_ent in nearby_entities:
                     if _y_ent not in yukkuri_stats_map or _y_ent not in yukkuri_needs_map or _y_ent not in trans_map:
@@ -134,7 +134,7 @@ class PoopSystem(System):
                         y_needs = yukkuri_needs_map[_y_ent]
                         y_needs.cleanliness = max(0.0, y_needs.cleanliness - smell_strength_dt)
         else:
-            # Fallback for when SectorMap is not available (e.g. tests)
+            # Fallback for when SpatialService is not available (e.g. tests)
             for _p_ent, (_p_poop, p_trans) in poop_entities:
                 for _y_ent, (_y_stats, y_needs, y_trans) in world.get_components_tuple(
                     YukkuriStats, Needs, Transform

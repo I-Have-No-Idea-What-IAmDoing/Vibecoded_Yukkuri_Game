@@ -27,6 +27,12 @@ class TestSocialBehaviors(unittest.TestCase):
             self.ai, self.stats, self.transform, Needs()
         )
 
+        from yukkuri_game.game.systems.spatial_system import SpatialService
+        self.spatial_service = SpatialService(1000, 1000, 500)
+        self.world.services.register(self.spatial_service, SpatialService)
+        # Update entity in spatial service
+        self.spatial_service.update_entity(self.entity_id, 100, 100)
+
     def test_find_social_target_friend(self):
         """Test finding a compatible (same type) friend."""
         # Setup Friend (Reimu) nearby
@@ -34,12 +40,14 @@ class TestSocialBehaviors(unittest.TestCase):
             YukkuriStats(type_id="reimu", name="Friend"),
             Transform(x=150, y=100) # 50px away
         )
+        self.spatial_service.update_entity(friend_id, 150, 100)
         
         # Setup Enemy (Marisa) nearby - should be ignored
         enemy_id = self.world.create_entity(
             YukkuriStats(type_id="marisa", name="Enemy"),
             Transform(x=120, y=100) # Closer, but incompatible
         )
+        self.spatial_service.update_entity(enemy_id, 120, 100)
 
         action = FindSocialTarget("Find Friend", self.entity_id, self.world, criteria="friend")
         status = action.update()
@@ -54,12 +62,14 @@ class TestSocialBehaviors(unittest.TestCase):
             YukkuriStats(type_id="reimu", name="Friend"),
             Transform(x=120, y=100) # Closer, but compatible
         )
+        self.spatial_service.update_entity(friend_id, 120, 100)
         
         # Setup Enemy (Marisa) nearby
         enemy_id = self.world.create_entity(
             YukkuriStats(type_id="marisa", name="Enemy"),
             Transform(x=150, y=100) # 50px away
         )
+        self.spatial_service.update_entity(enemy_id, 150, 100)
 
         action = FindSocialTarget("Find Enemy", self.entity_id, self.world, criteria="enemy")
         status = action.update()
@@ -74,11 +84,13 @@ class TestSocialBehaviors(unittest.TestCase):
             YukkuriStats(type_id="reimu", name="Friend"),
             Transform(x=150, y=100)
         )
+        self.spatial_service.update_entity(friend_id, 150, 100)
         # Marisa (Enemy) at dist 20 (Closer)
         enemy_id = self.world.create_entity(
             YukkuriStats(type_id="marisa", name="Enemy"),
             Transform(x=120, y=100)
         )
+        self.spatial_service.update_entity(enemy_id, 120, 100)
 
         action = FindSocialTarget("Find Any", self.entity_id, self.world, criteria="any")
         status = action.update()
@@ -92,6 +104,7 @@ class TestSocialBehaviors(unittest.TestCase):
             YukkuriStats(type_id="reimu", name="Friend"),
             Transform(x=150, y=100)
         )
+        self.spatial_service.update_entity(friend_id, 150, 100)
         
         self.ai.failed_targets.add(friend_id)
 

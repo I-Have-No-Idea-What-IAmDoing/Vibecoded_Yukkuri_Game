@@ -5,7 +5,7 @@ Culling Pass.
 from typing import List
 
 from ....components import Transform
-from ...sector_system import SectorMap
+from ...spatial_system import SpatialService
 from ..context import RenderContext
 
 
@@ -38,8 +38,8 @@ class CullingPass:
 
     def _get_visible_entities(self, context: RenderContext) -> List[int]:
         """Returns entities visible on screen using spatial partitioning."""
-        sector_map = context.world.services.try_get(SectorMap)
-        if sector_map:
+        spatial_service = context.world.services.try_get(SpatialService)
+        if spatial_service:
             buffer = self.VISIBILITY_BUFFER
             start_x, start_y = context.camera.screen_to_world(
                 0, 0, context.sw, context.sh
@@ -53,7 +53,7 @@ class CullingPass:
             width = abs(end_x - start_x) + 2 * buffer
             height = abs(end_y - start_y) + 2 * buffer
 
-            entities = sector_map.get_entities_in_rect(min_x, min_y, width, height)
+            entities = spatial_service.get_entities_in_rect(min_x, min_y, width, height)
             return [e for e in entities if e >= 0]
         else:
             return [

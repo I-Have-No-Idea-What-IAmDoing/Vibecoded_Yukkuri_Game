@@ -169,7 +169,7 @@ class EatPrey(Action):
         """
         super().__init__(name, entity_id, world, blackboard)
         self._eating_progress: float = 0.0
-        self.sector_map: Any = None
+        self.spatial_service: Any = None
         self.last_update_time: float = 0.0
         self.time_service: Any = None
 
@@ -187,11 +187,11 @@ class EatPrey(Action):
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
 
-        # Lazy load SectorMap
-        if self.sector_map is None:
-            from ....systems.sector_system import SectorMap
+        # Lazy load SpatialService
+        if self.spatial_service is None:
+            from ....systems.spatial_system import SpatialService
 
-            self.sector_map = self.world.services.try_get(SectorMap)
+            self.spatial_service = self.world.services.try_get(SpatialService)
 
         ai = self.world.get_component(self.entity_id, AIState)
         predator = self.world.get_component(self.entity_id, Predator)
@@ -220,10 +220,10 @@ class EatPrey(Action):
         # Social Defense (Rescue) Check
         rescue_radius = 60.0
 
-        # Use SectorMap if available for optimization
+        # Use SpatialService if available for optimization
         potential_defenders = []
-        if self.sector_map:
-            potential_defenders = self.sector_map.get_entities_in_radius(
+        if self.spatial_service:
+            potential_defenders = self.spatial_service.get_entities_in_radius(
                 target_trans.x, target_trans.y, rescue_radius
             )
         else:

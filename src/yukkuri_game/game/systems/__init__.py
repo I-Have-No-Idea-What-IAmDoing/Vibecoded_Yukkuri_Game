@@ -6,4 +6,4 @@ navigation, animation, emotion, social interaction,
 hunger, lifecycle, inventory, and environmental effects.
 """
 
-from .sector_system import SectorMap as SectorMap
+from .spatial_system import SpatialService as SpatialService

@@ -21,7 +21,7 @@ from yukkuri_game.game.yukkuri_components import (
     Personality,
 )
 from yukkuri_game.game.components import Transform, InteractionRequest
-from yukkuri_game.game.systems.sector_system import SectorMap
+from yukkuri_game.game.systems.spatial_system import SpatialService
 from yukkuri_game.game.systems.physics import PhysicsSystem
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.config import GameConfig
@@ -51,7 +51,7 @@ class TestGossipSystem:
 
         physics = MagicMock(spec=PhysicsSystem)
         physics.space = MagicMock(spec=pymunk.Space)
-        sector_map = MagicMock(spec=SectorMap)
+        spatial_service = MagicMock(spec=SpatialService)
         trait_service = MagicMock(spec=TraitService)
         game_config = MagicMock(spec=GameConfig)
 
@@ -62,7 +62,7 @@ class TestGossipSystem:
 
         service_map = {
             PhysicsSystem: physics,
-            SectorMap: sector_map,
+            SpatialService: spatial_service,
             TraitService: trait_service,
             GameConfig: game_config,
         }
@@ -102,8 +102,8 @@ class TestGossipSystem:
         mock_world.get_component.side_effect = get_component
         mock_world.entity_exists.return_value = True
 
-        sector_map = mock_world.services.try_get(SectorMap)
-        sector_map.get_entities_in_range.return_value = []
+        spatial_service = mock_world.services.try_get(SpatialService)
+        spatial_service.get_entities_in_range.return_value = []
 
         event = SocialInteractionEvent(
             initiator_id=sender, target_id=receiver, interaction_type="Talk"
@@ -141,8 +141,8 @@ class TestGossipSystem:
             return None
 
         mock_world.get_component.side_effect = get_component
-        system.sector_map = MagicMock()
-        system.sector_map.get_entities_in_range.return_value = []
+        system.spatial_service = MagicMock()
+        system.spatial_service.get_entities_in_range.return_value = []
 
         event = SocialInteractionEvent(
             initiator_id=sender, target_id=receiver, interaction_type="Chat"
@@ -183,8 +183,8 @@ class TestGossipSystem:
         mock_world.get_component.side_effect = get_component
         mock_world.has_component.return_value = True
 
-        sector_map = mock_world.services.try_get(SectorMap)
-        sector_map.get_entities_in_range.return_value = [witness]
+        spatial_service = mock_world.services.try_get(SpatialService)
+        spatial_service.get_entities_in_range.return_value = [witness]
 
         physics = mock_world.services.try_get(PhysicsSystem)
         physics.space.segment_query_first.return_value = None
@@ -221,8 +221,8 @@ class TestGossipSystem:
         mock_world.get_component.side_effect = get_component
         mock_world.has_component.return_value = True
 
-        sector_map = mock_world.services.try_get(SectorMap)
-        sector_map.get_entities_in_range.return_value = [witness]
+        spatial_service = mock_world.services.try_get(SpatialService)
+        spatial_service.get_entities_in_range.return_value = [witness]
 
         trait_service = mock_world.services.try_get(TraitService)
         trait_service.get_interaction.return_value = None

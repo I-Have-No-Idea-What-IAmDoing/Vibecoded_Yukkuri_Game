@@ -58,7 +58,7 @@ def test_headless_lighting_regression(game_driver: GameDriver, tmp_path):
     )
     world.add_component(text_ent, Transform(x=0, y=0))
 
-    # 4. Advance simulation to ensure SectorMap is updated
+    # 4. Advance simulation to ensure SpatialService is updated
     driver.run_for(0.2)
 
     # 5. Take Screenshot

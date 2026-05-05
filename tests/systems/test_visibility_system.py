@@ -8,10 +8,19 @@ from yukkuri_game.game.collision_constants import CollisionCategories
 
 
 def test_visibility_occlusion():
-    world = World()
+    from tests.test_utils import make_configured_world
+    world = make_configured_world()
 
     physics_system = PhysicsSystem()
     world.services.register(physics_system, PhysicsSystem)
+    world.add_system(physics_system)
+
+    from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService
+    from yukkuri_game.engine.event_bus import EventBus
+    event_bus = world.services.get(EventBus)
+    spatial_system = SpatialSystem(event_bus=event_bus)
+    world.services.register(spatial_system.spatial_service, SpatialService)
+    world.add_system(spatial_system)
     world.add_system(physics_system)
 
     vis_system = VisibilitySystem()
@@ -60,6 +69,7 @@ def test_visibility_occlusion():
     physics_system.space.add(wall_body, wall_shape)
 
     # Update
+    spatial_system.update(world, 0.1)
     vis_system.update(world, 0.1)
 
     # Check
@@ -69,9 +79,18 @@ def test_visibility_occlusion():
 
 
 def test_visibility_fov():
-    world = World()
+    from tests.test_utils import make_configured_world
+    world = make_configured_world()
     physics_system = PhysicsSystem()
     world.services.register(physics_system, PhysicsSystem)
+    world.add_system(physics_system)
+
+    from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService
+    from yukkuri_game.engine.event_bus import EventBus
+    event_bus = world.services.get(EventBus)
+    spatial_system = SpatialSystem(event_bus=event_bus)
+    world.services.register(spatial_system.spatial_service, SpatialService)
+    world.add_system(spatial_system)
     world.add_system(physics_system)
     vis_system = VisibilitySystem()
     world.add_system(vis_system)
@@ -110,6 +129,7 @@ def test_visibility_fov():
     world.add_component(t2, PhysicsBody(body=t2b, shape=t2s))
     world.add_component(t2, Transform(x=-100, y=0))
 
+    spatial_system.update(world, 0.1)
     vis_system.update(world, 0.1)
 
     ai = world.get_component(obs, AIState)

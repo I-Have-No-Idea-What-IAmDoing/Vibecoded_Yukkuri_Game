@@ -45,11 +45,8 @@ class VisibilitySystem(System):
     to spread workload across frames.
 
     Attributes:
-        space (pymunk.Space | None): The physics space.
         update_index (int): Index for batch processing.
         batch_size (float): Fraction of observers processed per frame.
-        body_to_entity (dict[pymunk.Body, int]): Map of physics bodies to entity IDs.
-        event_bus (EventBus | None): The event bus.
         visibility_cache (dict[int, tuple[set[EntityID], float, float]]): Cache for visibility results.
         cache_threshold (float): Movement threshold for cache invalidation.
     """
@@ -62,36 +59,12 @@ class VisibilitySystem(System):
 
     def __init__(self) -> None:
         """Initializes the VisibilitySystem."""
-        self.space: pymunk.Space | None = None
         self.update_index = 0
         self.batch_size = self.DEFAULT_BATCH_SIZE
-        self.body_to_entity: dict[pymunk.Body, int] = {}
-        self.event_bus: EventBus | None = None
 
         # Visibility cache: entity_id -> (visible_set, cached_x, cached_y)
         self.visibility_cache: dict[int, tuple[set[EntityID], float, float]] = {}
         self.cache_threshold: float = self.CACHE_THRESHOLD
-
-    def on_component_added(self, event: ComponentAddedEvent) -> None:
-        """
-        Handles ComponentAddedEvent to update body_to_entity map.
-
-        Args:
-            event (ComponentAddedEvent): The event data.
-        """
-        if event.component_type == PhysicsBody:
-            self.body_to_entity[event.component.body] = event.entity_id
-
-    def on_component_removed(self, event: ComponentRemovedEvent) -> None:
-        """
-        Handles ComponentRemovedEvent to update body_to_entity map.
-
-        Args:
-            event (ComponentRemovedEvent): The event data.
-        """
-        if event.component_type == PhysicsBody:
-            if event.component and event.component.body in self.body_to_entity:
-                del self.body_to_entity[event.component.body]
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -101,25 +74,6 @@ class VisibilitySystem(System):
             world (World): The ECS World.
             dt (float): Delta time.
         """
-        if not self.space:
-            physics_system = world.services.try_get(PhysicsSystem)
-            if physics_system:
-                self.space = physics_system.space
-
-        if not self.event_bus:
-            self.event_bus = world.services.try_get(EventBus)
-            if self.event_bus:
-                # Subscribe to both add and remove events
-                self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
-                self.event_bus.subscribe(
-                    ComponentRemovedEvent, self.on_component_removed
-                )
-
-            # Populate body->entity map on first run.
-            physics_bodies = world.get_components(PhysicsBody)
-            self.body_to_entity = {
-                comp.body: ent for ent, comp in physics_bodies.items()
-            }
 
         # Get all observers
         observers_list = list(world.get_components_tuple(Vision, Transform, AIState))
@@ -175,6 +129,11 @@ class VisibilitySystem(System):
                 ai.visible_entities = cached_visible
                 return
 
+        from .spatial_system import SpatialService
+        spatial_service = world.services.try_get(SpatialService)
+        if not spatial_service:
+            return
+
         visible: set[EntityID] = set()
 
         obs_pos = pymunk.Vec2d(trans.x, trans.y)
@@ -184,13 +143,6 @@ class VisibilitySystem(System):
         fov_cos = math.cos(math.radians(vision.fov / 2.0))
 
         # 1. Broadphase
-        query_mask = CollisionCategories.GROUND_UNIT
-        query_filter = pymunk.ShapeFilter(mask=query_mask)
-
-        if not self.space:
-            return
-
-        # Flight altitude vision bonus
         flight = world.try_get_component(entity, Flight)
         effective_range = vision.range
         if flight and flight.altitude > 0 and flight.max_altitude > 0:
@@ -198,31 +150,24 @@ class VisibilitySystem(System):
             altitude_factor = min(1.0, flight.altitude / flight.max_altitude)
             effective_range = vision.range * (1.0 + 0.5 * altitude_factor)
 
-        # Broadphase: Query all entities within effective vision range.
-        nearby_infos = self.space.point_query(obs_pos, effective_range, query_filter)
+        nearby_ents = spatial_service.get_entities_in_radius(obs_pos.x, obs_pos.y, effective_range)
 
         vision_mask = (
             CollisionCategories.HIGH_OBSTACLE | CollisionCategories.GROUND_UNIT
         )
-        vision_ray_filter = pymunk.ShapeFilter(mask=vision_mask)
+        vision_ray_filter = pymunk.ShapeFilter(mask=vision_mask, group=entity)
 
-        for info in nearby_infos:
-            shape = info.shape
-            body = shape.body
-
-            if phys_comp and body == phys_comp.body:
-                continue
-
-            # Skip if we already saw this entity (Composite bodies have multiple shapes)
-            if body is None:
-                continue
-            target_ent = self.body_to_entity.get(body)
-            if target_ent is None:
+        for target_ent in nearby_ents:
+            if target_ent == entity:
                 continue
             if target_ent in visible:
                 continue
 
-            target_pos = body.position
+            target_trans = world.try_get_component(target_ent, Transform)
+            if not target_trans:
+                continue
+
+            target_pos = pymunk.Vec2d(target_trans.x, target_trans.y)
             diff = target_pos - obs_pos
 
             if diff.length_squared > effective_range * effective_range:
@@ -234,33 +179,22 @@ class VisibilitySystem(System):
                 if obs_dir.dot(target_dir) < fov_cos:
                     continue
 
-            # Narrowphase: Raycast to check line-of-sight.
-            vision_ray_filter = pymunk.ShapeFilter(mask=vision_mask, group=entity)
-
-            hit = self.space.segment_query_first(
-                obs_pos, target_pos, 1.0, vision_ray_filter
+            # 3. Narrowphase: Raycast to check line-of-sight.
+            hit = spatial_service.raycast(
+                world,
+                obs_pos.x, obs_pos.y,
+                target_pos.x, target_pos.y,
+                shape_filter=vision_ray_filter,
+                exclude_id=entity
             )
 
             if hit:
-                # Skip if we hit our own body (can happen if ray originates inside our shape)
-                if phys_comp and hit.shape.body == phys_comp.body:
-                    # We hit ourselves first - need to check if target is visible beyond us
-                    # Fall back to full segment query to find actual first non-self hit
-                    hits = self.space.segment_query(
-                        obs_pos, target_pos, 1.0, vision_ray_filter
-                    )
-                    for h in sorted(hits, key=lambda x: x.alpha):
-                        if phys_comp and h.shape.body == phys_comp.body:
-                            continue  # Skip our own shapes
-                        if h.shape.sensor:
-                            continue  # Skip sensors
-                        if h.shape.body == body:
-                            visible.add(EntityID(target_ent))  # Target is visible!
-                        # Hit something else first - blocked
-                        break
-                elif hit.shape.body == body:
+                hit_ent, _, _ = hit
+                if hit_ent == target_ent:
                     visible.add(EntityID(target_ent))
-                # else: First hit is an obstruction - blocked.
+                elif world.has_component(target_ent, Transform):
+                    # We might have hit something else. We only add if it's the target.
+                    pass
 
         # Update cache with new visibility result.
         self.visibility_cache[entity] = (visible, trans.x, trans.y)

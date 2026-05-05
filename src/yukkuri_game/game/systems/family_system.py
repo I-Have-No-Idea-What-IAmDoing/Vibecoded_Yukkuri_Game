@@ -16,7 +16,7 @@ Family Benefits (when family members are nearby):
 -   Nest sharing: Sleeping members provide rest bonuses to family.
 
 Performance:
--   Uses SectorMap spatial partitioning when available.
+-   Uses SpatialService spatial partitioning when available.
 -   Falls back to O(N²) comparison without spatial indexing.
 """
 
@@ -28,7 +28,7 @@ from ...engine import rng
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
 from ..components import Transform
-from ..systems.sector_system import SectorMap
+from ..systems.spatial_system import SpatialService
 from ..yukkuri_components import (
     AIState,
     EmotionalState,
@@ -151,23 +151,23 @@ class FamilySystem(System):
         Args:
             world (World): The ECS World.
         """
-        sector_map = world.services.try_get(SectorMap)
+        spatial_service = world.services.try_get(SpatialService)
 
-        if sector_map:
-            self._process_benefits_with_sectors(world, sector_map)
+        if spatial_service:
+            self._process_benefits_with_sectors(world, spatial_service)
         else:
             # O(N²) fallback - slow for large populations.
             self._process_benefits_fallback(world)
 
     def _process_benefits_with_sectors(
-        self, world: World, sector_map: SectorMap
+        self, world: World, spatial_service: SpatialService
     ) -> None:
         """
         Process family benefits using spatial partitioning for efficiency.
 
         Args:
             world (World): The ECS World.
-            sector_map (SectorMap): The sector map service.
+            spatial_service (SpatialService): The sector map service.
         """
         entities = world.get_components_tuple(
             RelationshipRegistry, YukkuriStats, Needs, Transform, AIState
@@ -183,7 +183,7 @@ class FamilySystem(System):
                 continue
 
             # Sector queries cover ~1500x1500 area, reducing checks vs O(N²).
-            neighbors = sector_map.get_entities_in_range(trans.x, trans.y, "visual")
+            neighbors = spatial_service.get_entities_in_range(trans.x, trans.y, "visual")
 
             for other_eid in neighbors:
                 if other_eid <= eid:  # Avoid duplicate pairs and self.

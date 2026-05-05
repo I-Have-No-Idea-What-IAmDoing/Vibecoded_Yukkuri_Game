@@ -24,7 +24,7 @@ from ...navigation_service import NavigationService
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
-    from yukkuri_game.game.systems.sector_system import SectorMap
+    from yukkuri_game.game.systems.spatial_system import SpatialService
 
 
 class FindItem(Action):
@@ -138,19 +138,16 @@ class FindLightSource(Action):
         if ai.manual_override and ai.current_target_id != -1:
             return Status.SUCCESS
 
-        best_dist = float("inf")
-        best_light = -1
+        # Lazy load SpatialService
+        from ....systems.spatial_system import SpatialService
+        spatial_service = self.world.services.try_get(SpatialService)
 
-        for ent, (l_trans, light) in self.world.get_components_tuple(
-            Transform, LightSource
-        ):
-            if ent == self.entity_id:
-                continue
+        if not spatial_service:
+            return Status.FAILURE
 
-            dist = math.hypot(l_trans.x - trans.x, l_trans.y - trans.y)
-            if dist < best_dist:
-                best_dist = dist
-                best_light = ent
+        best_light = spatial_service.get_nearest_entity(
+            self.world, trans.x, trans.y, component_filter=LightSource, max_radius=2000.0, exclude_ids={self.entity_id}
+        )
 
         if best_light != -1:
             if ai.current_target_id != best_light:
@@ -164,7 +161,7 @@ class FindLightSource(Action):
 class FindPrey(Action):
     """
     Finds a target entity that matches the predator's prey tags.
-    Optimized to use SectorMap for spatial queries.
+    Optimized to use SpatialService for spatial queries.
     """
 
     def __init__(
@@ -184,7 +181,7 @@ class FindPrey(Action):
             blackboard (Any | None): The blackboard.
         """
         super().__init__(name, entity_id, world, blackboard)
-        self.sector_map: Optional["SectorMap"] = None
+        self.spatial_service: Optional["SpatialService"] = None
 
     def update(self) -> Status:
         super().update()
@@ -201,18 +198,18 @@ class FindPrey(Action):
         if ai.manual_override and ai.current_target_id != -1:
             return Status.SUCCESS
 
-        # Lazy load SectorMap
-        if self.sector_map is None:
-            from ....systems.sector_system import SectorMap
+        # Lazy load SpatialService
+        if self.spatial_service is None:
+            from ....systems.spatial_system import SpatialService
 
-            self.sector_map = self.world.services.try_get(SectorMap)
+            self.spatial_service = self.world.services.try_get(SpatialService)
 
         candidates: list[tuple[int, float]] = []
 
         # Use efficient spatial query if available
         potential_targets = []
-        if self.sector_map:
-            potential_targets = self.sector_map.get_entities_in_radius(
+        if self.spatial_service:
+            potential_targets = self.spatial_service.get_entities_in_radius(
                 trans.x, trans.y, predator.prey_sense_radius
             )
         else:
@@ -224,7 +221,7 @@ class FindPrey(Action):
             if ent == self.entity_id:
                 continue
 
-            # We need to manually check distance if we used SectorMap (it returns a superset)
+            # We need to manually check distance if we used SpatialService (it returns a superset)
             # Fetch components safely
             target_trans = self.world.try_get_component(ent, Transform)
             if not target_trans:
@@ -362,33 +359,32 @@ class FindSocialTarget(Action):
         if ai.manual_override and ai.current_target_id != -1:
             return Status.SUCCESS
 
-        nearby_yukkuris = self.world.get_components_tuple(YukkuriStats, Transform)
+        # Lazy load SpatialService
+        from ....systems.spatial_system import SpatialService
+        spatial_service = self.world.services.try_get(SpatialService)
 
-        best_target = -1
-        min_dist = float("inf")
+        if not spatial_service:
+            return Status.FAILURE
 
-        for uid, (u_stats, u_trans) in nearby_yukkuris:
-            if uid == self.entity_id:
-                continue
-
-            if uid in ai.failed_targets:
-                continue
-
+        def match_criteria(uid: int) -> bool:
+            u_stats = self.world.try_get_component(uid, YukkuriStats)
+            if not u_stats:
+                return False
             is_compatible = u_stats.type_id == my_stats.type_id
-
-            match = False
             if self.criteria == "any":
-                match = True
+                return True
             elif self.criteria == "friend" and is_compatible:
-                match = True
+                return True
             elif self.criteria == "enemy" and not is_compatible:
-                match = True
+                return True
+            return False
 
-            if match:
-                dist = math.hypot(u_trans.x - trans.x, u_trans.y - trans.y)
-                if dist < min_dist:
-                    min_dist = dist
-                    best_target = uid
+        exclude_ids = {self.entity_id}
+        exclude_ids.update(ai.failed_targets)
+
+        best_target = spatial_service.get_nearest_entity(
+            self.world, trans.x, trans.y, component_filter=YukkuriStats, max_radius=1500.0, exclude_ids=exclude_ids, predicate=match_criteria
+        )
 
         if best_target != -1:
             if ai.current_target_id != best_target:

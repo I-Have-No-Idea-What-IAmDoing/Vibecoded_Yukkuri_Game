@@ -10,10 +10,10 @@ from yukkuri_game.game.yukkuri_components import (
     RelationshipData,
 )
 from yukkuri_game.game.components import Transform
-from yukkuri_game.game.systems.sector_system import SectorMap
+from yukkuri_game.game.systems.spatial_system import SpatialService
 
 
-class MockSectorMap:
+class MockSpatialService:
     def __init__(self):
         self.entities = {}
 
@@ -263,11 +263,11 @@ def test_nest_sharing(world, family_system):
     assert em2.stress == 48.5
 
 
-def test_benefits_with_sector_map(world, family_system):
-    """Test benefits logic when SectorMap is available (optimization path)."""
+def test_benefits_with_spatial_service(world, family_system):
+    """Test benefits logic when SpatialService is available (optimization path)."""
 
-    sector_map = MockSectorMap()
-    world.services.register(SectorMap, sector_map)
+    spatial_service = MockSpatialService()
+    world.services.register(SpatialService, spatial_service)
 
     # Entity 1
     e1 = world.create_entity()
@@ -291,8 +291,8 @@ def test_benefits_with_sector_map(world, family_system):
     em2 = EmotionalState(happiness=50.0)
     world.add_component(e2, em2)
 
-    sector_map.add_entity(e1, 0, 0)
-    sector_map.add_entity(e2, 10, 0)
+    spatial_service.add_entity(e1, 0, 0)
+    spatial_service.add_entity(e2, 10, 0)
 
     family_system.update(world, 2.1)
 
@@ -301,11 +301,11 @@ def test_benefits_with_sector_map(world, family_system):
     assert em2.happiness == 50.5
 
 
-def test_fallback_benefits_no_sector_map(world, family_system):
-    """Test fallback logic when SectorMap is not present."""
-    # Ensure SectorMap is NOT in services
-    if world.services.try_get(SectorMap):
-        world.services.unregister(SectorMap)
+def test_fallback_benefits_no_spatial_service(world, family_system):
+    """Test fallback logic when SpatialService is not present."""
+    # Ensure SpatialService is NOT in services
+    if world.services.try_get(SpatialService):
+        world.services.unregister(SpatialService)
 
     # Entity 1
     e1 = world.create_entity()
@@ -337,9 +337,9 @@ def test_fallback_benefits_no_sector_map(world, family_system):
 
 def test_fallback_benefits_different_families(world, family_system):
     """Test fallback logic ignores different families."""
-    # Ensure SectorMap is NOT in services
-    if world.services.try_get(SectorMap):
-        world.services.unregister(SectorMap)
+    # Ensure SpatialService is NOT in services
+    if world.services.try_get(SpatialService):
+        world.services.unregister(SpatialService)
 
     # Entity 1
     e1 = world.create_entity()
@@ -371,9 +371,9 @@ def test_fallback_benefits_different_families(world, family_system):
 
 def test_benefits_missing_components(world, family_system):
     """Test benefits logic handles missing components gracefully."""
-    # Ensure SectorMap is NOT in services
-    if world.services.try_get(SectorMap):
-        world.services.unregister(SectorMap)
+    # Ensure SpatialService is NOT in services
+    if world.services.try_get(SpatialService):
+        world.services.unregister(SpatialService)
 
     # Entity 1 (Missing Needs)
     e1 = world.create_entity()
@@ -405,9 +405,9 @@ def test_benefits_missing_components(world, family_system):
 
 def test_benefits_no_emotional_state(world, family_system):
     """Test benefits logic when EmotionalState is missing (it's optional in _apply_benefit_pair)."""
-    # Ensure SectorMap is NOT in services
-    if world.services.try_get(SectorMap):
-        world.services.unregister(SectorMap)
+    # Ensure SpatialService is NOT in services
+    if world.services.try_get(SpatialService):
+        world.services.unregister(SpatialService)
 
     # Entity 1
     e1 = world.create_entity()

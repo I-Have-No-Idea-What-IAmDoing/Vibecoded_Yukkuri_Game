@@ -19,7 +19,7 @@ The `RenderSystem.update()` method executes these stages each frame:
 |-------|-------------|
 | 1. Camera Update | Interpolate position, apply aspect correction |
 | 2. Background | Draw cached grid (invalidated on camera move) |
-| 3. Visibility Query | Query `SectorMap` for visible entities |
+| 3. Visibility Query | Query `SpatialService` for visible entities |
 | 4. Entity Processing | Generate `SpriteCommand`, `ShadowCommand`, `LightCommand` |
 | 5. Floating Text | Process UI overlays for visible entities |
 | 6. Placement Preview | Render ghost sprite for item/yukkuri placement |
@@ -52,7 +52,7 @@ All visual elements are represented as immutable command objects:
 ## Performance Optimizations
 
 ### Spatial Culling
-- `SectorMap` provides O(1) spatial queries
+- `SpatialService` provides O(1) spatial queries
 - Only entities within screen bounds (+500px buffer) are processed
 - `VISIBILITY_BUFFER` constant controls buffer size
 

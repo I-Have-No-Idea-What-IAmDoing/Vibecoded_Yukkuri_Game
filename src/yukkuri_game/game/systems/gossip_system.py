@@ -32,18 +32,18 @@ from ..yukkuri_components import (
     YukkuriStats,
 )
 from .physics import PhysicsSystem
-from .sector_system import SectorMap
+from .spatial_system import SpatialService
 
 
 class GossipSystem(System):
     """
     System responsible for managing Gossip (witnessing and exchanging).
-    Uses SectorMap for efficient witnessing.
+    Uses SpatialService for efficient witnessing.
 
     Attributes:
         event_bus (EventBus): The event bus instance.
         physics_system (PhysicsSystem | None): The physics system instance.
-        sector_map (SectorMap | None): The sector map instance.
+        spatial_service (SpatialService | None): The sector map instance.
         trait_service (TraitService | None): The trait service instance.
     """
 
@@ -72,7 +72,7 @@ class GossipSystem(System):
         super().__init__()
         self.event_bus: EventBus
         self.physics_system: PhysicsSystem | None = None
-        self.sector_map: SectorMap | None = None
+        self.spatial_service: SpatialService | None = None
         self.trait_service: TraitService | None = None
 
     def initialize(self) -> None:
@@ -90,8 +90,8 @@ class GossipSystem(System):
         """
         if not self.physics_system:
             self.physics_system = world.services.try_get(PhysicsSystem)
-        if not self.sector_map:
-            self.sector_map = world.services.try_get(SectorMap)
+        if not self.spatial_service:
+            self.spatial_service = world.services.try_get(SpatialService)
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
 
@@ -118,10 +118,10 @@ class GossipSystem(System):
             self._exchange_gossip(world, event.target_id, event.initiator_id)
 
         # Handle Witnessing (Sector-based)
-        if not self.sector_map:
-            self.sector_map = world.services.try_get(SectorMap)
+        if not self.spatial_service:
+            self.spatial_service = world.services.try_get(SpatialService)
 
-        if self.sector_map:
+        if self.spatial_service:
             self._process_witnesses_sector(world, event, actor_trans, now)
 
     def _process_witnesses_sector(
@@ -140,7 +140,7 @@ class GossipSystem(System):
             actor_trans (Transform): The transform of the actor.
             now (float): Current timestamp.
         """
-        if not self.sector_map:
+        if not self.spatial_service:
             return
 
         range_type = "visual"
@@ -162,7 +162,7 @@ class GossipSystem(System):
                     else "auditory"
                 )
 
-        candidates = self.sector_map.get_entities_in_range(
+        candidates = self.spatial_service.get_entities_in_range(
             actor_trans.x, actor_trans.y, range_type
         )
 
