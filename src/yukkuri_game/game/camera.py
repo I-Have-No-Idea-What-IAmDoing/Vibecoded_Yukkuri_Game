@@ -2,12 +2,7 @@
 Module handling the game camera.
 """
 
-from typing import TYPE_CHECKING
-import pygame
 from ..config import WorldSettings
-
-if TYPE_CHECKING:
-    from ..engine.input_manager import InputManager
 
 
 class Camera:
@@ -60,6 +55,11 @@ class Camera:
         self._cached_zoom: float = 1.0
         self._cached_cam_x: float = 0.0
         self._cached_cam_y: float = 0.0
+
+        # Input axis state set by CameraAxisCommand / CameraZoomAxisCommand
+        self.input_axis_x: float = 0.0
+        self.input_axis_y: float = 0.0
+        self.zoom_axis: float = 0.0
 
         self.correction_x = 1.0
         self.correction_y = 1.0
@@ -181,41 +181,6 @@ class Camera:
         wy = (sy - screen_h / 2) / (self.zoom * self.correction_y) + self.camera_y
         return wx, wy
 
-    def handle_input(
-        self, event: pygame.event.Event, screen_w: int, screen_h: int
-    ) -> None:
-        """
-        Handles input for camera control (zoom and pan).
-
-        Args:
-            event (pygame.event.Event): The Pygame event.
-            screen_w (int): Screen width.
-            screen_h (int): Screen height.
-        """
-        zoom_amount = 0.0
-        if event.type == pygame.MOUSEWHEEL:
-            # Zoom in/out based on wheel movement
-            zoom_amount = event.y * 0.1
-        elif event.type == pygame.MOUSEMOTION:
-            if pygame.mouse.get_pressed()[1]:  # Middle mouse button
-                # Pan the camera
-                dx, dy = event.rel
-                # Adjust panning speed by zoom so it feels natural at all levels
-                self.camera_x -= dx / self.zoom
-                self.camera_y -= dy / self.zoom
-        elif event.type == pygame.KEYDOWN:
-            mods = pygame.key.get_mods()
-            if mods & pygame.KMOD_CTRL:
-                if event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
-                    # Zoom In with Keyboard
-                    zoom_amount = 0.1
-                elif event.key == pygame.K_MINUS:
-                    # Zoom Out with Keyboard
-                    zoom_amount = -0.1
-
-        if zoom_amount != 0.0:
-            self.target_zoom += zoom_amount
-            self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
 
     def clear(self) -> None:
         """Reset camera to default."""
@@ -226,13 +191,17 @@ class Camera:
         self.prev_camera_x = 0.0
         self.prev_camera_y = 0.0
         self.prev_zoom = 1.0
+        self.input_axis_x = 0.0
+        self.input_axis_y = 0.0
+        self.zoom_axis = 0.0
 
     def update(self, dt: float) -> None:
         """
-        Updates the camera state (e.g., smooth zoom).
+        Updates the camera state each frame.
 
-        This method now only handles smooth zoom interpolation.
-        Keyboard/mouse movement is handled by process_input().
+        Applies movement from the current input-axis state, advances
+        smooth zoom interpolation, and saves previous state for
+        render-interpolation.
 
         Args:
             dt (float): Delta time.
@@ -242,42 +211,70 @@ class Camera:
         self.prev_camera_y = self.camera_y
         self.prev_zoom = self.zoom
 
+        # Apply keyboard movement from axis state
+        speed = 500.0 * dt / self.zoom
+        self.camera_x += self.input_axis_x * speed
+        self.camera_y += self.input_axis_y * speed
+
+        # Apply keyboard zoom axis
+        if self.zoom_axis != 0.0:
+            self.target_zoom = max(
+                self.min_zoom,
+                min(self.max_zoom, self.target_zoom + self.zoom_axis * 0.1 * dt * 10),
+            )
+
         # Smooth zoom interpolation
-        # Using linear interpolation (Lerp) with a factor of 5.0 for smooth transition
         self.zoom += (self.target_zoom - self.zoom) * 5.0 * dt
 
-    def process_input(self, input_manager: "InputManager", dt: float) -> None:
-        """
-        Processes camera input using the InputManager.
+    # ------------------------------------------------------------------
+    # Command-driven state setters
+    # ------------------------------------------------------------------
 
-        Should be called every frame.
+    def set_axis(self, x_axis: float, y_axis: float) -> None:
+        """
+        Sets the movement axis state used in update().
+
+        Called by CameraAxisCommand.
 
         Args:
-            input_manager (InputManager): The input manager instance.
-            dt (float): Delta time.
+            x_axis (float): Horizontal axis in [-1, 1].
+            y_axis (float): Vertical axis in [-1, 1].
         """
-        # Keyboard Movement
-        speed = 500.0 * dt / self.zoom  # Adjust by zoom for consistent feel
+        self.input_axis_x = x_axis
+        self.input_axis_y = y_axis
 
-        if input_manager.is_action_pressed("up"):
-            self.camera_y -= speed
-        if input_manager.is_action_pressed("down"):
-            self.camera_y += speed
-        if input_manager.is_action_pressed("left"):
-            self.camera_x -= speed
-        if input_manager.is_action_pressed("right"):
-            self.camera_x += speed
+    def set_zoom_axis(self, zoom_axis: float) -> None:
+        """
+        Sets the keyboard-zoom axis state used in update().
 
-        # Keyboard Zoom (Ctrl + +/-)
-        # Uses time_speed_up/down actions since +/- are mapped there; Ctrl differentiates zoom from speed.
-        if input_manager.is_action_pressed("ctrl"):
-            if input_manager.is_action_pressed("time_speed_up"):
-                self.target_zoom = min(self.max_zoom, self.target_zoom + 0.1 * dt * 10)
-            if input_manager.is_action_pressed("time_speed_down"):
-                self.target_zoom = max(self.min_zoom, self.target_zoom - 0.1 * dt * 10)
+        Called by CameraZoomAxisCommand.
 
-        # Mouse Wheel Zoom (handled via get_mouse_wheel)
-        wheel = input_manager.get_mouse_wheel()
-        if wheel != 0.0:
-            self.target_zoom += wheel * 0.1
-            self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
+        Args:
+            zoom_axis (float): Zoom axis in [-1, 1].
+        """
+        self.zoom_axis = zoom_axis
+
+    def add_zoom(self, delta: float) -> None:
+        """
+        Adds a discrete delta to the target zoom level.
+
+        Called by CameraZoomCommand (mouse wheel).
+
+        Args:
+            delta (float): Amount to add to target zoom.
+        """
+        self.target_zoom += delta
+        self.target_zoom = max(self.min_zoom, min(self.max_zoom, self.target_zoom))
+
+    def pan(self, dx: int, dy: int) -> None:
+        """
+        Pans the camera by a screen-pixel delta.
+
+        Called by CameraPanCommand (middle-mouse drag).
+
+        Args:
+            dx (int): Horizontal pixel delta.
+            dy (int): Vertical pixel delta.
+        """
+        self.camera_x -= dx / self.zoom
+        self.camera_y -= dy / self.zoom

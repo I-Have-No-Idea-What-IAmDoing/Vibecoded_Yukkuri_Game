@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from .engine.ecs import World, System
 from .game.input_system import InputSystem
+from .game.systems.command_processor_system import CommandProcessorSystem
 from .game.systems.animation import AnimationSystem
 from .game.systems.behavior import BehaviorSystem
 from .game.systems.construction_system import ConstructionSystem
@@ -71,6 +72,10 @@ class SystemRegistry:
 
         input_system = InputSystem(camera)
         world.add_system(input_system)
+
+        # CommandProcessorSystem runs first so all commands are resolved
+        # before any gameplay system reads the resulting world state.
+        world.add_system(CommandProcessorSystem())
 
         def add_system(system: System, service_type: type[Any] | None = None) -> None:
             if service_type is not None:

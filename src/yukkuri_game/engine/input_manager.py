@@ -48,6 +48,7 @@ class InputManager:
         self._mouse_buttons_down: set[int] = set()
         self._mouse_buttons_up: set[int] = set()
         self._mouse_pos: tuple[int, int] = (0, 0)
+        self._mouse_rel: tuple[int, int] = (0, 0)
         self._mouse_wheel: float = 0.0
 
         # Mappings: Context -> Action -> List of Keys.
@@ -183,6 +184,9 @@ class InputManager:
             self._mouse_buttons_up.add(event.button)
         elif event.type == pygame.MOUSEMOTION:
             self._mouse_pos = event.pos
+            rx, ry = self._mouse_rel
+            ex, ey = getattr(event, "rel", (0, 0))
+            self._mouse_rel = (rx + ex, ry + ey)
         elif event.type == pygame.MOUSEWHEEL:
             self._mouse_wheel = event.y
 
@@ -199,6 +203,7 @@ class InputManager:
         self._mouse_buttons_down.clear()
         self._mouse_buttons_up.clear()
         self._mouse_wheel = 0.0
+        self._mouse_rel = (0, 0)
 
     def _is_consumed_by_higher_priority(
         self, key_or_btn: int, current_context: InputContext, is_mouse: bool = False
@@ -339,3 +344,15 @@ class InputManager:
             float: The amount the mouse wheel was scrolled.
         """
         return self._mouse_wheel
+
+    def get_mouse_rel(self) -> tuple[int, int]:
+        """
+        Returns the accumulated mouse movement delta since the last frame.
+
+        Accumulated rather than per-event so that multiple MOUSEMOTION events
+        within the same frame are collapsed into a single combined delta.
+
+        Returns:
+            tuple[int, int]: The (dx, dy) relative mouse movement this frame.
+        """
+        return self._mouse_rel

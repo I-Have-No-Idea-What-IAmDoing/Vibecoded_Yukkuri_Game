@@ -246,163 +246,102 @@ class TestUpdateMatrices:
         assert camera._cached_zoom_y == 1.0
 
 
-class TestHandleInput:
-    """Tests for handle_input event processing."""
+class TestCameraCommandMethods:
+    """Tests for the new command-driven Camera API methods."""
 
-    @pytest.fixture
-    def pygame_init(self):
-        """Initialize pygame for event tests."""
-        pygame.init()
-        yield
-        pygame.quit()
-
-    def test_mousewheel_zoom_in(self, pygame_init):
-        """Mouse wheel up zooms in."""
+    def test_add_zoom_zooms_in(self) -> None:
+        """add_zoom with positive delta increases target_zoom."""
         camera = Camera()
         camera.target_zoom = 1.0
 
-        event = pygame.event.Event(pygame.MOUSEWHEEL, y=1)
-        camera.handle_input(event, 800, 600)
+        camera.add_zoom(0.1)
 
-        assert camera.target_zoom == 1.1
+        assert camera.target_zoom == pytest.approx(1.1)
 
-    def test_mousewheel_zoom_out(self, pygame_init):
-        """Mouse wheel down zooms out."""
+    def test_add_zoom_zooms_out(self) -> None:
+        """add_zoom with negative delta decreases target_zoom."""
         camera = Camera()
         camera.target_zoom = 1.0
 
-        event = pygame.event.Event(pygame.MOUSEWHEEL, y=-1)
-        camera.handle_input(event, 800, 600)
+        camera.add_zoom(-0.1)
 
-        assert camera.target_zoom == 0.9
+        assert camera.target_zoom == pytest.approx(0.9)
 
-    def test_zoom_clamped_to_max(self, pygame_init):
-        """Zoom is clamped to max_zoom."""
+    def test_add_zoom_clamped_to_max(self) -> None:
+        """add_zoom is clamped to max_zoom."""
         camera = Camera()
         camera.target_zoom = 1.95
         camera.max_zoom = 2.0
 
-        event = pygame.event.Event(pygame.MOUSEWHEEL, y=1)
-        camera.handle_input(event, 800, 600)
+        camera.add_zoom(0.1)
 
-        assert camera.target_zoom == 2.0
+        assert camera.target_zoom == pytest.approx(2.0)
 
-    def test_zoom_clamped_to_min(self, pygame_init):
-        """Zoom is clamped to min_zoom."""
+    def test_add_zoom_clamped_to_min(self) -> None:
+        """add_zoom is clamped to min_zoom."""
         camera = Camera()
         camera.target_zoom = 0.55
         camera.min_zoom = 0.5
 
-        event = pygame.event.Event(pygame.MOUSEWHEEL, y=-1)
-        camera.handle_input(event, 800, 600)
+        camera.add_zoom(-0.1)
 
-        assert camera.target_zoom == 0.5
+        assert camera.target_zoom == pytest.approx(0.5)
 
-
-class TestProcessInput:
-    """Tests for process_input with InputManager."""
-
-    def test_keyboard_movement_up(self) -> None:
-        """Arrow keys move camera."""
+    def test_set_axis_moves_camera_via_update(self) -> None:
+        """set_axis followed by update() moves the camera."""
         camera = Camera()
-        input_manager = MagicMock()
-        input_manager.is_action_pressed.side_effect = lambda x: x == "up"
-        input_manager.get_mouse_wheel.return_value = 0.0
+        camera.set_axis(0.0, -1.0)  # moving up
+        camera.update(0.1)
 
-        camera.process_input(input_manager, 0.1)
+        assert camera.camera_y < 0
 
-        # At zoom 1.0, speed = 500 * 0.1 / 1.0 = 50
-        assert camera.camera_y < 0  # Moved up
-
-    def test_keyboard_movement_down(self) -> None:
-        """Down key moves camera down."""
+    def test_set_axis_right_moves_right(self) -> None:
+        """Positive x_axis moves camera right."""
         camera = Camera()
-        input_manager = MagicMock()
-        input_manager.is_action_pressed.side_effect = lambda x: x == "down"
-        input_manager.get_mouse_wheel.return_value = 0.0
+        camera.set_axis(1.0, 0.0)
+        camera.update(0.1)
 
-        camera.process_input(input_manager, 0.1)
+        assert camera.camera_x > 0
 
-        assert camera.camera_y > 0  # Moved down
+    def test_set_axis_speed_affected_by_zoom(self) -> None:
+        """Camera movement speed scales inversely with zoom."""
+        cam_in = Camera()
+        cam_in.zoom = 2.0
+        cam_in.set_axis(0.0, -1.0)
 
-    def test_keyboard_movement_left(self) -> None:
-        """Left key moves camera left."""
+        cam_out = Camera()
+        cam_out.zoom = 0.5
+        cam_out.set_axis(0.0, -1.0)
+
+        cam_in.update(0.1)
+        cam_out.update(0.1)
+
+        assert abs(cam_out.camera_y) > abs(cam_in.camera_y)
+
+    def test_pan_adjusts_camera_position(self) -> None:
+        """pan() moves camera_x/y by pixel delta / zoom."""
         camera = Camera()
-        input_manager = MagicMock()
-        input_manager.is_action_pressed.side_effect = lambda x: x == "left"
-        input_manager.get_mouse_wheel.return_value = 0.0
+        camera.zoom = 1.0
 
-        camera.process_input(input_manager, 0.1)
+        camera.pan(100, 50)
 
-        assert camera.camera_x < 0  # Moved left
+        assert camera.camera_x == pytest.approx(-100.0)
+        assert camera.camera_y == pytest.approx(-50.0)
 
-    def test_keyboard_movement_right(self) -> None:
-        """Right key moves camera right."""
+    def test_pan_accounts_for_zoom(self) -> None:
+        """pan() adjusts panning speed by zoom level."""
         camera = Camera()
-        input_manager = MagicMock()
-        input_manager.is_action_pressed.side_effect = lambda x: x == "right"
-        input_manager.get_mouse_wheel.return_value = 0.0
+        camera.zoom = 2.0
 
-        camera.process_input(input_manager, 0.1)
+        camera.pan(100, 0)
 
-        assert camera.camera_x > 0  # Moved right
+        assert camera.camera_x == pytest.approx(-50.0)
 
-    def test_ctrl_plus_zooms_in(self) -> None:
-        """Ctrl + time_speed_up zooms in."""
+    def test_set_zoom_axis_affects_target_zoom(self) -> None:
+        """set_zoom_axis > 0 increases target_zoom on update."""
         camera = Camera()
         camera.target_zoom = 1.0
-        input_manager = MagicMock()
-        input_manager.is_action_pressed.side_effect = lambda x: x in [
-            "ctrl",
-            "time_speed_up",
-        ]
-        input_manager.get_mouse_wheel.return_value = 0.0
-
-        camera.process_input(input_manager, 0.1)
+        camera.set_zoom_axis(1.0)
+        camera.update(0.1)
 
         assert camera.target_zoom > 1.0
-
-    def test_ctrl_minus_zooms_out(self) -> None:
-        """Ctrl + time_speed_down zooms out."""
-        camera = Camera()
-        camera.target_zoom = 1.0
-        input_manager = MagicMock()
-        input_manager.is_action_pressed.side_effect = lambda x: x in [
-            "ctrl",
-            "time_speed_down",
-        ]
-        input_manager.get_mouse_wheel.return_value = 0.0
-
-        camera.process_input(input_manager, 0.1)
-
-        assert camera.target_zoom < 1.0
-
-    def test_mouse_wheel_via_input_manager(self) -> None:
-        """Mouse wheel input via InputManager zooms."""
-        camera = Camera()
-        camera.target_zoom = 1.0
-        input_manager = MagicMock()
-        input_manager.is_action_pressed.return_value = False
-        input_manager.get_mouse_wheel.return_value = 2.0
-
-        camera.process_input(input_manager, 0.1)
-
-        # 1.0 + 2.0 * 0.1 = 1.2
-        assert camera.target_zoom == 1.2
-
-    def test_zoom_speed_affected_by_current_zoom(self) -> None:
-        """Camera movement speed is faster when zoomed out."""
-        camera_zoomed_in = Camera()
-        camera_zoomed_in.zoom = 2.0
-        camera_zoomed_out = Camera()
-        camera_zoomed_out.zoom = 0.5
-
-        input_manager = MagicMock()
-        input_manager.is_action_pressed.side_effect = lambda x: x == "up"
-        input_manager.get_mouse_wheel.return_value = 0.0
-
-        camera_zoomed_in.process_input(input_manager, 0.1)
-        camera_zoomed_out.process_input(input_manager, 0.1)
-
-        # Zoomed out should move faster (larger delta)
-        assert abs(camera_zoomed_out.camera_y) > abs(camera_zoomed_in.camera_y)

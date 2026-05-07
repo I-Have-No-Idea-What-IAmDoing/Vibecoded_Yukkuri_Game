@@ -21,7 +21,13 @@ from ..game.ai.navigation_service import NavigationService
 from ..game.ai.utility import UtilityAIEngine
 from ..game.camera import Camera
 from ..game.entity_factory import EntityFactory
-from ..game.services import EconomyService, GameService, InputService, TimeService
+from ..game.services import (
+    EconomyService,
+    GameService,
+    InputBufferService,
+    InputService,
+    TimeService,
+)
 from ..game.settings_service import SettingsService
 from ..game.skill_service import SkillService
 from ..game.systems.lod_system import LODSystem
@@ -103,6 +109,9 @@ class GameLoader:
 
         input_service = InputService()
         self.world.services.register(input_service, InputService)
+
+        input_buffer_service = InputBufferService()
+        self.world.services.register(input_buffer_service, InputBufferService)
 
         settings_service = SettingsService(self.application.resources)
         self.world.services.register(settings_service, SettingsService)

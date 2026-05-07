@@ -6,21 +6,28 @@ from typing import TYPE_CHECKING
 
 import pygame
 
-from ..engine.audio import AudioManager
 from ..engine.ecs import System, World
 from ..engine.event_bus import Event, EventBus
 from ..engine.input_manager import InputManager
+from .commands import (
+    CameraAxisCommand,
+    CameraPanCommand,
+    CameraZoomAxisCommand,
+    CameraZoomCommand,
+    CancelCleaningCommand,
+    CancelPlacementCommand,
+    CleanEntityCommand,
+    ContextMenuCommand,
+    PlaceItemCommand,
+    SelectEntitiesCommand,
+    TimeSpeedCommand,
+)
 from .components import Selectable, Transform
 from .events import (
     CleanToolRequestedEvent,
-    ContextMenuRequestedEvent,
-    EntitySelectedEvent,
-    PlacementCancelledEvent,
-    PlacementRequestedEvent,
     PlacementStartedEvent,
 )
-from .services import InputService, TimeService
-from .yukkuri_components import Poop
+from .services import InputBufferService, InputService
 
 if TYPE_CHECKING:
     import pygame_gui
@@ -30,20 +37,25 @@ if TYPE_CHECKING:
 
 class InputSystem(System):
     """
-    System responsible for handling user input related to the game world.
+    System responsible for translating raw hardware input into GameCommands.
 
-    Handles entity selection and triggers placement requests via events.
+    This system no longer executes any game logic itself.  It reads the
+    InputManager state each frame, produces the appropriate GameCommand
+    objects, and enqueues them in the InputBufferService.  All actual
+    world mutations happen inside CommandProcessorSystem.
 
     Attributes:
-        camera (Camera): The world view manager.
-        event_bus (Optional[EventBus]): The event bus service.
-        input_service (Optional[InputService]): The input service.
-        input_manager (Optional[InputManager]): The input manager service.
-        audio (Optional[AudioManager]): The audio manager.
-        ui_manager (Optional[pygame_gui.UIManager]): The UI manager.
-        drag_start_pos (Optional[Tuple[float, float]]): World coordinates where drag started.
-        drag_end_pos (Optional[Tuple[float, float]]): World coordinates where drag ended.
-        drag_start_screen_pos (Optional[Tuple[int, int]]): Screen coordinates where drag started.
+        camera (Camera): The world view manager (used for coordinate conversion).
+        event_bus (EventBus | None): The event bus service.
+        input_service (InputService | None): The input mode service.
+        input_manager (InputManager | None): The raw input manager.
+        buffer (InputBufferService | None): The command buffer service.
+        ui_manager (pygame_gui.UIManager | None): The UI manager.
+        drag_start_pos (tuple[float, float] | None): World drag-start position.
+        drag_end_pos (tuple[float, float] | None): World drag-end position.
+        drag_start_screen_pos (tuple[int, int] | None): Screen drag-start position.
+        _prev_move_axis (tuple[float, float]): Previously emitted movement axis.
+        _prev_zoom_axis (float): Previously emitted zoom axis.
     """
 
     def __init__(self, camera: "Camera"):
@@ -57,12 +69,16 @@ class InputSystem(System):
         self.event_bus: EventBus | None = None
         self.input_service: InputService | None = None
         self.input_manager: InputManager | None = None
-        self.audio: AudioManager | None = None
-        self.ui_manager: pygame_gui.UIManager | None = None
+        self.buffer: InputBufferService | None = None
+        self.ui_manager: "pygame_gui.UIManager | None" = None
 
         self.drag_start_pos: tuple[float, float] | None = None
         self.drag_end_pos: tuple[float, float] | None = None
         self.drag_start_screen_pos: tuple[int, int] | None = None
+
+        # Track previously emitted axis values to avoid flooding the buffer
+        self._prev_move_axis: tuple[float, float] = (0.0, 0.0)
+        self._prev_zoom_axis: float = 0.0
 
     def set_ui_manager(self, ui_manager: "pygame_gui.UIManager") -> None:
         """
@@ -72,16 +88,6 @@ class InputSystem(System):
             ui_manager (pygame_gui.UIManager): The UI manager.
         """
         self.ui_manager = ui_manager
-
-    def _play_sound(self, sound_name: str) -> None:
-        """
-        Plays a sound effect if the audio manager is available.
-
-        Args:
-            sound_name (str): The sound effect name to play.
-        """
-        if self.audio:
-            self.audio.play_sound(sound_name)
 
     def on_placement_started(self, event: Event) -> None:
         """
@@ -111,9 +117,42 @@ class InputSystem(System):
         if self.input_service:
             self.input_service.start_cleaning()
 
+    def _emit(self, command: object) -> None:
+        """
+        Enqueues a command into the InputBufferService.
+
+        Args:
+            command: Any object satisfying the GameCommand protocol.
+        """
+        if self.buffer:
+            self.buffer.add_command(command)
+
+    def _emit_camera_axis(self, x: float, y: float) -> None:
+        """
+        Emits a CameraAxisCommand only when the axis value changes.
+
+        Args:
+            x: Horizontal axis value in [-1, 1].
+            y: Vertical axis value in [-1, 1].
+        """
+        if (x, y) != self._prev_move_axis:
+            self._emit(CameraAxisCommand(x, y))
+            self._prev_move_axis = (x, y)
+
+    def _emit_zoom_axis(self, z: float) -> None:
+        """
+        Emits a CameraZoomAxisCommand only when the zoom axis changes.
+
+        Args:
+            z: Zoom axis value in [-1, 1].
+        """
+        if z != self._prev_zoom_axis:
+            self._emit(CameraZoomAxisCommand(z))
+            self._prev_zoom_axis = z
+
     def update(self, world: World, dt: float) -> None:
         """
-        Updates the input system by polling InputManager.
+        Translates InputManager state into GameCommands each frame.
 
         Args:
             world (World): The ECS World.
@@ -124,19 +163,19 @@ class InputSystem(System):
             self.input_service = world.services.get(InputService)
         if self.input_manager is None:
             self.input_manager = world.services.try_get(InputManager)
+        if self.buffer is None:
+            self.buffer = world.services.try_get(InputBufferService)
         if self.event_bus is None:
             self.event_bus = world.services.get(EventBus)
             self.event_bus.subscribe(PlacementStartedEvent, self.on_placement_started)
             self.event_bus.subscribe(
                 CleanToolRequestedEvent, self.on_clean_tool_requested
             )
-        if self.audio is None:
-            self.audio = world.services.try_get(AudioManager)
 
         if not self.input_manager:
             return
 
-        # Poll InputManager
+        # Poll mouse position
         mx, my = self.input_manager.get_mouse_position()
 
         surface = pygame.display.get_surface()
@@ -144,64 +183,82 @@ class InputSystem(System):
             return
         screen_w, screen_h = surface.get_size()
 
-        # Process camera input (movement, zoom)
-        self.camera.process_input(self.input_manager, dt)
+        # --- Camera movement axis ---
+        x_axis = 0.0
+        y_axis = 0.0
+        if self.input_manager.is_action_pressed("right"):
+            x_axis += 1.0
+        if self.input_manager.is_action_pressed("left"):
+            x_axis -= 1.0
+        if self.input_manager.is_action_pressed("down"):
+            y_axis += 1.0
+        if self.input_manager.is_action_pressed("up"):
+            y_axis -= 1.0
+        self._emit_camera_axis(x_axis, y_axis)
 
-        # Check UI Hover
+        # --- Camera zoom axis (keyboard Ctrl + +/-) ---
+        zoom_axis = 0.0
+        if self.input_manager.is_action_pressed("ctrl"):
+            if self.input_manager.is_action_pressed("time_speed_up"):
+                zoom_axis = 1.0
+            elif self.input_manager.is_action_pressed("time_speed_down"):
+                zoom_axis = -1.0
+        self._emit_zoom_axis(zoom_axis)
+
+        # --- Mouse wheel discrete zoom ---
+        wheel = self.input_manager.get_mouse_wheel()
+        if wheel != 0.0:
+            self._emit(CameraZoomCommand(wheel * 0.1))
+
+        # --- Middle-mouse pan ---
+        if self.input_manager.is_action_pressed("pan"):
+            dx, dy = self.input_manager.get_mouse_rel()
+            if dx != 0 or dy != 0:
+                self._emit(CameraPanCommand(dx, dy))
+
+        # Check UI Hover — suppress gameplay input when UI is hovered
         if self.ui_manager and self.ui_manager.get_hovering_any_element():
             return
 
-        # Check Actions
+        # --- Per-frame action queries ---
         is_select_pressed = self.input_manager.is_action_just_pressed("select")
         is_cancel_pressed = self.input_manager.is_action_just_pressed("cancel_action")
         is_select_released = self.input_manager.is_action_just_released("select")
 
         wx, wy = self.camera.screen_to_world(mx, my, screen_w, screen_h)
 
-        # Update Placement Preview Logic
+        # --- Placement preview position update ---
         if self.input_service and self.input_service.is_placing:
-            # Check for Grid Snapping (Control Key) using InputManager
             is_ctrl_pressed = self.input_manager.is_action_pressed("ctrl")
-
             if is_ctrl_pressed:
-                # Snap to grid (32x32)
                 grid_size = 32
                 wx = round(wx / grid_size) * grid_size
                 wy = round(wy / grid_size) * grid_size
-
             self.input_service.current_placement_pos = (wx, wy)
 
         self._check_hover(world, wx, wy, mx, my)
 
-        # Handle Left Click (Select / Place / Clean / Start Drag)
+        # --- Left click: Place / Clean / Start drag ---
         if is_select_pressed:
             if self.input_service and self.input_service.is_placing:
-                # Use the potentially snapped position
                 place_x, place_y = self.input_service.current_placement_pos
-                if self.event_bus:
-                    self.event_bus.publish(
-                        PlacementRequestedEvent(
-                            place_x,
-                            place_y,
-                            self.input_service.place_type,
-                            self.input_service.place_cost,
-                            self.input_service.place_entity_type,
-                        )
+                self._emit(
+                    PlaceItemCommand(
+                        place_x,
+                        place_y,
+                        self.input_service.place_type,
+                        self.input_service.place_cost,
+                        self.input_service.place_entity_type,
                     )
-                self._play_sound("place")
-
-                # Check for Shift Key (Multiple Placement) using InputManager
+                )
                 is_shift_pressed = self.input_manager.is_action_pressed("shift")
-
                 if not is_shift_pressed:
                     self.input_service.cancel_placement()
                 return
 
             if self.input_service and self.input_service.is_cleaning:
-                self._handle_cleaning(world, wx, wy)
+                self._emit(CleanEntityCommand(wx, wy))
                 return
-
-            self._play_sound("click")
 
             self.drag_start_pos = (wx, wy)
             self.drag_end_pos = (wx, wy)
@@ -211,25 +268,32 @@ class InputSystem(System):
                 self.input_service.drag_start_pos = (mx, my)
                 self.input_service.drag_current_pos = (mx, my)
 
-        # Handle Dragging Update
+        # --- Drag update ---
         if self.input_service and self.input_service.is_dragging:
             self.drag_end_pos = (wx, wy)
             self.input_service.drag_current_pos = (mx, my)
 
-        # Handle Left Release (End Drag / Selection)
+        # --- Left release: resolve selection ---
         if is_select_released and self.drag_start_pos:
             self.drag_end_pos = (wx, wy)
 
             drag_dist = 0.0
             if self.drag_start_screen_pos:
-                dx = mx - self.drag_start_screen_pos[0]
-                dy = my - self.drag_start_screen_pos[1]
-                drag_dist = (dx * dx + dy * dy) ** 0.5
+                ddx = mx - self.drag_start_screen_pos[0]
+                ddy = my - self.drag_start_screen_pos[1]
+                drag_dist = (ddx * ddx + ddy * ddy) ** 0.5
 
-            if self.drag_end_pos:  # Add check to satisfy type checker
-                self._handle_selection(
-                    world, self.drag_start_pos, self.drag_end_pos, drag_dist
+            end = self.drag_end_pos or (wx, wy)
+            is_shift = (
+                self.input_manager.is_action_pressed("shift")
+                if self.input_manager
+                else False
+            )
+            self._emit(
+                SelectEntitiesCommand(
+                    self.drag_start_pos, end, drag_dist, is_shift
                 )
+            )
 
             self.drag_start_pos = None
             self.drag_end_pos = None
@@ -237,159 +301,23 @@ class InputSystem(System):
             if self.input_service:
                 self.input_service.is_dragging = False
 
-        # Handle Right Click (Cancel or Context Menu)
+        # --- Right click: Cancel or Context Menu ---
         if is_cancel_pressed:
-            handled = False
-
-            # Cancel Placement
             if self.input_service and self.input_service.is_placing:
-                self._play_sound("cancel")
-                self.input_service.cancel_placement()
-                if self.event_bus:
-                    self.event_bus.publish(PlacementCancelledEvent())
-                handled = True
-
-            # Cancel Cleaning
-            if not handled and self.input_service and self.input_service.is_cleaning:
-                self._play_sound("cancel")
-                self.input_service.stop_cleaning()
-                handled = True
-
-            # Context Menu (if not cancelling something)
-            if not handled:
-                # Use the hovered entity logic but for context menu
-                self._handle_context_menu_request(world, wx, wy, mx, my)
-
-        # Handle Time Speed Controls
-        self._handle_time_controls(world)
-
-    def _handle_context_menu_request(
-        self, world: World, wx: float, wy: float, mx: int, my: int
-    ) -> None:
-        """
-        Checks for an entity at the right-click position and requests a context menu.
-        """
-        # Re-use hover logic to find top-most entity
-        hover_radius = 32.0
-        # Optimization: Use get_components_tuple to iterate efficiently
-        components = world.get_components_tuple(Transform, Selectable)
-
-        target_id = -1
-        # Reversed to match Z-order (assuming order in list follows creation/render order)
-        for entity_id, (trans, selectable) in reversed(list(components)):
-            dist = ((trans.x - wx) ** 2 + (trans.y - wy) ** 2) ** 0.5
-            if dist < hover_radius:
-                target_id = entity_id
-                break
-
-        if target_id != -1 and self.event_bus:
-            self.event_bus.publish(ContextMenuRequestedEvent(target_id, (mx, my)))
-
-    def _handle_selection(
-        self,
-        world: World,
-        start_pos: tuple[float, float],
-        end_pos: tuple[float, float],
-        drag_dist: float,
-    ) -> None:
-        """
-        Handles selecting entities within the given world coordinate box.
-
-        Args:
-            world (World): The ECS World.
-            start_pos (tuple[float, float]): The drag start position (world coords).
-            end_pos (tuple[float, float]): The drag end position (world coords).
-            drag_dist (float): The distance dragged in screen pixels.
-        """
-        x1, y1 = start_pos
-        x2, y2 = end_pos
-        min_x, max_x = min(x1, x2), max(x1, x2)
-        min_y, max_y = min(y1, y2), max(y1, y2)
-
-        is_click = drag_dist < 5.0
-        click_radius = 32.0
-
-        # Optimization: Use get_components_tuple to avoid O(N) get_component calls
-        # components is a list of (entity_id, (Transform, Selectable))
-        components = world.get_components_tuple(Transform, Selectable)
-        clicked_something = False
-
-        is_shift_pressed = (
-            self.input_manager.is_action_pressed("shift")
-            if self.input_manager
-            else False
-        )
-
-        current_selection = []
-        new_selection = []
-
-        for ent, (trans, selectable) in components:
-            if selectable.selected:
-                current_selection.append(ent)
-
-            in_selection = False
-            if is_click:
-                dist = ((trans.x - x1) ** 2 + (trans.y - y1) ** 2) ** 0.5
-                if dist < click_radius:
-                    in_selection = True
-                    clicked_something = True
+                self._emit(CancelPlacementCommand())
+            elif self.input_service and self.input_service.is_cleaning:
+                self._emit(CancelCleaningCommand())
             else:
-                if min_x <= trans.x <= max_x and min_y <= trans.y <= max_y:
-                    in_selection = True
-                    clicked_something = True
+                self._emit(ContextMenuCommand(wx, wy, mx, my))
 
-            if in_selection:
-                new_selection.append(ent)
-
-        final_selection = []
-        if is_shift_pressed:
-            final_selection = list(set(current_selection) | set(new_selection))
-            if is_click and len(new_selection) == 1:
-                ent = new_selection[0]
-                if ent in current_selection:
-                    final_selection.remove(ent)
-        else:
-            if clicked_something:
-                final_selection = new_selection
-            else:
-                final_selection = []
-
-        # Update selection state
-        # We need to iterate all components to update 'selected' status
-        for ent, (_, selectable) in components:
-            selectable.selected = ent in final_selection
-
-        if self.event_bus:
-            self.event_bus.publish(EntitySelectedEvent(tuple(final_selection)))
-
-    def _handle_cleaning(self, world: World, wx: float, wy: float) -> None:
-        """
-        Handles logic when clicking in cleaning mode.
-
-        Args:
-            world (World): The ECS World.
-            wx (float): World x-coordinate.
-            wy (float): World y-coordinate.
-        """
-        click_radius = 32.0
-        # Optimization: Use get_components_tuple
-        components = world.get_components_tuple(Poop, Transform)
-
-        found = False
-        for entity, (_, transform) in components:
-            dist = ((transform.x - wx) ** 2 + (transform.y - wy) ** 2) ** 0.5
-            if dist < click_radius:
-                world.destroy_entity(entity)
-                found = True
-
-        if found:
-            self._play_sound("click")
+        # --- Time speed controls ---
+        self._handle_time_controls()
 
     def _check_hover(
         self, world: World, wx: float, wy: float, mx: int, my: int
     ) -> None:
         """
-        Checks for entities under the mouse cursor and updates the input service.
+        Checks for entities under the mouse cursor and updates InputService.
 
         Args:
             world (World): The ECS World.
@@ -399,13 +327,10 @@ class InputSystem(System):
             my (int): Screen y-coordinate.
         """
         hover_radius = 32.0
-        # Optimization: Use get_components_tuple to iterate efficiently
         components = world.get_components_tuple(Transform, Selectable)
 
         hovered_id = -1
-        # Reversed to match Z-order (assuming order in list follows creation/render order)
-        # Note: esper.get_components returns a list, order depends on insertion but usually consistent.
-        for entity_id, (trans, selectable) in reversed(components):
+        for entity_id, (trans, _) in reversed(components):
             dist = ((trans.x - wx) ** 2 + (trans.y - wy) ** 2) ** 0.5
             if dist < hover_radius:
                 hovered_id = entity_id
@@ -415,33 +340,35 @@ class InputSystem(System):
             self.input_service.hovered_entity_id = hovered_id
             self.input_service.hovered_entity_pos = (mx, my)
 
-    def _handle_time_controls(self, world: World) -> None:
+    def _handle_time_controls(self) -> None:
         """
-        Handles time speed control inputs.
+        Emits TimeSpeedCommands based on time speed key presses.
 
-        Checks for speed up/down actions and modifies the TimeService.game_speed accordingly.
-
-        Args:
-            world (World): The ECS World.
+        Skips if the Ctrl key is held (to avoid conflict with zoom).
         """
         if not self.input_manager:
             return
 
-        # Lazy get TimeService
-        time_service = world.services.try_get(TimeService)
-        if time_service is None:
-            return
-
-        # Prevent conflict with Zoom (Ctrl + +/-)
+        # Prevent conflict with Ctrl+zoom
         if self.input_manager.is_action_pressed("ctrl"):
             return
 
-        # Speed Up (+)
         if self.input_manager.is_action_just_pressed("time_speed_up"):
-            new_speed = min(5.0, time_service.game_speed * 2.0)
-            time_service.game_speed = new_speed
+            # Read current speed from the service directly so we can compute
+            # the next value; the command only accepts the final value.
+            if self.buffer:
+                from .services import TimeService as _TS
 
-        # Speed Down (-)
+                ts = self.ecs_world.services.try_get(_TS)
+                if ts:
+                    new_speed = min(5.0, ts.game_speed * 2.0)
+                    self._emit(TimeSpeedCommand(new_speed))
+
         if self.input_manager.is_action_just_pressed("time_speed_down"):
-            new_speed = max(0.5, time_service.game_speed / 2.0)
-            time_service.game_speed = new_speed
+            if self.buffer:
+                from .services import TimeService as _TS
+
+                ts = self.ecs_world.services.try_get(_TS)
+                if ts:
+                    new_speed = max(0.5, ts.game_speed / 2.0)
+                    self._emit(TimeSpeedCommand(new_speed))
