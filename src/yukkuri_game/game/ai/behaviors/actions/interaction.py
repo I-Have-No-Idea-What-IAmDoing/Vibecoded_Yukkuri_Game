@@ -6,14 +6,12 @@ from py_trees.common import Status
 
 from ...base_action import Action
 from ....components import (
-    Transform,
-    MovementController,
-    InteractionRequest,
-)
-from ....yukkuri_components import (
     AIState,
+    InteractionRequest,
+    MovementController,
     Needs,
     Predator,
+    Transform,
     YukkuriStats,
 )
 from yukkuri_game.engine.types import EntityID

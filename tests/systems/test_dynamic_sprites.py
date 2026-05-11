@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.animation import AnimationSystem
 from yukkuri_game.game.components import Sprite, Animator
-from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats
+from yukkuri_game.game.components import AIState, YukkuriStats
 from yukkuri_game.engine.resource_manager import ResourceManager
 
 

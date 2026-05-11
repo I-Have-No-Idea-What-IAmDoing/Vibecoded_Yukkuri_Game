@@ -15,7 +15,7 @@ from ..engine.ecs import World
 from .prefabs.effects import create_floating_text
 from .prefabs.item import create_item, create_poop
 from .prefabs.yukkuri import create_yukkuri
-from .yukkuri_components import ArchetypeConfig, GoalType
+from .components import ArchetypeConfig, GoalType
 
 
 class EntityFactory:

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
+from yukkuri_game.game.components import YukkuriStats, Needs
 from yukkuri_game.game.components import LightSource, Transform
 from yukkuri_game.config import StatDecaySettings
 

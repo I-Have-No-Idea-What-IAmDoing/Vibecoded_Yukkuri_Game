@@ -339,7 +339,7 @@ class GameDriver:
             x (float): Target X.
             y (float): Target Y.
         """
-        from ..game.yukkuri_components import AIState
+        from ..game.components import AIState
 
         if not self.world:
             return
@@ -361,7 +361,7 @@ class GameDriver:
             action (str): The action name.
             target_id (int): Optional target entity ID.
         """
-        from ..game.yukkuri_components import AIState
+        from ..game.components import AIState
 
         if not self.world:
             return

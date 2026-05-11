@@ -1,5 +1,5 @@
 from typing import cast
-from yukkuri_game.game.yukkuri_components import Predator, AIState
+from yukkuri_game.game.components import Predator, AIState
 """
 Regression tests for Utility AI bugs.
 These tests ensure previously fixed bugs don't reappear.
@@ -11,7 +11,7 @@ from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.ai.utility import Consideration, Action, UtilityAIEngine
 from yukkuri_game.game.ai.utility_selector import UtilitySelector
 from yukkuri_game.game.ai.behaviors import FleePredator
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     AIState,
     YukkuriStats,
     Needs,

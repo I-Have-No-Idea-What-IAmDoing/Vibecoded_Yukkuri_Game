@@ -3,16 +3,16 @@ Flight System Module.
 """
 
 from ...engine.ecs import System, World
-from ..components import Transform
-from ..yukkuri_components import (
+from ..components import (
+    EmotionalState,
     Flight,
     FlightState,
     Needs,
-    EmotionalState,
+    Transform,
     YukkuriStats,
 )
-from ..skill_service import SkillService
 from ..skill_constants import SkillId
+from ..skill_service import SkillService
 
 
 class FlightSystem(System):

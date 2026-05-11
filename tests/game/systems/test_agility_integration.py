@@ -4,7 +4,7 @@ from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.types import EntityID
 from yukkuri_game.game.systems.perception_system import PerceptionSystem
 from yukkuri_game.game.systems.kinematic_movement_system import KinematicMovementSystem
-from yukkuri_game.game.yukkuri_components import AIState, Blackboard, YukkuriStats, TargetInfo
+from yukkuri_game.game.components import AIState, Blackboard, YukkuriStats, TargetInfo
 from yukkuri_game.game.components import Transform, PhysicsBody, MovementController
 
 class TestAgilityIntegration:

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, Needs
+from yukkuri_game.game.components import AIState, YukkuriStats, Needs
 from yukkuri_game.game.components import Transform, InteractionRequest, MovementController
 from yukkuri_game.game.ai.behaviors.trees import build_standard_interaction_behavior
 from yukkuri_game.game.services import GameService

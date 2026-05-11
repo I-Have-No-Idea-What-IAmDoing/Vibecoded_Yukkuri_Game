@@ -4,7 +4,7 @@ from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.animation import AnimationSystem
 from yukkuri_game.game.components import Sprite, Animator
-from yukkuri_game.game.yukkuri_components import AIState
+from yukkuri_game.game.components import AIState
 from yukkuri_game.engine.data_models import AnimationDefinition
 
 

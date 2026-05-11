@@ -3,7 +3,7 @@ from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.visibility_system import VisibilitySystem
 from yukkuri_game.game.systems.physics import PhysicsSystem
 from yukkuri_game.game.components import PhysicsBody, Transform, Vision
-from yukkuri_game.game.yukkuri_components import AIState
+from yukkuri_game.game.components import AIState
 from yukkuri_game.game.collision_constants import CollisionCategories
 
 

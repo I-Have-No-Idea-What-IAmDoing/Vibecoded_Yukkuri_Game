@@ -25,9 +25,16 @@ from typing import Any, cast
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
-from ..components import Animator, LODComponent, Sprite
+from ..components import (
+    AIState,
+    Animator,
+    Flight,
+    FlightState,
+    LODComponent,
+    Sprite,
+    YukkuriStats,
+)
 from ..events import AnimationEvent
-from ..yukkuri_components import AIState, YukkuriStats
 
 
 class AnimationSystem(System):
@@ -259,7 +266,6 @@ class AnimationSystem(System):
         target_anim = ai_state.current_action.lower()
 
         # Flight Overrides
-        from ..yukkuri_components import Flight, FlightState
 
         flight = world.try_get_component(entity, Flight)
         if flight:

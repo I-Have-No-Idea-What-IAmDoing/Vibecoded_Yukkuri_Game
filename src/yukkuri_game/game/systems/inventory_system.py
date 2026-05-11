@@ -12,14 +12,14 @@ from ...engine.event_bus import EventBus
 from ...engine import rng
 from ...engine.events import InventoryChangedEvent
 from ...engine.resource_manager import ResourceManager
-from ..components import Transform
-from ..entity_factory import EntityFactory
-from ..inventory_component import (
+from ..components import (
     InventoryComponent,
     InventoryDropRequest,
     InventoryPickupRequest,
+    ItemStats,
+    Transform,
 )
-from ..yukkuri_components import ItemStats
+from ..entity_factory import EntityFactory
 
 
 class InventorySystem(System):

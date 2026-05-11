@@ -51,7 +51,7 @@ def test_spawn_reimu(game_driver):
     game_driver.run_scenario(scenario())
 
     # Verify entity count
-    from yukkuri_game.game.yukkuri_components import YukkuriStats
+    from yukkuri_game.game.components import YukkuriStats
 
     # game.world.get_components return dict{entity_id: component}
     components = game_driver.world.get_components(YukkuriStats)

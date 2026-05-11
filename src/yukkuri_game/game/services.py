@@ -5,17 +5,17 @@ Module defining core game services.
 import collections
 import math
 import os
-from typing import Any
+from typing import TYPE_CHECKING
 
-import msgspec
 from loguru import logger
 
 from ..engine.ecs import World
-from . import components, components_persistence, yukkuri_components
-from .components import Transform
+from .components import ItemStats, Skills, Transform
 from .skill_constants import SkillId
 from .systems.spatial_system import SpatialService
-from .yukkuri_components import ItemStats, Skills
+
+if TYPE_CHECKING:
+    from ..engine.serializer import WorldSerializer
 
 BASE_SCAVENGING_RADIUS = 500.0
 SCAVENGING_RADIUS_PER_LEVEL = 50.0
@@ -468,136 +468,148 @@ class PersistenceService:
     """
     Service responsible for saving and loading the game state.
 
+    Uses the canonical two-file save format:
+    - ``<name>.level.msgpack``: All persistable ECS entities (binary).
+    - ``<name>.global.json``: Scalar global state: money, time (human-readable).
+
+    This mirrors the save/load logic in ``GameplayScene`` so that there is
+    exactly one save format in the codebase.  The ``WorldSerializer`` used
+    here is built from the same ``collect_component_types`` helper used by
+    ``GameLoader``, ensuring both paths see the same set of components.
+
     Attributes:
         world (World): The ECS world instance.
         save_dir (str): Directory where save files are stored.
     """
 
-    def __init__(self, world: World, save_dir: str = "saves"):
+    def __init__(self, world: World, save_dir: str = "saves") -> None:
         """
         Initializes the PersistenceService.
 
         Args:
             world (World): The ECS world.
-            save_dir (str): Path to the save directory. Defaults to "saves".
+            save_dir (str): Path to the save directory. Defaults to ``"saves"``.
         """
         self.world = world
         self.save_dir = save_dir
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        os.makedirs(save_dir, exist_ok=True)
 
-    def _serialize_object(self, obj: object) -> Any:
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _build_serializer(self) -> "WorldSerializer":
         """
-        Recursively converts objects to JSON-serializable structures.
+        Builds a ``WorldSerializer`` with all known component types.
 
-        Args:
-            obj (object): The object to serialize.
+        Uses ``collect_component_types`` (the same logic as ``GameLoader``) to
+        guarantee the component registry is consistent with the production save
+        path used by ``GameplayScene``.
 
         Returns:
-            Any: The serialized object.
+            WorldSerializer: A ready-to-use serializer instance.
         """
-        if isinstance(obj, (set, tuple)):
-            return list(obj)
-        if isinstance(obj, dict):
-            return {k: self._serialize_object(v) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [self._serialize_object(v) for v in obj]
-        return obj
+        import inspect
+
+        from ..engine.serializer import WorldSerializer
+        from . import components as _components
+
+        comp_types: list[type] = []
+        for _, obj in inspect.getmembers(_components):
+            if inspect.isclass(obj) and getattr(obj, "__module__", "").startswith(_components.__name__):
+                comp_types.append(obj)
+
+        return WorldSerializer(self.world, comp_types)
+
+    def _level_path(self, filename: str) -> str:
+        """Returns the path for the level (entity) save file."""
+        base, _ = os.path.splitext(filename)
+        return os.path.join(self.save_dir, base + ".level.msgpack")
+
+    def _global_path(self, filename: str) -> str:
+        """Returns the path for the global (money/time) save file."""
+        base, _ = os.path.splitext(filename)
+        return os.path.join(self.save_dir, base + ".global.json")
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
     def save_game(self, filename: str) -> None:
         """
-        Saves the current game state to a file.
+        Saves the current game state to two files.
+
+        Writes entity data to ``<filename>.level.msgpack`` and global scalars
+        (money, time) to ``<filename>.global.json``.
 
         Args:
-            filename (str): The name of the save file.
+            filename (str): Base name for the save files (extension ignored).
         """
-        filepath = os.path.join(self.save_dir, filename)
+        level_path = self._level_path(filename)
+        global_path = self._global_path(filename)
 
-        data = {"money": 0, "time": 0.0, "entities": []}
+        # --- Global scalars ---
+        global_data: dict[str, object] = {"money": 0, "time": 0.0}
 
-        # Save Economy
         economy = self.world.services.try_get(EconomyService)
         if economy:
-            data["money"] = economy.money
+            global_data["money"] = economy.money
 
-        # Save Time
         time_svc = self.world.services.try_get(TimeService)
         if time_svc:
-            data["time"] = time_svc.time_elapsed
+            global_data["time"] = time_svc.time_elapsed
 
-        # Gather all component types from modules.
-        # This is required by WorldSerializer
-        import inspect
-        from . import components, components_persistence, yukkuri_components
-        from ..engine.serializer import WorldSerializer
+        import json
 
-        component_types = []
-        for module in [components, components_persistence, yukkuri_components]:
-            for name, obj in inspect.getmembers(module):
-                if inspect.isclass(obj) and (
-                    hasattr(obj, "__dataclass_fields__")
-                    or issubclass(obj, msgspec.Struct)
-                ):
-                    component_types.append(obj)
+        with open(global_path, "w") as f:
+            json.dump(global_data, f)
 
-        serializer = WorldSerializer(self.world, component_types)
-        
-        # Save Entities
+        # --- Entity data ---
         try:
-            data["entities"] = serializer.get_persistable_entities_data()
+            serializer = self._build_serializer()
+            serializer.save_to_file(level_path)
         except Exception as e:
             logger.error(f"Failed to serialize game state: {e}", exc_info=True)
             raise
 
-        with open(filepath, "wb") as f:
-            f.write(msgspec.msgpack.encode(data))
+        logger.info(f"Game saved to {level_path} and {global_path}")
 
     def load_game(self, filename: str) -> bool:
         """
-        Loads the game state from a file.
+        Loads the game state from the two-file save bundle.
 
         Args:
-            filename (str): The name of the save file.
+            filename (str): Base name used when saving (extension ignored).
 
         Returns:
-            bool: True if successful, False if file not found.
+            bool: ``True`` if both files were found and loaded successfully,
+            ``False`` if either file is missing.
         """
-        filepath = os.path.join(self.save_dir, filename)
-        if not os.path.exists(filepath):
+        level_path = self._level_path(filename)
+        global_path = self._global_path(filename)
+
+        if not os.path.exists(level_path) or not os.path.exists(global_path):
+            logger.error(
+                f"Save files not found: {level_path} or {global_path}"
+            )
             return False
 
-        with open(filepath, "rb") as f:
-            data = msgspec.msgpack.decode(f.read())
+        # --- Global scalars ---
+        import json
 
-        # Restore Economy
+        with open(global_path) as f:
+            global_data = json.load(f)
+
         economy = self.world.services.try_get(EconomyService)
         if economy:
-            economy.set_money(data.get("money", 0))
+            economy.set_money(global_data.get("money", 0))
 
-        # Restore Time
         time_svc = self.world.services.try_get(TimeService)
         if time_svc:
-            time_svc.time_elapsed = data.get("time", 0.0)
+            time_svc.time_elapsed = global_data.get("time", 0.0)
 
-        # Restore Entities
-        entities_data = data.get("entities", [])
-
-        # Use WorldSerializer for robust loading and reference remapping
-        import inspect
-
-        from ..engine.serializer import WorldSerializer
-
-        # Gather all component types from modules.
-        component_types = []
-        for module in [components, components_persistence, yukkuri_components]:
-            for name, obj in inspect.getmembers(module):
-                if inspect.isclass(obj) and (
-                    hasattr(obj, "__dataclass_fields__")
-                    or issubclass(obj, msgspec.Struct)
-                ):
-                    component_types.append(obj)
-
-        serializer = WorldSerializer(self.world, component_types)
-        serializer.load_from_data(entities_data)
+        # --- Entity data ---
+        serializer = self._build_serializer()
+        serializer.load_from_file(level_path)
 
         return True

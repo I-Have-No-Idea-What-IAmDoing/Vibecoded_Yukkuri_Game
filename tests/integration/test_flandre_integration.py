@@ -5,7 +5,7 @@ Comprehensive tests for Phase 7: Flandre integration and predator hunting.
 import pytest
 import math
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     Flight,
     FlightState,
     Predator,

@@ -10,7 +10,7 @@ from yukkuri_game.testing.driver import (
 )
 from yukkuri_game.scenes.gameplay import GameplayScene
 from yukkuri_game.scenes.main_menu import MainMenuScene
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.components import YukkuriStats
 from tests.mocks import MockAudioManager
 
 

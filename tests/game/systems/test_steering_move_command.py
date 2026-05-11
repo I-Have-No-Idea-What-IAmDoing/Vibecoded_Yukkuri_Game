@@ -9,7 +9,7 @@ from yukkuri_game.game.components import (
     SteeringComponent,
     PhysicsBody,
 )
-from yukkuri_game.game.yukkuri_components import AIState
+from yukkuri_game.game.components import AIState
 from yukkuri_game.engine.ecs import World
 
 

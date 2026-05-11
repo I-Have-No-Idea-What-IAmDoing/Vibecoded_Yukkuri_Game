@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch
 from test_utils import make_configured_world
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     YukkuriStats,
     Needs,
     AIState,

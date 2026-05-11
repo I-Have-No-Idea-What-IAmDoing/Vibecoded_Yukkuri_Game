@@ -9,7 +9,7 @@ from typing import Any, cast
 
 from ...engine.ecs import World
 from ..utils.evaluator import ConditionEvaluator
-from ..yukkuri_components import EmotionalState, Personality
+from ..components import EmotionalState, Personality
 from ..trait_service import TraitService
 
 

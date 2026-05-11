@@ -14,7 +14,7 @@ from .event_manager import EventManager
 from .input_manager import InputManager
 from .resource_manager import ResourceManager
 from .serializer import WorldSerializer
-from ..game.components_persistence import Persistable, StableIDComponent
+from ..game.components import Persistable, StableIDComponent
 
 if TYPE_CHECKING:
     from .application import Application

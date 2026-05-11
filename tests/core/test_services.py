@@ -3,13 +3,9 @@ Tests for Game Services (Economy, Time, Persistence).
 """
 
 import pytest
-import os
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 from yukkuri_game.game.services import PersistenceService, EconomyService, TimeService
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats
-from yukkuri_game.game.entity_factory import EntityFactory
 
 # --- Economy Service Tests ---
 
@@ -80,13 +76,13 @@ def persistence_world() -> MagicMock:
     return mock_world
 
 
-def test_save_game(persistence_world: MagicMock) -> None:
+def test_save_game(persistence_world: MagicMock, tmp_path) -> None:
     """
-    Tests saving game data to a file.
+    Tests that save_game writes money/time to the .global.json sidecar
+    and delegates entity serialization to WorldSerializer.
     """
     world = persistence_world
 
-    # Mock services
     economy = EconomyService(500)
     time_svc = TimeService()
     time_svc.time_elapsed = 123.45
@@ -100,55 +96,32 @@ def test_save_game(persistence_world: MagicMock) -> None:
 
     world.services.try_get.side_effect = get_service
 
-    # Mock entities
-    ent1 = 1
-    world.get_all_entities.return_value = [ent1]
+    service = PersistenceService(world, save_dir=str(tmp_path))
 
-    trans = Transform(x=10, y=20)
-    ystats = YukkuriStats(name="Reimu", type_id="reimu")
+    mock_serializer = MagicMock()
+    with patch.object(service, "_build_serializer", return_value=mock_serializer):
+        service.save_game("test.json")
 
-    def get_component(ent, comp_type):
-        if ent == ent1:
-            if comp_type == Transform:
-                return trans
-            if comp_type == YukkuriStats:
-                return ystats
-        return None
-
-    world.get_component.side_effect = get_component
-
-    service = PersistenceService(world, save_dir="test_saves")
-
-    with patch("builtins.open", mock_open()) as mock_file:
-        with patch("os.path.exists", return_value=True):
-            service.save_game("test.json")
-
-    # Verify json dump
-    # Since json.dump writes to file, we can inspect calls
-    # But mock_open is a bit tricky with json.dump
-    # Just verify open was called correctly
-    mock_file.assert_called_with(os.path.join("test_saves", "test.json"), "wb")
+    import json
+    global_file = tmp_path / "test.global.json"
+    assert global_file.exists()
+    data = json.loads(global_file.read_text())
+    assert data["money"] == 500
+    assert data["time"] == 123.45
+    mock_serializer.save_to_file.assert_called_once()
 
 
-def test_load_game(persistence_world: MagicMock) -> None:
+def test_load_game(persistence_world: MagicMock, tmp_path) -> None:
     """
-    Tests loading game data from a file.
+    Tests loading game data restores economy/time and delegates entity
+    loading to WorldSerializer.
     """
+    import json
+
     world = persistence_world
 
     economy = EconomyService(0)
     time_svc = TimeService()
-    factory = MagicMock()
-
-    def get_service(svc_type):
-        if svc_type == EconomyService:
-            return economy
-        if svc_type == TimeService:
-            return time_svc
-
-        if svc_type == EntityFactory:
-            return factory
-        return None
 
     def try_get_service(svc_type):
         if svc_type == EconomyService:
@@ -157,45 +130,21 @@ def test_load_game(persistence_world: MagicMock) -> None:
             return time_svc
         return None
 
-    world.services.get.side_effect = get_service
     world.services.try_get.side_effect = try_get_service
 
-    service = PersistenceService(world, save_dir="test_saves")
+    service = PersistenceService(world, save_dir=str(tmp_path))
 
-    # Mock file content
-    import msgspec
+    # Write the two stub files
+    global_file = tmp_path / "test.global.json"
+    level_file = tmp_path / "test.level.msgpack"
+    global_file.write_text(json.dumps({"money": 999, "time": 60.0}))
+    level_file.write_bytes(b"")  # real content handled by mock serializer
 
-    save_data = {
-        "money": 999,
-        "time": 60.0,
-        "entities": [
-            {
-                "entity_id": 1,
-                "stable_id": 100,
-                "components": {
-                    "Transform": {"x": 5.0, "y": 5.0, "scale": 1.0},
-                    "YukkuriStats": {
-                        "name": "Loaded Reimu",
-                        "type_id": "reimu",
-                        "health": 100,
-                        "hunger": 50,
-                        "age": 10,
-                    },
-                },
-            }
-        ],
-    }
-    msgpack_bytes = msgspec.msgpack.encode(save_data)
-
-    with patch("builtins.open", mock_open(read_data=msgpack_bytes)):
-        with patch("os.path.exists", return_value=True):
-            success = service.load_game("test.json")
+    mock_serializer = MagicMock()
+    with patch.object(service, "_build_serializer", return_value=mock_serializer):
+        success = service.load_game("test.json")
 
     assert success is True
     assert economy.money == 999
     assert time_svc.time_elapsed == 60.0
-
-    # Verification: Check if entity was created in world
-    # Since we mocked world, we check calls to create_entity and add_component
-    assert world.create_entity.called
-    assert world.add_component.called
+    mock_serializer.load_from_file.assert_called_once()

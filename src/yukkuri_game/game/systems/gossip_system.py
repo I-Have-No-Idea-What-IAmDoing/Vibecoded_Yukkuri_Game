@@ -22,15 +22,15 @@ import pymunk
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.types import EntityID
-from ..components import Transform
-from ..events import SocialInteractionEvent
-from ..trait_service import TraitService
-from ..yukkuri_components import (
+from ..components import (
     GossipPacket,
     GossipQueue,
     RelationshipRegistry,
+    Transform,
     YukkuriStats,
 )
+from ..events import SocialInteractionEvent
+from ..trait_service import TraitService
 from .physics import PhysicsSystem
 from .spatial_system import SpatialService
 

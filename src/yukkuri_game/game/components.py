@@ -1,8 +1,7 @@
 """
 Module defining core game components.
 
-This module contains generic components used across the engine and game logic,
-excluding Yukkuri-specific components which are defined in `yukkuri_components.py`.
+This module contains all components used across the engine and game logic.
 Most components are implemented as slotted dataclasses for memory optimization.
 """
 

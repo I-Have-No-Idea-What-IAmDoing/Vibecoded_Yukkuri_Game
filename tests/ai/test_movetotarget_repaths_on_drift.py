@@ -9,7 +9,7 @@ from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.ai.navigation_service import NavigationService
 from yukkuri_game.game.components import Transform, MovementController
-from yukkuri_game.game.yukkuri_components import AIState, Needs
+from yukkuri_game.game.components import AIState, Needs
 from yukkuri_game.game.ai.behaviors import MoveToTarget
 from yukkuri_game.game.services import TimeService
 from py_trees.common import Status

@@ -27,13 +27,9 @@ import math
 import pymunk
 
 from ...engine.ecs import System, World
-from ...engine.event_bus import EventBus
-from ...engine.events import ComponentAddedEvent, ComponentRemovedEvent
 from ...engine.types import EntityID
 from ..collision_constants import CollisionCategories
-from ..components import PhysicsBody, Transform, Vision
-from ..yukkuri_components import AIState, Flight
-from .physics import PhysicsSystem
+from ..components import AIState, Flight, PhysicsBody, Transform, Vision
 
 
 class VisibilitySystem(System):

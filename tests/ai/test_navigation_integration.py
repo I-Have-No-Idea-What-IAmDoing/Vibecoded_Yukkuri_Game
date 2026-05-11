@@ -15,7 +15,7 @@ from yukkuri_game.game.ai.navigation_service import (
 from yukkuri_game.game.systems.navigation_system import NavigationSystem
 from yukkuri_game.game.systems.navigation_update_system import NavigationUpdateSystem
 from yukkuri_game.game.components import Transform, PhysicsBody
-from yukkuri_game.game.yukkuri_components import AIState
+from yukkuri_game.game.components import AIState
 
 
 class TestNavigationIntegration(unittest.TestCase):

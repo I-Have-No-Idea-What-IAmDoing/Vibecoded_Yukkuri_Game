@@ -2,7 +2,7 @@
 Tests for Memory Locking mechanics.
 """
 
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     RelationshipData,
     MemoryHeadline as Headline,
 )

@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform, PhysicsBody
-from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, Poop
+from yukkuri_game.game.components import YukkuriStats, ItemStats, Poop
 from yukkuri_game.game.systems.physics_reconstruction import reconstruct_physics
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.game.collision_constants import CollisionCategories

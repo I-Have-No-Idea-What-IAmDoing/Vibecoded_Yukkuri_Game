@@ -11,8 +11,6 @@ from ..ai.navigation_constants import TraversalCapability
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
-    from ..ai.navigation_service import NavigationService
-    from ..camera import Camera
 
 
 class NavigationDebugRenderer:
@@ -160,8 +158,7 @@ class NavigationDebugRenderer:
 
     def _draw_active_paths(self, surface: pygame.Surface, world: "World") -> None:
         """Draws yellow lines for active AI paths."""
-        from ..components import Transform
-        from ..yukkuri_components import AIState
+        from ..components import AIState, Transform
 
         for ent, (transform, ai_state) in world.get_components_tuple(
             Transform, AIState

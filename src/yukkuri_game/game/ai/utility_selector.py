@@ -8,10 +8,7 @@ from loguru import logger
 from py_trees.common import Status
 
 from ..trait_service import TraitService
-from ..yukkuri_components import (
-    AIState,
-    Personality,
-)
+from ..components import AIState, Personality
 from .base_action import Action
 from .utility import UtilityAIEngine
 

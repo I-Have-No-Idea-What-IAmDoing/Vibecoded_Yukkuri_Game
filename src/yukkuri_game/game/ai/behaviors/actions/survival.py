@@ -3,8 +3,7 @@ from typing import TYPE_CHECKING, Any
 import pymunk
 from py_trees.common import Status
 
-from ....components import MovementController, MoveCommand
-from ....yukkuri_components import EmotionalState, Needs, AIState
+from ....components import AIState, EmotionalState, MoveCommand, MovementController, Needs
 from ...base_action import Action
 
 if TYPE_CHECKING:

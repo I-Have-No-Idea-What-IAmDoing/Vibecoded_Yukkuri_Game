@@ -21,13 +21,14 @@ from loguru import logger
 from ...engine import rng
 from ...engine.ecs import System, World
 from ..components import (
+    AIState,
     MoveCommand,
     MovementController,
     PhysicsBody,
     SteeringComponent,
     Transform,
+    YukkuriStats,
 )
-from ..yukkuri_components import AIState, YukkuriStats
 from .physics import PhysicsSystem
 
 

@@ -9,10 +9,10 @@ from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.services import EconomyService, PersistenceService, TimeService
 from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats, ItemStats, AIState, Needs
+from yukkuri_game.game.components import YukkuriStats, ItemStats, AIState, Needs
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.resource_manager import ResourceManager
-from yukkuri_game.game.components_persistence import StableIDComponent, Persistable
+from yukkuri_game.game.components import StableIDComponent, Persistable
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ def setup_persistence_world():
 
     yield world, persistence
 
-    # Cleanup
+    # Cleanup: remove the entire save directory (now contains .level.msgpack + .global.json pairs)
     if os.path.exists(save_dir):
         import shutil
 
@@ -133,7 +133,7 @@ def test_persistence_round_trip(setup_persistence_world):
 
     # Check for EmotionalState if it exists and set happiness
     try:
-        from yukkuri_game.game.yukkuri_components import EmotionalState
+        from yukkuri_game.game.components import EmotionalState
 
         emo = world.get_component(y_id, EmotionalState)
         if emo:

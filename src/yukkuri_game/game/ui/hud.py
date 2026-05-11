@@ -23,7 +23,7 @@ from ..events import (
 )
 from ..systems.ai_debug_renderer import AIDebugRenderer
 from ..systems.navigation_debug_renderer import NavigationDebugRenderer
-from ..yukkuri_components import YukkuriStats
+from ..components import YukkuriStats
 from .context_menu import ContextMenu
 from .hud_events import HudEvents
 
@@ -202,7 +202,7 @@ class HUD:
         options = []
 
         # Check entity capabilities to determine options
-        from ..inventory_component import InventoryComponent
+        from ..components import InventoryComponent
 
         inv = self.world.get_component(event.entity_id, InventoryComponent)
         if inv:
@@ -269,7 +269,7 @@ class HUD:
         Args:
             event (InventoryItemActionEvent): The inventory item action event.
         """
-        from ..inventory_component import InventoryDropRequest
+        from ..components import InventoryDropRequest
 
         if event.action == "drop":
             # Add drop request component - will be processed by InventorySystem

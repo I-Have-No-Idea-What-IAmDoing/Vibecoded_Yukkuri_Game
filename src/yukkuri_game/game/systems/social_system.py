@@ -31,7 +31,7 @@ from ..prefabs.effects import create_floating_text
 from ..skill_service import SkillService
 from ..trait_service import TraitService
 from ..utils.evaluator import ConditionEvaluator
-from ..yukkuri_components import (
+from ..components import (
     EmotionalState,
     MemoryHeadline,
     Needs,

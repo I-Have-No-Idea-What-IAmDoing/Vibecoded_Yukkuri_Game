@@ -2,7 +2,7 @@ import pytest
 from test_utils import make_configured_world
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.lifecycle import LifecycleSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs
+from yukkuri_game.game.components import YukkuriStats, Needs
 from yukkuri_game.config import LifecycleSettings
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.entity_factory import EntityFactory

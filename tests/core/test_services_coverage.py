@@ -9,7 +9,7 @@ from yukkuri_game.game.services import (
 )
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     YukkuriStats,
     Needs,
     ItemStats,
@@ -103,107 +103,77 @@ class TestPersistenceService:
     def mock_world(self):
         return MagicMock(spec=World)
 
-    @pytest.fixture
-    def mock_os(self):
-        with patch("yukkuri_game.game.services.os") as mock:
-            mock.path.join.side_effect = lambda a, b: f"{a}/{b}"
-            mock.path.exists.return_value = True
-            yield mock
+    def test_save_creates_two_files(self, tmp_path, mock_world):
+        """save_game writes both .level.msgpack and .global.json."""
+        mock_world.services = MagicMock()
 
-    @pytest.fixture
-    def mock_msgspec(self):
-        with patch("yukkuri_game.game.services.msgspec") as mock:
-            # Make msgspec.Struct return False for isinstance checks
-            mock.Struct = type("MockStruct", (), {})
-            # Make to_builtins and msgpack.encode work
-            mock.to_builtins = lambda x: x.__dict__ if hasattr(x, "__dict__") else x
-            mock.msgpack.encode = MagicMock(return_value=b"encoded_data")
-            yield mock
-
-    @pytest.fixture
-    def mock_open(self):
-        with patch("builtins.open", new_callable=MagicMock) as mock:
-            yield mock
-
-    def test_save_game(self, mock_world, mock_os, mock_msgspec, mock_open):
-        service = PersistenceService(mock_world)
-
-        # Mock EconomyService
         mock_economy = MagicMock(spec=EconomyService)
         type(mock_economy).money = PropertyMock(return_value=500)
-        # Mock world.services
-        mock_world.services = MagicMock()
+
+        mock_time = MagicMock()
+        mock_time.time_elapsed = 99.5
+
         mock_world.services.try_get.side_effect = (
-            lambda t: mock_economy if t == EconomyService else None
+            lambda t: mock_economy if t == EconomyService
+            else mock_time if t == TimeService
+            else None
         )
 
-        # Mock Entities
-        mock_world.get_all_entities.return_value = [1]
-        mock_world.has_component.side_effect = lambda e, c: True
+        service = PersistenceService(mock_world, save_dir=str(tmp_path))
 
-        # Use real component classes to ensure correct serialization keys
-        mock_trans = Transform(x=10, y=20)
+        # Patch _build_serializer so we don't need a real World
+        mock_serializer = MagicMock()
+        with patch.object(service, "_build_serializer", return_value=mock_serializer):
+            service.save_game("mysave.json")
 
-        mock_stats = YukkuriStats(type_id="reimu", name="Reimu", badges=0, age=1)
-        mock_needs = Needs(health=100, hunger=50, max_health=100)
+        import json
+        global_file = tmp_path / "mysave.global.json"
+        level_file = tmp_path / "mysave.level.msgpack"
 
-        mock_emotional = EmotionalState(happiness=80, stress=0)
+        assert global_file.exists(), "global.json must be written"
+        assert mock_serializer.save_to_file.called, "level.msgpack must be written"
 
-        mock_ai = AIState(
-            current_action="Idle",
-            current_target_id=-1,
-            action_progress=0,
-            state_data={},
-            path=[],
-        )
-
-        def get_component_side_effect(e, c):
-            if c == Transform:
-                return mock_trans
-            if c == YukkuriStats:
-                return mock_stats
-            if c == Needs:
-                return mock_needs
-            if c == EmotionalState:
-                return mock_emotional
-            if c == AIState:
-                return mock_ai
-            return None
-
-        mock_world.get_component.side_effect = get_component_side_effect
-
-        # Mock get_components for iterating persistable entities
-        # Returns {entity_id: component}
-
-        mock_world.get_components.return_value = {1: MagicMock()}
-
-        # Mock get_all_components for serialization
-        mock_world.get_all_components.return_value = (
-            mock_trans,
-            mock_stats,
-            mock_needs,
-            mock_emotional,
-            mock_ai,
-        )
-
-        service.save_game("test_save.json")
-
-        # Verify msgspec.msgpack.encode was called
-        mock_msgspec.msgpack.encode.assert_called_once()
-        args = mock_msgspec.msgpack.encode.call_args[0]
-        data = args[0]
-
+        data = json.loads(global_file.read_text())
         assert data["money"] == 500
-        assert len(data["entities"]) == 1
-        # Check if Transform is present
-        assert "Transform" in data["entities"][0]["components"]
-        assert data["entities"][0]["components"]["Transform"]["x"] == 10
+        assert data["time"] == 99.5
 
-        assert "YukkuriStats" in data["entities"][0]["components"]
-        assert data["entities"][0]["components"]["YukkuriStats"]["name"] == "Reimu"
+    def test_load_returns_false_when_files_missing(self, tmp_path, mock_world):
+        """load_game returns False when save files don't exist."""
+        service = PersistenceService(mock_world, save_dir=str(tmp_path))
+        result = service.load_game("nonexistent.json")
+        assert result is False
 
-        assert "Needs" in data["entities"][0]["components"]
-        assert data["entities"][0]["components"]["Needs"]["hunger"] == 50
+    def test_load_restores_global_state(self, tmp_path, mock_world):
+        """load_game restores economy and time from global.json."""
+        import json
+
+        mock_world.services = MagicMock()
+
+        mock_economy = MagicMock(spec=EconomyService)
+        mock_time = MagicMock()
+
+        mock_world.services.try_get.side_effect = (
+            lambda t: mock_economy if t == EconomyService
+            else mock_time if t == TimeService
+            else None
+        )
+
+        service = PersistenceService(mock_world, save_dir=str(tmp_path))
+
+        # Write stub files
+        global_file = tmp_path / "mysave.global.json"
+        level_file = tmp_path / "mysave.level.msgpack"
+        global_file.write_text(json.dumps({"money": 1234, "time": 42.0}))
+        level_file.write_bytes(b"")  # stub; serializer will be mocked
+
+        mock_serializer = MagicMock()
+        with patch.object(service, "_build_serializer", return_value=mock_serializer):
+            result = service.load_game("mysave.json")
+
+        assert result is True
+        mock_economy.set_money.assert_called_once_with(1234)
+        assert mock_time.time_elapsed == 42.0
+        mock_serializer.load_from_file.assert_called_once()
 
 
 class TestGameService:
@@ -267,7 +237,7 @@ class TestGameService:
 
         skills = Skills()
         # Manually set up skill state since Skills is a dataclass
-        from yukkuri_game.game.yukkuri_components import SkillState
+        from yukkuri_game.game.components import SkillState
 
         skills.states[SkillId.SCAVENGING] = SkillState(level=3, current_xp=500.0)
 

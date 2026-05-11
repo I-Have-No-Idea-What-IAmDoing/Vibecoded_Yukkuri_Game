@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 from yukkuri_game.game.systems.game_rules_system import GameRulesSystem
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
+from yukkuri_game.game.components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.audio import AudioManager

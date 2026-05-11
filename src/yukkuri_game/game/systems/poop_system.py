@@ -4,8 +4,7 @@ Module defining the PoopSystem logic.
 
 from ...engine import rng
 from ...engine.ecs import System, World
-from ..yukkuri_components import YukkuriStats, Needs, Poop, AIState
-from ..components import Transform
+from ..components import YukkuriStats, Needs, Poop, AIState, Transform
 from ..prefabs.item import create_poop
 
 

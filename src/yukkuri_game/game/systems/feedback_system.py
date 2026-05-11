@@ -6,8 +6,7 @@ from ...engine import rng
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.audio import AudioManager
-from ..components import Transform, FloatingText
-from ..yukkuri_components import YukkuriStats, Dead, EmotionalState
+from ..components import Dead, EmotionalState, FloatingText, Transform, YukkuriStats
 from ..events import (
     EntitySoldEvent,
     EntityGrewEvent,

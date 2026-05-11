@@ -17,7 +17,7 @@ from yukkuri_game.game.components import (
     Transform,
     MovementController,
 )
-from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, Needs
+from yukkuri_game.game.components import AIState, YukkuriStats, Needs
 from yukkuri_game.game.ai.navigation_service import NavigationService
 from yukkuri_game.game.services import GameService
 

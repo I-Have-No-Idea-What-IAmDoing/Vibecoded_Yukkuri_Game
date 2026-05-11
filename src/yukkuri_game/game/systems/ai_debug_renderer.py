@@ -7,12 +7,10 @@ from typing import TYPE_CHECKING
 
 import pygame
 
-from ..components import MoveCommand, Transform
-from ..yukkuri_components import AIState, Blackboard
+from ..components import AIState, Blackboard, MoveCommand, Transform
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
-    from ..camera import Camera
 
 
 class AIDebugRenderer:

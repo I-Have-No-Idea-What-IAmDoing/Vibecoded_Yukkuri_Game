@@ -24,8 +24,7 @@ from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import EntityDestroyedEvent
 from ...engine.types import EntityID
-from ..components import Transform
-from ..yukkuri_components import (
+from ..components import (
     AIState,
     Blackboard,
     ItemStats,
@@ -33,6 +32,7 @@ from ..yukkuri_components import (
     Predator,
     RelationshipRegistry,
     TargetInfo,
+    Transform,
     YukkuriStats,
 )
 

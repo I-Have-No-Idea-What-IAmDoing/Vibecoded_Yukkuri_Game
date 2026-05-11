@@ -5,10 +5,10 @@ from yukkuri_game.engine.types import EntityID
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import Predator, AIState, YukkuriStats, Needs
+from yukkuri_game.game.components import Predator, AIState, YukkuriStats, Needs
 from yukkuri_game.game.components import Transform, MovementController
 from yukkuri_game.game.ai.behaviors import FindPrey, EatPrey, Swoop
-from yukkuri_game.game.yukkuri_components import Flight, FlightState
+from yukkuri_game.game.components import Flight, FlightState
 from py_trees.common import Status
 
 

@@ -15,7 +15,7 @@ from .events import LevelUpEvent
 from .services import TimeService
 from .skill_constants import PassionLevel
 from .trait_service import TraitService
-from .yukkuri_components import (
+from .components import (
     EmotionalState,
     Personality,
     Skills,

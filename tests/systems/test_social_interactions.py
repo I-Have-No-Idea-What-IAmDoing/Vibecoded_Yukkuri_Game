@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 from yukkuri_game.game.services import GameService
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     YukkuriStats,
     Needs,
     EmotionalState,

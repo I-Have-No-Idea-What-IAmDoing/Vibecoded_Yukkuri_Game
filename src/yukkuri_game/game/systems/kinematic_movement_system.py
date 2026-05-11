@@ -33,9 +33,15 @@ from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ...engine.events import PhysicsFixedUpdateEvent
 from ..collision_constants import CollisionCategories
-from ..components import MovementController, PhysicsBody, Transform
+from ..components import (
+    Flight,
+    FlightState,
+    MovementController,
+    PhysicsBody,
+    Transform,
+    YukkuriStats,
+)
 from ..skill_service import SkillService
-from ..yukkuri_components import Flight, FlightState, YukkuriStats
 from .physics import PhysicsSystem
 
 

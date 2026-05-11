@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 from yukkuri_game.game.input_system import InputSystem
 from yukkuri_game.game.commands import SelectEntitiesCommand, CleanEntityCommand
 from yukkuri_game.game.components import Transform, Selectable
-from yukkuri_game.game.yukkuri_components import Poop
+from yukkuri_game.game.components import Poop
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.events import EntitySelectedEvent, CleanToolRequestedEvent

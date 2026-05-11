@@ -24,7 +24,7 @@ from yukkuri_game.game.commands import (
     TimeSpeedCommand,
 )
 from yukkuri_game.game.components import Transform, Selectable
-from yukkuri_game.game.yukkuri_components import Poop
+from yukkuri_game.game.components import Poop
 from yukkuri_game.game.services import InputService, TimeService
 
 

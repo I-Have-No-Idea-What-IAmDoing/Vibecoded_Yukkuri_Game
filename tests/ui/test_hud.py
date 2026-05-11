@@ -7,7 +7,7 @@ from yukkuri_game.game.ui.hud_layout import HudLayout
 from yukkuri_game.game.ui.hud_renderer import HudRenderer
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, AIState, ItemStats
+from yukkuri_game.game.components import YukkuriStats, Needs, AIState, ItemStats
 from yukkuri_game.game.events import (
     PlacementStartedEvent,
     TogglePauseRequest,

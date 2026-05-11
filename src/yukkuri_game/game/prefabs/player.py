@@ -3,8 +3,7 @@ Prefab for the Player entity.
 """
 
 from ...engine.ecs import World
-from ..components import Transform
-from ..components_persistence import StableIDComponent, Persistable
+from ..components import Persistable, StableIDComponent, Transform
 
 
 def create_player(world: World, x: float = 0, y: float = 0) -> int:

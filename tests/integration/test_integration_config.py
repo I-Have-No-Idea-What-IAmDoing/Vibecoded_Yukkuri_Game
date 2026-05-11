@@ -2,7 +2,7 @@ import pytest
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
+from yukkuri_game.game.components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.config import StatDecaySettings
 from unittest.mock import MagicMock
 

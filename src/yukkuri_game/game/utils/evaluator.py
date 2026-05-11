@@ -6,12 +6,12 @@ from typing import Any
 from simpleeval import SimpleEval
 from loguru import logger
 from ...engine.ecs import World
-from ..yukkuri_components import (
-    YukkuriStats,
-    Needs,
+from ..components import (
     EmotionalState,
-    Skills,
+    Needs,
     Personality,
+    Skills,
+    YukkuriStats,
 )
 
 

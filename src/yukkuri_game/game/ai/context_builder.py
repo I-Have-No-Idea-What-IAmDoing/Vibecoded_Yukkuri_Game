@@ -8,7 +8,7 @@ from typing import Any, TYPE_CHECKING
 
 from ..services import TimeService
 from ..trait_service import TraitService
-from ..yukkuri_components import (
+from ..components import (
     Blackboard,
     EmotionalState,
     Needs,

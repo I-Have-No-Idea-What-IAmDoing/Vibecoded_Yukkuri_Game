@@ -24,17 +24,18 @@ from loguru import logger
 from ...engine.audio import AudioManager
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
-from ..components import InteractionRequest, Transform
-from ..prefabs.effects import create_floating_text
-from ..trait_service import TraitService
-from ..yukkuri_components import (
+from ..components import (
     AIState,
+    InteractionRequest,
     ItemStats,
     Needs,
     Personality,
     Predator,
+    Transform,
     YukkuriStats,
 )
+from ..prefabs.effects import create_floating_text
+from ..trait_service import TraitService
 from .hunger_system import HungerSystem
 from .social_system import SocialSystem
 

@@ -26,22 +26,29 @@ Performance:
 -   Periodic cleanup removes stale entity references.
 """
 
-from collections import defaultdict
 import math
+from collections import defaultdict
+from collections.abc import Callable
+
 import pymunk
 
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ...engine.events import EntityDestroyedEvent, ComponentAddedEvent
-from ..components import (
-    Transform,
-    Occluder,
-    Velocity,
-    PhysicsBody,
-    Mount,
-    FloatingText,
-    MovementController,
+from ...engine.events import (
+    ComponentAddedEvent,
+    ComponentRemovedEvent,
+    EntityDestroyedEvent,
 )
+from ..components import (
+    FloatingText,
+    Mount,
+    MovementController,
+    Occluder,
+    PhysicsBody,
+    Transform,
+    Velocity,
+)
+
 
 
 class SpatialService:
@@ -285,7 +292,14 @@ class SpatialService:
         return result
 
     def get_nearest_entity(
-        self, world: World, x: float, y: float, component_filter: type | None = None, max_radius: float = 1000.0, exclude_ids: set[int] | None = None, predicate: "typing.Callable[[int], bool] | None" = None
+        self,
+        world: World,
+        x: float,
+        y: float,
+        component_filter: type | None = None,
+        max_radius: float = 1000.0,
+        exclude_ids: set[int] | None = None,
+        predicate: Callable[[int], bool] | None = None,
     ) -> int:
         """
         Finds the nearest entity to a position using the spatial grid.
@@ -475,7 +489,7 @@ class SpatialSystem(System):
         elif event.component_type == PhysicsBody:
             self.body_to_entity[event.component.body] = event.entity_id
 
-    def on_component_removed(self, event: "ComponentRemovedEvent") -> None:
+    def on_component_removed(self, event: ComponentRemovedEvent) -> None:
         """Handler for component removal."""
         if event.component_type == PhysicsBody:
             if event.component and event.component.body in self.body_to_entity:

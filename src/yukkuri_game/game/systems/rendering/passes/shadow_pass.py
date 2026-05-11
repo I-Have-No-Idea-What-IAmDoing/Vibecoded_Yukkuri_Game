@@ -4,8 +4,7 @@ Shadow Pass.
 
 from ....renderer.constants import RenderConstants
 from ....renderer.commands import ShadowCommand
-from ....components import Sprite, VisualTransform
-from ....yukkuri_components import Flight
+from ....components import Flight, Sprite, VisualTransform
 from ..context import RenderContext
 
 

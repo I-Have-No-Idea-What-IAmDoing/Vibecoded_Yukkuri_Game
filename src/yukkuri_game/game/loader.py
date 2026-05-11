@@ -11,12 +11,6 @@ import pygame_gui
 from ..engine.audio import AudioManager
 from ..engine.ecs import World
 from ..engine.event_bus import EventBus
-from ..game import (
-    components,
-    components_persistence,
-    inventory_component,
-    yukkuri_components,
-)
 from ..game.ai.navigation_service import NavigationService
 from ..game.ai.utility import UtilityAIEngine
 from ..game.camera import Camera
@@ -190,12 +184,16 @@ class GameLoader:
 
     def collect_component_types(self) -> list[type]:
         """Collects all component types defined in component modules for serialization."""
+        from .components import core, physics, social, vision, yukkuri, persistence, inventory
         comp_types = []
         for module in [
-            components,
-            yukkuri_components,
-            components_persistence,
-            inventory_component,
+            core,
+            physics,
+            social,
+            vision,
+            yukkuri,
+            persistence,
+            inventory,
         ]:
             for _, obj in inspect.getmembers(module):
                 if inspect.isclass(obj) and obj.__module__ == module.__name__:

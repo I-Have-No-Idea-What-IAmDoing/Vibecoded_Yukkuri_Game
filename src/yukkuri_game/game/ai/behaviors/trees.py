@@ -3,8 +3,9 @@ from typing import TYPE_CHECKING, Any, Callable
 import py_trees
 from py_trees.behaviour import Behaviour
 
-from ...yukkuri_components import (
+from ...components import (
     AIState,
+    Flight,
     ItemStats,
     Predator,
 )
@@ -231,7 +232,6 @@ def build_hunt_behavior(
         name="Approach Strategy", memory=False
     )
 
-    from ...yukkuri_components import Flight
 
     def can_fly_check() -> bool:
         f = world.try_get_component(entity_id, Flight)

@@ -26,7 +26,7 @@ from ..engine.event_manager import EventManager, GamePhase
 from ..engine.input_manager import InputContext, InputManager
 from ..engine.scene import Scene, SceneContext
 from ..engine.serializer import WorldSerializer
-from ..game import components, yukkuri_components
+from ..game import components
 from ..game.ai.navigation_service import NavigationService
 from ..game.camera import Camera
 from ..game.events import (
@@ -445,7 +445,7 @@ class GameplayScene(Scene):
         if skill_service:
             # Iterate all YukkuriStats entities
             for ent, (_, _) in self.world.get_components_tuple(
-                yukkuri_components.YukkuriStats, components.Transform
+                components.YukkuriStats, components.Transform
             ):
                 skill_service.initialize_skills(ent)
 

@@ -4,8 +4,7 @@ Physics Reconstruction System.
 
 import pymunk
 from ...engine.ecs import World
-from ..components import Transform, PhysicsBody
-from ..yukkuri_components import YukkuriStats, ItemStats, Poop
+from ..components import ItemStats, PhysicsBody, Poop, Transform, YukkuriStats
 from ..collision_constants import CollisionCategories
 from ..physics_utils import add_physics_body, get_yukkuri_radius
 

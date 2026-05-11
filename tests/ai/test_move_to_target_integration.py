@@ -3,7 +3,7 @@ import pymunk
 from unittest.mock import MagicMock
 from yukkuri_game.game.ai.behaviors import MoveToTarget
 from yukkuri_game.game.components import Transform, PhysicsBody, MovementController, MoveCommand
-from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, Needs
+from yukkuri_game.game.components import AIState, YukkuriStats, Needs
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.ai.navigation_service import NavigationService
 import py_trees

@@ -12,35 +12,34 @@ from ...engine.ecs import World
 from ...engine.resource_manager import ResourceManager
 from ..collision_constants import CollisionCategories
 from ..components import (
-    Mount,
-    MovementController,
-    Selectable,
-    Sprite,
-    SteeringComponent,
-    Transform,
-    Vision,
-    VisualTransform,
-)
-from ..components_persistence import Persistable, StableIDComponent
-from ..inventory_component import InventoryComponent
-from ..physics_utils import add_physics_body, get_yukkuri_radius
-from ..skill_service import SkillService
-from ..systems.physics import PhysicsSystem
-from ..trait_service import TraitService
-from ..utils.animation_helpers import build_animator_from_data
-from ..yukkuri_components import (
     AIState,
     EmotionalState,
     Flight,
     FlightState,
     GossipQueue,
+    InventoryComponent,
+    Mount,
+    MovementController,
     Needs,
+    Persistable,
     Personality,
     PersonalityAxis,
     Predator,
     RelationshipRegistry,
+    Selectable,
+    Sprite,
+    StableIDComponent,
+    SteeringComponent,
+    Transform,
+    Vision,
+    VisualTransform,
     YukkuriStats,
 )
+from ..physics_utils import add_physics_body, get_yukkuri_radius
+from ..skill_service import SkillService
+from ..systems.physics import PhysicsSystem
+from ..trait_service import TraitService
+from ..utils.animation_helpers import build_animator_from_data
 
 
 def create_yukkuri(

@@ -15,17 +15,15 @@ from yukkuri_game.engine import rng
 from yukkuri_game.engine.types import EntityID
 
 from ....components import (
-    MoveCommand,
-    MovementController,
-    PhysicsBody,
-    Transform,
-)
-from ....yukkuri_components import (
     AIState,
     Flight,
     FlightState,
+    MoveCommand,
+    MovementController,
     Needs,
+    PhysicsBody,
     Predator,
+    Transform,
 )
 from ...base_action import Action
 from ...navigation_constants import TraversalCapability

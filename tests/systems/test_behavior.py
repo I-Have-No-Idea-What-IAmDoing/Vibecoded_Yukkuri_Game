@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import py_trees
 from py_trees.common import Status
 from yukkuri_game.game.systems.behavior import BehaviorSystem
-from yukkuri_game.game.yukkuri_components import AIState
+from yukkuri_game.game.components import AIState
 
 
 class TestBehaviorSystem(unittest.TestCase):

@@ -1,7 +1,7 @@
 import pytest
 import math
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     Skills,
     SkillState,
     Personality,

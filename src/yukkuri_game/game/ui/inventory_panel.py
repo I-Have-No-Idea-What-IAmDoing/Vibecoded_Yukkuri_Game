@@ -16,7 +16,7 @@ from pygame_gui.elements import (
 )
 
 from ..events import InventoryItemActionEvent
-from ..inventory_component import InventoryComponent
+from ..components import InventoryComponent
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
@@ -267,7 +267,7 @@ class InventoryPanel:
             )
         else:
             # Fallback: Direct component addition (for backwards compatibility)
-            from ..inventory_component import InventoryDropRequest
+            from ..components import InventoryDropRequest
 
             self.world.add_component(
                 self.entity_id,

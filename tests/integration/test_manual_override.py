@@ -1,6 +1,6 @@
 import math
 from yukkuri_game.testing.driver import GameDriver
-from yukkuri_game.game.yukkuri_components import YukkuriStats, AIState
+from yukkuri_game.game.components import YukkuriStats, AIState
 
 
 def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
@@ -29,7 +29,7 @@ def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
     # Force high energy to discourage Sleep (if it was an option) but also
     # force full hunger to discourage Eat normally?
     # Actually, UtilitySelector checks needs. If we are full, utility for Eat is low.
-    from yukkuri_game.game.yukkuri_components import Needs
+    from yukkuri_game.game.components import Needs
     needs = driver.world.get_component(yukkuri_id, Needs)
     if needs:
         needs.hunger = 0  # Full, so Eat utility should be low

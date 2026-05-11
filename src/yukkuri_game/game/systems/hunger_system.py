@@ -21,10 +21,17 @@ from typing import cast
 from ...engine.audio import AudioManager
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
-from ..components import InteractionRequest, Transform
+from ..components import (
+    AIState,
+    EmotionalState,
+    InteractionRequest,
+    ItemStats,
+    Needs,
+    Transform,
+    YukkuriStats,
+)
 from ..skill_constants import SkillId
 from ..skill_service import SkillService
-from ..yukkuri_components import AIState, EmotionalState, ItemStats, Needs, YukkuriStats
 
 
 class HungerSystem(System):

@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.ai.utility import UtilityAIEngine
 from yukkuri_game.game.trait_service import TraitService
-from yukkuri_game.game.yukkuri_components import Personality
+from yukkuri_game.game.components import Personality
 
 
 class MockResourceManager:

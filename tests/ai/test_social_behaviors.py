@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import AIState, YukkuriStats, Needs
+from yukkuri_game.game.components import AIState, YukkuriStats, Needs
 from yukkuri_game.game.components import Transform
 from yukkuri_game.game.ai.behaviors.actions.searching import FindSocialTarget
 from py_trees.common import Status

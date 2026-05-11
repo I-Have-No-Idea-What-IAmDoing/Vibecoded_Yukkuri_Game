@@ -14,7 +14,7 @@ from yukkuri_game.game.events import (
     EntityPunishedEvent,
 )
 from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
+from yukkuri_game.game.components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.game.services import EconomyService
 
 

@@ -14,7 +14,7 @@ from yukkuri_game.engine.types import EntityID
 from yukkuri_game.game.components import Transform
 from yukkuri_game.game.systems.social_system import SocialSystem
 from yukkuri_game.game.trait_service import TraitService
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     Needs,
     Personality,
     RelationshipData,

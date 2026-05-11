@@ -22,7 +22,12 @@ from loguru import logger
 from ...engine.audio import AudioManager
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ..components import Transform
+from ..components import (
+    EmotionalState,
+    Needs,
+    Transform,
+    YukkuriStats,
+)
 from ..events import (
     EntityPunishedEvent,
     EntitySoldEvent,
@@ -32,7 +37,6 @@ from ..events import (
     TrainEntityRequest,
 )
 from ..services import EconomyService
-from ..yukkuri_components import EmotionalState, Needs, YukkuriStats
 
 
 class GameRulesSystem(System):

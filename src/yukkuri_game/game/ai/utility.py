@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from ...engine.data_models import AIAction
     from ...engine.resource_manager import ResourceManager
     from ..trait_service import TraitService
-    from ..yukkuri_components import Personality
+    from ..components import Personality
 
 
 @dataclass

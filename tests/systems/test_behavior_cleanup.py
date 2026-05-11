@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 from yukkuri_game.game.systems.behavior import BehaviorSystem
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import AIState
+from yukkuri_game.game.components import AIState
 import py_trees
 
 

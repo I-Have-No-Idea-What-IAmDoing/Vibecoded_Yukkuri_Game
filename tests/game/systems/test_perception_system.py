@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.perception_system import PerceptionSystem
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     AIState,
     Blackboard,
     YukkuriStats,

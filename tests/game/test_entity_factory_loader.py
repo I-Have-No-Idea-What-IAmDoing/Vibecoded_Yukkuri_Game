@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch, mock_open
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.yukkuri_components import GoalType
+from yukkuri_game.game.components import GoalType
 
 
 class TestEntityFactoryLoader:

@@ -22,7 +22,7 @@ from yukkuri_game.game.components import (
     SteeringComponent,
     Vision,
 )
-from yukkuri_game.game.yukkuri_components import AIState, Needs
+from yukkuri_game.game.components import AIState, Needs
 from yukkuri_game.game.ai.behaviors import MoveToTarget
 
 

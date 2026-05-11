@@ -31,18 +31,19 @@ Personality Drift:
 from ...config import StatDecaySettings
 from ...engine import rng
 from ...engine.ecs import System, World
-from ..components import LightSource, Transform
-from ..services import TimeService
-from ..skill_service import SkillService
-from ..trait_service import TraitService
-from ..yukkuri_components import (
+from ..components import (
     Dead,
     EmotionalState,
+    LightSource,
     Needs,
     Personality,
     Skills,
+    Transform,
     YukkuriStats,
 )
+from ..services import TimeService
+from ..skill_service import SkillService
+from ..trait_service import TraitService
 
 SECONDS_PER_DAY = TimeService.GAME_DAY_LENGTH
 

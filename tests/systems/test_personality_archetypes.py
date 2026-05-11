@@ -2,7 +2,7 @@
 Tests for Personality Archetypes.
 """
 
-from yukkuri_game.game.yukkuri_components import Personality, PersonalityAxis
+from yukkuri_game.game.components import Personality, PersonalityAxis
 
 
 # This test ensures we can instantiate and use the 4-axis model

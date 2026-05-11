@@ -437,8 +437,7 @@ class CleanEntityCommand:
             world: The active ECS World instance.
         """
         from ..engine.audio import AudioManager
-        from .components import Transform
-        from .yukkuri_components import Poop
+        from .components import Poop, Transform
 
         click_radius = 32.0
         components = world.get_components_tuple(Poop, Transform)

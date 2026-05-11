@@ -12,18 +12,20 @@ from ..ai.navigation_service import NavigationService, ObstacleType
 from ..collision_constants import CollisionCategories
 from ..components import (
     FlickerStyle,
+    ItemStats,
     LightSource,
     Occluder,
+    Persistable,
     PhysicsBody,
+    Poop,
     Selectable,
     Sprite,
+    StableIDComponent,
     Transform,
     VisualTransform,
 )
-from ..components_persistence import Persistable, StableIDComponent
 from ..systems.physics import PhysicsSystem
 from ..utils.animation_helpers import build_animator_from_data
-from ..yukkuri_components import ItemStats, Poop
 
 
 def create_item(world: World, type_id: str, x: float, y: float) -> int:

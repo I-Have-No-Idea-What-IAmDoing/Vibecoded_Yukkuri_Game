@@ -7,7 +7,7 @@ import pytest
 import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.flight_system import FlightSystem
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     Flight,
     FlightState,
     Needs,

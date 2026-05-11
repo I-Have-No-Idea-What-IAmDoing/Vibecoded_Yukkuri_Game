@@ -27,15 +27,15 @@ from loguru import logger
 from ...engine import rng
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
-from ..components import Transform
-from ..systems.spatial_system import SpatialService
-from ..yukkuri_components import (
+from ..components import (
     AIState,
     EmotionalState,
     Needs,
     RelationshipRegistry,
+    Transform,
     YukkuriStats,
 )
+from ..systems.spatial_system import SpatialService
 
 
 class FamilySystem(System):

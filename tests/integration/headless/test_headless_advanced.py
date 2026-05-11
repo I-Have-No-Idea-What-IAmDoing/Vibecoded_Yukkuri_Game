@@ -1,6 +1,6 @@
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.scenes.gameplay import GameplayScene
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.components import YukkuriStats
 
 
 # Note: game_driver fixture comes from conftest.py

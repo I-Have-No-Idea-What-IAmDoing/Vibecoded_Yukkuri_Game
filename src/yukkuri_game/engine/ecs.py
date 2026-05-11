@@ -25,28 +25,23 @@ T = TypeVar("T")
 
 
 class Component:
-    """
-    Base class for all ECS components.
-
-    While `esper` allows any object to be a component, inheriting from this class
-    ensures explicit typing and provides a hook for potential future extensions.
-    """
+    """Base class for all components."""
+    pass
 
 
 class World:
     """
-    The main ECS World manager, wrapping `esper`'s context-based API.
+    The main ECS World manager, wrapping an `esper.World` instance.
 
-    Each `World` instance manages a distinct `esper` context, allowing for multiple
-    isolated game states (e.g., active gameplay vs. pause menus).
+    Each `World` instance manages its own isolated game state, allowing for
+    multiple independent worlds (e.g., active gameplay vs. pause menus).
 
     Attributes:
-        name (str): Unique identifier for this world context.
         services (ServiceLocator): Service registry specific to this world.
     """
 
     def __init__(self) -> None:
-        """Initializes a new ECS World with a unique ID and service locator."""
+        """Initializes a new ECS World with a unique service locator."""
         self.name: str = str(uuid.uuid4())
         self.services: ServiceLocator = ServiceLocator()
         self._next_stable_id: int = 1
@@ -54,6 +49,25 @@ class World:
 
         # Register this world with esper's global context system.
         esper.switch_world(self.name)
+
+    def _switch(self) -> None:
+        """
+        Switches the global esper context to this world's state.
+
+        Optimized to avoid redundant context switches if this world is already active.
+        """
+        if esper.current_world != self.name:
+            esper.switch_world(self.name)
+
+    @contextlib.contextmanager
+    def context(self) -> Iterator["World"]:
+        """
+        Context manager for safely performing operations in this world.
+
+        Ensures the esper global state is correctly switched to this world.
+        """
+        self._switch()
+        yield self
 
     @property
     def time(self) -> float:
@@ -93,37 +107,6 @@ class World:
             next_id (int): The next stable ID to be used.
         """
         self._next_stable_id = next_id
-
-    def _switch(self) -> None:
-        """
-        Activates this world's context in `esper`.
-
-        Optimized to avoid redundant context switches if this world is already active.
-        """
-        if esper.current_world != self.name:
-            esper.switch_world(self.name)
-
-    @contextlib.contextmanager
-    def context(self) -> Iterator[None]:
-        """
-        Context manager for executing operations within this world's scope.
-
-        Ensures that `esper` operations performed inside the `with` block apply
-        to this world instances, restoring the previous context afterwards.
-
-        Yields:
-            None
-        """
-        previous_world = esper.current_world
-        self._switch()
-        try:
-            yield
-        finally:
-            if previous_world and previous_world != self.name:
-                try:
-                    esper.switch_world(previous_world)
-                except KeyError:
-                    pass  # Previous world was deleted during execution.
 
     def create_entity(self, *components: Any) -> int:
         """
@@ -387,18 +370,22 @@ class World:
         """
         Completely tears down the world.
 
-        Clears the database, clears services, and removes the world context from `esper`.
+        Clears the database, clears services, and removes all systems.
         This is essential for memory management when unloading levels or closing the game.
         """
+        self._switch()
         self.clear_database()
         self.services.clear()
+        # Remove all systems to prevent leaks
+        # esper 3.x uses list(_processors)
+        for system_instance in list(esper._processors):
+            esper.remove_processor(type(system_instance))
+        
+        # Finally delete the world context
         try:
-            # Esper cannot delete the currently active world, so we must switch safely.
-            if esper.current_world == self.name:
-                esper.switch_world("__garbage_collector__")
-
             esper.delete_world(self.name)
-        except KeyError:
+        except PermissionError:
+            # Current world cannot be deleted, this is fine if we are tearing down
             pass
 
 
@@ -419,15 +406,11 @@ class System(esper.Processor):
         """
         Internal wrapper called by Esper every frame.
 
-        This method acts as a safeguard, ensuring the correct World context is active
-        before passing control to the user-defined `update` logic.
-
         Args:
             dt (float): Delta time in seconds.
         """
         if hasattr(self, "ecs_world"):
-            with self.ecs_world.context():
-                self.update(self.ecs_world, dt)
+            self.update(self.ecs_world, dt)
 
     def initialize(self) -> None:
         """

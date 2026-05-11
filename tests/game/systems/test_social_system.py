@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.social_system import SocialSystem
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     RelationshipRegistry,
     YukkuriStats,
     RelationshipData,

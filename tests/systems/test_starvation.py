@@ -1,6 +1,6 @@
 from test_utils import make_configured_world
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, EmotionalState
+from yukkuri_game.game.components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.config import StatDecaySettings
 
 

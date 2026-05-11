@@ -3,7 +3,7 @@ from test_utils import make_configured_world
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.trait_service import TraitService
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     Personality,
     RelationshipRegistry,
 )

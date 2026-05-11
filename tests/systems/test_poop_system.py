@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.poop_system import PoopSystem
-from yukkuri_game.game.yukkuri_components import YukkuriStats, Needs, Poop, AIState
+from yukkuri_game.game.components import YukkuriStats, Needs, Poop, AIState
 from yukkuri_game.game.components import Transform
 from yukkuri_game.game.entity_factory import EntityFactory
 

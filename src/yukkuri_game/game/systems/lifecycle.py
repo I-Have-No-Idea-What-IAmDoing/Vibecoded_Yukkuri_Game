@@ -31,10 +31,18 @@ from ...config import LifecycleSettings
 from ...engine import rng
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ..components import PhysicsBody, Sprite, Transform
+from ..components import (
+    AIState,
+    Dead,
+    EmotionalState,
+    Needs,
+    PhysicsBody,
+    Sprite,
+    Transform,
+    YukkuriStats,
+)
 from ..events import EntityDiedEvent, EntityGrewEvent
 from ..prefabs.yukkuri import create_yukkuri
-from ..yukkuri_components import AIState, Dead, EmotionalState, Needs, YukkuriStats
 
 
 class LifecycleSystem(System):

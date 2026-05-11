@@ -6,18 +6,16 @@ from py_trees.common import Status
 from yukkuri_game.engine.types import EntityID
 
 from ....components import (
-    LightSource,
-    Transform,
-)
-from ....services import GameService
-from ....yukkuri_components import (
     AIState,
     Blackboard,
     Flight,
     ItemStats,
+    LightSource,
     Predator,
+    Transform,
     YukkuriStats,
 )
+from ....services import GameService
 from ...base_action import Action
 from ...navigation_constants import TraversalCapability
 from ...navigation_service import NavigationService

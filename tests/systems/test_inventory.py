@@ -1,13 +1,13 @@
 import pytest
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.inventory_component import (
+from yukkuri_game.game.components import (
     InventoryComponent,
     InventoryPickupRequest,
     InventoryDropRequest,
 )
 from yukkuri_game.game.systems.inventory_system import InventorySystem
 from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import ItemStats
+from yukkuri_game.game.components import ItemStats
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.engine.data_models import ItemType
 from yukkuri_game.engine.event_bus import EventBus
@@ -230,7 +230,7 @@ def test_inventory_system_drop(world):
     assert events[0].delta == -1
 
 
-from yukkuri_game.game.components_persistence import StableIDComponent, Persistable
+from yukkuri_game.game.components import StableIDComponent, Persistable
 
 # ... (imports)
 

@@ -3,7 +3,7 @@ import pytest
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.serializer import WorldSerializer
 from yukkuri_game.game.components import MoveCommand, Transform
-from yukkuri_game.game.components_persistence import StableIDComponent, Persistable
+from yukkuri_game.game.components import StableIDComponent, Persistable
 from yukkuri_game.engine.types import EntityID
 
 def test_move_command_entity_id_remapping(tmp_path):

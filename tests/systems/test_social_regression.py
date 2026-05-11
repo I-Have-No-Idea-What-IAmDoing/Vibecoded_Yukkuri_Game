@@ -9,7 +9,7 @@ from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.social_system import SocialSystem
 from yukkuri_game.game.systems.interaction_system import InteractionSystem
 from yukkuri_game.game.components import Transform, InteractionRequest
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     YukkuriStats,
     Needs,
     RelationshipRegistry,

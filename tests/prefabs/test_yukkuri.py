@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.prefabs.yukkuri import create_yukkuri
 from yukkuri_game.game.components import Transform
-from yukkuri_game.game.yukkuri_components import YukkuriStats
+from yukkuri_game.game.components import YukkuriStats
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.game.trait_service import TraitService
 

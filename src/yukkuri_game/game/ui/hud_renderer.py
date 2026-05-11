@@ -5,20 +5,20 @@ Module for rendering the HUD overlay.
 import pygame
 from typing import TYPE_CHECKING
 from ...engine.ecs import World
-from ..components import Transform
-from ..yukkuri_components import (
-    YukkuriStats,
-    Needs,
-    ItemStats,
+from ..components import (
     AIState,
-    RelationshipRegistry,
-    Personality,
     EmotionalState,
+    InventoryComponent,
+    ItemStats,
+    Needs,
+    Personality,
+    RelationshipRegistry,
     Skills,
+    Transform,
+    YukkuriStats,
 )
-from ..services import InputService, EconomyService, TimeService
+from ..services import EconomyService, InputService, TimeService
 from ..skill_service import SkillService
-from ..inventory_component import InventoryComponent
 from ...engine.resource_manager import ResourceManager
 from ...config import GameConfig
 from pygame_gui.windows import UIMessageWindow

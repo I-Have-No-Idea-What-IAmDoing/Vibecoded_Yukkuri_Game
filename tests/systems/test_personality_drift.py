@@ -4,7 +4,7 @@ Tests for Personality Drift mechanics.
 
 import pytest
 from test_utils import make_configured_world
-from yukkuri_game.game.yukkuri_components import Personality, PersonalityAxis
+from yukkuri_game.game.components import Personality, PersonalityAxis
 from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.engine.ecs import World
@@ -54,7 +54,7 @@ def test_personality_drift(world: World, emotion_system: EmotionSystem) -> None:
     world.add_component(entity, p)
 
     # Also need YukkuriStats for the system to process it
-    from yukkuri_game.game.yukkuri_components import YukkuriStats
+    from yukkuri_game.game.components import YukkuriStats
 
     world.add_component(entity, YukkuriStats(name="Test", type_id="test"))
 

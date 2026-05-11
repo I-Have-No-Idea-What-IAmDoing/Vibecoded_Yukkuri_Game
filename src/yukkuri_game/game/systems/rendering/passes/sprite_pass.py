@@ -3,8 +3,7 @@ Sprite Pass.
 """
 
 from ....renderer.commands import SpriteCommand
-from ....components import Sprite, VisualTransform, Selectable
-from ....yukkuri_components import Flight
+from ....components import Flight, Selectable, Sprite, VisualTransform
 from ..context import RenderContext
 
 

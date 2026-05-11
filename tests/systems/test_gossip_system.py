@@ -11,7 +11,7 @@ from yukkuri_game.game.systems.gossip_system import GossipSystem
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.events import SocialInteractionEvent
-from yukkuri_game.game.yukkuri_components import (
+from yukkuri_game.game.components import (
     GossipQueue,
     GossipPacket,
     YukkuriStats,
