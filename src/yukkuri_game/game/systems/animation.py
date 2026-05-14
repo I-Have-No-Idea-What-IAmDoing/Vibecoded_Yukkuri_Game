@@ -91,7 +91,7 @@ class AnimationSystem(System):
             self._update_animator(entity_id, animator, sprite, dt * agility_mod)
 
             # Sync with AI State if available
-            ai_state = world.get_component(entity_id, AIState)
+            ai_state = world.try_get_component(entity_id, AIState)
             if ai_state:
                 self._sync_ai_animation(world, entity_id, animator, ai_state)
 
@@ -300,12 +300,12 @@ class AnimationSystem(System):
         if not rm:
             return
 
-        ai_state = world.get_component(entity, AIState)
+        ai_state = world.try_get_component(entity, AIState)
         if not ai_state:
             return
 
         # Get base image from YukkuriStats -> ResourceManager
-        stats = world.get_component(entity, YukkuriStats)
+        stats = world.try_get_component(entity, YukkuriStats)
         if not stats:
             return
 

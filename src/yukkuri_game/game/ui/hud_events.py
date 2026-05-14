@@ -101,7 +101,7 @@ class HudEvents:
 
     def on_level_up(self, event: LevelUpEvent) -> None:
         """Handles LevelUpEvent to show floating text."""
-        trans = self.world.get_component(event.entity_id, Transform)
+        trans = self.world.try_get_component(event.entity_id, Transform)
         if trans:
             text = f"{event.skill_id.capitalize()} Lv.{event.new_level}!"
             create_floating_text(

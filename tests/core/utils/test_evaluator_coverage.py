@@ -96,7 +96,7 @@ class TestConditionEvaluator:
                 return skills
             return None
 
-        world.get_component.side_effect = get_component
+        world.try_get_component.side_effect = get_component
 
         context = evaluator.build_context(world, entity_id)
 
@@ -118,7 +118,7 @@ class TestConditionEvaluator:
 
     def test_build_context_missing_components(self, evaluator, world):
         entity_id = 2
-        world.get_component.return_value = None
+        world.try_get_component.return_value = None
 
         context = evaluator.build_context(world, entity_id)
 

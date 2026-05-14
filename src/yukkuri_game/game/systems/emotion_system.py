@@ -213,9 +213,9 @@ class EmotionSystem(System):
             is_night (bool): Whether it is currently night.
             light_sources (list[tuple[Transform, LightSource]]): List of active light sources.
         """
-        emotional_state = world.get_component(entity, EmotionalState)
-        personality = world.get_component(entity, Personality)
-        trans = world.get_component(entity, Transform)
+        emotional_state = world.try_get_component(entity, EmotionalState)
+        personality = world.try_get_component(entity, Personality)
+        trans = world.try_get_component(entity, Transform)
 
         # 1. Determine multipliers
         multipliers = self._calculate_multipliers(personality)

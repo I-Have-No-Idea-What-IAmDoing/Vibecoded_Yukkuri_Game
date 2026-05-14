@@ -68,7 +68,7 @@ class InventorySystem(System):
                 continue
 
             # Validation: Target is an item (has ItemStats)
-            item_stats = world.get_component(target_id, ItemStats)
+            item_stats = world.try_get_component(target_id, ItemStats)
             if not item_stats:
                 logger.warning(f"Pickup failed: Entity {target_id} is not an item.")
                 world.remove_component(entity_id, InventoryPickupRequest)

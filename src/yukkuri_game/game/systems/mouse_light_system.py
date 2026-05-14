@@ -49,7 +49,7 @@ class MouseLightSystem(System):
         self.enabled = not self.enabled
         # Update intensity based on enabled state
         with self.ecs_world.context():
-            light = self.ecs_world.get_component(self.light_entity, LightSource)
+            light = self.ecs_world.try_get_component(self.light_entity, LightSource)
             if light:
                 light.intensity = 0.8 if self.enabled else 0.0
 
@@ -69,7 +69,7 @@ class MouseLightSystem(System):
                 sw, sh = surface.get_size()
                 wx, wy = self.camera.screen_to_world(mx, my, sw, sh)
 
-                transform = world.get_component(self.light_entity, Transform)
+                transform = world.try_get_component(self.light_entity, Transform)
                 if transform:
                     transform.x = wx
                     transform.y = wy

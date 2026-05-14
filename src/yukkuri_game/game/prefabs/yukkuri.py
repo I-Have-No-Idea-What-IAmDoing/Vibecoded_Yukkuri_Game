@@ -194,7 +194,7 @@ def create_yukkuri(
         if parents and trait_service:
             parent_personalities = [
                 p
-                for p in (world.get_component(pid, Personality) for pid in parents)
+                for p in (world.try_get_component(pid, Personality) for pid in parents)
                 if p
             ]
             if parent_personalities:

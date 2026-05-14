@@ -121,6 +121,14 @@ class EmotionalState:
     happiness: float = 0.0
     stress: float = 0.0
 
+    def adjust_happiness(self, delta: float) -> None:
+        """Adjusts happiness, clamped between -100.0 and 100.0."""
+        self.happiness = max(-100.0, min(100.0, self.happiness + delta))
+
+    def adjust_stress(self, delta: float) -> None:
+        """Adjusts stress, clamped between 0.0 and 100.0."""
+        self.stress = max(0.0, min(100.0, self.stress + delta))
+
     def get_dominant_emotion(self, bravery: int = 0) -> str:
         is_happy = self.happiness >= 0
         is_stressed = self.stress >= 50
@@ -151,6 +159,34 @@ class Needs:
     bladder: float = 0.0
     easiness: float = 50.0
 
+    def adjust_health(self, delta: float) -> None:
+        """Adjusts health, clamped between 0.0 and max_health."""
+        self.health = max(0.0, min(self.max_health, self.health + delta))
+
+    def adjust_hunger(self, delta: float) -> None:
+        """Adjusts hunger, clamped between 0.0 and 100.0."""
+        self.hunger = max(0.0, min(100.0, self.hunger + delta))
+
+    def adjust_energy(self, delta: float) -> None:
+        """Adjusts energy, clamped between 0.0 and 100.0."""
+        self.energy = max(0.0, min(100.0, self.energy + delta))
+
+    def adjust_social(self, delta: float) -> None:
+        """Adjusts social, clamped between 0.0 and 100.0."""
+        self.social = max(0.0, min(100.0, self.social + delta))
+
+    def adjust_cleanliness(self, delta: float) -> None:
+        """Adjusts cleanliness, clamped between 0.0 and 100.0."""
+        self.cleanliness = max(0.0, min(100.0, self.cleanliness + delta))
+
+    def adjust_bladder(self, delta: float) -> None:
+        """Adjusts bladder, clamped between 0.0 and 100.0."""
+        self.bladder = max(0.0, min(100.0, self.bladder + delta))
+
+    def adjust_easiness(self, delta: float) -> None:
+        """Adjusts easiness, clamped between 0.0 and 100.0."""
+        self.easiness = max(0.0, min(100.0, self.easiness + delta))
+
 
 @dataclass(slots=True)
 class Personality:
@@ -180,6 +216,18 @@ class RelationshipData:
     core_buffer: list[MemoryHeadline] = field(default_factory=list)
     TRIVIAL_MAX_LEN: int = 25
     CORE_MAX_LEN: int = 35
+
+    def adjust_trust(self, delta: float) -> None:
+        """Adjusts trust, clamped between -100.0 and 100.0."""
+        self.trust = max(-100.0, min(100.0, self.trust + delta))
+
+    def adjust_affinity(self, delta: float) -> None:
+        """Adjusts affinity, clamped between -100.0 and 100.0."""
+        self.affinity = max(-100.0, min(100.0, self.affinity + delta))
+
+    def adjust_fear(self, delta: float) -> None:
+        """Adjusts fear, clamped between 0.0 and 100.0."""
+        self.fear = max(0.0, min(100.0, self.fear + delta))
 
     def add_headline(self, headline: MemoryHeadline, threshold: float = 50.0) -> None:
         if headline.importance > threshold or headline.is_locked:

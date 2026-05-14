@@ -4,7 +4,8 @@ Tests for Game Services (Economy, Time, Persistence).
 
 import pytest
 from unittest.mock import MagicMock, patch
-from yukkuri_game.game.services import PersistenceService, EconomyService, TimeService
+from yukkuri_game.game.services import EconomyService, TimeService
+from yukkuri_game.game.save_manager import SaveManager
 from yukkuri_game.engine.ecs import World
 
 # --- Economy Service Tests ---
@@ -58,7 +59,7 @@ def test_time_service() -> None:
     assert service.time_elapsed == 10.0
 
 
-# --- Persistence Service Tests ---
+# --- Save Manager Tests ---
 
 
 @pytest.fixture
@@ -94,13 +95,15 @@ def test_save_game(persistence_world: MagicMock, tmp_path) -> None:
             return time_svc
         return None
 
-    world.services.try_get.side_effect = get_service
+    world.services.get.side_effect = get_service
 
-    service = PersistenceService(world, save_dir=str(tmp_path))
+    service = SaveManager(world, [])
 
     mock_serializer = MagicMock()
-    with patch.object(service, "_build_serializer", return_value=mock_serializer):
-        service.save_game("test.json")
+    service.serializer = mock_serializer
+    
+    save_path = str(tmp_path / "test")
+    service.save_game(save_path)
 
     import json
     global_file = tmp_path / "test.global.json"
@@ -123,16 +126,17 @@ def test_load_game(persistence_world: MagicMock, tmp_path) -> None:
     economy = EconomyService(0)
     time_svc = TimeService()
 
-    def try_get_service(svc_type):
+    def get_service(svc_type):
         if svc_type == EconomyService:
             return economy
         if svc_type == TimeService:
             return time_svc
         return None
 
-    world.services.try_get.side_effect = try_get_service
+    world.services.get.side_effect = get_service
+    world.services.try_get.return_value = None # mock other services returning None
 
-    service = PersistenceService(world, save_dir=str(tmp_path))
+    service = SaveManager(world, [])
 
     # Write the two stub files
     global_file = tmp_path / "test.global.json"
@@ -141,10 +145,11 @@ def test_load_game(persistence_world: MagicMock, tmp_path) -> None:
     level_file.write_bytes(b"")  # real content handled by mock serializer
 
     mock_serializer = MagicMock()
-    with patch.object(service, "_build_serializer", return_value=mock_serializer):
-        success = service.load_game("test.json")
+    service.serializer = mock_serializer
+    
+    save_path = str(tmp_path / "test")
+    service.load_game(save_path)
 
-    assert success is True
     assert economy.money == 999
     assert time_svc.time_elapsed == 60.0
     mock_serializer.load_from_file.assert_called_once()

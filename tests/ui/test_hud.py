@@ -18,7 +18,8 @@ from yukkuri_game.game.events import (
     SaveGameRequest,
     LoadGameRequest,
 )
-from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
+from yukkuri_game.game.services import EconomyService, TimeService
+from yukkuri_game.game.save_manager import SaveManager
 
 
 @pytest.fixture
@@ -51,7 +52,7 @@ def mock_world():
     time_service.game_speed = 1.0  # Normal speed
     time_service.day = 1  # Day 1
 
-    persistence_service = MagicMock(spec=PersistenceService)
+    save_manager = MagicMock(spec=SaveManager)
 
     # Setup services.try_get logic
     def try_get(service_type):
@@ -59,8 +60,8 @@ def mock_world():
             return economy_service
         if service_type == TimeService:
             return time_service
-        if service_type == PersistenceService:
-            return persistence_service
+        if service_type == SaveManager:
+            return save_manager
         return None
 
     # Setup services.get logic
@@ -69,8 +70,8 @@ def mock_world():
             return economy_service
         if service_type == TimeService:
             return time_service
-        if service_type == PersistenceService:
-            return persistence_service
+        if service_type == SaveManager:
+            return save_manager
         return MagicMock()
 
     services.try_get.side_effect = try_get
@@ -393,7 +394,7 @@ class TestHudRenderer:
                 return ai
             return None
 
-        mock_world.get_component.side_effect = get_comp
+        mock_world.try_get_component.side_effect = get_comp
         mock_world.has_component.side_effect = lambda e, t: t == YukkuriStats
 
         hud_renderer.update(0.1, [1], False)
@@ -421,7 +422,7 @@ class TestHudRenderer:
                 return item_stats
             return None
 
-        mock_world.get_component.side_effect = get_comp
+        mock_world.try_get_component.side_effect = get_comp
         mock_world.has_component.side_effect = lambda e, t: t == ItemStats
 
         hud_renderer.update(0.1, [1], False)

@@ -8,7 +8,8 @@ It integrates with the `ServiceLocator` and `EventBus` for system-wide communica
 
 import contextlib
 import uuid
-from collections.abc import Iterator
+from collections.abc import Iterator, Callable
+from functools import wraps
 from typing import Any, TypeVar
 
 import esper
@@ -28,6 +29,16 @@ class Component:
     """Base class for all components."""
     pass
 
+
+
+
+def ensure_context(func: Callable) -> Callable:
+    """Decorator to ensure operations run within this world's context."""
+    @wraps(func)
+    def wrapper(self: "World", *args: Any, **kwargs: Any) -> Any:
+        self._switch()
+        return func(self, *args, **kwargs)
+    return wrapper
 
 class World:
     """
@@ -108,6 +119,7 @@ class World:
         """
         self._next_stable_id = next_id
 
+    @ensure_context
     def create_entity(self, *components: Any) -> int:
         """
         Creates a new entity composed of the provided components.
@@ -120,7 +132,6 @@ class World:
         Returns:
             int: The unique runtime ID of the created entity.
         """
-        self._switch()
         entity_id = int(esper.create_entity(*components))
         self._active_entities.add(entity_id)
 
@@ -133,6 +144,7 @@ class World:
 
         return entity_id
 
+    @ensure_context
     def destroy_entity(self, entity: int) -> None:
         """
         Removes an entity and all its components from the world.
@@ -143,7 +155,6 @@ class World:
         Args:
             entity (int): The ID of the entity to destroy.
         """
-        self._switch()
         try:
             event_bus = self.services.try_get(EventBus)
             if event_bus:
@@ -154,6 +165,7 @@ class World:
         except KeyError:
             pass
 
+    @ensure_context
     def entity_exists(self, entity: int) -> bool:
         """
         Checks if an entity ID represents a valid, active entity.
@@ -164,9 +176,9 @@ class World:
         Returns:
             bool: True if the entity exists in this world, False otherwise.
         """
-        self._switch()
         return bool(esper.entity_exists(entity))
 
+    @ensure_context
     def add_component(self, entity: int, component: Any) -> None:
         """
         Attaches a single component to an existing entity.
@@ -177,13 +189,13 @@ class World:
             entity (int): The target entity ID.
             component (Any): The component instance to add.
         """
-        self._switch()
         esper.add_component(entity, component)
 
         event_bus = self.services.try_get(EventBus)
         if event_bus:
             event_bus.publish(ComponentAddedEvent(entity, type(component), component))
 
+    @ensure_context
     def remove_component(self, entity: int, component_type: type[Any]) -> None:
         """
         Detaches a component of the specified type from an entity.
@@ -194,7 +206,6 @@ class World:
             entity (int): The target entity ID.
             component_type (type[Any]): The class of the component to remove.
         """
-        self._switch()
         try:
             removed_component = esper.remove_component(entity, component_type)
 
@@ -206,23 +217,21 @@ class World:
         except KeyError:
             pass
 
-    def get_component(self, entity: int, component_type: type[T]) -> T | None:
+    @ensure_context
+    def get_component(self, entity: int, component_type: type[T]) -> T:
         """
-        Retrieves a specific component from an entity.
+        Retrieves a specific component from an entity. Raises KeyError if missing.
 
         Args:
             entity (int): The entity ID.
             component_type (type[T]): The class of the component to retrieve.
 
         Returns:
-            T | None: The component instance if found, otherwise None.
+            T: The component instance.
         """
-        self._switch()
-        try:
-            return esper.component_for_entity(entity, component_type)
-        except KeyError:
-            return None
+        return esper.component_for_entity(entity, component_type)
 
+    @ensure_context
     def try_get_component(self, entity: int, component_type: type[T]) -> T | None:
         """
         Safely retrieves a component without raising exceptions if missing.
@@ -236,9 +245,9 @@ class World:
         Returns:
             T | None: The component instance if found, otherwise None.
         """
-        self._switch()
         return esper.try_component(entity, component_type)
 
+    @ensure_context
     def has_component(self, entity: int, component_type: type[Any]) -> bool:
         """
         Checks if an entity matches a specific component type.
@@ -250,12 +259,12 @@ class World:
         Returns:
             bool: True if the entity satisfies the component requirement, False otherwise.
         """
-        self._switch()
         try:
             return bool(esper.has_component(entity, component_type))
         except KeyError:
             return False
 
+    @ensure_context
     def get_components(self, component_type: type[T]) -> dict[int, T]:
         """
         Retrieves all instances of a specific component type across all entities.
@@ -266,7 +275,6 @@ class World:
         Returns:
             dict[int, T]: A dictionary mapping Entity ID -> Component Instance.
         """
-        self._switch()
         return {
             entity: component
             for entity, component in esper.get_component(component_type)
@@ -281,6 +289,7 @@ class World:
         """
         return list(self._active_entities)
 
+    @ensure_context
     def get_entities_with(self, *component_types: type[Any]) -> list[int]:
         """
         Finds entities that possess ALL of the specified component types.
@@ -291,7 +300,6 @@ class World:
         Returns:
             list[int]: A list of matching entity IDs.
         """
-        self._switch()
         if not component_types:
             return []
         return [entity for entity, _ in esper.get_components(*component_types)]
@@ -315,6 +323,7 @@ class World:
         self._switch()
         return esper.get_components(*component_types)
 
+    @ensure_context
     def get_all_components(self, entity: int) -> tuple[Any, ...]:
         """
         Retrieves every component attached to a specific entity.
@@ -325,12 +334,12 @@ class World:
         Returns:
             tuple[Any, ...]: A tuple containing all component instances for the entity.
         """
-        self._switch()
         try:
             return esper.components_for_entity(entity)
         except KeyError:
             return ()
 
+    @ensure_context
     def add_system(self, system: "System") -> None:
         """
         Registers a System to run in this world.
@@ -341,11 +350,11 @@ class World:
         Args:
             system (System): The System instance to register.
         """
-        self._switch()
         system.ecs_world = self
         system.initialize()
         esper.add_processor(system)
 
+    @ensure_context
     def update(self, dt: float) -> None:
         """
         Advances the world state by one tick.
@@ -355,17 +364,17 @@ class World:
         Args:
             dt (float): Delta time in seconds since the last frame.
         """
-        self._switch()
         esper.process(dt)
 
+    @ensure_context
     def clear_database(self) -> None:
         """
         Removes all entities and components. Does NOT remove registered Systems.
         """
-        self._switch()
         esper.clear_database()
         self._active_entities.clear()
 
+    @ensure_context
     def destroy(self) -> None:
         """
         Completely tears down the world.
@@ -373,7 +382,6 @@ class World:
         Clears the database, clears services, and removes all systems.
         This is essential for memory management when unloading levels or closing the game.
         """
-        self._switch()
         self.clear_database()
         self.services.clear()
         # Remove all systems to prevent leaks

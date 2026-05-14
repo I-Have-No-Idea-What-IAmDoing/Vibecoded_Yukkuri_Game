@@ -63,14 +63,14 @@ class ConditionEvaluator:
         context: dict[str, Any] = {}
 
         # Stats
-        stats = world.get_component(entity_id, YukkuriStats)
+        stats = world.try_get_component(entity_id, YukkuriStats)
         if stats:
             context["discipline"] = stats.discipline
             context["age"] = stats.age
             context["intelligence"] = stats.intelligence
 
         # Needs
-        needs = world.get_component(entity_id, Needs)
+        needs = world.try_get_component(entity_id, Needs)
         if needs:
             context["health"] = needs.health
             context["hunger"] = needs.hunger
@@ -81,7 +81,7 @@ class ConditionEvaluator:
             context["easiness"] = needs.easiness
 
         # Personality (Fetch first to use for mood)
-        pers = world.get_component(entity_id, Personality)
+        pers = world.try_get_component(entity_id, Personality)
         if pers:
             context["traits"] = list(pers.traits)
             if pers.axis:
@@ -91,7 +91,7 @@ class ConditionEvaluator:
                 context["bravery"] = pers.axis.bravery
 
         # Emotion
-        emotion = world.get_component(entity_id, EmotionalState)
+        emotion = world.try_get_component(entity_id, EmotionalState)
         if emotion:
             context["happiness"] = emotion.happiness
             context["stress"] = emotion.stress
@@ -103,7 +103,7 @@ class ConditionEvaluator:
             context["mood"] = emotion.get_dominant_emotion(bravery)
 
         # Skills (Flattened for easy access: skills.athletics)
-        skills = world.get_component(entity_id, Skills)
+        skills = world.try_get_component(entity_id, Skills)
         skill_map: dict[str, int] = {}
         if skills:
             for s_id, s_state in skills.states.items():

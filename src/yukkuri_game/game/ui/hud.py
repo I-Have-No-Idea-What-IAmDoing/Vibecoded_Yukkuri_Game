@@ -204,7 +204,7 @@ class HUD:
         # Check entity capabilities to determine options
         from ..components import InventoryComponent
 
-        inv = self.world.get_component(event.entity_id, InventoryComponent)
+        inv = self.world.try_get_component(event.entity_id, InventoryComponent)
         if inv:
             item_count = len(inv.items)
             label = f"Inventory ({item_count})" if item_count > 0 else "Inventory"

@@ -34,11 +34,9 @@ class FeedbackSystem(System):
         Initializes the FeedbackSystem.
         """
         self.event_bus: EventBus | None = None
-        self.world: World | None = None
 
     def initialize(self) -> None:
         """Called when the system is added to the world."""
-        self.world = self.ecs_world
         self.event_bus = self.ecs_world.services.get(EventBus)
 
         # Subscribe to events
@@ -70,7 +68,7 @@ class FeedbackSystem(System):
                     continue
 
                 # Check for EmotionalState
-                emotional = world.get_component(entity, EmotionalState)
+                emotional = world.try_get_component(entity, EmotionalState)
 
                 # Default probability logic
                 prob = 0.01 * dt  # 1% chance per second
@@ -112,7 +110,7 @@ class FeedbackSystem(System):
             None
         """
         create_floating_text(
-            self.world,
+            self.ecs_world,
             event.position[0],
             event.position[1] - 30,
             f"+${event.value}",
@@ -138,12 +136,12 @@ class FeedbackSystem(System):
             None
         """
         name = "Entity"
-        stats = self.world.get_component(event.entity_id, YukkuriStats)
+        stats = self.ecs_world.try_get_component(event.entity_id, YukkuriStats)
         if stats:
             name = stats.name
 
         create_floating_text(
-            self.world,
+            self.ecs_world,
             event.position[0],
             event.position[1] - 40,
             "Level Up!",
@@ -169,12 +167,12 @@ class FeedbackSystem(System):
             None
         """
         name = "Entity"
-        stats = self.world.get_component(event.entity_id, YukkuriStats)
+        stats = self.ecs_world.try_get_component(event.entity_id, YukkuriStats)
         if stats:
             name = stats.name
 
         create_floating_text(
-            self.world,
+            self.ecs_world,
             event.position[0],
             event.position[1] - 30,
             "Dead...",
@@ -198,12 +196,12 @@ class FeedbackSystem(System):
             None
         """
         name = "Entity"
-        stats = self.world.get_component(event.entity_id, YukkuriStats)
+        stats = self.ecs_world.try_get_component(event.entity_id, YukkuriStats)
         if stats:
             name = stats.name
 
         create_floating_text(
-            self.world,
+            self.ecs_world,
             event.position[0],
             event.position[1] - 30,
             "Trained!",
@@ -229,12 +227,12 @@ class FeedbackSystem(System):
             None
         """
         name = "Entity"
-        stats = self.world.get_component(event.entity_id, YukkuriStats)
+        stats = self.ecs_world.try_get_component(event.entity_id, YukkuriStats)
         if stats:
             name = stats.name
 
         create_floating_text(
-            self.world,
+            self.ecs_world,
             event.position[0],
             event.position[1] - 30,
             "Punished!",
@@ -251,7 +249,7 @@ class FeedbackSystem(System):
         """
         Handles AnimationEvent (duck-typed or imported).
         """
-        audio = self.world.services.try_get(AudioManager)
+        audio = self.ecs_world.services.try_get(AudioManager)
         if not audio:
             return
 

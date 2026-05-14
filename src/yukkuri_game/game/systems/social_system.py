@@ -170,7 +170,7 @@ class SocialSystem(System):
             self._update_opinion(world, eid, other_id, rel_data)
 
             # Check if relationship is exempt from decay (mates or family)
-            other_registry = world.get_component(other_id, RelationshipRegistry)
+            other_registry = world.try_get_component(other_id, RelationshipRegistry)
             is_special = (other_id == registry.mate_id) or (
                 registry.family_group_id is not None
                 and other_registry is not None
@@ -226,8 +226,8 @@ class SocialSystem(System):
             if not self.trait_service:
                 return
 
-            subject_pers = world.get_component(subject_id, Personality)
-            other_pers = world.get_component(other_id, Personality)
+            subject_pers = world.try_get_component(subject_id, Personality)
+            other_pers = world.try_get_component(other_id, Personality)
 
             if subject_pers and other_pers:
                 rel_data.base_compatibility = self._calculate_base_compatibility(
@@ -302,7 +302,7 @@ class SocialSystem(System):
             if cond_type == "skill_check":
                 skill_id = condition.get("skill")
                 min_level = condition.get("min_level", 0)
-                skills = world.get_component(entity_id, Skills)
+                skills = world.try_get_component(entity_id, Skills)
                 if skills and skill_id in skills.states:
                     return bool(skills.states[skill_id].level >= min_level)
                 return False
@@ -414,32 +414,24 @@ class SocialSystem(System):
             entity_id (int): Target entity ID.
             impact (dict[str, float]): Dictionary of stat changes.
         """
-        needs = world.get_component(entity_id, Needs)
-        emotional = world.get_component(entity_id, EmotionalState)
+        needs = world.try_get_component(entity_id, Needs)
+        emotional = world.try_get_component(entity_id, EmotionalState)
 
         if needs:
             if "health" in impact:
-                needs.health = max(
-                    0.0, min(needs.max_health, needs.health + impact["health"])
-                )
+                needs.adjust_health(impact["health"])
             if "energy" in impact:
-                needs.energy = max(0.0, min(100.0, needs.energy + impact["energy"]))
+                needs.adjust_energy(impact["energy"])
             if "hunger" in impact:
-                needs.hunger = max(0.0, min(100.0, needs.hunger + impact["hunger"]))
+                needs.adjust_hunger(impact["hunger"])
             if "cleanliness" in impact:
-                needs.cleanliness = max(
-                    0.0, min(100.0, needs.cleanliness + impact["cleanliness"])
-                )
+                needs.adjust_cleanliness(impact["cleanliness"])
 
         if emotional:
             if "happiness" in impact:
-                emotional.happiness = max(
-                    -100.0, min(100.0, emotional.happiness + impact["happiness"])
-                )
+                emotional.adjust_happiness(impact["happiness"])
             if "stress" in impact:
-                emotional.stress = max(
-                    0.0, min(100.0, emotional.stress + impact["stress"])
-                )
+                emotional.adjust_stress(impact["stress"])
 
     SOCIAL_AUDIO_MAP = {
         "Talk": "talk",
@@ -479,7 +471,7 @@ class SocialSystem(System):
             interaction_name (str): Name of the interaction.
             data (InteractionDefinition | dict[str, Any]): Interaction data.
         """
-        trans = world.get_component(entity_id, Transform)
+        trans = world.try_get_component(entity_id, Transform)
         if not trans:
             return
 
@@ -560,12 +552,12 @@ class SocialSystem(System):
             )
         )
 
-        emotional = world.get_component(subject_id, EmotionalState)
+        emotional = world.try_get_component(subject_id, EmotionalState)
         if emotional:
             OpinionCalculator.update_emotional_state(emotional, base_impact_score)
 
-        rel.trust = max(-100, min(100, rel.trust + d_trust))
-        rel.fear = max(0, min(100, rel.fear + d_fear))
+        rel.adjust_trust(d_trust)
+        rel.adjust_fear(d_fear)
         rel.familiarity = max(0, min(100, rel.familiarity + d_familiarity))
 
         self._add_memory_headline(
@@ -577,7 +569,7 @@ class SocialSystem(System):
         self, world: World, entity_id: int
     ) -> RelationshipRegistry:
         """Helper to get or create RelationshipRegistry component."""
-        registry = world.get_component(entity_id, RelationshipRegistry)
+        registry = world.try_get_component(entity_id, RelationshipRegistry)
         if not registry:
             registry = RelationshipRegistry()
             world.add_component(entity_id, registry)

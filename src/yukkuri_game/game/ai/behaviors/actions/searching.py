@@ -51,8 +51,8 @@ class FindItem(Action):
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
 
-        ai = self.world.get_component(self.entity_id, AIState)
-        trans = self.world.get_component(self.entity_id, Transform)
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        trans = self.world.try_get_component(self.entity_id, Transform)
 
         if ai is None or trans is None:
             return Status.FAILURE
@@ -78,7 +78,7 @@ class FindItem(Action):
 
                 # Anticipatory Caching
                 nav_service = self.world.services.try_get(NavigationService)
-                target_trans = self.world.get_component(best_item, Transform)
+                target_trans = self.world.try_get_component(best_item, Transform)
                 if nav_service and target_trans:
                     capabilities = TraversalCapability.WALK
                     flight_comp = self.world.try_get_component(self.entity_id, Flight)
@@ -127,8 +127,8 @@ class FindLightSource(Action):
         if not self.world or not self.entity_id:
             return Status.FAILURE
 
-        ai = self.world.get_component(self.entity_id, AIState)
-        trans = self.world.get_component(self.entity_id, Transform)
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        trans = self.world.try_get_component(self.entity_id, Transform)
 
         if not ai or not trans:
             return Status.FAILURE
@@ -186,9 +186,9 @@ class FindPrey(Action):
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
 
-        ai = self.world.get_component(self.entity_id, AIState)
-        predator = self.world.get_component(self.entity_id, Predator)
-        trans = self.world.get_component(self.entity_id, Transform)
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        predator = self.world.try_get_component(self.entity_id, Predator)
+        trans = self.world.try_get_component(self.entity_id, Transform)
 
         if ai is None or predator is None or trans is None:
             return Status.FAILURE
@@ -302,7 +302,7 @@ class FindThreat(Action):
         if not self.world or self.entity_id is None:
             return Status.FAILURE
 
-        ai = self.world.get_component(self.entity_id, AIState)
+        ai = self.world.try_get_component(self.entity_id, AIState)
         blackboard_comp = self.world.try_get_component(self.entity_id, Blackboard)
 
         if not ai or not blackboard_comp:
@@ -347,9 +347,9 @@ class FindSocialTarget(Action):
         if not self.world or not self.entity_id:
             return Status.FAILURE
 
-        ai = self.world.get_component(self.entity_id, AIState)
-        my_stats = self.world.get_component(self.entity_id, YukkuriStats)
-        trans = self.world.get_component(self.entity_id, Transform)
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        my_stats = self.world.try_get_component(self.entity_id, YukkuriStats)
+        trans = self.world.try_get_component(self.entity_id, Transform)
 
         if ai is None or my_stats is None or trans is None:
             return Status.FAILURE
@@ -364,8 +364,11 @@ class FindSocialTarget(Action):
         if not spatial_service:
             return Status.FAILURE
 
+        world_ref = self.world
         def match_criteria(uid: int) -> bool:
-            u_stats = self.world.try_get_component(uid, YukkuriStats)
+            if world_ref is None:
+                return False
+            u_stats = world_ref.try_get_component(uid, YukkuriStats)
             if not u_stats:
                 return False
             is_compatible = u_stats.type_id == my_stats.type_id
@@ -420,7 +423,7 @@ class PickFood(Action):
         super().update()
         if not self.world or self.entity_id is None:
             return Status.FAILURE
-        ai = self.world.get_component(self.entity_id, AIState)
+        ai = self.world.try_get_component(self.entity_id, AIState)
         if not ai:
             return Status.FAILURE
 

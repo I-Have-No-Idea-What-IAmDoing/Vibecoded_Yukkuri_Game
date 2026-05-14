@@ -44,15 +44,15 @@ class UtilityContextBuilder:
         Returns:
             dict[str, Any] | None: The context dictionary, or None if critical components are missing.
         """
-        stats = world.get_component(entity_id, YukkuriStats)
-        needs = world.get_component(entity_id, Needs)
+        stats = world.try_get_component(entity_id, YukkuriStats)
+        needs = world.try_get_component(entity_id, Needs)
 
         if not stats or not needs:
             return None
 
-        personality = world.get_component(entity_id, Personality)
-        emotional = world.get_component(entity_id, EmotionalState)
-        skills = world.get_component(entity_id, Skills)
+        personality = world.try_get_component(entity_id, Personality)
+        emotional = world.try_get_component(entity_id, EmotionalState)
+        skills = world.try_get_component(entity_id, Skills)
         blackboard = world.try_get_component(entity_id, Blackboard)
         time_service = world.services.try_get(TimeService)
 

@@ -68,7 +68,7 @@ class SkillService:
         if not self.world.entity_exists(entity_id):
             return
 
-        skills = self.world.get_component(entity_id, Skills)
+        skills = self.world.try_get_component(entity_id, Skills)
         if not skills:
             skills = Skills()
             self.world.add_component(entity_id, skills)
@@ -94,8 +94,8 @@ class SkillService:
         Args:
             entity_id (int): The entity ID.
         """
-        skills = self.world.get_component(entity_id, Skills)
-        personality = self.world.get_component(entity_id, Personality)
+        skills = self.world.try_get_component(entity_id, Skills)
+        personality = self.world.try_get_component(entity_id, Personality)
         trait_service = self.world.services.try_get(TraitService)
 
         if not skills or not trait_service:
@@ -134,7 +134,7 @@ class SkillService:
             skill_id (str): The skill identifier.
             amount (float): The amount of XP to add.
         """
-        skills = self.world.get_component(entity_id, Skills)
+        skills = self.world.try_get_component(entity_id, Skills)
         if not skills or skill_id not in skills.states:
             return
 
@@ -160,7 +160,7 @@ class SkillService:
             gain_multiplier = 0.1
 
         # Intelligence factor.
-        stats = self.world.get_component(entity_id, YukkuriStats)
+        stats = self.world.try_get_component(entity_id, YukkuriStats)
         int_factor = 1.0
         if stats:
             int_factor = stats.intelligence
@@ -171,7 +171,7 @@ class SkillService:
 
         # Burning Passion Effect: Gain happiness
         if state.passion >= PassionLevel.BURNING.value:
-            emotional_state = self.world.get_component(entity_id, EmotionalState)
+            emotional_state = self.world.try_get_component(entity_id, EmotionalState)
             if emotional_state:
                 # Small happiness boost.
                 # Capping it to avoid overflow is handled by logic elsewhere presumably,
@@ -233,7 +233,7 @@ class SkillService:
         Args:
             entity_id (int): The entity ID.
         """
-        skills = self.world.get_component(entity_id, Skills)
+        skills = self.world.try_get_component(entity_id, Skills)
         if not skills:
             return
 

@@ -34,7 +34,7 @@ class TestMoveToTarget:
     def test_move_no_target(self, mock_world, mock_blackboard):
         action = MoveToTarget(entity_id=1, world=mock_world, blackboard=mock_blackboard)
 
-        mock_world.get_component.side_effect = lambda e, c: None
+        mock_world.try_get_component.side_effect = lambda e, c: None
 
         assert action.update() == Status.FAILURE
 
@@ -64,7 +64,7 @@ class TestMoveToTarget:
                     return MagicMock(x=100, y=100)
             return None
 
-        mock_world.get_component.side_effect = get_component
+        mock_world.try_get_component.side_effect = get_component
 
         # Mock blackboard for dt
         with patch("py_trees.blackboard.Blackboard") as mock_bb:
@@ -112,7 +112,7 @@ class TestMoveToTarget:
                     return MagicMock(x=100, y=100)
             return None
 
-        mock_world.get_component.side_effect = get_component
+        mock_world.try_get_component.side_effect = get_component
 
         with patch("py_trees.blackboard.Blackboard") as mock_bb:
             mock_bb.return_value.get.return_value = 0.1
@@ -145,7 +145,7 @@ class TestInteract:
                     return target_trans
             return None
 
-        world.get_component.side_effect = get_component
+        world.try_get_component.side_effect = get_component
         world.has_component.return_value = False  # No existing interaction request
 
         status = action.update()
@@ -171,7 +171,7 @@ class TestInteract:
                     return target_trans
             return None
 
-        world.get_component.side_effect = get_component
+        world.try_get_component.side_effect = get_component
 
         status = action.update()
         assert status == Status.RUNNING
@@ -252,7 +252,7 @@ class TestFindItem:
                     return trans
             return None
 
-        world.get_component.side_effect = get_component
+        world.try_get_component.side_effect = get_component
 
         game_service = MagicMock(spec=GameService)
         game_service.find_best_item.return_value = 2
@@ -282,7 +282,7 @@ class TestFindItem:
                     return trans
             return None
 
-        world.get_component.side_effect = get_component
+        world.try_get_component.side_effect = get_component
 
         game_service = MagicMock(spec=GameService)
         game_service.find_best_item.return_value = -1

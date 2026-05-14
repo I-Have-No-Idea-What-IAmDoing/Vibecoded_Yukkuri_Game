@@ -70,7 +70,7 @@ class UtilitySelector(Action):
         if not self.world or self.entity_id is None:
             return Status.FAILURE
 
-        ai = self.world.get_component(self.entity_id, AIState)
+        ai = self.world.try_get_component(self.entity_id, AIState)
         if not ai:
             logger.warning(
                 f"UtilitySelector: Entity {self.entity_id} Missing AIState component"
@@ -103,7 +103,7 @@ class UtilitySelector(Action):
             return Status.FAILURE
 
         # Select Best Action
-        personality = self.world.get_component(self.entity_id, Personality)
+        personality = self.world.try_get_component(self.entity_id, Personality)
         best_action = self.engine.select_action(
             context, personality, self.trait_service
         )

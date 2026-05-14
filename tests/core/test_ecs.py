@@ -36,8 +36,8 @@ class MovementSystem(System):
     def update(self, world: World, dt: float) -> None:
         entities = world.get_entities_with(Position, Velocity)
         for entity in entities:
-            pos = world.get_component(entity, Position)
-            vel = world.get_component(entity, Velocity)
+            pos = world.try_get_component(entity, Position)
+            vel = world.try_get_component(entity, Velocity)
             if pos and vel:
                 pos.x += vel.vx * dt
                 pos.y += vel.vy * dt
@@ -72,10 +72,15 @@ def test_add_get_remove_component() -> None:
 
     assert world.has_component(entity, Position)
     assert world.get_component(entity, Position) == pos
+    assert world.try_get_component(entity, Position) == pos
 
     world.remove_component(entity, Position)
     assert not world.has_component(entity, Position)
-    assert world.get_component(entity, Position) is None
+    assert world.try_get_component(entity, Position) is None
+
+    import pytest
+    with pytest.raises(KeyError):
+        world.get_component(entity, Position)
 
 
 def test_get_entities_with() -> None:
@@ -125,12 +130,12 @@ def test_system_update() -> None:
     dt = 0.5
     world.update(dt)
 
-    pos1 = world.get_component(e1, Position)
+    pos1 = world.try_get_component(e1, Position)
     assert pos1 is not None
     assert pos1.x == 5.0  # 0 + 10 * 0.5
     assert pos1.y == 2.5  # 0 + 5 * 0.5
 
-    pos2 = world.get_component(e2, Position)
+    pos2 = world.try_get_component(e2, Position)
     assert pos2 is not None
     assert pos2.x == 10
     assert pos2.y == 10

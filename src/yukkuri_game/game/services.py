@@ -4,10 +4,8 @@ Module defining core game services.
 
 import collections
 import math
-import os
 from typing import TYPE_CHECKING
 
-from loguru import logger
 
 from ..engine.ecs import World
 from .components import ItemStats, Skills, Transform
@@ -15,7 +13,7 @@ from .skill_constants import SkillId
 from .systems.spatial_system import SpatialService
 
 if TYPE_CHECKING:
-    from ..engine.serializer import WorldSerializer
+    pass
 
 BASE_SCAVENGING_RADIUS = 500.0
 SCAVENGING_RADIUS_PER_LEVEL = 50.0
@@ -412,7 +410,7 @@ class GameService:
         # Calculate Search Radius based on Scavenging Skill
         max_radius = BASE_SCAVENGING_RADIUS
         if searcher_id != -1 and self.world.entity_exists(searcher_id):
-            skills = self.world.get_component(searcher_id, Skills)
+            skills = self.world.try_get_component(searcher_id, Skills)
             if skills and SkillId.SCAVENGING in skills.states:
                 level = skills.states[SkillId.SCAVENGING].level
                 max_radius = BASE_SCAVENGING_RADIUS + (
@@ -429,10 +427,10 @@ class GameService:
             for item in nearby_entities:
                 if item in exclude_ids:
                     continue
-                istats = self.world.get_component(item, ItemStats)
+                istats = self.world.try_get_component(item, ItemStats)
                 if not istats:
                     continue
-                itrans = self.world.get_component(item, Transform)
+                itrans = self.world.try_get_component(item, Transform)
                 if not itrans:
                     continue
                 if getattr(istats, stat_criteria, 0.0) > 0:
@@ -464,152 +462,3 @@ class GameService:
         return best_item
 
 
-class PersistenceService:
-    """
-    Service responsible for saving and loading the game state.
-
-    Uses the canonical two-file save format:
-    - ``<name>.level.msgpack``: All persistable ECS entities (binary).
-    - ``<name>.global.json``: Scalar global state: money, time (human-readable).
-
-    This mirrors the save/load logic in ``GameplayScene`` so that there is
-    exactly one save format in the codebase.  The ``WorldSerializer`` used
-    here is built from the same ``collect_component_types`` helper used by
-    ``GameLoader``, ensuring both paths see the same set of components.
-
-    Attributes:
-        world (World): The ECS world instance.
-        save_dir (str): Directory where save files are stored.
-    """
-
-    def __init__(self, world: World, save_dir: str = "saves") -> None:
-        """
-        Initializes the PersistenceService.
-
-        Args:
-            world (World): The ECS world.
-            save_dir (str): Path to the save directory. Defaults to ``"saves"``.
-        """
-        self.world = world
-        self.save_dir = save_dir
-        os.makedirs(save_dir, exist_ok=True)
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    def _build_serializer(self) -> "WorldSerializer":
-        """
-        Builds a ``WorldSerializer`` with all known component types.
-
-        Uses ``collect_component_types`` (the same logic as ``GameLoader``) to
-        guarantee the component registry is consistent with the production save
-        path used by ``GameplayScene``.
-
-        Returns:
-            WorldSerializer: A ready-to-use serializer instance.
-        """
-        import inspect
-
-        from ..engine.serializer import WorldSerializer
-        from . import components as _components
-
-        comp_types: list[type] = []
-        for _, obj in inspect.getmembers(_components):
-            if inspect.isclass(obj) and getattr(obj, "__module__", "").startswith(_components.__name__):
-                comp_types.append(obj)
-
-        return WorldSerializer(self.world, comp_types)
-
-    def _level_path(self, filename: str) -> str:
-        """Returns the path for the level (entity) save file."""
-        base, _ = os.path.splitext(filename)
-        return os.path.join(self.save_dir, base + ".level.msgpack")
-
-    def _global_path(self, filename: str) -> str:
-        """Returns the path for the global (money/time) save file."""
-        base, _ = os.path.splitext(filename)
-        return os.path.join(self.save_dir, base + ".global.json")
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
-    def save_game(self, filename: str) -> None:
-        """
-        Saves the current game state to two files.
-
-        Writes entity data to ``<filename>.level.msgpack`` and global scalars
-        (money, time) to ``<filename>.global.json``.
-
-        Args:
-            filename (str): Base name for the save files (extension ignored).
-        """
-        level_path = self._level_path(filename)
-        global_path = self._global_path(filename)
-
-        # --- Global scalars ---
-        global_data: dict[str, object] = {"money": 0, "time": 0.0}
-
-        economy = self.world.services.try_get(EconomyService)
-        if economy:
-            global_data["money"] = economy.money
-
-        time_svc = self.world.services.try_get(TimeService)
-        if time_svc:
-            global_data["time"] = time_svc.time_elapsed
-
-        import json
-
-        with open(global_path, "w") as f:
-            json.dump(global_data, f)
-
-        # --- Entity data ---
-        try:
-            serializer = self._build_serializer()
-            serializer.save_to_file(level_path)
-        except Exception as e:
-            logger.error(f"Failed to serialize game state: {e}", exc_info=True)
-            raise
-
-        logger.info(f"Game saved to {level_path} and {global_path}")
-
-    def load_game(self, filename: str) -> bool:
-        """
-        Loads the game state from the two-file save bundle.
-
-        Args:
-            filename (str): Base name used when saving (extension ignored).
-
-        Returns:
-            bool: ``True`` if both files were found and loaded successfully,
-            ``False`` if either file is missing.
-        """
-        level_path = self._level_path(filename)
-        global_path = self._global_path(filename)
-
-        if not os.path.exists(level_path) or not os.path.exists(global_path):
-            logger.error(
-                f"Save files not found: {level_path} or {global_path}"
-            )
-            return False
-
-        # --- Global scalars ---
-        import json
-
-        with open(global_path) as f:
-            global_data = json.load(f)
-
-        economy = self.world.services.try_get(EconomyService)
-        if economy:
-            economy.set_money(global_data.get("money", 0))
-
-        time_svc = self.world.services.try_get(TimeService)
-        if time_svc:
-            time_svc.time_elapsed = global_data.get("time", 0.0)
-
-        # --- Entity data ---
-        serializer = self._build_serializer()
-        serializer.load_from_file(level_path)
-
-        return True

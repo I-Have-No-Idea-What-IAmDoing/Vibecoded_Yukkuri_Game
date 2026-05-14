@@ -117,7 +117,7 @@ class OpinionCalculator:
         d_fear = social_impact.get("fear", 0.0)
         d_familiarity = social_impact.get("familiarity", 0.0)
 
-        subject_personality = world.get_component(subject_id, Personality)
+        subject_personality = world.try_get_component(subject_id, Personality)
         if subject_personality:
             for trait in subject_personality.traits:
                 key = f"trait:{trait}"

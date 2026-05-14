@@ -63,7 +63,7 @@ class TestSocialSystem:
                 return Personality()  # Return empty personality for drift calculation
             return None
 
-        world.get_component.side_effect = get_component_side_effect
+        world.try_get_component.side_effect = get_component_side_effect
         # Mock has_component to return false for "is_special" check (not mate/family)
         world.has_component.return_value = False
 
@@ -140,7 +140,7 @@ class TestSocialSystem:
                     return emotional
             return None
 
-        world.get_component.side_effect = get_component
+        world.try_get_component.side_effect = get_component
         # Mock entity_exists
         world.entity_exists.return_value = True
 
@@ -193,7 +193,7 @@ class TestSocialSystem:
                 return emotional
             return None
 
-        world.get_component.side_effect = get_component
+        world.try_get_component.side_effect = get_component
 
         system._apply_impact(world, e1, 2, interaction_data, "target", now=1000.0)
 

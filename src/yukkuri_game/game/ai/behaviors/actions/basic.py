@@ -131,7 +131,7 @@ class CheckEmotion(Action):
         """
         if not self.world or not self.entity_id:
             return Status.FAILURE
-        emotion = self.world.get_component(self.entity_id, EmotionalState)
+        emotion = self.world.try_get_component(self.entity_id, EmotionalState)
         if emotion and self.check_fn(emotion):
             return Status.SUCCESS
         return Status.FAILURE

@@ -106,7 +106,7 @@ class GossipSystem(System):
             return
         world = self.ecs_world
 
-        actor_trans = world.get_component(event.initiator_id, Transform)
+        actor_trans = world.try_get_component(event.initiator_id, Transform)
         if not actor_trans:
             return
 
@@ -176,7 +176,7 @@ class GossipSystem(System):
             ) or not world.has_component(witness_id, YukkuriStats):
                 continue
 
-            witness_trans = world.get_component(witness_id, Transform)
+            witness_trans = world.try_get_component(witness_id, Transform)
             if not witness_trans:
                 continue
 
@@ -251,8 +251,8 @@ class GossipSystem(System):
         Returns:
             bool: True if in the same group.
         """
-        reg_a = world.get_component(entity_a, RelationshipRegistry)
-        reg_b = world.get_component(entity_b, RelationshipRegistry)
+        reg_a = world.try_get_component(entity_a, RelationshipRegistry)
+        reg_b = world.try_get_component(entity_b, RelationshipRegistry)
 
         if not reg_a or not reg_b:
             return False
@@ -275,8 +275,8 @@ class GossipSystem(System):
             sender_id (int): Source entity.
             receiver_id (int): Destination entity.
         """
-        sender_queue = world.get_component(sender_id, GossipQueue)
-        receiver_queue = world.get_component(receiver_id, GossipQueue)
+        sender_queue = world.try_get_component(sender_id, GossipQueue)
+        receiver_queue = world.try_get_component(receiver_id, GossipQueue)
 
         if not sender_queue or not receiver_queue:
             return
@@ -329,7 +329,7 @@ class GossipSystem(System):
         if value < self.WITNESS_THRESHOLD:
             return
 
-        gossip = world.get_component(witness_id, GossipQueue)
+        gossip = world.try_get_component(witness_id, GossipQueue)
         if not gossip:
             return
 

@@ -116,13 +116,13 @@ class LifecycleSystem(System):
                 if world.has_component(entity, AIState):
                     world.remove_component(entity, AIState)
 
-                sprite = world.get_component(entity, Sprite)
+                sprite = world.try_get_component(entity, Sprite)
                 if sprite:
                     sprite.flip_y = True  # Flip upside down as death indicator.
 
                 # Emit Event
                 if event_bus:
-                    transform = world.get_component(entity, Transform)
+                    transform = world.try_get_component(entity, Transform)
                     pos = (transform.x, transform.y) if transform else (0, 0)
                     event_bus.publish(EntityDiedEvent(entity, pos))
 
@@ -198,7 +198,7 @@ class LifecycleSystem(System):
         if needs.health > needs.max_health:
             needs.health = needs.max_health
 
-        physics = world.get_component(entity, PhysicsBody)
+        physics = world.try_get_component(entity, PhysicsBody)
         if physics:
             if hasattr(physics.shape, "unsafe_set_radius"):
                 new_radius = physics.shape.radius * scale_multiplier
@@ -248,7 +248,7 @@ class LifecycleSystem(System):
         if stats.growth_stage != "Adult":
             return False
 
-        emotional = world.get_component(entity, EmotionalState)
+        emotional = world.try_get_component(entity, EmotionalState)
         happiness = 0.0
         if emotional:
             happiness = emotional.happiness

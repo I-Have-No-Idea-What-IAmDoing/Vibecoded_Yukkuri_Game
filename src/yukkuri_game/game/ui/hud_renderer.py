@@ -157,8 +157,8 @@ class HudRenderer:
         Args:
             selected_entity (int): The ID of the selected entity.
         """
-        my_trans = self.world.get_component(selected_entity, Transform)
-        registry = self.world.get_component(selected_entity, RelationshipRegistry)
+        my_trans = self.world.try_get_component(selected_entity, Transform)
+        registry = self.world.try_get_component(selected_entity, RelationshipRegistry)
 
         if not my_trans or not registry:
             return
@@ -171,7 +171,7 @@ class HudRenderer:
             if not self.world.entity_exists(other_id):
                 continue
 
-            other_trans = self.world.get_component(other_id, Transform)
+            other_trans = self.world.try_get_component(other_id, Transform)
             if not other_trans:
                 continue
 
@@ -216,12 +216,12 @@ class HudRenderer:
         text = ""
         if hovered_id != -1 and self.world.entity_exists(hovered_id):
             # Get minimal stats
-            ystats = self.world.get_component(hovered_id, YukkuriStats)
-            needs = self.world.get_component(hovered_id, Needs)
+            ystats = self.world.try_get_component(hovered_id, YukkuriStats)
+            needs = self.world.try_get_component(hovered_id, Needs)
             if ystats and needs:
                 text = f"<b>{ystats.name}</b><br>HP: {int(needs.health)}"
             else:
-                istats = self.world.get_component(hovered_id, ItemStats)
+                istats = self.world.try_get_component(hovered_id, ItemStats)
                 if istats:
                     text = f"<b>{istats.name}</b>"
 
@@ -250,9 +250,9 @@ class HudRenderer:
             stats_config = config.rules.stats if config else None
 
             for eid in selected_entities:
-                ystats = self.world.get_component(eid, YukkuriStats)
-                needs = self.world.get_component(eid, Needs)
-                emotional = self.world.get_component(eid, EmotionalState)
+                ystats = self.world.try_get_component(eid, YukkuriStats)
+                needs = self.world.try_get_component(eid, Needs)
+                emotional = self.world.try_get_component(eid, EmotionalState)
                 if ystats and needs:
                     yukkuris_count += 1
                     total_hp += needs.health
@@ -268,7 +268,7 @@ class HudRenderer:
                     yukkuri_breeds[breed] = yukkuri_breeds.get(breed, 0) + 1
 
                 else:
-                    istats = self.world.get_component(eid, ItemStats)
+                    istats = self.world.try_get_component(eid, ItemStats)
                     if istats:
                         items_count += 1
                         items_val += istats.cost
@@ -304,17 +304,17 @@ class HudRenderer:
 
         elif len(selected_entities) == 1:
             selected_entity = selected_entities[0]
-            stats = self.world.get_component(selected_entity, YukkuriStats)
-            needs = self.world.get_component(selected_entity, Needs)
-            emotional = self.world.get_component(selected_entity, EmotionalState)
+            stats = self.world.try_get_component(selected_entity, YukkuriStats)
+            needs = self.world.try_get_component(selected_entity, Needs)
+            emotional = self.world.try_get_component(selected_entity, EmotionalState)
 
             if stats and needs:
-                ai_state = self.world.get_component(selected_entity, AIState)
+                ai_state = self.world.try_get_component(selected_entity, AIState)
                 action = ai_state.current_action if ai_state else "None"
 
                 # Personality & Relationships
-                pers = self.world.get_component(selected_entity, Personality)
-                rel_reg = self.world.get_component(
+                pers = self.world.try_get_component(selected_entity, Personality)
+                rel_reg = self.world.try_get_component(
                     selected_entity, RelationshipRegistry
                 )
 
@@ -378,7 +378,7 @@ class HudRenderer:
                                 if count >= 3:
                                     break
                                 count += 1
-                                other_stats = self.world.get_component(
+                                other_stats = self.world.try_get_component(
                                     other_id, YukkuriStats
                                 )
                                 name = (
@@ -401,12 +401,12 @@ class HudRenderer:
                                         text += f"<br>   [{h.event_type}] Imp:{h.importance:.1f}"
 
             else:
-                istats = self.world.get_component(selected_entity, ItemStats)
+                istats = self.world.try_get_component(selected_entity, ItemStats)
                 if istats:
                     text = f"<b>Item:</b> {istats.name}<br><b>Val:</b> {istats.cost}"
 
             # --- Inventory Display (Debug) ---
-            inventory = self.world.get_component(selected_entity, InventoryComponent)
+            inventory = self.world.try_get_component(selected_entity, InventoryComponent)
             if inventory and inventory.items:
                 text += "<br><br><b>Inventory:</b>"
                 rm = self.world.services.try_get(ResourceManager)
@@ -438,7 +438,7 @@ class HudRenderer:
         text = ""
         if len(selected_entities) == 1:
             eid = selected_entities[0]
-            skills = self.world.get_component(eid, Skills)
+            skills = self.world.try_get_component(eid, Skills)
 
             if skills:
                 skill_service = self.world.services.try_get(SkillService)

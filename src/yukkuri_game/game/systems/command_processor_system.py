@@ -7,8 +7,10 @@ GameCommand objects in FIFO order.  This system must be registered
 visible to all other systems within the same tick.
 """
 
+from typing import cast
 from ...engine.ecs import System, World
 from ..services import InputBufferService
+from ..commands import GameCommand
 
 
 class CommandProcessorSystem(System):
@@ -49,6 +51,7 @@ class CommandProcessorSystem(System):
         if self._buffer is None:
             return
 
-        for command in self._buffer.pop_all():
-            if hasattr(command, "execute"):
+        for raw_command in self._buffer.pop_all():
+            if hasattr(raw_command, "execute"):
+                command = cast(GameCommand, raw_command)
                 command.execute(world)

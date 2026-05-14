@@ -375,14 +375,14 @@ def create_yukkuri_behavior_tree(
     entity_id: int, world: "World", width: int, height: int
 ) -> py_trees.composites.Selector:
     def check_goal(goal_name: str) -> bool:
-        ai = world.get_component(entity_id, AIState)
+        ai = world.try_get_component(entity_id, AIState)
         if not ai:
             return False
         result = bool(ai.current_action == goal_name)
         return result
 
     def check_target_exists() -> bool:
-        ai = world.get_component(entity_id, AIState)
+        ai = world.try_get_component(entity_id, AIState)
         if not ai or ai.current_target_id == -1:
             return False
         from ...components import Transform

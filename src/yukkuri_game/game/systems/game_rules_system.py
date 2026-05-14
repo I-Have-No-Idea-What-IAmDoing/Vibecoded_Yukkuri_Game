@@ -95,9 +95,9 @@ class GameRulesSystem(System):
             logger.error("GameRulesSystem: world not injected.")
             return 0
 
-        stats = self.world.get_component(entity, YukkuriStats)
-        needs = self.world.get_component(entity, Needs)
-        emotional_state = self.world.get_component(entity, EmotionalState)
+        stats = self.world.try_get_component(entity, YukkuriStats)
+        needs = self.world.try_get_component(entity, Needs)
+        emotional_state = self.world.try_get_component(entity, EmotionalState)
 
         if stats:
             from ...config import GameConfig
@@ -124,7 +124,7 @@ class GameRulesSystem(System):
             )
 
             # Get position for visual feedback spawn point
-            transform = self.world.get_component(entity, Transform)
+            transform = self.world.try_get_component(entity, Transform)
             position = (transform.x, transform.y) if transform else (0, 0)
 
             # Audio/visual feedback
@@ -164,17 +164,17 @@ class GameRulesSystem(System):
         if self.world is None:
             return
 
-        stats = self.world.get_component(event.entity_id, YukkuriStats)
-        emotional_state = self.world.get_component(event.entity_id, EmotionalState)
+        stats = self.world.try_get_component(event.entity_id, YukkuriStats)
+        emotional_state = self.world.try_get_component(event.entity_id, EmotionalState)
         if stats:
             # Award training badge (increases sell value and prestige)
             stats.badges += 1
 
             # Positive reinforcement: training makes them happier
             if emotional_state:
-                emotional_state.happiness = min(100.0, emotional_state.happiness + 10.0)
+                emotional_state.adjust_happiness(10.0)
 
-            transform = self.world.get_component(event.entity_id, Transform)
+            transform = self.world.try_get_component(event.entity_id, Transform)
             position = (transform.x, transform.y) if transform else (0, 0)
 
             audio = self.world.services.try_get(AudioManager)
@@ -198,26 +198,24 @@ class GameRulesSystem(System):
         if self.world is None:
             return
 
-        stats = self.world.get_component(event.entity_id, YukkuriStats)
-        needs = self.world.get_component(event.entity_id, Needs)
-        emotional_state = self.world.get_component(event.entity_id, EmotionalState)
+        stats = self.world.try_get_component(event.entity_id, YukkuriStats)
+        needs = self.world.try_get_component(event.entity_id, Needs)
+        emotional_state = self.world.try_get_component(event.entity_id, EmotionalState)
 
         if stats and needs:
             # Physical damage from punishment
-            needs.health = max(0.0, needs.health - 10.0)
+            needs.adjust_health(-10.0)
 
             if emotional_state:
                 # Emotional harm: less happy, more stressed
-                emotional_state.happiness = max(
-                    -100.0, emotional_state.happiness - 20.0
-                )
-                emotional_state.stress = min(100.0, emotional_state.stress + 20.0)
+                emotional_state.adjust_happiness(-20.0)
+                emotional_state.adjust_stress(20.0)
 
             # Discipline increase: punishment teaches obedience
             # Higher discipline = less likely to misbehave, but also less happy baseline
             stats.discipline = min(100.0, stats.discipline + 10.0)
 
-            transform = self.world.get_component(event.entity_id, Transform)
+            transform = self.world.try_get_component(event.entity_id, Transform)
             position = (transform.x, transform.y) if transform else (0, 0)
 
             audio = self.world.services.try_get(AudioManager)

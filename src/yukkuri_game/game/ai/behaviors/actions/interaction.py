@@ -54,8 +54,8 @@ class Interact(Action):
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
 
-        ai = self.world.get_component(self.entity_id, AIState)
-        trans = self.world.get_component(self.entity_id, Transform)
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        trans = self.world.try_get_component(self.entity_id, Transform)
 
         if ai is None or trans is None:
             return Status.FAILURE
@@ -63,7 +63,7 @@ class Interact(Action):
         if ai.current_target_id == -1:
             return Status.FAILURE
 
-        target_trans = self.world.get_component(ai.current_target_id, Transform)
+        target_trans = self.world.try_get_component(ai.current_target_id, Transform)
         if target_trans is None:
             return Status.FAILURE
 
@@ -113,8 +113,8 @@ class SocialInteract(Action):
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
 
-        ai = self.world.get_component(self.entity_id, AIState)
-        trans = self.world.get_component(self.entity_id, Transform)
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        trans = self.world.try_get_component(self.entity_id, Transform)
 
         if ai is None or trans is None:
             return Status.FAILURE
@@ -122,7 +122,7 @@ class SocialInteract(Action):
         if ai.current_target_id == -1:
             return Status.FAILURE
 
-        target_trans = self.world.get_component(ai.current_target_id, Transform)
+        target_trans = self.world.try_get_component(ai.current_target_id, Transform)
         if target_trans is None:
             return Status.FAILURE
 
@@ -191,10 +191,10 @@ class EatPrey(Action):
 
             self.spatial_service = self.world.services.try_get(SpatialService)
 
-        ai = self.world.get_component(self.entity_id, AIState)
-        predator = self.world.get_component(self.entity_id, Predator)
-        trans = self.world.get_component(self.entity_id, Transform)
-        controller = self.world.get_component(self.entity_id, MovementController)
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        predator = self.world.try_get_component(self.entity_id, Predator)
+        trans = self.world.try_get_component(self.entity_id, Transform)
+        controller = self.world.try_get_component(self.entity_id, MovementController)
 
         if ai is None or predator is None or trans is None:
             return Status.FAILURE
@@ -272,7 +272,7 @@ class EatPrey(Action):
                 # Entity already destroyed (e.g. by another predator)
                 pass
 
-            my_needs = self.world.get_component(self.entity_id, Needs)
+            my_needs = self.world.try_get_component(self.entity_id, Needs)
             if my_needs:
                 my_needs.hunger = max(0.0, my_needs.hunger - 50.0)
 

@@ -94,7 +94,7 @@ class PhysicsSystem(System):
 
         # self.ecs_world is injected by World.add_system
         if getattr(self, "ecs_world", None):
-            phys = self.ecs_world.get_component(event.entity_id, PhysicsBody)
+            phys = self.ecs_world.try_get_component(event.entity_id, PhysicsBody)
             if phys:
                 if phys.body in self.space.bodies:
                     self.space.remove(phys.body)

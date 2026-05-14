@@ -93,7 +93,7 @@ class HierarchySystem(System):
         if not mount or not mount.structure_dirty:
             return
 
-        phys = world.get_component(root_entity, PhysicsBody)
+        phys = world.try_get_component(root_entity, PhysicsBody)
         if not phys:
             return
 
@@ -134,7 +134,7 @@ class HierarchySystem(System):
                 child_total_offset = curr_offset + child_mount.mount_point_offset
 
                 # Create a proxy shape for this child on the Root Body
-                c_phys = world.get_component(child_id, PhysicsBody)
+                c_phys = world.try_get_component(child_id, PhysicsBody)
                 proxy_radius = _DEFAULT_ENTITY_RADIUS
                 if c_phys and hasattr(c_phys.shape, "radius"):
                     proxy_radius = c_phys.shape.radius
@@ -171,17 +171,17 @@ class HierarchySystem(System):
         root_prev_pos = None
         root_prev_rot = 0.0
 
-        phys = world.get_component(root_entity, PhysicsBody)
+        phys = world.try_get_component(root_entity, PhysicsBody)
         if phys:
             root_pos = phys.body.position
             root_rot = phys.body.angle
         else:
-            trans = world.get_component(root_entity, Transform)
+            trans = world.try_get_component(root_entity, Transform)
             if trans:
                 root_pos = pymunk.Vec2d(trans.x, trans.y)
                 root_rot = trans.rotation
 
-        trans = world.get_component(root_entity, Transform)
+        trans = world.try_get_component(root_entity, Transform)
         if trans:
             root_prev_pos = (
                 pymunk.Vec2d(
@@ -227,7 +227,7 @@ class HierarchySystem(System):
                 child_prev_pos = parent_prev_pos + prev_rotated_offset
 
                 # Apply to Child
-                child_phys = world.get_component(child_id, PhysicsBody)
+                child_phys = world.try_get_component(child_id, PhysicsBody)
                 child_rot = parent_rot
                 child_prev_rot = parent_prev_rot
 
@@ -239,7 +239,7 @@ class HierarchySystem(System):
                     if not child_phys.shape.sensor:
                         child_phys.shape.sensor = True
 
-                child_trans = world.get_component(child_id, Transform)
+                child_trans = world.try_get_component(child_id, Transform)
                 if child_trans:
                     child_trans.x = child_pos.x
                     child_trans.y = child_pos.y

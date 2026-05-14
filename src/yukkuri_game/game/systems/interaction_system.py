@@ -102,7 +102,7 @@ class InteractionSystem(System):
         Returns:
             bool: True if allowed, False otherwise.
         """
-        personality = world.get_component(entity, Personality)
+        personality = world.try_get_component(entity, Personality)
         if personality and self.trait_service:
             if personality.cached_overrides is None:
                 personality.cached_overrides = self.trait_service.calculate_overrides(
@@ -147,7 +147,7 @@ class InteractionSystem(System):
         if not world.entity_exists(target_id):
             return True
 
-        target_transform = world.get_component(target_id, Transform)
+        target_transform = world.try_get_component(target_id, Transform)
         if not target_transform:
             return True
 
@@ -159,7 +159,7 @@ class InteractionSystem(System):
             return False
 
         # Dispatch: Item Consumption
-        item_stats = world.get_component(target_id, ItemStats)
+        item_stats = world.try_get_component(target_id, ItemStats)
         if item_stats:
             if self.hunger_system:
                 return self.hunger_system.process_consumption(
@@ -182,7 +182,7 @@ class InteractionSystem(System):
 
         # Dispatch: Predation
         # Special case: eating another Yukkuri (requires trait permission)
-        target_stats = world.get_component(target_id, YukkuriStats)
+        target_stats = world.try_get_component(target_id, YukkuriStats)
         if target_stats and request.consume:
             return self._handle_predation(
                 world, entity, target_id, stats, target_stats, target_transform
@@ -230,9 +230,9 @@ class InteractionSystem(System):
         # 2. Permission Check
         if self._check_predation_allowed(world, predator_id):
             # 3. Execute Predation
-            needs = world.get_component(predator_id, Needs)
+            needs = world.try_get_component(predator_id, Needs)
             if needs:
-                needs.hunger = max(0, needs.hunger - 50.0)  # Big meal
+                needs.adjust_hunger(-50.0)  # Big meal
 
             if self.audio:
                 self.audio.play_sound("eat")
@@ -240,7 +240,7 @@ class InteractionSystem(System):
             world.destroy_entity(prey_id)
 
             # Clear AI Target if it fits
-            ai = world.get_component(predator_id, AIState)
+            ai = world.try_get_component(predator_id, AIState)
             if ai and ai.current_target_id == prey_id:
                 ai.current_target_id = cast(EntityID, -1)
 

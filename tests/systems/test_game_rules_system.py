@@ -7,7 +7,8 @@ from test_utils import make_configured_world
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.game_rules_system import GameRulesSystem
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.services import EconomyService, TimeService, PersistenceService
+from yukkuri_game.game.services import EconomyService, TimeService
+from yukkuri_game.game.save_manager import SaveManager
 from yukkuri_game.game.components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.event_bus import EventBus
@@ -24,7 +25,7 @@ def game_rules_world():
     # Setup services
     economy = EconomyService(1000)
     time_svc = TimeService()
-    persistence = MagicMock(spec=PersistenceService)
+    persistence = MagicMock(spec=SaveManager)
     factory = MagicMock(spec=EntityFactory)
     event_bus = EventBus()  # Use real EventBus to check subscriptions if needed, or mock if we check published events.
     # The system subscribes in __init__.
@@ -34,7 +35,7 @@ def game_rules_world():
     # register(instance, service_type=Type)
     world.services.register(economy, EconomyService)
     world.services.register(time_svc, TimeService)
-    world.services.register(persistence, PersistenceService)
+    world.services.register(persistence, SaveManager)
     world.services.register(factory, EntityFactory)
     world.services.register(event_bus, EventBus)
     world.services.register(audio, AudioManager)

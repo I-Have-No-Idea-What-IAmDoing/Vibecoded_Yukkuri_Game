@@ -112,7 +112,7 @@ class VisualTransform:
     from pymunk.vec2d import Vec2d as Vector2
     
     vertical_offset: float = 0.0
-    shadow_position: "Vector2" = None # Will be initialized in __post_init__
+    shadow_position: "Vector2 | None" = None # Will be initialized in __post_init__
     has_drop_shadow: bool = False
 
     def __post_init__(self) -> None:

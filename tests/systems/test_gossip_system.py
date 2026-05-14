@@ -99,7 +99,7 @@ class TestGossipSystem:
                 return Transform(x=0, y=0)
             return None
 
-        mock_world.get_component.side_effect = get_component
+        mock_world.try_get_component.side_effect = get_component
         mock_world.entity_exists.return_value = True
 
         spatial_service = mock_world.services.try_get(SpatialService)
@@ -140,7 +140,7 @@ class TestGossipSystem:
                 return Transform(x=0, y=0)
             return None
 
-        mock_world.get_component.side_effect = get_component
+        mock_world.try_get_component.side_effect = get_component
         system.spatial_service = MagicMock()
         system.spatial_service.get_entities_in_range.return_value = []
 
@@ -180,7 +180,7 @@ class TestGossipSystem:
                 return RelationshipRegistry()
             return None
 
-        mock_world.get_component.side_effect = get_component
+        mock_world.try_get_component.side_effect = get_component
         mock_world.has_component.return_value = True
 
         spatial_service = mock_world.services.try_get(SpatialService)
@@ -218,7 +218,7 @@ class TestGossipSystem:
                     return YukkuriStats(name="Reimu", type_id="reimu")
             return None
 
-        mock_world.get_component.side_effect = get_component
+        mock_world.try_get_component.side_effect = get_component
         mock_world.has_component.return_value = True
 
         spatial_service = mock_world.services.try_get(SpatialService)

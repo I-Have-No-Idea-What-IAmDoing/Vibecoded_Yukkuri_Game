@@ -108,7 +108,7 @@ class InventoryPanel:
         self.entity_id = entity_id
 
         # Verify entity has inventory
-        inventory = self.world.get_component(entity_id, InventoryComponent)
+        inventory = self.world.try_get_component(entity_id, InventoryComponent)
         if not inventory:
             return
 
@@ -165,7 +165,7 @@ class InventoryPanel:
             },
         )
 
-        inventory = self.world.get_component(self.entity_id, InventoryComponent)
+        inventory = self.world.try_get_component(self.entity_id, InventoryComponent)
         if not inventory or not inventory.items:
             UILabel(
                 relative_rect=pygame.Rect(10, 10, 200, 30),

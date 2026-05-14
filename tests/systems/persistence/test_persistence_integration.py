@@ -7,7 +7,8 @@ import pytest
 import os
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.services import EconomyService, PersistenceService, TimeService
+from yukkuri_game.game.services import EconomyService, TimeService
+from yukkuri_game.game.save_manager import SaveManager
 from yukkuri_game.game.components import Transform
 from yukkuri_game.game.components import YukkuriStats, ItemStats, AIState, Needs
 from yukkuri_game.game.entity_factory import EntityFactory
@@ -53,10 +54,23 @@ def setup_persistence_world():
     world.services.register(factory)
 
     save_dir = "test_saves_integration"
-    persistence = PersistenceService(world, save_dir=save_dir)
-    world.services.register(persistence)
+    os.makedirs(save_dir, exist_ok=True)
+    
+    # We need to monkeypatch the save manager to save to test_saves_integration, 
+    # but since SaveManager takes a full filepath, we'll just use save_dir in the test logic.
+    
+    # We must construct component types
+    import inspect
+    from yukkuri_game.game import components as _components
+    comp_types = []
+    for _, obj in inspect.getmembers(_components):
+        if inspect.isclass(obj) and getattr(obj, "__module__", "").startswith(_components.__name__):
+            comp_types.append(obj)
 
-    yield world, persistence
+    persistence = SaveManager(world, comp_types)
+    world.services.register(persistence, SaveManager)
+
+    yield world, persistence, save_dir
 
     # Cleanup: remove the entire save directory (now contains .level.msgpack + .global.json pairs)
     if os.path.exists(save_dir):
@@ -66,7 +80,7 @@ def setup_persistence_world():
 
 
 def test_persistence_ai_state(setup_persistence_world):
-    world, persistence = setup_persistence_world
+    world, persistence, save_dir = setup_persistence_world
     factory = world.services.get(EntityFactory)
 
     # 1. Setup: Create Yukkuri, Create Item
@@ -74,7 +88,7 @@ def test_persistence_ai_state(setup_persistence_world):
     i_id = factory.create_item("food", 200, 200)
 
     # 2. Set AI State
-    ai = world.get_component(y_id, AIState)
+    ai = world.try_get_component(y_id, AIState)
     assert ai is not None
     ai.current_action = "Eating"
     ai.current_target_id = i_id
@@ -83,7 +97,7 @@ def test_persistence_ai_state(setup_persistence_world):
     ai.path = [(100, 100), (150, 150), (200, 200)]
 
     # 3. Save
-    save_file = "test_ai_save.json"
+    save_file = os.path.join(save_dir, "test_ai_save.json")
     persistence.save_game(save_file)
 
     # 4. Clear World (Simulate new session)
@@ -105,7 +119,7 @@ def test_persistence_ai_state(setup_persistence_world):
     new_i_id = items[0]
 
     # Check AI State restoration
-    new_ai = world.get_component(new_y_id, AIState)
+    new_ai = world.try_get_component(new_y_id, AIState)
     assert new_ai is not None
     assert new_ai.current_action == "Eating"
 
@@ -117,7 +131,7 @@ def test_persistence_ai_state(setup_persistence_world):
 
 
 def test_persistence_round_trip(setup_persistence_world):
-    world, persistence = setup_persistence_world
+    world, persistence, save_dir = setup_persistence_world
     economy = world.services.get(EconomyService)
     time_service = world.services.get(TimeService)
     factory = world.services.get(EntityFactory)
@@ -128,14 +142,14 @@ def test_persistence_round_trip(setup_persistence_world):
 
     y_id = factory.create_yukkuri("reimu", 100, 200)
     # Set specific stats
-    stats = world.get_component(y_id, YukkuriStats)
+    stats = world.try_get_component(y_id, YukkuriStats)
     stats.name = "TestReimu"
 
     # Check for EmotionalState if it exists and set happiness
     try:
         from yukkuri_game.game.components import EmotionalState
 
-        emo = world.get_component(y_id, EmotionalState)
+        emo = world.try_get_component(y_id, EmotionalState)
         if emo:
             emo.happiness = 99.0
     except ImportError:
@@ -151,7 +165,7 @@ def test_persistence_round_trip(setup_persistence_world):
     world.add_component(broken_id, Persistable())
 
     # Save
-    save_file = "test_economy_round_trip.json"
+    save_file = os.path.join(save_dir, "test_economy_round_trip.json")
     persistence.save_game(save_file)
 
     # Modify state
@@ -172,15 +186,15 @@ def test_persistence_round_trip(setup_persistence_world):
     entities = world.get_entities_with(YukkuriStats)
     assert len(entities) == 2
 
-    names = [world.get_component(e, YukkuriStats).name for e in entities]
+    names = [world.try_get_component(e, YukkuriStats).name for e in entities]
     assert "TestReimu" in names
     assert "Broken" in names
 
     # Find the one with transform
     reimu_entity = next(
-        e for e in entities if world.get_component(e, YukkuriStats).name == "TestReimu"
+        e for e in entities if world.try_get_component(e, YukkuriStats).name == "TestReimu"
     )
 
-    trans = world.get_component(reimu_entity, Transform)
+    trans = world.try_get_component(reimu_entity, Transform)
     assert trans.x == 100
     assert trans.y == 200

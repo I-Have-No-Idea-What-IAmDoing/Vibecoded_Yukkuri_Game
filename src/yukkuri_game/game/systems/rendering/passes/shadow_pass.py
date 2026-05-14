@@ -20,7 +20,7 @@ class ShadowPass:
             sprite = context.world.try_get_component(ent, Sprite)
             visual = context.world.try_get_component(ent, VisualTransform)
 
-            if sprite and visual and visual.has_drop_shadow:
+            if sprite and visual and visual.has_drop_shadow and visual.shadow_position:
                 raw_scale = transform.scale * context.camera.zoom
                 scale = round(raw_scale * 20.0) / 20.0
 

@@ -94,9 +94,7 @@ class PoopSystem(System):
                 )
                 create_poop(world, transform.x + offset_x, transform.y + offset_y)
 
-                needs.cleanliness = max(
-                    0.0, needs.cleanliness - self.SPAWN_CLEANLINESS_PENALTY
-                )
+                needs.adjust_cleanliness(-self.SPAWN_CLEANLINESS_PENALTY)
                 needs.bladder = 0.0
 
         # Environmental Effect
@@ -131,7 +129,7 @@ class PoopSystem(System):
                     dist_sq = (px - y_trans.x) ** 2 + (py - y_trans.y) ** 2
                     if dist_sq < poop_radius_sq:
                         y_needs = yukkuri_needs_map[_y_ent]
-                        y_needs.cleanliness = max(0.0, y_needs.cleanliness - smell_strength_dt)
+                        y_needs.adjust_cleanliness(-smell_strength_dt)
         else:
             # Fallback for when SpatialService is not available (e.g. tests)
             for _p_ent, (_p_poop, p_trans) in poop_entities:
@@ -143,5 +141,4 @@ class PoopSystem(System):
 
                     if dist_sq < poop_radius_sq:
                         # Constant decay if within radius
-                        y_needs.cleanliness -= smell_strength_dt
-                        y_needs.cleanliness = max(0.0, y_needs.cleanliness)
+                        y_needs.adjust_cleanliness(-smell_strength_dt)

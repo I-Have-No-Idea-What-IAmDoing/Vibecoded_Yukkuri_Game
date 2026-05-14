@@ -343,7 +343,7 @@ class GameDriver:
 
         if not self.world:
             return
-        ai = self.world.get_component(entity_id, AIState)
+        ai = self.world.try_get_component(entity_id, AIState)
         if ai:
             if ai.state_data is None:
                 ai.state_data = {}
@@ -365,7 +365,7 @@ class GameDriver:
 
         if not self.world:
             return
-        ai = self.world.get_component(entity_id, AIState)
+        ai = self.world.try_get_component(entity_id, AIState)
         if ai:
             ai.current_action = action
             if target_id != -1:
@@ -624,7 +624,7 @@ class GameDriver:
 
         if not self.world:
             return None
-        return self.world.get_component(entity_id, Transform)
+        return self.world.try_get_component(entity_id, Transform)
 
     def get_component(self, entity_id: int, comp_type: type[T]) -> T | None:
         """
@@ -695,8 +695,11 @@ class GameDriver:
         """
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-        if hasattr(self.game, "init_render_system_headless"):
-            self.game.init_render_system_headless()
+        if hasattr(self.game, "scene_manager"):
+            _raw = self.game.scene_manager.current_scene
+            if _raw and hasattr(_raw, "init_render_system_headless"):
+                scene_any: Any = _raw
+                scene_any.init_render_system_headless()
 
         # Force a render to the surface (logic loop doesn't do it)
         # Manually render for screenshots, bypassing Application.render's headless check

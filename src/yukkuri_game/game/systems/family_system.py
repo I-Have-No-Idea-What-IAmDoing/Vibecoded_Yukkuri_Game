@@ -111,7 +111,7 @@ class FamilySystem(System):
                     and rel.trust > self.MIN_TRUST_FOR_FAMILY
                 ):
                     # Potential mate or family member
-                    other_registry = world.get_component(other_id, RelationshipRegistry)
+                    other_registry = world.try_get_component(other_id, RelationshipRegistry)
                     if not other_registry:
                         continue
 
@@ -189,18 +189,18 @@ class FamilySystem(System):
                 if other_eid <= eid:  # Avoid duplicate pairs and self.
                     continue
 
-                other_reg = world.get_component(other_eid, RelationshipRegistry)
+                other_reg = world.try_get_component(other_eid, RelationshipRegistry)
                 if (
                     other_reg is None
                     or other_reg.family_group_id != reg.family_group_id
                 ):
                     continue
 
-                other_trans = world.get_component(other_eid, Transform)
-                other_ai = world.get_component(other_eid, AIState)
-                other_stats = world.get_component(other_eid, YukkuriStats)
-                other_needs = world.get_component(other_eid, Needs)
-                other_emotional = world.get_component(other_eid, EmotionalState)
+                other_trans = world.try_get_component(other_eid, Transform)
+                other_ai = world.try_get_component(other_eid, AIState)
+                other_stats = world.try_get_component(other_eid, YukkuriStats)
+                other_needs = world.try_get_component(other_eid, Needs)
+                other_emotional = world.try_get_component(other_eid, EmotionalState)
 
                 if (
                     other_trans is None
@@ -315,32 +315,20 @@ class FamilySystem(System):
         if dist_sq < self.BENEFIT_RANGE_SQ:
             # 1. Base "Together" Happiness
             if emotional:
-                emotional.happiness = min(
-                    100.0, emotional.happiness + self.BASE_HAPPINESS_GAIN
-                )
-                emotional.stress = max(
-                    0.0, emotional.stress - self.BASE_STRESS_REDUCTION
-                )
+                emotional.adjust_happiness(self.BASE_HAPPINESS_GAIN)
+                emotional.adjust_stress(-self.BASE_STRESS_REDUCTION)
             if other_emotional:
-                other_emotional.happiness = min(
-                    100.0, other_emotional.happiness + self.BASE_HAPPINESS_GAIN
-                )
-                other_emotional.stress = max(
-                    0.0, other_emotional.stress - self.BASE_STRESS_REDUCTION
-                )
+                other_emotional.adjust_happiness(self.BASE_HAPPINESS_GAIN)
+                other_emotional.adjust_stress(-self.BASE_STRESS_REDUCTION)
 
             # 2. Food sharing: one eating shares with hungry partner.
             if (
                 ai.current_action == "Eat"
                 and other_needs.hunger > self.FOOD_SHARING_HUNGER_THRESHOLD
             ):
-                other_needs.hunger = max(
-                    0.0, other_needs.hunger - self.FOOD_SHARING_AMOUNT
-                )
+                other_needs.adjust_hunger(-self.FOOD_SHARING_AMOUNT)
                 if other_emotional:
-                    other_emotional.happiness = min(
-                        100.0, other_emotional.happiness + self.BASE_HAPPINESS_GAIN
-                    )
+                    other_emotional.adjust_happiness(self.BASE_HAPPINESS_GAIN)
                 logger.debug(
                     f"Family Share: {stats.name} sharing food with {other_stats.name}"
                 )
@@ -349,28 +337,20 @@ class FamilySystem(System):
                 other_ai.current_action == "Eat"
                 and needs.hunger > self.FOOD_SHARING_HUNGER_THRESHOLD
             ):
-                needs.hunger = max(0.0, needs.hunger - self.FOOD_SHARING_AMOUNT)
+                needs.adjust_hunger(-self.FOOD_SHARING_AMOUNT)
                 if emotional:
-                    emotional.happiness = min(
-                        100.0, emotional.happiness + self.BASE_HAPPINESS_GAIN
-                    )
+                    emotional.adjust_happiness(self.BASE_HAPPINESS_GAIN)
                 logger.debug(
                     f"Family Share: {other_stats.name} sharing food with {stats.name}"
                 )
 
             # 3. Nest sharing: sleeping member boosts nearby partner's recovery.
             if ai.current_action == "Sleep":
-                other_needs.energy = min(
-                    100.0, other_needs.energy + self.SLEEP_ENERGY_GAIN
-                )
+                other_needs.adjust_energy(self.SLEEP_ENERGY_GAIN)
                 if other_emotional:
-                    other_emotional.stress = max(
-                        0.0, other_emotional.stress - self.SLEEP_STRESS_REDUCTION
-                    )
+                    other_emotional.adjust_stress(-self.SLEEP_STRESS_REDUCTION)
 
             if other_ai.current_action == "Sleep":
-                needs.energy = min(100.0, needs.energy + self.SLEEP_ENERGY_GAIN)
+                needs.adjust_energy(self.SLEEP_ENERGY_GAIN)
                 if emotional:
-                    emotional.stress = max(
-                        0.0, emotional.stress - self.SLEEP_STRESS_REDUCTION
-                    )
+                    emotional.adjust_stress(-self.SLEEP_STRESS_REDUCTION)

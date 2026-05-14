@@ -80,10 +80,10 @@ class MoveToTarget(Action):
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
 
-        ai = self.world.get_component(self.entity_id, AIState)
-        trans = self.world.get_component(self.entity_id, Transform)
-        needs = self.world.get_component(self.entity_id, Needs)
-        controller = self.world.get_component(self.entity_id, MovementController)
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        trans = self.world.try_get_component(self.entity_id, Transform)
+        needs = self.world.try_get_component(self.entity_id, Needs)
+        controller = self.world.try_get_component(self.entity_id, MovementController)
 
         if ai is None or trans is None or needs is None or controller is None:
             return Status.FAILURE
@@ -91,7 +91,7 @@ class MoveToTarget(Action):
         # Determine Target Position
         target_pos = None
         if ai.current_target_id != -1:
-            target_trans = self.world.get_component(ai.current_target_id, Transform)
+            target_trans = self.world.try_get_component(ai.current_target_id, Transform)
             if target_trans:
                 target_pos = pymunk.Vec2d(target_trans.x, target_trans.y)
             else:
@@ -393,7 +393,7 @@ class Wander(Action):
         if self.world is None or self.entity_id is None:
             return
 
-        ai = self.world.get_component(self.entity_id, AIState)
+        ai = self.world.try_get_component(self.entity_id, AIState)
         if ai:
             tx = rng.uniform(0, self.width)
             ty = rng.uniform(0, self.height)
@@ -507,8 +507,8 @@ class FleePredator(Action):
         if not self.world or self.entity_id is None:
             return Status.FAILURE
 
-        my_trans = self.world.get_component(self.entity_id, Transform)
-        controller = self.world.get_component(self.entity_id, MovementController)
+        my_trans = self.world.try_get_component(self.entity_id, Transform)
+        controller = self.world.try_get_component(self.entity_id, MovementController)
         if not my_trans or not controller:
             return Status.FAILURE
 
@@ -533,7 +533,7 @@ class FleePredator(Action):
                 flee_vec = flee_vec.normalized() * self.speed
                 controller.target_velocity = flee_vec
 
-                ai = self.world.get_component(self.entity_id, AIState)
+                ai = self.world.try_get_component(self.entity_id, AIState)
                 if ai:
                     ai.path = None
 
@@ -586,8 +586,8 @@ class FleeFromTarget(Action):
         if not self.world or self.entity_id is None:
             return Status.FAILURE
 
-        ai = self.world.get_component(self.entity_id, AIState)
-        trans = self.world.get_component(self.entity_id, Transform)
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        trans = self.world.try_get_component(self.entity_id, Transform)
 
         if not ai or not trans:
             return Status.FAILURE

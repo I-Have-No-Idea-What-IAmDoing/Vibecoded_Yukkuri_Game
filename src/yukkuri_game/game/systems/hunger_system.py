@@ -98,12 +98,12 @@ class HungerSystem(System):
         if self.skill_service is None:
             self.skill_service = world.services.try_get(SkillService)
 
-        consumer_needs = world.get_component(consumer_id, Needs)
+        consumer_needs = world.try_get_component(consumer_id, Needs)
         if not consumer_needs:
             # Cannot eat if no needs component (weird but possible if malformed)
             return False
 
-        target_transform = world.get_component(item_id, Transform)
+        target_transform = world.try_get_component(item_id, Transform)
         if not target_transform:
             return False
 
@@ -117,27 +117,21 @@ class HungerSystem(System):
 
         # Stat Effects
         # Fun effects apply regardless of consumption (Play or Eat)
-        emotional = world.get_component(consumer_id, EmotionalState)
+        emotional = world.try_get_component(consumer_id, EmotionalState)
         if item_stats.fun > 0 and emotional:
-            emotional.happiness = min(100, emotional.happiness + item_stats.fun)
+            emotional.adjust_happiness(item_stats.fun)
 
         # Nutritional/Metabolic effects ONLY if consumed
         if request.consume:
             # Apply nutrition: decreases hunger (lower = less hungry)
             if item_stats.nutrition > 0:
-                consumer_needs.hunger = max(
-                    0, consumer_needs.hunger - item_stats.nutrition
-                )
+                consumer_needs.adjust_hunger(-item_stats.nutrition)
                 # Waste generation: food creates biological waste at 50% rate
-                consumer_needs.bladder = min(
-                    100, consumer_needs.bladder + (item_stats.nutrition * 0.5)
-                )
+                consumer_needs.adjust_bladder(item_stats.nutrition * 0.5)
 
             # Comfort foods restore energy (filling, warm foods)
             if item_stats.comfort > 0:
-                consumer_needs.energy = min(
-                    100, consumer_needs.energy + item_stats.comfort
-                )
+                consumer_needs.adjust_energy(item_stats.comfort)
 
             # Award scavenging XP only for eating
             if self.skill_service:
@@ -152,7 +146,7 @@ class HungerSystem(System):
             world.destroy_entity(item_id)
 
             # Clear AI target reference to prevent stale target pursuit
-            ai = world.get_component(consumer_id, AIState)
+            ai = world.try_get_component(consumer_id, AIState)
             if ai and ai.current_target_id == item_id:
                 ai.current_target_id = cast(EntityID, -1)
 
