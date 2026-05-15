@@ -132,7 +132,11 @@ class NavigationService:
         ] = {}
 
         # Dirty flag triggers graph rebuild on next worker cycle.
+        # _dirty_clusters tracks which clusters need incremental rebuilds.
         self._dirty = False
+        self._dirty_clusters: dict[int, set[tuple[int, int]]] = {
+            cap: set() for cap in [TraversalCapability.WALK, TraversalCapability.FLY]
+        }
         self._last_rebuild = 0.0
 
         self._state_lock = threading.RLock()
@@ -177,6 +181,9 @@ class NavigationService:
         with self._state_lock:
             self._path_cache.clear()
             self._dirty = False
+            self._dirty_clusters = {
+                cap: set() for cap in [TraversalCapability.WALK, TraversalCapability.FLY]
+            }
 
     def get_graph(self, capability: int) -> ClusterGraph:
         """
@@ -264,12 +271,19 @@ class NavigationService:
         if not self.deterministic_mode:
             return
 
-        # Handle Graph Rebuilds
+        # Handle Graph Rebuilds (incremental where possible)
         if self._dirty:
             with self._state_lock:
                 for cap, graph in self.cluster_graphs.items():
-                    graph.build_graph(capability=cap)
+                    dirty_for_cap = self._dirty_clusters.get(cap, set())
+                    if dirty_for_cap:
+                        graph.rebuild_clusters(dirty_for_cap, capability=cap)
+                    else:
+                        # Fallback: full rebuild if no cluster info available
+                        graph.build_graph(capability=cap)
                 self._dirty = False
+                for cap in self._dirty_clusters:
+                    self._dirty_clusters[cap].clear()
                 self._last_rebuild = current_time
                 self._path_cache.clear()
 
@@ -313,14 +327,29 @@ class NavigationService:
                     should_rebuild = self._dirty and (
                         time.time() - self._last_rebuild > 1.0
                     )
+                    # Snapshot and clear dirty clusters while holding the lock
+                    if should_rebuild:
+                        dirty_snapshot: dict[int, set[tuple[int, int]]] = {
+                            cap: set(clusters)
+                            for cap, clusters in self._dirty_clusters.items()
+                        }
+                        for cap in self._dirty_clusters:
+                            self._dirty_clusters[cap].clear()
+                        self._dirty = False
 
                 if should_rebuild:
-                    logger.debug("NavWorker: rebuilding graph...")
+                    logger.debug("NavWorker: rebuilding graph (incremental)...")
                     try:
                         with self._state_lock:
                             for cap, graph in self.cluster_graphs.items():
-                                graph.build_graph(capability=cap)
-                            self._dirty = False
+                                dirty_for_cap = dirty_snapshot.get(cap, set())
+                                if dirty_for_cap:
+                                    graph.rebuild_clusters(
+                                        dirty_for_cap, capability=cap
+                                    )
+                                else:
+                                    # Fallback: full rebuild (e.g. after reset)
+                                    graph.build_graph(capability=cap)
                             self._last_rebuild = time.time()
                             self._path_cache.clear()  # Invalidate cache
                         logger.debug("NavWorker: graph rebuild complete.")
@@ -625,6 +654,33 @@ class NavigationService:
 
         with self._state_lock:  # Lock to protect grid from worker thread.
             self.grid.update_obstacle_rect(x, y, width, height, is_blocking, block_mask)
+
+            # Compute which clusters are affected so we can rebuild only those.
+            half_w = width / 2
+            half_h = height / 2
+            min_gx = int((x - half_w) / self.grid_step_size)
+            max_gx = int((x + half_w) / self.grid_step_size) + 1
+            min_gy = int((y - half_h) / self.grid_step_size)
+            max_gy = int((y + half_h) / self.grid_step_size) + 1
+
+            from .hpa import CLUSTER_SIZE
+
+            min_cx = min_gx // CLUSTER_SIZE
+            max_cx = max_gx // CLUSTER_SIZE
+            min_cy = min_gy // CLUSTER_SIZE
+            max_cy = max_gy // CLUSTER_SIZE
+
+            affected: set[tuple[int, int]] = set()
+            for cx in range(min_cx, max_cx + 1):
+                for cy in range(min_cy, max_cy + 1):
+                    affected.add((cx, cy))
+
+            # If the obstacle blocks WALK, mark WALK graph dirty.
+            # If it blocks FLY as well, mark FLY graph dirty.
+            for cap in [TraversalCapability.WALK, TraversalCapability.FLY]:
+                if block_mask & cap:
+                    self._dirty_clusters[cap].update(affected)
+
             self._dirty = True
 
     def _to_grid(self, pos: tuple[float, float]) -> tuple[int, int]:

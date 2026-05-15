@@ -490,6 +490,87 @@ class ClusterGraph:
         cy = pos[1] // CLUSTER_SIZE
         return self.clusters.get((cx, cy))
 
+    def rebuild_clusters(
+        self,
+        affected_clusters: set[tuple[int, int]],
+        capability: int,
+    ) -> None:
+        """
+        Incrementally rebuilds only the affected clusters and their borders.
+
+        This is significantly cheaper than a full `build_graph()` call when
+        only a small number of grid cells have changed (e.g., a single
+        obstacle was added or removed).
+
+        The rebuild strategy:
+        1.  Expand the dirty set by one cell in all 8 directions so that
+            inter-cluster edges on shared borders are always regenerated.
+        2.  Remove all graph nodes that belong to the expanded set.
+        3.  Re-detect entrances along every border between an affected cluster
+            and any adjacent cluster (affected or not).
+        4.  Reconnect internal nodes within each affected cluster.
+
+        Args:
+            affected_clusters (set[tuple[int, int]]): Set of (cx, cy) cluster
+                coordinates that contain changed grid cells.
+            capability (int): Traversal capability mask to rebuild for.
+        """
+        if not affected_clusters:
+            return
+
+        # Expand to include immediate neighbours so border edges are refreshed.
+        expanded: set[tuple[int, int]] = set()
+        for cx, cy in affected_clusters:
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    coord = (cx + dx, cy + dy)
+                    if coord in self.clusters:
+                        expanded.add(coord)
+
+        # Remove all permanent nodes that belong to affected clusters.
+        nodes_to_remove: list[str] = [
+            nid
+            for nid, node in self.graph_nodes.items()
+            if node.cluster_coords in expanded and not nid.startswith("temp_")
+        ]
+        for nid in nodes_to_remove:
+            del self.graph_nodes[nid]
+
+        # Clear the position->node_id mapping in each affected cluster.
+        for coord in expanded:
+            self.clusters[coord].nodes.clear()
+
+        # Remove dangling edges from surviving nodes that referenced removed nodes.
+        removed_ids = set(nodes_to_remove)
+        for node in self.graph_nodes.values():
+            node.edges = [
+                e for e in node.edges if e.target_node_id not in removed_ids
+            ]
+
+        # Re-detect entrances along every border that touches an affected cluster.
+        for cx, cy in expanded:
+            c1 = self.clusters[(cx, cy)]
+
+            # Right border (horizontal: c1 | c2)
+            right_coord = (cx + 1, cy)
+            if right_coord in self.clusters:
+                c2 = self.clusters[right_coord]
+                self._find_entrances(
+                    c1, c2, c1.max_x, is_horizontal=True, capability=capability
+                )
+
+            # Bottom border (vertical: c1 above c2)
+            down_coord = (cx, cy + 1)
+            if down_coord in self.clusters:
+                c2 = self.clusters[down_coord]
+                self._find_entrances(
+                    c1, c2, c1.max_y, is_horizontal=False, capability=capability
+                )
+
+        # Reconnect internal nodes within each affected cluster.
+        for coord in expanded:
+            self._connect_internal_nodes(self.clusters[coord], capability)
+
     def insert_temporary_node(
         self, pos: tuple[int, int], capability: int
     ) -> GraphNode | None:
@@ -703,6 +784,10 @@ class ClusterGraph:
 class StringPuller:
     """Helper for smoothing paths using the Funnel Algorithm / String Pulling."""
 
+    # Maximum number of nodes to look ahead when searching for shortcuts.
+    # Prevents O(N²) behaviour on very long paths.
+    LOOKAHEAD_LIMIT = 20
+
     @staticmethod
     def smooth_path(
         path: list[tuple[int, int]], grid: NavigationGrid, capability: int
@@ -725,9 +810,11 @@ class StringPuller:
         current_idx = 0
 
         while current_idx < len(path) - 1:
-            # Check backwards from end for longest direct line.
+            # Check backwards from the lookahead limit (or end) for the
+            # longest direct straight line, capped to avoid O(N²) cost.
+            look_end = min(len(path) - 1, current_idx + StringPuller.LOOKAHEAD_LIMIT)
             found_shortcut = False
-            for lookahead_idx in range(len(path) - 1, current_idx + 1, -1):
+            for lookahead_idx in range(look_end, current_idx + 1, -1):
                 if StringPuller.has_line_of_sight(
                     grid, path[current_idx], path[lookahead_idx], capability
                 ):

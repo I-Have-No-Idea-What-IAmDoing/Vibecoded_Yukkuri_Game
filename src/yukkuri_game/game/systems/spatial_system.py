@@ -452,6 +452,9 @@ class SpatialSystem(System):
         self.body_to_entity: dict[pymunk.Body, int] = {}
         self.spatial_service.body_to_entity = self.body_to_entity
 
+        # Reusable set to track processed entities within a single update tick.
+        self._processed_entities: set[int] = set()
+
         if self.event_bus:
             self.event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
             self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
@@ -568,13 +571,13 @@ class SpatialSystem(System):
             self._new_entities.clear()
 
         # 3. Process Moving Entities
-        # Use a set to avoid processing the same entity multiple times if it matches multiple criteria
-        processed_entities: set[int] = set()
+        # Reuse the instance set to avoid per-frame allocation.
+        self._processed_entities.clear()
 
         def check_and_update(entity: int, transform: Transform) -> None:
-            if entity in processed_entities:
+            if entity in self._processed_entities:
                 return
-            processed_entities.add(entity)
+            self._processed_entities.add(entity)
 
             # Check for movement
             if transform.x != transform.prev_x or transform.y != transform.prev_y:

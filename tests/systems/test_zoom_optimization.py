@@ -35,7 +35,7 @@ def test_render_system_quantizes_scale():
 
     # 1. Test Scale at Zoom 1.0
     camera.zoom = 1.0
-    render_system.update(world, 1.0)
+    render_system.render(world, 1.0)
 
     # Verify call args
     try:
@@ -52,7 +52,7 @@ def test_render_system_quantizes_scale():
 
     # 2. Test Scale at Zoom 1.001 (Micro-zoom)
     camera.zoom = 1.001
-    render_system.update(world, 1.0)
+    render_system.render(world, 1.0)
 
     try:
         render_system.surface_cache.get_surface.assert_called_with(
@@ -68,7 +68,7 @@ def test_render_system_quantizes_scale():
 
     # 3. Test Scale at Zoom 1.06 (Should step up)
     camera.zoom = 1.06
-    render_system.update(world, 1.0)
+    render_system.render(world, 1.0)
 
     try:
         render_system.surface_cache.get_surface.assert_called_with(

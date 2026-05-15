@@ -170,7 +170,7 @@ class GameplayRenderer:
             alpha (float): Interpolation factor (0.0 to 1.0).
         """
         if self.render_system:
-            self.render_system.update(self.scene.world, alpha)
+            self.render_system.render(self.scene.world, alpha)
 
         if not self.scene.application.headless and self.hud and self.scene.application.screen:
             self.hud.draw(self.scene.application.screen)

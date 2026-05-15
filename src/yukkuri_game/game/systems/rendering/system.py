@@ -73,9 +73,8 @@ class RenderingSystem(System):
         """Sets global ambient lighting on the backend."""
         self.renderer.set_ambient_light(color)
 
-    def update(self, world: World, dt: float) -> None:
+    def render(self, world: World, alpha: float) -> None:
         """Main render loop."""
-        alpha = dt
         sw, sh = self.screen.get_size()
         correction_x = 1.0
         correction_y = 1.0

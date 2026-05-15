@@ -69,7 +69,7 @@ class TestLayerCaching:
         screen = pygame.Surface((800, 600))
 
         render_system = RenderingSystem(screen, world)
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         bg_pass = render_system.pipeline.get_pass(BackgroundPass)
 
         assert bg_pass._background_cache is not None
@@ -85,11 +85,11 @@ class TestLayerCaching:
         bg_pass = render_system.pipeline.get_pass(BackgroundPass)
 
         # First update builds cache
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         first_cache = bg_pass._background_cache
 
         # Second update should reuse cache
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         second_cache = bg_pass._background_cache
 
         # Same object reference means cache was NOT rebuilt
@@ -104,7 +104,7 @@ class TestLayerCaching:
         bg_pass = render_system.pipeline.get_pass(BackgroundPass)
 
         # First update builds cache
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         initial_state = bg_pass._last_camera_state
 
         # Move camera significantly (more than cache margin of 200)
@@ -114,7 +114,7 @@ class TestLayerCaching:
         camera.camera_y = 300.0
 
         # Update should detect change and invalidate
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         new_state = bg_pass._last_camera_state
 
         # States should be different
@@ -130,7 +130,7 @@ class TestLayerCaching:
         bg_pass = render_system.pipeline.get_pass(BackgroundPass)
 
         # First update
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         initial_state = bg_pass._last_camera_state
 
         # Move camera by 100 pixels (within 200px margin)
@@ -140,7 +140,7 @@ class TestLayerCaching:
         camera.camera_y = 100.0
 
         # Update should NOT invalidate
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         new_state = bg_pass._last_camera_state
 
         # State should be the same
@@ -160,7 +160,7 @@ class TestLayerCaching:
         bg_pass = render_system.pipeline.get_pass(BackgroundPass)
 
         # First update builds cache
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         assert bg_pass._background_cache_valid is True
 
         # Simulate zoom change (zoom != target_zoom triggers bypass)
@@ -169,14 +169,14 @@ class TestLayerCaching:
         camera.target_zoom = 2.0  # Different from zoom -> active transition
 
         # Update should bypass cache and mark it invalid
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         assert bg_pass._background_cache_valid is False
 
         # Now stabilize zoom (zoom == target_zoom)
         camera.prev_zoom = camera.zoom
         camera.zoom = 2.0
         camera.target_zoom = 2.0
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
 
         # Cache should be rebuilt at new zoom
         assert bg_pass._background_cache_valid is True
@@ -193,7 +193,7 @@ class TestLayerCaching:
         bg_pass = render_system.pipeline.get_pass(BackgroundPass)
 
         # First update
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         initial_state = bg_pass._last_camera_state
 
         # Move camera by less than 1 pixel (sub-pixel)
@@ -203,7 +203,7 @@ class TestLayerCaching:
         camera.camera_y = 0.3
 
         # Update should NOT invalidate (int() rounds down to 0)
-        render_system.update(world, dt=1.0)
+        render_system.render(world, alpha=1.0)
         new_state = bg_pass._last_camera_state
 
         # State should be the same (both round to 0)
