@@ -99,10 +99,21 @@ class SocialSystem(System):
         self.audio: AudioManager | None = None
         self.cleanup_index = 0
         self.headline_counter = 0
+        # Cached config value — GameConfig is immutable at runtime.
+        self._memory_importance_threshold: float = self.MEMORY_IMPORTANCE_THRESHOLD
 
     def initialize(self) -> None:
         """Called when the system is added to the world."""
+        from ...config import GameConfig
+
         self.event_bus = self.ecs_world.services.get(EventBus)
+
+        # Cache the memory importance threshold from config once at startup.
+        config = self.ecs_world.services.try_get(GameConfig)
+        if config and hasattr(config.rules, "social"):
+            self._memory_importance_threshold = (
+                config.rules.social.memory_importance_threshold
+            )
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -607,12 +618,5 @@ class SocialSystem(System):
                 event_type=event_type,
             )
 
-            # Retrieve config-driven threshold if available
-            from ...config import GameConfig
+            rel.add_headline(headline, threshold=self._memory_importance_threshold)
 
-            config = world.services.try_get(GameConfig)
-            threshold = self.MEMORY_IMPORTANCE_THRESHOLD
-            if config and hasattr(config.rules, "social"):
-                threshold = config.rules.social.memory_importance_threshold
-
-            rel.add_headline(headline, threshold=threshold)

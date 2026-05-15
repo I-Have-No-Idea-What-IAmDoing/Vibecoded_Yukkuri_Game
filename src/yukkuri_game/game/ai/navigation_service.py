@@ -375,7 +375,10 @@ class NavigationService:
                     )
 
                     if duration > 0.01:  # Log slow paths > 10ms.
-                        pass
+                        logger.warning(
+                            f"NavWorker: Slow path for entity {req.entity_id}: "
+                            f"{duration * 1000:.1f}ms"
+                        )
 
                     self.result_queue.put(result)
                 except Exception as e:

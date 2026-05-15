@@ -83,6 +83,11 @@ class EmotionSystem(System):
         # Optimization: Accumulator for throttling updates
         self.accumulated_dt = 0.0
 
+        # Cache for trait-keyed multiplier dicts.
+        # Traits rarely change, so we can safely reuse previously computed results.
+        # Key: frozenset of trait IDs. Value: multiplier dict.
+        self._mults_cache: dict[frozenset[str], dict[str, float]] = {}
+
     def initialize(self) -> None:
         """Called when the system is added to the world."""
         from ...config import GameConfig
@@ -273,12 +278,37 @@ class EmotionSystem(System):
         """
         Calculates decay multipliers based on traits.
 
+        Results are cached by trait set since traits rarely change,
+        avoiding repeated dict allocation per entity per tick.
+
         Args:
             personality (Personality | None): The personality component.
 
         Returns:
             dict[str, float]: Multipliers for various stats.
         """
+        if not self.trait_service or not personality or not personality.traits:
+            # No traits — return the default-1.0 dict, cached under the empty key.
+            cache_key: frozenset[str] = frozenset()
+            cached = self._mults_cache.get(cache_key)
+            if cached is not None:
+                return cached
+            default_mults = {
+                "hunger": 1.0,
+                "energy": 1.0,
+                "social": 1.0,
+                "cleanliness": 1.0,
+                "stress": 1.0,
+                "happiness": 1.0,
+            }
+            self._mults_cache[cache_key] = default_mults
+            return default_mults
+
+        cache_key = frozenset(personality.traits)
+        cached = self._mults_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         mults = {
             "hunger": 1.0,
             "energy": 1.0,
@@ -288,17 +318,18 @@ class EmotionSystem(System):
             "happiness": 1.0,
         }
 
-        if self.trait_service and personality:
-            for trait_id in personality.traits:
-                trait_data = self.trait_service.get_trait(trait_id)
-                if trait_data and trait_data.stat_modifiers:
-                    mods = trait_data.stat_modifiers
-                    mults["hunger"] *= mods.get("hunger_decay", 1.0)
-                    mults["energy"] *= mods.get("energy_decay", 1.0)
-                    mults["social"] *= mods.get("social_decay", 1.0)
-                    mults["cleanliness"] *= mods.get("cleanliness_decay", 1.0)
-                    mults["happiness"] *= mods.get("happiness_decay", 1.0)
-                    mults["stress"] *= mods.get("stress_decay", 1.0)
+        for trait_id in personality.traits:
+            trait_data = self.trait_service.get_trait(trait_id)
+            if trait_data and trait_data.stat_modifiers:
+                mods = trait_data.stat_modifiers
+                mults["hunger"] *= mods.get("hunger_decay", 1.0)
+                mults["energy"] *= mods.get("energy_decay", 1.0)
+                mults["social"] *= mods.get("social_decay", 1.0)
+                mults["cleanliness"] *= mods.get("cleanliness_decay", 1.0)
+                mults["happiness"] *= mods.get("happiness_decay", 1.0)
+                mults["stress"] *= mods.get("stress_decay", 1.0)
+
+        self._mults_cache[cache_key] = mults
         return mults
 
     def _update_emotional_state(

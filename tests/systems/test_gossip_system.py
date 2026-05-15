@@ -39,7 +39,21 @@ class TestGossipSystem:
         sys = GossipSystem()
         world = MagicMock(spec=World)
         world.services = MagicMock()
+
+        game_config = MagicMock(spec=GameConfig)
+        game_config.rules = MagicMock()
+        game_config.rules.social = MagicMock()
+        game_config.rules.social.max_gossip_length = 10
+
+        def mock_service_get(t):
+            if t == EventBus:
+                return event_bus
+            if t == GameConfig:
+                return game_config
+            return None
+
         world.services.get.side_effect = lambda t: event_bus if t == EventBus else None
+        world.services.try_get.side_effect = mock_service_get
         sys.ecs_world = world
         sys.initialize()
         return sys
@@ -230,7 +244,8 @@ class TestGossipSystem:
         physics = mock_world.services.try_get(PhysicsSystem)
         query_res = MagicMock()
         query_res.point = pymunk.Vec2d(50, 0)
-        query_res.shape.body.userdata = "Wall"
+        query_res.shape.sensor = False  # Non-sensor wall
+        query_res.shape.body.userdata = None  # No userdata (level geometry)
         physics.space.segment_query_first.return_value = query_res
 
         event = SocialInteractionEvent(
@@ -239,6 +254,53 @@ class TestGossipSystem:
         system.on_social_interaction(event)
 
         assert len(witness_queue.priority_queue) == 0
+
+    def test_line_of_sight_not_blocked_by_sensor(self, system, mock_world):
+        """Regression: sensor shapes must not block gossip LoS."""
+        actor, witness = 1, 3
+        actor_trans = Transform(x=0, y=0)
+        witness_trans = Transform(x=100, y=0)
+        witness_queue = GossipQueue()
+
+        def get_component(eid, comp_type):
+            if eid == actor and comp_type == Transform:
+                return actor_trans
+            if eid == witness:
+                if comp_type == Transform:
+                    return witness_trans
+                if comp_type == GossipQueue:
+                    return witness_queue
+                if comp_type == YukkuriStats:
+                    return YukkuriStats(name="Reimu", type_id="reimu")
+                if comp_type == RelationshipRegistry:
+                    return RelationshipRegistry()
+            return None
+
+        mock_world.try_get_component.side_effect = get_component
+        mock_world.has_component.return_value = True
+
+        spatial_service = mock_world.services.try_get(SpatialService)
+        spatial_service.get_entities_in_range.return_value = [witness]
+
+        trait_service = mock_world.services.try_get(TraitService)
+        trait_service.get_interaction.return_value = None
+
+        physics = mock_world.services.try_get(PhysicsSystem)
+        # Sensor shapes (trigger zones) must not block LoS.
+        query_res = MagicMock()
+        query_res.point = pymunk.Vec2d(50, 0)
+        query_res.shape.sensor = True  # ← sensor, must be ignored
+        physics.space.segment_query_first.return_value = query_res
+
+        event = SocialInteractionEvent(
+            initiator_id=actor, target_id=2, interaction_type="Wave"
+        )
+        system.on_social_interaction(event)
+
+        # Sensor hit should NOT block — witness can see.
+        assert len(witness_queue.priority_queue) == 1, (
+            "Sensor shape must not block gossip line of sight"
+        )
 
 
 class TestGossipExchangeIntegrity:

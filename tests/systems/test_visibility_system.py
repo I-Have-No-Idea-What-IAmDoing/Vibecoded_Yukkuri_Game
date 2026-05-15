@@ -135,3 +135,123 @@ def test_visibility_fov():
     ai = world.get_component(obs, AIState)
     assert t1 in ai.visible_entities
     assert t2 not in ai.visible_entities
+
+
+def test_visibility_non_physics_entity_is_visible():
+    """Regression: entities without a PhysicsBody (items, food) must be visible.
+
+    Before the fix, `if hit:` was the only path to `visible.add()`, so any
+    entity whose raycast returned None (no physics shape to hit) was silently
+    dropped from the visible set — making all non-physics entities invisible.
+    """
+    from tests.test_utils import make_configured_world
+
+    world = make_configured_world()
+    physics_system = PhysicsSystem()
+    world.services.register(physics_system, PhysicsSystem)
+    world.add_system(physics_system)
+
+    from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService
+    from yukkuri_game.engine.event_bus import EventBus
+
+    event_bus = world.services.get(EventBus)
+    spatial_system = SpatialSystem(event_bus=event_bus)
+    world.services.register(spatial_system.spatial_service, SpatialService)
+    world.add_system(spatial_system)
+
+    vis_system = VisibilitySystem()
+    world.add_system(vis_system)
+
+    # Observer with physics body at origin.
+    obs = world.create_entity()
+    obs_body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+    obs_body.position = (0, 0)
+    obs_shape = pymunk.Circle(obs_body, 10)
+    obs_shape.filter = pymunk.ShapeFilter(
+        categories=CollisionCategories.GROUND_UNIT
+    )
+    physics_system.space.add(obs_body, obs_shape)
+    world.add_component(obs, PhysicsBody(body=obs_body, shape=obs_shape))
+    world.add_component(obs, Transform(x=0, y=0))
+    world.add_component(obs, Vision(range=300, fov=360))
+    world.add_component(obs, AIState())
+
+    # Item entity: Transform only, NO PhysicsBody — simulates food / loot.
+    item = world.create_entity()
+    world.add_component(item, Transform(x=100, y=0))
+
+    spatial_system.update(world, 0.1)
+    vis_system.update(world, 0.1)
+
+    ai = world.get_component(obs, AIState)
+    assert item in ai.visible_entities, (
+        "Non-physics entity within vision range must be in visible_entities"
+    )
+
+
+def test_visibility_wall_blocks_physics_entity():
+    """Regression: a static wall (no userdata) must still block LoS.
+
+    A static wall body created by the level editor has body.userdata = None.
+    Ensure the visibility system correctly occludes targets behind such walls.
+    """
+    from tests.test_utils import make_configured_world
+
+    world = make_configured_world()
+    physics_system = PhysicsSystem()
+    world.services.register(physics_system, PhysicsSystem)
+    world.add_system(physics_system)
+
+    from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService
+    from yukkuri_game.engine.event_bus import EventBus
+
+    event_bus = world.services.get(EventBus)
+    spatial_system = SpatialSystem(event_bus=event_bus)
+    world.services.register(spatial_system.spatial_service, SpatialService)
+    world.add_system(spatial_system)
+
+    vis_system = VisibilitySystem()
+    world.add_system(vis_system)
+
+    # Observer.
+    obs = world.create_entity()
+    obs_body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+    obs_body.position = (0, 0)
+    obs_shape = pymunk.Circle(obs_body, 10)
+    obs_shape.filter = pymunk.ShapeFilter(
+        categories=CollisionCategories.GROUND_UNIT
+    )
+    physics_system.space.add(obs_body, obs_shape)
+    world.add_component(obs, PhysicsBody(body=obs_body, shape=obs_shape))
+    world.add_component(obs, Transform(x=0, y=0))
+    world.add_component(obs, Vision(range=500, fov=360))
+    world.add_component(obs, AIState())
+
+    # Wall at x=150 with no userdata (simulates level geometry).
+    wall_body = pymunk.Body(body_type=pymunk.Body.STATIC)
+    # userdata intentionally left as None
+    wall_shape = pymunk.Segment(wall_body, (150, -50), (150, 50), 5)
+    wall_shape.filter = pymunk.ShapeFilter(
+        categories=CollisionCategories.HIGH_OBSTACLE
+    )
+    physics_system.space.add(wall_body, wall_shape)
+
+    # Target behind the wall.
+    target = world.create_entity()
+    t_body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+    t_body.position = (300, 0)
+    t_shape = pymunk.Circle(t_body, 10)
+    t_shape.filter = pymunk.ShapeFilter(
+        categories=CollisionCategories.GROUND_UNIT
+    )
+    physics_system.space.add(t_body, t_shape)
+    world.add_component(target, PhysicsBody(body=t_body, shape=t_shape))
+    world.add_component(target, Transform(x=300, y=0))
+
+    spatial_system.update(world, 0.1)
+    vis_system.update(world, 0.1)
+
+    ai = world.get_component(obs, AIState)
+    assert target not in ai.visible_entities, (
+        "Target behind a wall (no userdata) must be blocked"
+    )

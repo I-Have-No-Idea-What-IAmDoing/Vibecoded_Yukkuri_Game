@@ -59,12 +59,17 @@ class LifecycleSystem(System):
     # Growth constants
     BREEDING_SPAWN_OFFSET = 20.0  # Random offset range for baby spawn position
 
+    # Breed eligibility is checked once per second of simulated time.
+    # breeding_chance in config is therefore a per-second probability.
+    BREED_CHECK_INTERVAL: float = 1.0
+
     def __init__(self) -> None:
         """
         Initializes the LifecycleSystem.
         """
         super().__init__()
         self.settings: LifecycleSettings
+        self._breed_timer: float = 0.0
 
     def initialize(self) -> None:
         """Called when the system is added to the world."""
@@ -83,13 +88,22 @@ class LifecycleSystem(System):
         """
         Updates the lifecycle state of entities.
 
+        Breeding is throttled to once per BREED_CHECK_INTERVAL seconds so that
+        ``breeding_chance`` in the config represents a per-second probability
+        rather than a per-physics-frame probability.
+
         Args:
             world (World): The ECS World.
             dt (float): Delta time.
         """
         self._handle_death(world)
         self._handle_growth(world)
-        self._handle_breeding(world)
+
+        # Throttle breeding checks to once per second.
+        self._breed_timer += dt
+        if self._breed_timer >= self.BREED_CHECK_INTERVAL:
+            self._breed_timer -= self.BREED_CHECK_INTERVAL
+            self._handle_breeding(world)
 
     def _handle_death(self, world: World) -> None:
         """

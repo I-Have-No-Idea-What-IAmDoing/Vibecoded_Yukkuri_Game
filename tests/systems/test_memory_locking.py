@@ -2,6 +2,8 @@
 Tests for Memory Locking mechanics.
 """
 
+from unittest.mock import patch
+
 from yukkuri_game.game.components import (
     RelationshipData,
     MemoryHeadline as Headline,
@@ -25,85 +27,86 @@ def test_memory_locking() -> None:
     - Locked memories are preserved.
     - Significantly more important memories can overwrite locked ones.
     """
-    # Setup
-    rel = RelationshipData()
-    # Mock buffers to small size for testing
-    rel.CORE_MAX_LEN = 3
-    rel.core_buffer = []
+    # Patch the module-level constant to a small value for this test.
+    # _CORE_BUFFER_MAX was removed from the dataclass slots to avoid
+    # per-instance overhead and accidental mutation.
+    with patch("yukkuri_game.game.components.social._CORE_BUFFER_MAX", 3):
+        rel = RelationshipData()
+        rel.core_buffer = []
 
-    # Fill with core memories (importance > 50 or locked)
-    h1 = Headline(
-        id=1, timestamp=0, importance=60, sentiment=0, event_type="1", is_locked=False
-    )
-    h2 = Headline(
-        id=2, timestamp=0, importance=60, sentiment=0, event_type="2", is_locked=False
-    )
-    h3 = Headline(
-        id=3, timestamp=0, importance=60, sentiment=0, event_type="3", is_locked=False
-    )
+        # Fill with core memories (importance > 50 or locked)
+        h1 = Headline(
+            id=1, timestamp=0, importance=60, sentiment=0, event_type="1", is_locked=False
+        )
+        h2 = Headline(
+            id=2, timestamp=0, importance=60, sentiment=0, event_type="2", is_locked=False
+        )
+        h3 = Headline(
+            id=3, timestamp=0, importance=60, sentiment=0, event_type="3", is_locked=False
+        )
 
-    rel.add_headline(h1)
-    rel.add_headline(h2)
-    rel.add_headline(h3)
+        rel.add_headline(h1)
+        rel.add_headline(h2)
+        rel.add_headline(h3)
 
-    assert len(rel.core_buffer) == 3
-    assert list(rel.core_buffer) == [h1, h2, h3]
+        assert len(rel.core_buffer) == 3
+        assert list(rel.core_buffer) == [h1, h2, h3]
 
-    # Add 4th, should push out oldest (h1)
-    h4 = Headline(
-        id=4, timestamp=0, importance=60, sentiment=0, event_type="4", is_locked=False
-    )
-    rel.add_headline(h4)
-    assert len(rel.core_buffer) == 3
-    assert list(rel.core_buffer) == [h2, h3, h4]
+        # Add 4th, should push out oldest (h1)
+        h4 = Headline(
+            id=4, timestamp=0, importance=60, sentiment=0, event_type="4", is_locked=False
+        )
+        rel.add_headline(h4)
+        assert len(rel.core_buffer) == 3
+        assert list(rel.core_buffer) == [h2, h3, h4]
 
-    # Lock one (h3)
-    # Modifying existing item in buffer
-    # Deque stores references, so this works if we modify the object
-    h3.is_locked = True
+        # Lock one (h3)
+        # Modifying existing item in buffer
+        # Deque stores references, so this works if we modify the object
+        h3.is_locked = True
 
-    # Add 5th. Should push out h2 (oldest non-locked)
-    # Current buffer: [h2, h3(L), h4]
-    h5 = Headline(
-        id=5, timestamp=0, importance=60, sentiment=0, event_type="5", is_locked=False
-    )
-    rel.add_headline(h5)
+        # Add 5th. Should push out h2 (oldest non-locked)
+        # Current buffer: [h2, h3(L), h4]
+        h5 = Headline(
+            id=5, timestamp=0, importance=60, sentiment=0, event_type="5", is_locked=False
+        )
+        rel.add_headline(h5)
 
-    assert len(rel.core_buffer) == 3
-    # h3 is locked, so it stays. h2 was oldest unlocked (at index 0).
-    assert h3 in rel.core_buffer
-    assert h5 in rel.core_buffer
-    assert h2 not in rel.core_buffer
-    # Expected order depends on implementation.
-    # Logic: del core_buffer[i], append new.
-    # [h2, h3, h4]. h2 is not locked. del index 0. -> [h3, h4]. append h5 -> [h3, h4, h5]
-    assert list(rel.core_buffer) == [h3, h4, h5]
+        assert len(rel.core_buffer) == 3
+        # h3 is locked, so it stays. h2 was oldest unlocked (at index 0).
+        assert h3 in rel.core_buffer
+        assert h5 in rel.core_buffer
+        assert h2 not in rel.core_buffer
+        # Expected order depends on implementation.
+        # Logic: del core_buffer[i], append new.
+        # [h2, h3, h4]. h2 is not locked. del index 0. -> [h3, h4]. append h5 -> [h3, h4, h5]
+        assert list(rel.core_buffer) == [h3, h4, h5]
 
-    # Lock all
-    h4.is_locked = True
-    h5.is_locked = True
-    # Now [h3(L), h4(L), h5(L)]
+        # Lock all
+        h4.is_locked = True
+        h5.is_locked = True
+        # Now [h3(L), h4(L), h5(L)]
 
-    # Try add new one
-    h6 = Headline(
-        id=6, timestamp=0, importance=60, sentiment=0, event_type="6", is_locked=False
-    )
-    rel.add_headline(h6)
+        # Try add new one
+        h6 = Headline(
+            id=6, timestamp=0, importance=60, sentiment=0, event_type="6", is_locked=False
+        )
+        rel.add_headline(h6)
 
-    # If all locked, currently implementation just passes (does nothing) because magnitude is same
-    assert len(rel.core_buffer) == 3
-    assert h6 not in rel.core_buffer
+        # If all locked, currently implementation just passes (does nothing) because magnitude is same
+        assert len(rel.core_buffer) == 3
+        assert h6 not in rel.core_buffer
 
-    # Try add one with significantly higher importance (> +20)
-    # Locked memories are importance 60
-    h7 = Headline(
-        id=7, timestamp=0, importance=90, sentiment=0, event_type="7", is_locked=False
-    )
-    rel.add_headline(h7)
+        # Try add one with significantly higher importance (> +20)
+        # Locked memories are importance 60
+        h7 = Headline(
+            id=7, timestamp=0, importance=90, sentiment=0, event_type="7", is_locked=False
+        )
+        rel.add_headline(h7)
 
-    # Should overwrite the one with lowest importance. All are 60.
-    # It overwrites one.
-    assert len(rel.core_buffer) == 3
-    assert h7 in rel.core_buffer
-    # Should contain h7 and two of the previous locked ones
-    assert (h3 in rel.core_buffer) or (h4 in rel.core_buffer) or (h5 in rel.core_buffer)
+        # Should overwrite the one with lowest importance. All are 60.
+        # It overwrites one.
+        assert len(rel.core_buffer) == 3
+        assert h7 in rel.core_buffer
+        # Should contain h7 and two of the previous locked ones
+        assert (h3 in rel.core_buffer) or (h4 in rel.core_buffer) or (h5 in rel.core_buffer)

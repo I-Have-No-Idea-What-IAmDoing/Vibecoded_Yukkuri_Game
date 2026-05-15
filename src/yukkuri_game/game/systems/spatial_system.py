@@ -358,10 +358,14 @@ class SpatialService:
             exclude_id (int): Entity ID to ignore (usually the raycaster).
 
         Returns:
-            tuple[int, float, float] | None: (entity_id, hit_x, hit_y) or None.
+            tuple[int, float, float] | None:
+                - ``(entity_id, hit_x, hit_y)`` when the ray hits a registered entity.
+                - ``(-1, hit_x, hit_y)`` when the ray hits a non-sensor physics body
+                  that is **not** a registered ECS entity (e.g. static level geometry).
+                - ``None`` when the ray is completely unobstructed.
         """
         from .physics import PhysicsSystem
-        
+
         physics_system = world.services.try_get(PhysicsSystem)
         if not physics_system or not physics_system.space:
             return None
@@ -381,13 +385,22 @@ class SpatialService:
                 return (ent_id, hit.point.x, hit.point.y)
 
             # If we hit ourselves (exclude_id), do full query to find next hit
-            hits = physics_system.space.segment_query(start_pos, end_pos, 1.0, qfilter)
-            for h in sorted(hits, key=lambda x: x.alpha):
-                if not h.shape or not h.shape.body or h.shape.sensor:
-                    continue
-                h_ent_id = self.body_to_entity.get(h.shape.body)
-                if h_ent_id is not None and h_ent_id != exclude_id:
-                    return (h_ent_id, h.point.x, h.point.y)
+            if ent_id == exclude_id:
+                hits = physics_system.space.segment_query(start_pos, end_pos, 1.0, qfilter)
+                for h in sorted(hits, key=lambda x: x.alpha):
+                    if not h.shape or not h.shape.body or h.shape.sensor:
+                        continue
+                    h_ent_id = self.body_to_entity.get(h.shape.body)
+                    if h_ent_id is not None and h_ent_id != exclude_id:
+                        return (h_ent_id, h.point.x, h.point.y)
+                    # Non-entity obstacle beyond self
+                    if h_ent_id is None and not h.shape.sensor:
+                        return (-1, h.point.x, h.point.y)
+                return None
+
+            # Hit a non-sensor body not registered as an ECS entity (level geometry)
+            if not hit.shape.sensor:
+                return (-1, hit.point.x, hit.point.y)
 
         return None
 

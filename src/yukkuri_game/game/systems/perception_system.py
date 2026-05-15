@@ -68,22 +68,20 @@ class PerceptionSystem(System):
         self._last_visible_set_ids: dict[int, int] = {}
         self._subscribed = False
 
-    def initialize(self, world: World | None = None) -> None:
+    def initialize(self) -> None:
         """
         Sets up event subscriptions.
 
-        Args:
-            world (World | None): The ECS World.
+        Called by esper when the system is added to the world.
+        Uses ``self.ecs_world`` (injected before this call) to locate the EventBus.
         """
-        target_world = world
-        if target_world is None and hasattr(self, "ecs_world"):
-            target_world = self.ecs_world
+        if not hasattr(self, "ecs_world"):
+            return
 
-        if target_world:
-            event_bus = target_world.services.try_get(EventBus)
-            if event_bus:
-                event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
-                self._subscribed = True
+        event_bus = self.ecs_world.services.try_get(EventBus)
+        if event_bus:
+            event_bus.subscribe(EntityDestroyedEvent, self.on_entity_destroyed)
+            self._subscribed = True
 
     def on_entity_destroyed(self, event: EntityDestroyedEvent) -> None:
         """
@@ -96,6 +94,7 @@ class PerceptionSystem(System):
         self._last_update_times.pop(entity_id, None)
         self._last_visible_set_ids.pop(entity_id, None)
 
+
     def update(self, world: World, dt: float) -> None:
         """
         Updates perception state for all AI entities.
@@ -105,7 +104,7 @@ class PerceptionSystem(System):
             dt (float): Delta time.
         """
         if not self._subscribed:
-            self.initialize(world)
+            self.initialize()
 
         current_time = world.time
 

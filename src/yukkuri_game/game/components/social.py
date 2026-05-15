@@ -199,6 +199,13 @@ class Personality:
     cached_overrides: dict[str, Any] | None = None
 
 
+# Maximum memory headline counts for RelationshipData buffers.
+# Declared at module level rather than as @dataclass(slots=True) fields to
+# avoid per-instance memory overhead and accidental mutation.
+_TRIVIAL_BUFFER_MAX: int = 25
+_CORE_BUFFER_MAX: int = 35
+
+
 @dataclass(slots=True)
 class RelationshipData:
     """
@@ -214,8 +221,6 @@ class RelationshipData:
     core_sentiment_sum: float = 0.0
     trivial_buffer: deque[MemoryHeadline] = field(default_factory=deque)
     core_buffer: list[MemoryHeadline] = field(default_factory=list)
-    TRIVIAL_MAX_LEN: int = 25
-    CORE_MAX_LEN: int = 35
 
     def adjust_trust(self, delta: float) -> None:
         """Adjusts trust, clamped between -100.0 and 100.0."""
@@ -242,14 +247,14 @@ class RelationshipData:
         self.core_sentiment_sum = sum(m.sentiment for m in self.core_buffer)
 
     def _add_trivial_memory(self, headline: MemoryHeadline) -> None:
-        if len(self.trivial_buffer) >= self.TRIVIAL_MAX_LEN:
+        if len(self.trivial_buffer) >= _TRIVIAL_BUFFER_MAX:
             removed = self.trivial_buffer.popleft()
             self.trivial_sentiment_sum -= removed.sentiment
         self.trivial_buffer.append(headline)
         self.trivial_sentiment_sum += headline.sentiment
 
     def _add_core_memory(self, headline: MemoryHeadline) -> None:
-        if len(self.core_buffer) < self.CORE_MAX_LEN:
+        if len(self.core_buffer) < _CORE_BUFFER_MAX:
             self.core_buffer.append(headline)
             self.core_sentiment_sum += headline.sentiment
             return

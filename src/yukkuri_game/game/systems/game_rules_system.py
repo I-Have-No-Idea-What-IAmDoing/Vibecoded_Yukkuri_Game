@@ -52,14 +52,11 @@ class GameRulesSystem(System):
         Initializes the GameRulesSystem.
         """
         self.event_bus: EventBus
-        self.world: World | None = None
 
     def initialize(self) -> None:
         """
         Captures world reference on registration and subscribes to events.
         """
-        if hasattr(self, "ecs_world"):
-            self.world = self.ecs_world
         self.event_bus = self.ecs_world.services.get(EventBus)
 
         self.event_bus.subscribe(TrainEntityRequest, self.on_train_entity)
@@ -69,7 +66,7 @@ class GameRulesSystem(System):
     def update(self, world: World, dt: float) -> None:
         """
         Updates the system.
-        This system is primarily event-driven, so this tracks the world instance.
+        This system is primarily event-driven; update() is a no-op.
 
         Args:
             world (World): The ECS World.
@@ -78,8 +75,6 @@ class GameRulesSystem(System):
         Returns:
             None
         """
-        if self.world is None:
-            self.world = world
 
     def sell_yukkuri(self, entity: int) -> int:
         """
@@ -91,18 +86,16 @@ class GameRulesSystem(System):
         Returns:
             int: The value the entity was sold for.
         """
-        if self.world is None:
-            logger.error("GameRulesSystem: world not injected.")
-            return 0
+        world = self.ecs_world
 
-        stats = self.world.try_get_component(entity, YukkuriStats)
-        needs = self.world.try_get_component(entity, Needs)
-        emotional_state = self.world.try_get_component(entity, EmotionalState)
+        stats = world.try_get_component(entity, YukkuriStats)
+        needs = world.try_get_component(entity, Needs)
+        emotional_state = world.try_get_component(entity, EmotionalState)
 
         if stats:
             from ...config import GameConfig
 
-            config = self.world.services.try_get(GameConfig)
+            config = self.ecs_world.services.try_get(GameConfig)
             stats_config = config.rules.stats if config else None
 
             # Calculate sale value based on current condition:
@@ -117,24 +110,24 @@ class GameRulesSystem(System):
             )
 
             # Credit player account
-            economy = self.world.services.get(EconomyService)
+            economy = self.ecs_world.services.get(EconomyService)
             economy.add_money(value)
             logger.info(
                 f"Sold {stats.name} for {value}. Total Money: {economy.money}"
             )
 
             # Get position for visual feedback spawn point
-            transform = self.world.try_get_component(entity, Transform)
+            transform = self.ecs_world.try_get_component(entity, Transform)
             position = (transform.x, transform.y) if transform else (0, 0)
 
             # Audio/visual feedback
-            audio = self.world.services.try_get(AudioManager)
+            audio = self.ecs_world.services.try_get(AudioManager)
             if audio:
                 audio.play_sound("sell")
 
             # Notify listeners (for floating text, achievements, etc.)
             self.event_bus.publish(EntitySoldEvent(entity, value, position))
-            self.world.destroy_entity(entity)
+            self.ecs_world.destroy_entity(entity)
             return value
         return 0
 
@@ -161,11 +154,8 @@ class GameRulesSystem(System):
         Returns:
             None
         """
-        if self.world is None:
-            return
-
-        stats = self.world.try_get_component(event.entity_id, YukkuriStats)
-        emotional_state = self.world.try_get_component(event.entity_id, EmotionalState)
+        stats = self.ecs_world.try_get_component(event.entity_id, YukkuriStats)
+        emotional_state = self.ecs_world.try_get_component(event.entity_id, EmotionalState)
         if stats:
             # Award training badge (increases sell value and prestige)
             stats.badges += 1
@@ -174,10 +164,10 @@ class GameRulesSystem(System):
             if emotional_state:
                 emotional_state.adjust_happiness(10.0)
 
-            transform = self.world.try_get_component(event.entity_id, Transform)
+            transform = self.ecs_world.try_get_component(event.entity_id, Transform)
             position = (transform.x, transform.y) if transform else (0, 0)
 
-            audio = self.world.services.try_get(AudioManager)
+            audio = self.ecs_world.services.try_get(AudioManager)
             if audio:
                 audio.play_sound("train")
 
@@ -195,12 +185,9 @@ class GameRulesSystem(System):
         Returns:
             None
         """
-        if self.world is None:
-            return
-
-        stats = self.world.try_get_component(event.entity_id, YukkuriStats)
-        needs = self.world.try_get_component(event.entity_id, Needs)
-        emotional_state = self.world.try_get_component(event.entity_id, EmotionalState)
+        stats = self.ecs_world.try_get_component(event.entity_id, YukkuriStats)
+        needs = self.ecs_world.try_get_component(event.entity_id, Needs)
+        emotional_state = self.ecs_world.try_get_component(event.entity_id, EmotionalState)
 
         if stats and needs:
             # Physical damage from punishment
@@ -215,10 +202,10 @@ class GameRulesSystem(System):
             # Higher discipline = less likely to misbehave, but also less happy baseline
             stats.discipline = min(100.0, stats.discipline + 10.0)
 
-            transform = self.world.try_get_component(event.entity_id, Transform)
+            transform = self.ecs_world.try_get_component(event.entity_id, Transform)
             position = (transform.x, transform.y) if transform else (0, 0)
 
-            audio = self.world.services.try_get(AudioManager)
+            audio = self.ecs_world.services.try_get(AudioManager)
             if audio:
                 audio.play_sound("hit")
 

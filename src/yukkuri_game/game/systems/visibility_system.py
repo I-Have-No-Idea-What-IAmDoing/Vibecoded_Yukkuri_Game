@@ -184,13 +184,16 @@ class VisibilitySystem(System):
                 exclude_id=entity
             )
 
-            if hit:
+            if hit is None:
+                # Ray reached the target completely unobstructed → visible.
+                visible.add(EntityID(target_ent))
+            else:
                 hit_ent, _, _ = hit
                 if hit_ent == target_ent:
+                    # Ray hit exactly the target entity → visible.
                     visible.add(EntityID(target_ent))
-                elif world.has_component(target_ent, Transform):
-                    # We might have hit something else. We only add if it's the target.
-                    pass
+                # else: hit_ent == -1 (level geometry) or another entity → blocked.
+
 
         # Update cache with new visibility result.
         self.visibility_cache[entity] = (visible, trans.x, trans.y)

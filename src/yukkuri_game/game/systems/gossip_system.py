@@ -74,11 +74,20 @@ class GossipSystem(System):
         self.physics_system: PhysicsSystem | None = None
         self.spatial_service: SpatialService | None = None
         self.trait_service: TraitService | None = None
+        # Cached from GameConfig — immutable at runtime.
+        self._max_gossip_length: int = self.DEFAULT_MAX_GOSSIP_LENGTH
 
     def initialize(self) -> None:
         """Called when the system is added to the world."""
+        from ...config import GameConfig
+
         self.event_bus = self.ecs_world.services.get(EventBus)
         self.event_bus.subscribe(SocialInteractionEvent, self.on_social_interaction)
+
+        # Cache max gossip queue length from config once at startup.
+        config = self.ecs_world.services.try_get(GameConfig)
+        if config and hasattr(config.rules, "social"):
+            self._max_gossip_length = config.rules.social.max_gossip_length
 
     def update(self, world: World, dt: float) -> None:
         """
@@ -221,19 +230,19 @@ class GossipSystem(System):
             start_pos, end_pos, 1.0, pymunk.ShapeFilter()
         )
 
-        if query:
-            hit_body = query.shape.body
-            if hit_body and hit_body.userdata:
-                # Check if hit point is closer than target (obstacle blocking view).
-                hit_dist = math.hypot(
-                    query.point.x - start_pos[0], query.point.y - start_pos[1]
-                )
-                total_dist = math.hypot(
-                    end_pos[0] - start_pos[0], end_pos[1] - start_pos[1]
-                )
+        if query and query.shape and not query.shape.sensor:
+            # Any non-sensor hit closer than the target is an obstruction.
+            # We do NOT check body.userdata — static level walls have userdata=None
+            # but must still occlude vision.
+            hit_dist = math.hypot(
+                query.point.x - start_pos[0], query.point.y - start_pos[1]
+            )
+            total_dist = math.hypot(
+                end_pos[0] - start_pos[0], end_pos[1] - start_pos[1]
+            )
 
-                if hit_dist < total_dist - 5.0:
-                    return False
+            if hit_dist < total_dist - 5.0:
+                return False
 
         return True
 
@@ -281,14 +290,6 @@ class GossipSystem(System):
         if not sender_queue or not receiver_queue:
             return
 
-        # Get Max Gossip Length from Config
-        from ...config import GameConfig
-
-        config = world.services.try_get(GameConfig)
-        max_length = self.DEFAULT_MAX_GOSSIP_LENGTH
-        if config and hasattr(config.rules, "social"):
-            max_length = config.rules.social.max_gossip_length
-
         is_group_member = self._is_in_same_interest_group(world, sender_id, receiver_id)
 
         for packet in sender_queue.priority_queue:
@@ -306,7 +307,7 @@ class GossipSystem(System):
                 value=new_value,
                 timestamp=packet.timestamp,
             )
-            receiver_queue.add_packet(new_packet, max_length=max_length)
+            receiver_queue.add_packet(new_packet, max_length=self._max_gossip_length)
 
     def _add_witness_gossip(
         self,
@@ -333,17 +334,10 @@ class GossipSystem(System):
         if not gossip:
             return
 
-        from ...config import GameConfig
-
-        config = world.services.try_get(GameConfig)
-        max_length = self.DEFAULT_MAX_GOSSIP_LENGTH
-        if config and hasattr(config.rules, "social"):
-            max_length = config.rules.social.max_gossip_length
-
         packet = GossipPacket(
             target_id=cast(EntityID, event.initiator_id),
             event_type=event.interaction_type,
             value=value,
             timestamp=now,
         )
-        gossip.add_packet(packet, max_length=max_length)
+        gossip.add_packet(packet, max_length=self._max_gossip_length)

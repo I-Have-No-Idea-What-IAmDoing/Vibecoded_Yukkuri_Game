@@ -90,8 +90,8 @@ def test_handle_breeding(mock_create_yukkuri, lifecycle_system, world):
     world.add_component(entity, emotional)
     world.add_component(entity, transform)
 
-    # Run
-    lifecycle_system.update(world, 0.1)
+    # Advance by exactly one breed-check interval so breeding fires once.
+    lifecycle_system.update(world, lifecycle_system.BREED_CHECK_INTERVAL)
 
     # Verify
     assert needs.energy == 90 - lifecycle_system.settings.breeding_cost
@@ -114,3 +114,40 @@ def test_handle_breeding(mock_create_yukkuri, lifecycle_system, world):
         assert call_kwargs["age"] == 0.0
         assert abs(call_kwargs["x"] - 100) <= 20
         assert abs(call_kwargs["y"] - 100) <= 20
+
+
+@patch("yukkuri_game.game.systems.lifecycle.create_yukkuri")
+def test_breeding_not_called_on_sub_interval_frames(mock_create_yukkuri, lifecycle_system, world):
+    """Regression: breeding must not fire on every physics frame.
+
+    With dt < BREED_CHECK_INTERVAL, multiple frames should accumulate without
+    triggering a breed attempt.  Without the throttle fix, 60 frames of dt=1/60
+    would each independently roll the breeding dice.
+    """
+    entity = world.create_entity()
+    stats = YukkuriStats(name="Parent", type_id="reimu", age=600, growth_stage="Adult")
+    needs = Needs(energy=90)
+    emotional = EmotionalState(happiness=90.0)
+    transform = Transform(x=0, y=0)
+    world.add_component(entity, stats)
+    world.add_component(entity, needs)
+    world.add_component(entity, emotional)
+    world.add_component(entity, transform)
+
+    # Run 10 tiny frames — accumulator should NOT yet fire.
+    dt_per_frame = lifecycle_system.BREED_CHECK_INTERVAL / 20.0
+    for _ in range(10):
+        lifecycle_system.update(world, dt_per_frame)
+
+    mock_create_yukkuri.assert_not_called(), (
+        "Breeding must not fire before BREED_CHECK_INTERVAL has elapsed"
+    )
+
+    # Run 10 more frames to cross the interval — should fire exactly once.
+    for _ in range(10):
+        lifecycle_system.update(world, dt_per_frame)
+
+    assert mock_create_yukkuri.call_count == 1, (
+        "Breeding must fire exactly once per BREED_CHECK_INTERVAL"
+    )
+
