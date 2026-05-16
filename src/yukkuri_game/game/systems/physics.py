@@ -98,8 +98,9 @@ class PhysicsSystem(System):
             if phys:
                 if phys.body in self.space.bodies:
                     self.space.remove(phys.body)
-                if phys.shape in self.space.shapes:
-                    self.space.remove(phys.shape)
+                for shape in list(phys.body.shapes):
+                    if shape in self.space.shapes:
+                        self.space.remove(shape)
 
     def on_world_cleared(self, event: Event) -> None:
         """

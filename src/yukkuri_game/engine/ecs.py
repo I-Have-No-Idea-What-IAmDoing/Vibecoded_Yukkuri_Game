@@ -57,6 +57,7 @@ class World:
         self.services: ServiceLocator = ServiceLocator()
         self._next_stable_id: int = 1
         self._active_entities: set[int] = set()
+        self._registered_systems: list[type] = []
 
         # Register this world with esper's global context system.
         esper.switch_world(self.name)
@@ -353,6 +354,7 @@ class World:
         system.ecs_world = self
         system.initialize()
         esper.add_processor(system)
+        self._registered_systems.append(type(system))
 
     @ensure_context
     def update(self, dt: float) -> None:
@@ -384,11 +386,12 @@ class World:
         """
         self.clear_database()
         self.services.clear()
-        # Remove all systems to prevent leaks
-        # esper 3.x uses list(_processors)
-        for system_instance in list(esper._processors):
-            esper.remove_processor(type(system_instance))
-        
+        # Remove all systems using our own tracker to avoid accessing
+        # esper's private _processors attribute.
+        for sys_type in self._registered_systems:
+            esper.remove_processor(sys_type)
+        self._registered_systems.clear()
+
         # Finally delete the world context
         try:
             esper.delete_world(self.name)

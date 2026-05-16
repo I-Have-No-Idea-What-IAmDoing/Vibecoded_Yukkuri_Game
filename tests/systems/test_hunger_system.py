@@ -109,7 +109,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -131,7 +130,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -153,7 +151,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -174,7 +171,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -200,7 +196,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -222,7 +217,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -243,7 +237,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -274,7 +267,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -297,7 +289,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -322,7 +313,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -345,7 +335,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -368,7 +357,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -394,7 +382,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )
@@ -420,7 +407,6 @@ class TestProcessConsumption:
             data["consumer_id"],
             request,
             data["consumer_transform"],
-            data["consumer_stats"],
             data["item_id"],
             data["item_stats"],
         )

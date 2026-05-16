@@ -28,7 +28,6 @@ from ..components import (
     ItemStats,
     Needs,
     Transform,
-    YukkuriStats,
 )
 from ..skill_constants import SkillId
 from ..skill_service import SkillService
@@ -73,7 +72,6 @@ class HungerSystem(System):
         consumer_id: int,
         request: InteractionRequest,
         consumer_transform: Transform,
-        consumer_stats: YukkuriStats,
         item_id: int,
         item_stats: ItemStats,
     ) -> bool:
@@ -85,14 +83,14 @@ class HungerSystem(System):
             consumer_id (int): The entity ID consuming the item.
             request (InteractionRequest): The interaction request details.
             consumer_transform (Transform): Transform of the consumer.
-            consumer_stats (YukkuriStats): Stats of the consumer.
             item_id (int): The entity ID of the item being consumed.
             item_stats (ItemStats): Stats of the item.
 
         Returns:
             bool: True if consumption was processed (valid), False otherwise.
         """
-        # Ensure services are loaded
+        # Ensure services are loaded — process_consumption may be called
+        # via cross-system dispatch before update() has had a chance to run.
         if self.audio is None:
             self.audio = world.services.try_get(AudioManager)
         if self.skill_service is None:

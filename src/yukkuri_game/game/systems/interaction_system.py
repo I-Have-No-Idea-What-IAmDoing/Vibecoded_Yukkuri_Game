@@ -163,7 +163,7 @@ class InteractionSystem(System):
         if item_stats:
             if self.hunger_system:
                 return self.hunger_system.process_consumption(
-                    world, entity, request, transform, stats, target_id, item_stats
+                    world, entity, request, transform, target_id, item_stats
                 )
             else:
                 logger.warning(
