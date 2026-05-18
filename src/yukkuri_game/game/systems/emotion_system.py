@@ -34,14 +34,16 @@ from ...engine.ecs import System, World
 from ..components import (
     Dead,
     EmotionalState,
-    LightSource,
     Needs,
     Personality,
     Skills,
-    Transform,
     YukkuriStats,
 )
-from ..services import TimeService
+from yukkuri_game.engine.components import (
+    LightSource,
+    Transform,
+)
+from yukkuri_game.engine.services.time_service import TimeService
 from ..skill_service import SkillService
 from ..trait_service import TraitService
 

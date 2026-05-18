@@ -9,7 +9,7 @@ from yukkuri_game.game.components import (
     Dead,
     EmotionalState,
 )
-from yukkuri_game.game.components import Sprite, Transform
+from yukkuri_game.engine.components import Sprite, Transform
 from yukkuri_game.config import LifecycleSettings
 from yukkuri_game.engine.ecs import World
 

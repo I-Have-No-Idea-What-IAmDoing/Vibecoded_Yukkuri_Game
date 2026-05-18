@@ -2,8 +2,8 @@ import pytest
 from unittest.mock import Mock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.events import EntityDestroyedEvent
-from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService, OccluderMap
-from yukkuri_game.game.components import Transform, Occluder
+from yukkuri_game.engine.systems.spatial import SpatialSystem, SpatialService, OccluderMap
+from yukkuri_game.engine.components import Transform, Occluder
 
 
 class TestSpatialService:

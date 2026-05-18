@@ -50,7 +50,7 @@ def make_configured_world(
     config.time = TimeSettings()
     config.world.width = world_width
     config.world.height = world_height
-    from yukkuri_game.game.services import TimeService
+    from yukkuri_game.engine.services.time_service import TimeService
     world.services.register(TimeService(), TimeService)
     world.services.register(config, GameConfig)
 

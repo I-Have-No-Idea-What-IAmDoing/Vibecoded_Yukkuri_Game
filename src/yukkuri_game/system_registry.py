@@ -29,7 +29,7 @@ from .game.systems.mouse_light_system import MouseLightSystem
 from .game.systems.navigation_system import NavigationSystem
 from .game.systems.navigation_update_system import NavigationUpdateSystem
 from .game.systems.perception_system import PerceptionSystem
-from .game.systems.physics import PhysicsSystem
+from yukkuri_game.engine.systems.physics import PhysicsSystem
 from .game.systems.poop_system import PoopSystem
 from .game.systems.social_system import SocialSystem
 from .game.systems.steering_system import SteeringSystem

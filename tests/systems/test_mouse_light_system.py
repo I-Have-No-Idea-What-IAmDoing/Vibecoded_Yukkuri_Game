@@ -2,10 +2,10 @@ import pytest
 from unittest.mock import Mock, patch
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.mouse_light_system import MouseLightSystem
-from yukkuri_game.game.components import Transform, LightSource
+from yukkuri_game.engine.components import Transform, LightSource
 from yukkuri_game.game.services import InputService
 from yukkuri_game.engine.input_manager import InputManager
-from yukkuri_game.game.camera import Camera
+from yukkuri_game.engine.camera import Camera
 
 
 class TestMouseLightSystem:
@@ -24,7 +24,7 @@ class TestMouseLightSystem:
 
     @pytest.fixture
     def system(self, world, mock_camera):
-        from yukkuri_game.game.camera import Camera
+        from yukkuri_game.engine.camera import Camera
         world.services.register(mock_camera, Camera)
         with patch(
             "yukkuri_game.game.systems.mouse_light_system.pygame"

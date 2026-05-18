@@ -26,7 +26,7 @@ def world() -> World:
     settings.stress = 10.0
     settings.happiness = 10.0
     world = make_configured_world(stat_decay_settings=settings)
-    from yukkuri_game.game.services import TimeService
+    from yukkuri_game.engine.services.time_service import TimeService
     world.services.get(TimeService).scale = 1.0
     return world
 

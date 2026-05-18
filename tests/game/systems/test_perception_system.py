@@ -9,7 +9,7 @@ from yukkuri_game.game.components import (
     RelationshipRegistry,
     ItemStats,
 )
-from yukkuri_game.game.components import Transform
+from yukkuri_game.engine.components import Transform
 from yukkuri_game.engine.ecs import World
 
 

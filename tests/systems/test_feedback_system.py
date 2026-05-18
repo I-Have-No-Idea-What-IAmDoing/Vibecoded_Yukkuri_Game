@@ -5,7 +5,7 @@ from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.systems.feedback_system import FeedbackSystem
 from yukkuri_game.game.entity_factory import EntityFactory
-from yukkuri_game.game.components import Transform, FloatingText
+from yukkuri_game.engine.components import Transform, FloatingText
 from yukkuri_game.game.components import YukkuriStats
 from yukkuri_game.game.events import (
     EntitySoldEvent,

@@ -7,7 +7,7 @@ from yukkuri_game.game.systems.emotion_system import EmotionSystem
 from yukkuri_game.config import StatDecaySettings
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.engine.data_models import TraitDefinition
-from yukkuri_game.game.services import TimeService
+from yukkuri_game.engine.services.time_service import TimeService
 
 
 @pytest.fixture

@@ -4,7 +4,8 @@ Tests for Game Services (Economy, Time, Persistence).
 
 import pytest
 from unittest.mock import MagicMock, patch
-from yukkuri_game.game.services import EconomyService, TimeService
+from yukkuri_game.game.services import EconomyService
+from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.game.save_manager import SaveManager
 from yukkuri_game.engine.ecs import World
 

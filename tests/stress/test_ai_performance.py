@@ -3,7 +3,7 @@ import time
 import random
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform, MovementController, PhysicsBody
+from yukkuri_game.engine.components import Transform, MovementController, PhysicsBody
 from yukkuri_game.game.components import (
     YukkuriStats,
     AIState,
@@ -14,7 +14,8 @@ from yukkuri_game.game.components import (
 from yukkuri_game.game.systems.perception_system import PerceptionSystem
 from yukkuri_game.game.systems.steering_system import SteeringSystem
 from yukkuri_game.game.systems.behavior import BehaviorSystem
-from yukkuri_game.game.services import GameService, TimeService
+from yukkuri_game.game.services import GameService
+from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.engine.input_manager import InputManager
 
 

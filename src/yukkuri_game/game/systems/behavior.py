@@ -17,7 +17,8 @@ from py_trees.common import Status
 
 from ...engine.ecs import System, World
 from ..ai.behaviors import create_yukkuri_behavior_tree
-from ..components import AIState, LODComponent
+from ..components import AIState
+from yukkuri_game.engine.components import LODComponent
 
 
 class BehaviorSystem(System):

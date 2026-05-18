@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 # but it uses pymunk.
 
 from yukkuri_game.engine.renderer.geometry_utils import GeometryUtils
-from yukkuri_game.game.components import Occluder
+from yukkuri_game.engine.components import Occluder
 
 
 def calculate_signed_area(vertices):

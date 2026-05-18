@@ -14,8 +14,8 @@ from collections import deque
 from loguru import logger
 from ..engine.application import Application
 from ..engine.event_bus import Event
-from ..game.services import TimeService
-from ..game.components import Transform
+from yukkuri_game.engine.services.time_service import TimeService
+from yukkuri_game.engine.components import Transform
 
 
 T = TypeVar("T")

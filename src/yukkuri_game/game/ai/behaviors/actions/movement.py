@@ -16,13 +16,15 @@ from yukkuri_game.engine.types import EntityID
 
 from ....components import (
     AIState,
+    MoveCommand,
+    Needs,
+    Predator,
+)
+from yukkuri_game.engine.components import (
     Flight,
     FlightState,
-    MoveCommand,
     MovementController,
-    Needs,
     PhysicsBody,
-    Predator,
     Transform,
 )
 from ...base_action import Action
@@ -129,7 +131,7 @@ class MoveToTarget(Action):
             if dist_to_target < 150.0:
                 use_direct_steering = True
             elif dist_to_target < 400.0:
-                from ....systems.physics import PhysicsSystem
+                from yukkuri_game.engine.systems.physics import PhysicsSystem
 
                 physics_sys = self.world.services.try_get(PhysicsSystem)
                 if physics_sys and hasattr(physics_sys, "space"):

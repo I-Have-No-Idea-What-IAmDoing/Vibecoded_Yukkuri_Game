@@ -23,9 +23,10 @@ from yukkuri_game.game.commands import (
     SelectEntitiesCommand,
     TimeSpeedCommand,
 )
-from yukkuri_game.game.components import Transform, Selectable
+from yukkuri_game.engine.components import Transform, Selectable
 from yukkuri_game.game.components import Poop
-from yukkuri_game.game.services import InputService, TimeService
+from yukkuri_game.game.services import InputService
+from yukkuri_game.engine.services.time_service import TimeService
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +182,7 @@ class TestCameraCommands:
 
     def test_camera_axis_command(self) -> None:
         """CameraAxisCommand sets x/y axis on camera."""
-        from yukkuri_game.game.camera import Camera
+        from yukkuri_game.engine.camera import Camera
 
         world = _make_world()
         camera = Camera()
@@ -195,7 +196,7 @@ class TestCameraCommands:
 
     def test_camera_zoom_axis_command(self) -> None:
         """CameraZoomAxisCommand sets zoom_axis on camera."""
-        from yukkuri_game.game.camera import Camera
+        from yukkuri_game.engine.camera import Camera
 
         world = _make_world()
         camera = Camera()
@@ -208,7 +209,7 @@ class TestCameraCommands:
 
     def test_camera_zoom_command_clamps(self) -> None:
         """CameraZoomCommand clamps target zoom to valid bounds."""
-        from yukkuri_game.game.camera import Camera
+        from yukkuri_game.engine.camera import Camera
 
         world = _make_world()
         camera = Camera()
@@ -222,7 +223,7 @@ class TestCameraCommands:
 
     def test_camera_pan_command(self) -> None:
         """CameraPanCommand moves camera_x and camera_y by delta/zoom."""
-        from yukkuri_game.game.camera import Camera
+        from yukkuri_game.engine.camera import Camera
 
         world = _make_world()
         camera = Camera()

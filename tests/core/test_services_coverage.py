@@ -1,14 +1,14 @@
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
 from yukkuri_game.game.services import (
-    TimeService,
     EconomyService,
     InputService,
     GameService,
 )
+from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.game.save_manager import SaveManager
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform
+from yukkuri_game.engine.components import Transform
 from yukkuri_game.game.components import (
     YukkuriStats,
     Needs,

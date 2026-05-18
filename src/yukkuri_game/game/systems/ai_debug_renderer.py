@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 
 import pygame
 
-from ..components import AIState, Blackboard, MoveCommand, Transform
+from ..components import AIState, Blackboard, MoveCommand
+from yukkuri_game.engine.components import Transform
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
@@ -28,7 +29,7 @@ class AIDebugRenderer:
         Args:
             world (World): The ECS World instance to fetch services from.
         """
-        from ..camera import Camera
+        from yukkuri_game.engine.camera import Camera
         self.camera = world.services.get(Camera)
         self.enabled = False
         self.font = pygame.font.SysFont("Arial", 12)

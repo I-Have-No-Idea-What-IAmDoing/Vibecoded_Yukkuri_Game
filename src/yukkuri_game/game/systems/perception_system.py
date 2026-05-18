@@ -32,8 +32,10 @@ from ..components import (
     Predator,
     RelationshipRegistry,
     TargetInfo,
-    Transform,
     YukkuriStats,
+)
+from yukkuri_game.engine.components import (
+    Transform,
 )
 
 

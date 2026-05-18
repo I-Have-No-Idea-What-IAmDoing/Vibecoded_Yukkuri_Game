@@ -18,7 +18,8 @@ from yukkuri_game.game.events import (
     SaveGameRequest,
     LoadGameRequest,
 )
-from yukkuri_game.game.services import EconomyService, TimeService
+from yukkuri_game.game.services import EconomyService
+from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.game.save_manager import SaveManager
 
 

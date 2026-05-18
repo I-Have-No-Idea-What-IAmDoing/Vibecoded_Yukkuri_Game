@@ -6,7 +6,7 @@ from the UtilitySelector, promoting separation of concerns.
 
 from typing import Any, TYPE_CHECKING
 
-from ..services import TimeService
+from yukkuri_game.engine.services.time_service import TimeService
 from ..trait_service import TraitService
 from ..components import (
     Blackboard,

@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...engine.data_models import AnimationDefinition
-from ..components import Animator
+from yukkuri_game.engine.components import Animator
 
 
 def build_animator_from_data(

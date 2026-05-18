@@ -22,7 +22,7 @@ from .commands import (
     SelectEntitiesCommand,
     TimeSpeedCommand,
 )
-from .components import Selectable, Transform
+from yukkuri_game.engine.components import Selectable, Transform
 from .events import (
     CleanToolRequestedEvent,
     PlacementStartedEvent,
@@ -32,7 +32,7 @@ from .services import InputBufferService, InputService
 if TYPE_CHECKING:
     import pygame_gui
 
-    from .camera import Camera
+    from yukkuri_game.engine.camera import Camera
 
 
 class InputSystem(System):
@@ -357,7 +357,7 @@ class InputSystem(System):
             # Read current speed from the service directly so we can compute
             # the next value; the command only accepts the final value.
             if self.buffer:
-                from .services import TimeService as _TS
+                from yukkuri_game.engine.services.time_service import TimeService as _TS
 
                 ts = self.ecs_world.services.try_get(_TS)
                 if ts:
@@ -366,7 +366,7 @@ class InputSystem(System):
 
         if self.input_manager.is_action_just_pressed("time_speed_down"):
             if self.buffer:
-                from .services import TimeService as _TS
+                from yukkuri_game.engine.services.time_service import TimeService as _TS
 
                 ts = self.ecs_world.services.try_get(_TS)
                 if ts:

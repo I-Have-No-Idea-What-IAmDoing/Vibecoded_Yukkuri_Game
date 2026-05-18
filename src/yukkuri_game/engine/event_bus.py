@@ -85,7 +85,7 @@ class EventBus:
         """
         event_type = type(event)
         if event_type in self._subscribers:
-            for handler in self._subscribers[event_type]:
+            for handler in list(self._subscribers[event_type]):
                 try:
                     handler(event)
                 except Exception as e:

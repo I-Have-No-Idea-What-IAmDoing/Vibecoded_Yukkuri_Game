@@ -14,30 +14,32 @@ from ..collision_constants import CollisionCategories
 from ..components import (
     AIState,
     EmotionalState,
-    Flight,
-    FlightState,
     GossipQueue,
     InventoryComponent,
-    Mount,
-    MovementController,
     Needs,
-    Persistable,
     Personality,
     PersonalityAxis,
     Predator,
     RelationshipRegistry,
+    SteeringComponent,
+    Vision,
+    YukkuriStats,
+)
+from yukkuri_game.engine.components import (
+    Flight,
+    FlightState,
+    Mount,
+    MovementController,
+    Persistable,
     Selectable,
     Sprite,
     StableIDComponent,
-    SteeringComponent,
     Transform,
-    Vision,
     VisualTransform,
-    YukkuriStats,
 )
 from ..physics_utils import add_physics_body, get_yukkuri_radius
 from ..skill_service import SkillService
-from ..systems.physics import PhysicsSystem
+from yukkuri_game.engine.systems.physics import PhysicsSystem
 from ..trait_service import TraitService
 from ..utils.animation_helpers import build_animator_from_data
 

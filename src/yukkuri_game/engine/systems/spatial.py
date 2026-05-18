@@ -16,7 +16,7 @@ from ..events import (
     EntityDestroyedEvent,
     WorldClearedEvent,
 )
-from ..components import (
+from yukkuri_game.engine.components import (
     FloatingText,
     Mount,
     MovementController,

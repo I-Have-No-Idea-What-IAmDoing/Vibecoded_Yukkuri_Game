@@ -4,7 +4,8 @@ Navigation System - Pathfinding Result Processor.
 
 from ...engine.ecs import System, World
 from ..ai.navigation_service import NavigationService
-from ..components import AIState, Transform
+from ..components import AIState
+from yukkuri_game.engine.components import Transform
 
 # Squared distance threshold for reaching a path node (30px ^ 2)
 PATH_NODE_REACHED_THRESHOLD_SQ = 900.0

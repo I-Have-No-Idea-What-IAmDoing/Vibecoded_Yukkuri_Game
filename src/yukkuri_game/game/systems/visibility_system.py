@@ -29,7 +29,8 @@ import pymunk
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
 from ..collision_constants import CollisionCategories
-from ..components import AIState, Flight, PhysicsBody, Transform, Vision
+from ..components import AIState, Vision
+from yukkuri_game.engine.components import Flight, PhysicsBody, Transform
 
 
 class VisibilitySystem(System):
@@ -125,7 +126,7 @@ class VisibilitySystem(System):
                 ai.visible_entities = cached_visible
                 return
 
-        from .spatial_system import SpatialService
+        from yukkuri_game.engine.systems.spatial import SpatialService
         spatial_service = world.services.try_get(SpatialService)
         if not spatial_service:
             return

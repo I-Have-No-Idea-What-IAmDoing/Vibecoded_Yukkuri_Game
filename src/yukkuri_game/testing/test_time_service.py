@@ -1,5 +1,5 @@
 import unittest
-from yukkuri_game.game.services import TimeService
+from yukkuri_game.engine.services.time_service import TimeService
 
 
 class TestTimeService(unittest.TestCase):

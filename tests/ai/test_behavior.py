@@ -4,7 +4,7 @@ from py_trees.common import Status
 from yukkuri_game.game.ai.navigation_service import PathResult
 
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Transform, MovementController
+from yukkuri_game.engine.components import Transform, MovementController
 from yukkuri_game.game.components import AIState, YukkuriStats, Needs
 from yukkuri_game.game.ai.behaviors import MoveToTarget
 from yukkuri_game.game.ai.navigation_service import NavigationService

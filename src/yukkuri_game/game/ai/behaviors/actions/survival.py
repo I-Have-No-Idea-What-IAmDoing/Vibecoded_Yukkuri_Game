@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Any
 import pymunk
 from py_trees.common import Status
 
-from ....components import AIState, EmotionalState, MoveCommand, MovementController, Needs
+from ....components import AIState, EmotionalState, MoveCommand, Needs
+from yukkuri_game.engine.components import MovementController
 from ...base_action import Action
 
 if TYPE_CHECKING:
@@ -51,7 +52,7 @@ class Sleep(Action):
             ai.path = None
 
         # Get delta time from TimeService (World doesn't have a dt property)
-        from ....services import TimeService
+        from yukkuri_game.engine.services.time_service import TimeService
 
         time_service = self.world.services.try_get(TimeService)
         dt = time_service.game_delta_multiplier if time_service else 0.016

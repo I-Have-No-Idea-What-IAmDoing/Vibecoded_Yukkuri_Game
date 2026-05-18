@@ -14,7 +14,7 @@ from .event_manager import EventManager
 from .input_manager import InputManager
 from .resource_manager import ResourceManager
 from .serializer import WorldSerializer
-from ..game.components import Persistable, StableIDComponent
+from yukkuri_game.engine.components import Persistable, StableIDComponent
 
 if TYPE_CHECKING:
     from .application import Application

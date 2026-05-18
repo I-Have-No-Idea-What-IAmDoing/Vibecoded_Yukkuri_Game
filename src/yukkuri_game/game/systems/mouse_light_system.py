@@ -5,9 +5,9 @@ Mouse Light System.
 import pygame
 from ...engine.ecs import System, World
 from ...engine.input_manager import InputManager
-from ..components import Transform, LightSource
+from yukkuri_game.engine.components import Transform, LightSource
 from ..services import InputService
-from ..camera import Camera
+from yukkuri_game.engine.camera import Camera
 
 
 class MouseLightSystem(System):

@@ -4,7 +4,8 @@ Module defining the PoopSystem logic.
 
 from ...engine import rng
 from ...engine.ecs import System, World
-from ..components import YukkuriStats, Needs, Poop, AIState, Transform
+from ..components import YukkuriStats, Needs, Poop, AIState
+from yukkuri_game.engine.components import Transform
 from ..prefabs.item import create_poop
 
 
@@ -103,7 +104,7 @@ class PoopSystem(System):
         if not poop_entities:
             return
 
-        from .spatial_system import SpatialService
+        from yukkuri_game.engine.systems.spatial import SpatialService
         spatial_service = world.services.try_get(SpatialService)
 
         poop_radius = self.poop_radius

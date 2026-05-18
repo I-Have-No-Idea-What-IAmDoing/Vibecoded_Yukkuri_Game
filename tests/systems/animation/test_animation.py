@@ -1,5 +1,5 @@
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import Sprite, Animator
+from yukkuri_game.engine.components import Sprite, Animator
 from yukkuri_game.engine.data_models import AnimationDefinition
 from yukkuri_game.game.systems.animation import AnimationSystem
 

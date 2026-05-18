@@ -8,7 +8,7 @@ from typing import List, Tuple
 from ..ecs import World
 from ..camera import Camera
 from ..renderer.renderer import Renderer
-from ..components import Transform
+from yukkuri_game.engine.components import Transform
 from .surface_cache import SurfaceCache
 
 

@@ -6,11 +6,13 @@ import pytest
 import math
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import (
-    Flight,
-    FlightState,
     Predator,
 )
-from yukkuri_game.game.components import Transform, MovementController
+from yukkuri_game.engine.components import (
+    Flight,
+    FlightState,
+)
+from yukkuri_game.engine.components import Transform, MovementController
 from yukkuri_game.game.ai.navigation_service import NavigationService, ObstacleType
 from yukkuri_game.game.ai.behaviors import FleePredator
 from py_trees.common import Status

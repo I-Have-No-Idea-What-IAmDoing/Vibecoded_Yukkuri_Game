@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../s
 
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import AIState, YukkuriStats, Needs
-from yukkuri_game.game.components import Transform
+from yukkuri_game.engine.components import Transform
 from yukkuri_game.game.ai.behaviors.actions.searching import FindSocialTarget
 from py_trees.common import Status
 
@@ -27,7 +27,7 @@ class TestSocialBehaviors(unittest.TestCase):
             self.ai, self.stats, self.transform, Needs()
         )
 
-        from yukkuri_game.game.systems.spatial_system import SpatialService
+        from yukkuri_game.engine.systems.spatial import SpatialService
         self.spatial_service = SpatialService(1000, 1000, 500)
         self.world.services.register(self.spatial_service, SpatialService)
         # Update entity in spatial service

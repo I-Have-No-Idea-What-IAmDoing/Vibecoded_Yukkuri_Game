@@ -29,8 +29,10 @@ from ...engine import rng
 from ...engine.ecs import System, World
 from ..collision_constants import CollisionCategories
 from ..components import (
-    Mount,
     PendingDismount,
+)
+from yukkuri_game.engine.components import (
+    Mount,
     PhysicsBody,
     Transform,
 )

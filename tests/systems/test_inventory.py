@@ -6,7 +6,7 @@ from yukkuri_game.game.components import (
     InventoryDropRequest,
 )
 from yukkuri_game.game.systems.inventory_system import InventorySystem
-from yukkuri_game.game.components import Transform
+from yukkuri_game.engine.components import Transform
 from yukkuri_game.game.components import ItemStats
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.engine.data_models import ItemType
@@ -230,7 +230,7 @@ def test_inventory_system_drop(world):
     assert events[0].delta == -1
 
 
-from yukkuri_game.game.components import StableIDComponent, Persistable
+from yukkuri_game.engine.components import StableIDComponent, Persistable
 
 # ... (imports)
 

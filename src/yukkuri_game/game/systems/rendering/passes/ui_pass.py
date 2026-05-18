@@ -5,7 +5,7 @@ UI Pass.
 import pygame
 
 from ....renderer.commands import TextCommand, SpriteCommand
-from ....components import FloatingText
+from yukkuri_game.engine.components import FloatingText
 from ..context import RenderContext
 
 

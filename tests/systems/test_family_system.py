@@ -9,8 +9,8 @@ from yukkuri_game.game.components import (
     Needs,
     RelationshipData,
 )
-from yukkuri_game.game.components import Transform
-from yukkuri_game.game.systems.spatial_system import SpatialService
+from yukkuri_game.engine.components import Transform
+from yukkuri_game.engine.systems.spatial import SpatialService
 
 
 class MockSpatialService:

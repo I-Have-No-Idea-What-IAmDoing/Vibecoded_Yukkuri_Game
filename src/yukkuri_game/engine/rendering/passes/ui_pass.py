@@ -3,7 +3,7 @@ UI Pass (Engine Version).
 """
 
 from ...renderer.commands import TextCommand
-from ...components import FloatingText
+from yukkuri_game.engine.components import FloatingText
 from ..context import RenderContext
 
 

@@ -2,7 +2,7 @@ import pymunk
 import math
 from yukkuri_game.game.systems.kinematic_movement_system import KinematicMovementSystem
 from yukkuri_game.game.systems.hierarchy_system import HierarchySystem
-from yukkuri_game.game.components import (
+from yukkuri_game.engine.components import (
     PhysicsBody,
     MovementController,
     Transform,

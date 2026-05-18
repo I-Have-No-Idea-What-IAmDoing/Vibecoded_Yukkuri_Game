@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from yukkuri_game.game.input_system import InputSystem
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
-from yukkuri_game.game.components import Transform, Selectable
+from yukkuri_game.engine.components import Transform, Selectable
 from yukkuri_game.game.services import InputService
 
 

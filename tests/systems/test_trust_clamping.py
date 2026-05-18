@@ -11,7 +11,7 @@ from unittest.mock import Mock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.types import EntityID
-from yukkuri_game.game.components import Transform
+from yukkuri_game.engine.components import Transform
 from yukkuri_game.game.systems.social_system import SocialSystem
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.game.components import (

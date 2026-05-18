@@ -20,7 +20,7 @@ from yukkuri_game.game.events import (
     EntitySelectedEvent,
     PlacementRequestedEvent,
 )
-from yukkuri_game.game.components import Transform, Selectable
+from yukkuri_game.engine.components import Transform, Selectable
 from yukkuri_game.game.services import InputBufferService, InputService
 from yukkuri_game.engine.input_manager import InputManager
 

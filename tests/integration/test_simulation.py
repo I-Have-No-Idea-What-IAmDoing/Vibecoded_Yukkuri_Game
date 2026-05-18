@@ -7,7 +7,8 @@ import pymunk
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
-from yukkuri_game.game.components import Transform, MovementController, SteeringComponent, PhysicsBody
+from yukkuri_game.game.components import SteeringComponent
+from yukkuri_game.engine.components import Transform, MovementController, PhysicsBody
 from yukkuri_game.game.components import YukkuriStats, Needs, AIState, ItemStats
 from yukkuri_game.game.systems.behavior import BehaviorSystem
 from yukkuri_game.game.systems.emotion_system import EmotionSystem

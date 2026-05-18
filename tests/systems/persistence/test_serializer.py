@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from typing import Dict
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.serializer import WorldSerializer
-from yukkuri_game.game.components import StableIDComponent, Persistable
-from yukkuri_game.game.components import Transform, Selectable
+from yukkuri_game.engine.components import StableIDComponent, Persistable
+from yukkuri_game.engine.components import Transform, Selectable
 from yukkuri_game.engine.types import EntityID
 
 

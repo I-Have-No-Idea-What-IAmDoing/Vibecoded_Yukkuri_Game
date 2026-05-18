@@ -5,7 +5,7 @@ from yukkuri_game.config import StatDecaySettings
 
 
 def test_starvation_decay():
-    from yukkuri_game.game.services import TimeService
+    from yukkuri_game.engine.services.time_service import TimeService
     settings = StatDecaySettings(starvation_damage=10.0)
     world = make_configured_world(stat_decay_settings=settings)
     
@@ -48,7 +48,7 @@ def test_starvation_decay():
 
 
 def test_no_decay_when_not_starving():
-    from yukkuri_game.game.services import TimeService
+    from yukkuri_game.engine.services.time_service import TimeService
     settings = StatDecaySettings(starvation_damage=10.0)
     world = make_configured_world(stat_decay_settings=settings)
     

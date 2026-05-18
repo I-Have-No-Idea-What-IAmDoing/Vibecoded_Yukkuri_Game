@@ -6,7 +6,8 @@ import math
 from typing import cast
 
 from ...renderer.commands import LightCommand
-from ...components import LightSource, FlickerStyle
+from ...components import FlickerStyle
+from yukkuri_game.engine.components import LightSource
 from ...services.time_service import TimeService
 from ..context import RenderContext
 

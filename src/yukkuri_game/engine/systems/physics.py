@@ -12,7 +12,7 @@ from ..events import (
     PhysicsFixedUpdateEvent,
     WorldClearedEvent,
 )
-from ..components import PhysicsBody, Transform
+from yukkuri_game.engine.components import PhysicsBody, Transform
 
 
 class PhysicsSystem(System):

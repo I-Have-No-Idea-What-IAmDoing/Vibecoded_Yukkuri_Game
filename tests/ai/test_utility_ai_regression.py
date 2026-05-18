@@ -19,7 +19,7 @@ from yukkuri_game.game.components import (
     Blackboard,
 
 )
-from yukkuri_game.game.components import Transform, MovementController
+from yukkuri_game.engine.components import Transform, MovementController
 from py_trees.common import Status
 
 

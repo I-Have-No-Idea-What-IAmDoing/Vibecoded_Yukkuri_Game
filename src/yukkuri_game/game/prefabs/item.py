@@ -11,20 +11,22 @@ from ...engine.resource_manager import ResourceManager
 from ..ai.navigation_service import NavigationService, ObstacleType
 from ..collision_constants import CollisionCategories
 from ..components import (
-    FlickerStyle,
     ItemStats,
+    Poop,
+)
+from yukkuri_game.engine.components import (
+    FlickerStyle,
     LightSource,
     Occluder,
     Persistable,
     PhysicsBody,
-    Poop,
     Selectable,
     Sprite,
     StableIDComponent,
     Transform,
     VisualTransform,
 )
-from ..systems.physics import PhysicsSystem
+from yukkuri_game.engine.systems.physics import PhysicsSystem
 from ..utils.animation_helpers import build_animator_from_data
 
 

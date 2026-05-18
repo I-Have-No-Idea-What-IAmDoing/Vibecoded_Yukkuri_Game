@@ -1,8 +1,8 @@
 
 import pytest
 from unittest.mock import MagicMock
-from yukkuri_game.game.systems.spatial_system import SpatialSystem
-from yukkuri_game.game.components import Transform, Velocity
+from yukkuri_game.engine.systems.spatial import SpatialSystem
+from yukkuri_game.engine.components import Transform, Velocity
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 
@@ -69,7 +69,7 @@ class TestSpatialSystemOptimization:
 
     def test_occluder_optimization(self):
         """Test OccluderMap optimization."""
-        from yukkuri_game.game.components import Occluder
+        from yukkuri_game.engine.components import Occluder
 
         world = World()
         # Register EventBus to enable optimization mode

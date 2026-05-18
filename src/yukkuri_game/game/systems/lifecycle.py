@@ -36,10 +36,12 @@ from ..components import (
     Dead,
     EmotionalState,
     Needs,
+    YukkuriStats,
+)
+from yukkuri_game.engine.components import (
     PhysicsBody,
     Sprite,
     Transform,
-    YukkuriStats,
 )
 from ..events import EntityDiedEvent, EntityGrewEvent
 from ..prefabs.yukkuri import create_yukkuri

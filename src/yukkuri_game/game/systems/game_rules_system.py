@@ -25,8 +25,10 @@ from ...engine.event_bus import EventBus
 from ..components import (
     EmotionalState,
     Needs,
-    Transform,
     YukkuriStats,
+)
+from yukkuri_game.engine.components import (
+    Transform,
 )
 from ..events import (
     EntityPunishedEvent,

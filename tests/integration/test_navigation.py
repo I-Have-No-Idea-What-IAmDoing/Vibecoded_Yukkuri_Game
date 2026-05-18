@@ -1,7 +1,7 @@
 import math
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.game.components import SteeringComponent
-from yukkuri_game.game.services import TimeService
+from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.game.ai.navigation_constants import TraversalCapability
 
 
@@ -103,7 +103,7 @@ def test_navigation_with_obstacle(game_driver: GameDriver):
     # Create an obstacle (bed is static, physics enabled)
     obstacle_id = driver.create_item("bed", *obstacle_pos)
     # Make it static so it acts as an obstacle
-    from yukkuri_game.game.components import PhysicsBody
+    from yukkuri_game.engine.components import PhysicsBody
     import pymunk
 
     from yukkuri_game.game.ai.navigation_service import NavigationService, ObstacleType

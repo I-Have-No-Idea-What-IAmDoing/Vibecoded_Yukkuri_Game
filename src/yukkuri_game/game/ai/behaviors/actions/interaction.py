@@ -8,11 +8,13 @@ from ...base_action import Action
 from ....components import (
     AIState,
     InteractionRequest,
-    MovementController,
     Needs,
     Predator,
-    Transform,
     YukkuriStats,
+)
+from yukkuri_game.engine.components import (
+    MovementController,
+    Transform,
 )
 from yukkuri_game.engine.types import EntityID
 
@@ -176,7 +178,7 @@ class EatPrey(Action):
         if self.world:
             self.last_update_time = self.world.time
             # Get TimeService
-            from ....services import TimeService
+            from yukkuri_game.engine.services.time_service import TimeService
 
             self.time_service = self.world.services.try_get(TimeService)
 
@@ -187,7 +189,7 @@ class EatPrey(Action):
 
         # Lazy load SpatialService
         if self.spatial_service is None:
-            from ....systems.spatial_system import SpatialService
+            from yukkuri_game.engine.systems.spatial import SpatialService
 
             self.spatial_service = self.world.services.try_get(SpatialService)
 

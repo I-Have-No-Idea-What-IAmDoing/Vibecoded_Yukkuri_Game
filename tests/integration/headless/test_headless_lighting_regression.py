@@ -1,5 +1,5 @@
 from yukkuri_game.testing.driver import GameDriver
-from yukkuri_game.game.components import LightSource, Transform, FloatingText
+from yukkuri_game.engine.components import LightSource, Transform, FloatingText
 from yukkuri_game.engine.renderer.pygame_backend import PygameBackend
 from yukkuri_game.scenes.gameplay import GameplayScene
 import os
@@ -24,7 +24,7 @@ def test_headless_lighting_regression(game_driver: GameDriver, tmp_path):
     world = driver.world
 
     # Center camera at (0,0) explicitly
-    from yukkuri_game.game.camera import Camera
+    from yukkuri_game.engine.camera import Camera
 
     camera = world.services.get(Camera)
     camera.camera_x = 0

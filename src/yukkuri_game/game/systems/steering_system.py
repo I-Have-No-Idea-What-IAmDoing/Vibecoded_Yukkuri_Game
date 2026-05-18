@@ -23,13 +23,15 @@ from ...engine.ecs import System, World
 from ..components import (
     AIState,
     MoveCommand,
-    MovementController,
-    PhysicsBody,
     SteeringComponent,
-    Transform,
     YukkuriStats,
 )
-from .physics import PhysicsSystem
+from yukkuri_game.engine.components import (
+    MovementController,
+    PhysicsBody,
+    Transform,
+)
+from yukkuri_game.engine.systems.physics import PhysicsSystem
 
 
 class SteeringSystem(System):

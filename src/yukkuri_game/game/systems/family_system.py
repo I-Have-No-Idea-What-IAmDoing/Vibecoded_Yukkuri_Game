@@ -32,10 +32,12 @@ from ..components import (
     EmotionalState,
     Needs,
     RelationshipRegistry,
-    Transform,
     YukkuriStats,
 )
-from ..systems.spatial_system import SpatialService
+from yukkuri_game.engine.components import (
+    Transform,
+)
+from yukkuri_game.engine.systems.spatial import SpatialService
 
 
 class FamilySystem(System):

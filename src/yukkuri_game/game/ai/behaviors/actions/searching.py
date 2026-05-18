@@ -8,12 +8,14 @@ from yukkuri_game.engine.types import EntityID
 from ....components import (
     AIState,
     Blackboard,
-    Flight,
     ItemStats,
-    LightSource,
     Predator,
-    Transform,
     YukkuriStats,
+)
+from yukkuri_game.engine.components import (
+    Flight,
+    LightSource,
+    Transform,
 )
 from ....services import GameService
 from ...base_action import Action
@@ -22,7 +24,7 @@ from ...navigation_service import NavigationService
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
-    from yukkuri_game.game.systems.spatial_system import SpatialService
+    from yukkuri_game.engine.systems.spatial import SpatialService
 
 
 class FindItem(Action):
@@ -137,7 +139,7 @@ class FindLightSource(Action):
             return Status.SUCCESS
 
         # Lazy load SpatialService
-        from ....systems.spatial_system import SpatialService
+        from yukkuri_game.engine.systems.spatial import SpatialService
         spatial_service = self.world.services.try_get(SpatialService)
 
         if not spatial_service:
@@ -198,7 +200,7 @@ class FindPrey(Action):
 
         # Lazy load SpatialService
         if self.spatial_service is None:
-            from ....systems.spatial_system import SpatialService
+            from yukkuri_game.engine.systems.spatial import SpatialService
 
             self.spatial_service = self.world.services.try_get(SpatialService)
 
@@ -358,7 +360,7 @@ class FindSocialTarget(Action):
             return Status.SUCCESS
 
         # Lazy load SpatialService
-        from ....systems.spatial_system import SpatialService
+        from yukkuri_game.engine.systems.spatial import SpatialService
         spatial_service = self.world.services.try_get(SpatialService)
 
         if not spatial_service:

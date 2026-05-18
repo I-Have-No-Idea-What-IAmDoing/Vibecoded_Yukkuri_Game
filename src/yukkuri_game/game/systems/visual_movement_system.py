@@ -7,7 +7,7 @@ import math
 import pymunk
 
 from ...engine.ecs import System, World
-from ..components import MovementController, PhysicsBody, VisualTransform
+from yukkuri_game.engine.components import MovementController, PhysicsBody, VisualTransform
 from ..skill_constants import SkillId
 from ..skill_service import SkillService
 

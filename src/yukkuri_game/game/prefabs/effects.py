@@ -3,7 +3,7 @@ Prefab for visual effects.
 """
 
 from ...engine.ecs import World
-from ..components import Transform, FloatingText
+from yukkuri_game.engine.components import Transform, FloatingText
 
 
 def create_floating_text(

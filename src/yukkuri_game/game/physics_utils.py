@@ -5,8 +5,8 @@ Physics Utilities.
 from typing import Any
 import pymunk
 from ..engine.ecs import World
-from .components import PhysicsBody
-from .systems.physics import PhysicsSystem
+from yukkuri_game.engine.components import PhysicsBody
+from yukkuri_game.engine.systems.physics import PhysicsSystem
 
 
 def add_physics_body(

@@ -4,8 +4,8 @@ Culling Pass.
 
 from typing import List
 
-from ....components import Transform
-from ...spatial_system import SpatialService
+from yukkuri_game.engine.components import Transform
+from yukkuri_game.engine.systems.spatial import SpatialService
 from ..context import RenderContext
 
 

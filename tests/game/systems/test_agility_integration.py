@@ -5,7 +5,7 @@ from yukkuri_game.engine.types import EntityID
 from yukkuri_game.game.systems.perception_system import PerceptionSystem
 from yukkuri_game.game.systems.kinematic_movement_system import KinematicMovementSystem
 from yukkuri_game.game.components import AIState, Blackboard, YukkuriStats, TargetInfo
-from yukkuri_game.game.components import Transform, PhysicsBody, MovementController
+from yukkuri_game.engine.components import Transform, PhysicsBody, MovementController
 
 class TestAgilityIntegration:
     
@@ -49,7 +49,7 @@ class TestAgilityIntegration:
         blackboard = world.get_component(entity, Blackboard)
         
         # Mock TimeService
-        from yukkuri_game.game.services import TimeService
+        from yukkuri_game.engine.services.time_service import TimeService
         time_service = MagicMock(spec=TimeService)
         time_service.time_elapsed = 0.0
         world.services.register(time_service, TimeService)

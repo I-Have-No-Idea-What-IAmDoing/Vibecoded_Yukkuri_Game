@@ -5,8 +5,10 @@ from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.ai.behaviors import MoveToTarget, Interact, FindItem
 from yukkuri_game.game.components import AIState, ItemStats, YukkuriStats, Needs
 from yukkuri_game.game.components import (
-    Transform,
     InteractionRequest,
+)
+from yukkuri_game.engine.components import (
+    Transform,
     MovementController,
 )
 from yukkuri_game.game.ai.navigation_service import NavigationService

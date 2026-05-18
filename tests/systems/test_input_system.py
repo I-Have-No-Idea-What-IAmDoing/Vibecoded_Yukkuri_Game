@@ -20,7 +20,7 @@ from yukkuri_game.game.commands import (
 )
 from yukkuri_game.game.events import PlacementStartedEvent
 from yukkuri_game.game.services import InputBufferService, InputService
-from yukkuri_game.game.services import TimeService
+from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.audio import AudioManager

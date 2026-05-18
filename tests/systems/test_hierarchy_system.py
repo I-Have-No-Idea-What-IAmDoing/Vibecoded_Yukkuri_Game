@@ -2,7 +2,8 @@ import pytest
 import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.hierarchy_system import HierarchySystem
-from yukkuri_game.game.components import Mount, Transform, PhysicsBody, PendingDismount
+from yukkuri_game.game.components import PendingDismount
+from yukkuri_game.engine.components import Mount, Transform, PhysicsBody
 
 
 @pytest.fixture

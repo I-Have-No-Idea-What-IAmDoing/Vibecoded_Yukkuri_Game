@@ -6,16 +6,16 @@ import pytest
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Predator, AIState, YukkuriStats, Needs
-from yukkuri_game.game.components import Transform, MovementController
+from yukkuri_game.engine.components import Transform, MovementController
 from yukkuri_game.game.ai.behaviors import FindPrey, EatPrey, Swoop
-from yukkuri_game.game.components import Flight, FlightState
+from yukkuri_game.engine.components import Flight, FlightState
 from py_trees.common import Status
 
 
 @pytest.fixture
 def world():
     w = World()
-    from yukkuri_game.game.services import TimeService
+    from yukkuri_game.engine.services.time_service import TimeService
     time_service = TimeService()
     # Mock dt for tests to be 0.016
     time_service.delta_time = 0.016

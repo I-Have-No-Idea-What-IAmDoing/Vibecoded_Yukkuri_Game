@@ -20,7 +20,7 @@ def test_initial_setup(game_driver):
 
     assert game_driver.game.headless is True
     from yukkuri_game.game.services import GameService
-    from yukkuri_game.game.camera import Camera
+    from yukkuri_game.engine.camera import Camera
 
     assert game_driver.world.services.try_get(GameService) is not None
     assert game_driver.world.services.try_get(Camera) is not None

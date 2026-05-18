@@ -12,7 +12,7 @@ from ...engine.events import (
     ComponentRemovedEvent,
     WorldClearedEvent,
 )
-from ..components import PhysicsBody
+from yukkuri_game.engine.components import PhysicsBody
 from ..ai.navigation_service import NavigationService
 
 

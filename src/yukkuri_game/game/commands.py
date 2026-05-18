@@ -70,7 +70,7 @@ class CameraAxisCommand:
         Args:
             world: The active ECS World instance.
         """
-        from .camera import Camera
+        from yukkuri_game.engine.camera import Camera
 
         camera = world.services.try_get(Camera)
         if camera:
@@ -101,7 +101,7 @@ class CameraZoomAxisCommand:
         Args:
             world: The active ECS World instance.
         """
-        from .camera import Camera
+        from yukkuri_game.engine.camera import Camera
 
         camera = world.services.try_get(Camera)
         if camera:
@@ -135,7 +135,7 @@ class CameraZoomCommand:
         Args:
             world: The active ECS World instance.
         """
-        from .camera import Camera
+        from yukkuri_game.engine.camera import Camera
 
         camera = world.services.try_get(Camera)
         if camera:
@@ -172,7 +172,7 @@ class CameraPanCommand:
         Args:
             world: The active ECS World instance.
         """
-        from .camera import Camera
+        from yukkuri_game.engine.camera import Camera
 
         camera = world.services.try_get(Camera)
         if camera:
@@ -343,8 +343,8 @@ class SelectEntitiesCommand:
         """
         from ..engine.event_bus import EventBus
         from ..engine.audio import AudioManager
-        from .components import Transform
-        from .components import Selectable
+        from yukkuri_game.engine.components import Transform
+        from yukkuri_game.engine.components import Selectable
         from .events import EntitySelectedEvent
 
         x1, y1 = self.start_pos
@@ -437,7 +437,8 @@ class CleanEntityCommand:
             world: The active ECS World instance.
         """
         from ..engine.audio import AudioManager
-        from .components import Poop, Transform
+        from .components import Poop
+        from yukkuri_game.engine.components import Transform
 
         click_radius = 32.0
         components = world.get_components_tuple(Poop, Transform)
@@ -497,7 +498,7 @@ class ContextMenuCommand:
             world: The active ECS World instance.
         """
         from ..engine.event_bus import EventBus
-        from .components import Transform, Selectable
+        from yukkuri_game.engine.components import Transform, Selectable
         from .events import ContextMenuRequestedEvent
 
         hover_radius = 32.0
@@ -547,7 +548,7 @@ class TimeSpeedCommand:
         Args:
             world: The active ECS World instance.
         """
-        from .services import TimeService
+        from yukkuri_game.engine.services.time_service import TimeService
 
         time_service = world.services.try_get(TimeService)
         if time_service:

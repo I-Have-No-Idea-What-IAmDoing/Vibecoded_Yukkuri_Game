@@ -8,10 +8,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
 
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.service_locator import ServiceLocator
-from yukkuri_game.game.systems.lod_system import LODSystem
-from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService
-from yukkuri_game.game.components import Transform, LODComponent
-from yukkuri_game.game.camera import Camera
+from yukkuri_game.engine.systems.lod import LODSystem
+from yukkuri_game.engine.systems.spatial import SpatialSystem, SpatialService
+from yukkuri_game.engine.components import Transform, LODComponent
+from yukkuri_game.engine.camera import Camera
 
 def main():
     pygame.init()

@@ -10,7 +10,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../s
 
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import AIState, YukkuriStats, Needs
-from yukkuri_game.game.components import Transform, InteractionRequest, MovementController
+from yukkuri_game.game.components import InteractionRequest
+from yukkuri_game.engine.components import Transform, MovementController
 from yukkuri_game.game.ai.behaviors.trees import build_standard_interaction_behavior
 from yukkuri_game.game.services import GameService
 from py_trees.common import Status

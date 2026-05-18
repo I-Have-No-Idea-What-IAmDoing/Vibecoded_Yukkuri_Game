@@ -26,13 +26,15 @@ from ..components import (
     GossipPacket,
     GossipQueue,
     RelationshipRegistry,
-    Transform,
     YukkuriStats,
+)
+from yukkuri_game.engine.components import (
+    Transform,
 )
 from ..events import SocialInteractionEvent
 from ..trait_service import TraitService
-from .physics import PhysicsSystem
-from .spatial_system import SpatialService
+from yukkuri_game.engine.systems.physics import PhysicsSystem
+from yukkuri_game.engine.systems.spatial import SpatialService
 
 
 class GossipSystem(System):

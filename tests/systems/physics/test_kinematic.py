@@ -2,7 +2,7 @@ import pymunk
 from yukkuri_game.game.systems.kinematic_movement_system import (
     KinematicMovementSystem,
 )
-from yukkuri_game.game.components import PhysicsBody, MovementController, Transform
+from yukkuri_game.engine.components import PhysicsBody, MovementController, Transform
 from yukkuri_game.engine.ecs import World
 from dataclasses import dataclass
 

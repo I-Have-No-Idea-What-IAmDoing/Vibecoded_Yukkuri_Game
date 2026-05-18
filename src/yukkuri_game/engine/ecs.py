@@ -110,7 +110,7 @@ class World:
             float: Elapsed time in seconds. Returns 0.0 if the TimeService is unavailable.
         """
         # Lazy import to avoid circular dependency
-        from ..game.services import TimeService
+        from yukkuri_game.engine.services.time_service import TimeService
 
         time_service = self.services.try_get(TimeService)
         return time_service.time_elapsed if time_service else 0.0
@@ -228,7 +228,8 @@ class World:
             component_type (type[Any]): The class of the component to remove.
         """
         try:
-            removed_component = esper.remove_component(entity, component_type)
+            removed_component = esper.component_for_entity(entity, component_type)
+            esper.remove_component(entity, component_type)
 
             event_bus = self.services.try_get(EventBus)
             if event_bus:

@@ -5,8 +5,8 @@ Tests for the Physics System.
 import pytest
 from unittest.mock import patch
 import pymunk
-from yukkuri_game.game.systems.physics import PhysicsSystem
-from yukkuri_game.game.components import Transform, PhysicsBody
+from yukkuri_game.engine.systems.physics import PhysicsSystem
+from yukkuri_game.engine.components import Transform, PhysicsBody
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.events import EntityDestroyedEvent, PhysicsFixedUpdateEvent
 from yukkuri_game.engine.event_bus import EventBus

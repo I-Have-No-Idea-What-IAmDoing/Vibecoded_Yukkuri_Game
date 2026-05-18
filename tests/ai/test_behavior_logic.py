@@ -13,7 +13,7 @@ from yukkuri_game.game.ai.behaviors import (
     create_yukkuri_behavior_tree,
 )
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.components import (
+from yukkuri_game.engine.components import (
     Transform,
     MovementController,
 )

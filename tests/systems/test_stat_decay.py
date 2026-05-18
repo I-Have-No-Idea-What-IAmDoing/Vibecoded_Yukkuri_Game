@@ -7,7 +7,7 @@ from yukkuri_game.game.components import (
     EmotionalState,
     Personality,
 )
-from yukkuri_game.game.components import LightSource, Transform
+from yukkuri_game.engine.components import LightSource, Transform
 from yukkuri_game.config import StatDecaySettings
 
 
@@ -37,7 +37,7 @@ class TestEmotionSystem(unittest.TestCase):
         world.add_system(system)
         
         # Set time scale to 1.0
-        from yukkuri_game.game.services import TimeService
+        from yukkuri_game.engine.services.time_service import TimeService
         world.services.get(TimeService).scale = 1.0
         
         dt = 1.0
@@ -61,7 +61,7 @@ class TestEmotionSystem(unittest.TestCase):
         world = make_configured_world()
         
         # Set time scale to 1.0
-        from yukkuri_game.game.services import TimeService
+        from yukkuri_game.engine.services.time_service import TimeService
         world.services.get(TimeService).scale = 1.0
         
         stats = YukkuriStats(name="Test", type_id="test")
@@ -98,7 +98,7 @@ class TestEmotionSystem(unittest.TestCase):
         world = make_configured_world()
         
         # Set time scale to 1.0
-        from yukkuri_game.game.services import TimeService
+        from yukkuri_game.engine.services.time_service import TimeService
         world.services.get(TimeService).scale = 1.0
         
         stats = YukkuriStats(name="Test", type_id="test")

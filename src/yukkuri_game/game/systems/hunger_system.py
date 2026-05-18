@@ -27,6 +27,8 @@ from ..components import (
     InteractionRequest,
     ItemStats,
     Needs,
+)
+from yukkuri_game.engine.components import (
     Transform,
 )
 from ..skill_constants import SkillId

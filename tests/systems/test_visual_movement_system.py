@@ -2,7 +2,7 @@ import pymunk
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.visual_movement_system import VisualMovementSystem
-from yukkuri_game.game.components import (
+from yukkuri_game.engine.components import (
     PhysicsBody,
     MovementController,
     VisualTransform,

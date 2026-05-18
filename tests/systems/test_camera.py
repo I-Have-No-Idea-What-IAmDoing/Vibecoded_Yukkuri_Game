@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import MagicMock
 import pygame
 
-from yukkuri_game.game.camera import Camera
+from yukkuri_game.engine.camera import Camera
 from yukkuri_game.config import WorldSettings
 
 

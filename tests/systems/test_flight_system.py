@@ -8,12 +8,14 @@ import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.flight_system import FlightSystem
 from yukkuri_game.game.components import (
-    Flight,
-    FlightState,
     Needs,
     EmotionalState,
 )
-from yukkuri_game.game.components import MovementController, Transform
+from yukkuri_game.engine.components import (
+    Flight,
+    FlightState,
+)
+from yukkuri_game.engine.components import MovementController, Transform
 
 
 class TestFlightSystem:

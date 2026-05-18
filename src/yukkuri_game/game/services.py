@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING
 
 
 from ..engine.ecs import World
-from .components import ItemStats, Skills, Transform
+from ..engine.components import Transform
+from .components import ItemStats, Skills
 from .skill_constants import SkillId
-from .systems.spatial_system import SpatialService
+from ..engine.systems.spatial import SpatialService
 
 if TYPE_CHECKING:
     pass

@@ -155,8 +155,8 @@ class SurfaceCache:
 
         # Apply Scale
         if scale != 1.0:
-            w = int(sprite_width * scale)
-            h = int(sprite_height * scale)
+            w = int(frame_img.get_width() * scale)
+            h = int(frame_img.get_height() * scale)
             if w > 0 and h > 0:
                 scaled_img = pygame.transform.scale(frame_img, (w, h))
             else:

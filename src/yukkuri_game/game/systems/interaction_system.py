@@ -31,8 +31,10 @@ from ..components import (
     Needs,
     Personality,
     Predator,
-    Transform,
     YukkuriStats,
+)
+from yukkuri_game.engine.components import (
+    Transform,
 )
 from ..prefabs.effects import create_floating_text
 from ..trait_service import TraitService

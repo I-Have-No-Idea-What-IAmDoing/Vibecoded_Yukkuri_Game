@@ -11,7 +11,7 @@ from yukkuri_game.game.components import (
     EmotionalState,
 )
 from yukkuri_game.game.trait_service import TraitService
-from yukkuri_game.game.services import TimeService
+from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.game.events import SocialInteractionEvent
 
 

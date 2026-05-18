@@ -7,7 +7,7 @@ from yukkuri_game.game.components import (
     Personality,
     YukkuriStats,
 )
-from yukkuri_game.game.services import TimeService
+from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.game.skill_service import SkillService
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.game.skill_constants import SkillId

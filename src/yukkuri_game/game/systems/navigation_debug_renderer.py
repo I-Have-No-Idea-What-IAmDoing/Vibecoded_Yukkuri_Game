@@ -24,7 +24,7 @@ class NavigationDebugRenderer:
 
     def __init__(self, world: "World"):
         from ..ai.navigation_service import NavigationService
-        from ..camera import Camera
+        from yukkuri_game.engine.camera import Camera
         self.nav_service = world.services.get(NavigationService)
         self.camera = world.services.get(Camera)
         self.enabled = False
@@ -158,7 +158,8 @@ class NavigationDebugRenderer:
 
     def _draw_active_paths(self, surface: pygame.Surface, world: "World") -> None:
         """Draws yellow lines for active AI paths."""
-        from ..components import AIState, Transform
+        from ..components import AIState
+        from yukkuri_game.engine.components import Transform
 
         for ent, (transform, ai_state) in world.get_components_tuple(
             Transform, AIState
@@ -186,7 +187,8 @@ class NavigationDebugRenderer:
 
     def _draw_steering_vectors(self, surface: pygame.Surface, world: "World") -> None:
         """Draws red arrows for steering forces."""
-        from ..components import MovementController, SteeringComponent, Transform
+        from ..components import SteeringComponent
+        from yukkuri_game.engine.components import MovementController, Transform
 
         for ent, (transform, movement, steering) in world.get_components_tuple(
             Transform, MovementController, SteeringComponent

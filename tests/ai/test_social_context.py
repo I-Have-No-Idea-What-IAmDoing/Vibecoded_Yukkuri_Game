@@ -14,11 +14,11 @@ from yukkuri_game.game.components import (
     RelationshipData,
     Blackboard,
 )
-from yukkuri_game.game.components import Transform
+from yukkuri_game.engine.components import Transform
 from yukkuri_game.game.ai.utility_selector import UtilitySelector
 from yukkuri_game.game.ai.utility import UtilityAIEngine
 from yukkuri_game.game.systems.perception_system import PerceptionSystem
-from yukkuri_game.game.services import TimeService
+from yukkuri_game.engine.services.time_service import TimeService
 
 
 class TestSocialContext:

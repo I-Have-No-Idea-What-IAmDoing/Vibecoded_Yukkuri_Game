@@ -34,15 +34,17 @@ from ...engine.event_bus import EventBus
 from ...engine.events import PhysicsFixedUpdateEvent
 from ..collision_constants import CollisionCategories
 from ..components import (
+    YukkuriStats,
+)
+from yukkuri_game.engine.components import (
     Flight,
     FlightState,
     MovementController,
     PhysicsBody,
     Transform,
-    YukkuriStats,
 )
 from ..skill_service import SkillService
-from .physics import PhysicsSystem
+from yukkuri_game.engine.systems.physics import PhysicsSystem
 
 
 class KinematicMovementSystem(System):

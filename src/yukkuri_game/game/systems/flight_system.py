@@ -5,11 +5,13 @@ Flight System Module.
 from ...engine.ecs import System, World
 from ..components import (
     EmotionalState,
+    Needs,
+    YukkuriStats,
+)
+from yukkuri_game.engine.components import (
     Flight,
     FlightState,
-    Needs,
     Transform,
-    YukkuriStats,
 )
 from ..skill_constants import SkillId
 from ..skill_service import SkillService

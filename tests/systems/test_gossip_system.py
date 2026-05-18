@@ -20,9 +20,10 @@ from yukkuri_game.game.components import (
     EmotionalState,
     Personality,
 )
-from yukkuri_game.game.components import Transform, InteractionRequest
-from yukkuri_game.game.systems.spatial_system import SpatialService
-from yukkuri_game.game.systems.physics import PhysicsSystem
+from yukkuri_game.game.components import InteractionRequest
+from yukkuri_game.engine.components import Transform
+from yukkuri_game.engine.systems.spatial import SpatialService
+from yukkuri_game.engine.systems.physics import PhysicsSystem
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.config import GameConfig
 

@@ -7,13 +7,14 @@ import pytest
 import os
 from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.services import EconomyService, TimeService
+from yukkuri_game.game.services import EconomyService
+from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.game.save_manager import SaveManager
-from yukkuri_game.game.components import Transform
+from yukkuri_game.engine.components import Transform
 from yukkuri_game.game.components import YukkuriStats, ItemStats, AIState, Needs
 from yukkuri_game.game.entity_factory import EntityFactory
 from yukkuri_game.engine.resource_manager import ResourceManager
-from yukkuri_game.game.components import StableIDComponent, Persistable
+from yukkuri_game.engine.components import StableIDComponent, Persistable
 
 
 @pytest.fixture

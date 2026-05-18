@@ -16,11 +16,13 @@ from yukkuri_game.game.systems.visibility_system import VisibilitySystem
 # Need visibility system for Close-Range logic to work!
 
 from yukkuri_game.game.components import (
+    SteeringComponent,
+    Vision,
+)
+from yukkuri_game.engine.components import (
     Transform,
     PhysicsBody,
     MovementController,
-    SteeringComponent,
-    Vision,
 )
 from yukkuri_game.game.components import AIState, Needs
 from yukkuri_game.game.ai.behaviors import MoveToTarget
@@ -126,7 +128,7 @@ class TestPredatorMovingTarget(unittest.TestCase):
             self.space.add(p_body, p_shape)
             self.space.add(prey_body, prey_shape)
 
-            from yukkuri_game.game.systems.physics import PhysicsSystem
+            from yukkuri_game.engine.systems.physics import PhysicsSystem
 
             self.world.services.register(mock_phys_sys, service_type=PhysicsSystem)
 

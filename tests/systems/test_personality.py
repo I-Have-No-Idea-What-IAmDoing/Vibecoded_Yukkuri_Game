@@ -117,7 +117,7 @@ def test_social_system():
     p1 = world.create_entity()
     world.add_component(p1, RelationshipRegistry())
     world.add_component(p1, Personality(traits={"NICE"}))  # Nice helps?
-    from yukkuri_game.game.components import Transform
+    from yukkuri_game.engine.components import Transform
 
     world.add_component(p1, Transform(x=0, y=0))  # Needed for visual feedback
 

@@ -4,9 +4,11 @@ import pymunk
 from yukkuri_game.game.systems.steering_system import SteeringSystem
 from yukkuri_game.game.components import (
     MoveCommand,
+    SteeringComponent,
+)
+from yukkuri_game.engine.components import (
     Transform,
     MovementController,
-    SteeringComponent,
     PhysicsBody,
 )
 from yukkuri_game.game.components import AIState

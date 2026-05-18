@@ -7,7 +7,8 @@ from test_utils import make_configured_world
 from unittest.mock import MagicMock
 from yukkuri_game.game.systems.game_rules_system import GameRulesSystem
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.game.services import EconomyService, TimeService
+from yukkuri_game.game.services import EconomyService
+from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.game.save_manager import SaveManager
 from yukkuri_game.game.components import YukkuriStats, Needs, EmotionalState
 from yukkuri_game.game.entity_factory import EntityFactory

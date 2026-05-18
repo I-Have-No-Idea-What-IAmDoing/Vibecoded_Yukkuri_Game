@@ -3,7 +3,8 @@ import pymunk
 
 from py_trees.common import Status
 
-from ....components import AIState, EmotionalState, MoveCommand, MovementController
+from ....components import AIState, EmotionalState, MoveCommand
+from yukkuri_game.engine.components import MovementController
 from ...base_action import Action
 
 if TYPE_CHECKING:

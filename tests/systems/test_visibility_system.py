@@ -1,8 +1,9 @@
 import pymunk
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.visibility_system import VisibilitySystem
-from yukkuri_game.game.systems.physics import PhysicsSystem
-from yukkuri_game.game.components import PhysicsBody, Transform, Vision
+from yukkuri_game.engine.systems.physics import PhysicsSystem
+from yukkuri_game.game.components import Vision
+from yukkuri_game.engine.components import PhysicsBody, Transform
 from yukkuri_game.game.components import AIState
 from yukkuri_game.game.collision_constants import CollisionCategories
 
@@ -15,7 +16,7 @@ def test_visibility_occlusion():
     world.services.register(physics_system, PhysicsSystem)
     world.add_system(physics_system)
 
-    from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService
+    from yukkuri_game.engine.systems.spatial import SpatialSystem, SpatialService
     from yukkuri_game.engine.event_bus import EventBus
     event_bus = world.services.get(EventBus)
     spatial_system = SpatialSystem(event_bus=event_bus)
@@ -85,7 +86,7 @@ def test_visibility_fov():
     world.services.register(physics_system, PhysicsSystem)
     world.add_system(physics_system)
 
-    from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService
+    from yukkuri_game.engine.systems.spatial import SpatialSystem, SpatialService
     from yukkuri_game.engine.event_bus import EventBus
     event_bus = world.services.get(EventBus)
     spatial_system = SpatialSystem(event_bus=event_bus)
@@ -151,7 +152,7 @@ def test_visibility_non_physics_entity_is_visible():
     world.services.register(physics_system, PhysicsSystem)
     world.add_system(physics_system)
 
-    from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService
+    from yukkuri_game.engine.systems.spatial import SpatialSystem, SpatialService
     from yukkuri_game.engine.event_bus import EventBus
 
     event_bus = world.services.get(EventBus)
@@ -202,7 +203,7 @@ def test_visibility_wall_blocks_physics_entity():
     world.services.register(physics_system, PhysicsSystem)
     world.add_system(physics_system)
 
-    from yukkuri_game.game.systems.spatial_system import SpatialSystem, SpatialService
+    from yukkuri_game.engine.systems.spatial import SpatialSystem, SpatialService
     from yukkuri_game.engine.event_bus import EventBus
 
     event_bus = world.services.get(EventBus)

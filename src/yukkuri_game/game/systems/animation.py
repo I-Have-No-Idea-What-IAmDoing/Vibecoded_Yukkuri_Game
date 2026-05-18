@@ -27,12 +27,14 @@ from ...engine.event_bus import EventBus
 from ...engine.resource_manager import ResourceManager
 from ..components import (
     AIState,
+    YukkuriStats,
+)
+from yukkuri_game.engine.components import (
     Animator,
     Flight,
     FlightState,
     LODComponent,
     Sprite,
-    YukkuriStats,
 )
 from ..events import AnimationEvent
 

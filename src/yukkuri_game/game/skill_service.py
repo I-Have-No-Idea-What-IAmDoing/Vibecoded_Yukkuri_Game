@@ -12,7 +12,7 @@ from ..engine.ecs import World
 from ..engine.event_bus import EventBus
 from ..engine.resource_manager import ResourceManager
 from .events import LevelUpEvent
-from .services import TimeService
+from yukkuri_game.engine.services.time_service import TimeService
 from .skill_constants import PassionLevel
 from .trait_service import TraitService
 from .components import (

@@ -8,7 +8,8 @@ from yukkuri_game.game.components import (
     RelationshipRegistry,
     Personality,
 )
-from yukkuri_game.game.components import Transform, InteractionRequest
+from yukkuri_game.game.components import InteractionRequest
+from yukkuri_game.engine.components import Transform
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.audio import AudioManager
 from yukkuri_game.game.systems.social_system import SocialSystem

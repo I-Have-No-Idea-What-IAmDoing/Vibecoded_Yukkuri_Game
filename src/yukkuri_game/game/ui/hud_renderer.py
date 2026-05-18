@@ -14,10 +14,13 @@ from ..components import (
     Personality,
     RelationshipRegistry,
     Skills,
-    Transform,
     YukkuriStats,
 )
-from ..services import EconomyService, InputService, TimeService
+from yukkuri_game.engine.components import (
+    Transform,
+)
+from ..services import EconomyService, InputService
+from yukkuri_game.engine.services.time_service import TimeService
 from ..skill_service import SkillService
 from ...engine.resource_manager import ResourceManager
 from ...config import GameConfig

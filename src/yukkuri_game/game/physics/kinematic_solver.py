@@ -8,7 +8,7 @@ to allow for easier testing and usage outside of the ECS cycle.
 import math
 import pymunk
 
-from ..components import MovementController, PhysicsBody, Transform
+from yukkuri_game.engine.components import MovementController, PhysicsBody, Transform
 
 
 class FakeHit:
