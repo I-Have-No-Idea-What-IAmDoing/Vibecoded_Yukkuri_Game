@@ -121,6 +121,7 @@ class TestSpatialSystem:
     @pytest.fixture
     def system(self, world):
         sys = SpatialSystem(width=1000, height=1000, sector_size=100)
+        world.add_system(sys)
         return sys
 
     def test_initialization(self, system):

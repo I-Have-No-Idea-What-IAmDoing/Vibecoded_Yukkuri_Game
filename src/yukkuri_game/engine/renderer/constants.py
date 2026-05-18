@@ -1,7 +1,5 @@
 """
 Renderer Constants Module.
-
-This module defines constant values used throughout the rendering system.
 """
 
 

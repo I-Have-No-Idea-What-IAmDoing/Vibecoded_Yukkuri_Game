@@ -6,9 +6,9 @@ import pytest
 import pygame
 from unittest.mock import MagicMock
 
-from yukkuri_game.game.systems.rendering.system import RenderingSystem
-from yukkuri_game.game.systems.rendering.passes.background_pass import BackgroundPass
-from yukkuri_game.game.camera import Camera
+from yukkuri_game.engine.rendering.system import RenderingSystem
+from yukkuri_game.engine.rendering.passes.background_pass import BackgroundPass
+from yukkuri_game.engine.camera import Camera
 from yukkuri_game.engine.resource_manager import ResourceManager
 
 

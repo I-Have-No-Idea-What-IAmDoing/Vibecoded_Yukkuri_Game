@@ -1,41 +1,35 @@
 """
 Game Loader Module.
-Responsible for initializing and registering game services and systems.
 """
 
 import inspect
 from typing import TYPE_CHECKING
 
-import pygame_gui
-
+from loguru import logger
 from ..engine.audio import AudioManager
 from ..engine.ecs import World
 from ..engine.event_bus import EventBus
-from ..game.ai.navigation_service import NavigationService
-from ..game.ai.utility import UtilityAIEngine
-from ..game.camera import Camera
-from ..game.entity_factory import EntityFactory
-from ..game.services import (
+from ..engine.plugins import CoreSimulationPlugin, CoreRenderingPlugin
+from ..game.plugins import GameSystemsPlugin
+from .ai.navigation_service import NavigationService
+from .ai.utility import UtilityAIEngine
+from .entity_factory import EntityFactory
+from .services import (
     EconomyService,
     GameService,
-    InputBufferService,
     InputService,
-    TimeService,
 )
-from ..game.settings_service import SettingsService
-from ..game.skill_service import SkillService
-from ..game.systems.lod_system import LODSystem
-from ..game.systems.physics import PhysicsSystem
-from ..game.systems.spatial_system import SpatialService, SpatialSystem
-from ..game.trait_service import TraitService
-from ..game.utils.evaluator import ConditionEvaluator
+from ..engine.services.input_buffer_service import InputBufferService
+from ..engine.services.time_service import TimeService
+from .settings_service import SettingsService
+from .skill_service import SkillService
+from .trait_service import TraitService
+from .utils.evaluator import ConditionEvaluator
 from ..config import GameConfig
-from ..system_registry import SystemRegistry
 
 if TYPE_CHECKING:
     from ..engine.application import Application
     from ..engine.scene import SceneContext
-    from ..game.input_system import InputSystem
 
 
 class GameLoader:
@@ -46,14 +40,6 @@ class GameLoader:
     def __init__(
         self, world: World, application: "Application", game_config: "GameConfig"
     ):
-        """
-        Initializes the GameLoader.
-
-        Args:
-            world (World): The ECS world.
-            application (Application): The application instance.
-            game_config (GameConfig): The game configuration.
-        """
         self.world = world
         self.application = application
         self.game_config = game_config
@@ -62,30 +48,17 @@ class GameLoader:
         self,
         context: "SceneContext",
         audio: AudioManager,
-        camera: Camera,
-        physics_system: PhysicsSystem,
         event_bus: EventBus,
     ) -> None:
         """
         Registers services to the world.
-
-        Args:
-            context (SceneContext): The scene context.
-            audio (AudioManager): The audio manager.
-            camera (Camera): The camera.
-            physics_system (PhysicsSystem): The physics system.
-            event_bus (EventBus): The event bus.
         """
         self.world.services.register(audio, AudioManager)
-        self.world.services.register(camera, Camera)
-        self.world.services.register(physics_system, PhysicsSystem)
         self.world.services.register(event_bus, EventBus)
         self.world.services.register(self.game_config, GameConfig)
 
         # Inject Global State
         money = context.data.get("money", 1000)
-        # Default start time to Morning (08:00) if not specified or 0
-        # 08:00 = 8/24 * 600 = 200.0
         time_elapsed = context.data.get("time", 600.0)
         if time_elapsed == 0.0:
             time_elapsed = 600.0
@@ -120,7 +93,6 @@ class GameLoader:
         self.world.services.register(evaluator, ConditionEvaluator)
 
         self._init_navigation_service()
-        self._init_spatial_system()
 
     def _init_navigation_service(self) -> None:
         """Initializes the Navigation Service."""
@@ -138,18 +110,6 @@ class GameLoader:
             NavigationService,
         )
 
-    def _init_spatial_system(self) -> None:
-        """Initializes and registers the Sector System and Map."""
-        world_width = self.game_config.world.width
-        world_height = self.game_config.world.height
-        sector_size = getattr(self.game_config.world, "sector_size", 500.0)
-
-        spatial_system = SpatialSystem(
-            width=world_width, height=world_height, sector_size=sector_size
-        )
-        self.world.services.register(spatial_system.spatial_service, SpatialService)
-        self.world.add_system(spatial_system)
-
     def register_factories_and_managers(self) -> None:
         """Registers factories and managers."""
         entity_factory = EntityFactory(self.world)
@@ -162,39 +122,34 @@ class GameLoader:
         ai_engine.validate_actions()
         self.world.services.register(ai_engine, UtilityAIEngine)
 
-    def register_systems(
-        self,
-        camera: Camera,
-        physics_system: PhysicsSystem,
-        ui_manager: "pygame_gui.UIManager",
-    ) -> "InputSystem":
-        """Registers all game systems."""
-        input_system = SystemRegistry.register_systems(
-            self.world,
-            camera,
-            physics_system,
+    def register_plugins(self) -> None:
+        """Registers core engine and game plugins."""
+        logger.debug("Registering CoreSimulationPlugin")
+        self.world.register_plugin(CoreSimulationPlugin(gravity=(0, 0), world_settings=self.game_config.world))
+
+        logger.debug("Registering CoreRenderingPlugin")
+        self.world.register_plugin(
+            CoreRenderingPlugin(
+                screen=self.application.screen, settings=self.game_config.world
+            )
         )
 
-        # LOD System is not part of SystemRegistry, register it here.
-        lod_system = LODSystem()
-        self.world.add_system(lod_system)
-
-        input_system.set_ui_manager(ui_manager)
-        return input_system
+        logger.debug("Registering GameSystemsPlugin")
+        self.world.register_plugin(GameSystemsPlugin())
 
     def collect_component_types(self) -> list[type]:
-        """Collects all component types defined in component modules for serialization."""
+        """Collects all component types for serialization."""
         from .components import core, physics, social, vision, yukkuri, persistence, inventory
+        from ..engine import components as engine_components
         comp_types = []
-        for module in [
-            core,
-            physics,
-            social,
-            vision,
-            yukkuri,
-            persistence,
-            inventory,
-        ]:
+        
+        # Collect from engine components
+        for _, obj in inspect.getmembers(engine_components):
+            if inspect.isclass(obj) and obj.__module__ == engine_components.__name__:
+                comp_types.append(obj)
+
+        # Collect from game components
+        for module in [core, physics, social, vision, yukkuri, persistence, inventory]:
             for _, obj in inspect.getmembers(module):
                 if inspect.isclass(obj) and obj.__module__ == module.__name__:
                     comp_types.append(obj)

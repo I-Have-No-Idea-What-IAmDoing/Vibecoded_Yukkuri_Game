@@ -10,7 +10,7 @@ import contextlib
 import uuid
 from collections.abc import Iterator, Callable
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import esper
 
@@ -22,7 +22,27 @@ from .events import (
 )
 from .service_locator import ServiceLocator
 
+from abc import ABC, abstractmethod
+
 T = TypeVar("T")
+
+
+class Plugin(ABC):
+    """
+    Base class for engine and game plugins.
+
+    Plugins allow modular registration of systems and services into the World.
+    """
+
+    @abstractmethod
+    def register(self, world: "World") -> None:
+        """
+        Registers systems and services into the provided World.
+
+        Args:
+            world (World): The ECS World instance.
+        """
+        pass
 
 
 class Component:
@@ -57,7 +77,7 @@ class World:
         self.services: ServiceLocator = ServiceLocator()
         self._next_stable_id: int = 1
         self._active_entities: set[int] = set()
-        self._registered_systems: list[type] = []
+        self._registered_systems: dict[type, System] = {}
 
         # Register this world with esper's global context system.
         esper.switch_world(self.name)
@@ -276,6 +296,8 @@ class World:
         Returns:
             dict[int, T]: A dictionary mapping Entity ID -> Component Instance.
         """
+        # print(f"DEBUG: World.get_components for {component_type}")
+        # print(f"DEBUG: component_type in _components: {component_type in self._components}")
         return {
             entity: component
             for entity, component in esper.get_component(component_type)
@@ -341,20 +363,30 @@ class World:
             return ()
 
     @ensure_context
-    def add_system(self, system: "System") -> None:
+    def add_system(self, system: "System", priority: int = 0) -> None:
         """
-        Registers a System to run in this world.
-
-        Injection:
-            Sets `system.ecs_world` to this World instance.
+        Adds a system to the world.
 
         Args:
-            system (System): The System instance to register.
+            system (System): The system instance.
+            priority (int): Execution priority (higher = earlier). Defaults to 0.
         """
         system.ecs_world = self
-        system.initialize()
-        esper.add_processor(system)
-        self._registered_systems.append(type(system))
+        esper.add_processor(system, priority)
+        self._registered_systems[type(system)] = system
+
+        if hasattr(system, "initialize"):
+            system.initialize()
+
+    @ensure_context
+    def register_plugin(self, plugin: Plugin) -> None:
+        """
+        Registers a plugin into this world.
+
+        Args:
+            plugin (Plugin): The plugin instance to register.
+        """
+        plugin.register(self)
 
     @ensure_context
     def update(self, dt: float) -> None:
@@ -376,6 +408,12 @@ class World:
         esper.clear_database()
         self._active_entities.clear()
 
+        event_bus = self.services.try_get(EventBus)
+        if event_bus:
+            from .events import WorldClearedEvent
+
+            event_bus.publish(WorldClearedEvent())
+
     @ensure_context
     def destroy(self) -> None:
         """
@@ -388,8 +426,8 @@ class World:
         self.services.clear()
         # Remove all systems using our own tracker to avoid accessing
         # esper's private _processors attribute.
-        for sys_type in self._registered_systems:
-            esper.remove_processor(sys_type)
+        for sys_type in list(self._registered_systems.keys()):
+            self.remove_system(sys_type)
         self._registered_systems.clear()
 
         # Finally delete the world context
@@ -398,6 +436,36 @@ class World:
         except PermissionError:
             # Current world cannot be deleted, this is fine if we are tearing down
             pass
+
+    @ensure_context
+    def remove_system(self, system_type: type) -> None:
+        """
+        Removes a system from the world.
+
+        Args:
+            system_type (Type): The class of the system to remove.
+        """
+        esper.remove_processor(system_type)
+        if system_type in self._registered_systems:
+            del self._registered_systems[system_type]
+
+    @ensure_context
+    def get_system(self, system_type: type[T]) -> T:
+        """
+        Retrieves a registered system by its type.
+
+        Args:
+            system_type (Type[T]): The class of the system.
+
+        Returns:
+            T: The system instance.
+
+        Raises:
+            KeyError: If the system is not registered.
+        """
+        if system_type in self._registered_systems:
+            return cast(T, self._registered_systems[system_type])
+        raise KeyError(f"System of type {system_type.__name__} not found.")
 
 
 class System(esper.Processor):

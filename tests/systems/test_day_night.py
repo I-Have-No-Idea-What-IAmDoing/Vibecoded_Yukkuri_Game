@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 from test_utils import make_configured_world
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.systems.day_night import DayNightSystem
-from yukkuri_game.game.services import TimeService
-from yukkuri_game.game.systems.rendering.system import RenderingSystem
+from yukkuri_game.engine.services.time_service import TimeService
+from yukkuri_game.engine.rendering.system import RenderingSystem
 
 
 class TestDayNightSystemInitialization:

@@ -1,6 +1,6 @@
 import pygame
 import time
-from yukkuri_game.game.renderer.software_lighting import SoftwareLightingEngine
+from yukkuri_game.engine.renderer.software_lighting import SoftwareLightingEngine
 
 
 def test_lighting_performance_huge_radius():

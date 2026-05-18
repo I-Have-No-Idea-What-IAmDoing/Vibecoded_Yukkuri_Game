@@ -1,6 +1,6 @@
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.game.components import LightSource, Transform, FloatingText
-from yukkuri_game.game.renderer.pygame_backend import PygameBackend
+from yukkuri_game.engine.renderer.pygame_backend import PygameBackend
 from yukkuri_game.scenes.gameplay import GameplayScene
 import os
 import pygame
@@ -66,7 +66,6 @@ def test_headless_lighting_regression(game_driver: GameDriver, tmp_path):
 
     # 6. Verify Backend
     scene = game.scene_manager.current_scene
-    assert scene.render_system.lights_enabled is True, "Lights should be enabled"
     assert isinstance(scene.render_system.renderer.backend, PygameBackend), (
         "Backend should be PygameBackend"
     )

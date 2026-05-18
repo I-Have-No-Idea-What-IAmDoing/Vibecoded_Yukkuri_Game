@@ -3,7 +3,6 @@ Yukkuri-specific components.
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -20,17 +19,6 @@ class YukkuriArchetype:
     type_data: "YukkuriType | None" = None
 
 
-class FlightState(Enum):
-    """
-    Enumeration representing the current flight status of a Yukkuri.
-    """
-    GROUNDED = 0
-    TAKEOFF = 1
-    FLYING = 2
-    HOVERING = 3
-    LANDING = 4
-    SWOOPING = 5
-    FALLING = 6
 
 
 @dataclass(slots=True)
@@ -90,20 +78,6 @@ class Skills:
     states: dict[str, SkillState] = field(default_factory=dict)
 
 
-@dataclass(slots=True)
-class Flight:
-    """
-    Component handling flight mechanics and stamina.
-    """
-    altitude: float = 0.0
-    max_altitude: float = 60.0
-    vertical_speed: float = 20.0
-    stamina: float = 100.0
-    max_stamina: float = 100.0
-    fly_cost: float = 5.0
-    hover_cost: float = 1.0
-    recovery_rate: float = 10.0
-    state: FlightState = FlightState.GROUNDED
 
 
 @dataclass(slots=True)

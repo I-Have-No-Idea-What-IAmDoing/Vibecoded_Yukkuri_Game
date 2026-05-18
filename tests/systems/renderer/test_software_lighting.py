@@ -20,7 +20,7 @@ class TestSurfacePool:
 
     def test_acquire_creates_new_surface(self, pygame_init):
         """acquire() creates a new surface when pool is empty."""
-        from yukkuri_game.game.renderer.software_lighting import SurfacePool
+        from yukkuri_game.engine.renderer.software_lighting import SurfacePool
 
         pool = SurfacePool()
         surf = pool.acquire(100, 50)
@@ -30,7 +30,7 @@ class TestSurfacePool:
 
     def test_acquire_reuses_released_surface(self, pygame_init):
         """acquire() reuses a surface that was released."""
-        from yukkuri_game.game.renderer.software_lighting import SurfacePool
+        from yukkuri_game.engine.renderer.software_lighting import SurfacePool
 
         pool = SurfacePool()
         surf1 = pool.acquire(100, 50)
@@ -41,7 +41,7 @@ class TestSurfacePool:
 
     def test_release_respects_max_pool_size(self, pygame_init):
         """release() doesn't add surfaces beyond max pool size."""
-        from yukkuri_game.game.renderer.software_lighting import SurfacePool
+        from yukkuri_game.engine.renderer.software_lighting import SurfacePool
 
         pool = SurfacePool(max_pool_size=2)
 
@@ -54,7 +54,7 @@ class TestSurfacePool:
 
     def test_acquire_clears_surface(self, pygame_init):
         """acquire() clears reused surfaces."""
-        from yukkuri_game.game.renderer.software_lighting import SurfacePool
+        from yukkuri_game.engine.renderer.software_lighting import SurfacePool
 
         pool = SurfacePool()
         surf1 = pool.acquire(100, 50)
@@ -80,7 +80,7 @@ class TestSoftwareLightingEngineInit:
 
     def test_initialization(self, pygame_init):
         """Engine initializes with correct sizes."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -92,7 +92,7 @@ class TestSoftwareLightingEngineInit:
 
     def test_initialization_with_scale(self, pygame_init):
         """Engine scales lightmap when scale < 1.0."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -103,7 +103,7 @@ class TestSoftwareLightingEngineInit:
 
     def test_resize(self, pygame_init):
         """resize() updates native size and lightmap."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -126,7 +126,7 @@ class TestClear:
 
     def test_clear_fills_with_ambient(self, pygame_init):
         """clear() fills lightmap with ambient color."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -140,7 +140,7 @@ class TestClear:
 
     def test_clear_resets_occluders(self, pygame_init):
         """clear() clears occluder list."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -167,7 +167,7 @@ class TestAddOccluder:
 
     def test_add_occluder_stores_data(self, pygame_init):
         """add_occluder() stores aabb and vertices."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -182,7 +182,7 @@ class TestAddOccluder:
 
     def test_add_occluder_populates_grid(self, pygame_init):
         """add_occluder() adds occluder to spatial grid."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -211,7 +211,7 @@ class TestQueryGrid:
 
     def test_query_grid_returns_occluders_in_range(self, pygame_init):
         """_query_grid() returns occluders within light radius."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -229,7 +229,7 @@ class TestQueryGrid:
 
     def test_query_grid_ignores_far_occluders(self, pygame_init):
         """_query_grid() doesn't return occluders far away."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -258,7 +258,7 @@ class TestGetSurface:
 
     def test_get_surface_returns_lightmap_at_scale_1(self, pygame_init):
         """get_surface() returns lightmap directly when scale is 1.0."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -269,7 +269,7 @@ class TestGetSurface:
 
     def test_get_surface_scales_at_lower_scale(self, pygame_init):
         """get_surface() scales up when scale < 1.0."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -291,7 +291,7 @@ class TestGradientGeneration:
 
     def test_get_gradient_surface_caches(self, pygame_init):
         """_get_gradient_surface() caches generated surfaces."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -304,7 +304,7 @@ class TestGradientGeneration:
 
     def test_get_gradient_surface_different_params(self, pygame_init):
         """Different params create different cached surfaces."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -317,19 +317,19 @@ class TestGradientGeneration:
 
     def test_gradient_surface_correct_size(self, pygame_init):
         """Gradient surface has correct size (radius * 2)."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
     def test_gradient_surface_correct_size(self, pygame_init):
         """Gradient surface has correct size (radius * 2)."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
         import numpy as np
 
-        with unittest.mock.patch("yukkuri_game.game.renderer.software_lighting.pygame.Surface") as mock_surf_cls, \
-             unittest.mock.patch("yukkuri_game.game.renderer.software_lighting.pygame.surfarray.pixels3d") as mock_pixels3d:
+        with unittest.mock.patch("yukkuri_game.engine.renderer.software_lighting.pygame.Surface") as mock_surf_cls, \
+             unittest.mock.patch("yukkuri_game.engine.renderer.software_lighting.pygame.surfarray.pixels3d") as mock_pixels3d:
             
             mock_surf = unittest.mock.MagicMock()
             mock_surf.get_size.return_value = (150, 150)
@@ -357,7 +357,7 @@ class TestRenderLight:
 
     def test_render_light_modifies_lightmap(self, pygame_init):
         """render_light() adds light to the lightmap."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -378,7 +378,7 @@ class TestRenderLight:
 
     def test_render_light_culls_offscreen(self, pygame_init):
         """render_light() culls lights fully offscreen."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -401,7 +401,7 @@ class TestRenderLight:
 
     def test_static_light_caching(self, pygame_init):
         """Static lights are cached for reuse."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 
@@ -422,7 +422,7 @@ class TestRenderLight:
 
     def test_static_light_cache_reused(self, pygame_init):
         """Static light cache is reused on subsequent renders."""
-        from yukkuri_game.game.renderer.software_lighting import (
+        from yukkuri_game.engine.renderer.software_lighting import (
             SoftwareLightingEngine,
         )
 

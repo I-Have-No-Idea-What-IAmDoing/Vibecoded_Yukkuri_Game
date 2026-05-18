@@ -3,8 +3,8 @@ Module defining the ServiceLocator pattern.
 """
 
 from typing import Any, TypeVar, cast
-
 from loguru import logger
+
 
 T = TypeVar("T")
 
@@ -66,12 +66,13 @@ class ServiceLocator:
         Raises:
             ServiceNotFoundError: If the service is not registered.
         """
-        service = self._services.get(service_type)
-        if service is None:
-            raise ServiceNotFoundError(
-                f"Service of type {service_type.__name__} not found."
-            )
-        return cast(T, service)
+        if service_type in self._services:
+            return cast(T, self._services[service_type])
+        
+        logger.error(f"Service not found: {service_type}. Available: {list(self._services.keys())}")
+        raise ServiceNotFoundError(
+            f"Service of type {service_type.__name__} not found."
+        )
 
     def try_get(self, service_type: type[T]) -> T | None:
         """

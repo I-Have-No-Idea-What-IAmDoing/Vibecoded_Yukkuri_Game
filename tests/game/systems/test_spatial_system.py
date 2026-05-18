@@ -17,8 +17,7 @@ class TestSpatialSystemOptimization:
         spatial_system = SpatialSystem(width=1000, height=1000, sector_size=100)
         world.add_system(spatial_system) # Initializes system properly
 
-        # Manually register the map since system does it in update usually
-        world.services.register(spatial_system.spatial_service, type(spatial_system.spatial_service))
+        # Services are now registered automatically by add_system() -> initialize()
 
         # 1. New Entity
         entity = world.create_entity(Transform(x=50, y=50))

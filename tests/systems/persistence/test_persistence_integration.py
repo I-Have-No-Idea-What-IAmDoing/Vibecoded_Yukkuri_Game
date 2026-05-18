@@ -62,10 +62,19 @@ def setup_persistence_world():
     # We must construct component types
     import inspect
     from yukkuri_game.game import components as _components
+    from yukkuri_game.engine import components as _engine_components
     comp_types = []
-    for _, obj in inspect.getmembers(_components):
-        if inspect.isclass(obj) and getattr(obj, "__module__", "").startswith(_components.__name__):
+    
+    # Engine components
+    for _, obj in inspect.getmembers(_engine_components):
+        if inspect.isclass(obj) and getattr(obj, "__module__", "") == _engine_components.__name__:
             comp_types.append(obj)
+
+    # Game components
+    for module in [_components.core, _components.physics, _components.social, _components.vision, _components.yukkuri, _components.persistence, _components.inventory]:
+        for _, obj in inspect.getmembers(module):
+            if inspect.isclass(obj) and getattr(obj, "__module__", "") == module.__name__:
+                comp_types.append(obj)
 
     persistence = SaveManager(world, comp_types)
     world.services.register(persistence, SaveManager)
