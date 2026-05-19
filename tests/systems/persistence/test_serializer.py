@@ -1,5 +1,6 @@
 import pytest
 import os
+import sqlite3
 import msgspec
 import dataclasses
 from dataclasses import dataclass, field
@@ -17,7 +18,7 @@ class SampleComponent:
     name: str
 
 
-def test_msgpack_persistence():
+def test_msgpack_persistence(tmp_path):
     world = World()
 
     # Create an entity
@@ -37,18 +38,25 @@ def test_msgpack_persistence():
     ]
     serializer = WorldSerializer(world, comp_types)
 
-    filepath = "test_save.msgpack"
+    filepath = str(tmp_path / "test_save.sqlite")
+    import sqlite3
 
     # Save
-    serializer.save_to_file(filepath)
+    conn = sqlite3.connect(filepath)
+    serializer.save_to_sqlite(conn)
+    conn.commit()
+    conn.close()
 
     # Check if file exists
     assert os.path.exists(filepath)
 
     # Read file content and verify MessagePack
-    with open(filepath, "rb") as f:
-        data = f.read()
-        decoded_data = msgspec.msgpack.decode(data)
+    conn = sqlite3.connect(filepath)
+    cursor = conn.cursor()
+    cursor.execute("SELECT data FROM chunks")
+    data = cursor.fetchone()[0]
+    decoded_data = msgspec.msgpack.decode(data)
+    conn.close()
 
     assert isinstance(decoded_data, list)
     assert len(decoded_data) == 1
@@ -66,7 +74,9 @@ def test_msgpack_persistence():
     # Load into new world
     new_world = World()
     new_serializer = WorldSerializer(new_world, comp_types)
-    new_serializer.load_from_file(filepath)
+    conn = sqlite3.connect(filepath)
+    new_serializer.load_from_sqlite(conn)
+    conn.close()
 
     # Verify entity loaded
     assert len(new_world.get_all_entities()) == 1
@@ -84,7 +94,6 @@ def test_msgpack_persistence():
     # Cleanup
     if os.path.exists(filepath):
         os.remove(filepath)
-
 
 @dataclass
 class SafeRefComponent:
@@ -107,13 +116,13 @@ class DictComponent:
 
 class TestSerializerFix:
     @pytest.fixture(autouse=True)
-    def setup_and_teardown(self):
+    def setup_and_teardown(self, tmp_path):
         self.world = World()
         self.serializer = WorldSerializer(
             self.world,
             [SafeRefComponent, DictComponent, StableIDComponent, Persistable],
         )
-        self.filepath = "test_serializer_fix.msgpack"
+        self.filepath = str(tmp_path / "test_serializer_fix.sqlite")
         yield
         if os.path.exists(self.filepath):
             os.remove(self.filepath)
@@ -131,10 +140,15 @@ class TestSerializerFix:
         original_target_id = target
 
         self.world.add_component(source, comp)
-        self.serializer.save_to_file(self.filepath)
+        conn = sqlite3.connect(self.filepath)
+        self.serializer.save_to_sqlite(conn)
+        conn.commit()
+        conn.close()
         self.world.clear_database()
 
-        self.serializer.load_from_file(self.filepath)
+        conn = sqlite3.connect(self.filepath)
+        self.serializer.load_from_sqlite(conn)
+        conn.close()
 
         entities = self.world.get_all_entities()
         new_source = None
@@ -165,13 +179,18 @@ class TestSerializerFix:
         comp = DictComponent(threats={e2: threat_val}, metadata={e2: "Enemy"})
         self.world.add_component(e1, comp)
 
-        self.serializer.save_to_file(self.filepath)
+        conn = sqlite3.connect(self.filepath)
+        self.serializer.save_to_sqlite(conn)
+        conn.commit()
+        conn.close()
         self.world.clear_database()
 
         # Shift IDs
         dummy = self.world.create_entity()
 
-        self.serializer.load_from_file(self.filepath)
+        conn = sqlite3.connect(self.filepath)
+        self.serializer.load_from_sqlite(conn)
+        conn.close()
 
         entities = self.world.get_all_entities()
         new_e1 = None

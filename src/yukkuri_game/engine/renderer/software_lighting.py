@@ -232,8 +232,10 @@ class SoftwareLightingEngine:
                 rel_y2 = p2[1] - ly
                 dist1_sq = rel_x1 * rel_x1 + rel_y1 * rel_y1
                 dist2_sq = rel_x2 * rel_x2 + rel_y2 * rel_y2
-                if dist1_sq < 0.000001: dist1_sq = 0.000001
-                if dist2_sq < 0.000001: dist2_sq = 0.000001
+                if dist1_sq < 0.000001:
+                    dist1_sq = 0.000001
+                if dist2_sq < 0.000001:
+                    dist2_sq = 0.000001
                 inv_dist1 = 1.0 / (dist1_sq**0.5)
                 inv_dist2 = 1.0 / (dist2_sq**0.5)
                 ex1_x = rel_x1 * inv_dist1 * extrude_dist
@@ -289,8 +291,10 @@ class SoftwareLightingEngine:
                 rel_y2 = p2[1] - ly
                 dist1_sq = rel_x1 * rel_x1 + rel_y1 * rel_y1
                 dist2_sq = rel_x2 * rel_x2 + rel_y2 * rel_y2
-                if dist1_sq < 0.000001: dist1_sq = 0.000001
-                if dist2_sq < 0.000001: dist2_sq = 0.000001
+                if dist1_sq < 0.000001:
+                    dist1_sq = 0.000001
+                if dist2_sq < 0.000001:
+                    dist2_sq = 0.000001
                 inv_dist1 = 1.0 / (dist1_sq**0.5)
                 inv_dist2 = 1.0 / (dist2_sq**0.5)
                 ex1_x = rel_x1 * inv_dist1 * extrude_dist
@@ -377,7 +381,8 @@ class SoftwareLightingEngine:
         self, radius: int, color: tuple[int, int, int], intensity: float
     ) -> pygame.Surface:
         size = radius * 2
-        if size < 1: size = 1
+        if size < 1:
+            size = 1
         x = np.arange(size, dtype=np.float32) - radius + 0.5
         y = np.arange(size, dtype=np.float32) - radius + 0.5
         xx, yy = np.meshgrid(x, y)
@@ -406,7 +411,8 @@ class SoftwareLightingEngine:
         for i in range(steps):
             t = i / float(steps)
             r = int(radius * (1.0 - t))
-            if r <= 0: continue
+            if r <= 0:
+                continue
             fn = t
             alpha_val = int(base_alpha * (fn**2))
             pygame.draw.circle(surf, color + (alpha_val,), center, r, width=3)
@@ -473,7 +479,8 @@ class SoftwareLightingEngine:
         for i in range(steps):
             t = i / float(steps)
             r = int(sr * (1.0 - t))
-            if r <= 0: continue
+            if r <= 0:
+                continue
             fn = t
             alpha_val = min(255, int(255 * intensity * fn * fn))
             pygame.draw.circle(target_surf, color + (alpha_val,), center, r, width=5)

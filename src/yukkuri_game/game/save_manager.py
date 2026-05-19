@@ -7,6 +7,7 @@ including both ECS level data and global economy/time data.
 
 import json
 import os
+import sqlite3
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
@@ -53,42 +54,57 @@ class SaveManager:
 
     def save_game(self, filepath: str) -> None:
         """
-        Saves the game state (Level + Global).
+        Saves the game state (Level + Global) to an SQLite file.
 
         Args:
             filepath (str): The base filepath for saving.
         """
         base_path, _ = os.path.splitext(filepath)
-        global_path = base_path + ".global.json"
-        level_path = base_path + ".level.msgpack"
-
-        # Save Level Data
-        self.serializer.save_to_file(level_path)
+        sqlite_path = base_path + ".sqlite"
 
         # Save Global Data
         global_data = {
             "money": self.economy_service.money,
             "time": self.time_service.time_elapsed,
         }
-        with open(global_path, "w") as f:
-            json.dump(global_data, f)
 
-        logger.info(f"Game saved to {level_path} and {global_path}")
+        conn = sqlite3.connect(sqlite_path)
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS global_state (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+                """
+            )
+            cursor.execute(
+                "INSERT OR REPLACE INTO global_state (key, value) VALUES (?, ?)",
+                ("global_data", json.dumps(global_data)),
+            )
+
+            # Save Level Data
+            self.serializer.save_to_sqlite(conn)
+            conn.commit()
+        finally:
+            conn.close()
+
+        logger.info(f"Game saved to {sqlite_path}")
 
     def load_game(self, filepath: str, camera: "Camera | None" = None) -> None:
         """
-        Loads the game world from files.
+        Loads the game world from an SQLite file.
 
         Args:
             filepath (str): The base filepath to load from.
             camera (Camera | None): The camera to reset upon loading.
         """
         base_path, _ = os.path.splitext(filepath)
-        global_path = base_path + ".global.json"
-        level_path = base_path + ".level.msgpack"
+        sqlite_path = base_path + ".sqlite"
 
-        if not os.path.exists(level_path) or not os.path.exists(global_path):
-            logger.error(f"Save files not found: {level_path} or {global_path}")
+        if not os.path.exists(sqlite_path):
+            logger.error(f"Save file not found: {sqlite_path}")
             return
 
         # Clear World
@@ -102,15 +118,26 @@ class SaveManager:
         if nav_service:
             nav_service.reset()
 
-        # Load Global Data
-        with open(global_path) as f:
-            global_data = json.load(f)
+        conn = sqlite3.connect(sqlite_path)
+        try:
+            cursor = conn.cursor()
 
-        self.economy_service.set_money(global_data.get("money", 0))
-        self.time_service.time_elapsed = global_data.get("time", 0.0)
+            # Load Global Data
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='global_state'"
+            )
+            if cursor.fetchone():
+                cursor.execute("SELECT value FROM global_state WHERE key='global_data'")
+                row = cursor.fetchone()
+                if row:
+                    global_data = json.loads(row[0])
+                    self.economy_service.set_money(global_data.get("money", 0))
+                    self.time_service.time_elapsed = global_data.get("time", 0.0)
 
-        # Load Level Data
-        self.serializer.load_from_file(level_path)
+            # Load Level Data
+            self.serializer.load_from_sqlite(conn)
+        finally:
+            conn.close()
 
         # Reconstruct physics bodies
         reconstruct_physics(self.world)

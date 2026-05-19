@@ -107,7 +107,7 @@ def test_persistence_ai_state(setup_persistence_world):
     ai.path = [(100, 100), (150, 150), (200, 200)]
 
     # 3. Save
-    save_file = os.path.join(save_dir, "test_ai_save.json")
+    save_file = os.path.join(save_dir, "test_ai_save.sqlite")
     persistence.save_game(save_file)
 
     # 4. Clear World (Simulate new session)
@@ -175,7 +175,7 @@ def test_persistence_round_trip(setup_persistence_world):
     world.add_component(broken_id, Persistable())
 
     # Save
-    save_file = os.path.join(save_dir, "test_economy_round_trip.json")
+    save_file = os.path.join(save_dir, "test_economy_round_trip.sqlite")
     persistence.save_game(save_file)
 
     # Modify state

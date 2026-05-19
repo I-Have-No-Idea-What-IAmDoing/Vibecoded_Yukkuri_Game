@@ -107,12 +107,18 @@ def test_save_game(persistence_world: MagicMock, tmp_path) -> None:
     service.save_game(save_path)
 
     import json
-    global_file = tmp_path / "test.global.json"
-    assert global_file.exists()
-    data = json.loads(global_file.read_text())
+    import sqlite3
+    sqlite_file = tmp_path / "test.sqlite"
+    assert sqlite_file.exists()
+    
+    with sqlite3.connect(sqlite_file) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM global_state WHERE key='global_data'")
+        data = json.loads(cursor.fetchone()[0])
+
     assert data["money"] == 500
     assert data["time"] == 123.45
-    mock_serializer.save_to_file.assert_called_once()
+    mock_serializer.save_to_sqlite.assert_called_once()
 
 
 def test_load_game(persistence_world: MagicMock, tmp_path) -> None:
@@ -139,11 +145,17 @@ def test_load_game(persistence_world: MagicMock, tmp_path) -> None:
 
     service = SaveManager(world, [])
 
-    # Write the two stub files
-    global_file = tmp_path / "test.global.json"
-    level_file = tmp_path / "test.level.msgpack"
-    global_file.write_text(json.dumps({"money": 999, "time": 60.0}))
-    level_file.write_bytes(b"")  # real content handled by mock serializer
+    import sqlite3
+    # Write the stub sqlite
+    sqlite_file = tmp_path / "test.sqlite"
+    with sqlite3.connect(sqlite_file) as conn:
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE global_state (key TEXT PRIMARY KEY, value TEXT)")
+        cursor.execute(
+            "INSERT INTO global_state (key, value) VALUES (?, ?)",
+            ("global_data", json.dumps({"money": 999, "time": 60.0})),
+        )
+        cursor.execute("CREATE TABLE chunks (chunk_id TEXT PRIMARY KEY, data BLOB)")
 
     mock_serializer = MagicMock()
     service.serializer = mock_serializer
@@ -153,4 +165,4 @@ def test_load_game(persistence_world: MagicMock, tmp_path) -> None:
 
     assert economy.money == 999
     assert time_svc.time_elapsed == 60.0
-    mock_serializer.load_from_file.assert_called_once()
+    mock_serializer.load_from_sqlite.assert_called_once()

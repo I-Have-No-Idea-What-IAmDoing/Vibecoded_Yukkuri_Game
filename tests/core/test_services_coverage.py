@@ -128,13 +128,17 @@ class TestSaveManager:
         service.save_game(save_path)
 
         import json
-        global_file = tmp_path / "mysave.global.json"
-        level_file = tmp_path / "mysave.level.msgpack"
+        import sqlite3
+        sqlite_file = tmp_path / "mysave.sqlite"
 
-        assert global_file.exists(), "global.json must be written"
-        assert mock_serializer.save_to_file.called, "level.msgpack must be written"
+        assert sqlite_file.exists(), "sqlite file must be written"
+        assert mock_serializer.save_to_sqlite.called, "sqlite serializer must be triggered"
 
-        data = json.loads(global_file.read_text())
+        with sqlite3.connect(sqlite_file) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM global_state WHERE key='global_data'")
+            data = json.loads(cursor.fetchone()[0])
+            
         assert data["money"] == 500
         assert data["time"] == 99.5
 
@@ -142,12 +146,13 @@ class TestSaveManager:
         """load_game returns None or handles missing gracefully."""
         mock_world.services = MagicMock()
         service = SaveManager(mock_world, [])
-        service.load_game("nonexistent.json")
+        service.load_game("nonexistent.sqlite")
         # Just ensure it doesn't crash
 
     def test_load_restores_global_state(self, tmp_path, mock_world):
         """load_game restores economy and time from global.json."""
         import json
+        import sqlite3
 
         mock_world.services = MagicMock()
 
@@ -164,10 +169,12 @@ class TestSaveManager:
         service = SaveManager(mock_world, [])
 
         # Write stub files
-        global_file = tmp_path / "mysave.global.json"
-        level_file = tmp_path / "mysave.level.msgpack"
-        global_file.write_text(json.dumps({"money": 1234, "time": 42.0}))
-        level_file.write_bytes(b"")  # stub; serializer will be mocked
+        sqlite_file = tmp_path / "mysave.sqlite"
+        with sqlite3.connect(sqlite_file) as conn:
+            cursor = conn.cursor()
+            cursor.execute("CREATE TABLE global_state (key TEXT PRIMARY KEY, value TEXT)")
+            cursor.execute("INSERT INTO global_state (key, value) VALUES (?, ?)", ("global_data", json.dumps({"money": 1234, "time": 42.0})))
+            cursor.execute("CREATE TABLE chunks (chunk_id TEXT PRIMARY KEY, data BLOB)")
 
         mock_serializer = MagicMock()
         service.serializer = mock_serializer
@@ -177,7 +184,7 @@ class TestSaveManager:
 
         mock_economy.set_money.assert_called_once_with(1234)
         assert mock_time.time_elapsed == 42.0
-        mock_serializer.load_from_file.assert_called_once()
+        mock_serializer.load_from_sqlite.assert_called_once()
 
 
 class TestGameService:

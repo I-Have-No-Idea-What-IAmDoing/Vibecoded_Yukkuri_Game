@@ -33,14 +33,17 @@ def test_move_command_entity_id_remapping(tmp_path):
     
     # Serialize
     serializer = WorldSerializer(world, [MoveCommand, Transform, Persistable, StableIDComponent])
-    save_file = tmp_path / "test_remap.msgpack"
-    serializer.save_to_file(str(save_file))
+    import sqlite3
+    save_file = tmp_path / "test_remap.sqlite"
+    with sqlite3.connect(save_file) as conn:
+        serializer.save_to_sqlite(conn)
     
     # Clear World
     world.clear_database()
     
     # Load
-    serializer.load_from_file(str(save_file))
+    with sqlite3.connect(save_file) as conn:
+        serializer.load_from_sqlite(conn)
     
     # Find new entities
     entities = world.get_all_entities()

@@ -23,6 +23,7 @@ Supported Reference Types:
 - dict[EntityID, Any] (key remapping)
 """
 
+import sqlite3
 import types
 import typing
 from collections.abc import Iterable
@@ -125,52 +126,103 @@ class WorldSerializer:
             "components": components_data,
         }
 
-    def get_persistable_entities_data(self) -> list[dict[str, Any]]:
+    def get_persistable_entities_by_chunk(
+        self, chunk_size: float = 2000.0
+    ) -> dict[tuple[int, int] | None, list[dict[str, Any]]]:
         """
-        Returns a list of serialized data for all persistable entities.
+        Returns serialized data for persistable entities, grouped by spatial chunk.
+
+        Args:
+            chunk_size (float): The size of each spatial chunk.
 
         Returns:
-            list[dict[str, Any]]: A list of serialized entity data dictionaries.
+            dict[tuple[int, int] | None, list[dict[str, Any]]]: A dict mapping chunk coordinates to lists of serialized entity data.
         """
         if not self._persistable_type:
             logger.warning("Persistable component type not registered. Cannot save.")
-            return []
+            return {}
 
-        entities_data = []
+        chunks: dict[tuple[int, int] | None, list[dict[str, Any]]] = {}
+        transform_type = self.component_map.get("Transform")
+
         for entity, _ in self.world.get_components(self._persistable_type).items():
             data = self.serialize_entity(entity)
             if data:
-                entities_data.append(data)
-        return entities_data
+                chunk_key = None
+                if transform_type:
+                    transform = self.world.try_get_component(entity, transform_type)
+                    if transform:
+                        chunk_x = int(transform.x // chunk_size)
+                        chunk_y = int(transform.y // chunk_size)
+                        chunk_key = (chunk_x, chunk_y)
 
-    def save_to_file(self, filepath: str) -> None:
+                if chunk_key not in chunks:
+                    chunks[chunk_key] = []
+                chunks[chunk_key].append(data)
+
+        return chunks
+
+    def save_to_sqlite(self, conn: sqlite3.Connection, chunk_size: float = 2000.0) -> None:
         """
-        Saves all persistable entities to a file using MessagePack.
+        Saves all persistable entities into an SQLite database using spatial chunking.
 
         Args:
-            filepath (str): The path to the file to save to.
+            conn (sqlite3.Connection): An open SQLite connection.
+            chunk_size (float): The size of each spatial chunk.
         """
-        entities_data = self.get_persistable_entities_data()
-        with open(filepath, "wb") as f:
-            f.write(msgspec.msgpack.encode(entities_data))
-        logger.info(f"Saved {len(entities_data)} entities to {filepath}")
+        chunks = self.get_persistable_entities_by_chunk(chunk_size)
+        cursor = conn.cursor()
 
-    def load_from_file(self, filepath: str) -> None:
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chunks (
+                chunk_id TEXT PRIMARY KEY,
+                data BLOB
+            )
+            """
+        )
+        cursor.execute("DELETE FROM chunks")
+
+        total_entities = 0
+        for chunk_key, entities_data in chunks.items():
+            if chunk_key is None:
+                chunk_id = "global"
+            else:
+                chunk_id = f"{chunk_key[0]}_{chunk_key[1]}"
+
+            blob = msgspec.msgpack.encode(entities_data)
+            cursor.execute(
+                "INSERT INTO chunks (chunk_id, data) VALUES (?, ?)", (chunk_id, blob)
+            )
+            total_entities += len(entities_data)
+
+        logger.info(f"Saved {total_entities} entities into {len(chunks)} chunks.")
+
+    def load_from_sqlite(self, conn: sqlite3.Connection) -> None:
         """
-        Loads entities from a file using MessagePack with two-pass reference resolution.
+        Loads entities from an SQLite database.
 
         Args:
-            filepath (str): The path to the file to load from.
+            conn (sqlite3.Connection): An open SQLite connection.
         """
-        try:
-            with open(filepath, "rb") as f:
-                data = f.read()
-                entities_data = msgspec.msgpack.decode(data)
-        except FileNotFoundError:
-            logger.error(f"Save file {filepath} not found.")
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='chunks'"
+        )
+        if not cursor.fetchone():
+            logger.warning("No chunks table found in save file.")
             return
 
-        self.load_from_data(entities_data)
+        cursor.execute("SELECT data FROM chunks")
+        rows = cursor.fetchall()
+
+        all_entities_data = []
+        for row in rows:
+            data = row[0]
+            entities_data = msgspec.msgpack.decode(data)
+            all_entities_data.extend(entities_data)
+
+        self.load_from_data(all_entities_data)
 
     def load_from_data(self, entities_data: list[dict[str, Any]]) -> None:
         """
