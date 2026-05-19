@@ -107,6 +107,7 @@ class ItemType(msgspec.Struct):
     nutrition: int | None = None
     comfort: int | None = None
     fun: int | None = None
+    quality: float = 0.0
     stack_size: int = 1
     description: str = ""
     category: str = "misc"

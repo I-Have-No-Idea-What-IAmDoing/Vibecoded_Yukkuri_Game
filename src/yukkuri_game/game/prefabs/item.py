@@ -103,6 +103,7 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         fun=_get_attr(data, "fun", 0) or 0,
         comfort=_get_attr(data, "comfort", 0) or 0,
         is_portable=_get_attr(data, "is_portable", False),
+        quality=float(_get_attr(data, "quality", 0.0) or 0.0),
     )
     world.add_component(entity, stats)
 

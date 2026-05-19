@@ -70,6 +70,7 @@ class StatDecaySettings(msgspec.Struct):
         age (float): Decay rate for age (or growth rate) per tick or unit time.
         starvation_damage (float): Damage taken per tick when starving.
         personality_drift_rate (float): Rate at which personality traits can drift over time.
+        tastebud_decay (float): Decay rate for spoiled tastebuds standard per tick.
     """
 
     hunger: float = 2.0
@@ -81,6 +82,7 @@ class StatDecaySettings(msgspec.Struct):
     age: float = 1.0
     starvation_damage: float = 5.0
     personality_drift_rate: float = 0.1
+    tastebud_decay: float = 0.001
 
 
 class LifecycleSettings(msgspec.Struct):

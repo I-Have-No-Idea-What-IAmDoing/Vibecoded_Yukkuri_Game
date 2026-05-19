@@ -27,6 +27,7 @@ from ..components import (
     InteractionRequest,
     ItemStats,
     Needs,
+    YukkuriStats,
 )
 from yukkuri_game.engine.components import (
     Transform,
@@ -116,18 +117,79 @@ class HungerSystem(System):
             return False
 
         # Stat Effects
-        # Fun effects apply regardless of consumption (Play or Eat)
         emotional = world.try_get_component(consumer_id, EmotionalState)
-        if item_stats.fun > 0 and emotional:
+        
+        # Fun/Happiness from food consumption is processed separately
+        # under metabolism to account for spoiled tastebuds. Play or
+        # non-metabolic fun uses the standard adjustment.
+        is_food_consumption = request.consume and item_stats.nutrition > 0
+        if item_stats.fun > 0 and emotional and not is_food_consumption:
             emotional.adjust_happiness(item_stats.fun)
 
         # Nutritional/Metabolic effects ONLY if consumed
         if request.consume:
             # Apply nutrition: decreases hunger (lower = less hungry)
             if item_stats.nutrition > 0:
+                initial_hunger = consumer_needs.hunger
                 consumer_needs.adjust_hunger(-item_stats.nutrition)
                 # Waste generation: food creates biological waste at 50% rate
                 consumer_needs.adjust_bladder(item_stats.nutrition * 0.5)
+
+                # Process spoiled tastebuds pickiness and happiness adjustments
+                ystats = world.try_get_component(consumer_id, YukkuriStats)
+                fun_gain = item_stats.fun
+                if (
+                    ystats
+                    and ystats.tastebud_spoiled > 0.0
+                    and item_stats.quality < ystats.tastebud_spoiled
+                ):
+                    base_mult = max(
+                        0.0,
+                        min(
+                            1.0,
+                            item_stats.quality / ystats.tastebud_spoiled
+                        )
+                    )
+                    # Hunger bypass logic (Approach C)
+                    hunger = initial_hunger
+                    if hunger >= 50.0:
+                        hunger_factor = max(
+                            0.0,
+                            min(1.0, (hunger - 50.0) / 30.0)
+                        )
+                        multiplier = (
+                            base_mult
+                            + (1.0 - base_mult) * hunger_factor
+                        )
+                    else:
+                        multiplier = base_mult
+                    
+                    fun_gain = item_stats.fun * multiplier
+                    
+                    # Create floating feedback if significantly penalized
+                    if multiplier < 0.99 and item_stats.fun > 0:
+                        from ..prefabs.effects import create_floating_text
+                        trans = world.try_get_component(consumer_id, Transform)
+                        if trans:
+                            create_floating_text(
+                                world,
+                                trans.x,
+                                trans.y - 20,
+                                f"Tastes bland... (+{int(fun_gain)} Happy)",
+                                (200, 150, 150),
+                                size=20,
+                            )
+                
+                if fun_gain > 0 and emotional:
+                    emotional.adjust_happiness(fun_gain)
+
+                # Update tastebud spoiled standard after evaluating
+                # current meal happiness
+                if ystats:
+                    ystats.tastebud_spoiled = max(
+                        ystats.tastebud_spoiled,
+                        item_stats.quality
+                    )
 
             # Comfort foods restore energy (filling, warm foods)
             if item_stats.comfort > 0:

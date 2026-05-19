@@ -5,6 +5,20 @@ width = 32
 height = 32
 cost = 10
 nutrition = 20
+fun = 10
+quality = 10.0
+is_portable = true
+
+[items.super_cookie]
+name = "Super Cookie"
+image = "cookie.png"
+width = 32
+height = 32
+cost = 100
+nutrition = 50
+fun = 30
+comfort = 5
+quality = 50.0
 is_portable = true
 
 [items.bed]

@@ -35,6 +35,7 @@ class YukkuriStats:
     discipline: float = 0.0
     intelligence: float = 1.0
     agility: float = 1.0
+    tastebud_spoiled: float = 0.0
 
     def calculate_value(
         self,
@@ -104,3 +105,4 @@ class ItemStats:
     fun: float = 0.0
     comfort: float = 0.0
     is_portable: bool = False
+    quality: float = 0.0

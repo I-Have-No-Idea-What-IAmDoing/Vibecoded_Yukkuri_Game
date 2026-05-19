@@ -231,6 +231,12 @@ class EmotionSystem(System):
         needs.hunger += self.settings.hunger * multipliers["hunger"] * game_dt
         needs.energy -= self.settings.energy * multipliers["energy"] * game_dt
         stats.age += self.settings.age * game_dt
+
+        if stats.tastebud_spoiled > 0.0:
+            decay_rate = getattr(self.settings, "tastebud_decay", 0.001)
+            stats.tastebud_spoiled = max(0.0, stats.tastebud_spoiled - decay_rate * game_dt)
+            stats.tastebud_spoiled = round(stats.tastebud_spoiled, 6)
+
         needs.cleanliness -= (
             self.settings.cleanliness * multipliers["cleanliness"] * game_dt
         )
