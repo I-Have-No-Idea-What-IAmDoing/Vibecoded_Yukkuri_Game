@@ -2,6 +2,7 @@
 Scene Management Module.
 """
 
+import sqlite3
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -156,7 +157,8 @@ class Scene(ABC):
         """
         serializer = WorldSerializer(self.world, self.registered_components)
         try:
-            serializer.save_to_file(filepath)
+            with sqlite3.connect(filepath) as conn:
+                serializer.save_to_sqlite(conn)
         except Exception as e:
             # Re-raise to let the caller (SceneManager or UI) handle the failure
             raise OSError(f"Failed to save scene to {filepath}") from e
@@ -184,7 +186,8 @@ class Scene(ABC):
 
         serializer = WorldSerializer(self.world, self.registered_components)
         try:
-            serializer.load_from_file(filepath)
+            with sqlite3.connect(filepath) as conn:
+                serializer.load_from_sqlite(conn)
         except Exception as e:
             raise OSError(f"Failed to load scene from {filepath}") from e
 

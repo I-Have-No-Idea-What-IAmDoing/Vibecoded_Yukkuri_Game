@@ -53,7 +53,8 @@ class GameLoader:
         """
         Registers services to the world.
         """
-        self.world.services.register(audio, AudioManager)
+        from yukkuri_game.engine.protocols import IAudioProvider
+        self.world.services.register(audio, IAudioProvider)
         self.world.services.register(event_bus, EventBus)
         self.world.services.register(self.game_config, GameConfig)
 

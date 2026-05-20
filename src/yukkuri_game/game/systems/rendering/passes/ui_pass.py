@@ -4,9 +4,10 @@ UI Pass.
 
 import pygame
 
-from ....renderer.commands import TextCommand, SpriteCommand
+from yukkuri_game.engine.renderer.commands import TextCommand
+from yukkuri_game.engine.renderer.commands import SpriteCommand
 from yukkuri_game.engine.components import FloatingText
-from ..context import RenderContext
+from yukkuri_game.game.systems.rendering.context import RenderContext
 
 
 LAYER_UI = 10
@@ -49,7 +50,7 @@ class UIPass:
     def _process_placement_preview(self, context: RenderContext) -> None:
         """Renders the placement preview (ghost sprite)."""
         # Lazy import to avoid circular dependency
-        from ....services import InputService
+        from yukkuri_game.game.services import InputService
 
         input_service = context.world.services.try_get(InputService)
 
@@ -62,7 +63,7 @@ class UIPass:
 
         img = None
         if image_name:
-            from .....engine.resource_manager import ResourceManager
+            from yukkuri_game.engine.resource_manager import ResourceManager
 
             rm = context.world.services.try_get(ResourceManager)
 
@@ -84,7 +85,7 @@ class UIPass:
                         sprite_width = getattr(yuk_data, "width", 64)
                         sprite_height = getattr(yuk_data, "height", 64)
 
-                        from ....yukkuri_constants import get_initial_scale
+                        from yukkuri_game.game.yukkuri_constants import get_initial_scale
 
                         initial_scale = get_initial_scale()
                         sprite_width = int(sprite_width * initial_scale)

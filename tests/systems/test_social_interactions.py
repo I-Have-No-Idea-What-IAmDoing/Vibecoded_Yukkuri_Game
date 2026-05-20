@@ -25,8 +25,10 @@ class TestSocialInteractions(unittest.TestCase):
         self.event_bus = self.world.services.get(EventBus)
         self.game_service = GameService(self.world)
 
-        self.audio_manager = MagicMock()
-        self.world.services.register(self.audio_manager, AudioManager)
+        from yukkuri_game.engine.protocols import IAudioProvider
+
+        self.audio_manager = MagicMock(spec=IAudioProvider)
+        self.world.services.register(self.audio_manager, IAudioProvider)
 
         self.trait_service = MagicMock(spec=TraitService)
 

@@ -39,7 +39,7 @@ from yukkuri_game.engine.components import (
 )
 from ..physics_utils import add_physics_body, get_yukkuri_radius
 from ..skill_service import SkillService
-from yukkuri_game.engine.systems.physics import PhysicsSystem
+from yukkuri_game.engine.protocols import IPhysicsService
 from ..trait_service import TraitService
 from ..utils.animation_helpers import build_animator_from_data
 
@@ -70,7 +70,7 @@ def create_yukkuri(
         ValueError: If the Yukkuri type is unknown.
     """
     rm = world.services.get(ResourceManager)
-    world.services.try_get(PhysicsSystem)
+    world.services.try_get(IPhysicsService)
     trait_service = world.services.try_get(TraitService)
     skill_service = world.services.try_get(SkillService)
 

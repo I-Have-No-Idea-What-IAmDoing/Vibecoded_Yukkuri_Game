@@ -89,9 +89,9 @@ def test_cleaning_logic() -> None:
     """CleanEntityCommand destroys nearby poop and plays a sound."""
     world, _ = _make_world_with_bus()
     audio_mock = MagicMock()
-    from yukkuri_game.engine.audio import AudioManager
+    from yukkuri_game.engine.protocols import IAudioProvider
 
-    world.services.register(audio_mock, AudioManager)
+    world.services.register(audio_mock, IAudioProvider)
 
     poop = world.create_entity(Poop(), Transform(x=50, y=50))
 

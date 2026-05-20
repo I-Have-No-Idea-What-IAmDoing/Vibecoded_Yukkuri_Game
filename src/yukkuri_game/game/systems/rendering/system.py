@@ -1,4 +1,0 @@
-"""
-Legacy Rendering System Redirect.
-"""
-

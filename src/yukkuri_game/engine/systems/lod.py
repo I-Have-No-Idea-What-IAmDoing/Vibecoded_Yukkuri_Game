@@ -5,10 +5,12 @@ LOD (Level of Detail) System.
 from ..ecs import System, World
 from yukkuri_game.engine.components import Transform, LODComponent
 from ..camera import Camera
-from .spatial import SpatialService
+from yukkuri_game.engine.protocols import ISpatialService
+from .spatial import SpatialSystem
 
 
 class LODSystem(System):
+    run_after = [SpatialSystem]
     """
     System responsible for assigning LOD levels to entities based on distance from camera.
     """
@@ -34,7 +36,7 @@ class LODSystem(System):
         self.frame_count = 0
 
         camera = world.services.try_get(Camera)
-        spatial_service = world.services.try_get(SpatialService)
+        spatial_service = world.services.try_get(ISpatialService)
 
         if not camera:
             return
@@ -46,7 +48,7 @@ class LODSystem(System):
         self._update_optimized(world, spatial_service, camera.camera_x, camera.camera_y)
 
     def _update_optimized(
-        self, world: World, spatial_service: SpatialService, cx: float, cy: float
+        self, world: World, spatial_service: ISpatialService, cx: float, cy: float
     ) -> None:
         current_active = set()
         rect_x = cx - self.med_dist

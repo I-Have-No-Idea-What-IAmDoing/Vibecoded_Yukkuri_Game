@@ -1,4 +1,0 @@
-"""
-Legacy Time System Redirect.
-"""
-

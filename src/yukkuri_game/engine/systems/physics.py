@@ -13,9 +13,12 @@ from ..events import (
     WorldClearedEvent,
 )
 from yukkuri_game.engine.components import PhysicsBody, Transform
+from yukkuri_game.engine.systems.time import TimeSystem
 
 
 class PhysicsSystem(System):
+    run_after = [TimeSystem]
+
     """
     Steps Pymunk simulation and syncs bodies to Transform components.
     """

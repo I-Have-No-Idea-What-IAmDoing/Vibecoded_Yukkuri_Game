@@ -1,4 +1,0 @@
-"""
-Legacy Camera Redirect.
-"""
-

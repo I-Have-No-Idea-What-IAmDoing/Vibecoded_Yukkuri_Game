@@ -18,7 +18,7 @@ Skill Integration:
 import math
 from typing import cast
 
-from ...engine.audio import AudioManager
+from yukkuri_game.engine.protocols import IAudioProvider
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
 from ..components import (
@@ -44,14 +44,14 @@ class HungerSystem(System):
     Consumption requests are dispatched here from InteractionSystem.
 
     Attributes:
-        audio (AudioManager | None): Audio manager for sound effects.
+        audio (IAudioProvider | None): Audio manager for sound effects.
         skill_service (SkillService | None): Service for skill progression.
     """
 
     def __init__(self) -> None:
         """Initializes the HungerSystem."""
         super().__init__()
-        self.audio: AudioManager | None = None
+        self.audio: IAudioProvider | None = None
         self.skill_service: SkillService | None = None
 
     def update(self, world: World, dt: float) -> None:
@@ -65,7 +65,7 @@ class HungerSystem(System):
             dt (float): Delta time.
         """
         if self.audio is None:
-            self.audio = world.services.try_get(AudioManager)
+            self.audio = world.services.try_get(IAudioProvider)
         if self.skill_service is None:
             self.skill_service = world.services.try_get(SkillService)
 
@@ -95,7 +95,7 @@ class HungerSystem(System):
         # Ensure services are loaded — process_consumption may be called
         # via cross-system dispatch before update() has had a chance to run.
         if self.audio is None:
-            self.audio = world.services.try_get(AudioManager)
+            self.audio = world.services.try_get(IAudioProvider)
         if self.skill_service is None:
             self.skill_service = world.services.try_get(SkillService)
 

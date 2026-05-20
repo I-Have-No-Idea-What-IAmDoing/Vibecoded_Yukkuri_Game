@@ -131,9 +131,9 @@ class MoveToTarget(Action):
             if dist_to_target < 150.0:
                 use_direct_steering = True
             elif dist_to_target < 400.0:
-                from yukkuri_game.engine.systems.physics import PhysicsSystem
+                from yukkuri_game.engine.protocols import IPhysicsService
 
-                physics_sys = self.world.services.try_get(PhysicsSystem)
+                physics_sys = self.world.services.try_get(IPhysicsService)
                 if physics_sys and hasattr(physics_sys, "space"):
                     space = physics_sys.space
                     filter_ = pymunk.ShapeFilter(mask=pymunk.ShapeFilter.ALL_MASKS())

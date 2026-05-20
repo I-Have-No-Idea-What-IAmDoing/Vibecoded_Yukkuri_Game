@@ -187,11 +187,11 @@ class EatPrey(Action):
         if self.world is None or self.entity_id is None:
             return Status.FAILURE
 
-        # Lazy load SpatialService
+        # Lazy load ISpatialService
         if self.spatial_service is None:
-            from yukkuri_game.engine.systems.spatial import SpatialService
+            from yukkuri_game.engine.protocols import ISpatialService
 
-            self.spatial_service = self.world.services.try_get(SpatialService)
+            self.spatial_service = self.world.services.try_get(ISpatialService)
 
         ai = self.world.try_get_component(self.entity_id, AIState)
         predator = self.world.try_get_component(self.entity_id, Predator)

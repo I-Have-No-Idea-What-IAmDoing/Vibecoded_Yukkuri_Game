@@ -37,7 +37,7 @@ from ..components import (
 from yukkuri_game.engine.components import (
     Transform,
 )
-from yukkuri_game.engine.systems.spatial import SpatialService
+from yukkuri_game.engine.protocols import ISpatialService
 
 
 class FamilySystem(System):
@@ -153,7 +153,7 @@ class FamilySystem(System):
         Args:
             world (World): The ECS World.
         """
-        spatial_service = world.services.try_get(SpatialService)
+        spatial_service = world.services.try_get(ISpatialService)
 
         if spatial_service:
             self._process_benefits_with_sectors(world, spatial_service)
@@ -162,14 +162,14 @@ class FamilySystem(System):
             self._process_benefits_fallback(world)
 
     def _process_benefits_with_sectors(
-        self, world: World, spatial_service: SpatialService
+        self, world: World, spatial_service: ISpatialService
     ) -> None:
         """
         Process family benefits using spatial partitioning for efficiency.
 
         Args:
             world (World): The ECS World.
-            spatial_service (SpatialService): The sector map service.
+            spatial_service (ISpatialService): The sector map service.
         """
         entities = world.get_components_tuple(
             RelationshipRegistry, YukkuriStats, Needs, Transform, AIState

@@ -33,8 +33,7 @@ from yukkuri_game.engine.components import (
 )
 from ..events import SocialInteractionEvent
 from ..trait_service import TraitService
-from yukkuri_game.engine.systems.physics import PhysicsSystem
-from yukkuri_game.engine.systems.spatial import SpatialService
+from yukkuri_game.engine.protocols import IPhysicsService, ISpatialService
 
 
 class GossipSystem(System):
@@ -44,8 +43,8 @@ class GossipSystem(System):
 
     Attributes:
         event_bus (EventBus): The event bus instance.
-        physics_system (PhysicsSystem | None): The physics system instance.
-        spatial_service (SpatialService | None): The sector map instance.
+        physics_system (IPhysicsService | None): The physics system instance.
+        spatial_service (ISpatialService | None): The sector map instance.
         trait_service (TraitService | None): The trait service instance.
     """
 
@@ -73,8 +72,8 @@ class GossipSystem(System):
         """
         super().__init__()
         self.event_bus: EventBus
-        self.physics_system: PhysicsSystem | None = None
-        self.spatial_service: SpatialService | None = None
+        self.physics_system: IPhysicsService | None = None
+        self.spatial_service: ISpatialService | None = None
         self.trait_service: TraitService | None = None
         # Cached from GameConfig — immutable at runtime.
         self._max_gossip_length: int = self.DEFAULT_MAX_GOSSIP_LENGTH
@@ -100,9 +99,9 @@ class GossipSystem(System):
             dt (float): Delta time.
         """
         if not self.physics_system:
-            self.physics_system = world.services.try_get(PhysicsSystem)
+            self.physics_system = world.services.try_get(IPhysicsService)
         if not self.spatial_service:
-            self.spatial_service = world.services.try_get(SpatialService)
+            self.spatial_service = world.services.try_get(ISpatialService)
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
 
@@ -130,7 +129,7 @@ class GossipSystem(System):
 
         # Handle Witnessing (Sector-based)
         if not self.spatial_service:
-            self.spatial_service = world.services.try_get(SpatialService)
+            self.spatial_service = world.services.try_get(ISpatialService)
 
         if self.spatial_service:
             self._process_witnesses_sector(world, event, actor_trans, now)
@@ -220,7 +219,7 @@ class GossipSystem(System):
             bool: True if line of sight exists, False otherwise.
         """
         if not self.physics_system:
-            self.physics_system = world.services.try_get(PhysicsSystem)
+            self.physics_system = world.services.try_get(IPhysicsService)
 
         if not self.physics_system:
             return True  # Fallback if no physics

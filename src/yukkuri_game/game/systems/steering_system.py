@@ -31,7 +31,7 @@ from yukkuri_game.engine.components import (
     PhysicsBody,
     Transform,
 )
-from yukkuri_game.engine.systems.physics import PhysicsSystem
+from yukkuri_game.engine.protocols import IPhysicsService
 
 
 class SteeringSystem(System):
@@ -70,7 +70,7 @@ class SteeringSystem(System):
             world (World): The ECS World.
             dt (float): Delta time.
         """
-        physics_system = world.services.try_get(PhysicsSystem)
+        physics_system = world.services.try_get(IPhysicsService)
         space = getattr(physics_system, "space", None) if physics_system else None
         current_time = world.time
 

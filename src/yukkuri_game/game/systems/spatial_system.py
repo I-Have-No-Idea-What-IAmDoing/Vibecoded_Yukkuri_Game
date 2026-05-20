@@ -1,4 +1,0 @@
-"""
-Legacy Spatial System Redirect.
-"""
-

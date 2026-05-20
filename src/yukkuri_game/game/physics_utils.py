@@ -6,7 +6,7 @@ from typing import Any
 import pymunk
 from ..engine.ecs import World
 from yukkuri_game.engine.components import PhysicsBody
-from yukkuri_game.engine.systems.physics import PhysicsSystem
+from yukkuri_game.engine.protocols import IPhysicsService
 
 
 def add_physics_body(
@@ -43,7 +43,7 @@ def add_physics_body(
     Raises:
         ValueError: If shape_type is unknown.
     """
-    physics_system = world.services.try_get(PhysicsSystem)
+    physics_system = world.services.try_get(IPhysicsService)
     if not physics_system:
         return
 

@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any, cast
 from loguru import logger
 
 from ...engine import rng
-from ...engine.audio import AudioManager
+from yukkuri_game.engine.protocols import IAudioProvider
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ..components import InteractionRequest
@@ -57,7 +57,7 @@ class SocialSystem(System):
     Attributes:
         trait_service (Optional[TraitService]): Service for accessing trait data.
         skill_service (Optional[SkillService]): Service for managing skills and XP.
-        audio (Optional[AudioManager]): Manager for playing sound effects.
+        audio (Optional[IAudioProvider]): Manager for playing sound effects.
         cleanup_index (int): Index cursor for incremental relationship cleanup.
         event_bus (EventBus): Event bus for publishing/subscribing to social events.
         headline_counter (int): Monotonic ref counter for memory IDs.
@@ -97,7 +97,7 @@ class SocialSystem(System):
         super().__init__()
         self.trait_service: TraitService | None = None
         self.skill_service: SkillService | None = None
-        self.audio: AudioManager | None = None
+        self.audio: IAudioProvider | None = None
         self.cleanup_index = 0
         self.headline_counter = 0
         # Cached config value — GameConfig is immutable at runtime.
@@ -131,7 +131,7 @@ class SocialSystem(System):
         if not self.skill_service:
             self.skill_service = world.services.try_get(SkillService)
         if not self.audio:
-            self.audio = world.services.try_get(AudioManager)
+            self.audio = world.services.try_get(IAudioProvider)
 
         # Inject world for event handlers if not already present
         if not hasattr(self, "ecs_world"):
@@ -348,7 +348,7 @@ class SocialSystem(System):
             self.skill_service = world.services.try_get(SkillService)
 
         if not self.audio:
-            self.audio = world.services.try_get(AudioManager)
+            self.audio = world.services.try_get(IAudioProvider)
 
         interaction_data = self.trait_service.get_interaction(interaction_name)
         if not interaction_data:

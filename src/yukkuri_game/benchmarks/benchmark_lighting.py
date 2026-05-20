@@ -15,9 +15,10 @@ from typing import Any
 
 import pygame
 
-from ..engine import rng
-from ..game.renderer.commands import LightCommand, OccluderCommand
-from ..game.renderer.pygame_backend import PygameBackend
+from yukkuri_game.engine import rng
+from yukkuri_game.engine.renderer.commands import LightCommand
+from yukkuri_game.engine.renderer.commands import OccluderCommand
+from yukkuri_game.engine.renderer.pygame_backend import PygameBackend
 
 # Reuse utils from the main benchmark module
 

@@ -28,8 +28,10 @@ class TestSocialBehaviors(unittest.TestCase):
         )
 
         from yukkuri_game.engine.systems.spatial import SpatialService
+        from yukkuri_game.engine.protocols import ISpatialService
         self.spatial_service = SpatialService(1000, 1000, 500)
         self.world.services.register(self.spatial_service, SpatialService)
+        self.world.services.register(self.spatial_service, ISpatialService)
         # Update entity in spatial service
         self.spatial_service.update_entity(self.entity_id, 100, 100)
 

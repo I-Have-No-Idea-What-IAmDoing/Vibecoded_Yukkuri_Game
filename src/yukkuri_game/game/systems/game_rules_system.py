@@ -19,7 +19,7 @@ Game Balance Notes:
 
 from loguru import logger
 
-from ...engine.audio import AudioManager
+from yukkuri_game.engine.protocols import IAudioProvider
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ..components import (
@@ -123,7 +123,7 @@ class GameRulesSystem(System):
             position = (transform.x, transform.y) if transform else (0, 0)
 
             # Audio/visual feedback
-            audio = self.ecs_world.services.try_get(AudioManager)
+            audio = self.ecs_world.services.try_get(IAudioProvider)
             if audio:
                 audio.play_sound("sell")
 
@@ -169,7 +169,7 @@ class GameRulesSystem(System):
             transform = self.ecs_world.try_get_component(event.entity_id, Transform)
             position = (transform.x, transform.y) if transform else (0, 0)
 
-            audio = self.ecs_world.services.try_get(AudioManager)
+            audio = self.ecs_world.services.try_get(IAudioProvider)
             if audio:
                 audio.play_sound("train")
 
@@ -207,7 +207,7 @@ class GameRulesSystem(System):
             transform = self.ecs_world.try_get_component(event.entity_id, Transform)
             position = (transform.x, transform.y) if transform else (0, 0)
 
-            audio = self.ecs_world.services.try_get(AudioManager)
+            audio = self.ecs_world.services.try_get(IAudioProvider)
             if audio:
                 audio.play_sound("hit")
 

@@ -5,9 +5,9 @@ Background Pass.
 from typing import Optional, Tuple
 import pygame
 
-from ....renderer.constants import RenderConstants
-from ....renderer.commands import SpriteCommand
-from ..context import RenderContext
+from yukkuri_game.engine.renderer.constants import RenderConstants
+from yukkuri_game.engine.renderer.commands import SpriteCommand
+from yukkuri_game.game.systems.rendering.context import RenderContext
 
 
 LAYER_BACKGROUND = 0

@@ -228,7 +228,7 @@ class PlaceItemCommand:
             world: The active ECS World instance.
         """
         from ..engine.event_bus import EventBus
-        from ..engine.audio import AudioManager
+        from yukkuri_game.engine.protocols import IAudioProvider
         from .events import PlacementRequestedEvent
 
         event_bus = world.services.try_get(EventBus)
@@ -242,7 +242,7 @@ class PlaceItemCommand:
                     self.entity_type,
                 )
             )
-        audio = world.services.try_get(AudioManager)
+        audio = world.services.try_get(IAudioProvider)
         if audio:
             audio.play_sound("place")
 
@@ -258,7 +258,7 @@ class CancelPlacementCommand:
             world: The active ECS World instance.
         """
         from ..engine.event_bus import EventBus
-        from ..engine.audio import AudioManager
+        from yukkuri_game.engine.protocols import IAudioProvider
         from .events import PlacementCancelledEvent
         from .services import InputService
 
@@ -270,7 +270,7 @@ class CancelPlacementCommand:
         if event_bus:
             event_bus.publish(PlacementCancelledEvent())
 
-        audio = world.services.try_get(AudioManager)
+        audio = world.services.try_get(IAudioProvider)
         if audio:
             audio.play_sound("cancel")
 
@@ -285,14 +285,14 @@ class CancelCleaningCommand:
         Args:
             world: The active ECS World instance.
         """
-        from ..engine.audio import AudioManager
+        from yukkuri_game.engine.protocols import IAudioProvider
         from .services import InputService
 
         input_service = world.services.try_get(InputService)
         if input_service:
             input_service.stop_cleaning()
 
-        audio = world.services.try_get(AudioManager)
+        audio = world.services.try_get(IAudioProvider)
         if audio:
             audio.play_sound("cancel")
 
@@ -342,7 +342,7 @@ class SelectEntitiesCommand:
             world: The active ECS World instance.
         """
         from ..engine.event_bus import EventBus
-        from ..engine.audio import AudioManager
+        from yukkuri_game.engine.protocols import IAudioProvider
         from yukkuri_game.engine.components import Transform
         from yukkuri_game.engine.components import Selectable
         from .events import EntitySelectedEvent
@@ -395,7 +395,7 @@ class SelectEntitiesCommand:
         for ent, (_, selectable) in components:
             selectable.selected = ent in final_selection
 
-        audio = world.services.try_get(AudioManager)
+        audio = world.services.try_get(IAudioProvider)
         if is_click and audio:
             audio.play_sound("click")
 
@@ -436,7 +436,7 @@ class CleanEntityCommand:
         Args:
             world: The active ECS World instance.
         """
-        from ..engine.audio import AudioManager
+        from yukkuri_game.engine.protocols import IAudioProvider
         from .components import Poop
         from yukkuri_game.engine.components import Transform
 
@@ -451,7 +451,7 @@ class CleanEntityCommand:
                 found = True
 
         if found:
-            audio = world.services.try_get(AudioManager)
+            audio = world.services.try_get(IAudioProvider)
             if audio:
                 audio.play_sound("click")
 

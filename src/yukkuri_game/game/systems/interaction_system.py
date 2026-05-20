@@ -21,7 +21,7 @@ from typing import cast
 
 from loguru import logger
 
-from ...engine.audio import AudioManager
+from yukkuri_game.engine.protocols import IAudioProvider
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
 from ..components import (
@@ -50,7 +50,7 @@ class InteractionSystem(System):
     circular dependencies during initialization.
 
     Attributes:
-        audio (AudioManager | None): Audio manager.
+        audio (IAudioProvider | None): Audio manager.
         trait_service (TraitService | None): Trait service.
         hunger_system (HungerSystem | None): Hunger system.
         social_system (SocialSystem | None): Social system.
@@ -59,7 +59,7 @@ class InteractionSystem(System):
     def __init__(self) -> None:
         """Initializes the InteractionSystem."""
         super().__init__()
-        self.audio: AudioManager | None = None
+        self.audio: IAudioProvider | None = None
         self.trait_service: TraitService | None = None
         self.hunger_system: HungerSystem | None = None
         self.social_system: SocialSystem | None = None
@@ -73,7 +73,7 @@ class InteractionSystem(System):
             dt (float): Delta time.
         """
         if self.audio is None:
-            self.audio = world.services.try_get(AudioManager)
+            self.audio = world.services.try_get(IAudioProvider)
         if self.trait_service is None:
             self.trait_service = world.services.try_get(TraitService)
         if self.hunger_system is None:

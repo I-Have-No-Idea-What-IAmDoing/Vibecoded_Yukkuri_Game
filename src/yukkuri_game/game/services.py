@@ -11,7 +11,7 @@ from ..engine.ecs import World
 from ..engine.components import Transform
 from .components import ItemStats, Skills
 from .skill_constants import SkillId
-from ..engine.systems.spatial import SpatialService
+from ..engine.protocols import ISpatialService
 
 if TYPE_CHECKING:
     pass
@@ -292,7 +292,7 @@ class GameService:
                     level * SCAVENGING_RADIUS_PER_LEVEL
                 )
 
-        spatial_service = self.world.services.try_get(SpatialService)
+        spatial_service = self.world.services.try_get(ISpatialService)
 
         if spatial_service:
             nearby_entities = spatial_service.get_entities_in_radius(

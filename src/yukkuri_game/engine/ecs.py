@@ -138,6 +138,10 @@ class World:
         self._next_stable_id: int = 1
         self._active_entities: set[int] = set()
         self._registered_systems: dict[type, System] = {}
+        self._system_priorities: dict[type[System], int] = {}
+        self._system_order: list[type[System]] = []
+        self._sorted_systems: list[System] = []
+        self._systems_dirty: bool = True
         self.commands: CommandBuffer = CommandBuffer(self)
 
         # Register this world with esper's global context system.
@@ -358,12 +362,7 @@ class World:
         Returns:
             dict[int, T]: A dictionary mapping Entity ID -> Component Instance.
         """
-        # print(f"DEBUG: World.get_components for {component_type}")
-        # print(f"DEBUG: component_type in _components: {component_type in self._components}")
-        return {
-            entity: component
-            for entity, component in esper.get_component(component_type)
-        }
+        return dict(esper.get_component(component_type))
 
     def get_all_entities(self) -> list[int]:
         """
@@ -436,6 +435,10 @@ class World:
         system.ecs_world = self
         esper.add_processor(system, priority)
         self._registered_systems[type(system)] = system
+        self._system_priorities[type(system)] = priority
+        if type(system) not in self._system_order:
+            self._system_order.append(type(system))
+        self._systems_dirty = True
 
         if hasattr(system, "initialize"):
             system.initialize()
@@ -450,17 +453,93 @@ class World:
         """
         plugin.register(self)
 
+    def _topological_sort_systems(self) -> None:
+        """
+        Sorts registered systems using Kahn's algorithm.
+
+        Enforces run_after and run_before dependencies, using priority
+        (higher first) and insertion order as deterministic tie-breakers.
+
+        Raises:
+            CycleDependencyError: If a dependency cycle is detected.
+        """
+        from .exceptions import CycleDependencyError
+
+        nodes = list(self._registered_systems.keys())
+
+        # Build adjacency list (A runs before B) and compute in-degrees
+        graph: dict[type[System], list[type[System]]] = {n: [] for n in nodes}
+        in_degree: dict[type[System], int] = {n: 0 for n in nodes}
+
+        for u in nodes:
+            system_instance = self._registered_systems[u]
+
+            # Explicit dependencies: u runs after dep -> dep runs before u
+            for dep in system_instance.run_after:
+                if dep in graph:
+                    graph[dep].append(u)
+                    in_degree[u] += 1
+
+            # Explicit dependencies: u runs before dep -> u runs before dep
+            for dep in system_instance.run_before:
+                if dep in graph:
+                    graph[u].append(dep)
+                    in_degree[dep] += 1
+
+        # Find all nodes with in-degree 0
+        # Tie-breaker key: (-priority, registration_index)
+        priority_map = self._system_priorities
+        order_map = {
+            sys_type: idx for idx, sys_type in enumerate(self._system_order)
+        }
+
+        def get_sort_key(sys_type: type[System]) -> tuple[int, int]:
+            priority = priority_map.get(sys_type, 0)
+            order_idx = order_map.get(sys_type, 0)
+            return (-priority, order_idx)
+
+        ready = [n for n in nodes if in_degree[n] == 0]
+        ready.sort(key=get_sort_key)
+
+        sorted_types: list[type[System]] = []
+
+        while ready:
+            u = ready.pop(0)
+            sorted_types.append(u)
+
+            for v in graph[u]:
+                in_degree[v] -= 1
+                if in_degree[v] == 0:
+                    ready.append(v)
+            ready.sort(key=get_sort_key)
+
+        if len(sorted_types) < len(nodes):
+            cycle_nodes = [n.__name__ for n in nodes if in_degree[n] > 0]
+            raise CycleDependencyError(
+                f"Dependency cycle detected: {', '.join(cycle_nodes)}"
+            )
+
+        self._sorted_systems = [
+            self._registered_systems[t] for t in sorted_types
+        ]
+        self._systems_dirty = False
+
     @ensure_context
     def update(self, dt: float) -> None:
         """
         Advances the world state by one tick.
 
-        Executes all registered Systems in priority order.
+        Executes all registered Systems in sorted execution order.
 
         Args:
             dt (float): Delta time in seconds since the last frame.
         """
-        esper.process(dt)
+        if self._systems_dirty:
+            self._topological_sort_systems()
+
+        for system in self._sorted_systems:
+            system.process(dt)
+
         self.commands.apply_all()
 
     @ensure_context
@@ -501,7 +580,7 @@ class World:
             pass
 
     @ensure_context
-    def remove_system(self, system_type: type) -> None:
+    def remove_system(self, system_type: type["System"]) -> None:
         """
         Removes a system from the world.
 
@@ -511,6 +590,11 @@ class World:
         esper.remove_processor(system_type)
         if system_type in self._registered_systems:
             del self._registered_systems[system_type]
+        if system_type in self._system_priorities:
+            del self._system_priorities[system_type]
+        if system_type in self._system_order:
+            self._system_order.remove(system_type)
+        self._systems_dirty = True
 
     @ensure_context
     def get_system(self, system_type: type[T]) -> T:
@@ -543,6 +627,8 @@ class System(esper.Processor):
     """
 
     ecs_world: World
+    run_after: list[type["System"]] = []
+    run_before: list[type["System"]] = []
 
     def process(self, dt: float) -> None:
         """

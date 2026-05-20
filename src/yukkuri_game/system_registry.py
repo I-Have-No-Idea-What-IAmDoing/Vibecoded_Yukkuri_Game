@@ -33,12 +33,12 @@ from yukkuri_game.engine.systems.physics import PhysicsSystem
 from .game.systems.poop_system import PoopSystem
 from .game.systems.social_system import SocialSystem
 from .game.systems.steering_system import SteeringSystem
-from .game.systems.time_system import TimeSystem
+from yukkuri_game.engine.systems.time import TimeSystem
 from .game.systems.visibility_system import VisibilitySystem
 from .game.systems.visual_movement_system import VisualMovementSystem
 
 if TYPE_CHECKING:
-    from .game.camera import Camera
+    from yukkuri_game.engine.camera import Camera
 
 
 class SystemRegistry:

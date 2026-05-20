@@ -115,3 +115,33 @@ def test_clear_calls_shutdown_and_cleanup() -> None:
     assert cleanup_service.cleanup_called
     assert not locator.is_registered(DummyService)
     assert not locator.is_registered(CleanupOnlyService)
+
+
+def test_service_locator_protocol_fallback() -> None:
+    """Verifies fallback lookup for runtime-checkable protocols."""
+    from typing import Protocol, runtime_checkable
+
+    @runtime_checkable
+    class IMockService(Protocol):
+        def greet(self) -> str:
+            ...
+
+    class MockServiceImpl:
+        def greet(self) -> str:
+            return "hello"
+
+    locator = ServiceLocator()
+    service = MockServiceImpl()
+
+    # Case 1: Register under concrete class, retrieve under protocol
+    locator.register(service, service_type=MockServiceImpl)
+    assert locator.get(IMockService) is service
+    assert locator.try_get(IMockService) is service
+    assert locator.is_registered(IMockService)
+
+    # Case 2: Register under protocol, retrieve under concrete class
+    locator.clear()
+    locator.register(service, service_type=IMockService)
+    assert locator.get(MockServiceImpl) is service
+    assert locator.try_get(MockServiceImpl) is service
+    assert locator.is_registered(MockServiceImpl)

@@ -8,7 +8,7 @@ from pygame_gui.windows import UIConfirmationDialog
 from typing import Any, TYPE_CHECKING
 from collections.abc import Callable
 from ...engine.event_bus import EventBus
-from ...engine.audio import AudioManager
+from ...engine.protocols import IAudioProvider
 from ..settings_service import SettingsService
 from ..services import EconomyService
 from ...engine.ecs import World
@@ -64,9 +64,9 @@ class HudEvents:
         if hasattr(self.world.services, "try_get"):
             self.settings_service = self.world.services.try_get(SettingsService)
 
-        self.audio_manager: AudioManager | None = None
+        self.audio_manager: IAudioProvider | None = None
         if hasattr(self.world.services, "try_get"):
-            self.audio_manager = self.world.services.try_get(AudioManager)
+            self.audio_manager = self.world.services.try_get(IAudioProvider)
 
         # Confirmation Dialog State
         self.confirmation_dialog: UIConfirmationDialog | None = None

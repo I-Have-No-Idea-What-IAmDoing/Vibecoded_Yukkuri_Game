@@ -5,11 +5,11 @@ Rendering Context.
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
-from ....engine.ecs import World
+from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.camera import Camera
-from ...renderer.renderer import Renderer
+from yukkuri_game.engine.renderer.renderer import Renderer
 from yukkuri_game.engine.components import Transform
-from ...surface_cache import SurfaceCache
+from yukkuri_game.game.surface_cache import SurfaceCache
 
 
 @dataclass

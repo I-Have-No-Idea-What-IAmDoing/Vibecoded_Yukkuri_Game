@@ -5,7 +5,7 @@ Culling Pass.
 from typing import List
 
 from yukkuri_game.engine.components import Transform
-from ...systems.spatial import SpatialService
+from yukkuri_game.engine.protocols import ISpatialService
 from ..context import RenderContext
 
 
@@ -38,7 +38,7 @@ class CullingPass:
 
     def _get_visible_entities(self, context: RenderContext) -> List[int]:
         """Returns entities visible on screen using spatial partitioning."""
-        spatial_service = context.world.services.try_get(SpatialService)
+        spatial_service = context.world.services.try_get(ISpatialService)
         if spatial_service:
             buffer = self.VISIBILITY_BUFFER
             start_x, start_y = context.camera.screen_to_world(

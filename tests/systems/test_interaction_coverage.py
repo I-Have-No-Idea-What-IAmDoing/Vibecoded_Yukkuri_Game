@@ -18,14 +18,14 @@ from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.engine.audio import AudioManager
 from yukkuri_game.game.skill_service import SkillService
 
-
 @pytest.fixture
 def interaction_env():
     world = World()
+    from yukkuri_game.engine.protocols import IAudioProvider
 
     # Setup Services
-    audio = Mock(spec=AudioManager)
-    world.services.register(audio, AudioManager)
+    audio = Mock(spec=IAudioProvider)
+    world.services.register(audio, IAudioProvider)
 
     trait_service = Mock(spec=TraitService)
     trait_service.calculate_overrides.return_value = {}

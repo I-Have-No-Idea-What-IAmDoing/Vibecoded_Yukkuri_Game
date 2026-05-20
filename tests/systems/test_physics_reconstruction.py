@@ -7,6 +7,7 @@ from yukkuri_game.game.systems.physics_reconstruction import reconstruct_physics
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.game.collision_constants import CollisionCategories
 from yukkuri_game.engine.systems.physics import PhysicsSystem
+from yukkuri_game.engine.protocols import IPhysicsService
 
 
 @pytest.fixture
@@ -19,7 +20,7 @@ def mock_physics_system(monkeypatch):
 
 def test_reconstruct_physics_yukkuri(mock_physics_system):
     world = World()
-    world.services.register(mock_physics_system, PhysicsSystem)
+    world.services.register(mock_physics_system, IPhysicsService)
 
     # Create entity with stats but no physics body
     entity = world.create_entity()
@@ -49,7 +50,7 @@ def test_reconstruct_physics_yukkuri(mock_physics_system):
 
 def test_reconstruct_physics_poop(mock_physics_system):
     world = World()
-    world.services.register(mock_physics_system, PhysicsSystem)
+    world.services.register(mock_physics_system, IPhysicsService)
     entity = world.create_entity()
     world.add_component(entity, Transform(x=50, y=50))
     world.add_component(entity, Poop())
@@ -64,7 +65,7 @@ def test_reconstruct_physics_poop(mock_physics_system):
 
 def test_reconstruct_physics_item(mock_physics_system):
     world = World()
-    world.services.register(mock_physics_system, PhysicsSystem)
+    world.services.register(mock_physics_system, IPhysicsService)
 
     # Mock ResourceManager for item dimensions
     rm = Mock(spec=ResourceManager)
@@ -91,7 +92,7 @@ def test_reconstruct_physics_item(mock_physics_system):
 
 def test_reconstruct_physics_item_default_size(mock_physics_system):
     world = World()
-    world.services.register(mock_physics_system, PhysicsSystem)
+    world.services.register(mock_physics_system, IPhysicsService)
     # No resource manager registered, should fallback to defaults
 
     entity = world.create_entity()

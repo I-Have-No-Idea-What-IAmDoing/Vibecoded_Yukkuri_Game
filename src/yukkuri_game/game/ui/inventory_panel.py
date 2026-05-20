@@ -246,9 +246,9 @@ class InventoryPanel:
             return
 
         # Play sound
-        from ...engine.audio import AudioManager
+        from ...engine.protocols import IAudioProvider
 
-        audio = self.world.services.try_get(AudioManager)
+        audio = self.world.services.try_get(IAudioProvider)
         if audio:
             audio.play_sound("click")
 

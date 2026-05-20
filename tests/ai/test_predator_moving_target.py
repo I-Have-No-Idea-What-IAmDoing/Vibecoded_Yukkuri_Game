@@ -128,9 +128,11 @@ class TestPredatorMovingTarget(unittest.TestCase):
             self.space.add(p_body, p_shape)
             self.space.add(prey_body, prey_shape)
 
+            from yukkuri_game.engine.protocols import IPhysicsService
             from yukkuri_game.engine.systems.physics import PhysicsSystem
 
             self.world.services.register(mock_phys_sys, service_type=PhysicsSystem)
+            self.world.services.register(mock_phys_sys, service_type=IPhysicsService)
 
             positions_log = []
 

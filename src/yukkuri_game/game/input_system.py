@@ -35,7 +35,12 @@ if TYPE_CHECKING:
     from yukkuri_game.engine.camera import Camera
 
 
+from yukkuri_game.game.systems.command_processor_system import CommandProcessorSystem
+
+
 class InputSystem(System):
+    run_before = [CommandProcessorSystem]
+
     """
     System responsible for translating raw hardware input into GameCommands.
 

@@ -4,9 +4,12 @@ Time System Module.
 
 from ..ecs import System, World
 from ..services.time_service import TimeService
+from yukkuri_game.game.systems.command_processor_system import CommandProcessorSystem
 
 
 class TimeSystem(System):
+    run_after = [CommandProcessorSystem]
+
     """
     System that tracks game time using TimeService.
     """

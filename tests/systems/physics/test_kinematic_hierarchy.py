@@ -20,7 +20,7 @@ class MockServiceLocator:
         self.event_bus = EventBus()
 
     def try_get(self, service_type):
-        if service_type.__name__ == "PhysicsSystem":
+        if service_type.__name__ in ("PhysicsSystem", "IPhysicsService"):
             return self.physics_system
         if service_type.__name__ == "EventBus":
             return self.event_bus

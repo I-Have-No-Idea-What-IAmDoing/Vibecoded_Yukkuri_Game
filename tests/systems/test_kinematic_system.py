@@ -11,7 +11,9 @@ def test_kinematic_movement_slide():
 
     # Setup Physics System (needed for space)
     physics_system = PhysicsSystem()
+    from yukkuri_game.engine.protocols import IPhysicsService
     world.services.register(physics_system, PhysicsSystem)
+    world.services.register(physics_system, IPhysicsService)
     world.add_system(physics_system)
 
     kms = KinematicMovementSystem()
@@ -73,7 +75,9 @@ def test_kinematic_movement_slide():
 def test_kinematic_corner():
     world = World()
     physics_system = PhysicsSystem()
+    from yukkuri_game.engine.protocols import IPhysicsService
     world.services.register(physics_system, PhysicsSystem)
+    world.services.register(physics_system, IPhysicsService)
     world.add_system(physics_system)
     kms = KinematicMovementSystem()
     world.add_system(kms)

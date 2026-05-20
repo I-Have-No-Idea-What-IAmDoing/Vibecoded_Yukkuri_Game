@@ -44,7 +44,7 @@ from yukkuri_game.engine.components import (
     Transform,
 )
 from ..skill_service import SkillService
-from yukkuri_game.engine.systems.physics import PhysicsSystem
+from yukkuri_game.engine.protocols import IPhysicsService
 
 
 class KinematicMovementSystem(System):
@@ -108,7 +108,7 @@ class KinematicMovementSystem(System):
             dt (float): Delta time.
         """
         if not self.space:
-            physics_system = world.services.try_get(PhysicsSystem)
+            physics_system = world.services.try_get(IPhysicsService)
             if physics_system:
                 self.space = physics_system.space
                 self.solver.set_space(self.space)

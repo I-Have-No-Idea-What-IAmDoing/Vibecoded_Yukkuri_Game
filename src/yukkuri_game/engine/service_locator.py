@@ -68,8 +68,27 @@ class ServiceLocator:
         """
         if service_type in self._services:
             return cast(T, self._services[service_type])
-        
-        logger.error(f"Service not found: {service_type}. Available: {list(self._services.keys())}")
+
+        # Fallback check for protocol/subclass compatibility
+        for registered_type, instance in self._services.items():
+            try:
+                if (
+                    isinstance(registered_type, type)
+                    and issubclass(registered_type, service_type)
+                ):
+                    return cast(T, instance)
+            except TypeError:
+                pass
+            try:
+                if isinstance(instance, service_type):
+                    return cast(T, instance)
+            except TypeError:
+                pass
+
+        logger.error(
+            f"Service not found: {service_type}. "
+            f"Available: {list(self._services.keys())}"
+        )
         raise ServiceNotFoundError(
             f"Service of type {service_type.__name__} not found."
         )
@@ -84,7 +103,26 @@ class ServiceLocator:
         Returns:
             T | None: The registered service instance, or None if not found.
         """
-        return self._services.get(service_type)
+        if service_type in self._services:
+            return cast(T, self._services[service_type])
+
+        # Fallback check for protocol/subclass compatibility
+        for registered_type, instance in self._services.items():
+            try:
+                if (
+                    isinstance(registered_type, type)
+                    and issubclass(registered_type, service_type)
+                ):
+                    return cast(T, instance)
+            except TypeError:
+                pass
+            try:
+                if isinstance(instance, service_type):
+                    return cast(T, instance)
+            except TypeError:
+                pass
+
+        return None
 
     def is_registered(self, service_type: type[Any]) -> bool:
         """
@@ -96,7 +134,36 @@ class ServiceLocator:
         Returns:
             bool: True if the service is registered, False otherwise.
         """
-        return service_type in self._services
+        if service_type in self._services:
+            return True
+
+        # Fallback check for protocol/subclass compatibility
+        for registered_type, instance in self._services.items():
+            try:
+                if (
+                    isinstance(registered_type, type)
+                    and issubclass(registered_type, service_type)
+                ):
+                    return True
+            except TypeError:
+                pass
+            try:
+                if isinstance(instance, service_type):
+                    return True
+            except TypeError:
+                pass
+
+        return False
+
+    def unregister(self, service_type: type[Any]) -> None:
+        """
+        Unregisters a service type.
+
+        Args:
+            service_type (type[Any]): The type of the service to unregister.
+        """
+        if service_type in self._services:
+            del self._services[service_type]
 
     def clear(self) -> None:
         """

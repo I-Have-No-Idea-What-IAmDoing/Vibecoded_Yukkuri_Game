@@ -5,7 +5,7 @@ Module defining the FeedbackSystem logic.
 from ...engine import rng
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
-from ...engine.audio import AudioManager
+from yukkuri_game.engine.protocols import IAudioProvider
 from ..components import Dead, EmotionalState, YukkuriStats
 from yukkuri_game.engine.components import FloatingText, Transform
 from ..events import (
@@ -62,7 +62,7 @@ class FeedbackSystem(System):
             None
         """
         # Ambient Crying Logic
-        audio = world.services.try_get(AudioManager)
+        audio = world.services.try_get(IAudioProvider)
         if audio:
             for entity, (stats,) in world.get_components_tuple(YukkuriStats):
                 if world.has_component(entity, Dead):
@@ -250,7 +250,7 @@ class FeedbackSystem(System):
         """
         Handles AnimationEvent (duck-typed or imported).
         """
-        audio = self.ecs_world.services.try_get(AudioManager)
+        audio = self.ecs_world.services.try_get(IAudioProvider)
         if not audio:
             return
 

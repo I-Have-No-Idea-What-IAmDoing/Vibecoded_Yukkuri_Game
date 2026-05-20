@@ -33,12 +33,13 @@ class TestHungerSystemInitialization:
     def test_update_loads_services(self) -> None:
         """update() loads services from world."""
         from test_utils import make_configured_world
+        from yukkuri_game.engine.protocols import IAudioProvider
         world = make_configured_world()
-        audio = MagicMock(spec=AudioManager)
+        audio = MagicMock(spec=IAudioProvider)
         skill_service = MagicMock(spec=SkillService)
         
         # Register mocks (overwriting defaults from make_configured_world if any)
-        world.services.register(audio, AudioManager, replace=True)
+        world.services.register(audio, IAudioProvider, replace=True)
         world.services.register(skill_service, SkillService, replace=True)
 
         system = HungerSystem()
@@ -255,11 +256,12 @@ class TestProcessConsumption:
 
     def test_consumption_plays_sound(self, setup_world):
         """Eating plays 'eat' sound."""
+        from yukkuri_game.engine.protocols import IAudioProvider
         data = setup_world
         world = data["world"]
 
-        audio = MagicMock(spec=AudioManager)
-        world.services.register(audio, AudioManager)
+        audio = MagicMock(spec=IAudioProvider)
+        world.services.register(audio, IAudioProvider)
 
         system = HungerSystem()
         request = InteractionRequest(target_id=data["item_id"], consume=True)

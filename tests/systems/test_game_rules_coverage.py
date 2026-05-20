@@ -28,8 +28,9 @@ def game_rules_env():
     economy.money = 1000
     world.services.register(economy, EconomyService)
 
-    audio = Mock(spec=AudioManager)
-    world.services.register(audio, AudioManager)
+    from yukkuri_game.engine.protocols import IAudioProvider
+    audio = Mock(spec=IAudioProvider)
+    world.services.register(audio, IAudioProvider)
 
     event_bus = world.services.get(EventBus)
     return world, system, event_bus, economy, audio

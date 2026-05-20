@@ -62,7 +62,8 @@ class TestInputSystem(unittest.TestCase):
             return None
 
         def try_get_service(service_type: type) -> object:
-            if service_type == AudioManager:
+            from yukkuri_game.engine.protocols import IAudioProvider
+            if service_type in (AudioManager, IAudioProvider):
                 return self.audio_mock
             if service_type == InputManager:
                 return self.input_manager_mock

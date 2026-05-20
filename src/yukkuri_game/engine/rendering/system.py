@@ -3,6 +3,7 @@ Rendering System Module.
 """
 
 from typing import Optional
+from typing import Any
 
 import pygame
 
@@ -33,7 +34,7 @@ class RenderingSystem(System):
         screen: pygame.Surface,
         world: World,
         pipeline: Optional[RenderPipeline] = None,
-        lights_engine: Optional[any] = None,
+        lights_engine: Optional[Any] = None,
     ) -> None:
         self.screen = screen
         self.backend = PygameBackend(screen, lights_engine=lights_engine)

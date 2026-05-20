@@ -19,3 +19,10 @@ class ConfigError(GameEngineError):
     """Raised when configuration data is invalid or missing."""
 
     pass
+
+
+class CycleDependencyError(GameEngineError):
+    """Raised when a dependency cycle is detected in the system scheduler."""
+
+    pass
+

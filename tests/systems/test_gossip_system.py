@@ -26,10 +26,11 @@ from yukkuri_game.engine.systems.spatial import SpatialService
 from yukkuri_game.engine.systems.physics import PhysicsSystem
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.config import GameConfig
+from yukkuri_game.engine.protocols import IPhysicsService, ISpatialService
 
 
 class TestGossipSystem:
-    """Tests for GossipSystem logic."""
+    """Consolidated unit tests for the GossipSystem."""
 
     @pytest.fixture
     def event_bus(self):
@@ -37,32 +38,25 @@ class TestGossipSystem:
 
     @pytest.fixture
     def system(self, event_bus):
+        """Fixture to create and initialize the GossipSystem."""
         sys = GossipSystem()
-        world = MagicMock(spec=World)
-        world.services = MagicMock()
+        # Initialize with a dummy World that has the expected services
+        world = World()
+        world.services.register(event_bus, EventBus)
+        config = MagicMock(spec=GameConfig)
+        config.rules.social.max_gossip_length = 10
+        world.services.register(config, GameConfig)
 
-        game_config = MagicMock(spec=GameConfig)
-        game_config.rules = MagicMock()
-        game_config.rules.social = MagicMock()
-        game_config.rules.social.max_gossip_length = 10
-
-        def mock_service_get(t):
-            if t == EventBus:
-                return event_bus
-            if t == GameConfig:
-                return game_config
-            return None
-
-        world.services.get.side_effect = lambda t: event_bus if t == EventBus else None
-        world.services.try_get.side_effect = mock_service_get
-        sys.ecs_world = world
-        sys.initialize()
+        world.add_system(sys)
         return sys
 
     @pytest.fixture
     def mock_world(self, system):
         world = system.ecs_world
         world.services = MagicMock()
+        world.try_get_component = MagicMock()
+        world.has_component = MagicMock()
+        world.entity_exists = MagicMock()
 
         physics = MagicMock(spec=PhysicsSystem)
         physics.space = MagicMock(spec=pymunk.Space)
@@ -77,7 +71,9 @@ class TestGossipSystem:
 
         service_map = {
             PhysicsSystem: physics,
+            IPhysicsService: physics,
             SpatialService: spatial_service,
+            ISpatialService: spatial_service,
             TraitService: trait_service,
             GameConfig: game_config,
         }
@@ -309,15 +305,15 @@ class TestGossipExchangeIntegrity:
 
     def test_gossip_exchange_no_duplicates(self):
         """Ensure duplicate packets are not added when sharing gossip multiple times."""
-        from yukkuri_game.engine.audio import AudioManager
+        from yukkuri_game.engine.protocols import IAudioProvider
         from yukkuri_game.game.systems.social_system import SocialSystem
         from yukkuri_game.game.systems.interaction_system import InteractionSystem
         from yukkuri_game.game.skill_service import SkillService
 
         world = make_configured_world()
 
-        audio_manager = MagicMock(spec=AudioManager)
-        world.services.register(audio_manager, AudioManager)
+        audio_manager = MagicMock(spec=IAudioProvider)
+        world.services.register(audio_manager, IAudioProvider)
 
         trait_service = MagicMock(spec=TraitService)
         trait_service.get_interaction.return_value = {

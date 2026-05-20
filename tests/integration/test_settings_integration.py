@@ -81,7 +81,8 @@ class TestSettingsIntegration(unittest.TestCase):
     def _service_locator(self, service_type):
         if service_type == SettingsService:
             return self.settings_service
-        if service_type == AudioManager:
+        from yukkuri_game.engine.protocols import IAudioProvider
+        if service_type in (AudioManager, IAudioProvider):
             return self.audio_manager
         return None
 

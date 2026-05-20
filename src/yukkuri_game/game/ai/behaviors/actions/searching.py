@@ -24,7 +24,7 @@ from ...navigation_service import NavigationService
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
-    from yukkuri_game.engine.systems.spatial import SpatialService
+    from yukkuri_game.engine.protocols import ISpatialService
 
 
 class FindItem(Action):
@@ -138,9 +138,9 @@ class FindLightSource(Action):
         if ai.manual_override and ai.current_target_id != -1:
             return Status.SUCCESS
 
-        # Lazy load SpatialService
-        from yukkuri_game.engine.systems.spatial import SpatialService
-        spatial_service = self.world.services.try_get(SpatialService)
+        # Lazy load ISpatialService
+        from yukkuri_game.engine.protocols import ISpatialService
+        spatial_service = self.world.services.try_get(ISpatialService)
 
         if not spatial_service:
             return Status.FAILURE
@@ -181,7 +181,7 @@ class FindPrey(Action):
             blackboard (Any | None): The blackboard.
         """
         super().__init__(name, entity_id, world, blackboard)
-        self.spatial_service: Optional["SpatialService"] = None
+        self.spatial_service: Optional["ISpatialService"] = None
 
     def update(self) -> Status:
         super().update()
@@ -198,11 +198,11 @@ class FindPrey(Action):
         if ai.manual_override and ai.current_target_id != -1:
             return Status.SUCCESS
 
-        # Lazy load SpatialService
+        # Lazy load ISpatialService
         if self.spatial_service is None:
-            from yukkuri_game.engine.systems.spatial import SpatialService
+            from yukkuri_game.engine.protocols import ISpatialService
 
-            self.spatial_service = self.world.services.try_get(SpatialService)
+            self.spatial_service = self.world.services.try_get(ISpatialService)
 
         candidates: list[tuple[int, float]] = []
 
@@ -359,9 +359,9 @@ class FindSocialTarget(Action):
         if ai.manual_override and ai.current_target_id != -1:
             return Status.SUCCESS
 
-        # Lazy load SpatialService
-        from yukkuri_game.engine.systems.spatial import SpatialService
-        spatial_service = self.world.services.try_get(SpatialService)
+        # Lazy load ISpatialService
+        from yukkuri_game.engine.protocols import ISpatialService
+        spatial_service = self.world.services.try_get(ISpatialService)
 
         if not spatial_service:
             return Status.FAILURE

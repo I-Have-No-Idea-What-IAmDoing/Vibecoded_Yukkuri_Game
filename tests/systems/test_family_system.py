@@ -267,7 +267,7 @@ def test_benefits_with_spatial_service(world, family_system):
     """Test benefits logic when SpatialService is available (optimization path)."""
 
     spatial_service = MockSpatialService()
-    world.services.register(SpatialService, spatial_service)
+    world.services.register(spatial_service, SpatialService)
 
     # Entity 1
     e1 = world.create_entity()

@@ -26,7 +26,7 @@ from yukkuri_game.engine.components import (
     Transform,
     VisualTransform,
 )
-from yukkuri_game.engine.systems.physics import PhysicsSystem
+from yukkuri_game.engine.protocols import IPhysicsService
 from ..utils.animation_helpers import build_animator_from_data
 
 
@@ -47,7 +47,7 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         ValueError: If the item type is unknown.
     """
     rm = world.services.get(ResourceManager)
-    physics_system = world.services.try_get(PhysicsSystem)
+    physics_system = world.services.try_get(IPhysicsService)
 
     data = rm.item_types.get(type_id)
     if not data:
@@ -190,7 +190,7 @@ def create_poop(world: World, x: float, y: float) -> int:
     Returns:
         int: The created entity ID.
     """
-    physics_system = world.services.try_get(PhysicsSystem)
+    physics_system = world.services.try_get(IPhysicsService)
 
     entity = world.create_entity()
     world.add_component(entity, Transform(x=x, y=y))

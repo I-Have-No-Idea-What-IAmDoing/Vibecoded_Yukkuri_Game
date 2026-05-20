@@ -1,4 +1,0 @@
-"""
-Legacy Physics System Redirect.
-"""
-

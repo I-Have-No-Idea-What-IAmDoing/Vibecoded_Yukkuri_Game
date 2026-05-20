@@ -1,4 +1,0 @@
-"""
-Legacy LOD System Redirect.
-"""
-

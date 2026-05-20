@@ -26,6 +26,8 @@ from yukkuri_game.engine.components import (
     Velocity,
 )
 
+from yukkuri_game.game.systems.visual_movement_system import VisualMovementSystem
+
 
 class SpatialService:
     """
@@ -182,8 +184,8 @@ class SpatialService:
     def raycast(
         self, world: World, start_x: float, start_y: float, end_x: float, end_y: float, shape_filter: pymunk.ShapeFilter | None = None, exclude_id: int = -1
     ) -> tuple[int, float, float] | None:
-        from .physics import PhysicsSystem
-        physics_system = world.services.try_get(PhysicsSystem)
+        from yukkuri_game.engine.protocols import IPhysicsService
+        physics_system = world.services.try_get(IPhysicsService)
         if not physics_system or not physics_system.space:
             return None
         start_pos = (start_x, start_y)
@@ -221,7 +223,10 @@ class OccluderMap(SpatialService):
     pass
 
 
+
 class SpatialSystem(System):
+    run_after = [VisualMovementSystem]
+
     """
     System responsible for keeping the SpatialService updated with entity positions.
     """
@@ -241,8 +246,12 @@ class SpatialSystem(System):
         self.height = height
         self.sector_size = sector_size
         
-        self.spatial_service: SpatialService | None = None
-        self.occluder_map: OccluderMap | None = None
+        self.spatial_service = SpatialService(
+            width, height, sector_size
+        )
+        self.occluder_map = OccluderMap(
+            width, height, sector_size
+        )
         self.event_bus = event_bus
         self._subscribed = False
         self._new_entities: set[int] = set()
@@ -304,25 +313,33 @@ class SpatialSystem(System):
 
     def _ensure_services(self, world: World) -> None:
         """Ensures that SpatialService and OccluderMap are created and registered."""
-        if self.spatial_service is None:
-            self.spatial_service = world.services.try_get(SpatialService)
-            if self.spatial_service is None:
-                self.spatial_service = SpatialService(self.width, self.height, self.sector_size)
-                # Only register if not already there (even if it was None, we replace it)
-                world.services.register(self.spatial_service, SpatialService, replace=True)
-            self.spatial_service.body_to_entity = self.body_to_entity
+        from yukkuri_game.engine.protocols import ISpatialService
+        registered = world.services.try_get(ISpatialService)
+        if registered is not None:
+            self.spatial_service = registered
+        else:
+            world.services.register(
+                self.spatial_service, ISpatialService, replace=True
+            )
+        self.spatial_service.body_to_entity = self.body_to_entity
         
-        if self.occluder_map is None:
-            self.occluder_map = world.services.try_get(OccluderMap)
-            if self.occluder_map is None:
-                self.occluder_map = OccluderMap(self.width, self.height, self.sector_size)
-                world.services.register(self.occluder_map, OccluderMap, replace=True)
+        registered_occluder = world.services.try_get(OccluderMap)
+        if registered_occluder is not None:
+            self.occluder_map = registered_occluder
+        else:
+            world.services.register(
+                self.occluder_map, OccluderMap, replace=True
+            )
 
     def update(self, world: World, dt: float) -> None:
         if not self._subscribed:
             self._lazy_init(world)
 
         self._ensure_services(world)
+        spatial_service = self.spatial_service
+        occluder_map = self.occluder_map
+        assert spatial_service is not None
+        assert occluder_map is not None
 
         # If no event bus, we can't rely on ComponentAddedEvent, so we must full scan.
         # This is primarily for simplified unit tests.
@@ -330,9 +347,9 @@ class SpatialSystem(System):
 
         if self._first_run or force_full_scan:
             for entity, (transform,) in world.get_components_tuple(Transform):
-                self.spatial_service.update_entity(entity, transform.x, transform.y)
+                spatial_service.update_entity(entity, transform.x, transform.y)
                 if world.has_component(entity, Occluder):
-                    self.occluder_map.update_entity(entity, transform.x, transform.y)
+                    occluder_map.update_entity(entity, transform.x, transform.y)
             self._first_run = False
             self._new_entities.clear()
         
@@ -340,9 +357,9 @@ class SpatialSystem(System):
             for entity in self._new_entities:
                 transform = world.try_get_component(entity, Transform)
                 if transform:
-                    self.spatial_service.update_entity(entity, transform.x, transform.y)
+                    spatial_service.update_entity(entity, transform.x, transform.y)
                     if world.has_component(entity, Occluder):
-                        self.occluder_map.update_entity(entity, transform.x, transform.y)
+                        occluder_map.update_entity(entity, transform.x, transform.y)
             self._new_entities.clear()
 
         self._processed_entities.clear()
@@ -352,9 +369,9 @@ class SpatialSystem(System):
                 return
             self._processed_entities.add(entity)
             if transform.x != transform.prev_x or transform.y != transform.prev_y:
-                self.spatial_service.update_entity(entity, transform.x, transform.y)
+                spatial_service.update_entity(entity, transform.x, transform.y)
                 if world.has_component(entity, Occluder):
-                    self.occluder_map.update_entity(entity, transform.x, transform.y)
+                    occluder_map.update_entity(entity, transform.x, transform.y)
 
         for ent, (t, _) in world.get_components_tuple(Transform, Velocity):
             check_and_update(ent, t)

@@ -2,10 +2,12 @@
 Shadow Pass.
 """
 
-from ....renderer.constants import RenderConstants
-from ....renderer.commands import ShadowCommand
-from yukkuri_game.engine.components import Flight, Sprite, VisualTransform
-from ..context import RenderContext
+from yukkuri_game.engine.renderer.constants import RenderConstants
+from yukkuri_game.engine.renderer.commands import ShadowCommand
+from yukkuri_game.engine.components import Flight
+from yukkuri_game.engine.components import Sprite
+from yukkuri_game.engine.components import VisualTransform
+from yukkuri_game.game.systems.rendering.context import RenderContext
 
 
 LAYER_SHADOWS = 1

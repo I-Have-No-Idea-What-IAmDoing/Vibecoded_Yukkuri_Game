@@ -31,7 +31,8 @@ def game_rules_world():
     event_bus = EventBus()  # Use real EventBus to check subscriptions if needed, or mock if we check published events.
     # The system subscribes in __init__.
 
-    audio = MagicMock(spec=AudioManager)
+    from yukkuri_game.engine.protocols import IAudioProvider
+    audio = MagicMock(spec=IAudioProvider)
 
     # register(instance, service_type=Type)
     world.services.register(economy, EconomyService)
@@ -39,7 +40,7 @@ def game_rules_world():
     world.services.register(persistence, SaveManager)
     world.services.register(factory, EntityFactory)
     world.services.register(event_bus, EventBus)
-    world.services.register(audio, AudioManager)
+    world.services.register(audio, IAudioProvider)
 
     return world, economy, time_svc, persistence, factory, event_bus
 
