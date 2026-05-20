@@ -72,6 +72,7 @@ def persistence_world() -> MagicMock:
     # But we can't easily mock world methods unless we mock the world object
     # So let's use a mock world
     mock_world = MagicMock(spec=World)
+    mock_world.commands = MagicMock()
     mock_world.services = MagicMock()
     mock_world.get_all_entities.return_value = []
     mock_world.get_entities_with.return_value = []

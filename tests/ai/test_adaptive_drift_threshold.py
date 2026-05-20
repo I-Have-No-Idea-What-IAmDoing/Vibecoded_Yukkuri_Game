@@ -63,6 +63,10 @@ class TestAdaptiveDrift(unittest.TestCase):
             # Move target 40px (DistSq 1600 < 2500) -> No Repath
             target_trans.x = 140
             action.update()
+            try:
+                action.world.commands.apply_all()
+            except AttributeError:
+                pass
             self.assertIsNotNone(
                 ai.path,
                 "Slow target, drift 40px should not trigger repath (Threshold 50px)",
@@ -80,6 +84,10 @@ class TestAdaptiveDrift(unittest.TestCase):
             self.time_service.time_elapsed = 10.0
 
             action.update()
+            try:
+                action.world.commands.apply_all()
+            except AttributeError:
+                pass
             self.assertIsNone(
                 ai.path,
                 "Fast target, drift 30px should trigger repath (Threshold ~20px)",

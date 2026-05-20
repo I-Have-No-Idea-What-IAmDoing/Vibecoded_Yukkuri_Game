@@ -55,7 +55,7 @@ class Idle(Action):
 
         # Remove any lingering MoveCommands that would override our stop
         if self.world.has_component(self.entity_id, MoveCommand):
-            self.world.remove_component(self.entity_id, MoveCommand)
+            self.world.commands.remove_component(self.entity_id, MoveCommand)
 
         # Also clear path to prevent resumption of path following
         ai = self.world.try_get_component(self.entity_id, AIState)

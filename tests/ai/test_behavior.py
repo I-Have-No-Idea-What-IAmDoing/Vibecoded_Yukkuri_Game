@@ -50,6 +50,10 @@ def test_movetotarget_reaches_target(world_and_entity):
 
     for _ in range(20):  # Increased steps just in case
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
         
         # Simulate NavigationSystem
         nav = world.services.get(NavigationService)
@@ -98,6 +102,10 @@ def test_movetotarget_stops_when_done(world_and_entity):
 
     action = MoveToTarget(entity_id=entity_id, world=world)
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
 
     assert status == Status.SUCCESS
     controller = world.get_component(entity_id, MovementController)
@@ -115,6 +123,10 @@ def test_movetotarget_slows_down_when_low_energy(world_and_entity):
 
     action = MoveToTarget(entity_id=entity_id, world=world, speed=100.0)
     action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
 
     from yukkuri_game.game.components import MoveCommand
     assert world.has_component(entity_id, MoveCommand)
@@ -152,6 +164,10 @@ def test_movetotarget_falls_back_to_direct_movement_if_no_path(world_and_entity)
 
     action = MoveToTarget(entity_id=entity_id, world=world, speed=100.0)
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
 
     # Should be RUNNING (attempting direct movement), not FAILURE
     # Should be RUNNING (attempting direct movement), not FAILURE
@@ -167,6 +183,10 @@ def test_movetotarget_falls_back_to_direct_movement_if_no_path(world_and_entity)
             
     # Update again to trigger fallback
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
     assert status == Status.RUNNING
     
     # Check that a MoveCommand was issued (new architecture)

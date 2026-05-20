@@ -25,7 +25,9 @@ from yukkuri_game.game.services import GameService
 class TestMoveToTarget:
     @pytest.fixture
     def mock_world(self):
-        return MagicMock(spec=World)
+        m = MagicMock(spec=World)
+        m.commands = MagicMock()
+        return m
 
     @pytest.fixture
     def mock_blackboard(self):
@@ -37,6 +39,10 @@ class TestMoveToTarget:
         mock_world.try_get_component.side_effect = lambda e, c: None
 
         assert action.update() == Status.FAILURE
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
 
     def test_move_reached_target(self, mock_world, mock_blackboard):
         action = MoveToTarget(entity_id=1, world=mock_world, blackboard=mock_blackboard)
@@ -70,6 +76,10 @@ class TestMoveToTarget:
         with patch("py_trees.blackboard.Blackboard") as mock_bb:
             mock_bb.return_value.get.return_value = 0.1
             status = action.update()
+            try:
+                action.world.commands.apply_all()
+            except AttributeError:
+                pass
 
         assert status == Status.SUCCESS
 
@@ -117,6 +127,10 @@ class TestMoveToTarget:
         with patch("py_trees.blackboard.Blackboard") as mock_bb:
             mock_bb.return_value.get.return_value = 0.1
             status = action.update()
+            try:
+                action.world.commands.apply_all()
+            except AttributeError:
+                pass
 
         assert status == Status.RUNNING
         # Async implementation: request_path is called, path will be set later by NavigationSystem
@@ -128,6 +142,7 @@ class TestMoveToTarget:
 class TestInteract:
     def test_interact_success(self) -> None:
         world = MagicMock(spec=World)
+        world.commands = MagicMock()
         action = Interact(entity_id=1, world=world)
 
         ai = MagicMock(current_target_id=2)
@@ -149,11 +164,16 @@ class TestInteract:
         world.has_component.return_value = False  # No existing interaction request
 
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
         assert status == Status.SUCCESS
-        world.add_component.assert_called()
+        world.commands.add_component.assert_called()
 
     def test_interact_too_far(self) -> None:
         world = MagicMock(spec=World)
+        world.commands = MagicMock()
         action = Interact(entity_id=1, world=world)
 
         ai = MagicMock(current_target_id=2)
@@ -174,15 +194,21 @@ class TestInteract:
         world.try_get_component.side_effect = get_component
 
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
         assert status == Status.RUNNING
 
 
 class TestBehaviorBuilders:
     @pytest.fixture
     def mock_args(self):
+        m = MagicMock(spec=World)
+        m.commands = MagicMock()
         return {
             "entity_id": 1,
-            "world": MagicMock(spec=World),
+            "world": m,
             "width": 1000,
             "height": 1000,
             "check_goal_fn": MagicMock(return_value=True),
@@ -237,6 +263,7 @@ class TestBehaviorBuilders:
 class TestFindItem:
     def test_find_item_success(self) -> None:
         world = MagicMock(spec=World)
+        world.commands = MagicMock()
         action = FindItem(
             name="Find", entity_id=1, world=world, stat_criteria="nutrition"
         )
@@ -260,6 +287,10 @@ class TestFindItem:
         world.services.try_get.return_value = game_service
 
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
 
         assert status == Status.SUCCESS
         assert ai.current_target_id == 2
@@ -267,6 +298,7 @@ class TestFindItem:
 
     def test_find_item_failure(self) -> None:
         world = MagicMock(spec=World)
+        world.commands = MagicMock()
         action = FindItem(
             name="Find", entity_id=1, world=world, stat_criteria="nutrition"
         )
@@ -290,5 +322,9 @@ class TestFindItem:
         world.services.try_get.return_value = game_service
 
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
 
         assert status == Status.FAILURE

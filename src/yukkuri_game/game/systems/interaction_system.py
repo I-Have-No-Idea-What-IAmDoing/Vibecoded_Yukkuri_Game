@@ -91,7 +91,7 @@ class InteractionSystem(System):
 
             # Remove request only if handled
             if handled and world.has_component(entity, InteractionRequest):
-                world.remove_component(entity, InteractionRequest)
+                world.commands.remove_component(entity, InteractionRequest)
 
     def _check_predation_allowed(self, world: World, entity: int) -> bool:
         """
@@ -239,7 +239,7 @@ class InteractionSystem(System):
             if self.audio:
                 self.audio.play_sound("eat")
 
-            world.destroy_entity(prey_id)
+            world.commands.destroy_entity(prey_id)
 
             # Clear AI Target if it fits
             ai = world.try_get_component(predator_id, AIState)

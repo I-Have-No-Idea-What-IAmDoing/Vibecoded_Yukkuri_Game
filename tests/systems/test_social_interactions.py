@@ -10,11 +10,9 @@ from yukkuri_game.game.components import (
 )
 from yukkuri_game.game.components import InteractionRequest
 from yukkuri_game.engine.components import Transform
-from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.audio import AudioManager
 from yukkuri_game.game.systems.social_system import SocialSystem
 from yukkuri_game.game.systems.interaction_system import InteractionSystem
-from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.game.trait_service import TraitService
 from yukkuri_game.game.skill_service import SkillService
 
@@ -119,6 +117,7 @@ class TestSocialInteractions(unittest.TestCase):
 
         # Use interaction system to process request
         self.interaction_system.update(self.world, 0.1)
+        self.world.commands.apply_all()
 
         # Verify stats changes
         self.assertAlmostEqual(self.emo1.happiness, 55.0)
@@ -141,6 +140,7 @@ class TestSocialInteractions(unittest.TestCase):
             self.yukkuri1, InteractionRequest(target_id=self.yukkuri2, action="Fight")
         )
         self.interaction_system.update(self.world, 0.1)
+        self.world.commands.apply_all()
 
         # Verify stats changes
         self.assertLess(self.needs1.health, 100.0)
@@ -151,6 +151,7 @@ class TestSocialInteractions(unittest.TestCase):
             self.yukkuri1, InteractionRequest(target_id=self.yukkuri2, action="Dance")
         )
         self.interaction_system.update(self.world, 0.1)
+        self.world.commands.apply_all()
 
         self.assertGreater(self.emo1.happiness, 50.0)
         self.assertGreater(self.emo2.happiness, 50.0)

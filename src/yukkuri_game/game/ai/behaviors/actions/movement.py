@@ -100,7 +100,7 @@ class MoveToTarget(Action):
                 ai.current_target_id = cast(EntityID, -1)
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 if self.world.has_component(self.entity_id, MoveCommand):
-                    self.world.remove_component(self.entity_id, MoveCommand)
+                    self.world.commands.remove_component(self.entity_id, MoveCommand)
                 return Status.FAILURE
         elif (
             ai.state_data
@@ -114,7 +114,7 @@ class MoveToTarget(Action):
         if target_pos is None:
             controller.target_velocity = pymunk.Vec2d(0, 0)
             if self.world.has_component(self.entity_id, MoveCommand):
-                self.world.remove_component(self.entity_id, MoveCommand)
+                self.world.commands.remove_component(self.entity_id, MoveCommand)
             return Status.FAILURE
 
         current_pos = pymunk.Vec2d(trans.x, trans.y)
@@ -155,7 +155,7 @@ class MoveToTarget(Action):
                     controller.target_velocity = pymunk.Vec2d(0, 0)
                     ai.path = None
                     if self.world.has_component(self.entity_id, MoveCommand):
-                        self.world.remove_component(self.entity_id, MoveCommand)
+                        self.world.commands.remove_component(self.entity_id, MoveCommand)
 
                     return Status.SUCCESS
 
@@ -163,7 +163,7 @@ class MoveToTarget(Action):
                 if needs.energy < 30:
                     speed_modifier = 0.5
 
-                self.world.add_component(
+                self.world.commands.add_component(
                     self.entity_id,
                     MoveCommand(
                         target_pos=target_pos,
@@ -186,7 +186,7 @@ class MoveToTarget(Action):
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 ai.path = None
                 if self.world.has_component(self.entity_id, MoveCommand):
-                    self.world.remove_component(self.entity_id, MoveCommand)
+                    self.world.commands.remove_component(self.entity_id, MoveCommand)
 
                 return Status.SUCCESS
 
@@ -286,14 +286,14 @@ class MoveToTarget(Action):
                 if dist < self.acceptance_radius:
                     controller.target_velocity = pymunk.Vec2d(0, 0)
                     if self.world.has_component(self.entity_id, MoveCommand):
-                        self.world.remove_component(self.entity_id, MoveCommand)
+                        self.world.commands.remove_component(self.entity_id, MoveCommand)
                     return Status.SUCCESS
 
                 speed_modifier = 1.0
                 if needs.energy < 30:
                     speed_modifier = 0.5
 
-                self.world.add_component(
+                self.world.commands.add_component(
                     self.entity_id,
                     MoveCommand(
                         target_pos=target_pos,
@@ -328,7 +328,7 @@ class MoveToTarget(Action):
 
                 next_point = pymunk.Vec2d(*ai.path[0])
 
-                self.world.add_component(
+                self.world.commands.add_component(
                     self.entity_id,
                     MoveCommand(
                         target_pos=next_point,
@@ -342,7 +342,7 @@ class MoveToTarget(Action):
                 return Status.RUNNING
 
         if self.world.has_component(self.entity_id, MoveCommand):
-            self.world.remove_component(self.entity_id, MoveCommand)
+            self.world.commands.remove_component(self.entity_id, MoveCommand)
 
         current_pos = pymunk.Vec2d(trans.x, trans.y)
         dist_to_final = (target_pos - current_pos).length
@@ -541,7 +541,7 @@ class FleePredator(Action):
 
                 # Critical: Remove conflicting MoveCommands so SteeringSystem doesn't override us
                 if self.world.has_component(self.entity_id, MoveCommand):
-                    self.world.remove_component(self.entity_id, MoveCommand)
+                    self.world.commands.remove_component(self.entity_id, MoveCommand)
 
                 return Status.RUNNING
 

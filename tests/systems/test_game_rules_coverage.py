@@ -55,6 +55,7 @@ def test_sell_yukkuri(game_rules_env):
 
     # Trigger Sell
     event_bus.publish(SellEntityRequest(entity))
+    world.commands.apply_all()
 
     # Verify
     economy.add_money.assert_called_once()

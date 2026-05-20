@@ -113,6 +113,7 @@ def test_process_dismount_find_spot(world, hierarchy_system, physics_space):
 
     # Run update
     hierarchy_system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Should have moved away from (0,0)
     assert (trans.x, trans.y) != (0, 0)
@@ -154,6 +155,7 @@ def test_process_dismount_timeout(world, hierarchy_system, physics_space):
 
     try:
         hierarchy_system.update(world, 0.1)
+        world.commands.apply_all()
 
         # Should have forced dismount via emergency teleport
         # Emergency teleport attempts to find spot near (0,0) or defaults to (0,0)

@@ -79,6 +79,7 @@ def test_game_rules_sell_yukkuri(game_rules_world) -> None:
     expected_value = 800
 
     value = system.sell_yukkuri(yukkuri)
+    world.commands.apply_all()
 
     assert value == expected_value
     assert economy.money == initial_money + expected_value

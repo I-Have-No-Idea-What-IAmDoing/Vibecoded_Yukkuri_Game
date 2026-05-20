@@ -71,6 +71,7 @@ class TestFeedbackSystem:
 
         # Update for another 0.6 seconds (lifetime expires)
         feedback_system.update(mock_world, 0.6)
+        mock_world.commands.apply_all()
 
         assert text_comp.lifetime < 0
         assert not mock_world.entity_exists(entity_id)

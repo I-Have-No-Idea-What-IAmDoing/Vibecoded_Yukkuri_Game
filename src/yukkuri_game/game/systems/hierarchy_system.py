@@ -302,7 +302,7 @@ class HierarchySystem(System):
                     to_remove.append(entity)
 
         for ent in to_remove:
-            world.remove_component(ent, PendingDismount)
+            world.commands.remove_component(ent, PendingDismount)
 
     def _emergency_teleport(
         self, space: pymunk.Space, phys: PhysicsBody, trans: Transform

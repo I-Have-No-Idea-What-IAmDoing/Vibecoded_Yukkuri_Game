@@ -55,6 +55,10 @@ class TestMoveToTargetDrift(unittest.TestCase):
 
             # 1. Update with target at (100,0) - No Drift (Dest matches target)
             status = action.update()
+            try:
+                action.world.commands.apply_all()
+            except AttributeError:
+                pass
             self.assertEqual(status, Status.RUNNING)
             self.assertIsNotNone(ai.path)  # Should keep path
             self.assertFalse(ai.state_data.get("pursuit_repath", False))
@@ -66,6 +70,10 @@ class TestMoveToTargetDrift(unittest.TestCase):
             self.time_service.time_elapsed = 10.0
 
             status = action.update()
+            try:
+                action.world.commands.apply_all()
+            except AttributeError:
+                pass
 
             # Expect path cleared and pursuit_repath set
             self.assertEqual(status, Status.RUNNING)
@@ -78,6 +86,10 @@ class TestMoveToTargetDrift(unittest.TestCase):
 
             # To verify priority, we need to inspect the mock call
             status = action.update()
+            try:
+                action.world.commands.apply_all()
+            except AttributeError:
+                pass
             self.assertEqual(status, Status.RUNNING)
             self.assertTrue(ai.state_data["path_requesting"])
 

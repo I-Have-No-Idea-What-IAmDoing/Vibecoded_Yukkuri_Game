@@ -145,6 +145,10 @@ class TestPredatorMovingTarget(unittest.TestCase):
                 self.visibility_system.update(self.world, dt)
 
                 status = move_action.update()
+                try:
+                    move_action.world.commands.apply_all()
+                except AttributeError:
+                    pass
 
                 self.nav_system.update(self.world, dt)
                 self.nav_update_system.update(self.world, dt)

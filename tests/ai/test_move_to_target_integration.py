@@ -52,6 +52,10 @@ class TestPathfindingRobustness(unittest.TestCase):
         ai.path = [(50, 0), (100, 0)]
 
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
         self.assertEqual(status, py_trees.common.Status.RUNNING)
 
         # MoveToTarget now adds a MoveCommand instead of setting velocity directly

@@ -301,6 +301,10 @@ class TestFleePredatorBehavior:
 
         action = FleePredator(entity_id=prey, world=world)
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
 
         assert status == Status.FAILURE, (
             "FleePredator MUST return FAILURE when safe to allow Normal Behavior to run"
@@ -321,6 +325,10 @@ class TestFleePredatorBehavior:
 
         action = FleePredator(entity_id=prey, world=world)
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
 
         assert status == Status.RUNNING, "FleePredator should RUNNING when fleeing"
 

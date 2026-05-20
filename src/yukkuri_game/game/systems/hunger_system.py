@@ -205,7 +205,7 @@ class HungerSystem(System):
                 self.audio.play_sound("eat")
 
             # Remove item from world (consumed)
-            world.destroy_entity(item_id)
+            world.commands.destroy_entity(item_id)
 
             # Clear AI target reference to prevent stale target pursuit
             ai = world.try_get_component(consumer_id, AIState)

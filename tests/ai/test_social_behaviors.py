@@ -51,6 +51,10 @@ class TestSocialBehaviors(unittest.TestCase):
 
         action = FindSocialTarget("Find Friend", self.entity_id, self.world, criteria="friend")
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
 
         self.assertEqual(status, Status.SUCCESS)
         self.assertEqual(self.ai.current_target_id, friend_id)
@@ -73,6 +77,10 @@ class TestSocialBehaviors(unittest.TestCase):
 
         action = FindSocialTarget("Find Enemy", self.entity_id, self.world, criteria="enemy")
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
 
         self.assertEqual(status, Status.SUCCESS)
         self.assertEqual(self.ai.current_target_id, enemy_id)
@@ -94,6 +102,10 @@ class TestSocialBehaviors(unittest.TestCase):
 
         action = FindSocialTarget("Find Any", self.entity_id, self.world, criteria="any")
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
 
         self.assertEqual(status, Status.SUCCESS)
         self.assertEqual(self.ai.current_target_id, enemy_id) # Should pick closest
@@ -110,6 +122,10 @@ class TestSocialBehaviors(unittest.TestCase):
 
         action = FindSocialTarget("Find Friend", self.entity_id, self.world, criteria="friend")
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
 
         self.assertEqual(status, Status.FAILURE)
 

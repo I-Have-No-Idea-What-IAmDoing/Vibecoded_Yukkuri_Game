@@ -173,6 +173,10 @@ class TestFleePredator:
         action = FleePredator(entity_id=prey, world=world)
 
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
 
         assert status == Status.RUNNING
         # Should flee left (negative X)
@@ -193,6 +197,10 @@ class TestFleePredator:
 
         action = FleePredator(entity_id=prey, world=world)
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
         # FleePredator returns FAILURE when safe so behavior tree continues to Normal Behavior
         assert status == Status.FAILURE
 

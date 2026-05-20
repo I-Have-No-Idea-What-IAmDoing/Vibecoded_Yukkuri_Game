@@ -11,7 +11,6 @@ from yukkuri_game.game.components import (
 )
 from yukkuri_game.engine.components import Sprite, Transform
 from yukkuri_game.config import LifecycleSettings
-from yukkuri_game.engine.ecs import World
 
 _TEST_LIFECYCLE_SETTINGS = LifecycleSettings(
     baby_age_threshold=100.0,
@@ -46,6 +45,7 @@ def test_handle_death(lifecycle_system, world):
 
     # Run
     lifecycle_system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Verify
     assert world.has_component(entity, Dead)

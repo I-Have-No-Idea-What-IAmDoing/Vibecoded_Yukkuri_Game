@@ -81,7 +81,7 @@ class SteeringSystem(System):
 
         for entity_id, (trans, movement, steering, phys, move_cmd) in move_cmd_entities:
             if move_cmd.expiration > 0 and current_time > move_cmd.expiration:
-                world.remove_component(entity_id, MoveCommand)
+                world.commands.remove_component(entity_id, MoveCommand)
                 movement.target_velocity = pymunk.Vec2d(0, 0)
                 continue
 
@@ -96,7 +96,7 @@ class SteeringSystem(System):
                 if target_trans:
                     target_pos = pymunk.Vec2d(target_trans.x, target_trans.y)
                 else:
-                    world.remove_component(entity_id, MoveCommand)
+                    world.commands.remove_component(entity_id, MoveCommand)
                     movement.target_velocity = pymunk.Vec2d(0, 0)
                     continue
 
@@ -104,7 +104,7 @@ class SteeringSystem(System):
             dist = to_target.length
 
             if dist < steering.arrival_radius:  # Close enough: stop.
-                world.remove_component(entity_id, MoveCommand)
+                world.commands.remove_component(entity_id, MoveCommand)
                 movement.target_velocity = pymunk.Vec2d(0, 0)
                 continue
 

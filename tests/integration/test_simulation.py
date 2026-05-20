@@ -196,6 +196,7 @@ def test_simulation_action_eat(
     needs = world.get_component(yukkuri, Needs)
 
     behavior_system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Behavior adds InteractionRequest. Now run InteractionSystem.
     # Updated: Need HungerSystem for food
@@ -212,6 +213,7 @@ def test_simulation_action_eat(
 
     # InteractionSystem runs cleanup/other interactions
     interaction_system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Check if item consumed
     assert not world.entity_exists(item)

@@ -20,6 +20,7 @@ class TestSteeringMoveCommand:
     def world(self):
         w = MagicMock(spec=World)
         w.services = MagicMock()
+        w.commands = MagicMock()
         w.try_get_component.return_value = None
         return w
 
@@ -80,7 +81,7 @@ class TestSteeringMoveCommand:
         system.update(world, dt=0.1)
 
         # Verify MoveCommand is removed
-        world.remove_component.assert_called_once_with(entity_id, MoveCommand)
+        world.commands.remove_component.assert_called_once_with(entity_id, MoveCommand)
         # Verify velocity zeroed (or near zero depending on logic, here explicitly zeroed in code)
         assert movement.target_velocity == pymunk.Vec2d(0, 0)
 

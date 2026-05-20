@@ -60,6 +60,66 @@ def ensure_context(func: Callable) -> Callable:
         return func(self, *args, **kwargs)
     return wrapper
 
+
+class CommandBuffer:
+    """
+    Buffers ECS mutations to be applied at a safe time (e.g., end of frame).
+    
+    This prevents undefined behavior caused by adding/removing components
+    or entities while a system is actively iterating over them.
+    """
+
+    def __init__(self, world: "World") -> None:
+        self._world = world
+        self._commands: list[Callable[[], None]] = []
+
+    def create_entity(self, *components: Any) -> int:
+        """
+        Pre-allocates an entity ID immediately and queues the addition of its components.
+
+        Returns:
+            int: The ID of the newly created entity.
+        """
+        # Pre-allocate entity immediately to get a valid ID
+        entity_id = int(esper.create_entity())
+        self._world._active_entities.add(entity_id)
+        
+        if components:
+            def _cmd() -> None:
+                for component in components:
+                    self._world.add_component(entity_id, component)
+            self._commands.append(_cmd)
+
+        return entity_id
+
+    def destroy_entity(self, entity: int) -> None:
+        """Queues an entity to be destroyed at the end of the frame."""
+        def _cmd() -> None:
+            if self._world.entity_exists(entity):
+                self._world.destroy_entity(entity)
+        self._commands.append(_cmd)
+
+    def add_component(self, entity: int, component: Any) -> None:
+        """Queues a component to be added to an entity at the end of the frame."""
+        def _cmd() -> None:
+            if self._world.entity_exists(entity):
+                self._world.add_component(entity, component)
+        self._commands.append(_cmd)
+
+    def remove_component(self, entity: int, component_type: type[Any]) -> None:
+        """Queues a component to be removed from an entity at the end of the frame."""
+        def _cmd() -> None:
+            if self._world.entity_exists(entity):
+                self._world.remove_component(entity, component_type)
+        self._commands.append(_cmd)
+
+    def apply_all(self) -> None:
+        """Executes all queued commands and clears the buffer."""
+        for cmd in self._commands:
+            cmd()
+        self._commands.clear()
+
+
 class World:
     """
     The main ECS World manager, wrapping an `esper.World` instance.
@@ -78,6 +138,7 @@ class World:
         self._next_stable_id: int = 1
         self._active_entities: set[int] = set()
         self._registered_systems: dict[type, System] = {}
+        self.commands: CommandBuffer = CommandBuffer(self)
 
         # Register this world with esper's global context system.
         esper.switch_world(self.name)
@@ -400,6 +461,7 @@ class World:
             dt (float): Delta time in seconds since the last frame.
         """
         esper.process(dt)
+        self.commands.apply_all()
 
     @ensure_context
     def clear_database(self) -> None:

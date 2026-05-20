@@ -75,6 +75,7 @@ def test_eat_item(interaction_env):
 
     # Process
     system.update(world, 0.1)
+    world.commands.apply_all()
 
     assert needs.hunger == 30  # 50 - 20
     assert world.get_component(consumer, EmotionalState).happiness == 60  # 50 + 10
@@ -107,6 +108,7 @@ def test_distance_check(interaction_env):
     # _handle_interaction -> checks distance -> then dispatches.
 
     system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Should not consume (too far)
     assert world.entity_exists(item)
@@ -136,6 +138,7 @@ def test_predation_not_allowed(interaction_env):
     world.add_component(predator, req)
 
     system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Should NOT eat
     assert world.entity_exists(prey)
@@ -164,6 +167,7 @@ def test_predation_allowed(interaction_env):
     world.add_component(predator, req)
 
     system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Should eat
     assert not world.entity_exists(prey)
@@ -194,6 +198,7 @@ def test_ai_target_reset(interaction_env):
 
     # InteractionSystem should dispatch to HungerSystem which handles reset
     system.update(world, 0.1)
+    world.commands.apply_all()
 
     assert ai.current_target_id == -1
 
@@ -213,6 +218,7 @@ def test_social_interaction_dispatch(interaction_env):
     world.add_component(initiator, req)
 
     system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Should dispatch to SocialSystem
     social_system.process_interaction_request.assert_called_once()
@@ -238,6 +244,7 @@ def test_interaction_request_removed_when_target_destroyed(interaction_env):
 
     # Run system update
     system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Request should be removed because target is invalid
     assert not world.has_component(consumer, InteractionRequest)

@@ -48,6 +48,10 @@ def test_find_prey(world, predator_entity, prey_entity):
     action = FindPrey(entity_id=predator_entity, world=world)
 
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
 
     assert status == Status.SUCCESS
 
@@ -63,6 +67,10 @@ def test_find_prey_respects_range(world, predator_entity, prey_entity):
 
     action = FindPrey(entity_id=predator_entity, world=world)
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
 
     assert status == Status.FAILURE
 
@@ -76,6 +84,10 @@ def test_eat_prey_damage(world, predator_entity, prey_entity):
     # Needs locking support? Action checks controller/target_controller
     # Run once
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
 
     assert status == Status.RUNNING
 
@@ -95,6 +107,10 @@ def test_eat_prey_consume(world, predator_entity, prey_entity):
     action = EatPrey(entity_id=predator_entity, world=world)
 
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
 
     # 1.0 - 1.6 <= 0 -> Consumed
     assert status == Status.SUCCESS
@@ -112,6 +128,10 @@ def test_swoop_logic(world, predator_entity):
 
     # 1. Start Swooping
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
     assert status == Status.RUNNING
     flight = world.get_component(predator_entity, Flight)
     assert flight.state == FlightState.SWOOPING
@@ -119,10 +139,18 @@ def test_swoop_logic(world, predator_entity):
     # 2. Continue Swooping
     flight.altitude = 10.0
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
     assert status == Status.RUNNING
 
     # 3. Finish Swoop (near ground)
     flight.altitude = 4.0
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
     assert status == Status.SUCCESS
     assert flight.state == FlightState.GROUNDED

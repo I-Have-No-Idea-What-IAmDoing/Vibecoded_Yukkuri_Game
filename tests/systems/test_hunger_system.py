@@ -221,7 +221,8 @@ class TestProcessConsumption:
             data["item_id"],
             data["item_stats"],
         )
-
+        world.commands.apply_all()
+ 
         # Entity should be marked destroyed
         assert not world.entity_exists(data["item_id"])
 

@@ -52,6 +52,7 @@ class TestFeedbackSystem:
 
         # Second update - text expires
         system.update(mock_world, 0.2)
+        mock_world.commands.apply_all()
         assert text.lifetime < 0
         assert not mock_world.entity_exists(e1)
 

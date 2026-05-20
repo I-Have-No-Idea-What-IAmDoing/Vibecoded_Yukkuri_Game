@@ -73,6 +73,7 @@ def test_interaction_request(world, social_system, event_bus):
     
     request = InteractionRequest(target_id=e2, action="Greet")
     social_system.process_interaction_request(world, e1, request)
+    world.commands.apply_all()
     
     # Check if event was published
     assert event_bus.publish.called

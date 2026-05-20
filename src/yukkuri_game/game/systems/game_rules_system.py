@@ -129,7 +129,7 @@ class GameRulesSystem(System):
 
             # Notify listeners (for floating text, achievements, etc.)
             self.event_bus.publish(EntitySoldEvent(entity, value, position))
-            self.ecs_world.destroy_entity(entity)
+            self.ecs_world.commands.destroy_entity(entity)
             return value
         return 0
 

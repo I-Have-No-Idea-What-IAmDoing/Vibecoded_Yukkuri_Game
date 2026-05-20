@@ -52,6 +52,7 @@ class TestInteractionLogic(unittest.TestCase):
         # 3. Tick Tree
         # We expect it to traverse: Check Goal -> Selector -> MoveTo (Success/Skipped) -> Interact
         behavior_tree.tick_once()
+        self.world.commands.apply_all()
 
         # 4. Check for InteractionRequest
         request = self.world.try_get_component(self.entity_id, InteractionRequest)

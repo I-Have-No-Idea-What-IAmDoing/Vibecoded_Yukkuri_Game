@@ -98,7 +98,7 @@ class FeedbackSystem(System):
                 to_destroy.append(entity)
 
         for entity in to_destroy:
-            world.destroy_entity(entity)
+            world.commands.destroy_entity(entity)
 
     def on_entity_sold(self, event: EntitySoldEvent) -> None:
         """

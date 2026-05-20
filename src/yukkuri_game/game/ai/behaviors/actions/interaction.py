@@ -73,7 +73,7 @@ class Interact(Action):
 
         if dist <= 110.0:
             if not self.world.has_component(self.entity_id, InteractionRequest):
-                self.world.add_component(
+                self.world.commands.add_component(
                     self.entity_id,
                     InteractionRequest(
                         target_id=ai.current_target_id, consume=self.consume
@@ -131,7 +131,7 @@ class SocialInteract(Action):
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
         if dist <= 75.0:
             if not self.world.has_component(self.entity_id, InteractionRequest):
-                self.world.add_component(
+                self.world.commands.add_component(
                     self.entity_id,
                     InteractionRequest(
                         target_id=ai.current_target_id,
@@ -269,7 +269,7 @@ class EatPrey(Action):
 
         if target_needs.health <= 0:
             try:
-                self.world.destroy_entity(ai.current_target_id)
+                self.world.commands.destroy_entity(ai.current_target_id)
             except KeyError:
                 # Entity already destroyed (e.g. by another predator)
                 pass

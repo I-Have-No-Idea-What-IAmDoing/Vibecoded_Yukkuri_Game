@@ -51,6 +51,10 @@ def test_move_to_target_success():
 
         # Close enough to not need pathfinding (or rather, pathfinding runs but we finish immediately)
         status = action.update()
+        try:
+            action.world.commands.apply_all()
+        except AttributeError:
+            pass
         assert status == Status.SUCCESS
 
 
@@ -84,6 +88,10 @@ def test_interact_fallback():
     action = Interact(entity_id=e1, world=world, consume=True)
 
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
     assert status == Status.SUCCESS
 
     # Verify request was added
@@ -99,6 +107,7 @@ def test_interact_fallback():
 
     system = InteractionSystem()
     system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Verify effects
     assert needs.hunger == 30.0  # 50 - 20
@@ -133,6 +142,10 @@ def test_find_item():
     )
 
     status = action.update()
+    try:
+        action.world.commands.apply_all()
+    except AttributeError:
+        pass
 
     assert status == Status.SUCCESS
     ai = world.get_component(entity, AIState)

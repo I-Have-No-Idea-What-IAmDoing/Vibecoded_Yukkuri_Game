@@ -6,7 +6,7 @@ from yukkuri_game.game.components import (
     InventoryDropRequest,
 )
 from yukkuri_game.game.systems.inventory_system import InventorySystem
-from yukkuri_game.engine.components import Transform
+from yukkuri_game.engine.components import Persistable, StableIDComponent, Transform
 from yukkuri_game.game.components import ItemStats
 from yukkuri_game.engine.resource_manager import ResourceManager
 from yukkuri_game.engine.data_models import ItemType
@@ -184,6 +184,7 @@ def test_inventory_system_pickup(world):
     world.add_component(player, InventoryPickupRequest(target_entity_id=item))
 
     system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Assertions
     assert not world.entity_exists(item)
@@ -220,6 +221,7 @@ def test_inventory_system_drop(world):
     )
 
     system.update(world, 0.1)
+    world.commands.apply_all()
 
     # Assertions
     assert inv.get_total("test_item") == 1
@@ -230,9 +232,7 @@ def test_inventory_system_drop(world):
     assert events[0].delta == -1
 
 
-from yukkuri_game.engine.components import StableIDComponent, Persistable
 
-# ... (imports)
 
 
 def test_persistence_inventory():

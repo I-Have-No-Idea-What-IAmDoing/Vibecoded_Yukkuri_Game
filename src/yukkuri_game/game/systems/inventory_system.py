@@ -66,14 +66,14 @@ class InventorySystem(System):
             # Validation: Target exists
             if not world.entity_exists(target_id):
                 logger.warning(f"Pickup failed: Entity {target_id} does not exist.")
-                world.remove_component(entity_id, InventoryPickupRequest)
+                world.commands.remove_component(entity_id, InventoryPickupRequest)
                 continue
 
             # Validation: Target is an item (has ItemStats)
             item_stats = world.try_get_component(target_id, ItemStats)
             if not item_stats:
                 logger.warning(f"Pickup failed: Entity {target_id} is not an item.")
-                world.remove_component(entity_id, InventoryPickupRequest)
+                world.commands.remove_component(entity_id, InventoryPickupRequest)
                 continue
 
             # Logic: Try add to inventory
@@ -102,7 +102,7 @@ class InventorySystem(System):
                             )
                         )
 
-                    world.destroy_entity(target_id)
+                    world.commands.destroy_entity(target_id)
 
                     logger.info(
                         f"Entity {entity_id} picked up item {item_type_id} (Entity {target_id})."
@@ -117,7 +117,7 @@ class InventorySystem(System):
                 )
 
             # Clean up request
-            world.remove_component(entity_id, InventoryPickupRequest)
+            world.commands.remove_component(entity_id, InventoryPickupRequest)
 
     def _handle_drops(self, world: World) -> None:
         """
@@ -184,4 +184,4 @@ class InventorySystem(System):
                 )
 
             # Clean up request
-            world.remove_component(entity_id, InventoryDropRequest)
+            world.commands.remove_component(entity_id, InventoryDropRequest)

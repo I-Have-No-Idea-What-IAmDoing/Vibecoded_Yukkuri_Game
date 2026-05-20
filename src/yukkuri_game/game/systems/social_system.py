@@ -584,7 +584,7 @@ class SocialSystem(System):
         registry = world.try_get_component(entity_id, RelationshipRegistry)
         if not registry:
             registry = RelationshipRegistry()
-            world.add_component(entity_id, registry)
+            world.commands.add_component(entity_id, registry)
         return registry
 
     def _add_memory_headline(

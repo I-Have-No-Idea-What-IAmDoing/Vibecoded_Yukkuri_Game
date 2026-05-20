@@ -126,11 +126,11 @@ class LifecycleSystem(System):
                 logger.info(f"{stats.name} has died.")
 
                 # Tag as Dead
-                world.add_component(entity, Dead())
+                world.commands.add_component(entity, Dead())
 
                 # Disable AI
                 if world.has_component(entity, AIState):
-                    world.remove_component(entity, AIState)
+                    world.commands.remove_component(entity, AIState)
 
                 sprite = world.try_get_component(entity, Sprite)
                 if sprite:
