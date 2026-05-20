@@ -113,6 +113,7 @@ def test_persistence_ai_state(setup_persistence_world):
     # 4. Clear World (Simulate new session)
     world.destroy_entity(y_id)
     world.destroy_entity(i_id)
+    world.commands.apply_all()
     assert not world.entity_exists(y_id)
     assert not world.entity_exists(i_id)
 
@@ -184,6 +185,7 @@ def test_persistence_round_trip(setup_persistence_world):
     world.destroy_entity(y_id)
     world.destroy_entity(i_id)
     world.destroy_entity(broken_id)
+    world.commands.apply_all()
 
     # Load
     persistence.load_game(save_file)

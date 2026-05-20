@@ -292,16 +292,18 @@ class PerceptionSystem(System):
                     blackboard.closest_threat_id = target_id
             elif relation == "Prey":
                 blackboard.nearby_prey += 1
-                if distance < closest_food_dist:
-                    closest_food_dist = distance
-                    blackboard.closest_food_id = target_id
+                if target_id not in ai_state.failed_targets:
+                    if distance < closest_food_dist:
+                        closest_food_dist = distance
+                        blackboard.closest_food_id = target_id
 
             # Food Item Check
             target_item = item_map.get(target_id)
             if target_item and target_item.nutrition > 0:
-                if distance < closest_food_dist:
-                    closest_food_dist = distance
-                    blackboard.closest_food_id = target_id
+                if target_id not in ai_state.failed_targets:
+                    if distance < closest_food_dist:
+                        closest_food_dist = distance
+                        blackboard.closest_food_id = target_id
 
         return currently_visible
 
@@ -369,11 +371,11 @@ class PerceptionSystem(System):
 
         # 1. Biological (Predator/Prey)
         if my_predator and target_stats:
-            if target_stats.type_id in my_predator.prey_tags:
+            if target_stats.type_id in my_predator.prey_tags or "Yukkuri" in my_predator.prey_tags:
                 return "Prey"
 
         if target_predator and my_stats:
-            if my_stats.type_id in target_predator.prey_tags:
+            if my_stats.type_id in target_predator.prey_tags or "Yukkuri" in target_predator.prey_tags:
                 return "Threat"
 
         # 2. Family

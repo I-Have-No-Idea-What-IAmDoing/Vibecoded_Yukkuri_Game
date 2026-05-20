@@ -1,9 +1,7 @@
-from yukkuri_game.engine.types import EntityID
 
 
 
 import pytest
-from unittest.mock import MagicMock
 from yukkuri_game.engine.ecs import World
 from yukkuri_game.game.components import Predator, AIState, YukkuriStats, Needs
 from yukkuri_game.engine.components import Transform, MovementController
@@ -13,13 +11,15 @@ from py_trees.common import Status
 
 
 @pytest.fixture
-def world():
+def world() -> World:
     w = World()
     from yukkuri_game.engine.services.time_service import TimeService
     time_service = TimeService()
     # Mock dt for tests to be 0.016
     time_service.delta_time = 0.016
     w.services.register(TimeService, time_service)
+    import py_trees
+    py_trees.blackboard.Blackboard().set("dt", 0.016)
     return w
 
 

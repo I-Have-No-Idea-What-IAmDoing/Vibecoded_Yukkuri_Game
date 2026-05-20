@@ -142,6 +142,7 @@ class TestCleanEntityCommand:
 
         cmd = CleanEntityCommand(wx=10.0, wy=10.0)
         cmd.execute(world)
+        world.commands.apply_all()
 
         assert not world.entity_exists(poop_id)
 
@@ -153,6 +154,7 @@ class TestCleanEntityCommand:
 
         cmd = CleanEntityCommand(wx=10.0, wy=10.0)
         cmd.execute(world)
+        world.commands.apply_all()
 
         assert world.entity_exists(poop_id)
 
@@ -167,6 +169,7 @@ class TestCleanEntityCommand:
 
         cmd = CleanEntityCommand(wx=10.0, wy=10.0)
         cmd.execute(world)
+        world.commands.apply_all()
 
         for eid in ids:
             assert not world.entity_exists(eid)

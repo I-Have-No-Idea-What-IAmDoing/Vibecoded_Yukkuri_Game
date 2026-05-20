@@ -1,24 +1,29 @@
-import pytest
-from unittest.mock import MagicMock, patch
+from typing import Any
+from unittest.mock import MagicMock
+from unittest.mock import patch
+
 import py_trees
+import pytest
 from py_trees.common import Status
-from yukkuri_game.game.ai.behaviors import (
-    MoveToTarget,
-    Interact,
-    FindItem,
-    build_eat_behavior,
-    build_sleep_behavior,
-    build_play_behavior,
-    build_wander_behavior,
-    create_yukkuri_behavior_tree,
-)
+
+from yukkuri_game.engine.components import Transform
+from yukkuri_game.engine.components import MovementController
 from yukkuri_game.engine.ecs import World
-from yukkuri_game.engine.components import (
-    Transform,
-    MovementController,
-)
-from yukkuri_game.game.components import AIState, YukkuriStats, Needs
+from yukkuri_game.engine.services.time_service import TimeService
+from yukkuri_game.game.ai.behaviors import MoveToTarget
+from yukkuri_game.game.ai.behaviors import Interact
+from yukkuri_game.game.ai.behaviors import FindItem
+from yukkuri_game.game.ai.behaviors import build_eat_behavior
+from yukkuri_game.game.ai.behaviors import build_sleep_behavior
+from yukkuri_game.game.ai.behaviors import build_play_behavior
+from yukkuri_game.game.ai.behaviors import build_wander_behavior
+from yukkuri_game.game.ai.behaviors import create_yukkuri_behavior_tree
+from yukkuri_game.game.ai.behaviors.actions.survival import Sleep
 from yukkuri_game.game.ai.navigation_service import NavigationService
+from yukkuri_game.game.components import AIState
+from yukkuri_game.game.components import EmotionalState
+from yukkuri_game.game.components import Needs
+from yukkuri_game.game.components import YukkuriStats
 from yukkuri_game.game.services import GameService
 
 
@@ -328,3 +333,92 @@ class TestFindItem:
             pass
 
         assert status == Status.FAILURE
+
+
+class TestSleep:
+    """Tests for the Sleep behavior action."""
+
+    @pytest.fixture
+    def mock_world(self) -> MagicMock:
+        """Creates a mock ECS World.
+
+        Returns:
+            MagicMock: The mocked World.
+        """
+        m = MagicMock(spec=World)
+        m.commands = MagicMock()
+        return m
+
+    def test_sleep_success(self, mock_world: MagicMock) -> None:
+        """Verifies that Sleep completes when energy is fully restored.
+
+        Args:
+            mock_world (MagicMock): The mocked World.
+        """
+        action = Sleep(entity_id=1, world=mock_world)
+
+        needs = Needs(energy=99.9)
+        emo = EmotionalState()
+
+        def get_component(e: int, c: Any) -> Any:
+            if e == 1:
+                if c == Needs:
+                    return needs
+                if c == EmotionalState:
+                    return emo
+                if c == MovementController:
+                    return None
+            return None
+
+        mock_world.try_get_component.side_effect = get_component
+        mock_world.has_component.return_value = False
+        mock_world.services = MagicMock()
+        mock_world.services.try_get.return_value = None
+
+        with patch("py_trees.blackboard.Blackboard") as mock_bb:
+            mock_bb.return_value.exists.return_value = True
+            mock_bb.return_value.get.return_value = 0.1
+
+            status = action.update()
+
+        assert status == Status.SUCCESS
+        assert needs.energy >= 100.0
+
+    def test_sleep_running_and_scaling(self, mock_world: MagicMock) -> None:
+        """Verifies Sleep recovers energy and scales with game speed.
+
+        Args:
+            mock_world (MagicMock): The mocked World.
+        """
+        action = Sleep(entity_id=1, world=mock_world)
+
+        needs = Needs(energy=50.0)
+        emo = EmotionalState(happiness=10.0)
+
+        def get_component(e: int, c: Any) -> Any:
+            if e == 1:
+                if c == Needs:
+                    return needs
+                if c == EmotionalState:
+                    return emo
+                if c == MovementController:
+                    return None
+            return None
+
+        mock_world.try_get_component.side_effect = get_component
+        mock_world.has_component.return_value = False
+
+        time_service = MagicMock(spec=TimeService)
+        time_service.game_speed = 2.0
+        mock_world.services = MagicMock()
+        mock_world.services.try_get.return_value = time_service
+
+        with patch("py_trees.blackboard.Blackboard") as mock_bb:
+            mock_bb.return_value.exists.return_value = True
+            mock_bb.return_value.get.return_value = 0.1
+
+            status = action.update()
+
+        assert status == Status.RUNNING
+        assert needs.energy == pytest.approx(52.0)
+        assert emo.happiness == pytest.approx(11.0)

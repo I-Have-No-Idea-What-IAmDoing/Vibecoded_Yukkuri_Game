@@ -10,7 +10,6 @@ from ....components import (
     InteractionRequest,
     Needs,
     Predator,
-    YukkuriStats,
 )
 from yukkuri_game.engine.components import (
     MovementController,
@@ -217,50 +216,16 @@ class EatPrey(Action):
         if dist > 40.0:
             return Status.RUNNING
 
-        # Social Defense (Rescue) Check
-        rescue_radius = 60.0
-
-        # Use SpatialService if available for optimization
-        potential_defenders = []
-        if self.spatial_service:
-            potential_defenders = self.spatial_service.get_entities_in_radius(
-                target_trans.x, target_trans.y, rescue_radius
-            )
-        else:
-            potential_defenders = self.world.get_all_entities()
-
-        for defender_id in potential_defenders:
-            if defender_id == self.entity_id:
-                continue
-            if defender_id == ai.current_target_id:
-                continue
-
-            # Fetch components required for check
-            d_stats = self.world.try_get_component(defender_id, YukkuriStats)
-            d_trans = self.world.try_get_component(defender_id, Transform)
-
-            if not d_stats or not d_trans:
-                continue
-
-            if self.world.has_component(defender_id, Predator):
-                continue
-
-            defender_dist = math.hypot(
-                d_trans.x - target_trans.x, d_trans.y - target_trans.y
-            )
-            if defender_dist <= rescue_radius:
-                ai.current_target_id = cast(EntityID, -1)
-                return Status.FAILURE
 
         if controller:
             controller.target_velocity = pymunk.Vec2d(0, 0)
         if target_controller:
             target_controller.target_velocity = pymunk.Vec2d(0, 0)
 
-        # Use TimeService for dt
-        dt = 0.016  # Fallback
-        if self.time_service:
-            dt = self.time_service.delta_time
+        # Use Blackboard for dt
+        import py_trees
+        blackboard = py_trees.blackboard.Blackboard()
+        dt = blackboard.get("dt") if blackboard.exists("dt") else 0.016
 
         self.last_update_time = self.world.time
 

@@ -97,6 +97,7 @@ class FindItem(Action):
                     if ai.state_data is None:
                         ai.state_data = {}
                     ai.state_data["path_requesting"] = True
+                    ai.state_data["path_request_time"] = self.world.time
                     if "path_failed" in ai.state_data:
                         del ai.state_data["path_failed"]
 
@@ -145,8 +146,15 @@ class FindLightSource(Action):
         if not spatial_service:
             return Status.FAILURE
 
+        exclude_ids = {self.entity_id}
+        exclude_ids.update(ai.failed_targets)
         best_light = spatial_service.get_nearest_entity(
-            self.world, trans.x, trans.y, component_filter=LightSource, max_radius=2000.0, exclude_ids={self.entity_id}
+            self.world,
+            trans.x,
+            trans.y,
+            component_filter=LightSource,
+            max_radius=2000.0,
+            exclude_ids=exclude_ids,
         )
 
         if best_light != -1:
@@ -218,7 +226,7 @@ class FindPrey(Action):
 
         # Filter candidates
         for ent in potential_targets:
-            if ent == self.entity_id:
+            if ent == self.entity_id or ent in ai.failed_targets:
                 continue
 
             # We need to manually check distance if we used SpatialService (it returns a superset)
@@ -433,6 +441,8 @@ class PickFood(Action):
             return Status.SUCCESS
         bb = self.world.try_get_component(self.entity_id, Blackboard)
         if bb and bb.closest_food_id:
+            if bb.closest_food_id in ai.failed_targets:
+                return Status.FAILURE
             if ai.current_target_id != bb.closest_food_id:
                 ai.current_target_id = bb.closest_food_id
                 ai.path = None

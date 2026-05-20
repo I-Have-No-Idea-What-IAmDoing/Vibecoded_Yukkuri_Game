@@ -133,51 +133,75 @@ class BackgroundPass:
         target_surface: Optional[pygame.Surface] = None,
         override_cam_pos: Optional[Tuple[float, float]] = None,
     ) -> None:
-        """Draws the grid."""
+        """Draws the grid.
+
+        Args:
+            context (RenderContext): The current render context.
+            sw (int): Screen width.
+            sh (int): Screen height.
+            target_surface (Optional[pygame.Surface]): The surface to draw
+                onto. If None, draws to the screen via the backend.
+            override_cam_pos (Optional[Tuple[float, float]]): Camera position
+                to use instead of the active context camera position.
+        """
         grid_size = RenderConstants.GRID_SIZE
         color = RenderConstants.GRID_COLOR
-
         cam_x = (
-            override_cam_pos[0] if override_cam_pos else context.camera._cached_cam_x
+            override_cam_pos[0]
+            if override_cam_pos
+            else context.camera._cached_cam_x
         )
         cam_y = (
-            override_cam_pos[1] if override_cam_pos else context.camera._cached_cam_y
+            override_cam_pos[1]
+            if override_cam_pos
+            else context.camera._cached_cam_y
         )
         zoom = context.camera._cached_zoom
 
-        def world_to_screen(wx: int | float, wy: int | float) -> Tuple[float, float]:
-            return ((wx - cam_x) * zoom + sw / 2, (wy - cam_y) * zoom + sh / 2)
+        if target_surface:
+            draw_w, draw_h = target_surface.get_size()
+        else:
+            draw_w, draw_h = sw, sh
 
-        start_col, end_col, start_row, end_row = self._calculate_grid_bounds(
-            context, sw, sh, grid_size, cam_x, cam_y
+        def world_to_target(
+            wx: int | float, wy: int | float
+        ) -> Tuple[float, float]:
+            """Translates world coordinates to the drawing target space."""
+            return (
+                (wx - cam_x) * zoom + draw_w / 2,
+                (wy - cam_y) * zoom + draw_h / 2,
+            )
+
+        start_col, end_col, start_row, end_row = (
+            self._calculate_grid_bounds(
+                context, draw_w, draw_h, grid_size, cam_x, cam_y
+            )
         )
 
         if target_surface:
             for col in range(start_col, end_col):
                 x = col * grid_size
-                sx, _ = world_to_screen(x, 0)
-                pygame.draw.line(target_surface, color, (sx, 0), (sx, sh))
-
+                sx, _ = world_to_target(x, 0)
+                pygame.draw.line(target_surface, color, (sx, 0), (sx, draw_h))
             for row in range(start_row, end_row):
                 y = row * grid_size
-                _, sy = world_to_screen(0, y)
-                pygame.draw.line(target_surface, color, (0, sy), (sw, sy))
+                _, sy = world_to_target(0, y)
+                pygame.draw.line(target_surface, color, (0, sy), (draw_w, sy))
         else:
             for col in range(start_col, end_col):
                 x = col * grid_size
                 if override_cam_pos:
-                    sx, _ = world_to_screen(x, 0)
+                    sx, _ = world_to_target(x, 0)
                 else:
                     sx, _ = context.camera.world_to_screen_fast(x, 0)
-                context.renderer.backend.draw_line((sx, 0), (sx, sh), color)
-
+                context.renderer.backend.draw_line((sx, 0), (sx, draw_h), color)
             for row in range(start_row, end_row):
                 y = row * grid_size
                 if override_cam_pos:
-                    _, sy = world_to_screen(0, y)
+                    _, sy = world_to_target(0, y)
                 else:
                     _, sy = context.camera.world_to_screen_fast(0, y)
-                context.renderer.backend.draw_line((0, sy), (sw, sy), color)
+                context.renderer.backend.draw_line((0, sy), (draw_w, sy), color)
 
     def _calculate_grid_bounds(
         self,

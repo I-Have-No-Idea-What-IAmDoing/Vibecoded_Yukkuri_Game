@@ -132,6 +132,16 @@ class ISpatialService(Protocol):
     Protocol defining the interface for the Spatial Proximity Service.
     """
 
+    entity_sectors: dict[int, tuple[int, int]]
+    body_to_entity: dict[pymunk.Body, int]
+
+    def clear(self) -> None:
+        """
+        Clears all stored entities from the index.
+        """
+        ...
+
+
     def update_entity(self, entity_id: int, x: float, y: float) -> None:
         """
         Updates the spatial partitioning index for an entity's new position.

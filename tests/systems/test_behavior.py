@@ -72,6 +72,7 @@ class TestBehaviorSystem(unittest.TestCase):
 
             # Now destroy entity
             self.world.destroy_entity(entity)
+            self.world.commands.apply_all()
 
             system.update(self.world, 0.1)
             self.assertNotIn(entity, system.trees)

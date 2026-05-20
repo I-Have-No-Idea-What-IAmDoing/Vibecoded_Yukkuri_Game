@@ -97,6 +97,7 @@ def test_cleaning_logic() -> None:
 
     cmd = CleanEntityCommand(wx=55, wy=55)
     cmd.execute(world)
+    world.commands.apply_all()
 
     assert not world.entity_exists(poop)
     audio_mock.play_sound.assert_called()

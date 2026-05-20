@@ -202,6 +202,10 @@ class SocialSystem(System):
         """
         Processes a direct social interaction request from the behavior tree.
 
+        Publishes a SocialInteractionEvent which the on_social_interaction handler
+        processes to apply relationship and stat effects. Effects are applied exactly
+        once via the event handler to avoid double-application.
+
         Args:
             world (World): The ECS World.
             initiator_id (int): Entity ID initiating the interaction.
@@ -213,7 +217,8 @@ class SocialSystem(System):
         if not world.entity_exists(target_id):
             return
 
-        self.register_interaction(world, initiator_id, target_id, action)
+        # Publish event only — on_social_interaction handles register_interaction.
+        # Do NOT call register_interaction here directly; that would apply effects twice.
         self.event_bus.publish(SocialInteractionEvent(initiator_id, target_id, action))
 
     def _update_opinion(

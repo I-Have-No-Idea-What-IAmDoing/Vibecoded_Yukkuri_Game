@@ -56,6 +56,7 @@ def test_create_destroy_entity() -> None:
     assert world.entity_exists(entity2)
 
     world.destroy_entity(entity1)
+    world.commands.apply_all()
     assert not world.entity_exists(entity1)
     assert world.entity_exists(entity2)
 

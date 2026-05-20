@@ -20,3 +20,5 @@ trigger: always_on
 	* Order: Standard Library, Third Party, Local Application.
 * Compliance:
 	* Ensure all generated code is lint-clean and would pass `uvx ruff check .` without errors.
+	
+* You are allowed to break backwards compatibility at this stage of the project.

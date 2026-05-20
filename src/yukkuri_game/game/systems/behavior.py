@@ -168,7 +168,10 @@ class BehaviorSystem(System):
                 self.stable_entities.add(entity)
             elif root_status == Status.RUNNING:
                 self.stable_entities.discard(entity)
-            # FAILURE implies re-planning needed, do not throttle extra.
+            else:
+                # FAILURE implies re-planning needed — remove throttle so the
+                # entity gets a chance to re-evaluate at full frequency.
+                self.stable_entities.discard(entity)
 
             # Reset manual overrides on competition
             if ai and (root_status == Status.SUCCESS or root_status == Status.FAILURE):

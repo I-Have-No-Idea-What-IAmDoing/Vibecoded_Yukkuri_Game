@@ -19,6 +19,7 @@ from ....components import (
     MoveCommand,
     Needs,
     Predator,
+    YukkuriStats,
 )
 from yukkuri_game.engine.components import (
     Flight,
@@ -93,6 +94,14 @@ class MoveToTarget(Action):
         # Determine Target Position
         target_pos = None
         if ai.current_target_id != -1:
+            if ai.current_target_id in ai.failed_targets and not ai.manual_override:
+                controller.target_velocity = pymunk.Vec2d(0, 0)
+                if self.world.has_component(self.entity_id, MoveCommand):
+                    self.world.commands.remove_component(
+                        self.entity_id, MoveCommand
+                    )
+                return Status.FAILURE
+
             target_trans = self.world.try_get_component(ai.current_target_id, Transform)
             if target_trans:
                 target_pos = pymunk.Vec2d(target_trans.x, target_trans.y)
@@ -205,7 +214,21 @@ class MoveToTarget(Action):
                     state_data["path_requesting"] = False
                     if "path_failed" in state_data:
                         del state_data["path_failed"]
+                    if "path_request_time" in state_data:
+                        del state_data["path_request_time"]
+                    if "path_destination" in state_data:
+                        del state_data["path_destination"]
                     ai.state_data = state_data
+
+                    if ai.current_target_id != -1:
+                        ai.failed_targets.add(ai.current_target_id)
+
+                    if self.world.has_component(self.entity_id, MoveCommand):
+                        self.world.commands.remove_component(
+                            self.entity_id, MoveCommand
+                        )
+
+                    return Status.FAILURE
                 else:
                     return Status.RUNNING
             elif not path_failed:
@@ -276,35 +299,35 @@ class MoveToTarget(Action):
                             ai.state_data["pursuit_repath"] = True
                             return Status.RUNNING
 
-            if ai.path is None:
-                if ai.state_data and ai.state_data.get("path_requesting"):
-                    ai.state_data["path_requesting"] = False
+        if ai.path is None:
+            if ai.state_data and ai.state_data.get("path_requesting"):
+                ai.state_data["path_requesting"] = False
 
-                vector_to_target = target_pos - pymunk.Vec2d(trans.x, trans.y)
-                dist = vector_to_target.length
+            vector_to_target = target_pos - pymunk.Vec2d(trans.x, trans.y)
+            dist = vector_to_target.length
 
-                if dist < self.acceptance_radius:
-                    controller.target_velocity = pymunk.Vec2d(0, 0)
-                    if self.world.has_component(self.entity_id, MoveCommand):
-                        self.world.commands.remove_component(self.entity_id, MoveCommand)
-                    return Status.SUCCESS
+            if dist < self.acceptance_radius:
+                controller.target_velocity = pymunk.Vec2d(0, 0)
+                if self.world.has_component(self.entity_id, MoveCommand):
+                    self.world.commands.remove_component(self.entity_id, MoveCommand)
+                return Status.SUCCESS
 
-                speed_modifier = 1.0
-                if needs.energy < 30:
-                    speed_modifier = 0.5
+            speed_modifier = 1.0
+            if needs.energy < 30:
+                speed_modifier = 0.5
 
-                self.world.commands.add_component(
-                    self.entity_id,
-                    MoveCommand(
-                        target_pos=target_pos,
-                        target_entity_id=(
-                            ai.current_target_id if ai.current_target_id != -1 else None
-                        ),
-                        speed_multiplier=speed_modifier,
-                        priority=2,
+            self.world.commands.add_component(
+                self.entity_id,
+                MoveCommand(
+                    target_pos=target_pos,
+                    target_entity_id=(
+                        ai.current_target_id if ai.current_target_id != -1 else None
                     ),
-                )
-                return Status.RUNNING
+                    speed_multiplier=speed_modifier,
+                    priority=2,
+                ),
+            )
+            return Status.RUNNING
 
         # Path Following Logic
         if ai.path:
@@ -514,12 +537,23 @@ class FleePredator(Action):
         if not my_trans or not controller:
             return Status.FAILURE
 
+        my_stats = self.world.try_get_component(self.entity_id, YukkuriStats)
+        my_type_id = my_stats.type_id if my_stats else None
+
         min_dist = float("inf")
         flee_start_dist = 200.0
         nearest_predator = None
 
         for uid, (pred, trans) in self.world.get_components_tuple(Predator, Transform):
             if uid == self.entity_id:
+                continue
+
+            # Only flee predators that actually hunt this entity's type.
+            is_hostile = (
+                "Yukkuri" in pred.prey_tags
+                or (my_type_id is not None and my_type_id in pred.prey_tags)
+            )
+            if not is_hostile:
                 continue
 
             dist = math.hypot(trans.x - my_trans.x, trans.y - my_trans.y)

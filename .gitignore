@@ -183,6 +183,7 @@ tmp/
 temp/
 .zed/
 screenshots/
+scratch/
 
 # AI Agent Data (should not be committed)
 .gemini/

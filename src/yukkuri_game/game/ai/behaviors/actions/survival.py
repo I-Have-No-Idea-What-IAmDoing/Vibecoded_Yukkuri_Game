@@ -51,19 +51,28 @@ class Sleep(Action):
         if ai and ai.path:
             ai.path = None
 
-        # Get delta time from TimeService (World doesn't have a dt property)
-        from yukkuri_game.engine.services.time_service import TimeService
+        # Get physics_dt from Blackboard with a fallback to 0.016
+        import py_trees
+        blackboard = py_trees.blackboard.Blackboard()
+        physics_dt = blackboard.get("dt") if blackboard.exists("dt") else 0.016
 
+        # Fetch TimeService to scale with user game speed multiplier
+        from yukkuri_game.engine.services.time_service import TimeService
         time_service = self.world.services.try_get(TimeService)
-        dt = time_service.game_delta_multiplier if time_service else 0.016
+        game_speed = time_service.game_speed if time_service else 1.0
+
+        # Scale delta time with game speed
+        dt_scaled = physics_dt * game_speed
 
         needs = self.world.try_get_component(self.entity_id, Needs)
         if needs:
-            needs.energy += 10.0 * dt
+            needs.energy += 10.0 * dt_scaled
             if needs.energy >= 100.0:
                 return Status.SUCCESS
-            state = self.world.try_get_component(self.entity_id, EmotionalState)
-            if state:
-                state.happiness += 5.0 * dt
+            emo = self.world.try_get_component(
+                self.entity_id, EmotionalState
+            )
+            if emo:
+                emo.happiness += 5.0 * dt_scaled
 
         return Status.RUNNING

@@ -96,7 +96,7 @@ class CommandBuffer:
         """Queues an entity to be destroyed at the end of the frame."""
         def _cmd() -> None:
             if self._world.entity_exists(entity):
-                self._world.destroy_entity(entity)
+                self._world._destroy_entity_immediate(entity)
         self._commands.append(_cmd)
 
     def add_component(self, entity: int, component: Any) -> None:
@@ -233,7 +233,19 @@ class World:
     @ensure_context
     def destroy_entity(self, entity: int) -> None:
         """
-        Removes an entity and all its components from the world.
+        Defers removal of an entity and all its components from the world
+        through the CommandBuffer to prevent mid-frame crashes.
+
+        Args:
+            entity (int): The ID of the entity to destroy.
+        """
+        self.commands.destroy_entity(entity)
+
+    @ensure_context
+    def _destroy_entity_immediate(self, entity: int) -> None:
+        """
+        Removes an entity and all its components immediately.
+        Internal use only (called by CommandBuffer).
 
         Publishes an `EntityDestroyedEvent` before deletion. Safe to call even if
         the entity does not exist (no-op).
@@ -465,7 +477,7 @@ class World:
         """
         from .exceptions import CycleDependencyError
 
-        nodes = list(self._registered_systems.keys())
+        nodes = cast(list[type[System]], list(self._registered_systems.keys()))
 
         # Build adjacency list (A runs before B) and compute in-degrees
         graph: dict[type[System], list[type[System]]] = {n: [] for n in nodes}

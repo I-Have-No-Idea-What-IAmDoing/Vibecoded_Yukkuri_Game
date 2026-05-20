@@ -31,6 +31,7 @@ def test_physics_body_cleanup() -> None:
 
     # Destroy entity
     world.destroy_entity(e1)
+    world.commands.apply_all()
 
     # Check if body was removed from space
     assert len(physics_system.space.bodies) == 0

@@ -43,6 +43,7 @@ class TestBehaviorSystemCleanup(unittest.TestCase):
 
         # Destroy the entity
         self.world.destroy_entity(entity_id)
+        self.world.commands.apply_all()
 
         # Verify entity is gone (sanity check)
         self.assertFalse(self.world.entity_exists(entity_id))
