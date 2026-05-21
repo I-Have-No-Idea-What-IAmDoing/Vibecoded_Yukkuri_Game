@@ -13,7 +13,7 @@ def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
 
     # Create a yukkuri and a target item
     start_pos = (100, 100)
-    target_pos = (200, 100)
+    target_pos = (240, 100)
     yukkuri_id = driver.create_yukkuri("reimu", *start_pos)
     item_id = driver.create_item("cookie", *target_pos)
 
@@ -44,18 +44,24 @@ def test_manual_override_prevents_utility_switch(game_driver: GameDriver):
     # Check if it moved
     current_pos = driver.get_transform(yukkuri_id)
     dist_traveled = math.hypot(current_pos.x - 100, current_pos.y - 100)
+    print(f"DEBUG: After 0.2s, pos={current_pos}, dist_traveled={dist_traveled}, manual_override={ai.manual_override}")
     assert dist_traveled > 0, "Should have moved towards cookie"
 
     # Now let it finish eating
     # 500 distance / 100 speed = 5 seconds. Plus interaction time.
-    driver.run_for(seconds=10.0)
+    for i in range(10):
+        driver.run_for(seconds=1.0)
+        c_pos = driver.get_transform(yukkuri_id)
+        d_trav = math.hypot(c_pos.x - 100, c_pos.y - 100)
+        item_rem = driver.world.entity_exists(item_id)
+        print(f"DEBUG: At {i+1}s: pos={c_pos}, dist_traveled={d_trav}, item_exists={item_rem}, manual_override={ai.manual_override}, action={ai.current_action}")
 
     # Check if item exists (debug)
-    # from yukkuri_game.game.components import ItemStats
     item_remains = driver.world.entity_exists(item_id)
     assert not item_remains, "Item should have been eaten"
 
     # After finishing, manual_override should be cleared
+    print(f"DEBUG: Final manual_override={ai.manual_override}, current_action={ai.current_action}, target_id={ai.current_target_id}")
     assert ai.manual_override is False, (
         f"Manual override should be cleared. Item exists? {item_remains}. Action: {ai.current_action}."
     )

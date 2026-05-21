@@ -92,7 +92,9 @@ class BehaviorSystem(System):
                 self.trees[entity] = py_trees.trees.BehaviourTree(root)
                 self.trees[entity].setup(timeout=15)
                 self.update_queue.append(entity)
-                self.last_update_times[entity] = self.total_time
+                self.last_update_times[entity] = (
+                    self.total_time - self.min_tick_interval
+                )
 
         # 2. Cleanup dead entities
         dead_entities = [e for e in self.trees if e not in current_ai_entities]
@@ -105,6 +107,9 @@ class BehaviorSystem(System):
             # Safe to leave in deque; will be skipped in main loop
 
         # 3. Process Batch with Tick Throttling
+        # Dynamically scale max updates per frame to avoid AI starvation under load
+        self.max_updates_per_frame = max(10, (len(self.update_queue) + 5) // 6)
+
         updates_count = 0
         iterations = 0
         skipped_count = 0

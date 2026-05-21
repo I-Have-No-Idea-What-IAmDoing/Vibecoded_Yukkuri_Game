@@ -12,9 +12,7 @@ import os
 import unittest
 from unittest.mock import MagicMock
 
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src"))
-)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
 from py_trees.common import Status
 
@@ -251,6 +249,113 @@ class TestBehaviorSystemFailureThrottle(unittest.TestCase):
             bs.stable_entities.discard(entity)
 
         self.assertNotIn(entity, bs.stable_entities)
+
+
+class TestSocialGhostTargetingLoop(unittest.TestCase):
+    """Tests for Bug 1: Social 'Ghost' Targeting Loop."""
+
+    def test_social_ghost_targeting_loop_prevented(self) -> None:
+        """Verifies has_valid_target returns False on ghost target."""
+        world = World()
+        entity = world.create_entity(
+            AIState(current_target_id=999)
+        )  # 999 does not exist/has no Transform
+
+        # Build behavior
+        from yukkuri_game.game.ai.behaviors.trees import (
+            build_standard_interaction_behavior,
+        )
+
+        builder = build_standard_interaction_behavior("Talk")
+        tree = builder(
+            entity_id=entity,
+            world=world,
+            width=3000,
+            height=3000,
+            check_goal_fn=lambda _: True,
+            check_target_fn=lambda: True,
+        )
+
+        # Find the Check node named "Has Target?"
+        check_node = None
+        for node in tree.iterate():
+            if node.name == "Has Target?":
+                check_node = node
+                break
+
+        self.assertIsNotNone(
+            check_node,
+            "Has Target? node must exist in standard interaction behavior.",
+        )
+        # Invoke its check function
+        self.assertFalse(
+            check_node.check_fn(),
+            "has_valid_target must return False for a ghost target.",
+        )
+
+
+class TestFleeSequenceMemory(unittest.TestCase):
+    """Tests for Bug 2: Blind / Static Fleeing."""
+
+    def test_flee_sequence_memory_false(self) -> None:
+        """Verifies Flee Sequence composite node has memory=False."""
+        from yukkuri_game.game.ai.behaviors.trees import build_flee_behavior
+
+        world = World()
+        entity = world.create_entity(AIState())
+        tree = build_flee_behavior(
+            entity_id=entity,
+            world=world,
+            width=3000,
+            height=3000,
+            check_goal_fn=lambda _: True,
+            check_target_fn=lambda: True,
+        )
+
+        self.assertEqual(tree.name, "Flee Sequence")
+        self.assertFalse(tree.memory, "Flee Sequence must be memory=False.")
+
+
+class TestNeedSatisfactionExecutionMemory(unittest.TestCase):
+    """Tests for Bug 3: Need satisfaction Execution sequence performance."""
+
+    def test_need_satisfaction_execution_memory_true(self) -> None:
+        """Verifies Execution sequence has memory=True."""
+        from yukkuri_game.game.ai.behaviors.trees import (
+            build_need_satisfaction_behavior,
+        )
+        from yukkuri_game.game.ai.behaviors.actions.searching import FindItem
+        from yukkuri_game.game.ai.behaviors.actions.interaction import Interact
+
+        world = World()
+        entity = world.create_entity(AIState())
+        builder = build_need_satisfaction_behavior(
+            "Eat", FindItem, Interact, "nutrition", 100.0, True
+        )
+        tree = builder(
+            entity_id=entity,
+            world=world,
+            width=3000,
+            height=3000,
+            check_goal_fn=lambda _: True,
+            check_target_fn=lambda: True,
+        )
+
+        # Walk the tree to find the "Eat Execution" sequence
+        exec_node = None
+        for node in tree.iterate():
+            if node.name == "Eat Execution":
+                exec_node = node
+                break
+
+        self.assertIsNotNone(
+            exec_node,
+            "Eat Execution sequence must exist in the need satisfaction tree.",
+        )
+        self.assertTrue(
+            exec_node.memory,
+            "Execution sequence must have memory=True to save performance.",
+        )
 
 
 if __name__ == "__main__":

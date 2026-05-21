@@ -108,6 +108,15 @@ class CommandBuffer:
 
     def remove_component(self, entity: int, component_type: type[Any]) -> None:
         """Queues a component to be removed from an entity at the end of the frame."""
+        if self._world.entity_exists(entity):
+            if self._world.has_component(entity, component_type):
+                comp = self._world.try_get_component(entity, component_type)
+                if comp and hasattr(comp, "active"):
+                    try:
+                        comp.active = False
+                    except AttributeError:
+                        pass
+
         def _cmd() -> None:
             if self._world.entity_exists(entity):
                 self._world.remove_component(entity, component_type)

@@ -40,6 +40,7 @@ class MoveCommand:
     use_pathfinding: bool = True
     expiration: float = 0.0
     priority: int = 2
+    active: bool = True
 
 
 @dataclass(slots=True)

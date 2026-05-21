@@ -80,6 +80,9 @@ class SteeringSystem(System):
         )
 
         for entity_id, (trans, movement, steering, phys, move_cmd) in move_cmd_entities:
+            if not move_cmd.active:
+                continue
+
             if move_cmd.expiration > 0 and current_time > move_cmd.expiration:
                 world.commands.remove_component(entity_id, MoveCommand)
                 movement.target_velocity = pymunk.Vec2d(0, 0)

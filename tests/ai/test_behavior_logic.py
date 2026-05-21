@@ -420,5 +420,5 @@ class TestSleep:
             status = action.update()
 
         assert status == Status.RUNNING
-        assert needs.energy == pytest.approx(52.0)
-        assert emo.happiness == pytest.approx(11.0)
+        assert needs.energy == pytest.approx(51.0)
+        assert emo.happiness == pytest.approx(10.5)

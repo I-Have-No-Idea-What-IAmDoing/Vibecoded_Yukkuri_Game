@@ -117,7 +117,7 @@ def build_need_satisfaction_behavior(
 
         # 2. Execution Sequence
         execution = py_trees.composites.Sequence(
-            name=f"{goal_name} Execution", memory=False
+            name=f"{goal_name} Execution", memory=True
         )
 
         # 2.1 Find Target
@@ -153,7 +153,13 @@ def build_need_satisfaction_behavior(
 
         interact_action = interaction_action_class(**interact_kwargs)  # type: ignore[arg-type]
 
-        execution.add_children([find_action, move_action, interact_action])
+        # 2.3 Target validity check — fails early if target was destroyed while
+        # the entity is en-route, preventing stale-reference errors downstream.
+        is_target_valid = Check(name="Target Valid?", check_fn=check_target_fn)
+
+        execution.add_children(
+            [find_action, is_target_valid, move_action, interact_action]
+        )
         root.add_children([is_goal, execution])
         return root
 
@@ -232,12 +238,11 @@ def build_hunt_behavior(
         name="Approach Strategy", memory=False
     )
 
-
     def can_fly_check() -> bool:
         f = world.try_get_component(entity_id, Flight)
         return f is not None and f.stamina > 20.0
 
-    aerial_assault = py_trees.composites.Sequence(name="Aerial Assault", memory=True)
+    aerial_assault = py_trees.composites.Sequence(name="Aerial Assault", memory=False)
     aerial_assault.add_child(Check(name="Can Fly Check", check_fn=can_fly_check))
     aerial_assault.add_child(
         MoveToTarget(
@@ -272,7 +277,7 @@ def build_flee_behavior(
     check_goal_fn: Callable[[str], bool],
     check_target_fn: Callable[[], bool],
 ) -> Behaviour:
-    root = py_trees.composites.Sequence(name="Flee Sequence", memory=True)
+    root = py_trees.composites.Sequence(name="Flee Sequence", memory=False)
     root.add_child(Check(name="Goal=Flee?", check_fn=lambda: check_goal_fn("Flee")))
     root.add_child(FindThreat(name="Identify Threat", entity_id=entity_id, world=world))
     root.add_child(
@@ -286,7 +291,9 @@ def build_flee_behavior(
     return root
 
 
-def build_standard_interaction_behavior(goal_name: str) -> Callable[
+def build_standard_interaction_behavior(
+    goal_name: str,
+) -> Callable[
     [int, "World", int, int, Callable[[str], bool], Callable[[], bool]],
     Behaviour,
 ]:
@@ -310,7 +317,11 @@ def build_standard_interaction_behavior(goal_name: str) -> Callable[
 
         def has_valid_target() -> bool:
             ai = world.try_get_component(entity_id, AIState)
-            return bool(ai and ai.current_target_id != -1)
+            if not ai or ai.current_target_id == -1:
+                return False
+            from yukkuri_game.engine.components import Transform
+
+            return world.has_component(ai.current_target_id, Transform)
 
         find_selector.add_child(Check(name="Has Target?", check_fn=has_valid_target))
 

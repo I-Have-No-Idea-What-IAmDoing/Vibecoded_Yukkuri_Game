@@ -150,14 +150,46 @@ class Needs:
     """
     Component managing physiological needs.
     """
-    health: float = 100.0
     max_health: float = 100.0
+    health: float = 100.0
     hunger: float = 0.0
     social: float = 50.0
     energy: float = 100.0
     cleanliness: float = 100.0
     bladder: float = 0.0
     easiness: float = 50.0
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """
+        Custom attribute setter to automatically clamp physiological needs and health.
+
+        Args:
+            name (str): The attribute name.
+            value (Any): The value to set.
+        """
+        if name in (
+            "hunger",
+            "social",
+            "energy",
+            "cleanliness",
+            "bladder",
+            "easiness",
+        ):
+            clamped_value = max(0.0, min(100.0, float(value)))
+            object.__setattr__(self, name, clamped_value)
+        elif name == "health":
+            max_val = getattr(self, "max_health", 100.0)
+            clamped_value = max(0.0, min(max_val, float(value)))
+            object.__setattr__(self, name, clamped_value)
+        elif name == "max_health":
+            object.__setattr__(self, name, float(value))
+            health_val = getattr(self, "health", None)
+            if health_val is not None:
+                object.__setattr__(
+                    self, "health", max(0.0, min(float(value), health_val))
+                )
+        else:
+            object.__setattr__(self, name, value)
 
     def adjust_health(self, delta: float) -> None:
         """Adjusts health, clamped between 0.0 and max_health."""

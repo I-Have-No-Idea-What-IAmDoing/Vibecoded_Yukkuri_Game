@@ -214,7 +214,10 @@ class EatPrey(Action):
 
         dist = math.hypot(target_trans.x - trans.x, target_trans.y - trans.y)
         if dist > 40.0:
-            return Status.RUNNING
+            # Prey escaped melee range. Return FAILURE so the parent Hunt Sequence
+            # resets and MoveToTarget can resume the chase. RUNNING would freeze
+            # the predator in place forever (sequence memory=True trap).
+            return Status.FAILURE
 
 
         if controller:
@@ -227,9 +230,17 @@ class EatPrey(Action):
         blackboard = py_trees.blackboard.Blackboard()
         dt = blackboard.get("dt") if blackboard.exists("dt") else 0.016
 
+        # Scale dt by game_speed so damage stays proportional at any simulation
+        # speed. Without this, predators effectively deal less damage per real-
+        # time second at high game speeds, causing them to starve mid-meal.
+        game_speed = (
+            self.time_service.game_speed if self.time_service else 1.0
+        )
+        dt_scaled = dt * game_speed
+
         self.last_update_time = self.world.time
 
-        damage = predator.dps * dt
+        damage = predator.dps * dt_scaled
         target_needs.health -= damage
 
         if target_needs.health <= 0:

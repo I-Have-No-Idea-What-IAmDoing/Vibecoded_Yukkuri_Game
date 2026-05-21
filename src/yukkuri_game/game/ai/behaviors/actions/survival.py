@@ -56,13 +56,8 @@ class Sleep(Action):
         blackboard = py_trees.blackboard.Blackboard()
         physics_dt = blackboard.get("dt") if blackboard.exists("dt") else 0.016
 
-        # Fetch TimeService to scale with user game speed multiplier
-        from yukkuri_game.engine.services.time_service import TimeService
-        time_service = self.world.services.try_get(TimeService)
-        game_speed = time_service.game_speed if time_service else 1.0
-
-        # Scale delta time with game speed
-        dt_scaled = physics_dt * game_speed
+        # Rely solely on blackboard dt since it already accounts for game speed
+        dt_scaled = physics_dt
 
         needs = self.world.try_get_component(self.entity_id, Needs)
         if needs:

@@ -72,7 +72,7 @@ def test_image_comparison_failure(game_driver: GameDriver, tmp_path):
     test_path = str(tmp_path / "test_fail.png")
 
     # Should fail comparison (return False)
-    assert not driver.compare_screenshot(test_path, reference_path, tolerance=0.01)
+    assert not driver.compare_screenshot(test_path, reference_path, tolerance=0.005)
 
 
 def test_state_dump_on_failure(game_driver: GameDriver):

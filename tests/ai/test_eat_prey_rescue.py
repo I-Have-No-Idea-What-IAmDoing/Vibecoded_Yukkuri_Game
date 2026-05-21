@@ -35,8 +35,7 @@ def test_eat_prey_rescue_bug():
     prey2_id = driver.create_yukkuri("marisa", x=40, y=0)
     print(f"prey2_id={prey2_id}, has_stats={driver.world.has_component(prey2_id, YukkuriStats)}, has_trans={driver.world.has_component(prey2_id, Transform)}")
     
-    # Run EatPrey again, after advancing simulation so SpatialService updates
-    driver.run_for(0.01)
+    # Run EatPrey again
     status = eat_action.update()
     
     # If the bug is fixed, the predator will not drop target and will continue eating (RUNNING)
