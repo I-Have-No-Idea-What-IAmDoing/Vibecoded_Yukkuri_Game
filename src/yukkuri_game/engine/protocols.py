@@ -277,3 +277,26 @@ class ISpatialService(Protocol):
             tuple[int, float, float] or None: Hit entity ID and coordinates.
         """
         ...
+
+
+@runtime_checkable
+class IService(Protocol):
+    """
+    Protocol defining the lifecycle of a service.
+    """
+
+    def initialize(self) -> None:
+        """
+        Initializes the service.
+
+        Called when the service is registered or started.
+        """
+        ...
+
+    def shutdown(self) -> None:
+        """
+        Cleans up the service.
+
+        Called when the service is unregistered or cleared.
+        """
+        ...

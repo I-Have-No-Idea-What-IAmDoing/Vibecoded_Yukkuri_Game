@@ -8,6 +8,8 @@ from enum import Enum, auto
 
 import pymunk
 
+from .persistence_registry import persistent
+
 if TYPE_CHECKING:
     from .data_models import AnimationDefinition
 
@@ -21,6 +23,7 @@ class FlickerStyle(Enum):
     PULSE = auto()
 
 
+@persistent
 @dataclass(slots=True)
 class Transform:
     """
@@ -44,6 +47,7 @@ class Transform:
             self.prev_rotation = self.rotation
 
 
+@persistent
 @dataclass(slots=True)
 class Velocity:
     """
@@ -53,6 +57,7 @@ class Velocity:
     dy: float
 
 
+@persistent
 @dataclass(slots=True)
 class Sprite:
     """
@@ -75,6 +80,7 @@ class Sprite:
     is_animating: bool = True
 
 
+@persistent
 @dataclass(slots=True)
 class Animator:
     """
@@ -90,6 +96,7 @@ class Animator:
     forward: bool = True
 
 
+@persistent
 @dataclass(slots=True)
 class LODComponent:
     """
@@ -106,6 +113,7 @@ class StableIDComponent:
     id: int
 
 
+@persistent
 @dataclass(slots=True)
 class Persistable:
     """
@@ -114,6 +122,7 @@ class Persistable:
     pass
 
 
+@persistent
 @dataclass(slots=True)
 class FloatingText:
     """
@@ -142,6 +151,7 @@ class PhysicsBody:
             self.base_radius = self.shape.radius
 
 
+@persistent
 @dataclass(slots=True)
 class LightSource:
     """
@@ -156,6 +166,7 @@ class LightSource:
     _flicker_offset: float = 0.0
 
 
+@persistent
 @dataclass(slots=True)
 class Occluder:
     """
@@ -165,6 +176,7 @@ class Occluder:
     static: bool = False
 
 
+@persistent
 @dataclass(slots=True)
 class Selectable:
     """
@@ -174,6 +186,7 @@ class Selectable:
     hovered: bool = False
 
 
+@persistent
 @dataclass(slots=True)
 class VisualTransform:
     """
@@ -190,6 +203,7 @@ class VisualTransform:
             self.shadow_position = pymunk.vec2d.Vec2d(0, 0)
 
 
+@persistent
 @dataclass(slots=True)
 class MovementController:
     """
@@ -204,6 +218,7 @@ class MovementController:
     bob_speed: float = 5.0
 
 
+@persistent
 @dataclass(slots=True)
 class Mount:
     """
@@ -229,6 +244,7 @@ class FlightState(Enum):
     FALLING = 6
 
 
+@persistent
 @dataclass(slots=True)
 class Flight:
     """

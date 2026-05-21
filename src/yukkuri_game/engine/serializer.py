@@ -100,7 +100,10 @@ class WorldSerializer:
             if component_type.__name__ == "PhysicsBody":
                 continue
 
-            if self._stable_id_type and component_type == self._stable_id_type:
+            if (
+                self._stable_id_type
+                and component_type == self._stable_id_type
+            ):
                 continue
 
             try:
@@ -108,6 +111,15 @@ class WorldSerializer:
                     component, msgspec.Struct
                 ):
                     decoded = msgspec.to_builtins(component)
+                    if hasattr(component, "__dataclass_fields__"):
+                        for f_name, f_def in (
+                            component.__dataclass_fields__.items()
+                        ):
+                            is_persist = f_def.metadata.get(
+                                "persistent", True
+                            )
+                            if is_persist is False:
+                                decoded.pop(f_name, None)
                     if hasattr(component_type, "_version_"):
                         decoded["_version_"] = getattr(
                             component_type, "_version_"
@@ -117,7 +129,8 @@ class WorldSerializer:
                     pass  # Skip non-serializable.
             except Exception as e:
                 logger.warning(
-                    f"Failed to serialize component {component_type.__name__} for entity {entity}: {e}"
+                    f"Failed to serialize component "
+                    f"{component_type.__name__} for entity {entity}: {e}"
                 )
 
         return {

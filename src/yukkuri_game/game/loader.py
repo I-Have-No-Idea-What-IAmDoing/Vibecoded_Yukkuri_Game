@@ -2,7 +2,6 @@
 Game Loader Module.
 """
 
-import inspect
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -140,18 +139,10 @@ class GameLoader:
 
     def collect_component_types(self) -> list[type]:
         """Collects all component types for serialization."""
-        from .components import core, physics, social, vision, yukkuri, persistence, inventory
-        from ..engine import components as engine_components
-        comp_types = []
-        
-        # Collect from engine components
-        for _, obj in inspect.getmembers(engine_components):
-            if inspect.isclass(obj) and obj.__module__ == engine_components.__name__:
-                comp_types.append(obj)
+        from ..engine.persistence_registry import PersistenceRegistry
+        from ..engine.components import StableIDComponent
 
-        # Collect from game components
-        for module in [core, physics, social, vision, yukkuri, persistence, inventory]:
-            for _, obj in inspect.getmembers(module):
-                if inspect.isclass(obj) and obj.__module__ == module.__name__:
-                    comp_types.append(obj)
+        comp_types: list[type] = list(PersistenceRegistry.get_registered_components())
+        if StableIDComponent not in comp_types:
+            comp_types.append(StableIDComponent)
         return comp_types

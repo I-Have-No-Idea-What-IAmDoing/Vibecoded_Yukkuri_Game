@@ -13,6 +13,7 @@ from functools import wraps
 from typing import Any, TypeVar, cast
 
 import esper
+from loguru import logger
 
 from .event_bus import EventBus
 from .events import (
@@ -152,6 +153,7 @@ class World:
         self._sorted_systems: list[System] = []
         self._systems_dirty: bool = True
         self.commands: CommandBuffer = CommandBuffer(self)
+        self._updating: bool = False
 
         # Register this world with esper's global context system.
         esper.switch_world(self.name)
@@ -164,6 +166,17 @@ class World:
         """
         if esper.current_world != self.name:
             esper.switch_world(self.name)
+
+    def _check_mutation(self) -> None:
+        """
+        Warns if a mutation is made while systems are updating.
+        """
+        if getattr(self, "_updating", False):
+            logger.warning(
+                "Direct mutation performed during World update! "
+                "Use World.commands instead to avoid concurrent "
+                "modification crashes."
+            )
 
     @contextlib.contextmanager
     def context(self) -> Iterator["World"]:
@@ -227,6 +240,7 @@ class World:
         Returns:
             int: The unique runtime ID of the created entity.
         """
+        self._check_mutation()
         entity_id = int(esper.create_entity(*components))
         self._active_entities.add(entity_id)
 
@@ -262,6 +276,7 @@ class World:
         Args:
             entity (int): The ID of the entity to destroy.
         """
+        self._check_mutation()
         try:
             event_bus = self.services.try_get(EventBus)
             if event_bus:
@@ -296,11 +311,14 @@ class World:
             entity (int): The target entity ID.
             component (Any): The component instance to add.
         """
+        self._check_mutation()
         esper.add_component(entity, component)
 
         event_bus = self.services.try_get(EventBus)
         if event_bus:
-            event_bus.publish(ComponentAddedEvent(entity, type(component), component))
+            event_bus.publish(
+                ComponentAddedEvent(entity, type(component), component)
+            )
 
     @ensure_context
     def remove_component(self, entity: int, component_type: type[Any]) -> None:
@@ -313,14 +331,19 @@ class World:
             entity (int): The target entity ID.
             component_type (type[Any]): The class of the component to remove.
         """
+        self._check_mutation()
         try:
-            removed_component = esper.component_for_entity(entity, component_type)
+            removed_component = esper.component_for_entity(
+                entity, component_type
+            )
             esper.remove_component(entity, component_type)
 
             event_bus = self.services.try_get(EventBus)
             if event_bus:
                 event_bus.publish(
-                    ComponentRemovedEvent(entity, component_type, removed_component)
+                    ComponentRemovedEvent(
+                        entity, component_type, removed_component
+                    )
                 )
         except KeyError:
             pass
@@ -558,8 +581,12 @@ class World:
         if self._systems_dirty:
             self._topological_sort_systems()
 
-        for system in self._sorted_systems:
-            system.process(dt)
+        self._updating = True
+        try:
+            for system in self._sorted_systems:
+                system.process(dt)
+        finally:
+            self._updating = False
 
         self.commands.apply_all()
 

@@ -7,6 +7,8 @@ from typing import Any
 from dataclasses import dataclass, field
 import msgspec
 from ...engine.types import EntityID
+from ...engine.persistence_registry import persistent
+
 
 class ItemStack(msgspec.Struct):
     """
@@ -17,6 +19,7 @@ class ItemStack(msgspec.Struct):
     custom_data: dict[str, Any] = msgspec.field(default_factory=dict)
 
 
+@persistent
 @dataclass
 class InventoryComponent:
     """

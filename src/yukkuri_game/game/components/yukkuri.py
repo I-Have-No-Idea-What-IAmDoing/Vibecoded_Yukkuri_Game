@@ -5,11 +5,15 @@ Yukkuri-specific components.
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from ...engine.persistence_registry import persistent
+
 if TYPE_CHECKING:
     from ...engine.data_models import YukkuriType
     from ...config import StatsSettings
     from .social import Needs, EmotionalState
 
+
+@persistent
 @dataclass(slots=True)
 class YukkuriArchetype:
     """
@@ -19,8 +23,7 @@ class YukkuriArchetype:
     type_data: "YukkuriType | None" = None
 
 
-
-
+@persistent
 @dataclass(slots=True)
 class YukkuriStats:
     """
@@ -71,6 +74,7 @@ class SkillState:
     last_used_gametime: float = 0.0
 
 
+@persistent
 @dataclass(slots=True)
 class Skills:
     """
@@ -79,8 +83,7 @@ class Skills:
     states: dict[str, SkillState] = field(default_factory=dict)
 
 
-
-
+@persistent
 @dataclass(slots=True)
 class Predator:
     """
@@ -93,6 +96,7 @@ class Predator:
     dps: float = 20.0
 
 
+@persistent
 @dataclass(slots=True)
 class ItemStats:
     """

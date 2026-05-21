@@ -47,9 +47,43 @@ class ServiceLocator:
         """
         key = service_type if service_type else type(instance)
 
-        if key in self._services and not replace:
-            type_name = getattr(key, "__name__", str(key))
-            raise ValueError(f"Service of type {type_name} is already registered.")
+        if key in self._services:
+            if not replace:
+                type_name = getattr(key, "__name__", str(key))
+                raise ValueError(
+                    f"Service of type {type_name} is already registered."
+                )
+            # Shutdown old service if replace is True
+            old_service = self._services[key]
+            if (
+                hasattr(old_service, "shutdown")
+                and callable(old_service.shutdown)
+            ):
+                try:
+                    old_service.shutdown()
+                except Exception:
+                    logger.exception(
+                        f"Error shutting down service {old_service}"
+                    )
+            elif (
+                hasattr(old_service, "cleanup")
+                and callable(old_service.cleanup)
+            ):
+                try:
+                    old_service.cleanup()
+                except Exception:
+                    logger.exception(
+                        f"Error cleaning up service {old_service}"
+                    )
+
+        # Call initialize if available
+        if hasattr(instance, "initialize") and callable(instance.initialize):
+            try:
+                instance.initialize()
+            except Exception:
+                logger.exception(
+                    f"Error initializing service {instance}"
+                )
 
         self._services[key] = instance
 
@@ -163,6 +197,21 @@ class ServiceLocator:
             service_type (type[Any]): The type of the service to unregister.
         """
         if service_type in self._services:
+            service = self._services[service_type]
+            if hasattr(service, "shutdown") and callable(service.shutdown):
+                try:
+                    service.shutdown()
+                except Exception:
+                    logger.exception(
+                        f"Error shutting down service {service}"
+                    )
+            elif hasattr(service, "cleanup") and callable(service.cleanup):
+                try:
+                    service.cleanup()
+                except Exception:
+                    logger.exception(
+                        f"Error cleaning up service {service}"
+                    )
             del self._services[service_type]
 
     def clear(self) -> None:

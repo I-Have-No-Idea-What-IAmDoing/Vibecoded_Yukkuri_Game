@@ -8,6 +8,7 @@ from collections import deque
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 from ...engine.types import EntityID
+from ...engine.persistence_registry import persistent
 
 if TYPE_CHECKING:
     pass
@@ -27,6 +28,7 @@ class GoalType(Enum):
     PATROL = 8
 
 
+@persistent
 @dataclass(slots=True)
 class GoalComponent:
     """
@@ -61,6 +63,7 @@ class LastKnownPosition:
     timestamp: float = 0.0
 
 
+@persistent
 @dataclass(slots=True)
 class Blackboard:
     """
@@ -75,6 +78,7 @@ class Blackboard:
     closest_food_id: EntityID | None = None
 
 
+@persistent
 @dataclass(slots=True)
 class ArchetypeConfig:
     """
@@ -113,6 +117,7 @@ class PersonalityAxis:
     greed: int = 0
 
 
+@persistent
 @dataclass(slots=True)
 class EmotionalState:
     """
@@ -145,6 +150,7 @@ class EmotionalState:
                 return "Depressed/Sulking"
 
 
+@persistent
 @dataclass(slots=True)
 class Needs:
     """
@@ -220,6 +226,7 @@ class Needs:
         self.easiness = max(0.0, min(100.0, self.easiness + delta))
 
 
+@persistent
 @dataclass(slots=True)
 class Personality:
     """
@@ -317,6 +324,7 @@ class RelationshipData:
                 self.core_sentiment_sum += headline.sentiment
 
 
+@persistent
 @dataclass(slots=True)
 class RelationshipRegistry:
     """
@@ -343,6 +351,7 @@ class GossipPacket:
         return self.value < other.value
 
 
+@persistent
 @dataclass(slots=True)
 class GossipQueue:
     """
@@ -372,6 +381,7 @@ class GossipQueue:
                 bisect.insort(self.priority_queue, packet, key=lambda x: -x.value)
 
 
+@persistent
 @dataclass(slots=True)
 class AIState:
     """

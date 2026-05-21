@@ -5,8 +5,10 @@ Physics and movement components.
 from dataclasses import dataclass, field
 from pymunk.vec2d import Vec2d as Vector2
 from ...engine.types import EntityID
+from ...engine.persistence_registry import persistent
 
 
+@persistent
 @dataclass(slots=True)
 class SteeringComponent:
     """
@@ -28,6 +30,7 @@ class SteeringComponent:
     pursuit_enabled: bool = False
 
 
+@persistent
 @dataclass(slots=True)
 class MoveCommand:
     """
@@ -43,6 +46,7 @@ class MoveCommand:
     active: bool = True
 
 
+@persistent
 @dataclass(slots=True)
 class InteractionRequest:
     """
@@ -53,6 +57,7 @@ class InteractionRequest:
     action: str = "DEFAULT"
 
 
+@persistent
 @dataclass(slots=True)
 class PendingDismount:
     """
