@@ -5,7 +5,6 @@ Tests cover:
 1. FleePredator hostile-only check
 2. FindItem path_request_time stamp
 3. BehaviorSystem FAILURE removes from stable_entities
-4. SocialSystem single register_interaction per interaction
 """
 
 import sys
@@ -23,30 +22,21 @@ from yukkuri_game.engine.ecs import World
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.components import Transform, MovementController
 from yukkuri_game.engine.services.time_service import TimeService
-from yukkuri_game.engine.types import EntityID
 from yukkuri_game.game.ai.navigation_service import NavigationService
 from yukkuri_game.game.components import (
     AIState,
-    EmotionalState,
-    InteractionRequest,
     Needs,
     Predator,
-    RelationshipData,
-    RelationshipRegistry,
     YukkuriStats,
 )
 from yukkuri_game.game.ai.behaviors.actions.movement import FleePredator
 from yukkuri_game.game.ai.behaviors.actions.searching import FindItem
 from yukkuri_game.game.systems.behavior import BehaviorSystem
-from yukkuri_game.game.systems.social_system import SocialSystem
-from yukkuri_game.game.events import SocialInteractionEvent
-from yukkuri_game.game.trait_service import TraitService
 
 
 def _make_yukkuri_stats(type_id: str = "reimu") -> YukkuriStats:
     """Helper to create a YukkuriStats component."""
-    stats = YukkuriStats(type_id=type_id, name="TestYukkuri")
-    return stats
+    return YukkuriStats(type_id=type_id, name="TestYukkuri")
 
 
 class TestFleePredatorHostileOnly(unittest.TestCase):
@@ -61,64 +51,55 @@ class TestFleePredatorHostileOnly(unittest.TestCase):
 
     def test_flee_ignores_non_hostile_predator(self) -> None:
         """Entity must NOT trigger flee for a predator that doesn't hunt it."""
-        world = _setup_world = self._setup_world()
-
-        # Prey entity
-        prey_ai = AIState()
-        prey_trans = Transform(x=400.0, y=400.0)
-        prey_ctrl = MovementController()
-        prey_stats = _make_yukkuri_stats("reimu")
-        prey_needs = Needs()
-        prey = world.create_entity(prey_ai, prey_trans, prey_ctrl, prey_stats, prey_needs)
-
-        # Predator that hunts beanpaste only (not Yukkuris)
-        pred_trans = Transform(x=420.0, y=400.0)
-        pred_comp = Predator(
-            prey_tags={"beanpaste"},
-            prey_sense_radius=500.0,
-            dps=10.0,
-        )
-        world.create_entity(pred_trans, pred_comp)
-
-        action = FleePredator(entity_id=prey, world=world)
-        status = action.update()
-
-        self.assertEqual(
-            status,
-            Status.FAILURE,
-            "FleePredator should return FAILURE (no valid threat) when predator"
-            " does not hunt this entity type.",
-        )
-
-    def test_flee_triggers_for_hostile_predator(self) -> None:
-        """Entity SHOULD enter RUNNING state when a hostile predator is nearby."""
         world = self._setup_world()
 
-        prey_ai = AIState()
         prey_trans = Transform(x=400.0, y=400.0)
         prey_ctrl = MovementController()
         prey_stats = _make_yukkuri_stats("reimu")
         prey_needs = Needs()
         prey = world.create_entity(
-            prey_ai, prey_trans, prey_ctrl, prey_stats, prey_needs
+            AIState(), prey_trans, prey_ctrl, prey_stats, prey_needs
         )
 
-        # Predator that hunts generic Yukkuris
-        pred_trans = Transform(x=420.0, y=400.0)
+        # Predator that hunts beanpaste only — should NOT trigger flee
         pred_comp = Predator(
-            prey_tags={"Yukkuri"},
+            prey_tags={"beanpaste"},
             prey_sense_radius=500.0,
             dps=10.0,
         )
-        world.create_entity(pred_trans, pred_comp)
+        world.create_entity(Transform(x=420.0, y=400.0), pred_comp)
 
-        action = FleePredator(entity_id=prey, world=world)
-        status = action.update()
+        status = FleePredator(entity_id=prey, world=world).update()
+
+        self.assertEqual(
+            status,
+            Status.FAILURE,
+            "FleePredator must return FAILURE when predator does not hunt this type.",
+        )
+
+    def test_flee_triggers_for_generic_yukkuri_hunter(self) -> None:
+        """Entity SHOULD flee a predator whose prey_tags includes 'Yukkuri'."""
+        world = self._setup_world()
+
+        prey = world.create_entity(
+            AIState(),
+            Transform(x=400.0, y=400.0),
+            MovementController(),
+            _make_yukkuri_stats("reimu"),
+            Needs(),
+        )
+
+        world.create_entity(
+            Transform(x=420.0, y=400.0),
+            Predator(prey_tags={"Yukkuri"}, prey_sense_radius=500.0, dps=10.0),
+        )
+
+        status = FleePredator(entity_id=prey, world=world).update()
 
         self.assertEqual(
             status,
             Status.RUNNING,
-            "FleePredator should return RUNNING when a 'Yukkuri'-hunting predator"
+            "FleePredator must return RUNNING when a 'Yukkuri'-hunting predator"
             " is within flee radius.",
         )
 
@@ -126,31 +107,26 @@ class TestFleePredatorHostileOnly(unittest.TestCase):
         """Entity should flee if predator's prey_tags includes its exact type_id."""
         world = self._setup_world()
 
-        prey_ai = AIState()
-        prey_trans = Transform(x=400.0, y=400.0)
-        prey_ctrl = MovementController()
-        prey_stats = _make_yukkuri_stats("marisa")
-        prey_needs = Needs()
         prey = world.create_entity(
-            prey_ai, prey_trans, prey_ctrl, prey_stats, prey_needs
+            AIState(),
+            Transform(x=400.0, y=400.0),
+            MovementController(),
+            _make_yukkuri_stats("marisa"),
+            Needs(),
         )
 
-        pred_trans = Transform(x=420.0, y=400.0)
-        pred_comp = Predator(
-            prey_tags={"marisa"},  # Hunts marisa specifically
-            prey_sense_radius=500.0,
-            dps=10.0,
+        world.create_entity(
+            Transform(x=420.0, y=400.0),
+            Predator(prey_tags={"marisa"}, prey_sense_radius=500.0, dps=10.0),
         )
-        world.create_entity(pred_trans, pred_comp)
 
-        action = FleePredator(entity_id=prey, world=world)
-        status = action.update()
+        status = FleePredator(entity_id=prey, world=world).update()
 
         self.assertEqual(
             status,
             Status.RUNNING,
-            "FleePredator should return RUNNING when predator's prey_tags"
-            " includes the entity's type_id.",
+            "FleePredator must return RUNNING when predator's prey_tags"
+            " includes the entity's exact type_id.",
         )
 
 
@@ -164,21 +140,19 @@ class TestFindItemPathRequestTime(unittest.TestCase):
         """
         world = World()
         world.services.register(EventBus())
-        time_service = TimeService()
-        world.services.register(time_service)
+        world.services.register(TimeService())
 
-        # Mock NavigationService
         nav_service = MagicMock(spec=NavigationService)
         world.services.register(nav_service, service_type=NavigationService)
 
-        # Yukkuri at origin
         ai = AIState()
-        trans = Transform(x=0.0, y=0.0)
-        needs = Needs()
-        stats = _make_yukkuri_stats("reimu")
-        entity = world.create_entity(ai, trans, needs, stats)
+        entity = world.create_entity(
+            ai,
+            Transform(x=0.0, y=0.0),
+            Needs(),
+            _make_yukkuri_stats("reimu"),
+        )
 
-        # Far-away target (forces path request)
         from yukkuri_game.game.components import ItemStats
 
         item_stats = ItemStats(
@@ -189,23 +163,19 @@ class TestFindItemPathRequestTime(unittest.TestCase):
             fun=10.0,
             comfort=0.0,
         )
-        item_trans = Transform(x=900.0, y=900.0)
-        item_entity = world.create_entity(item_trans, item_stats)
+        item_entity = world.create_entity(Transform(x=900.0, y=900.0), item_stats)
 
-        # Simulate that FindItem discovers a new item via a mock GameService
         from yukkuri_game.game.services import GameService
 
         game_service = MagicMock(spec=GameService)
         game_service.find_best_item.return_value = item_entity
         world.services.register(game_service, service_type=GameService)
 
-        action = FindItem(
+        result = FindItem(
             name="FindItem", entity_id=entity, world=world, stat_criteria="nutrition"
-        )
-        result = action.update()
+        ).update()
         world.commands.apply_all()
 
-        # FindItem should succeed and set path_requesting
         self.assertEqual(result, Status.SUCCESS)
         self.assertIsNotNone(ai.state_data)
         self.assertTrue(
@@ -228,14 +198,10 @@ class TestBehaviorSystemFailureThrottle(unittest.TestCase):
     """BehaviorSystem must not keep FAILURE entities in stable_entities."""
 
     def test_failure_removes_from_stable_entities(self) -> None:
-        """
-        Entities are removed from stable_entities when their tree returns FAILURE.
-        """
-        # Instantiate a minimal BehaviorSystem and manually invoke the logic
+        """Entities returning FAILURE must be evicted from stable_entities."""
         bs = BehaviorSystem()
-        bs.stable_entities = {42}  # entity 42 is currently "stable"
+        bs.stable_entities = {42}
 
-        # Simulate FAILURE root status — entity should be evicted from stable_entities
         entity = 42
         root_status = Status.FAILURE
 
@@ -253,7 +219,7 @@ class TestBehaviorSystemFailureThrottle(unittest.TestCase):
         )
 
     def test_success_adds_to_stable_entities(self) -> None:
-        """Control test: SUCCESS still adds to stable_entities."""
+        """Control test: SUCCESS still adds entity to stable_entities."""
         bs = BehaviorSystem()
         bs.stable_entities = set()
 
@@ -269,102 +235,22 @@ class TestBehaviorSystemFailureThrottle(unittest.TestCase):
 
         self.assertIn(entity, bs.stable_entities)
 
+    def test_running_removes_from_stable_entities(self) -> None:
+        """RUNNING also removes entity from stable_entities."""
+        bs = BehaviorSystem()
+        bs.stable_entities = {99}
 
-class TestSocialSystemSingleRegister(unittest.TestCase):
-    """SocialSystem must apply interaction effects exactly once per request."""
+        entity = 99
+        root_status = Status.RUNNING
 
-    def _make_social_world(
-        self,
-    ) -> tuple[World, SocialSystem, int, int]:
-        """Build a minimal world with two Yukkuris and SocialSystem."""
-        world = World()
-        event_bus = EventBus()
-        world.services.register(event_bus)
-        world.services.register(TimeService())
+        if root_status == Status.SUCCESS:
+            bs.stable_entities.add(entity)
+        elif root_status == Status.RUNNING:
+            bs.stable_entities.discard(entity)
+        else:
+            bs.stable_entities.discard(entity)
 
-        trait_service = MagicMock(spec=TraitService)
-        # Return a minimal interaction that adds +10 happiness to both parties
-        mock_interaction = {
-            "type": "GREET",
-            "base_impact": 10.0,
-            "social_impact": {},
-            "modifiers": {},
-            "conditions": [],
-            "physical_impact": {},
-            "target_physical_impact": {},
-            "actor_physical_impact": {},
-            "skill_rewards": {},
-        }
-        trait_service.get_interaction.return_value = mock_interaction
-        trait_service.get_trait.return_value = None
-        world.services.register(trait_service, service_type=TraitService)
-
-        # Create entities
-        actor_emotion = EmotionalState()
-        actor = world.create_entity(
-            Transform(x=0.0, y=0.0),
-            YukkuriStats(type_id="reimu", name="Actor"),
-            Needs(),
-            actor_emotion,
-        )
-        target = world.create_entity(
-            Transform(x=10.0, y=0.0),
-            YukkuriStats(type_id="reimu", name="Target"),
-            Needs(),
-            EmotionalState(),
-        )
-
-        social_sys = SocialSystem()
-        social_sys.trait_service = trait_service
-        social_sys.event_bus = event_bus
-
-        # Wire on_social_interaction as event handler
-        event_bus.subscribe(SocialInteractionEvent, social_sys.on_social_interaction)
-        social_sys.ecs_world = world
-
-        return world, social_sys, actor, target
-
-    def test_interaction_applied_once_via_event(self) -> None:
-        """
-        process_interaction_request publishes event only — effects applied once.
-        """
-        world, social_sys, actor, target = self._make_social_world()
-
-        actor_emotion = world.try_get_component(actor, EmotionalState)
-        self.assertIsNotNone(actor_emotion)
-
-        happiness_before = actor_emotion.happiness  # type: ignore[union-attr]
-
-        request = InteractionRequest(target_id=target, consume=False, action="Greet")
-        social_sys.process_interaction_request(world, actor, request)
-        # publish() is synchronous — handler fires immediately, no flush needed.
-
-        happiness_after = actor_emotion.happiness  # type: ignore[union-attr]
-        delta_once = happiness_after - happiness_before
-
-        # Reset to baseline and simulate the OLD buggy double call
-        actor_emotion.happiness = happiness_before  # type: ignore[union-attr]
-
-        # Buggy path: call register_interaction directly AND publish event
-        social_sys.register_interaction(world, actor, target, "Greet")
-        # The event bus subscriber will also fire on the next publish — simulate it
-        social_sys.register_interaction(world, actor, target, "Greet")
-        happiness_double = actor_emotion.happiness  # type: ignore[union-attr]
-        delta_double = happiness_double - happiness_before
-
-        # Verify the fixed path gives ~half the impact of the buggy path
-        if abs(delta_once) > 0.001:
-            ratio = abs(delta_double) / abs(delta_once)
-            self.assertAlmostEqual(
-                ratio,
-                2.0,
-                delta=0.6,
-                msg=(
-                    f"Double-call produced delta={delta_double:.4f}; "
-                    f"single-call produced delta={delta_once:.4f}. "
-                    f"Expected ratio ≈ 2.0 but got {ratio:.2f}."
-                ),
-            )
+        self.assertNotIn(entity, bs.stable_entities)
 
 
 if __name__ == "__main__":

@@ -311,17 +311,24 @@ class TestFleePredatorBehavior:
         )
 
     def test_flee_returns_running_when_threatened(self):
-        """FleePredator should return RUNNING when actively fleeing."""
+        """FleePredator should return RUNNING when actively fleeing a hostile predator.
+
+        Updated to use prey_tags={'Yukkuri'} so the predator actually hunts the prey.
+        FleePredator now validates prey_tags before fleeing, so a predator with no
+        prey_tags (or tags that don't match) will NOT trigger a flee.
+        """
         world = World()
 
         prey = world.create_entity()
         world.add_component(prey, Transform(x=0, y=0))
         world.add_component(prey, MovementController())
+        # YukkuriStats required for the hostile check in FleePredator
+        world.add_component(prey, YukkuriStats(name="Reimu", type_id="reimu"))
 
-        # Predator is close
+        # Predator is close and actively hunts Yukkuris
         pred = world.create_entity()
         world.add_component(pred, Transform(x=50, y=50))
-        world.add_component(pred, Predator())
+        world.add_component(pred, Predator(prey_tags={"Yukkuri"}))
 
         action = FleePredator(entity_id=prey, world=world)
         status = action.update()
@@ -330,7 +337,7 @@ class TestFleePredatorBehavior:
         except AttributeError:
             pass
 
-        assert status == Status.RUNNING, "FleePredator should RUNNING when fleeing"
+        assert status == Status.RUNNING, "FleePredator should return RUNNING when fleeing a hostile predator"
 
 
 class TestDetectionRange:

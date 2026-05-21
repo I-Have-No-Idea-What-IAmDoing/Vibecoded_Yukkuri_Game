@@ -155,21 +155,22 @@ class TestFleePredator:
     """Tests for prey fleeing behavior."""
 
     def test_prey_flees_when_predator_nearby(self):
-        """Prey should move away from predator."""
+        """Prey should move away from a hostile predator."""
         world = World()
+        from yukkuri_game.game.components import YukkuriStats
 
-        # Prey
+        # Prey — needs YukkuriStats so FleePredator can read type_id
         prey = world.create_entity()
         world.add_component(prey, Transform(x=100, y=100))
         ctrl = MovementController()
         world.add_component(prey, ctrl)
+        world.add_component(prey, YukkuriStats(name="Reimu", type_id="reimu"))
 
-        # Predator
+        # Predator — must explicitly hunt Yukkuris for flee to trigger
         pred = world.create_entity()
         world.add_component(pred, Transform(x=120, y=100))  # 20 units right
-        world.add_component(pred, Predator())
+        world.add_component(pred, Predator(prey_tags={"Yukkuri"}))
 
-        # Setup mock blackboard
         action = FleePredator(entity_id=prey, world=world)
 
         status = action.update()
@@ -184,16 +185,18 @@ class TestFleePredator:
         assert ctrl.target_velocity.y == 0
 
     def test_prey_safe_when_predator_far(self):
-        """Prey should not flee if predator is far."""
+        """Prey should not flee if predator is far away."""
         world = World()
+        from yukkuri_game.game.components import YukkuriStats
 
         prey = world.create_entity()
         world.add_component(prey, Transform(x=0, y=0))
         world.add_component(prey, MovementController())
+        world.add_component(prey, YukkuriStats(name="Reimu", type_id="reimu"))
 
         pred = world.create_entity()
         world.add_component(pred, Transform(x=1000, y=1000))
-        world.add_component(pred, Predator())
+        world.add_component(pred, Predator(prey_tags={"Yukkuri"}))
 
         action = FleePredator(entity_id=prey, world=world)
         status = action.update()
