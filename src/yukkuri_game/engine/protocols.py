@@ -134,6 +134,7 @@ class ISpatialService(Protocol):
 
     entity_sectors: dict[int, tuple[int, int]]
     body_to_entity: dict[pymunk.Body, int]
+    world: Any | None
 
     def clear(self) -> None:
         """

@@ -10,7 +10,7 @@ import contextlib
 import uuid
 from collections.abc import Iterator, Callable
 from functools import wraps
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar, cast, overload
 
 import esper
 from loguru import logger
@@ -26,6 +26,11 @@ from .service_locator import ServiceLocator
 from abc import ABC, abstractmethod
 
 T = TypeVar("T")
+T1 = TypeVar("T1")
+T2 = TypeVar("T2")
+T3 = TypeVar("T3")
+T4 = TypeVar("T4")
+T5 = TypeVar("T5")
 
 
 class Plugin(ABC):
@@ -432,11 +437,45 @@ class World:
             return []
         return [entity for entity, _ in esper.get_components(*component_types)]
 
+    @overload
+    def get_components_tuple(
+        self, __c1: type[T1]
+    ) -> list[tuple[int, tuple[T1]]]: ...
+
+    @overload
+    def get_components_tuple(
+        self, __c1: type[T1], __c2: type[T2]
+    ) -> list[tuple[int, tuple[T1, T2]]]: ...
+
+    @overload
+    def get_components_tuple(
+        self, __c1: type[T1], __c2: type[T2], __c3: type[T3]
+    ) -> list[tuple[int, tuple[T1, T2, T3]]]: ...
+
+    @overload
+    def get_components_tuple(
+        self, __c1: type[T1], __c2: type[T2], __c3: type[T3], __c4: type[T4]
+    ) -> list[tuple[int, tuple[T1, T2, T3, T4]]]: ...
+
+    @overload
+    def get_components_tuple(
+        self,
+        __c1: type[T1],
+        __c2: type[T2],
+        __c3: type[T3],
+        __c4: type[T4],
+        __c5: type[T5],
+    ) -> list[tuple[int, tuple[T1, T2, T3, T4, T5]]]: ...
+
+    @overload
+    def get_components_tuple(
+        self, *component_types: type[Any]
+    ) -> list[tuple[int, tuple[Any, ...]]]: ...
+
     def get_components_tuple(
         self, *component_types: type[Any]
     ) -> list[tuple[int, tuple[Any, ...]]]:
-        """
-        Efficiently retrieves entities and their components for a specific query signature.
+        """Efficiently retrieves entities and their components for a specific query signature.
 
         This method maps directly to `esper.get_components` and is preferred for
         iterating over entities in Systems.

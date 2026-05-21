@@ -70,25 +70,46 @@ class PhysicsSystem(System):
 
         self.accumulator += dt
 
-        while self.accumulator >= self.time_step:
-            if self.event_bus:
-                self.event_bus.publish(PhysicsFixedUpdateEvent(dt=self.time_step))
-            self.space.step(self.time_step)
-            self.accumulator -= self.time_step
+        # Check if we will step
+        will_step = self.accumulator >= self.time_step
 
-        for entity, (phys, trans) in world.get_components_tuple(PhysicsBody, Transform):
-            if phys.body.is_sleeping:
+        if will_step:
+            # Capture the pre-simulation state ONCE for all physical entities
+            for entity, (phys, trans) in world.get_components_tuple(
+                PhysicsBody, Transform
+            ):
                 trans.prev_x = trans.x
                 trans.prev_y = trans.y
                 trans.prev_rotation = trans.rotation
-                continue
 
-            trans.prev_x = trans.x
-            trans.prev_y = trans.y
-            trans.prev_rotation = trans.rotation
-            trans.x = phys.body.position.x
-            trans.y = phys.body.position.y
-            trans.rotation = -math.degrees(phys.body.angle)
+        # Run fixed simulation steps
+        while self.accumulator >= self.time_step:
+            if self.event_bus:
+                self.event_bus.publish(
+                    PhysicsFixedUpdateEvent(dt=self.time_step)
+                )
+            self.space.step(self.time_step)
+            self.accumulator -= self.time_step
+
+        if will_step:
+            # Sync the new physics body state to Transform
+            for entity, (phys, trans) in world.get_components_tuple(
+                PhysicsBody, Transform
+            ):
+                if phys.body.is_sleeping:
+                    # If already sleeping and didn't move, keep alignment
+                    if (
+                        phys.body.position.x == trans.x
+                        and phys.body.position.y == trans.y
+                    ):
+                        trans.prev_x = trans.x
+                        trans.prev_y = trans.y
+                        trans.prev_rotation = trans.rotation
+                        continue
+
+                trans.x = phys.body.position.x
+                trans.y = phys.body.position.y
+                trans.rotation = -math.degrees(phys.body.angle)
 
     def clear(self) -> None:
         for shape in list(self.space.shapes):

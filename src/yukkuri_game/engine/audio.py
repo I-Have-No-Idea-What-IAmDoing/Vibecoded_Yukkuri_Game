@@ -6,8 +6,15 @@ import os
 from collections import OrderedDict
 from typing import Any
 
+import msgspec
 import pygame
 from loguru import logger
+
+
+class SoundConfig(msgspec.Struct):
+    """Schema representing sounds.toml configuration file."""
+
+    sounds: dict[str, str] = {}
 
 
 class AudioManager:
@@ -55,8 +62,7 @@ class AudioManager:
         self.sfx_volume: float = 1.0
 
     def load_from_config(self, config_path: str = "data/sounds.toml") -> None:
-        """
-        Loads sounds from configuration or fallback.
+        """Loads sounds from configuration or fallback.
 
         Args:
             config_path (str): Path to the sounds configuration file.
@@ -65,15 +71,15 @@ class AudioManager:
             None
         """
         if os.path.exists(config_path):
-            import tomllib
-
             try:
                 with open(config_path, "rb") as f:
-                    sounds = tomllib.load(f)
-                    for name, path in sounds.get("sounds", {}).items():
+                    config = msgspec.toml.decode(f.read(), type=SoundConfig)
+                    for name, path in config.sounds.items():
                         self.load_sound(name, path)
             except Exception as e:
-                logger.error(f"Failed to load sound config from {config_path}: {e}")
+                logger.error(
+                    f"Failed to load sound config from {config_path}: {e}"
+                )
                 self._load_fallback_sounds()
         else:
             self._load_fallback_sounds()
