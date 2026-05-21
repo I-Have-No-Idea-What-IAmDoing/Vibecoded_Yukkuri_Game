@@ -342,8 +342,8 @@ class UtilityAIEngine:
                         overrides[cons_name] = mod
 
         for name, action in self.actions.items():
-            # Pass overrides to calculate_utility
-            score = action.calculate_utility(context, overrides)
+            # Pass overrides to calculate_utility_compensated
+            score = action.calculate_utility_compensated(context, overrides)
             if score > best_score:
                 best_score = score
                 best_action = name

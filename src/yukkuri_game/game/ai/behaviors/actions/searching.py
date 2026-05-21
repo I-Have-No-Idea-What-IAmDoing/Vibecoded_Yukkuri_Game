@@ -246,26 +246,24 @@ class FindPrey(Action):
             # Check ItemStats
             i_stats = self.world.try_get_component(ent, ItemStats)
             if i_stats:
-                if i_stats.type_id in predator.prey_tags:
-                    is_prey = True
-                elif "Food" in predator.prey_tags and i_stats.type_id in (
-                    "beanpaste",
-                    "food",
-                    "cookie",
+                if any(
+                    t.lower() == i_stats.type_id.lower()
+                    for t in predator.prey_tags
                 ):
                     is_prey = True
-                elif (
-                    "BeanPaste" in predator.prey_tags and i_stats.type_id == "beanpaste"
-                ):
+                elif "Food" in predator.prey_tags and i_stats.nutrition > 0.0:
                     is_prey = True
 
             # Check YukkuriStats
             if not is_prey:
                 y_stats = self.world.try_get_component(ent, YukkuriStats)
                 if y_stats:
-                    if y_stats.type_id in predator.prey_tags:
+                    if any(
+                        t.lower() == y_stats.type_id.lower()
+                        for t in predator.prey_tags
+                    ):
                         is_prey = True
-                    if "Yukkuri" in predator.prey_tags:
+                    elif "Yukkuri" in predator.prey_tags:
                         is_prey = True
 
             if is_prey:

@@ -25,12 +25,11 @@ from yukkuri_game.engine.components import (
     Flight,
     FlightState,
     MovementController,
-    PhysicsBody,
     Transform,
 )
 from ...base_action import Action
-from ...navigation_constants import TraversalCapability
-from ...navigation_service import NavigationService
+from ...navigation_controller import NavigationController
+
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -86,7 +85,9 @@ class MoveToTarget(Action):
         ai = self.world.try_get_component(self.entity_id, AIState)
         trans = self.world.try_get_component(self.entity_id, Transform)
         needs = self.world.try_get_component(self.entity_id, Needs)
-        controller = self.world.try_get_component(self.entity_id, MovementController)
+        controller = self.world.try_get_component(
+            self.entity_id, MovementController
+        )
 
         if ai is None or trans is None or needs is None or controller is None:
             return Status.FAILURE
@@ -94,7 +95,10 @@ class MoveToTarget(Action):
         # Determine Target Position
         target_pos = None
         if ai.current_target_id != -1:
-            if ai.current_target_id in ai.failed_targets and not ai.manual_override:
+            if (
+                ai.current_target_id in ai.failed_targets
+                and not ai.manual_override
+            ):
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 if self.world.has_component(self.entity_id, MoveCommand):
                     self.world.commands.remove_component(
@@ -102,14 +106,18 @@ class MoveToTarget(Action):
                     )
                 return Status.FAILURE
 
-            target_trans = self.world.try_get_component(ai.current_target_id, Transform)
+            target_trans = self.world.try_get_component(
+                ai.current_target_id, Transform
+            )
             if target_trans:
                 target_pos = pymunk.Vec2d(target_trans.x, target_trans.y)
             else:
                 ai.current_target_id = cast(EntityID, -1)
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 if self.world.has_component(self.entity_id, MoveCommand):
-                    self.world.commands.remove_component(self.entity_id, MoveCommand)
+                    self.world.commands.remove_component(
+                        self.entity_id, MoveCommand
+                    )
                 return Status.FAILURE
         elif (
             ai.state_data
@@ -123,259 +131,46 @@ class MoveToTarget(Action):
         if target_pos is None:
             controller.target_velocity = pymunk.Vec2d(0, 0)
             if self.world.has_component(self.entity_id, MoveCommand):
-                self.world.commands.remove_component(self.entity_id, MoveCommand)
+                self.world.commands.remove_component(
+                    self.entity_id, MoveCommand
+                )
             return Status.FAILURE
 
-        current_pos = pymunk.Vec2d(trans.x, trans.y)
-
-        # Close-Range / Line-of-Sight Optimization
-        is_visible = ai.current_target_id == -1 or (
-            ai.current_target_id in ai.visible_entities
+        return NavigationController.navigate_to(
+            world=self.world,
+            entity_id=self.entity_id,
+            target_pos=target_pos,
+            target_entity_id=(
+                ai.current_target_id if ai.current_target_id != -1 else None
+            ),
+            speed=self.speed,
+            acceptance_radius=self.acceptance_radius,
         )
 
-        if (is_visible or ai.manual_override) and target_pos:
-            dist_to_target = (target_pos - current_pos).length
-            use_direct_steering = False
+    def on_cleanup(self) -> None:
+        """
+        Cleans up movement commands, velocities, and transient path request flags.
+        """
+        if self.world is None or self.entity_id is None:
+            return
 
-            if dist_to_target < 150.0:
-                use_direct_steering = True
-            elif dist_to_target < 400.0:
-                from yukkuri_game.engine.protocols import IPhysicsService
-
-                physics_sys = self.world.services.try_get(IPhysicsService)
-                if physics_sys and hasattr(physics_sys, "space"):
-                    space = physics_sys.space
-                    filter_ = pymunk.ShapeFilter(mask=pymunk.ShapeFilter.ALL_MASKS())
-                    hit = space.segment_query_first(
-                        current_pos, target_pos, 1.0, filter_
-                    )
-                    if hit is None:
-                        use_direct_steering = True
-                    elif hit.shape:
-                        if ai.current_target_id != -1:
-                            target_phys = self.world.try_get_component(
-                                ai.current_target_id, PhysicsBody
-                            )
-                            if target_phys and hit.shape.body == target_phys.body:
-                                use_direct_steering = True
-
-            if use_direct_steering:
-                if dist_to_target < self.acceptance_radius:
-                    controller.target_velocity = pymunk.Vec2d(0, 0)
-                    ai.path = None
-                    if self.world.has_component(self.entity_id, MoveCommand):
-                        self.world.commands.remove_component(self.entity_id, MoveCommand)
-
-                    return Status.SUCCESS
-
-                speed_modifier = 1.0
-                if needs.energy < 30:
-                    speed_modifier = 0.5
-
-                self.world.commands.add_component(
-                    self.entity_id,
-                    MoveCommand(
-                        target_pos=target_pos,
-                        target_entity_id=(
-                            ai.current_target_id if ai.current_target_id != -1 else None
-                        ),
-                        speed_multiplier=speed_modifier,
-                        priority=2,
-                    ),
-                )
-
-                if ai.path:
-                    ai.path = None
-
-                return Status.RUNNING
-
-        if target_pos:
-            dist_sq = (target_pos - current_pos).length_squared
-            if dist_sq < self.acceptance_radius * self.acceptance_radius:
-                controller.target_velocity = pymunk.Vec2d(0, 0)
-                ai.path = None
-                if self.world.has_component(self.entity_id, MoveCommand):
-                    self.world.commands.remove_component(self.entity_id, MoveCommand)
-
-                return Status.SUCCESS
-
-        # Pathfinding (Async)
-        if ai.path is None:
-            state_data = ai.state_data if ai.state_data else {}
-            is_requesting = state_data.get("path_requesting", False)
-            path_failed = state_data.get("path_failed", False)
-
-            if is_requesting:
-                now = self.world.time
-                request_timestamp = state_data.get("path_request_time", 0.0)
-                if (now - request_timestamp) > 2.0:
-                    state_data["path_requesting"] = False
-                elif path_failed:
-                    state_data["path_requesting"] = False
-                    if "path_failed" in state_data:
-                        del state_data["path_failed"]
-                    if "path_request_time" in state_data:
-                        del state_data["path_request_time"]
-                    if "path_destination" in state_data:
-                        del state_data["path_destination"]
-                    ai.state_data = state_data
-
-                    if ai.current_target_id != -1:
-                        ai.failed_targets.add(ai.current_target_id)
-
-                    if self.world.has_component(self.entity_id, MoveCommand):
-                        self.world.commands.remove_component(
-                            self.entity_id, MoveCommand
-                        )
-
-                    return Status.FAILURE
-                else:
-                    return Status.RUNNING
-            elif not path_failed:
-                nav_service = self.world.services.try_get(NavigationService)
-                if nav_service:
-                    capabilities = TraversalCapability.WALK
-                    flight_comp = self.world.try_get_component(self.entity_id, Flight)
-                    if flight_comp and flight_comp.stamina > 20:
-                        capabilities |= TraversalCapability.FLY
-                        if flight_comp.state == FlightState.GROUNDED:
-                            flight_comp.state = FlightState.TAKEOFF
-
-                    priority = 2
-                    if ai.state_data and ai.state_data.get("pursuit_repath", False):
-                        priority = 0
-                        ai.state_data["pursuit_repath"] = False
-
-                    nav_service.request_path(
-                        self.entity_id,
-                        (trans.x, trans.y),
-                        (target_pos.x, target_pos.y),
-                        capabilities=capabilities,
-                        priority=priority,
-                        timestamp=self.world.time,
-                    )
-
-                    if ai.state_data is None:
-                        ai.state_data = {}
-                    ai.state_data["path_requesting"] = True
-                    ai.state_data["path_request_time"] = self.world.time
-                    ai.state_data["path_destination"] = (target_pos.x, target_pos.y)
-                    if "path_failed" in ai.state_data:
-                        del ai.state_data["path_failed"]
-
-                    return Status.RUNNING
-
-        # Drift Detection
-        if ai.path and target_pos:
-            is_visible = ai.current_target_id == -1 or (
-                ai.current_target_id in ai.visible_entities
-            )
-            if is_visible:
-                if ai.state_data is None:
-                    ai.state_data = {}
-                ai.state_data["last_known_x"] = target_pos.x
-                ai.state_data["last_known_y"] = target_pos.y
-
-                path_dest = ai.state_data.get("path_destination")
-                if path_dest:
-                    drift_threshold_sq = 2500.0
-                    target_phys = None
-                    if ai.current_target_id != -1:
-                        target_phys = self.world.try_get_component(
-                            ai.current_target_id, PhysicsBody
-                        )
-                    if target_phys and target_phys.body:
-                        t_speed = target_phys.body.velocity.length
-                        val = max(20.0, 50.0 - (t_speed * 0.3))
-                        drift_threshold_sq = val * val
-
-                    drift_sq = (target_pos - pymunk.Vec2d(*path_dest)).length_squared
-                    if drift_sq > drift_threshold_sq:
-                        now = self.world.time
-                        last_repath_time = ai.state_data.get("last_repath_time", 0.0)
-                        if now - last_repath_time > 0.5:
-                            ai.path = None
-                            ai.state_data["last_repath_time"] = now
-                            ai.state_data["pursuit_repath"] = True
-                            return Status.RUNNING
-
-        if ai.path is None:
-            if ai.state_data and ai.state_data.get("path_requesting"):
-                ai.state_data["path_requesting"] = False
-
-            vector_to_target = target_pos - pymunk.Vec2d(trans.x, trans.y)
-            dist = vector_to_target.length
-
-            if dist < self.acceptance_radius:
-                controller.target_velocity = pymunk.Vec2d(0, 0)
-                if self.world.has_component(self.entity_id, MoveCommand):
-                    self.world.commands.remove_component(self.entity_id, MoveCommand)
-                return Status.SUCCESS
-
-            speed_modifier = 1.0
-            if needs.energy < 30:
-                speed_modifier = 0.5
-
-            self.world.commands.add_component(
-                self.entity_id,
-                MoveCommand(
-                    target_pos=target_pos,
-                    target_entity_id=(
-                        ai.current_target_id if ai.current_target_id != -1 else None
-                    ),
-                    speed_multiplier=speed_modifier,
-                    priority=2,
-                ),
-            )
-            return Status.RUNNING
-
-        # Path Following Logic
-        if ai.path:
-            # Get next waypoint
-            next_point = pymunk.Vec2d(*ai.path[0])
-            dist_to_waypoint = (next_point - current_pos).length
-
-            # Waypoint reached?
-            if dist_to_waypoint < WAYPOINT_ACCEPTANCE_RADIUS:
-                ai.path.pop(0)
-                if not ai.path:
-                    # Path finished
-                    pass
-                else:
-                    next_point = pymunk.Vec2d(*ai.path[0])
-
-            if ai.path:
-                speed_modifier = 1.0
-                if needs.energy < LOW_ENERGY_THRESHOLD:
-                    speed_modifier = 0.5
-
-                next_point = pymunk.Vec2d(*ai.path[0])
-
-                self.world.commands.add_component(
-                    self.entity_id,
-                    MoveCommand(
-                        target_pos=next_point,
-                        target_entity_id=(
-                            ai.current_target_id if ai.current_target_id != -1 else None
-                        ),
-                        speed_multiplier=speed_modifier,
-                        priority=2,
-                    ),
-                )
-                return Status.RUNNING
+        controller = self.world.try_get_component(
+            self.entity_id, MovementController
+        )
+        if controller:
+            controller.target_velocity = pymunk.Vec2d(0, 0)
 
         if self.world.has_component(self.entity_id, MoveCommand):
             self.world.commands.remove_component(self.entity_id, MoveCommand)
 
-        current_pos = pymunk.Vec2d(trans.x, trans.y)
-        dist_to_final = (target_pos - current_pos).length
-
-        if dist_to_final < self.acceptance_radius:
-            controller.target_velocity = pymunk.Vec2d(0, 0)
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        if ai:
             ai.path = None
-            return Status.SUCCESS
+            if ai.state_data:
+                ai.state_data.pop("path_requesting", None)
+                ai.state_data.pop("path_destination", None)
+                ai.state_data.pop("pursuit_repath", None)
 
-        return Status.RUNNING
 
 
 class Wander(Action):
@@ -581,6 +376,20 @@ class FleePredator(Action):
 
         return Status.FAILURE
 
+    def on_cleanup(self) -> None:
+        """
+        Cleans up locomotion velocities when fleeing predator ends.
+        """
+        if self.world is None or self.entity_id is None:
+            return
+
+        controller = self.world.try_get_component(
+            self.entity_id, MovementController
+        )
+        if controller:
+            controller.target_velocity = pymunk.Vec2d(0, 0)
+
+
 
 class FleeFromTarget(Action):
     """
@@ -656,3 +465,9 @@ class FleeFromTarget(Action):
         ai.current_target_id = cast(EntityID, -1)
 
         return Status.SUCCESS
+
+    def on_cleanup(self) -> None:
+        """
+        Cleans up resources when FleeFromTarget finishes or is aborted.
+        """
+        pass

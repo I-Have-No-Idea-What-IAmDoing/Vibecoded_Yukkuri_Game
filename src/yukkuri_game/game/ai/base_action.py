@@ -52,3 +52,23 @@ class Action(Behaviour):
         if not self.world or self.entity_id is None:
             return Status.FAILURE
         return Status.RUNNING
+
+    def terminate(self, new_status: Status) -> None:
+        """
+        Cleans up resources when the action finishes or is aborted.
+
+        Args:
+            new_status (Status): The new execution status of the behavior.
+        """
+        if new_status in (Status.SUCCESS, Status.FAILURE, Status.INVALID):
+            self.on_cleanup()
+
+    def on_cleanup(self) -> None:
+        """
+        Custom lifecycle cleanup hook.
+
+        Subclasses should override this method to perform cleanups of physical
+        forces, ECS commands, and transient state data.
+        """
+        pass
+
