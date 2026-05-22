@@ -3,8 +3,6 @@ Unit tests for the Camera module.
 """
 
 import pytest
-from unittest.mock import MagicMock
-import pygame
 
 from yukkuri_game.engine.camera import Camera
 from yukkuri_game.config import WorldSettings
@@ -345,3 +343,80 @@ class TestCameraCommandMethods:
         camera.update(0.1)
 
         assert camera.target_zoom > 1.0
+
+
+class TestCameraFallback:
+    """Tests for camera fallback during plugin registration."""
+
+    def test_game_systems_plugin_registers_fallback_camera(self) -> None:
+        """GameSystemsPlugin registers fallback Camera when none exists."""
+        from test_utils import make_configured_world
+        from yukkuri_game.game.plugins import GameSystemsPlugin
+        from yukkuri_game.game.services import InputBufferService, InputService
+
+        world = make_configured_world()
+        world.services.register(InputService(), InputService)
+        world.services.register(InputBufferService(), InputBufferService)
+
+        plugin = GameSystemsPlugin()
+        # This registration should succeed and fallback automatically
+        plugin.register(world)
+
+        # Confirm camera is successfully registered and retrieved
+        camera = world.services.get(Camera)
+        assert isinstance(camera, Camera)
+
+    def test_service_locator_handles_duplicate_namespace_types(self) -> None:
+        """ServiceLocator resolves duplicate namespaces from import paths."""
+        from yukkuri_game.engine.service_locator import ServiceLocator
+
+        class CameraDummy1:
+            pass
+
+        class CameraDummy2:
+            pass
+
+        CameraDummy1.__name__ = "Camera"
+        CameraDummy2.__name__ = "Camera"
+        CameraDummy1.__module__ = "src.yukkuri_game.engine.camera"
+        CameraDummy2.__module__ = "yukkuri_game.engine.camera"
+
+        locator = ServiceLocator()
+        camera_inst = CameraDummy1()
+        locator.register(camera_inst, CameraDummy1)
+
+        retrieved = locator.get(CameraDummy2)
+        assert retrieved is camera_inst
+        assert locator.try_get(CameraDummy2) is camera_inst
+        assert locator.is_registered(CameraDummy2) is True
+
+    def test_service_locator_delays_system_initialization(self) -> None:
+        """ServiceLocator delays initialization of ECS System until ecs_world is set."""
+        from typing import Any
+        from yukkuri_game.engine.service_locator import ServiceLocator
+        from yukkuri_game.engine.ecs import System
+
+        class MockSystem(System):
+            def __init__(self) -> None:
+                super().__init__()
+                self.initialized_count = 0
+
+            def initialize(self) -> None:
+                if not hasattr(self, "ecs_world"):
+                    raise AttributeError("ecs_world not set")
+                self.initialized_count += 1
+
+            def update(self, world: Any, dt: float) -> None:
+                pass
+
+        locator = ServiceLocator()
+        system = MockSystem()
+
+        # Should register successfully without calling initialize
+        locator.register(system, MockSystem)
+        assert system.initialized_count == 0
+
+        # Once ecs_world is set, registering again will trigger initialize
+        system.ecs_world = object()  # mock world
+        locator.register(system, MockSystem, replace=True)
+        assert system.initialized_count == 1

@@ -5,9 +5,9 @@ Mouse Light System.
 import pygame
 from ...engine.ecs import System, World
 from ...engine.input_manager import InputManager
-from yukkuri_game.engine.components import Transform, LightSource
+from ...engine.components import Transform, LightSource
 from ..services import InputService
-from yukkuri_game.engine.camera import Camera
+from ...engine.camera import Camera
 
 
 class MouseLightSystem(System):
@@ -32,16 +32,26 @@ class MouseLightSystem(System):
         """Creates the mouse light entity."""
         # Use context to ensure we are creating entity in the correct world
         with self.ecs_world.context():
-            entity = self.ecs_world.create_entity()
-            self.ecs_world.add_component(entity, Transform(x=0, y=0))
-            self.ecs_world.add_component(
-                entity,
-                LightSource(
-                    radius=300.0,
-                    color=(255, 255, 255),
-                    intensity=0.0,  # Start invisible
-                ),
-            )
+            if getattr(self.ecs_world, "_updating", False):
+                entity = self.ecs_world.commands.create_entity(
+                    Transform(x=0, y=0),
+                    LightSource(
+                        radius=300.0,
+                        color=(255, 255, 255),
+                        intensity=0.0,  # Start invisible
+                    ),
+                )
+            else:
+                entity = self.ecs_world.create_entity()
+                self.ecs_world.add_component(entity, Transform(x=0, y=0))
+                self.ecs_world.add_component(
+                    entity,
+                    LightSource(
+                        radius=300.0,
+                        color=(255, 255, 255),
+                        intensity=0.0,  # Start invisible
+                    ),
+                )
         return entity
 
     def toggle(self) -> None:

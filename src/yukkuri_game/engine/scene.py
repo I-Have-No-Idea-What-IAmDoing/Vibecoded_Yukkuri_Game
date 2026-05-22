@@ -40,6 +40,10 @@ class Scene(ABC):
     # e.g. { "player_inventory": InventoryComponent }
     INJECTIONS: ClassVar[dict[str, type]] = {}
 
+    # Declarative injection default values mapping keys to fallback values
+    # e.g. { "money": 1000 }
+    INJECTION_DEFAULTS: ClassVar[dict[str, Any]] = {}
+
     def __init__(self, application: "Application"):
         """
         Initializes a Scene.

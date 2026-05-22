@@ -53,8 +53,19 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
     if not data:
         raise ValueError(f"Unknown item type: {type_id}")
 
-    entity = world.create_entity()
-    world.add_component(entity, Transform(x=x, y=y))
+    is_updating = getattr(world, "_updating", False)
+    if is_updating:
+        entity = world.commands.create_entity()
+    else:
+        entity = world.create_entity()
+
+    def add_comp(comp: Any) -> None:
+        if is_updating:
+            world.commands.add_component(entity, comp)
+        else:
+            world.add_component(entity, comp)
+
+    add_comp(Transform(x=x, y=y))
 
     def _get_attr(d: Any, k: str, default: Any = None) -> Any:
         if isinstance(d, dict):
@@ -77,7 +88,7 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         loop=loop,
         is_animating=(frame_count > 1),
     )
-    world.add_component(entity, sprite)
+    add_comp(sprite)
 
     animator = build_animator_from_data(
         data,
@@ -87,13 +98,13 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         default_anim="idle",
     )
     if animator:
-        world.add_component(entity, animator)
+        add_comp(animator)
         sprite.is_animating = False
-    world.add_component(entity, Selectable())
+    add_comp(Selectable())
     has_shadow = type_id == "ball"
-    world.add_component(entity, VisualTransform(has_drop_shadow=has_shadow))
-    world.add_component(entity, StableIDComponent(id=world.get_next_stable_id()))
-    world.add_component(entity, Persistable())
+    add_comp(VisualTransform(has_drop_shadow=has_shadow))
+    add_comp(StableIDComponent(id=world.get_next_stable_id()))
+    add_comp(Persistable())
 
     stats = ItemStats(
         name=_get_attr(data, "name", "Item"),
@@ -105,7 +116,7 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         is_portable=_get_attr(data, "is_portable", False),
         quality=float(_get_attr(data, "quality", 0.0) or 0.0),
     )
-    world.add_component(entity, stats)
+    add_comp(stats)
 
     # Lighting Components
     light_radius = _get_attr(data, "light_radius", None)
@@ -119,8 +130,7 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         elif flicker_str == "PULSE":
             flicker_style = FlickerStyle.PULSE
 
-        world.add_component(
-            entity,
+        add_comp(
             LightSource(
                 radius=light_radius,
                 color=color,
@@ -134,7 +144,7 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
         # Occluder without polygon defaults to physics shape
         # Assume static if it's an occluder item (like a wall segment or furniture)
         is_static = _get_attr(data, "static_occluder", True)
-        world.add_component(entity, Occluder(static=is_static))
+        add_comp(Occluder(static=is_static))
 
     if physics_system:
         mass = 1
@@ -153,7 +163,7 @@ def create_item(world: World, type_id: str, x: float, y: float) -> int:
             group=entity,
         )
         physics_system.space.add(body, shape)
-        world.add_component(entity, PhysicsBody(body=body, shape=shape))
+        add_comp(PhysicsBody(body=body, shape=shape))
 
     # Navigation Obstacle Registration
     # Check if this item should block navigation
@@ -192,12 +202,23 @@ def create_poop(world: World, x: float, y: float) -> int:
     """
     physics_system = world.services.try_get(IPhysicsService)
 
-    entity = world.create_entity()
-    world.add_component(entity, Transform(x=x, y=y))
-    world.add_component(entity, Sprite(image_name="poop.png", width=32, height=32))
-    world.add_component(entity, Selectable())
-    world.add_component(entity, Poop())
-    world.add_component(entity, VisualTransform())
+    is_updating = getattr(world, "_updating", False)
+    if is_updating:
+        entity = world.commands.create_entity()
+    else:
+        entity = world.create_entity()
+
+    def add_comp(comp: Any) -> None:
+        if is_updating:
+            world.commands.add_component(entity, comp)
+        else:
+            world.add_component(entity, comp)
+
+    add_comp(Transform(x=x, y=y))
+    add_comp(Sprite(image_name="poop.png", width=32, height=32))
+    add_comp(Selectable())
+    add_comp(Poop())
+    add_comp(VisualTransform())
 
     if physics_system:
         mass = 1
@@ -214,6 +235,6 @@ def create_poop(world: World, x: float, y: float) -> int:
         )
         # EntityFactory did not set userdata, so we don't either.
         physics_system.space.add(body, shape)
-        world.add_component(entity, PhysicsBody(body=body, shape=shape))
+        add_comp(PhysicsBody(body=body, shape=shape))
 
     return entity

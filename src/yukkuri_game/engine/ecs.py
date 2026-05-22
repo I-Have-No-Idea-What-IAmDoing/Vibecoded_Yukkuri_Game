@@ -550,6 +550,9 @@ class World:
 
         nodes = cast(list[type[System]], list(self._registered_systems.keys()))
 
+        # Build name to type map for string-based dependency lookup
+        name_to_type: dict[str, type[System]] = {n.__name__: n for n in nodes}
+
         # Build adjacency list (A runs before B) and compute in-degrees
         graph: dict[type[System], list[type[System]]] = {n: [] for n in nodes}
         in_degree: dict[type[System], int] = {n: 0 for n in nodes}
@@ -558,14 +561,24 @@ class World:
             system_instance = self._registered_systems[u]
 
             # Explicit dependencies: u runs after dep -> dep runs before u
-            for dep in system_instance.run_after:
-                if dep in graph:
+            for dep_raw in system_instance.run_after:
+                dep = (
+                    name_to_type.get(dep_raw)
+                    if isinstance(dep_raw, str)
+                    else dep_raw
+                )
+                if dep and dep in graph:
                     graph[dep].append(u)
                     in_degree[u] += 1
 
             # Explicit dependencies: u runs before dep -> u runs before dep
-            for dep in system_instance.run_before:
-                if dep in graph:
+            for dep_raw in system_instance.run_before:
+                dep = (
+                    name_to_type.get(dep_raw)
+                    if isinstance(dep_raw, str)
+                    else dep_raw
+                )
+                if dep and dep in graph:
                     graph[u].append(dep)
                     in_degree[dep] += 1
 
@@ -714,8 +727,8 @@ class System(esper.Processor):
     """
 
     ecs_world: World
-    run_after: list[type["System"]] = []
-    run_before: list[type["System"]] = []
+    run_after: list[type["System"] | str] = []
+    run_before: list[type["System"] | str] = []
 
     def process(self, dt: float) -> None:
         """

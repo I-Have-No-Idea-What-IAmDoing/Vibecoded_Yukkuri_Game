@@ -190,3 +190,196 @@ def test_needs_clamping() -> None:
     # Max health reduction clamps current health
     needs.max_health = 80.0
     assert needs.health == 80.0
+
+
+def test_seek_light_stress_reduction(game_driver: GameDriver) -> None:
+    """
+    Verify that an entity in the 'SeekLight' action state correctly moves
+    to a light source, calms down, and successfully resolves its stress.
+    """
+    from yukkuri_game.engine.components import LightSource, Transform
+    from yukkuri_game.game.components import EmotionalState
+
+    driver = game_driver
+    driver.setup()
+
+    # Set time to daytime (noon) so SeekLight doesn't remain the highest utility action at night
+    time_service = driver.world.services.get(TimeService)
+    time_service.time_elapsed = 12.0 * 3600.0
+
+    # 1. Spawn a stressed Yukkuri at (100.0, 100.0)
+    yukkuri_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+    emo = driver.world.get_component(yukkuri_id, EmotionalState)
+    assert emo is not None
+    emo.stress = 80.0
+
+    # 2. Spawn a LightSource at (150.0, 150.0)
+    light_ent = driver.world.create_entity()
+    driver.world.add_component(
+        light_ent,
+        LightSource(
+            radius=300.0,
+            color=(255, 255, 220),
+            intensity=1.0,
+        ),
+    )
+    driver.world.add_component(light_ent, Transform(x=150.0, y=150.0))
+
+    # Apply components queue
+    driver.world.commands.apply_all()
+
+    # Verify state before action
+    trans = driver.world.get_component(yukkuri_id, Transform)
+    assert trans.x == 100.0
+    assert trans.y == 100.0
+
+    # Manually tick SpatialSystem to ensure all entities are registered in the spatial index
+    # before we run the behavior tree for the first time.
+    from yukkuri_game.engine.systems.spatial import SpatialSystem
+    spatial_sys = driver.world.get_system(SpatialSystem)
+    assert spatial_sys is not None
+    spatial_sys.update(driver.world, 0.016)
+
+    # 3. Manually force SeekLight goal/action
+    driver.set_ai_action(yukkuri_id, "SeekLight")
+
+    print("STARTING TICK LOOP")
+    for tick in range(100):
+        driver.run_for(seconds=0.016)
+        ai_comp = driver.world.get_component(yukkuri_id, AIState)
+        t_comp = driver.world.get_component(yukkuri_id, Transform)
+        cmd_comp = driver.world.try_get_component(yukkuri_id, MoveCommand)
+        cmd_str = f"MoveCommand(target={cmd_comp.target_pos})" if cmd_comp else "No MoveCommand"
+        print(f"Tick {tick}: Pos=({t_comp.x:.2f}, {t_comp.y:.2f}), Action={ai_comp.current_action}, Override={ai_comp.manual_override}, Target={ai_comp.current_target_id}, Cmd={cmd_str}")
+
+    # Entity should be close to the light source center (150.0, 150.0)
+    trans = driver.world.get_component(yukkuri_id, Transform)
+    import math
+    dist = math.hypot(trans.x - 150.0, trans.y - 150.0)
+    print(f"DIAGNOSTIC - Yukkuri Pos: ({trans.x}, {trans.y}), Target Light: (150.0, 150.0), Dist: {dist}")
+    assert dist <= 60.0  # acceptance_radius is 50.0
+
+    # Stress should be decreasing or fully resolved
+    # Wait/run until stress calms down completely (stress <= 0.0)
+    driver.run_until(
+        predicate=lambda: emo.stress <= 0.0,
+        timeout=10.0,
+        description="stress fully resolves to 0.0",
+    )
+
+    # Let the behavior tree tick once more so the UtilitySelector runs
+    # with manual_override=False and selects a new action.
+    # Since the entity is now "stable" (Status.SUCCESS), the BehaviorSystem
+    # applies a stable tick throttling multiplier (3.0x), making the minimum tick
+    # interval 0.3s. We run for 0.5s to ensure a tick is executed.
+    driver.run_for(seconds=0.5)
+
+    # After stress is 0, the CalmAtLight action finishes with Status.SUCCESS
+    # and the utility selector will select Wander or Idle
+    ai = driver.world.get_component(yukkuri_id, AIState)
+    assert ai.current_action != "SeekLight"
+
+
+def test_pathfinding_failed_recovery(game_driver: GameDriver) -> None:
+    """
+    Verify that an entity handles a failed pathfinding result correctly.
+
+    The entity must return Status.FAILURE on its next movement behavior tick
+    when pathfinding fails and path_requesting is False, clearing transient
+    keys and successfully picking a new action (e.g. Wander or Idle) instead
+    of softlocking in Status.RUNNING indefinitely.
+    """
+    driver = game_driver
+    driver.setup()
+
+    # Create a Reimu yukkuri
+    yukkuri_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+
+    # Spawn an item to act as food (so target is valid)
+    from yukkuri_game.game.components import ItemStats
+    from yukkuri_game.engine.components import Transform
+    food_id = driver.world.create_entity()
+    driver.world.add_component(food_id, Transform(x=500.0, y=500.0))
+    driver.world.add_component(
+        food_id,
+        ItemStats(
+            name="Beanpaste Food",
+            type_id="beanpaste",
+            cost=10,
+            nutrition=50.0,
+        ),
+    )
+    driver.world.commands.apply_all()
+
+    # Manually tick SpatialSystem to register food in spatial index
+    from yukkuri_game.engine.systems.spatial import SpatialSystem
+    spatial_sys = driver.world.get_system(SpatialSystem)
+    assert spatial_sys is not None
+    spatial_sys.update(driver.world, 0.016)
+
+    # Set manual override action to force Eat with food_id as the target
+    driver.set_ai_action(yukkuri_id, "Eat", food_id)
+
+    # Let the system run to locate the food and request a path first
+    driver.run_for(seconds=0.016)
+
+    # Verify that the food was indeed targeted
+    ai = driver.world.get_component(yukkuri_id, AIState)
+    assert ai is not None
+    assert ai.current_target_id == food_id
+
+    # Simulate pathfinding failing by injecting a failed PathResult into
+    # NavigationService. This is exactly how NavigationSystem gets failures.
+    from yukkuri_game.game.ai.navigation_service import (
+        NavigationService,
+        PathResult,
+    )
+    import queue
+    nav_service = driver.world.services.get(NavigationService)
+
+    # Drain any successful results or pending requests
+    for q in (nav_service.result_queue, nav_service.request_queue):
+        try:
+            while True:
+                q.get_nowait()
+        except queue.Empty:
+            pass
+
+    # Inject the failed pathfinding result
+    ai.path = None
+    nav_service.result_queue.put(
+        PathResult(entity_id=yukkuri_id, path=[], success=False)
+    )
+
+    # Tick BehaviorSystem again. navigate_to should process this
+    # pathfinding failure, return Status.FAILURE, and clear flags
+    driver.run_for(seconds=0.1)
+
+    # Check that failed target was registered in failed_targets
+    assert food_id in ai.failed_targets
+    assert not ai.state_data.get("path_failed")
+    assert not ai.state_data.get("path_requesting")
+
+    # Reset hunger and stress to 0.0 so that the UtilitySelector selects Wander
+    # or Idle instead of Eat or triggering a Stress Break (Panic Freeze)
+    needs = driver.world.get_component(yukkuri_id, Needs)
+    needs.hunger = 0.0
+    from yukkuri_game.game.components import EmotionalState
+    emo = driver.world.get_component(yukkuri_id, EmotionalState)
+    if emo:
+        emo.stress = 0.0
+
+    # Let the behavior system tick again so that it recovers
+    # and selects a different action (e.g. Wander or Idle) since Eat failed
+    driver.run_for(seconds=0.5)
+
+    # Confirm the entity has no active MoveCommand (has stopped attempting to move)
+    assert not driver.world.has_component(yukkuri_id, MoveCommand)
+
+    # Confirm we recovered and transitioned away from the Eat action
+    assert ai.current_action != "Eat"
+
+
+
+
+

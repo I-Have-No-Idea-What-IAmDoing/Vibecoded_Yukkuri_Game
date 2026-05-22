@@ -2,7 +2,12 @@
 Core Engine Plugins.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from loguru import logger
+
 from .ecs import Plugin, World
 from .systems.time import TimeSystem
 from .systems.physics import PhysicsSystem
@@ -11,18 +16,40 @@ from .systems.lod import LODSystem
 from .rendering.system import RenderingSystem
 from .camera import Camera
 
+if TYPE_CHECKING:
+    import pygame
+    from .rendering.pipeline import RenderPipeline
+
+
 
 class CoreSimulationPlugin(Plugin):
     """
     Plugin that registers core simulation systems (Time, Physics, Spatial, LOD).
     """
 
-    def __init__(self, gravity=(0, 0), world_settings=None):
+    def __init__(
+        self,
+        gravity: tuple[float, float] = (0, 0),
+        world_settings: Any = None,
+    ) -> None:
+        """Initialises the plugin.
+
+        Args:
+            gravity: Gravity vector applied to the physics system.
+            world_settings: Optional world settings (width, height, sector_size).
+        """
         self.gravity = gravity
         self.world_settings = world_settings
 
+
     def register(self, world: World) -> None:
+        """Registers simulation systems (Time, Physics, Spatial, LOD) into the world.
+
+        Args:
+            world: The ECS World instance.
+        """
         # Resolve world dimensions
+
         width = 4000.0
         height = 4000.0
         sector_size = 500.0
@@ -55,15 +82,41 @@ class CoreRenderingPlugin(Plugin):
     Plugin that registers the RenderingSystem and Camera.
     """
 
-    def __init__(self, screen, settings=None):
+    def __init__(
+        self,
+        screen: "pygame.Surface | None",
+        settings: Any = None,
+        pipeline: "RenderPipeline | None" = None,
+    ) -> None:
+        """Initialises the plugin.
+
+        Args:
+            screen: The pygame display surface.
+            settings: Optional world settings passed to the Camera.
+            pipeline: Optional custom render pipeline. When provided,
+                the game-specific gameplay passes (including the UIPass
+                that draws the placement ghost sprite) are used instead
+                of the default engine-level passes.
+        """
         self.screen = screen
         self.settings = settings
+        self.pipeline = pipeline
 
     def register(self, world: World) -> None:
+        """Registers Camera and RenderingSystem into the world.
+
+        Args:
+            world: The ECS World instance.
+        """
         logger.debug("CoreRenderingPlugin.register called")
         camera = Camera(self.settings)
         world.services.register(camera, Camera)
         logger.debug(f"Camera registered in services: {world.services.try_get(Camera)}")
 
-        rendering_system = RenderingSystem(self.screen, world)
-        world.add_system(rendering_system)
+        if self.screen is not None:
+            rendering_system = RenderingSystem(
+                self.screen, world, pipeline=self.pipeline
+            )
+            world.add_system(rendering_system)
+            world.services.register(rendering_system, RenderingSystem)
+

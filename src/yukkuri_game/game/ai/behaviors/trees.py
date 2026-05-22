@@ -21,7 +21,7 @@ from .actions.searching import (
     FindThreat,
     PickFood,
 )
-from .actions.survival import Sleep
+from .actions.survival import CalmAtLight, Sleep
 
 if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
@@ -200,15 +200,23 @@ def build_seek_light_behavior(
     )
 
     seek_execution = py_trees.composites.Sequence(
-        name="Seek Light Execution", memory=False
+        name="Seek Light Execution", memory=True
     )
 
-    find_light = FindLightSource(name="Find Light", entity_id=entity_id, world=world)
+    find_light = FindLightSource(
+        name="Find Light", entity_id=entity_id, world=world
+    )
     move_to_light = MoveToTarget(
-        name="Move To Light", entity_id=entity_id, world=world, acceptance_radius=50.0
+        name="Move To Light",
+        entity_id=entity_id,
+        world=world,
+        acceptance_radius=50.0,
+    )
+    calm_at_light = CalmAtLight(
+        name="Calm At Light", entity_id=entity_id, world=world
     )
 
-    seek_execution.add_children([find_light, move_to_light])
+    seek_execution.add_children([find_light, move_to_light, calm_at_light])
     seek_sequence.add_children([is_seeking, seek_execution])
     return seek_sequence
 

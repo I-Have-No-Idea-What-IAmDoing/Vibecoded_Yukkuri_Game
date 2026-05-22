@@ -78,14 +78,56 @@ class ServiceLocator:
 
         # Call initialize if available
         if hasattr(instance, "initialize") and callable(instance.initialize):
-            try:
-                instance.initialize()
-            except Exception:
-                logger.exception(
-                    f"Error initializing service {instance}"
-                )
+            # If this is an ECS system, we only initialize it if ecs_world is already set.
+            # Otherwise, World.add_system() will call initialize when setting ecs_world.
+            is_system = False
+            for base in type(instance).__mro__:
+                if (
+                    base.__name__ == "System"
+                    and "yukkuri_game.engine.ecs" in base.__module__
+                ):
+                    is_system = True
+                    break
+
+            if is_system and not hasattr(instance, "ecs_world"):
+                # Skip initialization for now, add_system will handle it
+                pass
+            else:
+                try:
+                    instance.initialize()
+                except Exception:
+                    logger.exception(
+                        f"Error initializing service {instance}"
+                    )
 
         self._services[key] = instance
+
+    def _is_namespace_compatible(self, t1: Any, t2: Any) -> bool:
+        """
+        Checks if t1 and t2 are duplicate module namespaces.
+
+        This handles cases where the same module is imported with different
+        prefixes (e.g., 'src.yukkuri_game' vs 'yukkuri_game').
+
+        Args:
+            t1 (Any): The first type to check.
+            t2 (Any): The second type to check.
+
+        Returns:
+            bool: True if they are semantically equivalent, False otherwise.
+        """
+        if t1 == t2:
+            return True
+        if not isinstance(t1, type) or not isinstance(t2, type):
+            return False
+        if getattr(t1, "__name__", None) == getattr(t2, "__name__", None):
+            m1 = getattr(t1, "__module__", "")
+            m2 = getattr(t2, "__module__", "")
+            if m1 and m2:
+                s1 = m1.split("yukkuri_game.")[-1]
+                s2 = m2.split("yukkuri_game.")[-1]
+                return s1 == s2
+        return False
 
     def get(self, service_type: type[T]) -> T:
         """
@@ -102,6 +144,11 @@ class ServiceLocator:
         """
         if service_type in self._services:
             return cast(T, self._services[service_type])
+
+        # Try namespace-compatible lookup first
+        for registered_type, instance in self._services.items():
+            if self._is_namespace_compatible(registered_type, service_type):
+                return cast(T, instance)
 
         # Fallback check for protocol/subclass compatibility
         for registered_type, instance in self._services.items():
@@ -140,6 +187,11 @@ class ServiceLocator:
         if service_type in self._services:
             return cast(T, self._services[service_type])
 
+        # Try namespace-compatible lookup first
+        for registered_type, instance in self._services.items():
+            if self._is_namespace_compatible(registered_type, service_type):
+                return cast(T, instance)
+
         # Fallback check for protocol/subclass compatibility
         for registered_type, instance in self._services.items():
             try:
@@ -170,6 +222,11 @@ class ServiceLocator:
         """
         if service_type in self._services:
             return True
+
+        # Try namespace-compatible lookup first
+        for registered_type in self._services:
+            if self._is_namespace_compatible(registered_type, service_type):
+                return True
 
         # Fallback check for protocol/subclass compatibility
         for registered_type, instance in self._services.items():

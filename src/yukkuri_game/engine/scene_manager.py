@@ -111,6 +111,14 @@ class SceneManager:
         context_data = {}
         # Iterate over declared INJECTIONS; performs JIT hydration from raw dicts.
         for key, expected_type in scene.INJECTIONS.items():
+            # Seed missing keys from defaults first to leverage hydration.
+            if (
+                key not in self.persistent_data
+                and hasattr(scene, "INJECTION_DEFAULTS")
+                and key in scene.INJECTION_DEFAULTS
+            ):
+                self.persistent_data[key] = scene.INJECTION_DEFAULTS[key]
+
             if key in self.persistent_data:
                 data = self.persistent_data[key]
 
@@ -121,7 +129,8 @@ class SceneManager:
 
                         if saved_version < target_version:
                             logger.info(
-                                f"Migrating {key} from v{saved_version} to v{target_version}"
+                                f"Migrating {key} from v{saved_version} "
+                                f"to v{target_version}"
                             )
                             data = MigrationRegistry.migrate(
                                 expected_type.__name__,
@@ -134,7 +143,9 @@ class SceneManager:
                         hydration_data = data.copy()
                         hydration_data.pop("_version_", None)
 
-                        obj: Any = msgspec.convert(hydration_data, expected_type)
+                        obj: Any = msgspec.convert(
+                            hydration_data, expected_type
+                        )
 
                         # Cache hydrated object to avoid re-hydration.
                         context_data[key] = obj
@@ -142,7 +153,8 @@ class SceneManager:
 
                     except Exception as e:
                         logger.critical(
-                            f"Failed to inject/deserialize '{key}' for {type(scene).__name__}. Error: {e}"
+                            f"Failed to inject/deserialize '{key}' "
+                            f"for {type(scene).__name__}. Error: {e}"
                         )
                         # Determine fallback strategy: Crash or Skip?
                         # Crashing is safer than running with corrupt/wrong-type data.
@@ -153,10 +165,12 @@ class SceneManager:
                     context_data[key] = data  # Already a live object.
             else:
                 logger.warning(
-                    f"Scene {type(scene).__name__} requested injection '{key}' but it was not found."
+                    f"Scene {type(scene).__name__} requested injection "
+                    f"'{key}' but it was not found."
                 )
 
         return SceneContext(data=context_data)
+
 
     def update(self, dt: float) -> None:
         """

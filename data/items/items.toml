@@ -23,7 +23,7 @@ is_portable = true
 
 [items.bed]
 name = "Soft Bed"
-image = "bed.png"
+image = "bed.jpg"
 width = 64
 height = 64
 cost = 100

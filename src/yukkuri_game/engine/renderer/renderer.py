@@ -46,9 +46,27 @@ class Renderer:
             commands = self._layers[layer_id]
             commands.sort(key=attrgetter("z_index"))
             for cmd in commands:
-                dispatch[type(cmd)](cmd)
+                handler = dispatch.get(type(cmd))
+                if handler is not None:
+                    handler(cmd)
+                else:
+                    # Fall back to module-name matching to handle dual-import
+                    # edge cases where the same class is loaded under two paths.
+                    cmd_type_name = type(cmd).__qualname__
+                    handler = next(
+                        (v for k, v in dispatch.items() if k.__qualname__ == cmd_type_name),
+                        None,
+                    )
+                    if handler is not None:
+                        handler(cmd)
+                    else:
+                        from loguru import logger
+                        logger.warning(
+                            f"Renderer: no handler for command type {type(cmd)!r}"
+                        )
         self._layers.clear()
         self.backend.end_frame()
+
 
     def clear_screen(self, color: tuple[int, int, int]) -> None:
         """Clears the screen."""

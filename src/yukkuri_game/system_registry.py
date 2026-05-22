@@ -78,9 +78,9 @@ class SystemRegistry:
         world.add_system(CommandProcessorSystem())
 
         def add_system(system: System, service_type: type[Any] | None = None) -> None:
+            world.add_system(system)
             if service_type is not None:
                 world.services.register(system, service_type)
-            world.add_system(system)
 
         # Systems are processed in the order they are added.
         # 1. Time & Physics (Simulation Core)

@@ -273,12 +273,13 @@ class HUD:
 
         if event.action == "drop":
             # Add drop request component - will be processed by InventorySystem
-            self.world.add_component(
-                event.entity_id,
-                InventoryDropRequest(
-                    item_type_id=event.item_type_id, quantity=event.quantity
-                ),
+            req = InventoryDropRequest(
+                item_type_id=event.item_type_id, quantity=event.quantity
             )
+            if getattr(self.world, "_updating", False):
+                self.world.commands.add_component(event.entity_id, req)
+            else:
+                self.world.add_component(event.entity_id, req)
 
     def update(self, dt: float) -> None:
         """

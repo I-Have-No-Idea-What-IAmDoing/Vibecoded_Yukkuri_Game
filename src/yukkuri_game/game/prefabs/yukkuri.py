@@ -78,7 +78,17 @@ def create_yukkuri(
     if not data:
         raise ValueError(f"Unknown yukkuri type: {type_id}")
 
-    entity = world.create_entity()
+    is_updating = getattr(world, "_updating", False)
+    if is_updating:
+        entity = world.commands.create_entity()
+    else:
+        entity = world.create_entity()
+
+    def add_comp(comp: Any) -> None:
+        if is_updating:
+            world.commands.add_component(entity, comp)
+        else:
+            world.add_component(entity, comp)
 
     try:
 
@@ -117,7 +127,7 @@ def create_yukkuri(
         frame_duration = _get_attr(data, "frame_duration", 0.1)
         loop = _get_attr(data, "loop", True)
 
-        world.add_component(entity, Transform(x=x, y=y, scale=scale))
+        add_comp(Transform(x=x, y=y, scale=scale))
 
         sprite = Sprite(
             image_name=image,
@@ -128,7 +138,7 @@ def create_yukkuri(
             loop=loop,
             is_animating=(frame_count > 1),
         )
-        world.add_component(entity, sprite)
+        add_comp(sprite)
 
         # Animator Creation (Enables Events and State logic)
         animator = build_animator_from_data(
@@ -142,16 +152,16 @@ def create_yukkuri(
             if not (hasattr(data, "animations") and data.animations):
                 if "idle" in animator.animations:
                     animator.animations["walk"] = animator.animations["idle"]
-            world.add_component(entity, animator)
+            add_comp(animator)
             # Disable legacy sprite self-animation to avoid conflict?
             # AnimationSystem prioritizes Animator, but Sprite.is_animating might cause double updates?
             # AnimationSystem: if has Animator -> use it. else if Sprite -> use legacy.
             # So it's safe. But best to set is_animating=False if Animator takes over.
             sprite.is_animating = False
 
-        world.add_component(entity, Selectable())
-        world.add_component(entity, StableIDComponent(id=world.get_next_stable_id()))
-        world.add_component(entity, Persistable())
+        add_comp(Selectable())
+        add_comp(StableIDComponent(id=world.get_next_stable_id()))
+        add_comp(Persistable())
 
         # Movement & Visual Components
         movement_controller = MovementController()
@@ -159,11 +169,10 @@ def create_yukkuri(
             visuals = rm.tuning.visuals.movement
             movement_controller.bob_height = visuals.bob_height
             movement_controller.bob_speed = visuals.bob_speed
-        world.add_component(entity, movement_controller)
-        world.add_component(entity, SteeringComponent())
+        add_comp(movement_controller)
+        add_comp(SteeringComponent())
         # Shadow logic: All Yukkuris have shadows but Flandre has special handling via Flight
-        world.add_component(entity, VisualTransform(has_drop_shadow=True))
-
+        add_comp(VisualTransform(has_drop_shadow=True))
 
         # Yukkuri Stats and Needs
         stats = YukkuriStats(
@@ -173,21 +182,21 @@ def create_yukkuri(
             growth_stage=growth_stage,
             agility=_get_attr(data, "agility", 1.0),
         )
-        world.add_component(entity, stats)
+        add_comp(stats)
 
         needs = Needs(max_health=max_health, health=max_health, hunger=0.0)
-        world.add_component(entity, needs)
+        add_comp(needs)
 
         # Emotional State
         emotional_state = EmotionalState()
-        world.add_component(entity, emotional_state)
+        add_comp(emotional_state)
 
         # AI
-        world.add_component(entity, AIState())
-        world.add_component(entity, GossipQueue())
+        add_comp(AIState())
+        add_comp(GossipQueue())
 
         # Personality & Relationships
-        world.add_component(entity, RelationshipRegistry())
+        add_comp(RelationshipRegistry())
 
         traits = set()
         axis = PersonalityAxis()
@@ -263,21 +272,21 @@ def create_yukkuri(
         )
 
         personality = Personality(traits=traits, axis=axis, base_axis=base_axis)
-        world.add_component(entity, personality)
+        add_comp(personality)
 
         # Initialize Skills
         if skill_service:
-            skill_service.initialize_skills(entity)
+            skill_service.initialize_skills(entity, personality=personality)
 
         # Vision
-        world.add_component(entity, Vision(range=300.0, fov=360.0))
+        add_comp(Vision(range=300.0, fov=360.0))
 
         # Mount (Hierarchy Root)
-        world.add_component(entity, Mount())
+        add_comp(Mount())
 
         # Inventory (Reimu and Marisa only)
         if type_id in ("reimu", "marisa"):
-            world.add_component(entity, InventoryComponent())
+            add_comp(InventoryComponent())
 
         # Physics
         add_physics_body(
@@ -309,7 +318,7 @@ def create_yukkuri(
                 max_stamina=fly_stamina,
                 state=FlightState.GROUNDED,
             )
-            world.add_component(entity, flight)
+            add_comp(flight)
 
         # Predator Component (for predator Yukkuris like Flandre)
         is_predator = _get_attr(data, "is_predator", False)
@@ -323,7 +332,7 @@ def create_yukkuri(
                 aggression=_get_attr(data, "aggression", 1.0),
                 dps=_get_attr(data, "dps", 20.0),
             )
-            world.add_component(entity, predator)
+            add_comp(predator)
 
         return entity
 

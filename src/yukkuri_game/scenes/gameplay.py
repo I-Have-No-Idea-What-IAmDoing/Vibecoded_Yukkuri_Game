@@ -43,6 +43,10 @@ class GameplayScene(Scene):
     """
 
     INJECTIONS: ClassVar[dict[str, type]] = {"money": int, "time": float}
+    INJECTION_DEFAULTS: ClassVar[dict[str, Any]] = {
+        "money": 1000,
+        "time": 600.0,
+    }
 
     def __init__(self, application: Application) -> None:
         super().__init__(application)
@@ -203,15 +207,31 @@ class GameplayScene(Scene):
         logger.info(f"Screenshot saved to {filename}")
 
     def init_render_system_headless(self) -> None:
+        """Initialises the render system if not already set up.
+
+        Used as a safety net when the scene is created outside the
+        normal plugin registration flow (e.g. during headless tests).
+        """
         if (
-            not hasattr(self.renderer_manager, "render_system") or self.renderer_manager.render_system is None
+            not hasattr(self.renderer_manager, "render_system")
+            or self.renderer_manager.render_system is None
         ) and self.application.screen:
             from ..engine.rendering.system import RenderingSystem
+            from ..game.systems.rendering.passes import (
+                create_gameplay_pipeline,
+            )
+
             render_system = RenderingSystem(
                 self.application.screen,
                 self.world,
-                lights_engine=getattr(self.application, "lights_engine", None),
+                pipeline=create_gameplay_pipeline(),
+                lights_engine=getattr(
+                    self.application, "lights_engine", None
+                ),
             )
-            self.world.services.register(render_system, RenderingSystem)
+            self.world.services.register(
+                render_system, RenderingSystem, replace=True
+            )
             self.render_system = render_system
             self.renderer_manager.render_system = render_system
+

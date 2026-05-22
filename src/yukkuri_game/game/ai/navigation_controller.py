@@ -155,68 +155,69 @@ class NavigationController:
             is_requesting = state_data.get("path_requesting", False)
             path_failed = state_data.get("path_failed", False)
 
+            if path_failed:
+                state_data["path_requesting"] = False
+                if "path_failed" in state_data:
+                    del state_data["path_failed"]
+                if "path_request_time" in state_data:
+                    del state_data["path_request_time"]
+                if "path_destination" in state_data:
+                    del state_data["path_destination"]
+                ai.state_data = state_data
+
+                if target_entity_id is not None:
+                    ai.failed_targets.add(cast(EntityID, target_entity_id))
+
+                if world.has_component(entity_id, MoveCommand):
+                    world.commands.remove_component(entity_id, MoveCommand)
+
+                return Status.FAILURE
+
             if is_requesting:
                 now = world.time
                 request_timestamp = state_data.get("path_request_time", 0.0)
                 if (now - request_timestamp) > 2.0:
                     state_data["path_requesting"] = False
-                elif path_failed:
-                    state_data["path_requesting"] = False
-                    if "path_failed" in state_data:
-                        del state_data["path_failed"]
-                    if "path_request_time" in state_data:
-                        del state_data["path_request_time"]
-                    if "path_destination" in state_data:
-                        del state_data["path_destination"]
-                    ai.state_data = state_data
-
-                    if target_entity_id is not None:
-                        ai.failed_targets.add(cast(EntityID, target_entity_id))
-
-                    if world.has_component(entity_id, MoveCommand):
-                        world.commands.remove_component(entity_id, MoveCommand)
-
-                    return Status.FAILURE
                 else:
                     return Status.RUNNING
-            elif not path_failed:
-                nav_service = world.services.try_get(NavigationService)
-                if nav_service:
-                    capabilities = TraversalCapability.WALK
-                    flight_comp = world.try_get_component(entity_id, Flight)
-                    if flight_comp and flight_comp.stamina > MIN_TAKEOFF_STAMINA:
-                        capabilities |= TraversalCapability.FLY
-                        if flight_comp.state == FlightState.GROUNDED:
-                            flight_comp.state = FlightState.TAKEOFF
 
-                    priority = 2
-                    if ai.state_data and ai.state_data.get(
-                        "pursuit_repath", False
-                    ):
-                        priority = 0
-                        ai.state_data["pursuit_repath"] = False
+            nav_service = world.services.try_get(NavigationService)
+            if nav_service:
+                capabilities = TraversalCapability.WALK
+                flight_comp = world.try_get_component(entity_id, Flight)
+                if flight_comp and flight_comp.stamina > MIN_TAKEOFF_STAMINA:
+                    capabilities |= TraversalCapability.FLY
+                    if flight_comp.state == FlightState.GROUNDED:
+                        flight_comp.state = FlightState.TAKEOFF
 
-                    nav_service.request_path(
-                        entity_id,
-                        (trans.x, trans.y),
-                        (target_pos.x, target_pos.y),
-                        capabilities=capabilities,
-                        priority=priority,
-                        timestamp=world.time,
-                    )
+                priority = 2
+                if ai.state_data and ai.state_data.get(
+                    "pursuit_repath", False
+                ):
+                    priority = 0
+                    ai.state_data["pursuit_repath"] = False
 
-                    if ai.state_data is None:
-                        ai.state_data = {}
-                    ai.state_data["path_requesting"] = True
-                    ai.state_data["path_request_time"] = world.time
-                    ai.state_data["path_destination"] = (
-                        target_pos.x,
-                        target_pos.y,
-                    )
-                    if "path_failed" in ai.state_data:
-                        del ai.state_data["path_failed"]
+                nav_service.request_path(
+                    entity_id,
+                    (trans.x, trans.y),
+                    (target_pos.x, target_pos.y),
+                    capabilities=capabilities,
+                    priority=priority,
+                    timestamp=world.time,
+                )
 
-                    return Status.RUNNING
+                if ai.state_data is None:
+                    ai.state_data = {}
+                ai.state_data["path_requesting"] = True
+                ai.state_data["path_request_time"] = world.time
+                ai.state_data["path_destination"] = (
+                    target_pos.x,
+                    target_pos.y,
+                )
+                if "path_failed" in ai.state_data:
+                    del ai.state_data["path_failed"]
+
+                return Status.RUNNING
 
         # Drift Detection
         if ai.path and target_pos:

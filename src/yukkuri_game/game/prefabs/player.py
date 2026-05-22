@@ -18,8 +18,15 @@ def create_player(world: World, x: float = 0, y: float = 0) -> int:
     Returns:
         int: The ID of the created entity.
     """
-    entity = world.create_entity()
-    world.add_component(entity, Transform(x=x, y=y))
-    world.add_component(entity, StableIDComponent(id=0))  # Fixed ID for player
-    world.add_component(entity, Persistable())
+    if getattr(world, "_updating", False):
+        entity = world.commands.create_entity(
+            Transform(x=x, y=y),
+            StableIDComponent(id=0),
+            Persistable(),
+        )
+    else:
+        entity = world.create_entity()
+        world.add_component(entity, Transform(x=x, y=y))
+        world.add_component(entity, StableIDComponent(id=0))  # Fixed ID for player
+        world.add_component(entity, Persistable())
     return entity

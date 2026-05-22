@@ -157,3 +157,43 @@ def test_injection_hydration_and_migration():
 
     # Also verify it updated the persistent data in memory to the object
     assert isinstance(sm.get_global_data("my_struct"), MyStruct)
+
+
+class SceneWithDefaultInjection(MockScene):
+    """Mock Scene to test INJECTION_DEFAULTS."""
+
+    INJECTIONS = {"score": int}
+    INJECTION_DEFAULTS = {"score": 50}
+
+
+def test_injection_defaults() -> None:
+    """Test hydrating missing keys from INJECTION_DEFAULTS."""
+    sm = SceneManager()
+
+    scene = SceneWithDefaultInjection()
+    sm.push(scene)
+
+    assert scene.context.data["score"] == 50
+    assert sm.get_global_data("score") == 50
+
+
+class SceneWithStructDefaultInjection(MockScene):
+    """Mock Scene to test Struct hydration from INJECTION_DEFAULTS."""
+
+    INJECTIONS = {"my_struct": MyStruct}
+    INJECTION_DEFAULTS = {"my_struct": {"value": 7}}
+
+
+def test_injection_defaults_with_struct() -> None:
+    """Test hydrating a dict default into a msgspec Struct."""
+    sm = SceneManager()
+
+    scene = SceneWithStructDefaultInjection()
+    sm.push(scene)
+
+    injected = scene.context.data["my_struct"]
+    assert isinstance(injected, MyStruct)
+    assert injected.value == 7
+    assert isinstance(sm.get_global_data("my_struct"), MyStruct)
+
+

@@ -128,11 +128,19 @@ class GameLoader:
         self.world.register_plugin(CoreSimulationPlugin(gravity=(0, 0), world_settings=self.game_config.world))
 
         logger.debug("Registering CoreRenderingPlugin")
+        pipeline = None
+        if not self.application.headless and self.application.screen:
+            from .systems.rendering.passes import create_gameplay_pipeline
+
+            pipeline = create_gameplay_pipeline()
         self.world.register_plugin(
             CoreRenderingPlugin(
-                screen=self.application.screen, settings=self.game_config.world
+                screen=self.application.screen,
+                settings=self.game_config.world,
+                pipeline=pipeline,
             )
         )
+
 
         logger.debug("Registering GameSystemsPlugin")
         self.world.register_plugin(GameSystemsPlugin())

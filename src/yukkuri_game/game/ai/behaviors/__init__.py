@@ -30,4 +30,5 @@ from .actions import (
     SocialInteract as SocialInteract,
     EatPrey as EatPrey,
     Sleep as Sleep,
+    CalmAtLight as CalmAtLight,
 )

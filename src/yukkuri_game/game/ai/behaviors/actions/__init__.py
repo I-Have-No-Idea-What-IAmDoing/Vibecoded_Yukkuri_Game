@@ -9,7 +9,7 @@ from .searching import (
     PickFood,
 )
 from .interaction import Interact, SocialInteract, EatPrey
-from .survival import Sleep
+from .survival import CalmAtLight, Sleep
 
 __all__ = [
     "Idle",
@@ -30,4 +30,5 @@ __all__ = [
     "SocialInteract",
     "EatPrey",
     "Sleep",
+    "CalmAtLight",
 ]

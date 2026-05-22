@@ -43,12 +43,21 @@ class GameplayRenderer:
         
         # If it wasn't added by a plugin (unlikely but safe), create it
         if not self.render_system and self.scene.application.screen:
+            from ...game.systems.rendering.passes import (
+                create_gameplay_pipeline,
+            )
+
             self.render_system = RenderingSystem(
                 self.scene.application.screen,
                 self.scene.world,
-                lights_engine=getattr(self.scene.application, "lights_engine", None),
+                pipeline=create_gameplay_pipeline(),
+                lights_engine=getattr(
+                    self.scene.application, "lights_engine", None
+                ),
             )
-            self.scene.world.services.register(self.render_system, RenderingSystem)
+            self.scene.world.services.register(
+                self.render_system, RenderingSystem, replace=True
+            )
 
         # Day/Night System
         try:
@@ -94,12 +103,21 @@ class GameplayRenderer:
 
         if self.render_system and self.scene.application.screen:
             from ...engine.rendering.system import RenderingSystem
+            from ...game.systems.rendering.passes import (
+                create_gameplay_pipeline,
+            )
+
             self.render_system = RenderingSystem(
                 self.scene.application.screen,
                 self.scene.world,
-                lights_engine=getattr(self.scene.application, "lights_engine", None),
+                pipeline=create_gameplay_pipeline(),
+                lights_engine=getattr(
+                    self.scene.application, "lights_engine", None
+                ),
             )
-            self.scene.world.services.register(self.render_system, RenderingSystem)
+            self.scene.world.services.register(
+                self.render_system, RenderingSystem, replace=True
+            )
             self.scene.render_system = self.render_system
             if self.day_night_system:
                 self.day_night_system.render_system = self.render_system

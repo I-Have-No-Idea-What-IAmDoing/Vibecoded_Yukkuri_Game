@@ -26,8 +26,6 @@ from yukkuri_game.engine.components import (
     Velocity,
 )
 
-from yukkuri_game.game.systems.visual_movement_system import VisualMovementSystem
-
 
 class SpatialService:
     """
@@ -340,7 +338,7 @@ class OccluderMap(SpatialService):
 
 
 class SpatialSystem(System):
-    run_after = [VisualMovementSystem]
+    run_after = ["VisualMovementSystem"]
 
     """
     System responsible for keeping the SpatialService updated with entity positions.

@@ -269,10 +269,11 @@ class InventoryPanel:
             # Fallback: Direct component addition (for backwards compatibility)
             from ..components import InventoryDropRequest
 
-            self.world.add_component(
-                self.entity_id,
-                InventoryDropRequest(item_type_id=item_type_id, quantity=1),
-            )
+            req = InventoryDropRequest(item_type_id=item_type_id, quantity=1)
+            if getattr(self.world, "_updating", False):
+                self.world.commands.add_component(self.entity_id, req)
+            else:
+                self.world.add_component(self.entity_id, req)
             logger.debug(
                 f"Added InventoryDropRequest for {item_type_id} from entity {self.entity_id}"
             )

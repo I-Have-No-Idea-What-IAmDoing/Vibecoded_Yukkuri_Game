@@ -32,17 +32,30 @@ def create_floating_text(
     Returns:
         int: The ID of the created entity.
     """
-    entity = world.create_entity()
-    world.add_component(entity, Transform(x=x, y=y))
-    world.add_component(
-        entity,
-        FloatingText(
-            text=text,
-            color=color,
-            lifetime=lifetime,
-            max_lifetime=lifetime,
-            velocity_y=velocity_y,
-            size=size,
-        ),
-    )
+    if getattr(world, "_updating", False):
+        entity = world.commands.create_entity(
+            Transform(x=x, y=y),
+            FloatingText(
+                text=text,
+                color=color,
+                lifetime=lifetime,
+                max_lifetime=lifetime,
+                velocity_y=velocity_y,
+                size=size,
+            ),
+        )
+    else:
+        entity = world.create_entity()
+        world.add_component(entity, Transform(x=x, y=y))
+        world.add_component(
+            entity,
+            FloatingText(
+                text=text,
+                color=color,
+                lifetime=lifetime,
+                max_lifetime=lifetime,
+                velocity_y=velocity_y,
+                size=size,
+            ),
+        )
     return entity

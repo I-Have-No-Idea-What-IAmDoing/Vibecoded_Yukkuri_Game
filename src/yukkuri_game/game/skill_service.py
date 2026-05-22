@@ -57,21 +57,30 @@ class SkillService:
         else:
             logger.warning("ResourceManager not found in World.")
 
-    def initialize_skills(self, entity_id: int) -> None:
+    def initialize_skills(
+        self, entity_id: int, personality: Personality | None = None
+    ) -> Skills | None:
         """
         Initializes the Skills component for an entity if it doesn't exist,
         and ensures all defined skills are present.
 
         Args:
             entity_id (int): The entity ID.
+            personality (Personality | None): Optional Personality component if not yet in the world.
+
+        Returns:
+            Skills | None: The initialized Skills component.
         """
         if not self.world.entity_exists(entity_id):
-            return
+            return None
 
         skills = self.world.try_get_component(entity_id, Skills)
         if not skills:
             skills = Skills()
-            self.world.add_component(entity_id, skills)
+            if getattr(self.world, "_updating", False):
+                self.world.commands.add_component(entity_id, skills)
+            else:
+                self.world.add_component(entity_id, skills)
 
         # Determine current time for initialization to avoid instant decay
         current_time = 0.0
@@ -85,17 +94,27 @@ class SkillService:
                 skills.states[skill_id] = SkillState(last_used_gametime=current_time)
 
         # Apply passion from traits
-        self.recalculate_passions(entity_id)
+        self.recalculate_passions(entity_id, skills=skills, personality=personality)
+        return skills
 
-    def recalculate_passions(self, entity_id: int) -> None:
+    def recalculate_passions(
+        self,
+        entity_id: int,
+        skills: Skills | None = None,
+        personality: Personality | None = None,
+    ) -> None:
         """
         Recalculates passion levels for all skills based on traits.
 
         Args:
             entity_id (int): The entity ID.
+            skills (Skills | None): Optional Skills component.
+            personality (Personality | None): Optional Personality component.
         """
-        skills = self.world.try_get_component(entity_id, Skills)
-        personality = self.world.try_get_component(entity_id, Personality)
+        if skills is None:
+            skills = self.world.try_get_component(entity_id, Skills)
+        if personality is None:
+            personality = self.world.try_get_component(entity_id, Personality)
         trait_service = self.world.services.try_get(TraitService)
 
         if not skills or not trait_service:

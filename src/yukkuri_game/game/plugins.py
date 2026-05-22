@@ -40,7 +40,13 @@ class GameSystemsPlugin(Plugin):
 
     def register(self, world: World) -> None:
         logger.debug("GameSystemsPlugin.register called")
-        camera = world.services.get(Camera)
+        camera = world.services.try_get(Camera)
+        if camera is None:
+            logger.warning(
+                "Camera service not found. Registering fallback."
+            )
+            camera = Camera()
+            world.services.register(camera, Camera)
         logger.debug(f"GameSystemsPlugin found camera: {camera}")
         
         # Input and Commands
@@ -85,16 +91,16 @@ class GameSystemsPlugin(Plugin):
 
         logger.debug("Adding HungerSystem")
         hunger_system = HungerSystem()
-        world.services.register(hunger_system, HungerSystem)
         world.add_system(hunger_system)
+        world.services.register(hunger_system, HungerSystem)
 
         logger.debug("Adding InteractionSystem")
         world.add_system(InteractionSystem())
 
         logger.debug("Adding SocialSystem")
         social_system = SocialSystem()
-        world.services.register(social_system, SocialSystem)
         world.add_system(social_system)
+        world.services.register(social_system, SocialSystem)
 
         logger.debug("Adding GossipSystem")
         world.add_system(GossipSystem())
@@ -107,7 +113,7 @@ class GameSystemsPlugin(Plugin):
 
         logger.debug("Adding MouseLightSystem")
         mouse_light_system = MouseLightSystem()
-        world.services.register(mouse_light_system, MouseLightSystem)
         world.add_system(mouse_light_system)
+        world.services.register(mouse_light_system, MouseLightSystem)
         
         logger.debug("GameSystemsPlugin.register completed successfully")

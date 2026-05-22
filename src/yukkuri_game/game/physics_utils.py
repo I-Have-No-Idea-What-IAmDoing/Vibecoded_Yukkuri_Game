@@ -75,7 +75,10 @@ def add_physics_body(
         body.userdata = entity
 
     physics_system.space.add(body, shape)
-    world.add_component(entity, PhysicsBody(body=body, shape=shape))
+    if getattr(world, "_updating", False):
+        world.commands.add_component(entity, PhysicsBody(body=body, shape=shape))
+    else:
+        world.add_component(entity, PhysicsBody(body=body, shape=shape))
 
 
 def get_yukkuri_radius(growth_stage: str) -> float:

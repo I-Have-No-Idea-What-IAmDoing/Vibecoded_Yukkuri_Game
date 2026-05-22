@@ -2,7 +2,6 @@
 Module defining core game services.
 """
 
-import collections
 import math
 from typing import TYPE_CHECKING
 
@@ -12,6 +11,7 @@ from ..engine.components import Transform
 from .components import ItemStats, Skills
 from .skill_constants import SkillId
 from ..engine.protocols import ISpatialService
+from ..engine.services.input_buffer_service import InputBufferService as InputBufferService
 
 if TYPE_CHECKING:
     pass
@@ -197,46 +197,6 @@ class InputService:
     def stop_cleaning(self) -> None:
         """Stops cleaning mode."""
         self._cleaning_mode = False
-
-
-class InputBufferService:
-    """
-    Service that acts as a FIFO queue of GameCommand objects.
-
-    InputSystem enqueues commands here each frame.
-    CommandProcessorSystem drains and executes them at the start of the
-    next frame, ensuring all game logic is fully decoupled from raw input.
-
-    Attributes:
-        _queue: Internal deque storing pending commands.
-    """
-
-    def __init__(self) -> None:
-        """Initialises the InputBufferService with an empty command queue."""
-        self._queue: collections.deque[object] = collections.deque()
-
-    def add_command(self, command: object) -> None:
-        """
-        Enqueues a command for deferred execution.
-
-        Args:
-            command: Any object satisfying the GameCommand protocol.
-        """
-        self._queue.append(command)
-
-    def pop_all(self) -> list[object]:
-        """
-        Drains the queue and returns all pending commands.
-
-        Clears the internal queue in one atomic swap so that commands
-        added during execution are deferred to the *next* frame.
-
-        Returns:
-            list[object]: All commands that were pending at call time.
-        """
-        pending = list(self._queue)
-        self._queue.clear()
-        return pending
 
 
 class GameService:

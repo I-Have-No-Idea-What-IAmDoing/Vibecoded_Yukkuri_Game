@@ -156,6 +156,7 @@ class FindLightSource(Action):
             max_radius=2000.0,
             exclude_ids=exclude_ids,
         )
+        print(f"DEBUG FindLightSource: Entity {self.entity_id} at ({trans.x:.2f}, {trans.y:.2f}) found best_light={best_light}, exclude={exclude_ids}")
 
         if best_light != -1:
             if ai.current_target_id != best_light:
