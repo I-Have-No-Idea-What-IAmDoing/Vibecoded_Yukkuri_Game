@@ -30,6 +30,7 @@ from yukkuri_game.engine.components import Transform
 from ..prefabs.effects import create_floating_text
 
 if TYPE_CHECKING:
+    from .hud import HUD
     from .hud_layout import HudLayout
 
 
@@ -59,6 +60,7 @@ class HudEvents:
         self.event_bus = event_bus
         self.on_error = on_error
         self.selected_entities: list[int] = []
+        self.hud: "HUD | None" = None
 
         self.settings_service: SettingsService | None = None
         if hasattr(self.world.services, "try_get"):
@@ -137,6 +139,17 @@ class HudEvents:
             return self._handle_slider_event(event)
 
         if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
+            if (
+                hasattr(self.layout, "log_filter_menu")
+                and event.ui_element == self.layout.log_filter_menu
+            ):
+                self._play_click()
+                selected = event.text
+                if selected == "All Logs":
+                    selected = "All"
+                if self.hud:
+                    self.hud.set_log_filter(selected)
+                return True
             return True
 
         if event.type == pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED:
@@ -151,6 +164,15 @@ class HudEvents:
             return False
 
         ui_element = event.ui_element
+
+        if (
+            hasattr(self.layout, "log_freeze_btn")
+            and ui_element == self.layout.log_freeze_btn
+        ):
+            self._play_click()
+            if self.hud:
+                self.hud.toggle_log_freeze()
+            return True
 
         for attr_name, handler in self._static_handlers.items():
             if (
@@ -260,6 +282,18 @@ class HudEvents:
         if panel.punish_btn and ui_element == panel.punish_btn:
             for entity_id in self.selected_entities:
                 self.event_bus.publish(PunishEntityRequest(entity_id))
+            return True
+
+        if panel.ai_freeze_btn and ui_element == panel.ai_freeze_btn:
+            panel.is_ai_frozen = not panel.is_ai_frozen
+            if panel.is_ai_frozen:
+                panel.ai_freeze_btn.set_text("Updates Frozen")
+                if hasattr(panel.ai_freeze_btn, "select"):
+                    getattr(panel.ai_freeze_btn, "select")()
+            else:
+                panel.ai_freeze_btn.set_text("Freeze Updates")
+                if hasattr(panel.ai_freeze_btn, "unselect"):
+                    getattr(panel.ai_freeze_btn, "unselect")()
             return True
 
         return False

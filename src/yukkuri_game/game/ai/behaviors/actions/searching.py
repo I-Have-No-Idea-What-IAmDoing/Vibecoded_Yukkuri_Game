@@ -1,6 +1,7 @@
 import math
 from typing import TYPE_CHECKING, Any, cast, Optional
 
+from loguru import logger
 from py_trees.common import Status
 
 from yukkuri_game.engine.types import EntityID
@@ -156,7 +157,15 @@ class FindLightSource(Action):
             max_radius=2000.0,
             exclude_ids=exclude_ids,
         )
-        print(f"DEBUG FindLightSource: Entity {self.entity_id} at ({trans.x:.2f}, {trans.y:.2f}) found best_light={best_light}, exclude={exclude_ids}")
+        logger.debug(
+            "FindLightSource: Entity {} at ({:.2f}, {:.2f}) "
+            "found best_light={}, exclude={}",
+            self.entity_id,
+            trans.x,
+            trans.y,
+            best_light,
+            exclude_ids,
+        )
 
         if best_light != -1:
             if ai.current_target_id != best_light:

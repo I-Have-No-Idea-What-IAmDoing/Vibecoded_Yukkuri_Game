@@ -312,6 +312,20 @@ class InputSystem(System):
                 self._emit(CancelPlacementCommand())
             elif self.input_service and self.input_service.is_cleaning:
                 self._emit(CancelCleaningCommand())
+            elif pygame.key.get_mods() & pygame.KMOD_ALT:
+                # Alt + Right Click: Developer Teleport!
+                selected_entities = [
+                    ent
+                    for ent, sel in world.get_components(Selectable).items()
+                    if sel.selected
+                ]
+                if len(selected_entities) == 1:
+                    y_id = selected_entities[0]
+                    trans = world.try_get_component(y_id, Transform)
+                    if trans:
+                        trans.x = wx
+                        trans.y = wy
+                        return
             else:
                 self._emit(ContextMenuCommand(wx, wy, mx, my))
 

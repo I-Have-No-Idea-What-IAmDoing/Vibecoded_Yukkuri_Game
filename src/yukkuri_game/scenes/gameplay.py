@@ -45,7 +45,7 @@ class GameplayScene(Scene):
     INJECTIONS: ClassVar[dict[str, type]] = {"money": int, "time": float}
     INJECTION_DEFAULTS: ClassVar[dict[str, Any]] = {
         "money": 1000,
-        "time": 600.0,
+        "time": 21600.0,
     }
 
     def __init__(self, application: Application) -> None:

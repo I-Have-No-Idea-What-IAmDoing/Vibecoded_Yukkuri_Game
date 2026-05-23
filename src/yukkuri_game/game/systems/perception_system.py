@@ -96,6 +96,28 @@ class PerceptionSystem(System):
         self._last_update_times.pop(entity_id, None)
         self._last_visible_set_ids.pop(entity_id, None)
 
+        if not hasattr(self, "ecs_world"):
+            return
+        world = self.ecs_world
+
+        # Clear references in observer Blackboards
+        blackboard_components = world.get_components(Blackboard)
+        for _, blackboard in blackboard_components.items():
+            blackboard.visible_targets.pop(entity_id, None)
+            blackboard.short_term_memory.pop(entity_id, None)
+            if blackboard.closest_threat_id == entity_id:
+                blackboard.closest_threat_id = None
+            if blackboard.closest_food_id == entity_id:
+                blackboard.closest_food_id = None
+
+        # Clear references in observer AIStates
+        ai_state_components = world.get_components(AIState)
+        for _, ai_state in ai_state_components.items():
+            if ai_state.current_target_id == entity_id:
+                ai_state.current_target_id = EntityID(-1)
+            ai_state.failed_targets.discard(entity_id)
+            ai_state.visible_entities.discard(entity_id)
+
 
     def update(self, world: World, dt: float) -> None:
         """

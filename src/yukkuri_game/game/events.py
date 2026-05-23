@@ -94,6 +94,7 @@ class LogMessageEvent(Event):
 
     message: str
     color: tuple[int, int, int] = (255, 255, 255)
+    channel: str = "General"
 
 
 @dataclass(frozen=True)

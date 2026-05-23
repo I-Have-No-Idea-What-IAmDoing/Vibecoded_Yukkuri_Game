@@ -122,7 +122,9 @@ class FeedbackSystem(System):
         if self.event_bus:
             self.event_bus.publish(
                 LogMessageEvent(
-                    message=f"Sold entity for ${event.value}.", color=(255, 215, 0)
+                    message=f"Sold entity for ${event.value}.",
+                    color=(255, 215, 0),
+                    channel="Economy",
                 )
             )
 
@@ -153,7 +155,9 @@ class FeedbackSystem(System):
         if self.event_bus:
             self.event_bus.publish(
                 LogMessageEvent(
-                    message=f"{name} grew into a {event.new_stage}!", color=(0, 255, 0)
+                    message=f"{name} grew into a {event.new_stage}!",
+                    color=(0, 255, 0),
+                    channel="General",
                 )
             )
 
@@ -183,7 +187,11 @@ class FeedbackSystem(System):
 
         if self.event_bus:
             self.event_bus.publish(
-                LogMessageEvent(message=f"{name} has died.", color=(255, 0, 0))
+                LogMessageEvent(
+                    message=f"{name} has died.",
+                    color=(255, 0, 0),
+                    channel="General",
+                )
             )
 
     def on_trained(self, event: EntityTrainedEvent) -> None:
@@ -213,7 +221,9 @@ class FeedbackSystem(System):
         if self.event_bus:
             self.event_bus.publish(
                 LogMessageEvent(
-                    message=f"{name} trained successfully.", color=(0, 255, 255)
+                    message=f"{name} trained successfully.",
+                    color=(0, 255, 255),
+                    channel="AI",
                 )
             )
 
@@ -243,7 +253,11 @@ class FeedbackSystem(System):
 
         if self.event_bus:
             self.event_bus.publish(
-                LogMessageEvent(message=f"{name} was punished.", color=(255, 0, 0))
+                LogMessageEvent(
+                    message=f"{name} was punished.",
+                    color=(255, 0, 0),
+                    channel="AI",
+                )
             )
 
     def on_animation_event(self, event: AnimationEvent) -> None:

@@ -302,7 +302,7 @@ class WorldSerializer:
             all_components = self.world.get_all_components(new_entity)
             for component in all_components:
                 try:
-                    type_hints = typing.get_type_hints(component)
+                    type_hints = typing.get_type_hints(type(component))
                 except (TypeError, NameError):
                     continue
 
@@ -374,6 +374,28 @@ class WorldSerializer:
 
         logger.info(f"Loaded {len(entities_data)} entities from data")
 
+    def _unwrap_union(self, tp: type) -> type:
+        """
+        Unwrap UnionType/Union by returning the non-None element.
+
+        Args:
+            tp (type): The type to unwrap.
+
+        Returns:
+            type: The unwrapped type.
+        """
+        origin = get_origin(tp)
+        if origin in (typing.Union, types.UnionType):
+            args = get_args(tp)
+            non_none_args = [
+                a for a in args if a is not type(None) and a is not None
+            ]
+            if len(non_none_args) == 1:
+                return non_none_args[0]
+            if non_none_args:
+                return non_none_args[0]
+        return tp
+
     def _is_entity_ref(self, tp: type) -> bool:
         """
         Check if type is EntityID or EntityID | None.
@@ -384,17 +406,8 @@ class WorldSerializer:
         Returns:
             bool: True if it is an EntityID reference.
         """
-        if tp is EntityID:
-            return True
-        origin = get_origin(tp)
-        if origin in (
-            typing.Union,
-            types.UnionType,
-        ):  # Check for Optional[EntityID] or EntityID | None
-            args = get_args(tp)
-            # Optional[T] is Union[T, NoneType]
-            return EntityID in args
-        return False
+        tp = self._unwrap_union(tp)
+        return tp is EntityID
 
     def _is_container_of_entity_ref(self, tp: type) -> bool:
         """
@@ -406,6 +419,7 @@ class WorldSerializer:
         Returns:
             bool: True if it is a container of EntityID.
         """
+        tp = self._unwrap_union(tp)
         origin = get_origin(tp)
         if origin in (list, set):
             args = get_args(tp)
@@ -423,6 +437,7 @@ class WorldSerializer:
         Returns:
             bool: True if the key type is EntityID.
         """
+        tp = self._unwrap_union(tp)
         origin = get_origin(tp)
         if origin is dict:
             args = get_args(tp)

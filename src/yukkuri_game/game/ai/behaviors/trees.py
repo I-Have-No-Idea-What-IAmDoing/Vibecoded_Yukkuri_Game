@@ -27,6 +27,55 @@ if TYPE_CHECKING:
     from yukkuri_game.engine.ecs import World
 
 
+class ActionFailureTracker(py_trees.decorators.Decorator):
+    """Decorator wrapping high-level execution sequences to track failures.
+
+    If the child sequence returns FAILURE, sets a cooldown on the action.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        child: py_trees.behaviour.Behaviour,
+        action_name: str,
+        entity_id: int,
+        world: "World",
+    ) -> None:
+        """Initializes the failure tracker decorator.
+
+        Args:
+            name: The name of the decorator behaviour.
+            child: The child behaviour to decorate.
+            action_name: The name of the high-level action.
+            entity_id: The ID of the owner entity.
+            world: The ECS world instance.
+        """
+        super().__init__(name=name, child=child)
+        self.action_name: str = action_name
+        self.entity_id: int = entity_id
+        self.world: "World" = world
+
+    def update(self) -> py_trees.common.Status:
+        """Updates the decorator status and applies action cooldown on failure.
+
+        Returns:
+            The execution status of the decorated child.
+        """
+        status: py_trees.common.Status = self.decorated.status
+        if status == py_trees.common.Status.FAILURE:
+            ai = self.world.try_get_component(self.entity_id, AIState)
+            if ai and ai.current_action == self.action_name:
+                if (
+                    not hasattr(ai, "action_cooldowns")
+                    or ai.action_cooldowns is None
+                ):
+                    ai.action_cooldowns = {}
+                ai.action_cooldowns[self.action_name] = (
+                    self.world.time + 10.0
+                )
+        return status
+
+
 class BehaviorRegistry:
     """
     Registry for behavior tree construction functions associated with high-level goals.
@@ -445,7 +494,20 @@ def create_yukkuri_behavior_tree(
     goals = BehaviorRegistry.get_goals()
     for name, builder in goals.items():
         execution_selector.add_child(
-            builder(entity_id, world, width, height, check_goal, check_target_exists)
+            ActionFailureTracker(
+                name=f"{name} Failure Tracker",
+                child=builder(
+                    entity_id,
+                    world,
+                    width,
+                    height,
+                    check_goal,
+                    check_target_exists,
+                ),
+                action_name=name,
+                entity_id=entity_id,
+                world=world,
+            )
         )
 
     idle = Idle(entity_id=entity_id, world=world)

@@ -2,26 +2,27 @@
 name = "Athletics"
 description = "Physical fitness."
 max_level = 20
-decay_rate = 10.0 # XP lost per day
+decay_rate = 40.0 # XP lost per day (was 10.0)
 soft_cap_base_level = 10
 
 [skills.socialization]
 name = "Socialization"
 description = "Ability to interact with others."
 max_level = 20
-decay_rate = 5.0
+decay_rate = 20.0 # XP lost per day (was 5.0)
 soft_cap_base_level = 10
 
 [skills.scavenging]
 name = "Scavenging"
 description = "Ability to find items."
 max_level = 20
-decay_rate = 8.0
+decay_rate = 30.0 # XP lost per day (was 8.0)
 soft_cap_base_level = 10
 
 [skills.combat]
 name = "Combat"
 description = "Fighting ability."
 max_level = 20
-decay_rate = 12.0
+decay_rate = 50.0 # XP lost per day (was 12.0)
 soft_cap_base_level = 10
+

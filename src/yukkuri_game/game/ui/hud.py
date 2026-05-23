@@ -23,7 +23,7 @@ from ..events import (
 )
 from ..systems.ai_debug_renderer import AIDebugRenderer
 from ..systems.navigation_debug_renderer import NavigationDebugRenderer
-from ..components import YukkuriStats
+from ..components import AIState, YukkuriStats
 from .context_menu import ContextMenu
 from .hud_events import HudEvents
 
@@ -83,6 +83,7 @@ class HUD:
         self.events = HudEvents(
             self.layout, self.world, self.event_bus, self.show_error
         )
+        self.events.hud = self
 
         self.renderer = HudRenderer(self.layout, self.world)
 
@@ -98,6 +99,16 @@ class HUD:
         self.lighting_debug = False
         self.navigation_debug_renderer: NavigationDebugRenderer | None = None
         self.ai_debug_renderer: AIDebugRenderer | None = None
+
+        self.log_history: list[LogMessageEvent] = [
+            LogMessageEvent(
+                message="Welcome to Yukkuri Game!",
+                color=(255, 255, 255),
+                channel="General",
+            )
+        ]
+        self.current_log_filter: str = "All"
+        self.is_log_frozen: bool = False
 
         self.event_bus.subscribe(EntitySelectedEvent, self.on_entity_selected)
         self.event_bus.subscribe(GamePausedEvent, self.on_game_paused)
@@ -155,21 +166,28 @@ class HUD:
         Args:
             event (LogMessageEvent): The event data.
         """
-        if self.layout.log_box:
-            # Convert color tuple to hex string
-            hex_color = "#{:02x}{:02x}{:02x}".format(*event.color)
-            message = f"<font color='{hex_color}'>{event.message}</font><br>"
-            self.layout.log_box.append_html_text(message)
+        # Always append to in-memory history
+        self.log_history.append(event)
 
-            # Scroll to bottom
+        # Do not update UI if log feed is frozen
+        if self.is_log_frozen:
+            return
+
+        # Debug channels are only shown in debug mode (show_debug)
+        if event.channel in ("AI", "Physics") and not self.show_debug:
+            return
+
+        if self.layout.log_box:
             if (
-                hasattr(self.layout.log_box, "scroll_bar")
-                and self.layout.log_box.scroll_bar
+                self.current_log_filter == "All"
+                or event.channel == self.current_log_filter
             ):
-                self.layout.log_box.scroll_bar.scroll_position = (
-                    self.layout.log_box.scroll_bar.scrollable_height
-                )
-                self.layout.log_box.scroll_bar.update(0)
+                # Convert color tuple to hex string
+                hex_color = "#{:02x}{:02x}{:02x}".format(*event.color)
+                message = f"<font color='{hex_color}'>{event.message}</font><br>"
+                self.layout.log_box.append_html_text(message)
+
+                self._scroll_log_box_to_bottom()
 
     def on_entity_selected(self, event: EntitySelectedEvent) -> None:
         """
@@ -178,9 +196,19 @@ class HUD:
         Args:
             event (EntitySelectedEvent): The entity selected event.
         """
+        # Clear is_inspected flag on previous entities
+        for ent, ai in self.world.get_components(AIState).items():
+            ai.is_inspected = False
+
         self.selected_entities = list(event.entity_ids)
         self.events.set_selected_entities(self.selected_entities)
         self._update_selection_window_layout()
+
+        # Set is_inspected flag on newly selected entities
+        for entity_id in self.selected_entities:
+            ai = self.world.try_get_component(entity_id, AIState)
+            if ai:
+                ai.is_inspected = True
 
     def on_game_paused(self, event: GamePausedEvent) -> None:
         """
@@ -343,6 +371,8 @@ class HUD:
         else:
             self.layout.close_debug_window()
 
+        self._rebuild_log_box_content()
+
     def toggle_lighting_debug(self) -> None:
         """Toggles lighting debug visuals."""
         self.lighting_debug = not self.lighting_debug
@@ -408,3 +438,57 @@ class HUD:
                 self.selected_entities = []
                 self.layout.close_selection_window()
                 self.events.set_selected_entities([])
+
+    def set_log_filter(self, channel: str) -> None:
+        """Sets the active log category filter and rebuilds text."""
+        self.current_log_filter = channel
+        if not self.is_log_frozen:
+            self._rebuild_log_box_content()
+
+    def toggle_log_freeze(self) -> None:
+        """Toggles scroll freeze state for the log feed."""
+        self.is_log_frozen = not self.is_log_frozen
+        if self.layout.log_freeze_btn:
+            btn = self.layout.log_freeze_btn
+            if self.is_log_frozen:
+                getattr(btn, "select")()
+                btn.set_text("Frozen")
+            else:
+                getattr(btn, "unselect")()
+                btn.set_text("Freeze")
+
+        if not self.is_log_frozen:
+            self._rebuild_log_box_content()
+
+    def _rebuild_log_box_content(self) -> None:
+        """Clears and reprints matching logs from buffer history."""
+        if not self.layout.log_box:
+            return
+        self.layout.log_box.set_text("")
+        for event in self.log_history:
+            # Debug channels are only shown in debug mode (show_debug)
+            if event.channel in ("AI", "Physics") and not self.show_debug:
+                continue
+
+            if (
+                self.current_log_filter == "All"
+                or event.channel == self.current_log_filter
+            ):
+                hex_color = "#{:02x}{:02x}{:02x}".format(*event.color)
+                message = (
+                    f"<font color='{hex_color}'>{event.message}</font><br>"
+                )
+                self.layout.log_box.append_html_text(message)
+        self._scroll_log_box_to_bottom()
+
+    def _scroll_log_box_to_bottom(self) -> None:
+        """Scrolls the log box viewport to the bottom."""
+        if (
+            self.layout.log_box
+            and hasattr(self.layout.log_box, "scroll_bar")
+            and self.layout.log_box.scroll_bar
+        ):
+            self.layout.log_box.scroll_bar.scroll_position = (
+                self.layout.log_box.scroll_bar.scrollable_height
+            )
+            self.layout.log_box.scroll_bar.update(0)

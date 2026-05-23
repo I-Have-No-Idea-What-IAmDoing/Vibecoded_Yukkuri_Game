@@ -14,12 +14,13 @@ name = "Super Cookie"
 image = "cookie.png"
 width = 32
 height = 32
-cost = 100
-nutrition = 50
+cost = 50
+nutrition = 65
 fun = 30
-comfort = 5
+comfort = 15
 quality = 50.0
 is_portable = true
+
 
 [items.bed]
 name = "Soft Bed"

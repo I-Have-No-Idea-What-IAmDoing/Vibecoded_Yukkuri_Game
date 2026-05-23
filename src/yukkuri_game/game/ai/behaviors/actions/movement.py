@@ -236,6 +236,11 @@ class Wander(Action):
             return self.move_action.update()
         return Status.FAILURE
 
+    def on_cleanup(self) -> None:
+        """Cleans up the delegated movement action and its movement states."""
+        if self.move_action:
+            self.move_action.on_cleanup()
+
 
 class Swoop(Action):
     """

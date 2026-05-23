@@ -314,14 +314,19 @@ class UtilityAIEngine:
         context: dict[str, Any],
         personality: "Personality | None" = None,
         trait_service: "TraitService | None" = None,
+        exclude_actions: set[str] | None = None,
     ) -> str:
-        """
-        Selects the action with the highest utility score.
+        """Selects the action with the highest utility score.
 
         Args:
-            context (dict[str, Any]): A dictionary containing the current world state/context.
-            personality (Personality | None): The personality component of the entity. Defaults to None.
-            trait_service (TraitService | None): The trait service to look up trait data. Defaults to None.
+            context (dict[str, Any]): A dictionary containing the current world
+                state/context.
+            personality (Personality | None): The personality component of the
+                entity. Defaults to None.
+            trait_service (TraitService | None): The trait service to look up
+                trait data. Defaults to None.
+            exclude_actions (set[str] | None): Actions to exclude from
+                selection. Defaults to None.
 
         Returns:
             str: The name of the selected action.
@@ -342,6 +347,8 @@ class UtilityAIEngine:
                         overrides[cons_name] = mod
 
         for name, action in self.actions.items():
+            if exclude_actions and name in exclude_actions:
+                continue
             # Pass overrides to calculate_utility_compensated
             score = action.calculate_utility_compensated(context, overrides)
             if score > best_score:
@@ -420,7 +427,13 @@ class UtilityAIEngine:
 
         return warnings
 
-    def debug_score(self, context: dict[str, Any], action_name: str) -> dict[str, Any]:
+    def debug_score(
+        self,
+        context: dict[str, Any],
+        action_name: str,
+        personality: "Personality | None" = None,
+        trait_service: "TraitService | None" = None,
+    ) -> dict[str, Any]:
         """
         Returns detailed scoring breakdown for a specific action.
 
@@ -429,6 +442,8 @@ class UtilityAIEngine:
         Args:
             context (dict[str, Any]): The current context dictionary.
             action_name (str): Name of the action to debug.
+            personality (Personality | None): Entity personality.
+            trait_service (TraitService | None): Trait lookup service.
 
         Returns:
             dict[str, Any]: Detailed breakdown including each consideration's score.
@@ -449,11 +464,24 @@ class UtilityAIEngine:
             result["reason"] = "No considerations"
             return result
 
-        running_score = action.weight
+        overrides = {}
+        if personality and personality.cached_overrides is not None:
+            overrides = personality.cached_overrides
+        elif personality and trait_service:
+            for trait_id in personality.traits:
+                trait_data = trait_service.get_trait(trait_id)
+                if trait_data and trait_data.ai_modifiers:
+                    for cons_name, mod in trait_data.ai_modifiers.items():
+                        overrides[cons_name] = mod
+
+        scores = []
         for cons in action.considerations:
             input_val = context.get(cons.input_key, 0.0)
             normalized_val = max(0, min(100, input_val)) / 100.0
-            score = cons.score(context)
+            
+            override = overrides.get(cons.name) if overrides else None
+            score = cons.score(context, override)
+            scores.append(score)
 
             cons_detail = {
                 "name": cons.name,
@@ -465,7 +493,13 @@ class UtilityAIEngine:
                 "score": round(score, 4),
             }
             result["considerations"].append(cons_detail)
-            running_score *= score
 
-        result["final_score"] = round(running_score, 6)
+        # Geometric mean: (a * b * c) ^ (1/n)
+        product = 1.0
+        for s in scores:
+            product *= s
+
+        compensated = product ** (1.0 / len(scores)) if scores else 0.0
+        final_score = action.weight * compensated
+        result["final_score"] = round(final_score, 6)
         return result

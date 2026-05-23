@@ -21,6 +21,12 @@ curve = "inverse_linear"
 # is_predator=1 -> 0.01 normalized -> score=0.99 (still allows eating if no prey)
 # But combined with HasPrey in Hunt, predators should prefer Hunt
 
+[[actions.Eat.considerations]]
+name = "HasFood"
+input = "has_food"
+curve = "threshold"
+params = { threshold = 0.005 } # has_food = 1.0 -> 0.01 after normalization
+
 [actions.Sleep]
 weight = 1.5
 [actions.Sleep.effects]
@@ -38,8 +44,14 @@ params = { k = 10.0, x0 = 0.7 }
 [[actions.Sleep.considerations]]
 name = "NightTime"
 input = "is_night"
+curve = "linear"
+params = { m = 50.0, b = 0.5 } # Returns 1.0 at night, 0.5 during day
+
+[[actions.Sleep.considerations]]
+name = "HasBed"
+input = "has_bed"
 curve = "threshold"
-params = { threshold = 0.005 }  # is_night = 1.0 -> 0.01 after normalization
+params = { threshold = 0.005 } # has_bed = 1.0 -> 0.01 after normalization
 
 [actions.Play]
 weight = 1.0
@@ -54,6 +66,12 @@ name = "Boredom"
 input = "happiness_inv"
 curve = "linear"
 params = { m = 1.0, b = 0.0 }
+
+[[actions.Play.considerations]]
+name = "HasToy"
+input = "has_toy"
+curve = "threshold"
+params = { threshold = 0.005 } # has_toy = 1.0 -> 0.01 after normalization
 
 [actions.Wander]
 weight = 0.5
@@ -105,6 +123,12 @@ name = "Fear"
 input = "stress"
 curve = "logit"
 params = { k = 15.0, x0 = 0.5 }
+
+[[actions.SeekLight.considerations]]
+name = "HasLight"
+input = "nearby_lights"
+curve = "threshold"
+params = { threshold = 0.005 } # nearby_lights = 1.0 -> 0.01 after normalization
 
 [actions.Fight]
 weight = 2.5

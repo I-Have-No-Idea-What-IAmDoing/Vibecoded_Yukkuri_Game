@@ -159,3 +159,94 @@ def test_talk_xp(social_env):
     interaction_system.update(world, 0.1)
 
     skill_service.add_xp.assert_called_with(talker, "socialization", 5.0)
+
+
+def test_destroyed_entity_relationship_cleanup(social_env):
+    """
+    Verify that when an entity is destroyed, other entities' relationship
+    registries immediately prune any references to it.
+    """
+    world, _, _, _ = social_env
+    social_system = world.services.get(SocialSystem)
+
+    # 1. Setup Entities
+    subject = world.create_entity()
+    registry = RelationshipRegistry()
+    world.add_component(subject, registry)
+
+    other = world.create_entity()
+    other_id = EntityID(other)
+
+    # Populate relationships and biological links referencing 'other'
+    from yukkuri_game.game.components import RelationshipData
+    registry.relationships[other_id] = RelationshipData()
+    registry.mate_id = other_id
+    registry.biological_parents = [other_id]
+    registry.biological_children = [other_id]
+
+    # Verify they are present
+    assert other_id in registry.relationships
+    assert registry.mate_id == other_id
+    assert registry.biological_parents == [other_id]
+    assert registry.biological_children == [other_id]
+
+    # 2. Destroy the 'other' entity
+    world.destroy_entity(other)
+    world.commands.apply_all()
+
+    # 3. Trigger social system update to run cleanup
+    social_system.update(world, 0.1)
+
+    # 4. Verify all references to 'other' have been pruned!
+    assert other_id not in registry.relationships
+    assert registry.mate_id is None
+    assert registry.biological_parents == []
+    assert registry.biological_children == []
+
+
+def test_destroyed_entity_perception_cleanup(social_env):
+    """
+    Verify that when an entity is destroyed, other entities' blackboard
+    and AIState references immediately prune any references to it.
+    """
+    world, _, _, _ = social_env
+    # Add PerceptionSystem to world
+    from yukkuri_game.game.systems.perception_system import PerceptionSystem
+    from yukkuri_game.game.components import Blackboard, AIState
+
+    # Check if PerceptionSystem is already in world
+    system = world.services.try_get(PerceptionSystem)
+    if not system:
+        system = PerceptionSystem()
+        world.add_system(system)
+
+    subject = world.create_entity()
+    blackboard = Blackboard()
+    ai_state = AIState()
+    world.add_component(subject, blackboard)
+    world.add_component(subject, ai_state)
+
+    other = world.create_entity()
+    other_id = EntityID(other)
+
+    # Populate references
+    blackboard.visible_targets[other_id] = None  # type: ignore
+    blackboard.short_term_memory[other_id] = None  # type: ignore
+    blackboard.closest_threat_id = other_id
+    blackboard.closest_food_id = other_id
+    ai_state.current_target_id = other_id
+    ai_state.failed_targets.add(other_id)
+    ai_state.visible_entities.add(other_id)
+
+    # Destroy the other entity
+    world.destroy_entity(other)
+    world.commands.apply_all()
+
+    # Verify everything has been immediately cleaned up in blackboard and ai_state!
+    assert other_id not in blackboard.visible_targets
+    assert other_id not in blackboard.short_term_memory
+    assert blackboard.closest_threat_id is None
+    assert blackboard.closest_food_id is None
+    assert ai_state.current_target_id == EntityID(-1)
+    assert other_id not in ai_state.failed_targets
+    assert other_id not in ai_state.visible_entities

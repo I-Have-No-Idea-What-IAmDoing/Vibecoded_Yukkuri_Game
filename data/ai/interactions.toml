@@ -28,9 +28,6 @@ skill_rewards = { socialization = 2.0 }
 base_impact = 5.0
 social_impact = { affinity = 3.0, familiarity = 2.0, trust = 1.0 }
 skill_rewards = { socialization = 5.0 }
-conditions = [
-    { expression = "skills.socialization >= 5" }
-]
 
 [interaction.Talk.modifiers]
 "trait:GESU" = { affinity = -2.0 } # Gesu finds talking boring unless it's abuse?

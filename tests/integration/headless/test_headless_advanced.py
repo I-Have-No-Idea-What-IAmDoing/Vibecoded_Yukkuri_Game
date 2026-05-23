@@ -1,3 +1,4 @@
+import pytest
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.scenes.gameplay import GameplayScene
 from yukkuri_game.game.components import YukkuriStats
@@ -71,8 +72,13 @@ def test_image_comparison_failure(game_driver: GameDriver, tmp_path):
 
     test_path = str(tmp_path / "test_fail.png")
 
-    # Should fail comparison (return False)
-    assert not driver.compare_screenshot(test_path, reference_path, tolerance=0.005)
+    # Should fail comparison (raise AssertionError)
+    with pytest.raises(AssertionError) as exc_info:
+        driver.compare_screenshot(
+            test_path, reference_path, tolerance=0.005
+        )
+
+    assert "Visual Regression Mismatch Detected!" in str(exc_info.value)
 
 
 def test_state_dump_on_failure(game_driver: GameDriver):

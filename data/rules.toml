@@ -4,12 +4,12 @@
 # Target: 3 meals/day = 100 hunger over ~8 hours (28800 game seconds)
 hunger = 0.0035          # ~100 over 8 hours (was 2.0)
 happiness = 0.002        # Slower decay (was 0.5)
-stress = 0.1             # Fast decay back to 0 (was 5.0)
+stress = 0.02            # Slower decay to make stress and light sources meaningful (was 0.1)
 energy = 0.002           # ~100 over ~14 hours (was 0.5)
-cleanliness = 0.001      # Slow decay (was 0.2)
+cleanliness = 0.0015     # Slightly faster decay (was 0.001)
 social = 0.002           # ~100 over ~14 hours (was 0.5)
 age = 0.001              # 1 age unit per 1000 game seconds (was 1.0)
-starvation_damage = 0.02 # Slow health loss when starving (was 5.0)
+starvation_damage = 0.003 # Slow health loss when starving (was 0.02)
 personality_drift_rate = 0.0001  # Very slow drift (was 0.1)
 tastebud_decay = 0.001
 
@@ -33,5 +33,6 @@ xp_exponent = 1.5
 [stats]
 badge_value = 500
 health_deficit_penalty = 2.0
-age_value_bonus = 10.0
+age_value_bonus = 0.2   # Scaled down to prevent immediate flipping exploits (was 10.0)
 intelligence_base = 0.5
+

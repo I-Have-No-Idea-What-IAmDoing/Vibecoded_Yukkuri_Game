@@ -179,6 +179,10 @@ class SocialSystem(System):
         to_remove = []
 
         for other_id, rel_data in registry.relationships.items():
+            if not world.entity_exists(other_id):
+                to_remove.append(other_id)
+                continue
+
             self._update_opinion(world, eid, other_id, rel_data)
 
             # Check if relationship is exempt from decay (mates or family)
@@ -195,6 +199,27 @@ class SocialSystem(System):
 
         for rid in to_remove:
             del registry.relationships[rid]
+
+        # Clean up mate and biological lists if they no longer exist.
+        if (
+            registry.mate_id is not None
+            and not world.entity_exists(registry.mate_id)
+        ):
+            registry.mate_id = None
+
+        if registry.biological_parents:
+            registry.biological_parents = [
+                p
+                for p in registry.biological_parents
+                if world.entity_exists(p)
+            ]
+
+        if registry.biological_children:
+            registry.biological_children = [
+                c
+                for c in registry.biological_children
+                if world.entity_exists(c)
+            ]
 
     def process_interaction_request(
         self, world: World, initiator_id: int, request: InteractionRequest

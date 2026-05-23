@@ -17,6 +17,8 @@ from ..components import (
     Skills,
     YukkuriStats,
 )
+from yukkuri_game.engine.components import Transform
+
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
@@ -46,6 +48,7 @@ class UtilityContextBuilder:
         """
         stats = world.try_get_component(entity_id, YukkuriStats)
         needs = world.try_get_component(entity_id, Needs)
+        trans = world.try_get_component(entity_id, Transform)
 
         if not stats or not needs:
             return None
@@ -82,6 +85,47 @@ class UtilityContextBuilder:
             if time_service.is_night:
                 is_night = 1.0
 
+        # 3b. Environment (Lights)
+        nearby_lights = 0.0
+        from yukkuri_game.engine.components import LightSource
+        from yukkuri_game.engine.protocols import ISpatialService
+        spatial_service = world.services.try_get(ISpatialService)
+        if spatial_service and trans:
+            best_light = spatial_service.get_nearest_entity(
+                world,
+                trans.x,
+                trans.y,
+                component_filter=LightSource,
+                max_radius=2000.0,
+                exclude_ids={entity_id},
+            )
+            if best_light != -1:
+                light_comp = world.try_get_component(best_light, LightSource)
+                if light_comp and light_comp.intensity > 0.0:
+                    nearby_lights = 1.0
+        else:
+            for l_ent, l_comp in world.get_components(LightSource).items():
+                if l_comp.intensity > 0.0:
+                    nearby_lights = 1.0
+                    break
+
+        # 3c. Environment (Items availability)
+        has_food = 1.0
+        has_toy = 1.0
+        has_bed = 1.0
+        from ..services import GameService
+        game_service = world.services.try_get(GameService)
+        if game_service and trans:
+            pos = (trans.x, trans.y)
+            food_item = game_service.find_best_item(pos, "nutrition", searcher_id=entity_id)
+            has_food = 1.0 if food_item != -1 else 0.0
+
+            toy_item = game_service.find_best_item(pos, "fun", searcher_id=entity_id)
+            has_toy = 1.0 if toy_item != -1 else 0.0
+
+            bed_item = game_service.find_best_item(pos, "comfort", searcher_id=entity_id)
+            has_bed = 1.0 if bed_item != -1 else 0.0
+
         # 4. Construct Core Context
         context = {
             "hunger": needs.hunger,
@@ -101,6 +145,10 @@ class UtilityContextBuilder:
             "nearby_prey": nearby_prey,
             "time_of_day": time_of_day,
             "is_night": is_night,
+            "nearby_lights": nearby_lights,
+            "has_food": has_food,
+            "has_toy": has_toy,
+            "has_bed": has_bed,
             "constant_100": 100.0,
             "constant_0": 0.0,
             "is_predator": 1.0 if world.has_component(entity_id, Predator) else 0.0,

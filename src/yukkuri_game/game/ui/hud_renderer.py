@@ -111,6 +111,7 @@ class HudRenderer:
         if self.layout.entity_info_panel and selected_entities:
             self._update_stats_display(selected_entities)
             self._update_skills_display(selected_entities)
+            self._update_ai_display(selected_entities)
 
     def _update_debug_info(
         self, dt: float, selected_entities: list[int], show_debug: bool
@@ -489,6 +490,93 @@ class HudRenderer:
             text = "Multiple selection not supported for Skills."
 
         self.layout.entity_info_panel.update_skills(text)
+
+    def _update_ai_display(self, selected_entities: list[int]) -> None:
+        """
+        Updates the AI introspection tab for the selected entity.
+
+        Args:
+            selected_entities (list[int]): The IDs of the selected entities.
+        """
+        if not self.layout.entity_info_panel:
+            return
+
+        text = ""
+        if len(selected_entities) == 1:
+            eid = selected_entities[0]
+            ai = self.world.try_get_component(eid, AIState)
+            if ai:
+                breakdown = ai.last_utility_breakdown
+                if not breakdown:
+                    text = "Waiting for AI calculations..."
+                else:
+                    active_action = breakdown.get("active_action")
+                    sorted_actions = breakdown.get("sorted_actions", [])
+
+                    lines = []
+                    for name, data in sorted_actions:
+                        score = data.get("final_score", 0.0)
+                        is_active = (name == active_action)
+
+                        if is_active:
+                            header = (
+                                f"<b>▶ [ACTIVE] <font color='#00FFFF'>"
+                                f"{name} (Score: {score:.4f})</font></b>"
+                            )
+                        else:
+                            if score > 0.6:
+                                color = "#00FF66"
+                            elif score > 0.01:
+                                color = "#FFCC00"
+                            else:
+                                color = "#808080"
+                            header = (
+                                f"<b><font color='{color}'>"
+                                f"{name} (Score: {score:.4f})</font></b>"
+                            )
+                        lines.append(header)
+
+                        for cons in data.get("considerations", []):
+                            cons_name = cons.get("name", "")
+                            raw_val = cons.get("raw_value", 0.0)
+                            norm_val = cons.get("normalized_value", 0.0)
+                            curve = cons.get("curve", "linear")
+                            params = cons.get("params", {})
+                            cons_score = cons.get("score", 0.0)
+
+                            param_strs = []
+                            for pk, pv in params.items():
+                                if isinstance(pv, float):
+                                    param_strs.append(f"{pk}={pv:.2f}")
+                                else:
+                                    param_strs.append(f"{pk}={pv}")
+                            param_str = ", ".join(param_strs)
+
+                            if cons_score <= 0.01:
+                                cons_str = (
+                                    f"&nbsp;&nbsp;• <font color='#FF3333'>"
+                                    f"<b>[REJECTED]</b> {cons_name}: "
+                                    f"{raw_val:.2f} -> {norm_val:.2f} "
+                                    f"({curve}: {param_str}) "
+                                    f"score: {cons_score:.3f}</font>"
+                                )
+                            else:
+                                cons_str = (
+                                    f"&nbsp;&nbsp;• {cons_name}: "
+                                    f"{raw_val:.2f} -> {norm_val:.2f} "
+                                    f"({curve}: {param_str}) "
+                                    f"score: {cons_score:.3f}"
+                                )
+                            lines.append(cons_str)
+                        lines.append("")  # Spacer between actions
+
+                    text = "<br>".join(lines)
+            else:
+                text = "No AI component found for this entity."
+        else:
+            text = "Multiple selection not supported for AI Introspection."
+
+        self.layout.entity_info_panel.update_ai(text)
 
     def _update_debug_window(self, dt: float) -> None:
         """

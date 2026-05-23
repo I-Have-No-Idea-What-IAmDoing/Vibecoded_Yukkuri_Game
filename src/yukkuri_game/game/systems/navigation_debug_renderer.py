@@ -51,6 +51,7 @@ class NavigationDebugRenderer:
         if not self.enabled:
             return
 
+        self._draw_blocked_cells(surface)
         self._draw_cluster_boundaries(surface)
         self._draw_entrances(
             surface, TraversalCapability.WALK, self.COLOR_ENTRANCE_WALK
@@ -61,6 +62,41 @@ class NavigationDebugRenderer:
             )
         self._draw_active_paths(surface, world)
         self._draw_steering_vectors(surface, world)
+
+    def _draw_blocked_cells(self, surface: pygame.Surface) -> None:
+        """Draws semi-transparent red overlays on blocked walk cells."""
+        grid = self.nav_service.grid
+        cell_size = grid.grid_step_size
+
+        # Calculate visible area in screen/world bounds
+        cam_x, cam_y = self.camera.camera_x, self.camera.camera_y
+        half_w, half_h = self.camera.width / 2, self.camera.height / 2
+
+        left = cam_x - half_w
+        right = cam_x + half_w
+        top = cam_y - half_h
+        bottom = cam_y + half_h
+
+        # Convert to grid ranges (clamped to grid width/height)
+        start_gx = max(0, int(left // cell_size))
+        end_gx = min(grid.width, int(right // cell_size) + 1)
+        start_gy = max(0, int(top // cell_size))
+        end_gy = min(grid.height, int(bottom // cell_size) + 1)
+
+        # Create a single reusable block surface
+        block_surf = pygame.Surface(
+            (cell_size - 1, cell_size - 1), pygame.SRCALPHA
+        )
+        block_surf.fill((255, 50, 50, 70))  # Light red with 70/255 opacity
+
+        for gx in range(start_gx, end_gx):
+            for gy in range(start_gy, end_gy):
+                # If WALK capability is blocked, render the overlay
+                if not grid.is_walkable(gx, gy, TraversalCapability.WALK):
+                    wx = gx * cell_size
+                    wy = gy * cell_size
+                    sx, sy = self._world_to_screen(wx, wy)
+                    surface.blit(block_surf, (sx, sy))
 
     def _world_to_screen(self, wx: float, wy: float) -> tuple[int, int]:
         """Converts world coordinates to screen coordinates."""

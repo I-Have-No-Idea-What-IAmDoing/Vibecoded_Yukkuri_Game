@@ -104,12 +104,69 @@ class UtilitySelector(Action):
 
         # Select Best Action
         personality = self.world.try_get_component(self.entity_id, Personality)
-        best_action = self.engine.select_action(
-            context, personality, self.trait_service
+
+        now: float = self.world.time
+        exclude_set: set[str] = set()
+        cooldowns: dict[str, float] | None = getattr(
+            ai, "action_cooldowns", None
         )
+        if cooldowns:
+            exclude_set = {
+                act for act, expire_time in cooldowns.items()
+                if now < expire_time
+            }
+
+        best_action = self.engine.select_action(
+            context,
+            personality,
+            self.trait_service,
+            exclude_set,
+        )
+
+        # Populate breakdown if inspected
+        if ai.is_inspected:
+            breakdown: dict[str, Any] = {
+                "active_action": best_action,
+                "actions": {}
+            }
+            for action_name in self.engine.actions:
+                res = self.engine.debug_score(
+                    context, action_name, personality, self.trait_service
+                )
+                breakdown["actions"][action_name] = res
+
+            # Sort actions by score descending
+            sorted_actions = sorted(
+                breakdown["actions"].items(),
+                key=lambda x: x[1].get("final_score", 0.0),
+                reverse=True,
+            )
+            breakdown["sorted_actions"] = sorted_actions
+            ai.last_utility_breakdown = breakdown
+        else:
+            ai.last_utility_breakdown = None
 
         # Update AI State
         if best_action != ai.current_action:
+            from ..components import YukkuriStats
+            from ..events import LogMessageEvent
+            from ...engine.event_bus import EventBus
+
+            name = f"Yukkuri #{self.entity_id}"
+            stats = self.world.try_get_component(self.entity_id, YukkuriStats)
+            if stats:
+                name = stats.name
+
+            eb = self.world.services.try_get(EventBus)
+            if eb:
+                eb.publish(
+                    LogMessageEvent(
+                        message=f"{name} decided to: {best_action}.",
+                        color=(0, 200, 255),
+                        channel="AI",
+                    )
+                )
+
             ai.current_action = best_action
             ai.action_progress = 0.0
             if hasattr(ai, "failed_targets"):

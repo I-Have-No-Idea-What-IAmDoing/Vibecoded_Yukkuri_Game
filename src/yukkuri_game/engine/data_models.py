@@ -78,8 +78,14 @@ class YukkuriType(msgspec.Struct):
     prey_sense_radius: float = 300.0
     aggression: float = 1.0
     dps: float = 20.0
+    hunger_threshold: float = 60.0
     # Prey flag
     is_prey: bool = False
+    # Configuration-driven properties (avoiding silent discard)
+    agility: float = 1.0
+    frame_count: int = 1
+    frame_duration: float = 0.1
+    loop: bool = True
 
 
 class ItemType(msgspec.Struct):
@@ -117,6 +123,13 @@ class ItemType(msgspec.Struct):
     light_flicker: str | None = None
     occluder: bool = False
     static_occluder: bool = True
+    obstacle_type: str | None = None
+    frame_count: int = 1
+    frame_duration: float = 0.1
+    loop: bool = True
+    animations: dict[str, AnimationDefinition] = msgspec.field(
+        default_factory=dict
+    )
 
 
 class ActionEffect(msgspec.Struct):
@@ -216,6 +229,11 @@ class InteractionDefinition(msgspec.Struct):
     range_type: str = "touch"
     conditions: list[dict[str, Any]] = []  # e.g. [{type="skill_check", ...}]
     modifiers: dict[str, dict[str, float]] = {}
+    physical_impact: dict[str, float] = {}
+    target_physical_impact: dict[str, float] = {}
+    actor_physical_impact: dict[str, float] = {}
+    skill_rewards: dict[str, float] = {}
+    type: str = "GENERIC"
 
 
 # --- Game Tuning Data Models (from yukkuri_tuning.json) ---

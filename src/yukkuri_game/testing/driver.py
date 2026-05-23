@@ -716,80 +716,138 @@ class GameDriver:
             pygame.image.save(self.game.screen, filename)
 
     def compare_screenshot(
-        self, filename: str, reference_filename: str, tolerance: float = 0.01
+        self,
+        filename: str,
+        reference_filename: str,
+        tolerance: float = 0.01,
+        drift_threshold: int = 5,
     ) -> bool:
-        """
-        Compares the current screen against a reference image.
+        """Compares the current screen against a reference image.
+
+        Saves a screenshot and compares it with a reference image. If the
+        comparison fails, it raises an AssertionError containing absolute
+        clickable paths for the reference, actual, and diff mask images.
 
         Args:
-            filename (str): Where to save the current screenshot.
-            reference_filename (str): Path to the reference image.
-            tolerance (float): Percentage of pixels allowed to be different (0.0 to 1.0).
+            filename: Where to save the current screenshot.
+            reference_filename: Path to the reference image.
+            tolerance: Percentage of allowed mismatched pixels (0.0 to 1.0).
+            drift_threshold: Maximum color channel difference value (0 to 255).
 
         Returns:
-            bool: True if images match within tolerance.
+            True if images match within tolerance.
+
+        Raises:
+            AssertionError: If images mismatch in dimensions or pixels.
         """
         self.save_screenshot(filename)
 
         if not os.path.exists(reference_filename):
             logger.warning(
-                f"Reference screenshot {reference_filename} not found. Comparison skipped (assumed new test)."
+                f"Reference screenshot {reference_filename} not found. "
+                "Comparison skipped (assumed new test)."
             )
             return True
 
         current_img = pygame.image.load(filename)
         ref_img = pygame.image.load(reference_filename)
 
+        curr_abs = os.path.abspath(filename)
+        ref_abs = os.path.abspath(reference_filename)
+
         if current_img.get_size() != ref_img.get_size():
-            logger.error(
-                f"Image dimensions mismatch: {current_img.get_size()} vs {ref_img.get_size()}"
+            err_msg = (
+                "Visual Regression Dimension Mismatch!\n"
+                f"Expected size: {ref_img.get_size()}\n"
+                f"Actual size:   {current_img.get_size()}\n"
+                "--------------------------------------------------------\n"
+                f"Expected (Reference): file:///{ref_abs}\n"
+                f"Actual (Failed):      file:///{curr_abs}\n"
+                "--------------------------------------------------------"
             )
-            return False
+            logger.error(err_msg)
+            raise AssertionError(err_msg)
 
         width, height = current_img.get_size()
-
         total_pixels = width * height
 
         try:
-            curr_buffer = current_img.get_view("2")
-            ref_buffer = ref_img.get_view("2")
+            # Create fresh contiguous software surfaces to guarantee memory layout
+            curr_surf = pygame.Surface(current_img.get_size(), depth=32)
+            curr_surf.blit(current_img, (0, 0))
+            ref_surf = pygame.Surface(ref_img.get_size(), depth=32)
+            ref_surf.blit(ref_img, (0, 0))
 
-            # Use raw property to get bytes
-            if curr_buffer.raw == ref_buffer.raw:
+            curr_view = curr_surf.get_view("2")
+            ref_view = ref_surf.get_view("2")
+
+            # Fast check
+            if curr_view.raw == ref_view.raw:
                 return True
-
-            # If strict failed, count differences (slow path)
-            # Or just fail if we don't have numpy.
-            # Given the constraints, let's try to be helpful.
 
             import numpy as np
 
-            arr1 = pygame.surfarray.array3d(current_img)
-            arr2 = pygame.surfarray.array3d(ref_img)
+            arr1 = pygame.surfarray.array3d(curr_surf)
+            arr2 = pygame.surfarray.array3d(ref_surf)
 
-            diff = np.abs(arr1 - arr2)
-            num_diff = np.count_nonzero(diff > 5)  # Allow small color drift
+            # Compute pixel mismatches exceeding drift_threshold (using signed ints to prevent uint8 underflow)
+            diff = np.abs(arr1.astype(np.int32) - arr2.astype(np.int32))
+            mismatched = np.any(diff > drift_threshold, axis=2)
+            num_diff = np.count_nonzero(mismatched)
 
-            diff_ratio = num_diff / (total_pixels * 3)
-
+            # Calculate difference ratio
+            diff_ratio = num_diff / total_pixels
             logger.info(f"Image comparison diff ratio: {diff_ratio:.4f}")
 
-            return bool(diff_ratio <= tolerance)
+            if diff_ratio > tolerance:
+                # Generate diff mask array
+                diff_mask = np.zeros((width, height, 3), dtype=np.uint8)
+                diff_mask[mismatched] = [255, 0, 255]
+
+                # Convert to surface and save
+                diff_surf = pygame.surfarray.make_surface(diff_mask)
+                diff_filename = filename.rsplit(".", 1)[0] + "_diff.png"
+                pygame.image.save(diff_surf, diff_filename)
+                diff_abs = os.path.abspath(diff_filename)
+
+                err_msg = (
+                    "Visual Regression Mismatch Detected!\n"
+                    f"Difference Ratio: {diff_ratio:.4%} "
+                    f"(Allowed Tolerance: {tolerance:.4%})\n"
+                    "--------------------------------------------------------\n"
+                    f"Expected (Reference): file:///{ref_abs}\n"
+                    f"Actual (Failed):      file:///{curr_abs}\n"
+                    f"Difference Mask:      file:///{diff_abs}\n"
+                    "--------------------------------------------------------"
+                )
+                logger.error(err_msg)
+                raise AssertionError(err_msg)
+
+            return True
 
         except ImportError:
             logger.warning(
-                "Numpy not found for advanced image comparison. Falling back to strict buffer check."
+                "Numpy not found for advanced comparison. "
+                "Falling back to strict buffer check."
             )
-            # The initial raw buffer check already failed if we are here,
-            # so we can just report the error.
-            logger.error(
-                "Images differ (strict check failed, numpy not available for tolerant check)."
+            # Strict raw check already failed if we reached here
+            err_msg = (
+                "Visual Regression Mismatch (Strict Buffer Check Failed)!\n"
+                "Numpy is not available to compute tolerant differences.\n"
+                "--------------------------------------------------------\n"
+                f"Expected (Reference): file:///{ref_abs}\n"
+                f"Actual (Failed):      file:///{curr_abs}\n"
+                "--------------------------------------------------------"
             )
-            return False
+            logger.error(err_msg)
+            raise AssertionError(err_msg)
 
         except Exception as e:
-            logger.error(f"Comparison failed with error: {e}")
-            return False
+            if isinstance(e, AssertionError):
+                raise
+            err_msg = f"Comparison failed with error: {e}"
+            logger.error(err_msg)
+            raise AssertionError(err_msg) from e
 
     def dump_state(self) -> str:
         """

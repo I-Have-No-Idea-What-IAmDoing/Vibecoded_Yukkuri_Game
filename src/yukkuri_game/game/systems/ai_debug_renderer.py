@@ -67,13 +67,96 @@ class AIDebugRenderer:
         return (int(sx), int(sy))
 
     def _draw_ai_interactions(self, surface: pygame.Surface, world: "World") -> None:
+        """Draws overhead statuses, colliders, destinations, and target lines."""
+        from yukkuri_game.engine.components import PhysicsBody
+        from yukkuri_game.game.components import SteeringComponent
+
+        current_time = world.time
+
         for ent, (transform, ai_state) in world.get_components_tuple(
             Transform, AIState
         ):
             start_pos = (transform.x, transform.y)
             sx_start, sy_start = self._world_to_screen(*start_pos)
 
-            # 1. Draw Line to Target Entity
+            # 1. Gather Overhead Diagnostic Details
+            action_name = ai_state.current_action or "Idle"
+
+            # Stuck details
+            steering = world.try_get_component(ent, SteeringComponent)
+            stuck_str = ""
+            if steering and steering.time_stuck > 0.1:
+                stuck_str = f" [STUCK: {steering.time_stuck:.1f}s]"
+
+            # Pathfinding details
+            pathing_str = ""
+            state_data = ai_state.state_data or {}
+            if state_data.get("path_requesting"):
+                pathing_str = " [PATHING...]"
+
+            # Cooldown details
+            cooldown_str = ""
+            cooldowns = getattr(ai_state, "action_cooldowns", None)
+            if cooldowns and action_name in cooldowns:
+                expire_time = cooldowns[action_name]
+                if current_time < expire_time:
+                    remaining = expire_time - current_time
+                    cooldown_str = f" [COOLDOWN: {remaining:.1f}s]"
+
+            # Compile text label
+            text_color = (255, 50, 50) if stuck_str else self.COLOR_TEXT
+            status_text = self.font.render(
+                f"{action_name}{stuck_str}{pathing_str}{cooldown_str}",
+                True,
+                text_color,
+            )
+            # Render centered above Yukkuri head (approx 45px offset)
+            surface.blit(
+                status_text,
+                (sx_start - status_text.get_width() // 2, sy_start - 45),
+            )
+
+            # 2. Draw physical collision circle
+            phys = world.try_get_component(ent, PhysicsBody)
+            if phys:
+                for shape in phys.body.shapes:
+                    if (
+                        not shape.sensor
+                        and hasattr(shape, "radius")
+                        and shape.radius > 0
+                    ):
+                        screen_radius = int(shape.radius * self.camera.zoom)
+                        pygame.draw.circle(
+                            surface,
+                            (0, 255, 100, 100),
+                            (sx_start, sy_start),
+                            screen_radius,
+                            1,
+                        )
+                        break
+
+            # 3. Draw World Target Crosshair (Vibrant Magenta)
+            if state_data and "path_destination" in state_data:
+                dest_x, dest_y = state_data["path_destination"]
+                sx_dest, sy_dest = self._world_to_screen(dest_x, dest_y)
+
+                # Draw thin magenta line to ultimate destination
+                pygame.draw.line(
+                    surface,
+                    (255, 0, 255),
+                    (sx_start, sy_start),
+                    (sx_dest, sy_dest),
+                    1,
+                )
+                # Draw destination target crosshair
+                pygame.draw.circle(
+                    surface, (255, 0, 255), (sx_dest, sy_dest), 6, 1
+                )
+                pygame.draw.circle(
+                    surface, (255, 0, 255), (sx_dest, sy_dest), 2, 0
+                )
+
+            # 4. Draw Line to Target Entity (original logic)
             if ai_state.current_target_id != -1:
                 target_trans = world.try_get_component(
                     ai_state.current_target_id, Transform
@@ -92,11 +175,13 @@ class AIDebugRenderer:
 
                     # Draw "Target: [ID]" text
                     text = self.font.render(
-                        f"Target: {ai_state.current_target_id}", True, self.COLOR_TEXT
+                        f"Target: {ai_state.current_target_id}",
+                        True,
+                        self.COLOR_TEXT,
                     )
                     surface.blit(text, (sx_start + 10, sy_start - 20))
 
-            # 2. Draw MoveCommand Destination OR Path Waypoint
+            # 5. Draw MoveCommand Destination OR Path Waypoint (original logic)
             move_cmd = world.try_get_component(ent, MoveCommand)
             if move_cmd:
                 mx, my = move_cmd.target_pos
@@ -127,7 +212,7 @@ class AIDebugRenderer:
                     surface, self.COLOR_MOVE_CMD[:3], (sx_path, sy_path), 3
                 )
 
-            # 3. Draw Social Context (from Blackboard)
+            # 6. Draw Social Context (original logic)
             blackboard = world.try_get_component(ent, Blackboard)
             if blackboard and blackboard.visible_targets:
                 for target_id, info in blackboard.visible_targets.items():

@@ -104,8 +104,8 @@ class PoopSystem(System):
         if not poop_entities:
             return
 
-        from yukkuri_game.engine.systems.spatial import SpatialService
-        spatial_service = world.services.try_get(SpatialService)
+        from yukkuri_game.engine.protocols import ISpatialService
+        spatial_service = world.services.try_get(ISpatialService)
 
         poop_radius = self.poop_radius
         poop_radius_sq = poop_radius ** 2

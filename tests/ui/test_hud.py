@@ -105,6 +105,7 @@ def hud_layout(mock_ui_manager):
             side_effect=lambda *args, **kwargs: MagicMock(),
         ),
         patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
+        patch("yukkuri_game.game.ui.hud_layout.UIDropDownMenu"),
         patch(
             "yukkuri_game.game.ui.hud_layout.UIScrollingContainer",
             return_value=MockScrollingContainer,
@@ -140,6 +141,7 @@ class TestHudLayout:
                 side_effect=lambda *args, **kwargs: MagicMock(),
             ),
             patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
+            patch("yukkuri_game.game.ui.hud_layout.UIDropDownMenu"),
             patch(
                 "yukkuri_game.game.ui.hud_layout.UIScrollingContainer",
                 return_value=MockScrollingContainer,

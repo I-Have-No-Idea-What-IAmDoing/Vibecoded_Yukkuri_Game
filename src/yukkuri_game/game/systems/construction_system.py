@@ -80,6 +80,19 @@ class ConstructionSystem(System):
                         self.factory.create_item(event.type_id, event.x, event.y)
 
                     self.economy_service.remove_money(event.cost)
+                    if self.event_bus:
+                        from ..events import LogMessageEvent
+
+                        self.event_bus.publish(
+                            LogMessageEvent(
+                                message=(
+                                    f"Bought {event.type_id.capitalize()} "
+                                    f"for ${event.cost}."
+                                ),
+                                color=(255, 100, 100),
+                                channel="Economy",
+                            )
+                        )
                 except Exception:
                     # Propagate to EventBus (which should log it)
                     # Money is NOT removed since remove_money is after creation

@@ -12,6 +12,7 @@ Key features:
 
 from collections import deque
 
+from loguru import logger
 import py_trees
 from py_trees.common import Status
 
@@ -163,9 +164,19 @@ class BehaviorSystem(System):
             # Execute Tick
             py_trees.blackboard.Blackboard().set("dt", entity_dt)
             tree = self.trees[entity]
-            print(f"DEBUG BehaviorSystem: Ticking entity {entity}, action={ai.current_action if ai else 'None'}, root_status_before={tree.root.status}")
+            logger.debug(
+                "BehaviorSystem: Ticking entity {}, action={}, "
+                "root_status_before={}",
+                entity,
+                ai.current_action if ai else "None",
+                tree.root.status,
+            )
             tree.tick()
-            print(f"DEBUG BehaviorSystem: Ticked entity {entity}, root_status_after={tree.root.status}")
+            logger.debug(
+                "BehaviorSystem: Ticked entity {}, root_status_after={}",
+                entity,
+                tree.root.status,
+            )
 
             # Post-tick logic
             ai = world.try_get_component(entity, AIState)

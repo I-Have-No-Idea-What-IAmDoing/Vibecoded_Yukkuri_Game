@@ -168,3 +168,59 @@ def test_poop_smell_range():
     system.update(world, 1.0)
 
     assert needs.cleanliness == 100.0
+
+
+def test_poop_smell_effect_with_spatial_service() -> None:
+    """Test that poop smell effect queries and uses ISpatialService.
+
+    Verifies that the spatial service is registered and used for query.
+    """
+    from yukkuri_game.engine.protocols import ISpatialService
+
+    world = World()
+    system = PoopSystem()
+
+    # Mock EventBus
+    event_bus = MagicMock(spec=EventBus)
+    world.services.register(event_bus, EventBus)
+
+    # Mock ISpatialService
+    spatial_service = MagicMock(spec=ISpatialService)
+    world.services.register(spatial_service, ISpatialService)
+
+    # Create Poop Entity
+    poop_ent = world.create_entity()
+    world.add_component(poop_ent, Poop())
+    world.add_component(poop_ent, Transform(x=100, y=100))
+
+    # Create Yukkuri Entity nearby
+    yukkuri_ent = world.create_entity()
+    stats = YukkuriStats(name="Test", type_id="reimu")
+    needs = Needs(cleanliness=100.0)
+    world.add_component(yukkuri_ent, stats)
+    world.add_component(yukkuri_ent, needs)
+    world.add_component(yukkuri_ent, Transform(x=110, y=110))  # Dist ~14
+
+    # Setup spatial service returning the Yukkuri entity ID
+    spatial_service.get_entities_in_radius.return_value = [yukkuri_ent]
+
+    # Mock try_get side effect
+    def try_get_side_effect(service_type: type) -> MagicMock | None:
+        if service_type == EventBus:
+            return event_bus
+        if service_type == ISpatialService:
+            return spatial_service
+        return None
+
+    world.services.try_get = MagicMock(side_effect=try_get_side_effect)
+
+    system.update(world, 1.0)
+
+    # Spatial service should have been queried
+    spatial_service.get_entities_in_radius.assert_called_once_with(
+        100.0, 100.0, 200.0
+    )
+
+    # Cleanliness should decrease
+    assert needs.cleanliness == 95.0
+

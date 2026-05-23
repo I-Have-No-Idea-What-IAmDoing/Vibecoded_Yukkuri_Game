@@ -85,6 +85,12 @@ class EntityInfoPanel:
         self.train_btn: UIButton | None = None
         self.punish_btn: UIButton | None = None
 
+        # AI Tab Elements
+        self.ai_text_box: UITextBox | None = None
+        self.ai_scroll: SafeUIScrollingContainer | None = None
+        self.ai_freeze_btn: UIButton | None = None
+        self.is_ai_frozen: bool = False
+
         # Layout config
         self.width = 330
         self.height = 450
@@ -139,6 +145,7 @@ class EntityInfoPanel:
         # Tab 2: Skills (Only if Yukkuri/has_stats)
         if has_stats:
             self._create_skills_tab()
+            self._create_ai_tab()
 
         # Action Buttons
         self._create_buttons(has_stats, selection_count)
@@ -155,10 +162,16 @@ class EntityInfoPanel:
             self.window = None
             self.tabbed_panel = None
             self.stats_text_box = None
+            self.stats_scroll = None
             self.skills_text_box = None
+            self.skills_scroll = None
+            self.ai_text_box = None
+            self.ai_scroll = None
             self.sell_btn = None
             self.train_btn = None
             self.punish_btn = None
+            self.ai_freeze_btn = None
+            self.is_ai_frozen = False
 
     def _create_stats_tab(self) -> None:
         """Creates the Stats tab."""
@@ -315,4 +328,71 @@ class EntityInfoPanel:
             if old_height != new_height and self.skills_scroll:
                 self.skills_scroll.set_scrollable_area_dimensions(
                     (self.skills_scroll.rect.width - 20, new_height)
+                )
+
+    def _create_ai_tab(self) -> None:
+        """Creates the AI Introspection tab."""
+        if not self.tabbed_panel:
+            return
+
+        tab_id = self.tabbed_panel.add_tab("AI")
+        container = self.tabbed_panel.tabs[tab_id]["container"]
+
+        self.ai_freeze_btn = UIButton(
+            relative_rect=pygame.Rect(10, 5, 150, 25),
+            text="Freeze Updates",
+            manager=self.manager,
+            container=container,
+            tool_tip_text="Toggle live AI score telemetry updates",
+        )
+
+        self.ai_scroll = SafeUIScrollingContainer(
+            relative_rect=pygame.Rect(
+                0,
+                35,
+                container.rect.width,
+                container.rect.height - 35,
+            ),
+            manager=self.manager,
+            container=container,
+            anchors={
+                "top": "top",
+                "bottom": "bottom",
+                "left": "left",
+                "right": "right",
+            },
+        )
+
+        self.ai_text_box = UITextBox(
+            html_text="Waiting for AI calculations...",
+            relative_rect=pygame.Rect(0, 0, container.rect.width - 20, -1),
+            manager=self.manager,
+            container=self.ai_scroll,
+            wrap_to_height=True,
+            anchors={
+                "top": "top",
+                "bottom": "top",
+                "left": "left",
+                "right": "left",
+            },
+        )
+
+    def update_ai(self, text: str) -> None:
+        """
+        Updates the AI text box content if not frozen.
+
+        Args:
+            text (str): The HTML text to display.
+        """
+        if self.is_ai_frozen:
+            return
+
+        if self.ai_text_box and self.ai_text_box.html_text != text:
+            old_height = self.ai_text_box.rect.height
+            self.ai_text_box.set_text(text)
+            new_height = self.ai_text_box.rect.height
+
+            if old_height != new_height and self.ai_scroll:
+                self.ai_scroll.set_scrollable_area_dimensions(
+                    (self.ai_scroll.rect.width - 20, new_height)
                 )

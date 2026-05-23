@@ -59,9 +59,10 @@ class GameLoader:
 
         # Inject Global State
         money = context.data.get("money", 1000)
-        time_elapsed = context.data.get("time", 600.0)
+        default_time = self.game_config.time.day_start_hour * 3600.0
+        time_elapsed = context.data.get("time", default_time)
         if time_elapsed == 0.0:
-            time_elapsed = 600.0
+            time_elapsed = default_time
 
         economy_service = EconomyService(initial_money=money)
         self.world.services.register(economy_service, EconomyService)

@@ -395,3 +395,6 @@ class AIState:
     failed_targets: set[EntityID] = field(default_factory=set)
     visible_entities: set[EntityID] = field(default_factory=set)
     manual_override: bool = False
+    is_inspected: bool = False
+    last_utility_breakdown: dict[str, Any] | None = None
+    action_cooldowns: dict[str, float] = field(default_factory=dict)

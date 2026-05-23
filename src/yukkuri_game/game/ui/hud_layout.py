@@ -79,6 +79,8 @@ class HudLayout:
 
         # Log Box
         self.log_box: UITextBox | None = None
+        self.log_filter_menu: UIDropDownMenu | None = None
+        self.log_freeze_btn: UIButton | None = None
 
         # Debug Window Elements
         self.debug_window: UIWindow | None = None
@@ -144,6 +146,14 @@ class HudLayout:
         self.log_box = None
         self.scrolling_container = None
         self.clean_btn = None
+
+        if self.log_filter_menu:
+            self.log_filter_menu.kill()  # type: ignore[no-untyped-call]
+            self.log_filter_menu = None
+
+        if self.log_freeze_btn:
+            self.log_freeze_btn.kill()  # type: ignore[no-untyped-call]
+            self.log_freeze_btn = None
 
         # Ensure info panel is closed on clear
         if self.entity_info_panel:
@@ -232,6 +242,26 @@ class HudLayout:
             relative_rect=pygame.Rect(10, 10, 300, 80),
             manager=self.manager,
             container=self.bottom_panel,
+        )
+
+        # Floating Log Controls directly above the log box
+        self.log_filter_menu = UIDropDownMenu(
+            options_list=["All Logs", "General", "AI", "Physics", "Economy"],
+            starting_option="All Logs",
+            relative_rect=pygame.Rect(10, self.height - 130, 175, 25),
+            manager=self.manager,
+            container=None,
+        )
+        getattr(self.log_filter_menu, "set_tooltip_text", lambda x: None)(
+            "Filter log feed by category"
+        )
+
+        self.log_freeze_btn = UIButton(
+            relative_rect=pygame.Rect(190, self.height - 130, 120, 25),
+            text="Freeze",
+            manager=self.manager,
+            container=None,
+            tool_tip_text="Freeze scrolling log feed to review logs",
         )
 
         # --- Scrolling Container for Buy Buttons ---
