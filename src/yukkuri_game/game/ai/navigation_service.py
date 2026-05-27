@@ -55,6 +55,7 @@ class PathRequest:
     start: tuple[int, int] = field(compare=False)
     end: tuple[int, int] = field(compare=False)
     capabilities: int = field(compare=False)
+    end_world: tuple[float, float] | None = field(default=None, compare=False)
 
 
 @dataclass
@@ -235,11 +236,16 @@ class NavigationService:
         if self.request_queue.qsize() > 50 and priority > 2:
             return
 
+        # Clamp destination world coordinates to world bounds
+        clamped_end_x = max(0.0, min(end[0], float(self.world_width)))
+        clamped_end_y = max(0.0, min(end[1], float(self.world_height)))
+        clamped_end = (clamped_end_x, clamped_end_y)
+
         # Convert world to grid coords
         gx1 = int(round(start[0] / self.grid_step_size))
         gy1 = int(round(start[1] / self.grid_step_size))
-        gx2 = int(round(end[0] / self.grid_step_size))
-        gy2 = int(round(end[1] / self.grid_step_size))
+        gx2 = int(round(clamped_end[0] / self.grid_step_size))
+        gy2 = int(round(clamped_end[1] / self.grid_step_size))
 
         # Clamp to grid bounds.
         gx1 = max(0, min(gx1, self.grid.width - 1))
@@ -257,6 +263,7 @@ class NavigationService:
             start=(gx1, gy1),
             end=(gx2, gy2),
             capabilities=capabilities,
+            end_world=clamped_end,
         )
 
         self.request_queue.put(req)
@@ -422,7 +429,10 @@ class NavigationService:
         # Stage 1: Trivial case - already at destination
         if start_pos == end_pos:
             logger.debug("Trivial path found.")
-            return PathResult(req.entity_id, [self._to_world(start_pos)], True)
+            dest_pos = self._to_world(start_pos)
+            if req.end_world is not None:
+                dest_pos = req.end_world
+            return PathResult(req.entity_id, [dest_pos], True)
 
         # Stage 2: Identify clusters for cache lookup
         start_cluster = graph.get_cluster_for_pos(start_pos)
@@ -445,8 +455,11 @@ class NavigationService:
                 )
                 if raw_path:
                     smoothed = StringPuller.smooth_path(raw_path, self.grid, capability)
+                    world_path = [self._to_world(p) for p in smoothed]
+                    if world_path and req.end_world is not None:
+                        world_path[-1] = req.end_world
                     return PathResult(
-                        req.entity_id, [self._to_world(p) for p in smoothed], True
+                        req.entity_id, world_path, True
                     )
                 else:
                     logger.debug("Cached path refinement failed, falling through.")
@@ -471,8 +484,11 @@ class NavigationService:
             if raw_path:
                 smoothed = StringPuller.smooth_path(raw_path, self.grid, capability)
                 logger.debug(f"Smoothed path: {smoothed}")
+                world_path = [self._to_world(p) for p in smoothed]
+                if world_path and req.end_world is not None:
+                    world_path[-1] = req.end_world
                 return PathResult(
-                    req.entity_id, [self._to_world(p) for p in smoothed], True
+                    req.entity_id, world_path, True
                 )
 
         logger.debug("Cross-cluster search needed (or local failed).")
@@ -534,6 +550,8 @@ class NavigationService:
 
         # Stage 8: Convert grid to world coordinates.
         world_path = [self._to_world(p) for p in smoothed_path]
+        if world_path and req.end_world is not None:
+            world_path[-1] = req.end_world
 
         return PathResult(req.entity_id, world_path, True)
 

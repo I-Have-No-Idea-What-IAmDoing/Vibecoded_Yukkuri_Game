@@ -170,6 +170,8 @@ class MoveToTarget(Action):
                 ai.state_data.pop("path_requesting", None)
                 ai.state_data.pop("path_destination", None)
                 ai.state_data.pop("pursuit_repath", None)
+                ai.state_data.pop("target_x", None)
+                ai.state_data.pop("target_y", None)
 
 
 
@@ -180,6 +182,7 @@ class Wander(Action):
     Attributes:
         width (int): Wander area width.
         height (int): Wander area height.
+        acceptance_radius (float): Distance to consider target reached.
         move_action (MoveToTarget | None): Sub-action for movement.
     """
 
@@ -191,6 +194,7 @@ class Wander(Action):
         blackboard: Any | None = None,
         width: int = 3000,
         height: int = 3000,
+        acceptance_radius: float = 35.0,
     ):
         """
         Initializes the Wander action.
@@ -202,10 +206,12 @@ class Wander(Action):
             blackboard (Any | None): Blackboard.
             width (int): Wander area width.
             height (int): Wander area height.
+            acceptance_radius (float): Distance to consider target reached.
         """
         super().__init__(name, entity_id, world, blackboard)
         self.width = width
         self.height = height
+        self.acceptance_radius = acceptance_radius
         self.move_action: MoveToTarget | None = None
 
     def initialise(self) -> None:
@@ -222,7 +228,10 @@ class Wander(Action):
             ai.current_target_id = EntityID(-1)
 
         self.move_action = MoveToTarget(
-            entity_id=self.entity_id, world=self.world, blackboard=self.blackboard
+            entity_id=self.entity_id,
+            world=self.world,
+            blackboard=self.blackboard,
+            acceptance_radius=self.acceptance_radius,
         )
 
     def update(self) -> Status:
@@ -233,13 +242,21 @@ class Wander(Action):
             Status: The execution status.
         """
         if self.move_action:
-            return self.move_action.update()
+            for _ in self.move_action.tick():
+                pass
+            return self.move_action.status
         return Status.FAILURE
 
     def on_cleanup(self) -> None:
         """Cleans up the delegated movement action and its movement states."""
         if self.move_action:
             self.move_action.on_cleanup()
+        if self.world is None:
+            return
+        ai = self.world.try_get_component(self.entity_id, AIState)
+        if ai and ai.state_data:
+            ai.state_data.pop("target_x", None)
+            ai.state_data.pop("target_y", None)
 
 
 class Swoop(Action):

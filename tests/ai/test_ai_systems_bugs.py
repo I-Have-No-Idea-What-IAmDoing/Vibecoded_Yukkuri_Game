@@ -380,6 +380,313 @@ def test_pathfinding_failed_recovery(game_driver: GameDriver) -> None:
     assert ai.current_action != "Eat"
 
 
+def test_navigation_overlap_arrival_deadlock(game_driver: GameDriver) -> None:
+    """
+    Verify that an entity trying to reach another entity with an acceptance
+    radius smaller than their physical radii sum (collision distance)
+    successfully arrives and stops rather than deadlocking in Status.RUNNING.
+    """
+    driver = game_driver
+    driver.setup()
+
+    # Spawn two Adult Yukkuris (radius 20 each, so physical overlap is 40)
+    # Spawn them 100px apart
+    y1_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+    y2_id = driver.create_yukkuri("reimu", 200.0, 100.0)
+
+    # Apply components queue
+    driver.world.commands.apply_all()
+
+    # Verify initial distance
+    import math
+    from yukkuri_game.engine.components import Transform
+    trans1 = driver.world.get_component(y1_id, Transform)
+    trans2 = driver.world.get_component(y2_id, Transform)
+    assert math.hypot(trans2.x - trans1.x, trans2.y - trans1.y) == 100.0
+
+    # Put y1 into "Talk" action targeting y2.
+    # Talk has MoveToTarget with acceptance_radius=30.0 (< 40 overlap).
+    driver.set_ai_action(y1_id, "Talk", y2_id)
+    driver.set_ai_action(y2_id, "Idle")
+    
+    # Run the simulation until they are close (physical collision contact) and
+    # they successfully arrive (which triggers MoveToTarget SUCCESS).
+    driver.run_until(
+        predicate=lambda: math.hypot(
+            trans2.x - trans1.x, trans2.y - trans1.y
+        ) < 45.0,
+        timeout=5.0,
+        description="Yukkuris reach close physical proximity",
+    )
+    
+    # Let it tick a few more times to complete the MoveToTarget node
+    driver.run_for(seconds=0.2)
+    
+    # Verify they did not get stuck in a direct-steering collision deadlock
+    # and they successfully stopped moving (target_velocity becomes 0)
+    from yukkuri_game.engine.components import MovementController
+    ctrl = driver.world.get_component(y1_id, MovementController)
+    assert ctrl.target_velocity.length < 1.0
+
+
+def test_behavior_tree_goal_switching_cleanup(game_driver: GameDriver) -> None:
+    """
+    Verify that when an entity's goal dynamically changes, the previous goal
+    sequence (e.g. Wander) is correctly aborted and cleans up target states,
+    rather than bypassing goal checks and running indefinitely.
+    """
+    driver = game_driver
+    driver.setup()
+
+    y_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+    driver.world.commands.apply_all()
+
+    # 1. Set goal to Wander
+    driver.set_ai_action(y_id, "Wander")
+    
+    # 2. Tick to initialize Wander
+    driver.run_for(seconds=0.2)
+
+    # 3. Verify Wander target is set in ai.state_data
+    ai = driver.world.get_component(y_id, AIState)
+    assert ai.state_data is not None
+    assert "target_x" in ai.state_data
+    assert "target_y" in ai.state_data
+
+    # 4. Programmatically switch action to Idle
+    driver.set_ai_action(y_id, "Idle")
+
+    # 5. Tick behavioral system to run the tree
+    driver.run_for(seconds=0.2)
+
+    # 6. Verify state_data is cleaned up and target coords are popped
+    assert "target_x" not in ai.state_data
+    assert "target_y" not in ai.state_data
+    assert "path_destination" not in ai.state_data
+
+
+def test_same_cell_navigation_no_cell_center_loop(
+    game_driver: GameDriver,
+) -> None:
+    """
+    Verify that when navigating to a target in the same grid cell, the returned
+    path contains the exact target world coordinates, rather than the grid cell
+    center. This prevents the entity from looping back and forth to the center.
+    """
+    driver = game_driver
+    driver.setup()
+
+    y_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+    driver.world.commands.apply_all()
+
+    # Get components
+    ai = driver.world.get_component(y_id, AIState)
+
+    # Call navigate_to directly targeting a point in the same cell
+    # (both (100.0, 100.0) and (115.0, 120.0) convert to cell (2, 2))
+    from yukkuri_game.game.ai.navigation_controller import NavigationController
+    from py_trees.common import Status
+    import pymunk
+
+    target_pos = pymunk.Vec2d(115.0, 120.0)
+
+    # The first call will request the path async
+    status = NavigationController.navigate_to(
+        world=driver.world,
+        entity_id=y_id,
+        target_pos=target_pos,
+        target_entity_id=999,
+        speed=100.0,
+        acceptance_radius=5.0,
+    )
+    assert status == Status.RUNNING
+    assert ai.state_data is not None
+    assert ai.state_data.get("path_requesting") is True
+
+    # Process pathfinding queue deterministic update
+    from yukkuri_game.game.ai.navigation_service import NavigationService
+    nav_service = driver.world.services.get(NavigationService)
+    nav_service.update(driver.world.time)
+
+    # Retrieve results in NavigationSystem
+    from yukkuri_game.game.systems.navigation_system import NavigationSystem
+    nav_system = driver.world.get_system(NavigationSystem)
+    nav_system.update(driver.world, 0.016)
+
+    # Verify path is computed and contains the exact end coordinates
+    assert ai.path is not None
+    assert len(ai.path) > 0
+    assert ai.path[-1] == (115.0, 120.0)
+
+
+def test_same_cell_navigation_infinite_loop_deadlock(
+    game_driver: GameDriver,
+) -> None:
+    """
+    Verify that when navigating to a target in the same grid cell with an
+    acceptance radius smaller than 10px (e.g. 5px), the entity does not get
+    stuck in an infinite loop of path requests due to the passive
+    SteeringSystem prematurely deleting/popping the final path waypoint.
+    """
+    driver = game_driver
+    driver.setup()
+
+    y_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+    driver.world.commands.apply_all()
+
+    ai = driver.world.get_component(y_id, AIState)
+
+    from yukkuri_game.game.ai.navigation_controller import NavigationController
+    from py_trees.common import Status
+    import pymunk
+
+    # Place target at 108.0, 100.0 (8px away, within same cell and < 10px)
+    target_pos = pymunk.Vec2d(108.0, 100.0)
+
+    # Frame 1: Call navigate_to directly to request the path async
+    status = NavigationController.navigate_to(
+        world=driver.world,
+        entity_id=y_id,
+        target_pos=target_pos,
+        target_entity_id=999,
+        speed=100.0,
+        acceptance_radius=5.0,
+    )
+    assert status == Status.RUNNING
+    assert ai.state_data.get("path_requesting") is True
+
+    # Frame 2: Process pathfinding queue deterministic update
+    from yukkuri_game.game.ai.navigation_service import NavigationService
+    nav_service = driver.world.services.get(NavigationService)
+    nav_service.update(driver.world.time)
+
+    # Retrieve results in NavigationSystem
+    from yukkuri_game.game.systems.navigation_system import NavigationSystem
+    nav_system = driver.world.get_system(NavigationSystem)
+    nav_system.update(driver.world, 0.016)
+
+    # Path is now set and is of length 1
+    assert ai.path is not None
+    assert len(ai.path) == 1
+
+    # Frame 2: Run SteeringSystem.
+    # It calculates steering force.
+    # If the bug exists, SteeringSystem will see dist_sq < 100.0 and pop the
+    # last waypoint immediately, setting ai.path = None in the exact same frame!
+    from yukkuri_game.game.systems.steering_system import SteeringSystem
+    steering_system = driver.world.get_system(SteeringSystem)
+    steering_system.update(driver.world, 0.016)
+
+    # Frame 3: Call navigate_to again.
+    # If the bug is present, because ai.path was deleted, navigate_to will NOT
+    # return success or continue moving; it will start a NEW path request!
+    # Let's assert that the path remains intact so it continues moving,
+    # rather than being cleared and starting a new request!
+    assert ai.path is not None, "Path was prematurely cleared"
+    assert not ai.state_data.get("path_requesting"), "Re-requested path"
+
+
+def test_wander_acceptance_radius_boundary_stuck(
+    game_driver: GameDriver,
+) -> None:
+    """
+    Verify that the Wander action uses an acceptance radius (e.g. 35.0px) that
+    safely exceeds the default physical body radius of Adult Yukkuris (20.0px).
+    This ensures that when a target coordinate is generated close to a boundary
+    obstacle, physical collision contact does not permanently block and
+    paralyze the entity's path/wander progression.
+    """
+    driver = game_driver
+    driver.setup()
+
+    y_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+    driver.world.commands.apply_all()
+
+    # Trigger Wander action
+    driver.set_ai_action(y_id, "Wander")
+    driver.run_for(seconds=0.1)
+
+    # Resolve behavior tree to find Wander child
+    from yukkuri_game.game.systems.behavior import BehaviorSystem
+    behavior_sys = driver.world.get_system(BehaviorSystem)
+    tree = behavior_sys.trees[y_id]
+    
+    # Recursively find the Wander action node in the behavior tree
+    def find_wander(node):
+        if node.__class__.__name__ == "Wander":
+            return node
+        if hasattr(node, "children"):
+            for child in node.children:
+                w = find_wander(child)
+                if w is not None:
+                    return w
+        if hasattr(node, "child"):
+            return find_wander(node.child)
+        return None
+
+    wander_node = find_wander(tree.root)
+    assert wander_node is not None, "Wander behavior node not found in tree"
+
+    # Assert that the Wander action's acceptance radius is set to 35.0 (or at least > 25.0)
+    # to comfortably clear the Adult physical radius (20.0px)
+    assert wander_node.acceptance_radius >= 30.0, (
+        f"Wander acceptance radius ({wander_node.acceptance_radius}) is too small, "
+        "could cause boundary deadlocks."
+    )
+    
+    # Verify that the underlying MoveToTarget is constructed with this acceptance radius
+    assert wander_node.move_action is not None, "MoveToTarget action not initialized"
+    assert wander_node.move_action.acceptance_radius == wander_node.acceptance_radius
+
+
+def test_empty_path_list_deadlock(game_driver: GameDriver) -> None:
+    """
+    Verify that an entity with an empty path list ([]) does not deadlock.
+
+    Treating an empty list as None should correctly trigger a new async
+    path request on the subsequent tick rather than trapping the Yukkuri in
+    RUNNING indefinitely with zero target velocity.
+    """
+    driver = game_driver
+    driver.setup()
+
+    # Create a Reimu yukkuri
+    y_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+    driver.world.commands.apply_all()
+
+    ai = driver.world.get_component(y_id, AIState)
+    assert ai is not None
+
+    # Manually inject an empty path list
+    ai.path = []
+
+    # Target position is far away (500, 500)
+    target_pos = pymunk.Vec2d(500.0, 500.0)
+
+    # Call navigate_to directly with empty path
+    from yukkuri_game.game.ai.navigation_controller import NavigationController
+
+    status = NavigationController.navigate_to(
+        world=driver.world,
+        entity_id=y_id,
+        target_pos=target_pos,
+        target_entity_id=None,
+        speed=100.0,
+        acceptance_radius=40.0,
+    )
+
+    # It must successfully request a path rather than bypassing it
+    assert status == Status.RUNNING
+    assert ai.state_data is not None
+    assert ai.state_data.get("path_requesting") is True
+
+
+
+
+
+
+
+
 
 
 

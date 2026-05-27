@@ -164,6 +164,7 @@ class BehaviorSystem(System):
             # Execute Tick
             py_trees.blackboard.Blackboard().set("dt", entity_dt)
             tree = self.trees[entity]
+            ai = world.try_get_component(entity, AIState)
             logger.debug(
                 "BehaviorSystem: Ticking entity {}, action={}, "
                 "root_status_before={}",

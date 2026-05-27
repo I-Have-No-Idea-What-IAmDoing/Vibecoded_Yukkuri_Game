@@ -98,7 +98,33 @@ class FindItem(Action):
                     if ai.state_data is None:
                         ai.state_data = {}
                     ai.state_data["path_requesting"] = True
-                    ai.state_data["path_request_time"] = self.world.time
+
+                    from yukkuri_game.engine.services.time_service import (
+                        TimeService,
+                    )
+
+                    services = getattr(self.world, "services", None)
+                    time_service = (
+                        services.try_get(TimeService) if services else None
+                    )
+                    raw_scale = (
+                        getattr(time_service, "game_delta_multiplier", 60.0)
+                        if time_service
+                        else 60.0
+                    )
+                    scale = (
+                        raw_scale
+                        if isinstance(raw_scale, (int, float))
+                        else 60.0
+                    )
+                    raw_time = getattr(self.world, "time", 0.0)
+                    w_time = (
+                        raw_time
+                        if isinstance(raw_time, (int, float))
+                        else 0.0
+                    )
+                    physics_time = w_time / max(0.1, scale)
+                    ai.state_data["path_request_time"] = physics_time
                     if "path_failed" in ai.state_data:
                         del ai.state_data["path_failed"]
 

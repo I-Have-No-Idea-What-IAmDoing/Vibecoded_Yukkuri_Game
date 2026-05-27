@@ -106,7 +106,10 @@ class SteeringSystem(System):
             to_target = target_pos - current_pos
             dist = to_target.length
 
-            if dist < steering.arrival_radius:  # Close enough: stop.
+            arrival_limit = getattr(
+                move_cmd, "acceptance_radius", steering.arrival_radius
+            )
+            if dist < arrival_limit:  # Close enough: stop.
                 world.commands.remove_component(entity_id, MoveCommand)
                 movement.target_velocity = pymunk.Vec2d(0, 0)
                 continue
@@ -180,21 +183,19 @@ class SteeringSystem(System):
             target_pos = pymunk.Vec2d(*path[0])
             dist_sq = (target_pos - current_pos).length_squared
 
-            # Thresholds: 60px for intermediate waypoints, 10px for final arrival.
-            pop_threshold_sq = (
-                self.WAYPOINT_THRESHOLD_SQ
-                if len(path) > 1
-                else self.ARRIVAL_THRESHOLD_SQ
-            )
-
-            if dist_sq < pop_threshold_sq:
-                path.pop(0)
-                if not path:
-                    movement.target_velocity = pymunk.Vec2d(0, 0)
-                    ai_state.path = None
-                    continue
-                target_pos = pymunk.Vec2d(*path[0])
-                dist_sq = (target_pos - current_pos).length_squared
+            # Intermediate waypoint pop logic (60px threshold)
+            # The final waypoint (len(path) == 1) is never popped by the
+            # SteeringSystem; instead, the NavigationController handles the
+            # final arrival and state cleanup at the Behavior Tree level.
+            if len(path) > 1:
+                if dist_sq < self.WAYPOINT_THRESHOLD_SQ:
+                    path.pop(0)
+                    if not path:
+                        movement.target_velocity = pymunk.Vec2d(0, 0)
+                        ai_state.path = None
+                        continue
+                    target_pos = pymunk.Vec2d(*path[0])
+                    dist_sq = (target_pos - current_pos).length_squared
 
             # Blend towards next waypoint when close for smoother turns.
             if len(path) > 1 and dist_sq < self.WAYPOINT_BLEND_THRESHOLD_SQ:

@@ -44,6 +44,7 @@ class MoveCommand:
     expiration: float = 0.0
     priority: int = 2
     active: bool = True
+    acceptance_radius: float = 25.0
 
 
 @persistent

@@ -39,6 +39,16 @@ class NavigationController:
     """
 
     @staticmethod
+    def _cleanup_nav_state(ai: AIState) -> None:
+        """
+        Cleans up transient path request and destination data from AIState.
+        """
+        if ai.state_data:
+            ai.state_data.pop("path_requesting", None)
+            ai.state_data.pop("path_destination", None)
+            ai.state_data.pop("pursuit_repath", None)
+
+    @staticmethod
     def navigate_to(
         world: "World",
         entity_id: int,
@@ -69,6 +79,31 @@ class NavigationController:
         if ai is None or trans is None or needs is None or controller is None:
             return Status.FAILURE
 
+        # Get TimeService for physics time calculations
+        from yukkuri_game.engine.services.time_service import TimeService
+
+        services = getattr(world, "services", None)
+        time_service = (
+            services.try_get(TimeService) if services else None
+        )
+        raw_scale = (
+            getattr(time_service, "game_delta_multiplier", 60.0)
+            if time_service
+            else 60.0
+        )
+        scale = (
+            raw_scale
+            if isinstance(raw_scale, (int, float))
+            else 60.0
+        )
+        raw_time = getattr(world, "time", 0.0)
+        w_time = (
+            raw_time
+            if isinstance(raw_time, (int, float))
+            else 0.0
+        )
+        physics_time = w_time / max(0.1, scale)
+
         # Handle failed target validation
         if target_entity_id is not None:
             if target_entity_id in ai.failed_targets and not ai.manual_override:
@@ -78,6 +113,30 @@ class NavigationController:
                 return Status.FAILURE
 
         current_pos = pymunk.Vec2d(trans.x, trans.y)
+
+        # Calculate dynamic physical acceptance radius to prevent getting stuck
+        # due to body collisions.
+        eff_accept_rad = acceptance_radius
+        if target_entity_id is not None:
+            self_phys = world.try_get_component(entity_id, PhysicsBody)
+            target_phys = world.try_get_component(
+                target_entity_id, PhysicsBody
+            )
+            if self_phys and target_phys:
+                self_radius = 0.0
+                target_radius = 0.0
+                for shape in self_phys.body.shapes:
+                    if not shape.sensor and hasattr(shape, "radius"):
+                        self_radius = shape.radius
+                        break
+                for shape in target_phys.body.shapes:
+                    if not shape.sensor and hasattr(shape, "radius"):
+                        target_radius = shape.radius
+                        break
+                min_dist = self_radius + target_radius
+                if min_dist > 0.0:
+                    # Provide 5px buffer to ensure arrival is triggered reliably
+                    eff_accept_rad = max(acceptance_radius, min_dist + 5.0)
 
         # Close-Range / Line-of-Sight Optimization
         is_visible = target_entity_id is None or (
@@ -95,7 +154,8 @@ class NavigationController:
                 if physics_sys and hasattr(physics_sys, "space"):
                     space = physics_sys.space
                     filter_ = pymunk.ShapeFilter(
-                        mask=pymunk.ShapeFilter.ALL_MASKS()
+                        mask=pymunk.ShapeFilter.ALL_MASKS(),
+                        group=entity_id,
                     )
                     hit = space.segment_query_first(
                         current_pos, target_pos, 1.0, filter_
@@ -110,9 +170,10 @@ class NavigationController:
                             use_direct_steering = True
 
             if use_direct_steering:
-                if dist_to_target < acceptance_radius:
+                if dist_to_target < eff_accept_rad:
                     controller.target_velocity = pymunk.Vec2d(0, 0)
                     ai.path = None
+                    NavigationController._cleanup_nav_state(ai)
                     if world.has_component(entity_id, MoveCommand):
                         world.commands.remove_component(entity_id, MoveCommand)
                     return Status.SUCCESS
@@ -132,6 +193,7 @@ class NavigationController:
                         ),
                         speed_multiplier=speed_modifier,
                         priority=2,
+                        acceptance_radius=eff_accept_rad,
                     ),
                 )
 
@@ -142,15 +204,16 @@ class NavigationController:
 
         if target_pos:
             dist_sq = (target_pos - current_pos).length_squared
-            if dist_sq < acceptance_radius * acceptance_radius:
+            if dist_sq < eff_accept_rad * eff_accept_rad:
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 ai.path = None
+                NavigationController._cleanup_nav_state(ai)
                 if world.has_component(entity_id, MoveCommand):
                     world.commands.remove_component(entity_id, MoveCommand)
                 return Status.SUCCESS
 
         # Pathfinding (Async)
-        if ai.path is None:
+        if ai.path is None or not ai.path:
             state_data = ai.state_data if ai.state_data else {}
             is_requesting = state_data.get("path_requesting", False)
             path_failed = state_data.get("path_failed", False)
@@ -174,9 +237,11 @@ class NavigationController:
                 return Status.FAILURE
 
             if is_requesting:
-                now = world.time
                 request_timestamp = state_data.get("path_request_time", 0.0)
-                if (now - request_timestamp) > 2.0:
+                if (
+                    request_timestamp > physics_time
+                    or (physics_time - request_timestamp) > 2.0
+                ):
                     state_data["path_requesting"] = False
                 else:
                     return Status.RUNNING
@@ -209,7 +274,7 @@ class NavigationController:
                 if ai.state_data is None:
                     ai.state_data = {}
                 ai.state_data["path_requesting"] = True
-                ai.state_data["path_request_time"] = world.time
+                ai.state_data["path_request_time"] = physics_time
                 ai.state_data["path_destination"] = (
                     target_pos.x,
                     target_pos.y,
@@ -247,13 +312,15 @@ class NavigationController:
                         target_pos - pymunk.Vec2d(*path_dest)
                     ).length_squared
                     if drift_sq > drift_threshold_sq:
-                        now = world.time
                         last_repath_time = ai.state_data.get(
                             "last_repath_time", 0.0
                         )
-                        if now - last_repath_time > 0.5:
+                        if (
+                            last_repath_time > physics_time
+                            or (physics_time - last_repath_time) > 0.5
+                        ):
                             ai.path = None
-                            ai.state_data["last_repath_time"] = now
+                            ai.state_data["last_repath_time"] = physics_time
                             ai.state_data["pursuit_repath"] = True
                             return Status.RUNNING
 
@@ -263,9 +330,10 @@ class NavigationController:
         current_pos = pymunk.Vec2d(trans.x, trans.y)
         dist_to_final = (target_pos - current_pos).length
 
-        if dist_to_final < acceptance_radius:
+        if dist_to_final < eff_accept_rad:
             controller.target_velocity = pymunk.Vec2d(0, 0)
             ai.path = None
+            NavigationController._cleanup_nav_state(ai)
             return Status.SUCCESS
 
         return Status.RUNNING

@@ -223,7 +223,7 @@ def build_wander_behavior(
     check_goal_fn: Callable[[str], bool],
     check_target_fn: Callable[[], bool],
 ) -> Behaviour:
-    wander_sequence = py_trees.composites.Sequence(name="Wander Sequence", memory=True)
+    wander_sequence = py_trees.composites.Sequence(name="Wander Sequence", memory=False)
     is_wandering = Check(
         name="Goal=Wander?",
         check_fn=lambda: check_goal_fn("Wander") or check_goal_fn("move_random"),
@@ -278,7 +278,7 @@ def build_hunt_behavior(
     check_goal_fn: Callable[[str], bool],
     check_target_fn: Callable[[], bool],
 ) -> Behaviour:
-    root = py_trees.composites.Sequence(name="Hunt Sequence", memory=True)
+    root = py_trees.composites.Sequence(name="Hunt Sequence", memory=False)
 
     goal_check = Check(
         name="Check Hunt Goal",
@@ -286,10 +286,14 @@ def build_hunt_behavior(
     )
     root.add_child(goal_check)
 
+    execution = py_trees.composites.Sequence(
+        name="Hunt Execution", memory=True
+    )
+
     find_prey = FindPrey(
         name="Find Prey", entity_id=entity_id, world=world, blackboard=None
     )
-    root.add_child(find_prey)
+    execution.add_child(find_prey)
 
     approach_selector = py_trees.composites.Selector(
         name="Approach Strategy", memory=False
@@ -299,7 +303,9 @@ def build_hunt_behavior(
         f = world.try_get_component(entity_id, Flight)
         return f is not None and f.stamina > 20.0
 
-    aerial_assault = py_trees.composites.Sequence(name="Aerial Assault", memory=False)
+    aerial_assault = py_trees.composites.Sequence(
+        name="Aerial Assault", memory=False
+    )
     aerial_assault.add_child(Check(name="Can Fly Check", check_fn=can_fly_check))
     aerial_assault.add_child(
         MoveToTarget(
@@ -313,16 +319,21 @@ def build_hunt_behavior(
     approach_selector.add_child(aerial_assault)
 
     ground_assault = MoveToTarget(
-        entity_id=entity_id, world=world, acceptance_radius=40.0, name="Chase Prey"
+        entity_id=entity_id,
+        world=world,
+        acceptance_radius=40.0,
+        name="Chase Prey",
     )
     approach_selector.add_child(ground_assault)
 
-    root.add_child(approach_selector)
+    execution.add_child(approach_selector)
 
     eat_prey = EatPrey(
         name="Eat Prey", entity_id=entity_id, world=world, blackboard=None
     )
-    root.add_child(eat_prey)
+    execution.add_child(eat_prey)
+
+    root.add_child(execution)
     return root
 
 
@@ -362,10 +373,19 @@ def build_standard_interaction_behavior(
         check_goal_fn: Callable[[str], bool],
         check_target_fn: Callable[[], bool],
     ) -> Behaviour:
-        root = py_trees.composites.Sequence(name=f"{goal_name} Sequence", memory=True)
+        root = py_trees.composites.Sequence(
+            name=f"{goal_name} Sequence", memory=False
+        )
 
         root.add_child(
-            Check(name=f"Goal={goal_name}?", check_fn=lambda: check_goal_fn(goal_name))
+            Check(
+                name=f"Goal={goal_name}?",
+                check_fn=lambda: check_goal_fn(goal_name),
+            )
+        )
+
+        execution = py_trees.composites.Sequence(
+            name=f"{goal_name} Execution", memory=True
         )
 
         find_selector = py_trees.composites.Selector(
@@ -380,7 +400,9 @@ def build_standard_interaction_behavior(
 
             return world.has_component(ai.current_target_id, Transform)
 
-        find_selector.add_child(Check(name="Has Target?", check_fn=has_valid_target))
+        find_selector.add_child(
+            Check(name="Has Target?", check_fn=has_valid_target)
+        )
 
         if goal_name == "Eat":
             find_selector.add_child(PickFood(entity_id=entity_id, world=world))
@@ -403,9 +425,9 @@ def build_standard_interaction_behavior(
                 )
             )
 
-        root.add_child(find_selector)
+        execution.add_child(find_selector)
 
-        root.add_child(
+        execution.add_child(
             MoveToTarget(
                 name=f"Go to {goal_name} Target",
                 entity_id=entity_id,
@@ -415,7 +437,7 @@ def build_standard_interaction_behavior(
         )
 
         if goal_name == "Eat":
-            root.add_child(
+            execution.add_child(
                 Interact(
                     name=f"Do {goal_name}",
                     entity_id=entity_id,
@@ -425,7 +447,7 @@ def build_standard_interaction_behavior(
             )
         else:
             # Social Action
-            root.add_child(
+            execution.add_child(
                 SocialInteract(
                     name=f"Do {goal_name}",
                     entity_id=entity_id,
@@ -434,6 +456,7 @@ def build_standard_interaction_behavior(
                 )
             )
 
+        root.add_child(execution)
         return root
 
     return builder

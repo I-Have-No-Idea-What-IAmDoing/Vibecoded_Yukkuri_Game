@@ -67,7 +67,7 @@ class TestMoveToTargetDrift(unittest.TestCase):
             target_trans.x = 300.0
 
             # Advance time slightly to ensure world.time > last_repath_time (0.0)
-            self.time_service.time_elapsed = 10.0
+            self.time_service.time_elapsed = 60.0
 
             status = action.update()
             try:

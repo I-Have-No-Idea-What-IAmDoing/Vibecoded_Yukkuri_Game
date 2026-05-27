@@ -81,7 +81,7 @@ class TestAdaptiveDrift(unittest.TestCase):
             target_trans.x = 130
 
             # Ensure cooldown doesn't block (using time.time() inside, so set last_repath_time to 0)
-            self.time_service.time_elapsed = 10.0
+            self.time_service.time_elapsed = 60.0
 
             action.update()
             try:
