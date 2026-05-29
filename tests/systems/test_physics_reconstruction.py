@@ -102,3 +102,31 @@ def test_reconstruct_physics_item_default_size(mock_physics_system):
     reconstruct_physics(world)
 
     assert world.has_component(entity, PhysicsBody)
+
+
+def test_reconstruct_physics_item_obstacle(mock_physics_system):
+    world = World()
+    world.services.register(mock_physics_system, IPhysicsService)
+
+    # Mock ResourceManager using SimpleNamespace to support getattr
+    from types import SimpleNamespace
+    rm = Mock(spec=ResourceManager)
+    rm.item_types = {"wall": SimpleNamespace(width=32, height=32, obstacle_type="HIGH")}
+    world.services.register(rm, ResourceManager)
+
+    # Mock NavigationService
+    from yukkuri_game.game.ai.navigation_service import NavigationService
+    from yukkuri_game.game.ai.navigation_service import ObstacleType
+    nav_service = Mock(spec=NavigationService)
+    world.services.register(nav_service, NavigationService)
+
+    entity = world.create_entity()
+    world.add_component(entity, Transform(x=150, y=150))
+    world.add_component(entity, ItemStats(name="Wall", type_id="wall", cost=5))
+
+    reconstruct_physics(world)
+
+    assert world.has_component(entity, PhysicsBody)
+    nav_service.update_obstacle_rect.assert_called_once_with(
+        150.0, 150.0, 32.0, 32.0, walkable=False, obstacle_type=ObstacleType.HIGH
+    )

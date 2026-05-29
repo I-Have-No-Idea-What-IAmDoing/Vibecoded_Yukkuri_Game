@@ -17,6 +17,8 @@ from ..components import (
     YukkuriStats,
 )
 from yukkuri_game.engine.components import (
+    MovementController,
+    PhysicsBody,
     Transform,
 )
 from ..services import EconomyService, InputService
@@ -337,18 +339,48 @@ class HudRenderer:
                     if pers.traits:
                         traits_str = ", ".join(list(pers.traits))
 
+                transform = self.world.try_get_component(
+                    selected_entity, Transform
+                )
+                pos_str = (
+                    f"{transform.x:.1f}, {transform.y:.1f}"
+                    if transform
+                    else "N/A"
+                )
+
+                vel_str = "N/A"
+                mctrl = self.world.try_get_component(
+                    selected_entity, MovementController
+                )
+                if mctrl:
+                    vel_str = (
+                        f"{mctrl.current_velocity.x:.1f},"
+                        f" {mctrl.current_velocity.y:.1f}"
+                    )
+                else:
+                    pbody = self.world.try_get_component(
+                        selected_entity, PhysicsBody
+                    )
+                    if pbody and pbody.body:
+                        vel = pbody.body.velocity
+                        vel_str = f"{vel.x:.1f}, {vel.y:.1f}"
+
                 # Format
                 text = (
+                    f"<b>Entity ID:</b> {selected_entity}<br>"
                     f"<b>Name:</b> {stats.name}<br>"
                     f"<b>Type:</b> {stats.type_id}<br>"
                     f"<b>Traits:</b> {traits_str}<br>"
                     f"<b>Mood:</b> {mood_str}<br>"
+                    f"<b>Pos:</b> {pos_str}<br>"
+                    f"<b>Vel:</b> {vel_str}<br>"
                     f"<br>"
                     f"<b>Health:</b> {int(needs.health)}<br>"
                     f"<b>Hunger:</b> {int(needs.hunger)}<br>"
                     f"<b>Happiness:</b> {happiness}<br>"
                     f"<b>Stress:</b> {stress}<br>"
-                    f"<b>Tastebuds Spoiled:</b> {stats.tastebud_spoiled:.1f}<br>"
+                    f"<b>Tastebuds Spoiled:</b>"
+                    f" {stats.tastebud_spoiled:.1f}<br>"
                     f"<b>Badges:</b> {stats.badges}<br>"
                     f"<b>Agility:</b> {stats.agility:.1f}<br>"
                     f"<b>Action:</b> {action}"
@@ -513,7 +545,35 @@ class HudRenderer:
                     active_action = breakdown.get("active_action")
                     sorted_actions = breakdown.get("sorted_actions", [])
 
-                    lines = []
+                    # Get Behavior Tree active node path (Task B3)
+                    bt_path = "—"
+                    try:
+                        from ..systems.behavior import BehaviorSystem
+                        behavior_system = self.world.get_system(
+                            BehaviorSystem
+                        )
+                        bt_path = behavior_system.get_active_node_path(eid)
+                    except (KeyError, ImportError, AttributeError):
+                        pass
+
+                    lines = [
+                        f"<b>BT Active Path:</b> "
+                        f"<font color='#00FFFF'>{bt_path}</font>",
+                        "",
+                    ]
+
+                    # Decision history (most recent first)
+                    history = getattr(ai, "decision_history", None)
+                    if history:
+                        lines.append("<b>Recent Decisions:</b>")
+                        for act, score, ts in reversed(list(history)):
+                            lines.append(
+                                f"&nbsp;&nbsp;• {act}"
+                                f" <font color='#888888'>"
+                                f"(score: {score:.3f})</font>"
+                            )
+                        lines.append("")
+
                     for name, data in sorted_actions:
                         score = data.get("final_score", 0.0)
                         is_active = (name == active_action)
@@ -591,7 +651,8 @@ class HudRenderer:
         if not self.layout.debug_window or not self.layout.debug_text_box:
             return
 
-        # Get entity count for debug display (fallback to 0 if world is in inconsistent state)
+        # Get entity count for debug display (fallback to 0 if world is
+        # in inconsistent state)
         try:
             entity_count = len(self.world.get_all_entities())
         except (AttributeError, KeyError):
@@ -602,14 +663,49 @@ class HudRenderer:
 
         time_scale_str = "N/A"
         if time_service:
-            time_scale_str = f"{time_service.scale}x @ {time_service.game_speed}x speed"
+            time_scale_str = (
+                f"{time_service.scale}x @ {time_service.game_speed}x speed"
+            )
+
+        # Get active scene name
+        scene_name = "GameplayScene"
+        try:
+            from yukkuri_game.engine.application import Application
+            app = self.world.services.try_get(Application)
+            if app and app.scene_manager and app.scene_manager.current_scene:
+                scene_name = type(app.scene_manager.current_scene).__name__
+        except Exception:
+            pass
+
+        # Get AI queue depth
+        ai_queue_depth = "N/A"
+        try:
+            from ..systems.behavior import BehaviorSystem
+            behavior_system = self.world.get_system(BehaviorSystem)
+            ai_queue_depth = str(len(behavior_system.update_queue))
+        except (KeyError, ImportError):
+            pass
 
         debug_text = (
+            f"<b>Active Scene:</b> {scene_name}<br>"
             f"<b>FPS:</b> {self.fps:.2f}<br>"
             f"<b>Entities:</b> {entity_count}<br>"
+            f"<b>AI Queue Depth:</b> {ai_queue_depth}<br>"
             f"<b>Money:</b> {economy.money}<br>"
             f"<b>Time Scale:</b> {time_scale_str}<br>"
         )
+
+        # Per-system timing breakdown (only when debug_timing is on).
+        if getattr(self.world, "debug_timing", False):
+            timings = self.world.get_system_timings()
+            if timings:
+                debug_text += "<br><b>Top Systems (ms avg):</b><br>"
+                for sys_name, avg_ms in list(timings.items())[:8]:
+                    bar_len = min(20, int(avg_ms * 2))
+                    bar = "█" * bar_len
+                    debug_text += (
+                        f"&nbsp;{sys_name}: {avg_ms:.2f} {bar}<br>"
+                    )
 
         self.layout.debug_text_box.set_text(debug_text)
 

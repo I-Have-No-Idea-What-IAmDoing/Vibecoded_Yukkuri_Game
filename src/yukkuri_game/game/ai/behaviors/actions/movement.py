@@ -172,6 +172,7 @@ class MoveToTarget(Action):
                 ai.state_data.pop("pursuit_repath", None)
                 ai.state_data.pop("target_x", None)
                 ai.state_data.pop("target_y", None)
+                ai.state_data.pop("stuck_count", None)
 
 
 

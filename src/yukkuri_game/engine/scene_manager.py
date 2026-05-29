@@ -11,6 +11,7 @@ import msgspec
 import pygame
 from loguru import logger
 
+from .exceptions import MigrationError
 from .migration import MigrationRegistry
 from .scene import Scene, SceneContext
 
@@ -58,6 +59,11 @@ class SceneManager:
         scene.setup(context)
 
         self._scenes.append(scene)
+        logger.info(
+            "Scene push: {} (stack depth: {})",
+            type(scene).__name__,
+            len(self._scenes),
+        )
         scene.on_enter()
 
     def pop(self) -> None:
@@ -71,6 +77,11 @@ class SceneManager:
         """
         if self._scenes:
             scene = self._scenes.pop()
+            logger.info(
+                "Scene pop: {} (stack depth now: {})",
+                type(scene).__name__,
+                len(self._scenes),
+            )
             scene.on_exit()
             scene.destroy()
             gc.collect()  # Break cyclic references (Events -> Handlers -> Scene).
@@ -88,6 +99,18 @@ class SceneManager:
         if self._scenes:
             self.pop()
         self.push(scene)
+
+    def dump_scene_stack(self) -> str:
+        """
+        Returns a human-readable string of the current scene stack.
+
+        Returns:
+            str: Scene class names from bottom to top, e.g.
+                 ``"MainMenuScene → GameplayScene"``.
+        """
+        if not self._scenes:
+            return "<empty>"
+        return " → ".join(type(s).__name__ for s in self._scenes)
 
     def _prepare_context(self, scene: Scene) -> SceneContext:
         """
@@ -158,8 +181,17 @@ class SceneManager:
                         )
                         # Determine fallback strategy: Crash or Skip?
                         # Crashing is safer than running with corrupt/wrong-type data.
-                        raise RuntimeError(
-                            f"Data corruption detected for key '{key}'"
+                        saved_version = 0
+                        if isinstance(data, dict):
+                            saved_version = data.get("_version_", 0)
+                        raise MigrationError(
+                            f"Data corruption detected for key '{key}'",
+                            context={
+                                "key": key,
+                                "scene": type(scene).__name__,
+                                "expected_type": expected_type.__name__,
+                                "saved_version": saved_version,
+                            },
                         ) from e
                 else:
                     context_data[key] = data  # Already a live object.

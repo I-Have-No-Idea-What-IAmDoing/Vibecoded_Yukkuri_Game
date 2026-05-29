@@ -166,12 +166,16 @@ class ServiceLocator:
             except TypeError:
                 pass
 
+        available_names = [
+            getattr(t, "__name__", str(t)) for t in self._services.keys()
+        ]
         logger.error(
             f"Service not found: {service_type}. "
             f"Available: {list(self._services.keys())}"
         )
         raise ServiceNotFoundError(
-            f"Service of type {service_type.__name__} not found."
+            f"Service of type {service_type.__name__} not found. "
+            f"Registered services: {', '.join(available_names)}"
         )
 
     def try_get(self, service_type: type[T]) -> T | None:

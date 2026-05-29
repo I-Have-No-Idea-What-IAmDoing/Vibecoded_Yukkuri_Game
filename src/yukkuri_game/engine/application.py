@@ -4,6 +4,10 @@ Application Module.
 
 import gc
 import os
+import sys
+import traceback
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import pygame
@@ -143,8 +147,22 @@ class Application:
     def run(self) -> None:
         """
         Starts the main game loop.
+
+        Wraps the loop in a top-level exception handler that writes a
+        timestamped crash log to ``logs/`` before re-raising so the
+        process exits with a non-zero status code.
         """
         logger.info("Application Started")
+        try:
+            self._run_loop()
+        except Exception:
+            self._write_crash_log()
+            raise
+
+    def _run_loop(self) -> None:
+        """
+        Inner game loop body, separated so the crash handler can wrap it cleanly.
+        """
         current_time = pygame.time.get_ticks() / 1000.0
 
         while self.running:
@@ -170,6 +188,135 @@ class Application:
                 self.clock.tick(60)
 
         self.quit()
+
+    def _write_crash_log(self) -> None:
+        """
+        Writes a crash log containing the full traceback and world state.
+
+        The log is written to ``logs/crash_YYYYMMDD_HHMMSS.log``.
+        A short human-readable notice is also printed to stderr.
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_dir = Path("logs")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        crash_path = log_dir / f"crash_{timestamp}.log"
+
+        tb_text = traceback.format_exc()
+
+        # Active scene name for the header.
+        scene = self.scene_manager.current_scene
+        scene_name = (
+            type(scene).__name__ if scene is not None else "<no scene>"
+        )
+        scene_stack = self.scene_manager.dump_scene_stack()
+
+        lines: list[str] = [
+            f"=== CRASH REPORT {timestamp} ===",
+            f"Scene: {scene_name}  |  Stack: {scene_stack}",
+            "",
+            "--- Traceback ---",
+            tb_text,
+        ]
+
+        _, exc_value, _ = sys.exc_info()
+        from .exceptions import GameEngineError  # noqa: PLC0415
+        if isinstance(exc_value, GameEngineError) and exc_value.context:
+            lines.append("--- Exception Context ---")
+            for k, v in exc_value.context.items():
+                lines.append(f"  {k}: {v}")
+            lines.append("")
+
+        # Dump the last 100 published event names from the active world's bus.
+        try:
+            if scene is not None and hasattr(scene, "world"):
+                world = scene.world  # type: ignore[union-attr]
+                from .event_bus import EventBus  # noqa: PLC0415
+                bus = world.services.try_get(EventBus)
+                if bus and bus.recent_events:
+                    lines.append("--- Recent Events (last 100) ---")
+                    for ev in bus.recent_events:
+                        if isinstance(ev, dict):
+                            ts = datetime.fromtimestamp(
+                                ev["timestamp"]
+                            ).strftime("%H:%M:%S.%f")[:-3]
+                            lines.append(
+                                f"  [{ts}] {ev['type']}{ev['payload']}"
+                            )
+                        else:
+                            lines.append(f"  {ev}")
+                    lines.append("")
+        except Exception as ev_err:  # noqa: BLE001
+            lines.append(f"[Event history unavailable: {ev_err}]")
+
+        # Attempt to dump world state from the active scene.
+        try:
+            if scene is not None and hasattr(scene, "world"):
+                import dataclasses  # noqa: PLC0415
+
+                world = scene.world  # type: ignore[union-attr]
+                lines.append("--- World State ---")
+                for entity in world.get_all_entities():
+                    comps = world.get_all_components(entity)
+                    comp_strs: list[str] = []
+                    for c in comps:
+                        if dataclasses.is_dataclass(c):
+                            try:
+                                flds = dataclasses.fields(c)
+                                kv = []
+                                for f in flds:
+                                    try:
+                                        kv.append(
+                                            f"{f.name}="
+                                            f"{getattr(c, f.name)!r}"
+                                        )
+                                    except Exception:  # noqa: BLE001
+                                        kv.append(f"{f.name}=<err>")
+                                comp_strs.append(
+                                    f"{type(c).__name__}"
+                                    f"({', '.join(kv)})"
+                                )
+                            except Exception:  # noqa: BLE001
+                                comp_strs.append(type(c).__name__)
+                        else:
+                            comp_strs.append(type(c).__name__)
+                    lines.append(
+                        f"  Entity {entity}: {comp_strs}"
+                    )
+        except Exception as dump_err:  # noqa: BLE001
+            lines.append(f"[World dump failed: {dump_err}]")
+
+
+        crash_text = "\n".join(lines)
+
+        try:
+            crash_path.write_text(crash_text, encoding="utf-8")
+        except OSError as write_err:
+            logger.error(f"Could not write crash log: {write_err}")
+            return
+
+        # Attempt to capture a screenshot at crash time.
+        if self.screen is not None:
+            screenshot_path = log_dir / f"crash_{timestamp}.png"
+            try:
+                pygame.image.save(self.screen, str(screenshot_path))
+                logger.critical(
+                    "Crash screenshot saved to: {}",
+                    screenshot_path.resolve(),
+                )
+            except Exception as ss_err:  # noqa: BLE001
+                logger.warning(
+                    "Could not save crash screenshot: {}", ss_err
+                )
+
+        logger.critical(
+            f"Game crashed — crash log saved to: {crash_path.resolve()}"
+        )
+        print(
+            f"\n[CRASH] The game crashed unexpectedly."
+            f"\nCrash log saved to: {crash_path.resolve()}"
+            f"\nPlease include this file when reporting bugs.",
+            file=sys.stderr,
+        )
 
     def process_events(self) -> None:
         """

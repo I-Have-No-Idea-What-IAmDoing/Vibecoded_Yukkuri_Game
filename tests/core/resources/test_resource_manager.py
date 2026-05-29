@@ -121,6 +121,51 @@ def test_load_image_not_found(mock_exists: MagicMock) -> None:
     assert img.get_size() == (32, 32)
 
 
+@patch("yukkuri_game.engine.resource_manager.pygame.image.load")
+@patch("yukkuri_game.engine.resource_manager.os.path.exists")
+def test_load_image_fallback(
+    mock_exists: MagicMock, mock_load: MagicMock
+) -> None:
+    """
+    Verifies fallback to base image when action-specific sprite is missing.
+
+    Setup:
+        - Mocks os.path.exists to return False for action-specific filename,
+          but True for the base filename.
+        - Mocks pygame.image.load to return a 64x64 dummy surface.
+
+    Assertions:
+        - Returns a valid pygame.Surface of 64x64.
+        - Both filenames cache the same surface.
+    """
+    import pygame
+    rm = ResourceManager()
+
+    # Force disk load path: mocked atlas refuses to accept new image
+    rm.atlas = MagicMock()
+    rm.atlas.get_region.return_value = None
+    rm.atlas.add_image.return_value = False
+
+    def side_effect(path: str) -> bool:
+        if "reimu_wander.png" in path:
+            return False
+        if "reimu.png" in path:
+            return True
+        return False
+
+    mock_exists.side_effect = side_effect
+
+    real_surface = pygame.Surface((64, 64))
+    mock_load.return_value.convert_alpha.return_value = real_surface
+
+    img = rm.load_image("reimu_wander.png")
+
+    assert img == real_surface
+    assert rm.images["reimu_wander.png"] == real_surface
+    called_path = mock_load.call_args[0][0]
+    assert "reimu.png" in called_path
+
+
 def test_load_all_data() -> None:
     """
     Verifies the initialization and monolithic loading behavior of LazyLoaders.

@@ -210,3 +210,47 @@ def test_persistence_round_trip(setup_persistence_world):
     trans = world.try_get_component(reimu_entity, Transform)
     assert trans.x == 100
     assert trans.y == 200
+
+
+def test_persistence_obstacle_restoration(setup_persistence_world):
+    world, persistence, save_dir = setup_persistence_world
+    factory = world.services.get(EntityFactory)
+
+    # Mock ResourceManager to define our obstacle item type
+    from types import SimpleNamespace
+    rm = world.services.get(ResourceManager)
+    rm.item_types = {
+        "toy": SimpleNamespace(width=32, height=32, obstacle_type="HIGH")
+    }
+
+    # Register Mock NavigationService
+    from yukkuri_game.game.ai.navigation_service import NavigationService
+    from yukkuri_game.game.ai.navigation_service import ObstacleType
+    nav_service = MagicMock(spec=NavigationService)
+    world.services.register(nav_service, NavigationService)
+
+    # Mock Physics system so reconstruct_physics doesn't complain about missing mock
+    from yukkuri_game.engine.protocols import IPhysicsService
+    physics_service = MagicMock(spec=IPhysicsService)
+    physics_service.space = MagicMock()
+    world.services.register(physics_service, IPhysicsService)
+
+    # 1. Setup: Create obstacle item
+    i_id = factory.create_item("toy", 150, 150)
+
+    # 2. Save
+    save_file = os.path.join(save_dir, "test_obstacle_save.sqlite")
+    persistence.save_game(save_file)
+
+    # 3. Clear World (Simulate new session)
+    world.destroy_entity(i_id)
+    world.commands.apply_all()
+    assert not world.entity_exists(i_id)
+
+    # 4. Load
+    persistence.load_game(save_file)
+
+    # 5. Verify that NavigationService received the obstacle restoration rect!
+    nav_service.update_obstacle_rect.assert_called_with(
+        150.0, 150.0, 32.0, 32.0, walkable=False, obstacle_type=ObstacleType.HIGH
+    )

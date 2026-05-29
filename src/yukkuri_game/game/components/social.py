@@ -398,3 +398,6 @@ class AIState:
     is_inspected: bool = False
     last_utility_breakdown: dict[str, Any] | None = None
     action_cooldowns: dict[str, float] = field(default_factory=dict)
+    decision_history: deque[tuple[str, float, float]] = field(
+        default_factory=deque, metadata={"persistent": False}
+    )

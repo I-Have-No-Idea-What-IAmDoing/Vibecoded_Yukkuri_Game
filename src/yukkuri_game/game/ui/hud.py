@@ -23,6 +23,7 @@ from ..events import (
 )
 from ..systems.ai_debug_renderer import AIDebugRenderer
 from ..systems.navigation_debug_renderer import NavigationDebugRenderer
+from ..systems.physics_debug_renderer import PhysicsDebugRenderer
 from ..components import AIState, YukkuriStats
 from .context_menu import ContextMenu
 from .hud_events import HudEvents
@@ -99,6 +100,7 @@ class HUD:
         self.lighting_debug = False
         self.navigation_debug_renderer: NavigationDebugRenderer | None = None
         self.ai_debug_renderer: AIDebugRenderer | None = None
+        self.physics_debug_renderer: PhysicsDebugRenderer | None = None
 
         self.log_history: list[LogMessageEvent] = [
             LogMessageEvent(
@@ -342,6 +344,13 @@ class HUD:
         if self.ai_debug_renderer and self.ai_debug_renderer.enabled:
             self.ai_debug_renderer.render(screen, self.world)
 
+        # Draw physics debug overlay
+        if (
+            self.physics_debug_renderer
+            and self.physics_debug_renderer.enabled
+        ):
+            self.physics_debug_renderer.render(screen, self.world)
+
     def _update_selection_window_layout(self) -> None:
         """
         Updates the layout of the selection window based on the selected entity type.
@@ -398,6 +407,18 @@ class HUD:
         """Toggles AI debug visuals."""
         if self.ai_debug_renderer:
             self.ai_debug_renderer.toggle()
+
+    def init_physics_debug(self) -> None:
+        """
+        Initializes the physics debug renderer.
+        """
+        from ..systems.physics_debug_renderer import PhysicsDebugRenderer
+        self.physics_debug_renderer = PhysicsDebugRenderer(self.world)
+
+    def toggle_physics_debug(self) -> None:
+        """Toggles physics debug visuals."""
+        if self.physics_debug_renderer:
+            self.physics_debug_renderer.toggle()
 
     def show_error(self, message: str) -> None:
         """

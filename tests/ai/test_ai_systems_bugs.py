@@ -5,7 +5,7 @@ Regression test suite for AI, Systems, and Architectural bugfixes.
 import pymunk
 from py_trees.common import Status
 
-from yukkuri_game.engine.components import MovementController
+from yukkuri_game.engine.components import MovementController, Transform
 from yukkuri_game.engine.services.time_service import TimeService
 from yukkuri_game.game.components import MoveCommand, Needs, AIState
 from yukkuri_game.game.systems.behavior import BehaviorSystem
@@ -679,6 +679,196 @@ def test_empty_path_list_deadlock(game_driver: GameDriver) -> None:
     assert status == Status.RUNNING
     assert ai.state_data is not None
     assert ai.state_data.get("path_requesting") is True
+
+
+def test_wander_unreachable_target_recovery(
+    game_driver: GameDriver,
+) -> None:
+    """
+    Verify that when navigating to an unreachable target, if the entity
+    reaches the end of the partial path (closest reachable point), the action
+    successfully completes (Status.SUCCESS) instead of deadlocking in
+    Status.RUNNING.
+    """
+    driver = game_driver
+    driver.setup()
+
+    yukkuri_id = driver.create_yukkuri("reimu", 200.0, 100.0)
+    driver.world.commands.apply_all()
+
+    ai = driver.world.get_component(yukkuri_id, AIState)
+    assert ai is not None
+
+    # Original target is at (700, 100), but path only gets us to (200, 100)
+    target_pos = pymunk.Vec2d(700.0, 100.0)
+    ai.state_data = {"target_x": 700.0, "target_y": 100.0}
+    ai.path = [(200.0, 100.0)]
+
+    from yukkuri_game.game.ai.navigation_controller import (
+        NavigationController,
+    )
+
+    # We are already at (200, 100). Calling navigate_to should succeed
+    # because we've reached the end of the path (closest reachable point).
+    status = NavigationController.navigate_to(
+        world=driver.world,
+        entity_id=yukkuri_id,
+        target_pos=target_pos,
+        target_entity_id=None,
+        speed=100.0,
+        acceptance_radius=35.0,
+    )
+    assert status == Status.SUCCESS
+
+
+def test_wander_successive_targets(game_driver: GameDriver) -> None:
+    """
+    Verify that when an entity completes a Wander action (reaches the target),
+    the Wander action is re-initialized on the next tick and picks a different
+    random target location.
+    """
+    driver = game_driver
+    driver.setup()
+
+    yukkuri_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+    driver.world.commands.apply_all()
+
+    # Trigger Wander action
+    driver.set_ai_action(yukkuri_id, "Wander")
+    driver.run_for(seconds=0.1)
+
+    ai = driver.world.get_component(yukkuri_id, AIState)
+    assert ai is not None
+    assert ai.state_data is not None
+    assert "target_x" in ai.state_data
+
+    tx1 = ai.state_data["target_x"]
+    ty1 = ai.state_data["target_y"]
+
+    # Manually warp the Yukkuri to the target location to simulate arrival
+    trans = driver.world.get_component(yukkuri_id, Transform)
+    trans.x = tx1
+    trans.y = ty1
+    from yukkuri_game.engine.components import PhysicsBody
+    phys = driver.world.try_get_component(yukkuri_id, PhysicsBody)
+    if phys:
+        phys.body.position = (tx1, ty1)
+
+    # Run for a few frames to let the navigation and behavior systems tick
+    # and complete the current Wander action.
+    driver.run_for(seconds=0.5)
+
+    # Wander should have completed and generated a new target
+    assert "target_x" in ai.state_data
+    tx2 = ai.state_data["target_x"]
+    ty2 = ai.state_data["target_y"]
+
+    assert (tx1, ty1) != (tx2, ty2), "Target coordinates did not change!"
+
+
+def test_wander_close_range_obstacle_recovery(
+    game_driver: GameDriver,
+) -> None:
+    """
+    Verify that when the target is close-range (< 150px) but blocked by a
+    physics obstacle, the entity does not bypass obstacle checks via the
+    150px direct-steering short-circuit, and correctly uses path-based
+    navigation to complete the action.
+    """
+    driver = game_driver
+    driver.setup()
+
+    # Yukkuri is at (100, 100). Obstacle is in between (e.g. at (150, 100))
+    # Target is at (200, 100) (distance 100px < 150px).
+    yukkuri_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+    driver.world.commands.apply_all()
+
+    # Let's mock a segment query hit on the physics space to simulate a wall
+    from yukkuri_game.engine.protocols import IPhysicsService
+    from unittest.mock import MagicMock
+    
+    mock_physics = MagicMock(spec=IPhysicsService)
+    mock_space = MagicMock(spec=pymunk.Space)
+    mock_physics.space = mock_space
+    
+    # Register mock physics service
+    driver.world.services.register(
+        mock_physics, IPhysicsService, replace=True
+    )
+
+    # Make segment_query_first return a hit (meaning wall is present)
+    mock_shape = MagicMock(spec=pymunk.Shape)
+    mock_shape.body = MagicMock(spec=pymunk.Body)
+    mock_shape.sensor = False
+    mock_hit = MagicMock(spec=pymunk.SegmentQueryInfo)
+    mock_hit.shape = mock_shape
+    mock_space.segment_query_first.return_value = mock_hit
+
+    ai = driver.world.get_component(yukkuri_id, AIState)
+    assert ai is not None
+
+    target_pos = pymunk.Vec2d(200.0, 100.0)
+    ai.state_data = {"target_x": 200.0, "target_y": 100.0}
+    ai.path = [(120.0, 100.0)]
+
+    from yukkuri_game.game.ai.navigation_controller import (
+        NavigationController,
+    )
+
+    # Teleport to the end of the path (120.0, 100.0)
+    trans = driver.world.get_component(yukkuri_id, Transform)
+    trans.x = 120.0
+    trans.y = 100.0
+
+    # Since we are at the end of the path (closest walkable point),
+    # navigate_to should succeed!
+    status = NavigationController.navigate_to(
+        world=driver.world,
+        entity_id=yukkuri_id,
+        target_pos=target_pos,
+        target_entity_id=None,
+        speed=100.0,
+        acceptance_radius=35.0,
+    )
+    assert status == Status.SUCCESS
+
+
+def test_wander_stuck_limit_recovery(game_driver: GameDriver) -> None:
+    """
+    Verify that when an entity gets stuck 3 times, the navigation fails,
+    which aborts the current Wander action, wiggles/cools down, and subsequently
+    allows it to choose a new target coordinate on its next wandering tick.
+    """
+    driver = game_driver
+    driver.setup()
+
+    yukkuri_id = driver.create_yukkuri("reimu", 100.0, 100.0)
+    driver.world.commands.apply_all()
+
+    # Trigger Wander action
+    driver.set_ai_action(yukkuri_id, "Wander")
+    driver.run_for(seconds=0.1)
+
+    ai = driver.world.get_component(yukkuri_id, AIState)
+    assert ai is not None
+    assert "target_x" in ai.state_data
+
+    tx1 = ai.state_data["target_x"]
+    ty1 = ai.state_data["target_y"]
+
+    # Directly set stuck_count to 3 in state_data
+    ai.state_data["stuck_count"] = 3
+
+    # Run for a tick - the navigation should detect stuck_count >= 3,
+    # return Status.FAILURE, clean up the navigation state, and trigger Wander failure.
+    driver.run_for(seconds=0.1)
+
+    # The old target should be popped/cleaned up
+    assert "target_x" not in ai.state_data or ai.state_data.get("target_x") != tx1
+
+
+
+
 
 
 

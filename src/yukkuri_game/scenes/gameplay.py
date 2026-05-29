@@ -101,6 +101,12 @@ class GameplayScene(Scene):
         self.audio.load_from_config()
         self.event_manager = EventManager()
         self.event_bus = self.event_manager.bus
+        self.event_bus.trace = self.game_config.debug.trace_events
+        self.world.debug_timing = self.game_config.debug.debug_timing
+
+        # Register Application instance so other modules can query active scene
+        self.world.services.register(self.application, type(self.application))
+
         self.input_manager = self.world.services.get(InputManager)
         self.input_manager.switch_context(InputContext.GAMEPLAY)
 
@@ -146,7 +152,8 @@ class GameplayScene(Scene):
         self.is_setup = True
 
         # Initial population if empty.
-        if not self.application.headless and len(self.world.get_all_entities()) == 0:
+        from ..game.components import YukkuriStats
+        if not self.application.headless and len(self.world.get_entities_with(YukkuriStats)) == 0:
             start_x = float(self.camera.width) / 2.0
             start_y = float(self.camera.height) / 2.0
             create_yukkuri(self.world, "reimu", start_x, start_y)
@@ -182,9 +189,14 @@ class GameplayScene(Scene):
         self.dt = dt
         self.ui_manager.update(dt)
         self.event_manager.process_phase(GamePhase.PRE_UPDATE)
-        if not self.session_manager.paused:
+        step_requested = getattr(
+            self.session_manager, "_step_frame_requested", False
+        )
+        if not self.session_manager.paused or step_requested:
             sim_dt = dt * self.session_manager.time_scale
             self.event_manager.process_phase(GamePhase.UPDATE)
+            if step_requested:
+                setattr(self.session_manager, "_step_frame_requested", False)
         else:
             sim_dt = 0.0
         self.world.update(sim_dt)

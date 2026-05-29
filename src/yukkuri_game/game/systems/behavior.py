@@ -201,3 +201,26 @@ class BehaviorSystem(System):
             self.last_update_times[entity] = self.total_time
             self.update_queue.append(entity)
             updates_count += 1
+
+    def get_active_node_path(self, entity_id: int) -> str:
+        """Gets the active execution path for a given entity's behavior tree.
+
+        Option 1: Returns a full running sequence chain, e.g.
+        "Root Selector → Normal Behavior → Wander Sequence → Wander".
+
+        Args:
+            entity_id (int): The ECS entity ID.
+
+        Returns:
+            str: The active path sequence, or "—" if not found or empty.
+        """
+        tree = self.trees.get(entity_id)
+        if not tree or not tree.root:
+            return "—"
+
+        running = [
+            node.name
+            for node in tree.root.iterate()
+            if node.status == Status.RUNNING
+        ]
+        return " → ".join(running) or str(tree.root.status)

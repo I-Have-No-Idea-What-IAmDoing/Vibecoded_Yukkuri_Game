@@ -107,7 +107,7 @@ def test_data_models_fully_loaded() -> None:
     # 2. Test ItemType fields (e.g., wall)
     wall_type = rm.item_types.get("wall")
     assert wall_type is not None
-    assert wall_type.obstacle_type is None
+    assert wall_type.obstacle_type == "HIGH"
     assert wall_type.frame_count == 1
     assert wall_type.frame_duration == 0.1
     assert wall_type.loop is True

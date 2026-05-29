@@ -153,6 +153,41 @@ class SteeringSystem(System):
 
             movement.target_velocity = total_force
 
+            # --- Stuck Detection (Phase A) ---
+            if movement.target_velocity.length_squared > self.MIN_TARGET_VELOCITY_SQ:
+                if movement.current_velocity.length < 5.0:
+                    steering.time_stuck += dt
+                else:
+                    steering.time_stuck = max(0.0, steering.time_stuck - dt * 2.0)
+            else:
+                steering.time_stuck = 0.0
+
+            # --- Stuck Resolution ---
+            stuck_threshold_jitter = self.STUCK_THRESHOLD_JITTER
+            stuck_threshold_repath = self.STUCK_THRESHOLD_REPATH
+
+            if steering.time_stuck > stuck_threshold_jitter:
+                jitter = (
+                    pymunk.Vec2d(rng.uniform(-1, 1), rng.uniform(-1, 1)).normalized()
+                    * steering.max_force
+                )
+                movement.target_velocity += jitter
+
+            if steering.time_stuck > stuck_threshold_repath:
+                logger.warning(
+                    f"Entity {entity_id} stuck during direct steering for {steering.time_stuck:.1f}s. "
+                    f"Removing MoveCommand to fallback to pathfinding."
+                )
+                world.commands.remove_component(entity_id, MoveCommand)
+                movement.target_velocity = pymunk.Vec2d(0, 0)
+                steering.time_stuck = 0.0
+
+                ai_state = world.try_get_component(entity_id, AIState)
+                if ai_state:
+                    if ai_state.state_data is None:
+                        ai_state.state_data = {}
+                    ai_state.state_data["stuck_count"] = ai_state.state_data.get("stuck_count", 0) + 1
+
         # --- Phase B: Process Path-based steering ---
         components = world.get_components_tuple(
             Transform, MovementController, SteeringComponent, AIState, PhysicsBody
@@ -359,6 +394,9 @@ class SteeringSystem(System):
                     )
                     ai_state.path = None
                     steering.time_stuck = 0.0
+                    if ai_state.state_data is None:
+                        ai_state.state_data = {}
+                    ai_state.state_data["stuck_count"] = ai_state.state_data.get("stuck_count", 0) + 1
 
     def _calculate_steering_forces(
         self,

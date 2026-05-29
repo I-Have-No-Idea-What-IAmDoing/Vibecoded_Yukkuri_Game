@@ -65,6 +65,7 @@ class SoftwareLightingEngine:
         self.debug: bool = False
 
     def toggle_debug(self, enabled: bool) -> None:
+        """Enable or disable debug overlay rendering."""
         self.debug = enabled
 
     def resize(self, width: int, height: int) -> None:
@@ -148,6 +149,56 @@ class SoftwareLightingEngine:
             self.static_light_cache[entity_id] = (cached_copy, cache_key)
         if light_surf is not None:
             self.surface_pool.release(light_surf)
+
+        # Debug overlay: draw radius circle and occluder boxes when enabled.
+        if self.debug:
+            self._draw_debug_overlays(position, radius, color)
+
+    def _draw_debug_overlays(
+        self,
+        position: tuple[float, float],
+        radius: float,
+        color: tuple[int, int, int],
+    ) -> None:
+        """
+        Draws debug visualisations onto the lightmap.
+
+        Renders:
+        - A yellow circle at the light radius boundary.
+        - Red outlines around each occluder AABB within reach.
+
+        Args:
+            position: Light position in world space (x, y).
+            radius: Light radius in world space.
+            color: Original light colour (unused visually, kept for
+                future tinting).
+        """
+        sx = int(position[0] * self.scale)
+        sy = int(position[1] * self.scale)
+        sr = int(radius * self.scale)
+
+        # Light radius — yellow circle outline.
+        pygame.draw.circle(
+            self.lightmap,
+            (255, 255, 0),
+            (sx, sy),
+            max(1, sr),
+            width=1,
+        )
+        # Light origin — small white dot.
+        pygame.draw.circle(self.lightmap, (255, 255, 255), (sx, sy), 2)
+
+        # Occluder AABBs — red rectangles.
+        nearby = self._query_grid(position[0], position[1], radius)
+        for aabb, _verts in nearby:
+            min_x, max_x, min_y, max_y = aabb
+            rect = pygame.Rect(
+                int(min_x * self.scale),
+                int(min_y * self.scale),
+                max(1, int((max_x - min_x) * self.scale)),
+                max(1, int((max_y - min_y) * self.scale)),
+            )
+            pygame.draw.rect(self.lightmap, (200, 0, 0), rect, 1)
 
     def _draw_light_shadow_volume(
         self,

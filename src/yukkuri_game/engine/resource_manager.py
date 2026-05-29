@@ -204,7 +204,28 @@ class ResourceManager:
         full_path = self.get_image_path(filename)
         try:
             if not os.path.exists(full_path):
-                logger.warning(f"Image not found: {filename}. Creating placeholder.")
+                logger.warning(
+                    f"Image not found: {filename}. Creating placeholder."
+                )
+                # Smart fallback for Yukkuri action-specific sprites:
+                # e.g., "reimu_wander.png" -> fallback to "reimu.png"
+                fallback_filename = None
+                if "_" in filename:
+                    base_part, ext_part = filename.rsplit("_", 1)
+                    if "." in ext_part:
+                        ext = ext_part.rsplit(".", 1)[-1]
+                        fallback_filename = f"{base_part}.{ext}"
+                    else:
+                        fallback_filename = base_part
+
+                if fallback_filename and fallback_filename != filename:
+                    fallback_path = self.get_image_path(fallback_filename)
+                    if os.path.exists(fallback_path):
+                        # Load and cache under requested name to avoid warnings
+                        surf = self.load_image(fallback_filename)
+                        self.images[filename] = surf
+                        return surf
+
                 # Return visible error texture (magenta)
                 surf = pygame.Surface((32, 32))
                 surf.fill((255, 0, 255))

@@ -66,19 +66,23 @@ def reconstruct_physics(world: World) -> None:
 
     # Reconstruct Items
     from ...engine.resource_manager import ResourceManager
+    from ..ai.navigation_service import NavigationService, ObstacleType
 
     rm = world.services.try_get(ResourceManager)
+    nav_service = world.services.try_get(NavigationService)
 
     for entity, (transform, stats) in world.get_components_tuple(Transform, ItemStats):
         if world.has_component(entity, PhysicsBody):
             continue
 
         width, height = 32, 32
+        obstacle_str = None
         if rm:
             data = rm.item_types.get(stats.type_id)
             if data:
                 width = getattr(data, "width", 32)
                 height = getattr(data, "height", 32)
+                obstacle_str = getattr(data, "obstacle_type", None)
 
         add_physics_body(
             world=world,
@@ -95,3 +99,17 @@ def reconstruct_physics(world: World) -> None:
             friction=0.5,
             body_type=pymunk.Body.DYNAMIC,
         )
+
+        # Re-register obstacle items on the navigation grid
+        if obstacle_str and nav_service:
+            obs_type = ObstacleType.HIGH
+            if isinstance(obstacle_str, str) and obstacle_str.upper() == "LOW":
+                obs_type = ObstacleType.LOW
+            nav_service.update_obstacle_rect(
+                transform.x,
+                transform.y,
+                float(width),
+                float(height),
+                walkable=False,
+                obstacle_type=obs_type,
+            )

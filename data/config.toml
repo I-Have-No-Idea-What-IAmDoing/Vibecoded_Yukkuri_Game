@@ -7,3 +7,8 @@ sector_size = 500.0
 scale = 60.0          # Game seconds per physics second (1 real sec = 1 game min)
 day_start_hour = 6    # Hour sun rises (0-24)
 night_start_hour = 20 # Hour sun sets (0-24)
+
+[debug]
+log_level = "INFO"              # Console verbosity: DEBUG / INFO / WARNING / ERROR
+log_to_file = true              # Write a rotating log file to logs/game_*.log
+debug_overlay_on_start = false  # Open the F3 debug overlay automatically on startup

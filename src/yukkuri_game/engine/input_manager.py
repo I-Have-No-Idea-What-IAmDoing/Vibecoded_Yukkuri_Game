@@ -69,6 +69,7 @@ class InputManager:
                 "time_speed_down": [pygame.K_MINUS],
                 "shift": [pygame.K_LSHIFT, pygame.K_RSHIFT],
                 "ctrl": [pygame.K_LCTRL, pygame.K_RCTRL],
+                "alt": [pygame.K_LALT, pygame.K_RALT],
             },
             InputContext.MENU: {
                 "confirm": [pygame.K_RETURN],

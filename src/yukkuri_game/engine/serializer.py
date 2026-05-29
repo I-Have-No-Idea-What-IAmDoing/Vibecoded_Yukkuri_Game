@@ -107,23 +107,28 @@ class WorldSerializer:
                 continue
 
             try:
-                if hasattr(component, "__dataclass_fields__") or isinstance(
-                    component, msgspec.Struct
-                ):
-                    decoded = msgspec.to_builtins(component)
-                    if hasattr(component, "__dataclass_fields__"):
-                        for f_name, f_def in (
-                            component.__dataclass_fields__.items()
-                        ):
-                            is_persist = f_def.metadata.get(
-                                "persistent", True
-                            )
-                            if is_persist is False:
-                                decoded.pop(f_name, None)
+                if hasattr(component, "__dataclass_fields__"):
+                    comp_dict = {}
+                    for f_name, f_def in (
+                        component.__dataclass_fields__.items()
+                    ):
+                        is_persist = f_def.metadata.get(
+                            "persistent", True
+                        )
+                        if is_persist:
+                            comp_dict[f_name] = getattr(component, f_name)
+                    decoded = msgspec.to_builtins(comp_dict)
                     if hasattr(component_type, "_version_"):
                         decoded["_version_"] = getattr(
                             component_type, "_version_"
-                        )  # Add version.
+                        )
+                    components_data[component_type.__name__] = decoded
+                elif isinstance(component, msgspec.Struct):
+                    decoded = msgspec.to_builtins(component)
+                    if hasattr(component_type, "_version_"):
+                        decoded["_version_"] = getattr(
+                            component_type, "_version_"
+                        )
                     components_data[component_type.__name__] = decoded
                 else:
                     pass  # Skip non-serializable.

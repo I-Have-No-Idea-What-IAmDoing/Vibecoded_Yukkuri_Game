@@ -90,7 +90,12 @@ class SaveManager:
         finally:
             conn.close()
 
-        logger.info(f"Game saved to {sqlite_path}")
+        entity_count = len(self.world.get_all_entities())
+        logger.info(
+            "Game saved to {} ({} entities)",
+            sqlite_path,
+            entity_count,
+        )
 
     def load_game(self, filepath: str, camera: "Camera | None" = None) -> None:
         """
@@ -107,9 +112,16 @@ class SaveManager:
             logger.error(f"Save file not found: {sqlite_path}")
             return
 
+        file_size = os.path.getsize(sqlite_path)
+        logger.info(
+            "Loading save: {} ({} bytes)",
+            sqlite_path,
+            file_size,
+        )
+
         # Clear World
         self.world.clear_database()
-        
+
         if camera:
             camera.clear()
 
@@ -118,36 +130,60 @@ class SaveManager:
         if nav_service:
             nav_service.reset()
 
-        conn = sqlite3.connect(sqlite_path)
         try:
-            cursor = conn.cursor()
+            conn = sqlite3.connect(sqlite_path)
+            try:
+                cursor = conn.cursor()
 
-            # Load Global Data
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='global_state'"
+                # Load Global Data
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='global_state'"
+                )
+                if cursor.fetchone():
+                    cursor.execute(
+                        "SELECT value FROM global_state WHERE key='global_data'"
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        global_data = json.loads(row[0])
+                        self.economy_service.set_money(
+                            global_data.get("money", 0)
+                        )
+                        self.time_service.time_elapsed = global_data.get(
+                            "time", 0.0
+                        )
+
+                # Load Level Data
+                self.serializer.load_from_sqlite(conn)
+            finally:
+                conn.close()
+
+            # Reconstruct physics bodies
+            reconstruct_physics(self.world)
+
+            # Migrate Skills
+            skill_service = self.world.services.try_get(SkillService)
+            if skill_service:
+                for ent, (_, _) in self.world.get_components_tuple(
+                    YukkuriStats, Transform
+                ):
+                    skill_service.initialize_skills(ent)
+
+            entity_count = len(self.world.get_all_entities())
+            if entity_count == 0:
+                logger.warning(
+                    "World loaded from {} but contains 0 entities — "
+                    "save may be empty or corrupt.",
+                    sqlite_path,
+                )
+            else:
+                logger.info(
+                    "World loaded: {} entities restored from {}",
+                    entity_count,
+                    sqlite_path,
+                )
+        except Exception:
+            logger.exception(
+                "Failed to load save file: {}", sqlite_path
             )
-            if cursor.fetchone():
-                cursor.execute("SELECT value FROM global_state WHERE key='global_data'")
-                row = cursor.fetchone()
-                if row:
-                    global_data = json.loads(row[0])
-                    self.economy_service.set_money(global_data.get("money", 0))
-                    self.time_service.time_elapsed = global_data.get("time", 0.0)
-
-            # Load Level Data
-            self.serializer.load_from_sqlite(conn)
-        finally:
-            conn.close()
-
-        # Reconstruct physics bodies
-        reconstruct_physics(self.world)
-
-        # Migrate Skills
-        skill_service = self.world.services.try_get(SkillService)
-        if skill_service:
-            for ent, (_, _) in self.world.get_components_tuple(
-                YukkuriStats, Transform
-            ):
-                skill_service.initialize_skills(ent)
-
-        logger.info("World loaded.")
+            raise

@@ -47,6 +47,7 @@ class NavigationController:
             ai.state_data.pop("path_requesting", None)
             ai.state_data.pop("path_destination", None)
             ai.state_data.pop("pursuit_repath", None)
+            ai.state_data.pop("stuck_count", None)
 
     @staticmethod
     def navigate_to(
@@ -77,6 +78,21 @@ class NavigationController:
         controller = world.try_get_component(entity_id, MovementController)
 
         if ai is None or trans is None or needs is None or controller is None:
+            return Status.FAILURE
+
+        # Handle too many stuck occurrences
+        if ai.state_data and ai.state_data.get("stuck_count", 0) >= 3:
+            from loguru import logger
+            logger.warning(
+                f"Entity {entity_id} failed navigation to "
+                f"({target_pos.x:.1f}, {target_pos.y:.1f}) "
+                f"after getting stuck 3 times."
+            )
+            controller.target_velocity = pymunk.Vec2d(0, 0)
+            ai.path = None
+            NavigationController._cleanup_nav_state(ai)
+            if world.has_component(entity_id, MoveCommand):
+                world.commands.remove_component(entity_id, MoveCommand)
             return Status.FAILURE
 
         # Get TimeService for physics time calculations
@@ -147,9 +163,7 @@ class NavigationController:
             dist_to_target = (target_pos - current_pos).length
             use_direct_steering = False
 
-            if dist_to_target < 150.0:
-                use_direct_steering = True
-            elif dist_to_target < 400.0:
+            if dist_to_target < 400.0:
                 physics_sys = world.services.try_get(IPhysicsService)
                 if physics_sys and hasattr(physics_sys, "space"):
                     space = physics_sys.space
@@ -168,6 +182,9 @@ class NavigationController:
                         )
                         if target_phys and hit.shape.body == target_phys.body:
                             use_direct_steering = True
+                else:
+                    if dist_to_target < 150.0:
+                        use_direct_steering = True
 
             if use_direct_steering:
                 if dist_to_target < eff_accept_rad:
@@ -328,7 +345,10 @@ class NavigationController:
             world.commands.remove_component(entity_id, MoveCommand)
 
         current_pos = pymunk.Vec2d(trans.x, trans.y)
-        dist_to_final = (target_pos - current_pos).length
+        final_target = target_pos
+        if ai.path:
+            final_target = pymunk.Vec2d(*ai.path[-1])
+        dist_to_final = (final_target - current_pos).length
 
         if dist_to_final < eff_accept_rad:
             controller.target_velocity = pymunk.Vec2d(0, 0)

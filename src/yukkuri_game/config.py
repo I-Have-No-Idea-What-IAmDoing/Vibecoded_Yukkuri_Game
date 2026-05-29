@@ -2,8 +2,8 @@
 Module for loading and managing game configuration.
 
 This module defines the configuration structures for the game, including
-world settings, rule settings (stats, lifecycle, social, skills), and
-the main configuration loader.
+world settings, rule settings (stats, lifecycle, social, skills), the
+debug/logging configuration, and the main configuration loader.
 """
 
 from pathlib import Path
@@ -43,6 +43,30 @@ class WorldSettings(msgspec.Struct):
     sector_size: float = 500.0
 
 
+class DebugConfig(msgspec.Struct):
+    """
+    Debug and logging configuration settings.
+
+    Attributes:
+        log_level (str): Console log level ('DEBUG', 'INFO', 'WARNING',
+            'ERROR'). Overridden by the ``--log-level`` CLI flag.
+        log_to_file (bool): Whether to write a rotating log file under
+            ``logs/``. Defaults to True.
+        debug_overlay_on_start (bool): If True, the F3 debug overlay is
+            visible when the game first loads.
+        trace_events (bool): If True, every published event is logged at
+            DEBUG level and dead-letter events emit a WARNING.
+        debug_timing (bool): If True, enables per-system ECS timing on
+            startup (also togglable at runtime with F5).
+    """
+
+    log_level: str = "INFO"
+    log_to_file: bool = True
+    debug_overlay_on_start: bool = False
+    trace_events: bool = False
+    debug_timing: bool = False
+
+
 class ConfigFile(msgspec.Struct):
     """
     Represents the structure of the main config.toml file.
@@ -50,10 +74,12 @@ class ConfigFile(msgspec.Struct):
     Attributes:
         world (WorldSettings): The world configuration settings.
         time (TimeSettings): The time system configuration settings.
+        debug (DebugConfig): Debug and logging configuration settings.
     """
 
     world: WorldSettings = msgspec.field(default_factory=WorldSettings)
     time: TimeSettings = msgspec.field(default_factory=TimeSettings)
+    debug: DebugConfig = msgspec.field(default_factory=DebugConfig)
 
 
 class StatDecaySettings(msgspec.Struct):
@@ -180,11 +206,14 @@ class GameConfig(msgspec.Struct):
         world (WorldSettings): World settings loaded from config.toml.
         time (TimeSettings): Time settings loaded from config.toml.
         rules (RulesFile): Game rules loaded from rules.toml.
+        debug (DebugConfig): Debug/logging settings loaded from
+            config.toml.
     """
 
     world: WorldSettings
     time: TimeSettings
     rules: RulesFile
+    debug: DebugConfig = msgspec.field(default_factory=DebugConfig)
 
 
 def load_config(data_dir: Path = Path("data")) -> GameConfig:
@@ -219,4 +248,9 @@ def load_config(data_dir: Path = Path("data")) -> GameConfig:
     else:
         rules_file = RulesFile()
 
-    return GameConfig(world=config_file.world, time=config_file.time, rules=rules_file)
+    return GameConfig(
+        world=config_file.world,
+        time=config_file.time,
+        rules=rules_file,
+        debug=config_file.debug,
+    )

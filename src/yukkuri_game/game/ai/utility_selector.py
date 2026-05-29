@@ -167,9 +167,33 @@ class UtilitySelector(Action):
                     )
                 )
 
+            # Record transition in decision history (max 10 entries).
+            best_score = 0.0
+            if ai.last_utility_breakdown:
+                actions = ai.last_utility_breakdown.get("actions", {})
+                best_score = actions.get(best_action, {}).get(
+                    "final_score", 0.0
+                )
+
+            logger.debug(
+                "Entity {} ({}) transitioned: {} -> {} (score: {:.3f})",
+                self.entity_id,
+                name,
+                ai.current_action,
+                best_action,
+                best_score,
+            )
+
             ai.current_action = best_action
             ai.action_progress = 0.0
             if hasattr(ai, "failed_targets"):
                 ai.failed_targets.clear()  # Reset failed targets on action change.
+
+            history = getattr(ai, "decision_history", None)
+            if history is not None:
+                history.append((best_action, best_score, now))
+                while len(history) > 10:
+                    history.popleft()
+
 
         return Status.SUCCESS

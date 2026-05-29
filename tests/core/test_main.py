@@ -71,11 +71,21 @@ def test_main_headless():
     with (
         patch("yukkuri_game.main.Application") as MockApp,
         patch("yukkuri_game.scenes.main_menu.pygame_gui"),
+        patch("yukkuri_game.main.setup_logging"),
+        patch("yukkuri_game.main.load_config") as MockConfig,
     ):  # Patch GUI in MainMenu
+        # Set up config mock with a debug section that has defaults
+        mock_debug = MagicMock()
+        mock_debug.log_level = "INFO"
+        mock_debug.log_to_file = False  # Disable file logging in tests
+        MockConfig.return_value.debug = mock_debug
+
         mock_instance = MockApp.return_value
 
         with patch("argparse.ArgumentParser.parse_args") as mock_args:
             mock_args.return_value.headless = True
+            mock_args.return_value.log_level = None
+            mock_args.return_value.log_file = None
 
             from yukkuri_game.main import main
 

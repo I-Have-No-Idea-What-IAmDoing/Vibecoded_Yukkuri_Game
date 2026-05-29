@@ -7,7 +7,9 @@ It integrates with the `ServiceLocator` and `EventBus` for system-wide communica
 """
 
 import contextlib
+import time
 import uuid
+from collections import deque
 from collections.abc import Iterator, Callable
 from functools import wraps
 from typing import Any, TypeVar, cast, overload
@@ -160,6 +162,12 @@ class World:
         self.commands: CommandBuffer = CommandBuffer(self)
         self._updating: bool = False
 
+        # Per-system timing support (enable with debug_timing = True).
+        self.debug_timing: bool = False
+        # Maps system class name -> rolling deque of frame times in ms.
+        self._system_timings: dict[str, deque[float]] = {}
+        self._timing_window: int = 60  # frames to average over
+
         # Register this world with esper's global context system.
         esper.switch_world(self.name)
 
@@ -249,6 +257,13 @@ class World:
         entity_id = int(esper.create_entity(*components))
         self._active_entities.add(entity_id)
 
+        comp_names = [type(c).__name__ for c in components]
+        logger.debug(
+            "Entity {} created: [{}]",
+            entity_id,
+            ", ".join(comp_names) if comp_names else "<no components>",
+        )
+
         event_bus = self.services.try_get(EventBus)
         if event_bus:
             for component in components:
@@ -287,6 +302,7 @@ class World:
             if event_bus:
                 event_bus.publish(EntityDestroyedEvent(entity))
 
+            logger.debug("Entity {} destroyed.", entity)
             esper.delete_entity(entity, immediate=True)
             self._active_entities.discard(entity)
         except KeyError:
@@ -626,6 +642,8 @@ class World:
         Advances the world state by one tick.
 
         Executes all registered Systems in sorted execution order.
+        When ``debug_timing`` is True, each system's execution time is
+        recorded in a rolling window for display in the F3 overlay.
 
         Args:
             dt (float): Delta time in seconds since the last frame.
@@ -635,12 +653,47 @@ class World:
 
         self._updating = True
         try:
-            for system in self._sorted_systems:
-                system.process(dt)
+            if self.debug_timing:
+                for system in self._sorted_systems:
+                    t0 = time.perf_counter()
+                    system.process(dt)
+                    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+                    name = type(system).__name__
+                    if name not in self._system_timings:
+                        self._system_timings[name] = deque(
+                            maxlen=self._timing_window
+                        )
+                    self._system_timings[name].append(elapsed_ms)
+            else:
+                for system in self._sorted_systems:
+                    system.process(dt)
         finally:
             self._updating = False
 
         self.commands.apply_all()
+
+    def get_system_timings(self) -> dict[str, float]:
+        """
+        Returns average per-system frame time in milliseconds.
+
+        Only populated when ``debug_timing`` is True.  Returns an empty
+        dict if timing has not been enabled or no frames have been
+        recorded yet.
+
+        Returns:
+            dict[str, float]: Mapping of system class name to average
+                frame time in milliseconds, sorted descending by cost.
+        """
+        if not self._system_timings:
+            return {}
+        averages = {
+            name: sum(times) / len(times)
+            for name, times in self._system_timings.items()
+            if times
+        }
+        return dict(
+            sorted(averages.items(), key=lambda kv: kv[1], reverse=True)
+        )
 
     @ensure_context
     def clear_database(self) -> None:

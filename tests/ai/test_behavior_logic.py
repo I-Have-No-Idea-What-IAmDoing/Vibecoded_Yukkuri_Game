@@ -32,6 +32,8 @@ class TestMoveToTarget:
     def mock_world(self):
         m = MagicMock(spec=World)
         m.commands = MagicMock()
+        m.services = MagicMock()
+        m.services.try_get.return_value = None
         return m
 
     @pytest.fixture

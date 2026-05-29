@@ -69,13 +69,20 @@ class GameplayRenderer:
 
         # HUD
         from ...game.ui.hud import HUD
+        from ...config import GameConfig
         self.hud = HUD(self.scene.ui_manager, self.scene.world)
+
+        # Honour debug_overlay_on_start setting from config.
+        game_cfg = self.scene.world.services.try_get(GameConfig)
+        if game_cfg and game_cfg.debug.debug_overlay_on_start:
+            self.hud.toggle_debug()
 
         from ...game.ai.navigation_service import NavigationService
         nav_service = self.scene.world.services.try_get(NavigationService)
         if nav_service:
             self.hud.init_navigation_debug()
         self.hud.init_ai_debug()
+        self.hud.init_physics_debug()
         
         # Link references back to the scene for legacy access
         self.scene.render_system = self.render_system
