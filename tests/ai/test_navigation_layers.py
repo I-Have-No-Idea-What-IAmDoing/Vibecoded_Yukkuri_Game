@@ -125,4 +125,19 @@ class TestNavigationServiceDualGrids:
         assert nav.grid.is_walkable(gx, gy, TraversalCapability.WALK)
         assert nav.grid.is_walkable(gx, gy, TraversalCapability.FLY)
 
+    def test_obstacle_rect_no_inflation(self, nav):
+        """Placing an obstacle must not inflate its size by double-compensation."""
+        # Place obstacle at 100.0, 100.0 with size 50 x 50.
+        # Spans [75, 125] on X and Y, occupying grid cell (2, 2) exactly.
+        nav.update_obstacle_rect(
+            100.0, 100.0, 50.0, 50.0, walkable=False, obstacle_type=ObstacleType.HIGH
+        )
+        
+        # Cell (2, 2) should be blocked.
+        assert not nav.grid.is_walkable(2, 2, TraversalCapability.WALK)
+        # Neighboring cells must remain walkable.
+        assert nav.grid.is_walkable(3, 2, TraversalCapability.WALK)
+        assert nav.grid.is_walkable(2, 3, TraversalCapability.WALK)
+
+
 

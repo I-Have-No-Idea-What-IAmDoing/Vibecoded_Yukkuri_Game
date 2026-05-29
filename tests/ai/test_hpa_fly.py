@@ -58,7 +58,7 @@ class TestHPAFlying:
         )
 
         # Block x=7 for all y with LOW obstacle (Walk blocked, Fly allowed)
-        for y in range(20):
+        for y in range(21):
             nav.update_obstacle_rect(
                 7 * 25, y * 25, 25, 25, walkable=False, obstacle_type=ObstacleType.LOW
             )

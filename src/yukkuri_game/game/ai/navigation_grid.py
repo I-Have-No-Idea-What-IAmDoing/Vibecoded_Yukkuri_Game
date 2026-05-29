@@ -111,9 +111,9 @@ class NavigationGrid:
 
         # Clamp bounds
         min_gx = max(0, min_gx)
-        max_gx = min(self.width, max_gx + 1)  # Slice upper bound is exclusive
+        max_gx = min(self.width, max_gx)  # Slice upper bound is exclusive
         min_gy = max(0, min_gy)
-        max_gy = min(self.height, max_gy + 1)
+        max_gy = min(self.height, max_gy)
 
         if min_gx < max_gx and min_gy < max_gy:
             view = self.cells["access_mask"][min_gx:max_gx, min_gy:max_gy]
