@@ -18,7 +18,7 @@ from ..components import (
     InventoryPickupRequest,
     ItemStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     Transform,
 )
 from ..entity_factory import EntityFactory

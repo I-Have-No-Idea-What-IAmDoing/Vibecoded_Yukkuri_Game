@@ -8,7 +8,7 @@ from py_trees.behaviour import Behaviour
 from py_trees.common import Status
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.ecs import World
+    from ...engine.ecs import World
 
 
 class Action(Behaviour):
@@ -52,6 +52,39 @@ class Action(Behaviour):
         if not self.world or self.entity_id is None:
             return Status.FAILURE
         return Status.RUNNING
+
+    def publish_command(
+        self, command_type: Any, payload: dict[str, Any]
+    ) -> bool:
+        """Publishes a high-level command request to the central CommandQueue.
+
+        Args:
+            command_type: The CommandType category.
+            payload: Dictionary of arguments tailored for the command type.
+
+        Returns:
+            bool: True if successfully published, False otherwise.
+        """
+        if self.world and self.entity_id is not None:
+            from .commands import Command, CommandQueue
+
+            queue = self.world.services.try_get(CommandQueue)
+            if queue and hasattr(queue, "push"):
+                queue.push(Command(command_type, self.entity_id, payload))
+                return True
+        return False
+
+    def get_blackboard(self) -> Any | None:
+        """Retrieves the Blackboard perception component for this entity.
+
+        Returns:
+            Any | None: The blackboard component if found.
+        """
+        if self.world and self.entity_id is not None:
+            from ..components import Blackboard as ECSBlackboard
+
+            return self.world.try_get_component(self.entity_id, ECSBlackboard)
+        return None
 
     def terminate(self, new_status: Status) -> None:
         """

@@ -31,7 +31,7 @@ from ..collision_constants import CollisionCategories
 from ..components import (
     PendingDismount,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     Mount,
     PhysicsBody,
     Transform,

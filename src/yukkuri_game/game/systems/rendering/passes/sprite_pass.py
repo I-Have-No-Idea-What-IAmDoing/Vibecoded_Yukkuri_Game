@@ -2,12 +2,12 @@
 Sprite Pass.
 """
 
-from yukkuri_game.engine.renderer.commands import SpriteCommand
-from yukkuri_game.engine.components import Flight
-from yukkuri_game.engine.components import Selectable
-from yukkuri_game.engine.components import Sprite
-from yukkuri_game.engine.components import VisualTransform
-from yukkuri_game.game.systems.rendering.context import RenderContext
+from .....engine.renderer.commands import SpriteCommand
+from .....engine.components import Flight
+from .....engine.components import Selectable
+from .....engine.components import Sprite
+from .....engine.components import VisualTransform
+from .....game.systems.rendering.context import RenderContext
 
 
 LAYER_ENTITIES = 2

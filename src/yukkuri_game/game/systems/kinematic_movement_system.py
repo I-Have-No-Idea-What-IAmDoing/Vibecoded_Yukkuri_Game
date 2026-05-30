@@ -36,7 +36,7 @@ from ..collision_constants import CollisionCategories
 from ..components import (
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     Flight,
     FlightState,
     MovementController,
@@ -44,7 +44,7 @@ from yukkuri_game.engine.components import (
     Transform,
 )
 from ..skill_service import SkillService
-from yukkuri_game.engine.protocols import IPhysicsService
+from ...engine.protocols import IPhysicsService
 
 
 class KinematicMovementSystem(System):

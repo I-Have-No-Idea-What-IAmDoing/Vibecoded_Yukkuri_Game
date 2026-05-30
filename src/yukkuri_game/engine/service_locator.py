@@ -258,7 +258,7 @@ class ServiceLocator:
             service_type (type[Any]): The type of the service to unregister.
         """
         if service_type in self._services:
-            service = self._services[service_type]
+            service = self._services.pop(service_type)
             if hasattr(service, "shutdown") and callable(service.shutdown):
                 try:
                     service.shutdown()
@@ -273,7 +273,6 @@ class ServiceLocator:
                     logger.exception(
                         f"Error cleaning up service {service}"
                     )
-            del self._services[service_type]
 
     def clear(self) -> None:
         """

@@ -4,7 +4,6 @@ Module for Entity Info Panel logic.
 
 import pygame
 import pygame_gui
-from typing import Any
 from pygame_gui.elements import (
     UIWindow,
     UITextBox,
@@ -14,29 +13,7 @@ from pygame_gui.elements import (
 )
 from pygame_gui.core import ObjectID
 from .tabbed_panel import TabbedPanel
-
-
-class SafeUIScrollingContainer(UIScrollingContainer):
-    """
-    A subclass of UIScrollingContainer that initializes scroll bars to None
-    before calling super().__init__(). This prevents an AttributeError when
-    the container is initialized inside a hidden container (e.g., a non-active tab),
-    which causes hide() to be called during initialization before attributes are set.
-    """
-
-    def __init__(self, *args: Any, **kwargs: Any):
-        """
-        Initializes the SafeUIScrollingContainer.
-
-        Args:
-            *args: Variable length argument list for UIScrollingContainer.
-            **kwargs: Arbitrary keyword arguments for UIScrollingContainer.
-        """
-        self.vert_scroll_bar = None
-        self.horiz_scroll_bar = None
-        self._root_container = None
-        self._view_container: Any = None
-        super().__init__(*args, **kwargs)
+from .custom_elements import SafeUIScrollingContainer
 
 
 class EntityInfoPanel:

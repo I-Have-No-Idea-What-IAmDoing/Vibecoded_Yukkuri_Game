@@ -188,8 +188,11 @@ class TestHudLayout:
         with (
             patch("yukkuri_game.game.ui.hud_layout.UIWindow"),
             patch("yukkuri_game.game.ui.hud_layout.UITextBox"),
+            patch("yukkuri_game.game.ui.hud_layout.TabbedPanel"),
+            patch("yukkuri_game.game.ui.hud_layout.ECSInspector"),
+            patch("yukkuri_game.game.ui.hud_layout.SystemProfiler"),
         ):
-            hud_layout.create_debug_window()
+            hud_layout.create_debug_window(MagicMock())
 
             assert hud_layout.debug_window is not None
             assert hud_layout.debug_text_box is not None

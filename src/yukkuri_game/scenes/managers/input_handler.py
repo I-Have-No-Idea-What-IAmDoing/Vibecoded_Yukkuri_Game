@@ -57,6 +57,21 @@ class GameplayInputHandler:
         # Let the UI manager process first
         self.scene.ui_manager.process_events(event)
 
+        # If Developer Console is open, block gameplay hotkeys/inputs
+        is_console_open = (
+            self.scene.hud
+            and self.scene.hud.developer_console
+            and self.scene.hud.developer_console.is_open()
+        )
+        if is_console_open:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_BACKQUOTE:
+                if self.scene.hud:
+                    self.scene.hud.toggle_console()
+                return
+            if self.scene.hud:
+                self.scene.hud.process_event(event)
+            return
+
         # Global input shortcuts via InputManager
         if self.input_manager.is_action_just_pressed("toggle_pause"):
             self.session.toggle_pause()
@@ -184,6 +199,10 @@ class GameplayInputHandler:
                 # F3 -> Generic UI Debug Toggle
                 if self.scene.hud:
                     self.scene.hud.toggle_debug()
+
+        elif self.input_manager.is_action_just_pressed("toggle_console"):
+            if self.scene.hud:
+                self.scene.hud.toggle_console()
 
         elif self.input_manager.is_action_just_pressed("screenshot"):
             self.scene.take_screenshot()

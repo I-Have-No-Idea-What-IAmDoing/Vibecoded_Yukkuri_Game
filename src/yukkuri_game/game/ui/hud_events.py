@@ -26,7 +26,7 @@ from ..events import (
     LevelUpEvent,
 )
 
-from yukkuri_game.engine.components import Transform
+from ...engine.components import Transform
 from ..prefabs.effects import create_floating_text
 
 if TYPE_CHECKING:

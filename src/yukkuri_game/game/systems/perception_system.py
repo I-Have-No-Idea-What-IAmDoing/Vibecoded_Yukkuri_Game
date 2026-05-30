@@ -34,7 +34,7 @@ from ..components import (
     TargetInfo,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     Transform,
 )
 

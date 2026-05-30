@@ -161,6 +161,7 @@ class World:
         self._systems_dirty: bool = True
         self.commands: CommandBuffer = CommandBuffer(self)
         self._updating: bool = False
+        self._seen_component_types: dict[str, type[Any]] = {}
 
         # Per-system timing support (enable with debug_timing = True).
         self.debug_timing: bool = False
@@ -210,7 +211,7 @@ class World:
             float: Elapsed time in seconds. Returns 0.0 if the TimeService is unavailable.
         """
         # Lazy import to avoid circular dependency
-        from yukkuri_game.engine.services.time_service import TimeService
+        from ..engine.services.time_service import TimeService
 
         time_service = self.services.try_get(TimeService)
         return time_service.time_elapsed if time_service else 0.0
@@ -333,6 +334,27 @@ class World:
             component (Any): The component instance to add.
         """
         self._check_mutation()
+
+        # Safeguard duplicate namespace check
+        comp_type = type(component)
+        comp_name = comp_type.__name__
+        comp_module = comp_type.__module__
+        seen_type = self._seen_component_types.get(comp_name)
+        if seen_type is not None and seen_type != comp_type:
+            logger.error(
+                "Duplicate component class name '{}' registered from "
+                "different modules! Previous: {}.{}, Current: {}.{}. "
+                "This will break ECS component lookups due to Python "
+                "module dual-loading.",
+                comp_name,
+                seen_type.__module__,
+                comp_name,
+                comp_module,
+                comp_name,
+            )
+        else:
+            self._seen_component_types[comp_name] = comp_type
+
         esper.add_component(entity, component)
 
         event_bus = self.services.try_get(EventBus)

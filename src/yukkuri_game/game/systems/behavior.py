@@ -19,7 +19,7 @@ from py_trees.common import Status
 from ...engine.ecs import System, World
 from ..ai.behaviors import create_yukkuri_behavior_tree
 from ..components import AIState
-from yukkuri_game.engine.components import LODComponent
+from ...engine.components import LODComponent
 
 
 class BehaviorSystem(System):
@@ -173,10 +173,12 @@ class BehaviorSystem(System):
                 tree.root.status,
             )
             tree.tick()
-            logger.debug(
-                "BehaviorSystem: Ticked entity {}, root_status_after={}",
-                entity,
-                tree.root.status,
+            import py_trees.display as ptdisp
+            logger.opt(lazy=True).debug(
+                "BehaviorSystem: Ticked entity {}, root_status_after={}\n{}",
+                lambda: entity,
+                lambda: tree.root.status,
+                lambda: ptdisp.unicode_tree(tree.root, show_status=True),
             )
 
             # Post-tick logic

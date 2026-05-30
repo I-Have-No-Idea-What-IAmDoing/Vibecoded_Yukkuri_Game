@@ -14,8 +14,8 @@ from collections import deque
 from loguru import logger
 from ..engine.application import Application
 from ..engine.event_bus import Event
-from yukkuri_game.engine.services.time_service import TimeService
-from yukkuri_game.engine.components import Transform
+from ..engine.services.time_service import TimeService
+from ..engine.components import Transform
 
 
 T = TypeVar("T")
@@ -202,6 +202,8 @@ class GameDriver:
         self.event_history: deque[Event] = deque(maxlen=100)
         self._original_publish: Callable[[Event], None] | None = None
         self._rng_seeded = False
+        self._run_logs: list[str] = []
+        self._log_handler_id: int | None = None
 
     def seed_rng(self, seed: int = 42) -> None:
         """
@@ -224,6 +226,18 @@ class GameDriver:
         Sets up the game instance.
         Ensures headless mode and active scene.
         """
+        if self._log_handler_id is None:
+            self._run_logs = []
+            self._log_handler_id = logger.add(
+                lambda msg: self._run_logs.append(str(msg)),
+                level="DEBUG",
+                format=(
+                    "{time:HH:mm:ss.SSS} | "
+                    "{level: <8} | "
+                    "{name}:{line} — "
+                    "{message}"
+                ),
+            )
         if not self._rng_seeded:
             self.seed_rng()
         if hasattr(self.game, "set_headless") and not self.game.headless:
@@ -388,6 +402,10 @@ class GameDriver:
             self.game.quit()
         # Break reference cycle to allow garbage collection
         self.game = None  # type: ignore[assignment]
+        if self._log_handler_id is not None:
+            logger.remove(self._log_handler_id)
+            self._log_handler_id = None
+            self._run_logs = []
 
     def wait_until_scene(self, scene_type: type, timeout: float = 10.0) -> None:
         """
@@ -517,21 +535,7 @@ class GameDriver:
                 else:
                     pass
         except Exception as e:
-            try:
-                self.save_screenshot(f"screenshots/failure_{self.frame_count}.png")
-            except Exception as se:
-                logger.warning(f"Could not save failure screenshot: {se}")
-
-            # Dump logs/events
-            log_filename = f"screenshots/failure_{self.frame_count}.log"
-            os.makedirs(os.path.dirname(log_filename), exist_ok=True)
-            with open(log_filename, "w") as f:
-                f.write(f"Exception: {e}\n")
-                f.write("Last 100 Events:\n")
-                for evt in self.event_history:
-                    f.write(f"{evt}\n")
-                f.write("\nState Dump:\n")
-                f.write(self.dump_state())
+            self.dump_failure_diagnostics(f"scenario_{self.frame_count}")
             raise e
         finally:
             self._scenario_deadline = None
@@ -742,11 +746,21 @@ class GameDriver:
         """
         self.save_screenshot(filename)
 
+        env_val = os.environ.get("UPDATE_GOLDENS", "").strip()
+        update_goldens = env_val in ("1", "true", "TRUE")
+
         if not os.path.exists(reference_filename):
-            logger.warning(
-                f"Reference screenshot {reference_filename} not found. "
-                "Comparison skipped (assumed new test)."
-            )
+            if update_goldens:
+                self.save_screenshot(reference_filename)
+                logger.warning(
+                    f"Golden reference screenshot {reference_filename} not found. "
+                    "Automatically created golden reference."
+                )
+            else:
+                logger.warning(
+                    f"Reference screenshot {reference_filename} not found. "
+                    "Comparison skipped (assumed new test)."
+                )
             return True
 
         current_img = pygame.image.load(filename)
@@ -756,6 +770,13 @@ class GameDriver:
         ref_abs = os.path.abspath(reference_filename)
 
         if current_img.get_size() != ref_img.get_size():
+            if update_goldens:
+                self.save_screenshot(reference_filename)
+                logger.warning(
+                    "Visual Regression Dimension Mismatch. "
+                    f"Automatically updated golden reference: {reference_filename}"
+                )
+                return True
             err_msg = (
                 "Visual Regression Dimension Mismatch!\n"
                 f"Expected size: {ref_img.get_size()}\n"
@@ -800,6 +821,13 @@ class GameDriver:
             logger.info(f"Image comparison diff ratio: {diff_ratio:.4f}")
 
             if diff_ratio > tolerance:
+                if update_goldens:
+                    self.save_screenshot(reference_filename)
+                    logger.warning(
+                        f"Visual Regression Mismatch ({diff_ratio:.4%} > {tolerance:.4%}). "
+                        f"Automatically updated golden reference: {reference_filename}"
+                    )
+                    return True
                 # Generate diff mask array
                 diff_mask = np.zeros((width, height, 3), dtype=np.uint8)
                 diff_mask[mismatched] = [255, 0, 255]
@@ -831,6 +859,13 @@ class GameDriver:
                 "Falling back to strict buffer check."
             )
             # Strict raw check already failed if we reached here
+            if update_goldens:
+                self.save_screenshot(reference_filename)
+                logger.warning(
+                    "Visual Regression Mismatch (Strict Buffer Check Failed). "
+                    f"Automatically updated golden reference: {reference_filename}"
+                )
+                return True
             err_msg = (
                 "Visual Regression Mismatch (Strict Buffer Check Failed)!\n"
                 "Numpy is not available to compute tolerant differences.\n"
@@ -892,3 +927,586 @@ class GameDriver:
             LogCapture: The capture object.
         """
         return LogCapture()
+
+    def dump_failure_diagnostics(self, test_name: str) -> None:
+        """Dumps diagnostic info (screenshot, logs, events, state) on failure.
+
+        Args:
+            test_name (str): The name of the test or context that failed.
+        """
+        try:
+            screenshot_path = f"screenshots/failure_{test_name}.png"
+            self.save_screenshot(screenshot_path)
+        except Exception as se:
+            logger.warning(f"Could not save failure screenshot: {se}")
+
+        log_filename = f"screenshots/failure_{test_name}.log"
+        os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+        try:
+            with open(log_filename, "w", encoding="utf-8") as f:
+                f.write(f"Context: {test_name}\n")
+                f.write("=" * 60 + "\n")
+                f.write("Full Test Execution Logs:\n")
+                f.write("=" * 60 + "\n")
+                for log_line in self._run_logs:
+                    f.write(log_line)
+                f.write("\n" + "=" * 60 + "\n")
+                f.write("Last 100 Events:\n")
+                for evt in self.event_history:
+                    f.write(f"{evt}\n")
+
+                # Component 1: Dump behavior trees of active AI entities
+                from ..game.systems.behavior import BehaviorSystem
+
+                behavior_sys = None
+                if self.world:
+                    try:
+                        behavior_sys = self.world.get_system(BehaviorSystem)
+                    except Exception:
+                        pass
+
+                if behavior_sys and behavior_sys.trees:
+                    f.write("\n" + "=" * 60 + "\n")
+                    f.write("Behavior Trees:\n")
+                    f.write("=" * 60 + "\n")
+                    for entity_id, tree in behavior_sys.trees.items():
+                        root_name = (
+                            type(tree.root).__name__ if tree.root else "No Root"
+                        )
+                        f.write(f"Entity {entity_id} ({root_name}):\n")
+                        if tree.root:
+                            try:
+                                f.write(
+                                    self._format_behavior_node(
+                                        tree.root, indent=1
+                                    )
+                                )
+                            except Exception as e:
+                                f.write(
+                                    f"  [ERROR formatting behavior tree: {e}]\n"
+                                )
+                        else:
+                            f.write("  [No active root node on behavior tree]\n")
+
+                f.write("\nState Dump:\n")
+                f.write(self.dump_state())
+        except Exception as le:
+            logger.warning(f"Could not write failure log: {le}")
+
+    def _format_behavior_node(self, node: Any, indent: int = 0) -> str:
+        """Recursively formats a behavior tree node into a clean string.
+
+        Args:
+            node (Any): The behavior tree node to format.
+            indent (int): The indentation level for nested levels.
+
+        Returns:
+            str: The formatted tree string.
+        """
+        status_str = (
+            node.status.name
+            if hasattr(node, "status") and node.status
+            else "INVALID"
+        )
+        name_str = (
+            node.name
+            if hasattr(node, "name")
+            else node.__class__.__name__
+        )
+        line = f"{'  ' * indent}[-] {name_str} [{status_str}]\n"
+
+        children = getattr(node, "children", [])
+        if not children and hasattr(node, "child") and node.child:
+            children = [node.child]
+
+        for child in children:
+            line += self._format_behavior_node(child, indent + 1)
+        return line
+
+    def yukkuri_builder(self, type_id: str) -> "EntityBuilder":
+        """Creates a fluent builder for a Yukkuri entity.
+
+        Args:
+            type_id (str): The Yukkuri type ID.
+
+        Returns:
+            EntityBuilder: The entity builder instance.
+        """
+        return EntityBuilder(self, type_id, is_item=False)
+
+    def item_builder(self, type_id: str) -> "EntityBuilder":
+        """Creates a fluent builder for an item entity.
+
+        Args:
+            type_id (str): The item type ID.
+
+        Returns:
+            EntityBuilder: The entity builder instance.
+        """
+        return EntityBuilder(self, type_id, is_item=True)
+
+    def expect_entity(self, entity_id: int) -> "EntityExpectation":
+        """Creates a fluent EntityExpectation for asserting entity states.
+
+        Args:
+            entity_id (int): The entity ID.
+
+        Returns:
+            EntityExpectation: The expectation instance for chaining assertions.
+        """
+        return EntityExpectation(self, entity_id)
+
+    def check_warnings(
+        self, fail_on_missing_assets: bool = True
+    ) -> "WarningDetector":
+        """Context manager to assert on warnings logged during execution.
+
+        Args:
+            fail_on_missing_assets (bool): If True, fails on missing assets.
+
+        Returns:
+            WarningDetector: The warning detector context manager instance.
+        """
+        return WarningDetector(self, fail_on_missing_assets)
+
+
+class EntityBuilder:
+    """Fluent builder for creating test entities in GameDriver.
+
+    Attributes:
+        driver (GameDriver): The game driver instance.
+        type_id (str): The entity type ID.
+        is_item (bool): True if the entity is an item, False for Yukkuri.
+        x (float): The X position coordinate.
+        y (float): The Y position coordinate.
+        stats (dict[str, Any]): Dictionary of stats to apply.
+        custom_components (list[Any]): List of custom components to add.
+    """
+
+    def __init__(
+        self, driver: "GameDriver", type_id: str, is_item: bool = False
+    ) -> None:
+        """Initializes the EntityBuilder.
+
+        Args:
+            driver (GameDriver): The game driver instance.
+            type_id (str): The entity type ID.
+            is_item (bool): True if the entity is an item, False for Yukkuri.
+        """
+        self.driver = driver
+        self.type_id = type_id
+        self.is_item = is_item
+        self.x: float = 0.0
+        self.y: float = 0.0
+        self.stats: dict[str, Any] = {}
+        self.custom_components: list[Any] = []
+
+    def at(self, x: float, y: float) -> "EntityBuilder":
+        """Sets the coordinates for the entity.
+
+        Args:
+            x (float): The X coordinate.
+            y (float): The Y coordinate.
+
+        Returns:
+            EntityBuilder: The builder instance for chaining.
+        """
+        self.x = x
+        self.y = y
+        return self
+
+    def with_stats(self, **kwargs: Any) -> "EntityBuilder":
+        """Sets stats on the entity's Stats component.
+
+        Args:
+            **kwargs (Any): Stat names and values.
+
+        Returns:
+            EntityBuilder: The builder instance for chaining.
+        """
+        self.stats.update(kwargs)
+        return self
+
+    def with_component(self, component: Any) -> "EntityBuilder":
+        """Adds a custom component to the entity.
+
+        Args:
+            component (Any): The component instance to add.
+
+        Returns:
+            EntityBuilder: The builder instance for chaining.
+        """
+        self.custom_components.append(component)
+        return self
+
+    def build(self) -> int:
+        """Spawns the entity and applies all configured attributes.
+
+        Returns:
+            int: The entity ID, or -1 if failed.
+        """
+        if self.is_item:
+            entity_id = self.driver.create_item(self.type_id, self.x, self.y)
+        else:
+            entity_id = self.driver.create_yukkuri(self.type_id, self.x, self.y)
+
+        if entity_id == -1:
+            return -1
+
+        if self.stats and self.driver.world:
+            components = self.driver.world.get_all_components(entity_id)
+            for k, v in self.stats.items():
+                assigned = False
+                for comp in components:
+                    has_attr = hasattr(comp, k)
+                    if not has_attr:
+                        slots = getattr(comp, "__slots__", None)
+                        if slots and k in slots:
+                            has_attr = True
+                    if has_attr:
+                        try:
+                            setattr(comp, k, v)
+                            assigned = True
+                        except AttributeError:
+                            pass
+
+                # Fallback: try setting on YukkuriStats or ItemStats
+                if not assigned:
+                    from ..game.components import YukkuriStats
+                    from ..game.components import ItemStats
+
+                    if not self.is_item:
+                        stats_comp = self.driver.get_component(
+                            entity_id, YukkuriStats
+                        )
+                    else:
+                        stats_comp = self.driver.get_component(
+                            entity_id, ItemStats
+                        )
+
+                    if stats_comp:
+                        try:
+                            setattr(stats_comp, k, v)
+                        except AttributeError:
+                            logger.warning(
+                                f"Could not set stat '{k}' on {entity_id}"
+                            )
+
+        if self.custom_components and self.driver.world:
+            for comp in self.custom_components:
+                self.driver.world.add_component(entity_id, comp)
+
+        return entity_id
+
+
+class EntityExpectation:
+    """Fluent expectation API for asserting entity states in tests.
+
+    Attributes:
+        driver (GameDriver): The game driver instance.
+        entity_id (int): The entity ID.
+    """
+
+    def __init__(self, driver: "GameDriver", entity_id: int) -> None:
+        """Initializes the EntityExpectation.
+
+        Args:
+            driver (GameDriver): The game driver instance.
+            entity_id (int): The entity ID.
+
+        Raises:
+            AssertionError: If the entity does not exist in the world.
+        """
+        self.driver = driver
+        self.entity_id = entity_id
+        if not self.driver.world or not self.driver.world.entity_exists(
+            entity_id
+        ):
+            raise AssertionError(
+                f"Entity {entity_id} does not exist in the world."
+            )
+
+    def has_component(self, comp_type: type) -> "EntityExpectation":
+        """Asserts that the entity has the specified component.
+
+        Args:
+            comp_type (type): The component class type to check.
+
+        Returns:
+            EntityExpectation: The expectation instance for chaining.
+
+        Raises:
+            AssertionError: If the component is missing.
+        """
+        comp = self.driver.get_component(self.entity_id, comp_type)
+        assert comp is not None, (
+            f"Entity {self.entity_id} lacks {comp_type.__name__}"
+        )
+        return self
+
+    def has_position(
+        self, x: float, y: float, tolerance: float = 1.0
+    ) -> "EntityExpectation":
+        """Asserts that the entity's position is close to (x, y).
+
+        Args:
+            x (float): The expected X coordinate.
+            y (float): The expected Y coordinate.
+            tolerance (float): The maximum distance delta allowed.
+
+        Returns:
+            EntityExpectation: The expectation instance for chaining.
+
+        Raises:
+            AssertionError: If position is missing or out of bounds.
+        """
+        from ..engine.components import Transform
+
+        trans = self.driver.get_component(self.entity_id, Transform)
+        assert trans is not None, (
+            f"Entity {self.entity_id} does not have a Transform component"
+        )
+        import math
+
+        dist = math.hypot(trans.x - x, trans.y - y)
+        assert dist <= tolerance, (
+            f"Entity {self.entity_id} pos ({trans.x:.2f}, {trans.y:.2f}) "
+            f"is outside tolerance of ({x:.2f}, {y:.2f}) by {dist:.2f} "
+            f"(allowed: {tolerance:.2f})"
+        )
+        return self
+
+    def has_stat(self, **kwargs: Any) -> "EntityExpectation":
+        """Asserts that the entity has specific stats on YukkuriStats/ItemStats.
+
+        Args:
+            **kwargs (Any): Stat names and expected values.
+
+        Returns:
+            EntityExpectation: The expectation instance for chaining.
+
+        Raises:
+            AssertionError: If stats are missing or do not match.
+        """
+        from ..game.components import YukkuriStats
+        from ..game.components import ItemStats
+
+        stats_comp = self.driver.get_component(self.entity_id, YukkuriStats)
+        if stats_comp is None:
+            stats_comp = self.driver.get_component(self.entity_id, ItemStats)
+
+        assert stats_comp is not None, (
+            f"Entity {self.entity_id} has no YukkuriStats or ItemStats"
+        )
+        for k, v in kwargs.items():
+            assert hasattr(stats_comp, k), (
+                f"Stats component {type(stats_comp).__name__} lacks '{k}'"
+            )
+            actual = getattr(stats_comp, k)
+            assert actual == v, (
+                f"Entity {self.entity_id} stat '{k}' is {actual} (expected: {v})"
+            )
+        return self
+
+    def has_need(self, **kwargs: Any) -> "EntityExpectation":
+        """Asserts that the entity has specific needs on Needs component.
+
+        Args:
+            **kwargs (Any): Need names and expected values.
+
+        Returns:
+            EntityExpectation: The expectation instance for chaining.
+
+        Raises:
+            AssertionError: If needs are missing or do not match.
+        """
+        from ..game.components import Needs
+
+        needs_comp = self.driver.get_component(self.entity_id, Needs)
+        assert needs_comp is not None, (
+            f"Entity {self.entity_id} does not have a Needs component"
+        )
+        for k, v in kwargs.items():
+            assert hasattr(needs_comp, k), (
+                f"Needs component lacks need attribute '{k}'"
+            )
+            actual = getattr(needs_comp, k)
+            if isinstance(v, (int, float)) and isinstance(actual, (int, float)):
+                assert abs(actual - v) < 0.01, (
+                    f"Entity {self.entity_id} need '{k}' is {actual:.2f} "
+                    f"(expected: {v:.2f})"
+                )
+            else:
+                assert actual == v, (
+                    f"Entity {self.entity_id} need '{k}' is {actual} "
+                    f"(expected: {v})"
+                )
+        return self
+
+    def has_emotion(self, **kwargs: Any) -> "EntityExpectation":
+        """Asserts attributes on the entity's EmotionalState component.
+
+        Args:
+            **kwargs (Any): Emotion names and expected values.
+
+        Returns:
+            EntityExpectation: The expectation instance for chaining.
+
+        Raises:
+            AssertionError: If emotional state is missing or mismatches.
+        """
+        from ..game.components import EmotionalState
+
+        emo_comp = self.driver.get_component(self.entity_id, EmotionalState)
+        assert emo_comp is not None, (
+            f"Entity {self.entity_id} lacks EmotionalState component"
+        )
+        for k, v in kwargs.items():
+            assert hasattr(emo_comp, k), (
+                f"EmotionalState component lacks attribute '{k}'"
+            )
+            actual = getattr(emo_comp, k)
+            if isinstance(v, (int, float)) and isinstance(actual, (int, float)):
+                assert abs(actual - v) < 0.01, (
+                    f"Entity {self.entity_id} emotion '{k}' is {actual:.2f} "
+                    f"(expected: {v:.2f})"
+                )
+            else:
+                assert actual == v, (
+                    f"Entity {self.entity_id} emotion '{k}' is {actual} "
+                    f"(expected: {v})"
+                )
+        return self
+
+    def has_attribute(self, name: str, value: Any) -> "EntityExpectation":
+        """Asserts that any attached component has the attribute and value.
+
+        Args:
+            name (str): The name of the attribute.
+            value (Any): The expected value of the attribute.
+
+        Returns:
+            EntityExpectation: The expectation instance for chaining.
+
+        Raises:
+            AssertionError: If no component hosts this attribute or mismatches.
+        """
+        components = self.driver.world.get_all_components(self.entity_id)
+        found = False
+        for comp in components:
+            if hasattr(comp, name):
+                actual = getattr(comp, name)
+                assert actual == value, (
+                    f"Entity {self.entity_id} component {type(comp).__name__} "
+                    f"attribute '{name}' is {actual} (expected: {value})"
+                )
+                found = True
+                break
+        assert found, (
+            f"Entity {self.entity_id} has no component with attribute '{name}'"
+        )
+        return self
+
+    def is_performing_action(self, action: str) -> "EntityExpectation":
+        """Asserts that the entity's current AI action matches.
+
+        Args:
+            action (str): The expected action name.
+
+        Returns:
+            EntityExpectation: The expectation instance for chaining.
+
+        Raises:
+            AssertionError: If AIState is missing or action mismatches.
+        """
+        from ..game.components import AIState
+
+        ai_comp = self.driver.get_component(self.entity_id, AIState)
+        assert ai_comp is not None, (
+            f"Entity {self.entity_id} does not have an AIState component"
+        )
+        assert ai_comp.current_action == action, (
+            f"Entity {self.entity_id} is doing '{ai_comp.current_action}' "
+            f"(expected: '{action}')"
+        )
+        return self
+
+
+class WarningDetector:
+    """Context manager to detect and assert on warnings or missing assets.
+
+    Attributes:
+        driver (GameDriver): The game driver instance.
+        fail_on_missing_assets (bool): True if tests fail on missing assets.
+        initial_log_count (int): The log buffer count at context start.
+    """
+
+    def __init__(
+        self, driver: "GameDriver", fail_on_missing_assets: bool = True
+    ) -> None:
+        """Initializes the WarningDetector context manager.
+
+        Args:
+            driver (GameDriver): The game driver instance.
+            fail_on_missing_assets (bool): If True, fails on missing assets.
+        """
+        self.driver = driver
+        self.fail_on_missing_assets = fail_on_missing_assets
+        self.initial_log_count = 0
+
+    def __enter__(self) -> "WarningDetector":
+        """Starts warning collection at the current log index.
+
+        Returns:
+            WarningDetector: The warning detector context manager.
+        """
+        self.initial_log_count = len(self.driver._run_logs)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
+        """Exits and asserts on warnings if configured.
+
+        Args:
+            exc_type (type): Optional exception type.
+            exc_val (BaseException): Optional exception value.
+            exc_tb (TracebackType): Optional traceback.
+
+        Raises:
+            AssertionError: If missing assets are detected.
+        """
+        if exc_type is not None:
+            return
+
+        new_logs = self.driver._run_logs[self.initial_log_count :]
+        warnings = [log for log in new_logs if " | WARNING  |" in log]
+
+        if self.fail_on_missing_assets:
+            missing_assets = [
+                warn
+                for warn in warnings
+                if "Image not found" in warn or "Sound not found" in warn
+            ]
+            if missing_assets:
+                raise AssertionError(
+                    "Test triggered missing asset warnings:\n"
+                    + "\n".join(missing_assets)
+                )
+
+    def assert_no_warnings(self) -> None:
+        """Enforces that absolutely no warnings were logged in this block.
+
+        Raises:
+            AssertionError: If any warnings were logged in this block.
+        """
+        new_logs = self.driver._run_logs[self.initial_log_count :]
+        warnings = [log for log in new_logs if " | WARNING  |" in log]
+        if warnings:
+            raise AssertionError(
+                "Test triggered warnings during strict check:\n"
+                + "\n".join(warnings)
+            )

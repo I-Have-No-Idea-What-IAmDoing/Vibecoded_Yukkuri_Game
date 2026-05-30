@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, cast, Optional
 from loguru import logger
 from py_trees.common import Status
 
-from yukkuri_game.engine.types import EntityID
+from .....engine.types import EntityID
 
 from ....components import (
     AIState,
@@ -13,7 +13,7 @@ from ....components import (
     Predator,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from .....engine.components import (
     Flight,
     LightSource,
     Transform,
@@ -24,8 +24,8 @@ from ...navigation_constants import TraversalCapability
 from ...navigation_service import NavigationService
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.ecs import World
-    from yukkuri_game.engine.protocols import ISpatialService
+    from .....engine.ecs import World
+    from .....engine.protocols import ISpatialService
 
 
 class FindItem(Action):
@@ -99,7 +99,7 @@ class FindItem(Action):
                         ai.state_data = {}
                     ai.state_data["path_requesting"] = True
 
-                    from yukkuri_game.engine.services.time_service import (
+                    from .....engine.services.time_service import (
                         TimeService,
                     )
 
@@ -167,7 +167,7 @@ class FindLightSource(Action):
             return Status.SUCCESS
 
         # Lazy load ISpatialService
-        from yukkuri_game.engine.protocols import ISpatialService
+        from .....engine.protocols import ISpatialService
         spatial_service = self.world.services.try_get(ISpatialService)
 
         if not spatial_service:
@@ -244,7 +244,7 @@ class FindPrey(Action):
 
         # Lazy load ISpatialService
         if self.spatial_service is None:
-            from yukkuri_game.engine.protocols import ISpatialService
+            from .....engine.protocols import ISpatialService
 
             self.spatial_service = self.world.services.try_get(ISpatialService)
 
@@ -402,7 +402,7 @@ class FindSocialTarget(Action):
             return Status.SUCCESS
 
         # Lazy load ISpatialService
-        from yukkuri_game.engine.protocols import ISpatialService
+        from .....engine.protocols import ISpatialService
         spatial_service = self.world.services.try_get(ISpatialService)
 
         if not spatial_service:

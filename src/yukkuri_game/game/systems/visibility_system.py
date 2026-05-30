@@ -30,7 +30,7 @@ from ...engine.ecs import System, World
 from ...engine.types import EntityID
 from ..collision_constants import CollisionCategories
 from ..components import AIState, Vision
-from yukkuri_game.engine.components import Flight, PhysicsBody, Transform
+from ...engine.components import Flight, PhysicsBody, Transform
 
 
 class VisibilitySystem(System):
@@ -126,7 +126,7 @@ class VisibilitySystem(System):
                 ai.visible_entities = cached_visible
                 return
 
-        from yukkuri_game.engine.protocols import ISpatialService
+        from ...engine.protocols import ISpatialService
         spatial_service = world.services.try_get(ISpatialService)
         if not spatial_service:
             return

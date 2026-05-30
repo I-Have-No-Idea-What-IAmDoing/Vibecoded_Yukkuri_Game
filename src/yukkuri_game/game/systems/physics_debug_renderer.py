@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import pygame
 import pymunk
 
-from yukkuri_game.engine.camera import Camera
-from yukkuri_game.engine.components import PhysicsBody
+from ...engine.camera import Camera
+from ...engine.components import PhysicsBody
 
 if TYPE_CHECKING:
     from ...engine.ecs import World

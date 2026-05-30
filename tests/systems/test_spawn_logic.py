@@ -26,7 +26,7 @@ def test_initial_setup(game_driver):
     assert game_driver.world.services.try_get(Camera) is not None
 
 
-def test_spawn_reimu(game_driver):
+def test_spawn_reimu(game_driver, tmp_path):
     """
     Verifies that we can spawn a Yukkuri.
     """
@@ -45,7 +45,7 @@ def test_spawn_reimu(game_driver):
         yield WaitFrames(1)
 
         # Take a screenshot
-        yield Screenshot("screenshots/test_spawn_reimu.png")
+        yield Screenshot(str(tmp_path / "test_spawn_reimu.png"))
 
     game_driver.seed_rng(42)
     game_driver.run_scenario(scenario())

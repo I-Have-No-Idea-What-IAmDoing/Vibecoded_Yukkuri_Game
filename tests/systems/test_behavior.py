@@ -19,6 +19,7 @@ class TestBehaviorSystem(unittest.TestCase):
 
     @patch("yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree")
     def test_tree_creation_and_tick(self, mock_create_tree):
+        import uuid
         ai = AIState()
         entity = self.world.create_entity()
         self.world.add_component(entity, ai)
@@ -26,6 +27,10 @@ class TestBehaviorSystem(unittest.TestCase):
         # Mock Tree
         mock_root = MagicMock(spec=py_trees.behaviour.Behaviour)
         mock_root.status = Status.RUNNING
+        mock_root.id = uuid.uuid4()
+        mock_root.name = "MockRoot"
+        mock_root.feedback_message = ""
+        mock_root.children = []
         mock_create_tree.return_value = mock_root
 
         system = BehaviorSystem()
@@ -63,8 +68,13 @@ class TestBehaviorSystem(unittest.TestCase):
         with patch(
             "yukkuri_game.game.systems.behavior.create_yukkuri_behavior_tree"
         ) as mock_create:
+            import uuid
             mock_root = MagicMock(spec=py_trees.behaviour.Behaviour)
             mock_root.status = Status.RUNNING
+            mock_root.id = uuid.uuid4()
+            mock_root.name = "MockRoot"
+            mock_root.feedback_message = ""
+            mock_root.children = []
             mock_create.return_value = mock_root
 
             system.update(self.world, 0.1)
@@ -93,8 +103,13 @@ class TestBehaviorSystem(unittest.TestCase):
             ) as mock_create,
             patch("py_trees.trees.BehaviourTree") as mock_bt_cls,
         ):
+            import uuid
             mock_root = MagicMock(spec=py_trees.behaviour.Behaviour)
             mock_root.status = Status.RUNNING
+            mock_root.id = uuid.uuid4()
+            mock_root.name = "MockRoot"
+            mock_root.feedback_message = ""
+            mock_root.children = []
             mock_create.return_value = mock_root
 
             mock_bt = MagicMock()

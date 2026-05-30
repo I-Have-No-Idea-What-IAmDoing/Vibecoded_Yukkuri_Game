@@ -26,12 +26,12 @@ from ..components import (
     SteeringComponent,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     MovementController,
     PhysicsBody,
     Transform,
 )
-from yukkuri_game.engine.protocols import IPhysicsService
+from ...engine.protocols import IPhysicsService
 
 
 class SteeringSystem(System):

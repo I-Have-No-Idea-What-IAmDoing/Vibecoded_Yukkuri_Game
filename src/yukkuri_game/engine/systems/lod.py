@@ -3,9 +3,9 @@ LOD (Level of Detail) System.
 """
 
 from ..ecs import System, World
-from yukkuri_game.engine.components import Transform, LODComponent
+from ...engine.components import Transform, LODComponent
 from ..camera import Camera
-from yukkuri_game.engine.protocols import ISpatialService
+from ...engine.protocols import ISpatialService
 from .spatial import SpatialSystem
 
 

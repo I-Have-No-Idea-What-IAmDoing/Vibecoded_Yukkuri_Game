@@ -16,7 +16,7 @@ from ..events import (
     EntityDestroyedEvent,
     WorldClearedEvent,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     FloatingText,
     Mount,
     MovementController,
@@ -120,7 +120,7 @@ class SpatialService:
         """
         if not hasattr(self, "world") or not self.world:
             return []
-        from yukkuri_game.engine.protocols import IPhysicsService
+        from ...engine.protocols import IPhysicsService
 
         physics = self.world.services.try_get(IPhysicsService)
         if not physics or not physics.space:
@@ -297,7 +297,7 @@ class SpatialService:
     def raycast(
         self, world: World, start_x: float, start_y: float, end_x: float, end_y: float, shape_filter: pymunk.ShapeFilter | None = None, exclude_id: int = -1
     ) -> tuple[int, float, float] | None:
-        from yukkuri_game.engine.protocols import IPhysicsService
+        from ...engine.protocols import IPhysicsService
         physics_system = world.services.try_get(IPhysicsService)
         if not physics_system or not physics_system.space:
             return None
@@ -436,7 +436,7 @@ class SpatialSystem(System):
 
     def _ensure_services(self, world: World) -> None:
         """Ensures that SpatialService and OccluderMap are created and registered."""
-        from yukkuri_game.engine.protocols import ISpatialService
+        from ...engine.protocols import ISpatialService
         registered = world.services.try_get(ISpatialService)
         if registered is not None:
             self.spatial_service = registered

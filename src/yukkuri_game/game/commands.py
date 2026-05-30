@@ -70,7 +70,7 @@ class CameraAxisCommand:
         Args:
             world: The active ECS World instance.
         """
-        from yukkuri_game.engine.camera import Camera
+        from ..engine.camera import Camera
 
         camera = world.services.try_get(Camera)
         if camera:
@@ -101,7 +101,7 @@ class CameraZoomAxisCommand:
         Args:
             world: The active ECS World instance.
         """
-        from yukkuri_game.engine.camera import Camera
+        from ..engine.camera import Camera
 
         camera = world.services.try_get(Camera)
         if camera:
@@ -135,7 +135,7 @@ class CameraZoomCommand:
         Args:
             world: The active ECS World instance.
         """
-        from yukkuri_game.engine.camera import Camera
+        from ..engine.camera import Camera
 
         camera = world.services.try_get(Camera)
         if camera:
@@ -172,7 +172,7 @@ class CameraPanCommand:
         Args:
             world: The active ECS World instance.
         """
-        from yukkuri_game.engine.camera import Camera
+        from ..engine.camera import Camera
 
         camera = world.services.try_get(Camera)
         if camera:
@@ -228,7 +228,7 @@ class PlaceItemCommand:
             world: The active ECS World instance.
         """
         from ..engine.event_bus import EventBus
-        from yukkuri_game.engine.protocols import IAudioProvider
+        from ..engine.protocols import IAudioProvider
         from .events import PlacementRequestedEvent
 
         event_bus = world.services.try_get(EventBus)
@@ -258,7 +258,7 @@ class CancelPlacementCommand:
             world: The active ECS World instance.
         """
         from ..engine.event_bus import EventBus
-        from yukkuri_game.engine.protocols import IAudioProvider
+        from ..engine.protocols import IAudioProvider
         from .events import PlacementCancelledEvent
         from .services import InputService
 
@@ -285,7 +285,7 @@ class CancelCleaningCommand:
         Args:
             world: The active ECS World instance.
         """
-        from yukkuri_game.engine.protocols import IAudioProvider
+        from ..engine.protocols import IAudioProvider
         from .services import InputService
 
         input_service = world.services.try_get(InputService)
@@ -342,9 +342,9 @@ class SelectEntitiesCommand:
             world: The active ECS World instance.
         """
         from ..engine.event_bus import EventBus
-        from yukkuri_game.engine.protocols import IAudioProvider
-        from yukkuri_game.engine.components import Transform
-        from yukkuri_game.engine.components import Selectable
+        from ..engine.protocols import IAudioProvider
+        from ..engine.components import Transform
+        from ..engine.components import Selectable
         from .events import EntitySelectedEvent
 
         x1, y1 = self.start_pos
@@ -395,6 +395,15 @@ class SelectEntitiesCommand:
         for ent, (_, selectable) in components:
             selectable.selected = ent in final_selection
 
+        # Update camera tracked entity if exactly one entity is selected
+        from ..engine.camera import Camera
+        camera = world.services.try_get(Camera)
+        if camera:
+            if len(final_selection) == 1:
+                camera.tracked_entity_id = final_selection[0]
+            else:
+                camera.tracked_entity_id = None
+
         audio = world.services.try_get(IAudioProvider)
         if is_click and audio:
             audio.play_sound("click")
@@ -436,9 +445,9 @@ class CleanEntityCommand:
         Args:
             world: The active ECS World instance.
         """
-        from yukkuri_game.engine.protocols import IAudioProvider
+        from ..engine.protocols import IAudioProvider
         from .components import Poop
-        from yukkuri_game.engine.components import Transform
+        from ..engine.components import Transform
 
         click_radius = 32.0
         components = world.get_components_tuple(Poop, Transform)
@@ -498,7 +507,7 @@ class ContextMenuCommand:
             world: The active ECS World instance.
         """
         from ..engine.event_bus import EventBus
-        from yukkuri_game.engine.components import Transform, Selectable
+        from ..engine.components import Transform, Selectable
         from .events import ContextMenuRequestedEvent
 
         hover_radius = 32.0
@@ -548,8 +557,37 @@ class TimeSpeedCommand:
         Args:
             world: The active ECS World instance.
         """
-        from yukkuri_game.engine.services.time_service import TimeService
+        from ..engine.services.time_service import TimeService
 
         time_service = world.services.try_get(TimeService)
         if time_service:
             time_service.game_speed = self.speed_multiplier
+
+
+class FollowSelectedCommand:
+    """
+    Re-locks the camera onto the currently selected entity (if exactly one).
+    """
+
+    def execute(self, world: "World") -> None:
+        """
+        Locates the single selected entity and assigns it to camera.
+
+        Args:
+            world: The active ECS World instance.
+        """
+        from ..engine.components import Selectable
+        from ..engine.camera import Camera
+
+        selected = [
+            ent
+            for ent, sel in world.get_components(Selectable).items()
+            if sel.selected
+        ]
+        camera = world.services.try_get(Camera)
+        if camera:
+            if len(selected) == 1:
+                camera.tracked_entity_id = selected[0]
+            else:
+                camera.tracked_entity_id = None
+

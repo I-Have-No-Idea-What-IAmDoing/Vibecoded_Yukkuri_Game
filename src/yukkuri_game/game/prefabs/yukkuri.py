@@ -6,7 +6,7 @@ from typing import Any
 
 import pymunk
 
-from yukkuri_game.engine import rng
+from ...engine import rng
 
 from ...engine.ecs import World
 from ...engine.resource_manager import ResourceManager
@@ -25,7 +25,7 @@ from ..components import (
     Vision,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     Flight,
     FlightState,
     Mount,
@@ -39,7 +39,7 @@ from yukkuri_game.engine.components import (
 )
 from ..physics_utils import add_physics_body, get_yukkuri_radius
 from ..skill_service import SkillService
-from yukkuri_game.engine.protocols import IPhysicsService
+from ...engine.protocols import IPhysicsService
 from ..trait_service import TraitService
 from ..utils.animation_helpers import build_animator_from_data
 

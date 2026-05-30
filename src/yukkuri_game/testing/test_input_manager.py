@@ -3,7 +3,7 @@ import unittest
 # Use real pygame if available (uv should provide it)
 import pygame
 
-from yukkuri_game.engine.input_manager import InputManager, InputContext
+from ..engine.input_manager import InputManager, InputContext
 
 
 class TestInputManager(unittest.TestCase):

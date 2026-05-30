@@ -4,7 +4,7 @@ Occluder Pass.
 
 from ...renderer.commands import OccluderCommand
 from ...renderer.geometry_utils import GeometryUtils
-from yukkuri_game.engine.components import Occluder, Sprite, PhysicsBody, LightSource
+from ....engine.components import Occluder, Sprite, PhysicsBody, LightSource
 from ..context import RenderContext
 
 

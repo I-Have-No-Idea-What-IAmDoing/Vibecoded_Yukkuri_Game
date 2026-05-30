@@ -6,4 +6,4 @@ navigation, animation, emotion, social interaction,
 hunger, lifecycle, inventory, and environmental effects.
 """
 
-from yukkuri_game.engine.systems.spatial import SpatialService as SpatialService
+from ...engine.systems.spatial import SpatialService as SpatialService

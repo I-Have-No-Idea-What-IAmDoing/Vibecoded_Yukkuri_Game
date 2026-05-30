@@ -4,7 +4,7 @@ Shadow Pass.
 
 from ...renderer.constants import RenderConstants
 from ...renderer.commands import ShadowCommand
-from yukkuri_game.engine.components import Flight, Sprite, VisualTransform
+from ....engine.components import Flight, Sprite, VisualTransform
 from ..context import RenderContext
 
 

@@ -6,29 +6,30 @@ including line-of-sight checks, async path request queuing, takeoff management,
 and pursuit drift calculations.
 """
 
+import math
 from typing import TYPE_CHECKING, cast
 import pymunk
 from py_trees.common import Status
 
-from yukkuri_game.engine.types import EntityID
-from yukkuri_game.engine.components import (
+from ...engine.types import EntityID
+from ...engine.components import (
     Flight,
     FlightState,
     MovementController,
     PhysicsBody,
     Transform,
 )
-from yukkuri_game.game.components import (
+from ..components import (
     AIState,
     MoveCommand,
     Needs,
 )
-from yukkuri_game.game.ai.navigation_constants import TraversalCapability
-from yukkuri_game.game.ai.navigation_service import NavigationService
-from yukkuri_game.engine.protocols import IPhysicsService
+from .navigation_constants import TraversalCapability
+from .navigation_service import NavigationService
+from ...engine.protocols import IPhysicsService
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.ecs import World
+    from ...engine.ecs import World
 
 MIN_TAKEOFF_STAMINA = 20.0
 
@@ -72,17 +73,27 @@ class NavigationController:
         Returns:
             Status: The py_trees Status (RUNNING, SUCCESS, FAILURE).
         """
+        from loguru import logger
+        logger.debug(
+            f"NavigationController.navigate_to for {entity_id} to {target_pos} "
+            f"(target_entity={target_entity_id}), speed={speed}, accept={acceptance_radius}"
+        )
+
         ai = world.try_get_component(entity_id, AIState)
         trans = world.try_get_component(entity_id, Transform)
         needs = world.try_get_component(entity_id, Needs)
         controller = world.try_get_component(entity_id, MovementController)
 
         if ai is None or trans is None or needs is None or controller is None:
+            logger.warning(
+                f"NavigationController: Missing components for {entity_id}: "
+                f"ai={ai is not None}, trans={trans is not None}, "
+                f"needs={needs is not None}, controller={controller is not None}"
+            )
             return Status.FAILURE
 
         # Handle too many stuck occurrences
         if ai.state_data and ai.state_data.get("stuck_count", 0) >= 3:
-            from loguru import logger
             logger.warning(
                 f"Entity {entity_id} failed navigation to "
                 f"({target_pos.x:.1f}, {target_pos.y:.1f}) "
@@ -96,7 +107,7 @@ class NavigationController:
             return Status.FAILURE
 
         # Get TimeService for physics time calculations
-        from yukkuri_game.engine.services.time_service import TimeService
+        from ...engine.services.time_service import TimeService
 
         services = getattr(world, "services", None)
         time_service = (
@@ -123,6 +134,7 @@ class NavigationController:
         # Handle failed target validation
         if target_entity_id is not None:
             if target_entity_id in ai.failed_targets and not ai.manual_override:
+                logger.warning(f"NavigationController: target {target_entity_id} is in failed_targets")
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 if world.has_component(entity_id, MoveCommand):
                     world.commands.remove_component(entity_id, MoveCommand)
@@ -188,6 +200,7 @@ class NavigationController:
 
             if use_direct_steering:
                 if dist_to_target < eff_accept_rad:
+                    logger.debug(f"NavigationController: SUCCESS (direct steering, within accept: {dist_to_target:.1f} < {eff_accept_rad:.1f})")
                     controller.target_velocity = pymunk.Vec2d(0, 0)
                     ai.path = None
                     NavigationController._cleanup_nav_state(ai)
@@ -217,11 +230,13 @@ class NavigationController:
                 if ai.path:
                     ai.path = None
 
+                logger.debug(f"NavigationController: RUNNING (direct steering: {dist_to_target:.1f})")
                 return Status.RUNNING
 
         if target_pos:
             dist_sq = (target_pos - current_pos).length_squared
             if dist_sq < eff_accept_rad * eff_accept_rad:
+                logger.debug(f"NavigationController: SUCCESS (reached target_pos: {math.sqrt(dist_sq):.1f} < {eff_accept_rad:.1f})")
                 controller.target_velocity = pymunk.Vec2d(0, 0)
                 ai.path = None
                 NavigationController._cleanup_nav_state(ai)
@@ -236,6 +251,7 @@ class NavigationController:
             path_failed = state_data.get("path_failed", False)
 
             if path_failed:
+                logger.warning("NavigationController: FAILURE (pathfinding failed flag set)")
                 state_data["path_requesting"] = False
                 if "path_failed" in state_data:
                     del state_data["path_failed"]
@@ -259,8 +275,10 @@ class NavigationController:
                     request_timestamp > physics_time
                     or (physics_time - request_timestamp) > 2.0
                 ):
+                    logger.debug(f"NavigationController: path request timed out (physics_time={physics_time:.2f}, request_time={request_timestamp:.2f})")
                     state_data["path_requesting"] = False
                 else:
+                    logger.debug("NavigationController: RUNNING (waiting for async path)")
                     return Status.RUNNING
 
             nav_service = world.services.try_get(NavigationService)
@@ -279,6 +297,7 @@ class NavigationController:
                     priority = 0
                     ai.state_data["pursuit_repath"] = False
 
+                logger.debug(f"NavigationController: requesting async path from {current_pos} to {target_pos}")
                 nav_service.request_path(
                     entity_id,
                     (trans.x, trans.y),
@@ -299,6 +318,7 @@ class NavigationController:
                 if "path_failed" in ai.state_data:
                     del ai.state_data["path_failed"]
 
+                logger.debug("NavigationController: RUNNING (path request submitted)")
                 return Status.RUNNING
 
         # Drift Detection
@@ -336,6 +356,7 @@ class NavigationController:
                             last_repath_time > physics_time
                             or (physics_time - last_repath_time) > 0.5
                         ):
+                            logger.debug(f"NavigationController: drift detected ({math.sqrt(drift_sq):.1f} > {math.sqrt(drift_threshold_sq):.1f}), clearing path to repath")
                             ai.path = None
                             ai.state_data["last_repath_time"] = physics_time
                             ai.state_data["pursuit_repath"] = True
@@ -351,9 +372,11 @@ class NavigationController:
         dist_to_final = (final_target - current_pos).length
 
         if dist_to_final < eff_accept_rad:
+            logger.debug(f"NavigationController: SUCCESS (reached final target: {dist_to_final:.1f} < {eff_accept_rad:.1f})")
             controller.target_velocity = pymunk.Vec2d(0, 0)
             ai.path = None
             NavigationController._cleanup_nav_state(ai)
             return Status.SUCCESS
 
+        logger.debug(f"NavigationController: RUNNING (following path, remaining: {dist_to_final:.1f})")
         return Status.RUNNING

@@ -29,7 +29,7 @@ from ..components import (
     AIState,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     Animator,
     Flight,
     FlightState,

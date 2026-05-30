@@ -11,14 +11,14 @@ from ....components import (
     Needs,
     Predator,
 )
-from yukkuri_game.engine.components import (
+from .....engine.components import (
     MovementController,
     Transform,
 )
-from yukkuri_game.engine.types import EntityID
+from .....engine.types import EntityID
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.ecs import World
+    from .....engine.ecs import World
 
 
 class Interact(Action):
@@ -177,7 +177,7 @@ class EatPrey(Action):
         if self.world:
             self.last_update_time = self.world.time
             # Get TimeService
-            from yukkuri_game.engine.services.time_service import TimeService
+            from .....engine.services.time_service import TimeService
 
             self.time_service = self.world.services.try_get(TimeService)
 
@@ -188,7 +188,7 @@ class EatPrey(Action):
 
         # Lazy load ISpatialService
         if self.spatial_service is None:
-            from yukkuri_game.engine.protocols import ISpatialService
+            from .....engine.protocols import ISpatialService
 
             self.spatial_service = self.world.services.try_get(ISpatialService)
 

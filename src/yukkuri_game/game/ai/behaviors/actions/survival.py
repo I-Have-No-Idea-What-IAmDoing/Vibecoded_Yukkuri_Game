@@ -10,7 +10,7 @@ import pymunk
 from py_trees.common import Status
 
 from ....components import AIState, EmotionalState, MoveCommand, Needs
-from yukkuri_game.engine.components import (
+from .....engine.components import (
     LightSource,
     MovementController,
     Transform,
@@ -18,7 +18,7 @@ from yukkuri_game.engine.components import (
 from ...base_action import Action
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.ecs import World
+    from .....engine.ecs import World
 
 
 class Sleep(Action):

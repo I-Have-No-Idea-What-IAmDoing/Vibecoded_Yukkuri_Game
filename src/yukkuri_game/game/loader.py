@@ -52,7 +52,7 @@ class GameLoader:
         """
         Registers services to the world.
         """
-        from yukkuri_game.engine.protocols import IAudioProvider
+        from ..engine.protocols import IAudioProvider
         self.world.services.register(audio, IAudioProvider)
         self.world.services.register(event_bus, EventBus)
         self.world.services.register(self.game_config, GameConfig)
@@ -89,6 +89,9 @@ class GameLoader:
 
         skill_service = SkillService(self.world, self.game_config.rules.skills)
         self.world.services.register(skill_service, SkillService)
+
+        from .ai.commands import CommandQueue
+        self.world.services.register(CommandQueue(), CommandQueue)
 
         evaluator = ConditionEvaluator()
         self.world.services.register(evaluator, ConditionEvaluator)

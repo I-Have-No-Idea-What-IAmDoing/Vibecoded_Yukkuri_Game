@@ -168,3 +168,88 @@ def test_visual_diff_drift_threshold(
             headless_driver.compare_screenshot(
                 curr_path, ref_path, tolerance=0.0, drift_threshold=2
             )
+
+
+def test_visual_diff_update_goldens(
+    headless_driver: GameDriver,
+    tmp_path: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tests that UPDATE_GOLDENS automatically overwrites reference."""
+    curr_path = str(tmp_path / "current.png")
+    ref_path = str(tmp_path / "reference.png")
+
+    curr_surf = pygame.Surface((10, 10), depth=24)
+    curr_surf.fill((255, 0, 0))  # Red
+    ref_surf = pygame.Surface((10, 10), depth=24)
+    ref_surf.fill((0, 0, 255))  # Blue
+
+    pygame.image.save(curr_surf, curr_path)
+    pygame.image.save(ref_surf, ref_path)
+
+    # Enable UPDATE_GOLDENS
+    monkeypatch.setenv("UPDATE_GOLDENS", "1")
+
+    # Mock save_screenshot to actually save the file so we can verify the overwrite
+    # (since the headless_driver fixture patched it to a dummy mock)
+    def mock_save(path):
+        pygame.image.save(curr_surf, path)
+
+    headless_driver.save_screenshot = mock_save
+
+    with mock_test_env():
+        matched = headless_driver.compare_screenshot(
+            curr_path, ref_path, tolerance=0.0
+        )
+        assert matched is True
+
+        # Verify that reference was overwritten with red surface
+        overwritten_ref = pygame.image.load(ref_path)
+        assert overwritten_ref.get_at((0, 0))[:3] == (255, 0, 0)
+
+
+def test_entity_builder(game_driver: GameDriver) -> None:
+    """Tests the fluent EntityBuilder API for creating yukkuris and items."""
+    driver = game_driver
+    driver.setup()
+
+    # 1. Build Yukkuri Reimu
+    reimu_id = (
+        driver.yukkuri_builder("reimu")
+        .at(100, 150)
+        .with_stats(discipline=50.0, age=20.0, hunger=30.0)
+        .build()
+    )
+
+    assert reimu_id != -1
+    assert driver.world.entity_exists(reimu_id)
+
+    from yukkuri_game.game.components import YukkuriStats
+    from yukkuri_game.game.components import Needs
+
+    stats = driver.get_component(reimu_id, YukkuriStats)
+    assert stats is not None
+    assert stats.discipline == 50.0
+    assert stats.age == 20.0
+
+    needs = driver.get_component(reimu_id, Needs)
+    assert needs is not None
+    assert needs.hunger == 30.0
+
+    # 2. Build Item cookie
+    from yukkuri_game.game.components import ItemStats
+
+    cookie_id = (
+        driver.item_builder("cookie")
+        .at(200, 250)
+        .with_stats(nutrition=25.0, fun=10.0)
+        .build()
+    )
+
+    assert cookie_id != -1
+    assert driver.world.entity_exists(cookie_id)
+
+    istats = driver.get_component(cookie_id, ItemStats)
+    assert istats is not None
+    assert istats.nutrition == 25.0
+    assert istats.fun == 10.0

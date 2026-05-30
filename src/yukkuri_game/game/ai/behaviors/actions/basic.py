@@ -4,11 +4,11 @@ import pymunk
 from py_trees.common import Status
 
 from ....components import AIState, EmotionalState, MoveCommand
-from yukkuri_game.engine.components import MovementController
+from .....engine.components import MovementController
 from ...base_action import Action
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.ecs import World
+    from .....engine.ecs import World
 
 
 class Idle(Action):

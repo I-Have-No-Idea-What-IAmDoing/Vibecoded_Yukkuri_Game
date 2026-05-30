@@ -62,6 +62,7 @@ class InputManager:
                 "toggle_pause": [pygame.K_SPACE, pygame.K_p],
                 "interact": [pygame.K_z],
                 "debug_toggle": [pygame.K_F3],
+                "toggle_console": [pygame.K_BACKQUOTE],
                 "screenshot": [pygame.K_F12],
                 "quicksave": [pygame.K_F5],
                 "quickload": [pygame.K_F9],
@@ -70,6 +71,7 @@ class InputManager:
                 "shift": [pygame.K_LSHIFT, pygame.K_RSHIFT],
                 "ctrl": [pygame.K_LCTRL, pygame.K_RCTRL],
                 "alt": [pygame.K_LALT, pygame.K_RALT],
+                "follow": [pygame.K_f],
             },
             InputContext.MENU: {
                 "confirm": [pygame.K_RETURN],
@@ -201,6 +203,19 @@ class InputManager:
         """
         self._keys_down.clear()
         self._keys_up.clear()
+        self._mouse_buttons_down.clear()
+        self._mouse_buttons_up.clear()
+        self._mouse_wheel = 0.0
+        self._mouse_rel = (0, 0)
+
+    def clear_pressed_states(self) -> None:
+        """
+        Clears all currently pressed keys and mouse buttons.
+        """
+        self._keys_pressed.clear()
+        self._keys_down.clear()
+        self._keys_up.clear()
+        self._mouse_buttons.clear()
         self._mouse_buttons_down.clear()
         self._mouse_buttons_up.clear()
         self._mouse_wheel = 0.0

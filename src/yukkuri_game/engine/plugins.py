@@ -59,8 +59,8 @@ class CoreSimulationPlugin(Plugin):
             height = getattr(self.world_settings, "height", height)
             sector_size = getattr(self.world_settings, "sector_size", sector_size)
 
-        from yukkuri_game.engine.protocols import ISpatialService
-        from yukkuri_game.engine.protocols import IPhysicsService
+        from ..engine.protocols import ISpatialService
+        from ..engine.protocols import IPhysicsService
 
         # Spatial Service is needed by many systems
         spatial_service = SpatialService(width, height, sector_size)

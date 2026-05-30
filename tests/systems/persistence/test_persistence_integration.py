@@ -18,7 +18,7 @@ from yukkuri_game.engine.components import StableIDComponent, Persistable
 
 
 @pytest.fixture
-def setup_persistence_world():
+def setup_persistence_world(tmp_path):
     world = World()
 
     # Mock resources
@@ -54,7 +54,7 @@ def setup_persistence_world():
     factory = EntityFactory(world)
     world.services.register(factory)
 
-    save_dir = "test_saves_integration"
+    save_dir = os.path.join(tmp_path, "test_saves_integration")
     os.makedirs(save_dir, exist_ok=True)
     
     # We need to monkeypatch the save manager to save to test_saves_integration, 

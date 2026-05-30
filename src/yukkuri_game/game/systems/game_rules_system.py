@@ -19,7 +19,7 @@ Game Balance Notes:
 
 from loguru import logger
 
-from yukkuri_game.engine.protocols import IAudioProvider
+from ...engine.protocols import IAudioProvider
 from ...engine.ecs import System, World
 from ...engine.event_bus import EventBus
 from ..components import (
@@ -27,7 +27,7 @@ from ..components import (
     Needs,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     Transform,
 )
 from ..events import (

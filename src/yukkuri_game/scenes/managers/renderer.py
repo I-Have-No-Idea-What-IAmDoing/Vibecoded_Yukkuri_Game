@@ -71,6 +71,7 @@ class GameplayRenderer:
         from ...game.ui.hud import HUD
         from ...config import GameConfig
         self.hud = HUD(self.scene.ui_manager, self.scene.world)
+        self.hud.scene = self.scene
 
         # Honour debug_overlay_on_start setting from config.
         game_cfg = self.scene.world.services.try_get(GameConfig)

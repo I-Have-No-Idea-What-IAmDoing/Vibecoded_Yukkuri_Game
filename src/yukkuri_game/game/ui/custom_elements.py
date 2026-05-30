@@ -2,6 +2,8 @@
 Custom UI Elements for Yukkuri Game.
 """
 
+from typing import Any
+from pygame_gui.elements import UIScrollingContainer
 from pygame_gui.elements import UITextBox
 
 
@@ -23,5 +25,18 @@ class NonBlockingTextBox(UITextBox):
 
         Returns:
             bool: Always returns False.
-        """
+            """
         return False
+
+
+class SafeUIScrollingContainer(UIScrollingContainer):
+    """
+    Subclass of UIScrollingContainer to prevent hidden tab init errors.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.vert_scroll_bar = None
+        self.horiz_scroll_bar = None
+        self._root_container = None
+        self._view_container: Any = None
+        super().__init__(*args, **kwargs)

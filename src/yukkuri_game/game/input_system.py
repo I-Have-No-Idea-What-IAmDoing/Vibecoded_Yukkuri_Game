@@ -18,11 +18,12 @@ from .commands import (
     CancelPlacementCommand,
     CleanEntityCommand,
     ContextMenuCommand,
+    FollowSelectedCommand,
     PlaceItemCommand,
     SelectEntitiesCommand,
     TimeSpeedCommand,
 )
-from yukkuri_game.engine.components import Selectable, Transform
+from ..engine.components import Selectable, Transform
 from .events import (
     CleanToolRequestedEvent,
     PlacementStartedEvent,
@@ -32,10 +33,10 @@ from .services import InputBufferService, InputService
 if TYPE_CHECKING:
     import pygame_gui
 
-    from yukkuri_game.engine.camera import Camera
+    from ..engine.camera import Camera
 
 
-from yukkuri_game.game.systems.command_processor_system import CommandProcessorSystem
+from ..game.systems.command_processor_system import CommandProcessorSystem
 
 
 class InputSystem(System):
@@ -163,6 +164,20 @@ class InputSystem(System):
             world (World): The ECS World.
             dt (float): Delta time.
         """
+        # Block all hardware command emissions if Developer Console is open
+        from .ui.hud import HUD
+        from ..engine.input_manager import InputManager
+
+        hud = world.services.try_get(HUD)
+        if hud and hud.developer_console and hud.developer_console.is_open():
+            if self.input_manager is None:
+                self.input_manager = world.services.try_get(InputManager)
+            if self.input_manager:
+                self.input_manager.clear_pressed_states()
+            self._emit_camera_axis(0.0, 0.0)
+            self._emit_zoom_axis(0.0)
+            return
+
         # Lazy initialization of dependencies
         if self.input_service is None:
             self.input_service = world.services.get(InputService)
@@ -329,6 +344,10 @@ class InputSystem(System):
             else:
                 self._emit(ContextMenuCommand(wx, wy, mx, my))
 
+        # --- Follow / Track Selected Entity (F key) ---
+        if self.input_manager.is_action_just_pressed("follow"):
+            self._emit(FollowSelectedCommand())
+
         # --- Time speed controls ---
         self._handle_time_controls()
 
@@ -376,7 +395,7 @@ class InputSystem(System):
             # Read current speed from the service directly so we can compute
             # the next value; the command only accepts the final value.
             if self.buffer:
-                from yukkuri_game.engine.services.time_service import TimeService as _TS
+                from ..engine.services.time_service import TimeService as _TS
 
                 ts = self.ecs_world.services.try_get(_TS)
                 if ts:
@@ -385,7 +404,7 @@ class InputSystem(System):
 
         if self.input_manager.is_action_just_pressed("time_speed_down"):
             if self.buffer:
-                from yukkuri_game.engine.services.time_service import TimeService as _TS
+                from ..engine.services.time_service import TimeService as _TS
 
                 ts = self.ecs_world.services.try_get(_TS)
                 if ts:

@@ -30,6 +30,7 @@ from .systems.social_system import SocialSystem
 from .systems.steering_system import SteeringSystem
 from .systems.visibility_system import VisibilitySystem
 from .systems.visual_movement_system import VisualMovementSystem
+from .systems.motor_dispatcher import MotorDispatcher
 from ..engine.camera import Camera
 
 
@@ -66,6 +67,8 @@ class GameSystemsPlugin(Plugin):
         world.add_system(NavigationUpdateSystem())
         logger.debug("Adding BehaviorSystem")
         world.add_system(BehaviorSystem())
+        logger.debug("Adding MotorDispatcher")
+        world.add_system(MotorDispatcher())
         logger.debug("Adding SteeringSystem")
         world.add_system(SteeringSystem())
         logger.debug("Adding KinematicMovementSystem")

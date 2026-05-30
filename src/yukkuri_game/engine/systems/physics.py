@@ -12,8 +12,8 @@ from ..events import (
     PhysicsFixedUpdateEvent,
     WorldClearedEvent,
 )
-from yukkuri_game.engine.components import PhysicsBody, Transform
-from yukkuri_game.engine.systems.time import TimeSystem
+from ...engine.components import PhysicsBody, Transform
+from ...engine.systems.time import TimeSystem
 
 
 class PhysicsSystem(System):

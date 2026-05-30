@@ -867,16 +867,42 @@ def test_wander_stuck_limit_recovery(game_driver: GameDriver) -> None:
     assert "target_x" not in ai.state_data or ai.state_data.get("target_x") != tx1
 
 
+def test_obstacle_item_removal_unblocks_navigation(
+    game_driver: GameDriver,
+) -> None:
+    """
+    Verify that dynamic obstacle items are cleanly un-registered from the
+    navigation grid when their PhysicsBody is removed from the world.
+    """
+    driver = game_driver
+    driver.setup()
 
+    from yukkuri_game.game.ai.navigation_constants import TraversalCapability
+    from yukkuri_game.game.ai.navigation_service import NavigationService
 
+    nav_service = driver.world.services.get(NavigationService)
+    assert nav_service is not None
 
+    obstacle_pos = (200.0, 200.0)
 
+    # Convert coordinates to grid coordinates to inspect walkability
+    gx, gy = nav_service._to_grid(obstacle_pos)
 
+    # Before creating the item, the grid cell must be walkable
+    assert nav_service.grid.is_walkable(gx, gy, TraversalCapability.WALK)
 
+    # Spawn an obstacle item (bed) at the coordinates
+    item_id = driver.create_item("bed", obstacle_pos[0], obstacle_pos[1])
+    driver.world.commands.apply_all()
 
+    # The grid cell must now be BLOCKED (walkable=False)
+    assert not nav_service.grid.is_walkable(gx, gy, TraversalCapability.WALK)
 
+    # Now destroy the obstacle item
+    driver.world.destroy_entity(item_id)
+    driver.world.commands.apply_all()
 
-
-
+    # The grid cell must become WALKABLE again!
+    assert nav_service.grid.is_walkable(gx, gy, TraversalCapability.WALK)
 
 

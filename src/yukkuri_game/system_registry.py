@@ -29,16 +29,16 @@ from .game.systems.mouse_light_system import MouseLightSystem
 from .game.systems.navigation_system import NavigationSystem
 from .game.systems.navigation_update_system import NavigationUpdateSystem
 from .game.systems.perception_system import PerceptionSystem
-from yukkuri_game.engine.systems.physics import PhysicsSystem
+from .engine.systems.physics import PhysicsSystem
 from .game.systems.poop_system import PoopSystem
 from .game.systems.social_system import SocialSystem
 from .game.systems.steering_system import SteeringSystem
-from yukkuri_game.engine.systems.time import TimeSystem
+from .engine.systems.time import TimeSystem
 from .game.systems.visibility_system import VisibilitySystem
 from .game.systems.visual_movement_system import VisualMovementSystem
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.camera import Camera
+    from .engine.camera import Camera
 
 
 class SystemRegistry:

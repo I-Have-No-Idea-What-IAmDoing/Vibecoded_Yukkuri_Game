@@ -88,6 +88,9 @@ def test_logging_filters_integration() -> None:
         patch("yukkuri_game.game.ui.hud_layout.UIWindow"),
         patch("yukkuri_game.game.ui.hud_layout.UIScrollingContainer"),
         patch("yukkuri_game.game.ui.hud_layout.NonBlockingTextBox"),
+        patch("yukkuri_game.game.ui.hud_layout.TabbedPanel"),
+        patch("yukkuri_game.game.ui.hud_layout.ECSInspector"),
+        patch("yukkuri_game.game.ui.hud_layout.SystemProfiler"),
     ):
         hud = HUD(ui_manager, world)
 
@@ -208,6 +211,9 @@ def test_logging_filters_ui_events() -> None:
         patch("yukkuri_game.game.ui.hud_layout.UIWindow"),
         patch("yukkuri_game.game.ui.hud_layout.UIScrollingContainer"),
         patch("yukkuri_game.game.ui.hud_layout.NonBlockingTextBox"),
+        patch("yukkuri_game.game.ui.hud_layout.TabbedPanel"),
+        patch("yukkuri_game.game.ui.hud_layout.ECSInspector"),
+        patch("yukkuri_game.game.ui.hud_layout.SystemProfiler"),
     ):
         hud = HUD(ui_manager, world)
 

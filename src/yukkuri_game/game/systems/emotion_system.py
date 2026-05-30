@@ -39,11 +39,11 @@ from ..components import (
     Skills,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     LightSource,
     Transform,
 )
-from yukkuri_game.engine.services.time_service import TimeService
+from ...engine.services.time_service import TimeService
 from ..skill_service import SkillService
 from ..trait_service import TraitService
 

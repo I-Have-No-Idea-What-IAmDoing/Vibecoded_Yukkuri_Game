@@ -5,11 +5,11 @@ Light Pass.
 import math
 from typing import cast
 
-from yukkuri_game.engine.renderer.commands import LightCommand
-from yukkuri_game.engine.components import FlickerStyle
-from yukkuri_game.engine.components import LightSource
-from yukkuri_game.engine.services.time_service import TimeService
-from yukkuri_game.game.systems.rendering.context import RenderContext
+from .....engine.renderer.commands import LightCommand
+from .....engine.components import FlickerStyle
+from .....engine.components import LightSource
+from .....engine.services.time_service import TimeService
+from .....game.systems.rendering.context import RenderContext
 
 
 LAYER_EFFECTS = 3

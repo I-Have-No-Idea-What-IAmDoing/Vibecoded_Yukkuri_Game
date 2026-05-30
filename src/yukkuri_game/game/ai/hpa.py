@@ -33,6 +33,10 @@ from .navigation_grid import NavigationGrid
 CLUSTER_SIZE = 8
 
 
+SQRT2 = math.sqrt(2.0)
+SQRT2_MINUS_2 = SQRT2 - 2.0
+
+
 @dataclass
 class GraphEdge:
     """
@@ -93,7 +97,7 @@ class AStar:
         """
         dx = abs(a[0] - b[0])
         dy = abs(a[1] - b[1])
-        return (dx + dy) + (math.sqrt(2) - 2) * min(dx, dy)
+        return (dx + dy) + SQRT2_MINUS_2 * min(dx, dy)
 
     @staticmethod
     def search(
@@ -120,12 +124,17 @@ class AStar:
         heapq.heappush(frontier, (0, start))
         came_from: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
         cost_so_far: dict[tuple[int, int], float] = {start: 0}
+        visited: set[tuple[int, int]] = set()
 
         while frontier:
             _, current = heapq.heappop(frontier)
 
             if current == goal:
                 break
+
+            if current in visited:
+                continue
+            visited.add(current)
 
             x, y = current
             neighbors = [
@@ -139,7 +148,9 @@ class AStar:
                 (x - 1, y - 1),
             ]
 
-            for next_pos in neighbors:
+            # Straight neighbors are indices 0-3; diagonal neighbors are 4-7.
+            # Avoids expensive math.sqrt() and exponentiation in hot loop.
+            for i, next_pos in enumerate(neighbors):
                 nx, ny = next_pos
 
                 # Check Bounds
@@ -153,7 +164,7 @@ class AStar:
                     continue
 
                 # Diagonal cost is sqrt(2); straight is 1.
-                dist = math.sqrt((nx - x) ** 2 + (ny - y) ** 2)
+                dist = SQRT2 if i >= 4 else 1.0
                 base_cost = grid.get_cost(nx, ny)
                 new_cost = cost_so_far[current] + (base_cost * dist)
 
@@ -675,12 +686,17 @@ class ClusterGraph:
         heapq.heappush(frontier, (0.0, start_node.id))
         came_from: dict[str, str | None] = {start_node.id: None}
         cost_so_far: dict[str, float] = {start_node.id: 0.0}
+        visited: set[str] = set()
 
         while frontier:
             _, current_id = heapq.heappop(frontier)
 
             if current_id == goal_node.id:
                 break
+
+            if current_id in visited:
+                continue
+            visited.add(current_id)
 
             current_node = self.graph_nodes.get(current_id)
             if not current_node:

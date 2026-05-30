@@ -1,5 +1,5 @@
 import unittest
-from yukkuri_game.game.services import EconomyService
+from ..game.services import EconomyService
 
 
 class TestEconomyService(unittest.TestCase):

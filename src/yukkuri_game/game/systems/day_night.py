@@ -3,8 +3,8 @@ Day/Night Cycle System.
 """
 
 from ...engine.ecs import System, World
-from yukkuri_game.engine.services.time_service import TimeService
-from yukkuri_game.engine.rendering.system import RenderingSystem
+from ...engine.services.time_service import TimeService
+from ...engine.rendering.system import RenderingSystem
 
 
 class DayNightSystem(System):

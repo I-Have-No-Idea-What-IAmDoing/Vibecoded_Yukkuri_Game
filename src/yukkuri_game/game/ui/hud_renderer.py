@@ -16,13 +16,13 @@ from ..components import (
     Skills,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     MovementController,
     PhysicsBody,
     Transform,
 )
 from ..services import EconomyService, InputService
-from yukkuri_game.engine.services.time_service import TimeService
+from ...engine.services.time_service import TimeService
 from ..skill_service import SkillService
 from ...engine.resource_manager import ResourceManager
 from ...config import GameConfig
@@ -648,7 +648,28 @@ class HudRenderer:
         Returns:
             None
         """
-        if not self.layout.debug_window or not self.layout.debug_text_box:
+        if not self.layout.debug_window:
+            return
+
+        # Update ECS Inspector if present
+        if self.layout.ecs_inspector:
+            self.layout.ecs_inspector.update(dt)
+
+        # Update System Profiler if present
+        if self.layout.system_profiler:
+            # Smart default activation when the Profiler tab is selected
+            if (
+                self.layout.debug_tabs
+                and self.layout.debug_tabs.current_container_index == 2
+            ):
+                self.world.debug_timing = True
+            self.layout.system_profiler.update(dt)
+
+        # Only update General text box if General tab is active
+        if self.layout.debug_tabs and self.layout.debug_tabs.current_container_index != 0:
+            return
+
+        if not self.layout.debug_text_box:
             return
 
         # Get entity count for debug display (fallback to 0 if world is
@@ -670,7 +691,7 @@ class HudRenderer:
         # Get active scene name
         scene_name = "GameplayScene"
         try:
-            from yukkuri_game.engine.application import Application
+            from ...engine.application import Application
             app = self.world.services.try_get(Application)
             if app and app.scene_manager and app.scene_manager.current_scene:
                 scene_name = type(app.scene_manager.current_scene).__name__

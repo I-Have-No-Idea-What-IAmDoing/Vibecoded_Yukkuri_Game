@@ -20,8 +20,12 @@ from pygame_gui.elements import (
 )
 
 from ...engine.data_models import UserSettings
+from ...engine.ecs import World
 from .custom_elements import NonBlockingTextBox
+from .ecs_inspector import ECSInspector
 from .entity_info_panel import EntityInfoPanel
+from .system_profiler import SystemProfiler
+from .tabbed_panel import TabbedPanel
 
 
 class HudLayout:
@@ -85,6 +89,9 @@ class HudLayout:
         # Debug Window Elements
         self.debug_window: UIWindow | None = None
         self.debug_text_box: UITextBox | None = None
+        self.debug_tabs: TabbedPanel | None = None
+        self.ecs_inspector: ECSInspector | None = None
+        self.system_profiler: SystemProfiler | None = None
 
         # Settings Window Elements
         self.settings_window: UIWindow | None = None
@@ -386,31 +393,75 @@ class HudLayout:
             # Actually, let's keep it null safe.
             self.entity_info_panel = None
 
-    def create_debug_window(self) -> None:
+    def create_debug_window(self, world: World) -> None:
         """
-        Creates the debug window.
+        Creates the debug window with a TabbedPanel.
+
+        Args:
+            world (World): The ECS World instance.
         """
         if self.debug_window:
             self.debug_window.kill()  # type: ignore[no-untyped-call]
+            self.debug_window = None
+            self.debug_text_box = None
+            self.ecs_inspector = None
+            self.debug_tabs = None
 
         self.debug_window = UIWindow(
-            rect=pygame.Rect(10, 60, 300, 200),
+            rect=pygame.Rect(10, 60, 650, 550),
             manager=self.manager,
             window_display_title="Debug Info",
             resizable=True,
         )
 
-        self.debug_text_box = UITextBox(
-            html_text="Debug info...",
-            relative_rect=pygame.Rect(10, 10, 260, 140),
+        self.debug_tabs = TabbedPanel(
+            relative_rect=pygame.Rect(5, 5, 630, 500),
             manager=self.manager,
             container=self.debug_window,
+            orientation="horizontal",
+            tab_button_size=(150, 30),
+        )
+
+        # Tab 1: General Info
+        tab1_id = self.debug_tabs.add_tab("General")
+        tab1_container = self.debug_tabs.tabs[tab1_id]["container"]
+
+        self.debug_text_box = UITextBox(
+            html_text="Debug info...",
+            relative_rect=pygame.Rect(
+                5,
+                5,
+                tab1_container.rect.width - 10,
+                tab1_container.rect.height - 10,
+            ),
+            manager=self.manager,
+            container=tab1_container,
             anchors={
                 "top": "top",
                 "bottom": "bottom",
                 "left": "left",
                 "right": "right",
             },
+        )
+
+        # Tab 2: ECS Inspector
+        tab2_id = self.debug_tabs.add_tab("ECS Inspector")
+        tab2_container = self.debug_tabs.tabs[tab2_id]["container"]
+
+        self.ecs_inspector = ECSInspector(
+            manager=self.manager,
+            container=tab2_container,
+            world=world,
+        )
+
+        # Tab 3: System Profiler
+        tab3_id = self.debug_tabs.add_tab("Profiler")
+        tab3_container = self.debug_tabs.tabs[tab3_id]["container"]
+
+        self.system_profiler = SystemProfiler(
+            manager=self.manager,
+            container=tab3_container,
+            world=world,
         )
 
     def close_debug_window(self) -> None:
@@ -421,6 +472,9 @@ class HudLayout:
             self.debug_window.kill()  # type: ignore[no-untyped-call]
             self.debug_window = None
             self.debug_text_box = None
+            self.ecs_inspector = None
+            self.system_profiler = None
+            self.debug_tabs = None
 
     def create_settings_window(
         self, current_settings: dict[str, Any] | UserSettings

@@ -84,6 +84,8 @@ def test_selection_toggles_inspected_flag(game_driver: GameDriver) -> None:
         patch("yukkuri_game.game.ui.hud_layout.UIWindow"),
         patch("yukkuri_game.game.ui.hud_layout.UIScrollingContainer"),
         patch("yukkuri_game.game.ui.hud_layout.NonBlockingTextBox"),
+        patch("yukkuri_game.game.ui.hud_layout.TabbedPanel"),
+        patch("yukkuri_game.game.ui.hud_layout.ECSInspector"),
         patch("yukkuri_game.game.ui.entity_info_panel.UIWindow"),
         patch("yukkuri_game.game.ui.entity_info_panel.TabbedPanel"),
         patch(
@@ -177,6 +179,8 @@ def test_hud_freeze_button_toggles_state(game_driver: GameDriver) -> None:
         patch("yukkuri_game.game.ui.hud_layout.UIWindow"),
         patch("yukkuri_game.game.ui.hud_layout.UIScrollingContainer"),
         patch("yukkuri_game.game.ui.hud_layout.NonBlockingTextBox"),
+        patch("yukkuri_game.game.ui.hud_layout.TabbedPanel"),
+        patch("yukkuri_game.game.ui.hud_layout.ECSInspector"),
         patch("yukkuri_game.game.ui.entity_info_panel.UIWindow"),
         patch("yukkuri_game.game.ui.entity_info_panel.TabbedPanel"),
         patch(

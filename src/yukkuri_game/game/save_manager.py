@@ -15,15 +15,15 @@ from loguru import logger
 from ..engine.ecs import World
 from ..engine.serializer import WorldSerializer
 from .components import YukkuriStats
-from yukkuri_game.engine.components import Transform
+from ..engine.components import Transform
 from .services import EconomyService
-from yukkuri_game.engine.services.time_service import TimeService
+from ..engine.services.time_service import TimeService
 from .ai.navigation_service import NavigationService
 from .skill_service import SkillService
 from .systems.physics_reconstruction import reconstruct_physics
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.camera import Camera
+    from ..engine.camera import Camera
 
 
 class SaveManager:

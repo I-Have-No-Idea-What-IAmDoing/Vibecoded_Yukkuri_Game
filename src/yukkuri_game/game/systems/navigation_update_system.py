@@ -10,9 +10,10 @@ from ...engine.event_bus import EventBus
 from ...engine.events import (
     ComponentAddedEvent,
     ComponentRemovedEvent,
+    EntityDestroyedEvent,
     WorldClearedEvent,
 )
-from yukkuri_game.engine.components import PhysicsBody
+from ...engine.components import PhysicsBody
 from ..ai.navigation_service import NavigationService
 
 
@@ -32,9 +33,13 @@ class NavigationUpdateSystem(System):
         """Initializes system and subscriptions."""
         self.event_bus = self.ecs_world.services.get(EventBus)
         self.nav_service = self.ecs_world.services.try_get(NavigationService)
+        self._obstacle_entities: set[int] = set()
 
         self.event_bus.subscribe(ComponentAddedEvent, self.on_component_added)
         self.event_bus.subscribe(ComponentRemovedEvent, self.on_component_removed)
+        self.event_bus.subscribe(
+            EntityDestroyedEvent, self.on_entity_destroyed
+        )
         self.event_bus.subscribe(WorldClearedEvent, self.on_world_cleared)
 
     def update(self, world: World, dt: float) -> None:
@@ -71,6 +76,19 @@ class NavigationUpdateSystem(System):
                 event.entity_id, cast(PhysicsBody, event.component), added=False
             )
 
+    def on_entity_destroyed(self, event: EntityDestroyedEvent) -> None:
+        """
+        Handles entity destruction to clean up any registered obstacles.
+
+        Args:
+            event (EntityDestroyedEvent): The event.
+        """
+        phys = self.ecs_world.try_get_component(event.entity_id, PhysicsBody)
+        if phys:
+            self._handle_body_update(
+                event.entity_id, phys, added=False
+            )
+
     def on_world_cleared(self, event: WorldClearedEvent) -> None:
         """
         Handles world cleared event.
@@ -78,6 +96,7 @@ class NavigationUpdateSystem(System):
         Args:
             event (WorldClearedEvent): The event.
         """
+        self._obstacle_entities.clear()
         if self.nav_service:
             self.nav_service.reset()
 
@@ -93,13 +112,36 @@ class NavigationUpdateSystem(System):
             added (bool): True if added, False if removed.
         """
         if not self.nav_service:
-            self.nav_service = self.ecs_world.services.try_get(NavigationService)
+            self.nav_service = self.ecs_world.services.try_get(
+                NavigationService
+            )
             if not self.nav_service:
                 return
 
-        # Only care about STATIC bodies (Walls, etc)
-        # Dynamic bodies (Yukkuris) are handled via steering/local avoidance.
-        if phys.body.body_type != pymunk.Body.STATIC:
+        # Determine if this is a dynamic obstacle item
+        is_static = phys.body.body_type == pymunk.Body.STATIC
+        is_obs_item = False
+
+        if added:
+            from ..components import ItemStats
+            stats = self.ecs_world.try_get_component(entity_id, ItemStats)
+            if stats:
+                from ...engine.resource_manager import ResourceManager
+                rm = self.ecs_world.services.try_get(ResourceManager)
+                if rm:
+                    data = rm.item_types.get(stats.type_id)
+                    if data:
+                        obs_type = data.obstacle_type
+                        if obs_type:
+                            is_obs_item = True
+                            self._obstacle_entities.add(entity_id)
+        else:
+            if entity_id in self._obstacle_entities:
+                is_obs_item = True
+                self._obstacle_entities.discard(entity_id)
+
+        # Only care about STATIC bodies or registered dynamic obstacle items
+        if not is_static and not is_obs_item:
             return
 
         # Get AABB of the shapes
@@ -117,11 +159,29 @@ class NavigationUpdateSystem(System):
             x = bb.left + w / 2
             y = bb.bottom + h / 2
 
+            # Determine obstacle type (LOW or HIGH)
+            obs_type_val = 1  # Default to HIGH
+            if is_obs_item:
+                from ..components import ItemStats
+                stats = self.ecs_world.try_get_component(entity_id, ItemStats)
+                if stats:
+                    from ...engine.resource_manager import ResourceManager
+                    rm = self.ecs_world.services.try_get(ResourceManager)
+                    if rm:
+                        data = rm.item_types.get(stats.type_id)
+                        if data:
+                            obs_str = data.obstacle_type
+                            if (
+                                isinstance(obs_str, str)
+                                and obs_str.upper() == "LOW"
+                            ):
+                                obs_type_val = 0  # LOW
+
             self.nav_service.update_obstacle_rect(
                 x,
                 y,
                 w,
                 h,
                 walkable=not added,
-                obstacle_type=1,  # HIGH (Blocks all)
+                obstacle_type=obs_type_val,
             )

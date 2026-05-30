@@ -18,7 +18,7 @@ Skill Integration:
 import math
 from typing import cast
 
-from yukkuri_game.engine.protocols import IAudioProvider
+from ...engine.protocols import IAudioProvider
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
 from ..components import (
@@ -29,7 +29,7 @@ from ..components import (
     Needs,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     Transform,
 )
 from ..skill_constants import SkillId

@@ -286,6 +286,61 @@
             "shape_corner_radius": "6,6,0,0"
         }
     },
+    "label.comp_header": {
+        "colours": {
+            "normal_text": "#bb9af7"
+        },
+        "font": {
+            "name": "fira_code,consolas,segoe_ui",
+            "size": "14",
+            "bold": "1"
+        }
+    },
+    "button.entity_list_button": {
+        "colours": {
+            "normal_bg": "#1a1b26",
+            "hovered_bg": "#24283b",
+            "selected_bg": "#3d59a1",
+            "normal_text": "#a9b1d6",
+            "hovered_text": "#ffffff",
+            "selected_text": "#ffffff"
+        },
+        "misc": {
+            "text_horiz_alignment": "left",
+            "shape_corner_radius": "4",
+            "border_width": "0"
+        }
+    },
+    "button.focus_button": {
+        "colours": {
+            "normal_bg": "#1a3a4a",
+            "hovered_bg": "#24556c",
+            "active_bg": "#2e708f",
+            "normal_border": "#2e708f",
+            "hovered_border": "#7dcfff",
+            "normal_text": "#7dcfff"
+        }
+    },
+    "button.select_button": {
+        "colours": {
+            "normal_bg": "#1d2a4a",
+            "hovered_bg": "#283f6c",
+            "active_bg": "#33538f",
+            "normal_border": "#33538f",
+            "hovered_border": "#7aa2f7",
+            "normal_text": "#7aa2f7"
+        }
+    },
+    "button.destroy_button": {
+        "colours": {
+            "normal_bg": "#4a1c1c",
+            "hovered_bg": "#6c2626",
+            "active_bg": "#8f3030",
+            "normal_border": "#8f3030",
+            "hovered_border": "#f7768e",
+            "normal_text": "#f7768e"
+        }
+    },
     "tooltip": {
         "colours": {
             "dark_bg": "#16161e",
@@ -296,6 +351,186 @@
             "shape_corner_radius": "4",
             "border_width": "1",
             "shadow_width": "4"
+        }
+    },
+    "button.comp_header_btn": {
+        "colours": {
+            "normal_bg": "#1f2335",
+            "hovered_bg": "#292e42",
+            "active_bg": "#3d59a1",
+            "selected_bg": "#1f2335",
+            "normal_border": "#414868",
+            "hovered_border": "#7aa2f7",
+            "normal_text": "#bb9af7",
+            "hovered_text": "#ffffff",
+            "selected_text": "#bb9af7"
+        },
+        "font": {
+            "name": "fira_code,consolas,segoe_ui",
+            "size": "14",
+            "bold": "1"
+        },
+        "misc": {
+            "text_horiz_alignment": "left",
+            "shape_corner_radius": "4",
+            "border_width": "1",
+            "shadow_width": "0"
+        }
+    },
+    "button.quick_filter_pill": {
+        "colours": {
+            "normal_bg": "#16161e",
+            "hovered_bg": "#24283b",
+            "active_bg": "#3d59a1",
+            "selected_bg": "#7aa2f7",
+            "normal_text": "#a9b1d6",
+            "hovered_text": "#ffffff",
+            "selected_text": "#1a1b26",
+            "normal_border": "#292e42",
+            "hovered_border": "#7aa2f7",
+            "selected_border": "#bb9af7"
+        },
+        "misc": {
+            "shape_corner_radius": "10",
+            "border_width": "1",
+            "shadow_width": "0"
+        }
+    },
+    "button.live_track_btn": {
+        "colours": {
+            "normal_bg": "#1a2a1a",
+            "hovered_bg": "#244024",
+            "active_bg": "#2e5a2e",
+            "selected_bg": "#4ece4e",
+            "normal_text": "#7dcf7d",
+            "hovered_text": "#ffffff",
+            "selected_text": "#112211",
+            "normal_border": "#2e5a2e",
+            "hovered_border": "#7dcf7d",
+            "selected_border": "#9ece6a"
+        },
+        "misc": {
+            "shape_corner_radius": "6",
+            "border_width": "1",
+            "shadow_width": "0"
+        }
+    },
+    "label.editor_status": {
+        "colours": {
+            "normal_text": "#73daca"
+        },
+        "font": {
+            "name": "fira_code,consolas,segoe_ui",
+            "size": "13",
+            "bold": "0",
+            "italic": "1"
+        }
+    },
+    "button.profile_toggle": {
+        "colours": {
+            "normal_bg": "#2a1a1a",
+            "hovered_bg": "#402424",
+            "active_bg": "#5a2e2e",
+            "selected_bg": "#f7768e",
+            "normal_text": "#f7768e",
+            "hovered_text": "#ffffff",
+            "selected_text": "#1a1b26",
+            "normal_border": "#5a2e2e",
+            "hovered_border": "#f7768e",
+            "selected_border": "#bb9af7"
+        },
+        "misc": {
+            "shape_corner_radius": "6",
+            "border_width": "1",
+            "shadow_width": "0"
+        }
+    },
+    "button.budget_target_btn": {
+        "colours": {
+            "normal_bg": "#1d2a4a",
+            "hovered_bg": "#283f6c",
+            "active_bg": "#33538f",
+            "normal_text": "#7aa2f7",
+            "hovered_text": "#ffffff",
+            "normal_border": "#33538f",
+            "hovered_border": "#7aa2f7"
+        },
+        "misc": {
+            "shape_corner_radius": "6",
+            "border_width": "1",
+            "shadow_width": "0"
+        }
+    },
+    "panel.budget_bg": {
+        "colours": {
+            "dark_bg": "#16161e",
+            "normal_border": "#292e42"
+        },
+        "misc": {
+            "shape_corner_radius": "4",
+            "border_width": "1"
+        }
+    },
+    "panel.budget_green": {
+        "colours": {
+            "dark_bg": "#73daca",
+            "normal_border": "#00000000"
+        },
+        "misc": {
+            "shape_corner_radius": "4",
+            "border_width": "0"
+        }
+    },
+    "panel.budget_yellow": {
+        "colours": {
+            "dark_bg": "#e0af68",
+            "normal_border": "#00000000"
+        },
+        "misc": {
+            "shape_corner_radius": "4",
+            "border_width": "0"
+        }
+    },
+    "panel.budget_red": {
+        "colours": {
+            "dark_bg": "#f7768e",
+            "normal_border": "#00000000"
+        },
+        "misc": {
+            "shape_corner_radius": "4",
+            "border_width": "0"
+        }
+    },
+    "label.system_hot": {
+        "colours": {
+            "normal_text": "#f7768e"
+        },
+        "font": {
+            "name": "fira_code,consolas,segoe_ui",
+            "size": "14",
+            "bold": "1"
+        }
+    },
+    "window.#developer_console": {
+        "colours": {
+            "dark_bg": "#1a1b26ea",
+            "normal_border": "#7aa2f7"
+        }
+    },
+    "text_box.console_output": {
+        "colours": {
+            "dark_bg": "#16161ebb",
+            "normal_text": "#c0caf5"
+        },
+        "font": {
+            "name": "fira_code,consolas,segoe_ui",
+            "size": "13"
+        }
+    },
+    "text_entry.console_input": {
+        "colours": {
+            "dark_bg": "#1f2335",
+            "normal_text": "#7aa2f7"
         }
     }
 }

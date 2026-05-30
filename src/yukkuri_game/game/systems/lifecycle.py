@@ -38,7 +38,7 @@ from ..components import (
     Needs,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     PhysicsBody,
     Sprite,
     Transform,

@@ -2,13 +2,13 @@
 Occluder Pass.
 """
 
-from yukkuri_game.engine.renderer.commands import OccluderCommand
-from yukkuri_game.engine.renderer.geometry_utils import GeometryUtils
-from yukkuri_game.engine.components import Occluder
-from yukkuri_game.engine.components import Sprite
-from yukkuri_game.engine.components import PhysicsBody
-from yukkuri_game.engine.components import LightSource
-from yukkuri_game.game.systems.rendering.context import RenderContext
+from .....engine.renderer.commands import OccluderCommand
+from .....engine.renderer.geometry_utils import GeometryUtils
+from .....engine.components import Occluder
+from .....engine.components import Sprite
+from .....engine.components import PhysicsBody
+from .....engine.components import LightSource
+from .....game.systems.rendering.context import RenderContext
 
 
 LAYER_BACKGROUND = 0

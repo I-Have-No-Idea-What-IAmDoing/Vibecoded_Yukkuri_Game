@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pygame
 
 from ..components import AIState, Blackboard, MoveCommand
-from yukkuri_game.engine.components import Transform
+from ...engine.components import Transform
 
 if TYPE_CHECKING:
     from ...engine.ecs import World
@@ -29,7 +29,7 @@ class AIDebugRenderer:
         Args:
             world (World): The ECS World instance to fetch services from.
         """
-        from yukkuri_game.engine.camera import Camera
+        from ...engine.camera import Camera
         self.camera = world.services.get(Camera)
         self.enabled = False
         self.font = pygame.font.SysFont("Arial", 12)
@@ -68,8 +68,8 @@ class AIDebugRenderer:
 
     def _draw_ai_interactions(self, surface: pygame.Surface, world: "World") -> None:
         """Draws overhead statuses, colliders, destinations, and target lines."""
-        from yukkuri_game.engine.components import PhysicsBody
-        from yukkuri_game.game.components import SteeringComponent
+        from ...engine.components import PhysicsBody
+        from ...game.components import SteeringComponent
 
         current_time = world.time
 

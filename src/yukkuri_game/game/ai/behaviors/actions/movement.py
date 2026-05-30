@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Any, cast
 import pymunk
 from py_trees.common import Status
 
-from yukkuri_game.engine import rng
-from yukkuri_game.engine.types import EntityID
+from .....engine import rng
+from .....engine.types import EntityID
 
 from ....components import (
     AIState,
@@ -21,7 +21,7 @@ from ....components import (
     Predator,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from .....engine.components import (
     Flight,
     FlightState,
     MovementController,
@@ -32,7 +32,7 @@ from ...navigation_controller import NavigationController
 
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.ecs import World
+    from .....engine.ecs import World
 
 WAYPOINT_ACCEPTANCE_RADIUS = 20.0
 LOW_ENERGY_THRESHOLD = 30.0
@@ -80,6 +80,8 @@ class MoveToTarget(Action):
         """
         super().update()
         if self.world is None or self.entity_id is None:
+            from loguru import logger
+            logger.error("MoveToTarget: world or entity_id is None")
             return Status.FAILURE
 
         ai = self.world.try_get_component(self.entity_id, AIState)
@@ -90,6 +92,12 @@ class MoveToTarget(Action):
         )
 
         if ai is None or trans is None or needs is None or controller is None:
+            from loguru import logger
+            logger.error(
+                f"MoveToTarget: Missing component for entity {self.entity_id}: "
+                f"ai={ai is not None}, trans={trans is not None}, "
+                f"needs={needs is not None}, controller={controller is not None}"
+            )
             return Status.FAILURE
 
         # Determine Target Position
@@ -129,12 +137,32 @@ class MoveToTarget(Action):
             )
 
         if target_pos is None:
+            from loguru import logger
+            logger.error(
+                f"MoveToTarget: target_pos is None for entity {self.entity_id}! "
+                f"current_target_id={ai.current_target_id}, "
+                f"state_data={ai.state_data}"
+            )
             controller.target_velocity = pymunk.Vec2d(0, 0)
             if self.world.has_component(self.entity_id, MoveCommand):
                 self.world.commands.remove_component(
                     self.entity_id, MoveCommand
                 )
             return Status.FAILURE
+
+        from ...commands import CommandType
+
+        self.publish_command(
+            CommandType.MOVE_TO,
+            {
+                "target_x": target_pos.x,
+                "target_y": target_pos.y,
+                "target_entity_id": (
+                    ai.current_target_id if ai.current_target_id != -1 else None
+                ),
+                "acceptance_radius": self.acceptance_radius,
+            },
+        )
 
         return NavigationController.navigate_to(
             world=self.world,
@@ -220,10 +248,88 @@ class Wander(Action):
         if self.world is None or self.entity_id is None:
             return
 
+        from .....config import GameConfig
+        config = self.world.services.try_get(GameConfig)
+        default_w = float(config.world.width) if config else 3000.0
+        default_h = float(config.world.height) if config else 3000.0
+
+        w = (
+            float(self.width)
+            if (self.width is not None and self.width > 0)
+            else default_w
+        )
+        h = (
+            float(self.height)
+            if (self.height is not None and self.height > 0)
+            else default_h
+        )
+
+        # Robust defensive bounds safety fallback
+        if w < 100.0:
+            w = 3000.0
+        if h < 100.0:
+            h = 3000.0
+
         ai = self.world.try_get_component(self.entity_id, AIState)
+        trans = self.world.try_get_component(self.entity_id, Transform)
+
         if ai:
-            tx = rng.uniform(0, self.width)
-            ty = rng.uniform(0, self.height)
+            from .....game.ai.navigation_constants import (
+                TraversalCapability,
+            )
+            from .....game.ai.navigation_service import (
+                NavigationService,
+            )
+
+            nav_service = self.world.services.try_get(NavigationService)
+
+            tx, ty = 0.0, 0.0
+            found_target = False
+
+            # Try up to 20 times to find a walkable wander target cell
+            for _ in range(20):
+                cand_x = rng.uniform(0.0, w)
+                cand_y = rng.uniform(0.0, h)
+
+                # Ensure generated target is at a safe minimum distance
+                if trans:
+                    curr_pos = pymunk.Vec2d(trans.x, trans.y)
+                    target_pos = pymunk.Vec2d(cand_x, cand_y)
+                    min_dist = self.acceptance_radius + 50.0
+                    if (target_pos - curr_pos).length < min_dist:
+                        # Jitter/shift the target away in a random direction
+                        angle = rng.uniform(0.0, 2.0 * math.pi)
+                        shift_dir = pymunk.Vec2d(
+                            math.cos(angle), math.sin(angle)
+                        )
+                        shift_dist = min_dist + rng.uniform(10.0, 50.0)
+                        new_pos = curr_pos + shift_dir * shift_dist
+                        # Clamp to world bounds
+                        cand_x = max(0.0, min(new_pos.x, w))
+                        cand_y = max(0.0, min(new_pos.y, h))
+
+                if nav_service:
+                    gx = int(round(cand_x / nav_service.grid_step_size))
+                    gy = int(round(cand_y / nav_service.grid_step_size))
+                    gx = max(0, min(gx, nav_service.grid.width - 1))
+                    gy = max(0, min(gy, nav_service.grid.height - 1))
+
+                    if nav_service.grid.is_walkable(
+                        gx, gy, TraversalCapability.WALK
+                    ):
+                        tx, ty = cand_x, cand_y
+                        found_target = True
+                        break
+                else:
+                    tx, ty = cand_x, cand_y
+                    found_target = True
+                    break
+
+            if not found_target:
+                # Fallback if no walkable cell found in 20 attempts
+                tx = rng.uniform(0.0, w)
+                ty = rng.uniform(0.0, h)
+
             ai.state_data = {"target_x": tx, "target_y": ty}
             ai.path = None
             ai.current_target_id = EntityID(-1)
@@ -385,15 +491,22 @@ class FleePredator(Action):
             )
             if flee_vec.length > 0:
                 flee_vec = flee_vec.normalized() * self.speed
-                controller.target_velocity = flee_vec
+
+                from ...commands import CommandType
+
+                published = self.publish_command(
+                    CommandType.FLEE,
+                    {
+                        "velocity_x": flee_vec.x,
+                        "velocity_y": flee_vec.y,
+                    },
+                )
+                if not published:
+                    controller.target_velocity = flee_vec
 
                 ai = self.world.try_get_component(self.entity_id, AIState)
                 if ai:
                     ai.path = None
-
-                # Critical: Remove conflicting MoveCommands so SteeringSystem doesn't override us
-                if self.world.has_component(self.entity_id, MoveCommand):
-                    self.world.commands.remove_component(self.entity_id, MoveCommand)
 
                 return Status.RUNNING
 
@@ -480,8 +593,51 @@ class FleeFromTarget(Action):
         dx /= dist
         dy /= dist
 
-        run_x = trans.x - (dx * self.flee_dist)
-        run_y = trans.y - (dy * self.flee_dist)
+        # Base flee direction (directly away from threat)
+        flee_dir = -pymunk.Vec2d(dx, dy)
+
+        # Try a few angles: 0, +15, -15, +30, -30, +45, -45 degrees (in radians)
+        angles_to_try = [0.0, 0.26, -0.26, 0.52, -0.52, 0.78, -0.78]
+
+        from .....config import GameConfig
+        config = self.world.services.try_get(GameConfig)
+        w = float(config.world.width) if config else 3000.0
+        h = float(config.world.height) if config else 3000.0
+
+        from .....game.ai.navigation_constants import (
+            TraversalCapability,
+            )
+        from .....game.ai.navigation_service import NavigationService
+
+        nav_service = self.world.services.try_get(NavigationService)
+
+        run_x = trans.x + flee_dir.x * self.flee_dist
+        run_y = trans.y + flee_dir.y * self.flee_dist
+        run_x = max(0.0, min(run_x, w))
+        run_y = max(0.0, min(run_y, h))
+
+        for angle in angles_to_try:
+            cand_dir = flee_dir.rotated(angle)
+            candidate_x = trans.x + cand_dir.x * self.flee_dist
+            candidate_y = trans.y + cand_dir.y * self.flee_dist
+
+            candidate_x = max(0.0, min(candidate_x, w))
+            candidate_y = max(0.0, min(candidate_y, h))
+
+            if nav_service:
+                gx = int(round(candidate_x / nav_service.grid_step_size))
+                gy = int(round(candidate_y / nav_service.grid_step_size))
+                gx = max(0, min(gx, nav_service.grid.width - 1))
+                gy = max(0, min(gy, nav_service.grid.height - 1))
+
+                if nav_service.grid.is_walkable(
+                    gx, gy, TraversalCapability.WALK
+                ):
+                    run_x, run_y = candidate_x, candidate_y
+                    break
+            else:
+                run_x, run_y = candidate_x, candidate_y
+                break
 
         ai.state_data = {"target_x": run_x, "target_y": run_y}
         ai.path = None

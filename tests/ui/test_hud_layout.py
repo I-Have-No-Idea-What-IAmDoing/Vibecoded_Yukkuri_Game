@@ -40,6 +40,11 @@ class TestHudLayout:
         )
         monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UIWindow", MagicMock())
         monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.UITextBox", MagicMock())
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.TabbedPanel", MagicMock())
+        monkeypatch.setattr("yukkuri_game.game.ui.hud_layout.ECSInspector", MagicMock())
+        monkeypatch.setattr(
+            "yukkuri_game.game.ui.hud_layout.SystemProfiler", MagicMock()
+        )
         monkeypatch.setattr(
             "yukkuri_game.game.ui.hud_layout.UIHorizontalSlider", MagicMock()
         )
@@ -95,7 +100,7 @@ class TestHudLayout:
             MockInfoPanel.return_value.show.assert_called_once()
 
     def test_create_debug_window(self, layout):
-        layout.create_debug_window()
+        layout.create_debug_window(MagicMock())
         assert layout.debug_window is not None
         assert layout.debug_text_box is not None
 

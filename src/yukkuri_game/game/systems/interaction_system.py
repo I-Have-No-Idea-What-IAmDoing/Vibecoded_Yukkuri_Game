@@ -21,7 +21,7 @@ from typing import cast
 
 from loguru import logger
 
-from yukkuri_game.engine.protocols import IAudioProvider
+from ...engine.protocols import IAudioProvider
 from ...engine.ecs import System, World
 from ...engine.types import EntityID
 from ..components import (
@@ -33,7 +33,7 @@ from ..components import (
     Predator,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     Transform,
 )
 from ..prefabs.effects import create_floating_text

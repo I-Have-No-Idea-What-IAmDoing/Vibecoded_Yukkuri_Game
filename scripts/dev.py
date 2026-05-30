@@ -47,9 +47,15 @@ def main() -> int:
         if not any(arg.startswith("--log-level") for arg in game_args):
             game_args.extend(["--log-level", "DEBUG"])
 
-    # Prepare environment with PYTHONFAULTHANDLER
+    # Prepare environment with PYTHONFAULTHANDLER and correct PYTHONPATH
     env = os.environ.copy()
     env["PYTHONFAULTHANDLER"] = "1"
+    
+    src_dir = str(Path(__file__).parent.parent / "src")
+    if "PYTHONPATH" in env and env["PYTHONPATH"]:
+        env["PYTHONPATH"] = f"{src_dir}{os.path.pathsep}{env['PYTHONPATH']}"
+    else:
+        env["PYTHONPATH"] = src_dir
 
     print("=" * 60)
     print("Starting Yukkuri Raising Game in development mode...")
@@ -73,10 +79,10 @@ def main() -> int:
             "-o",
             str(prof_path),
             "-m",
-            "src.yukkuri_game.main",
+            "yukkuri_game.main",
         ] + game_args
     else:
-        cmd = [sys.executable, "-m", "src.yukkuri_game.main"] + game_args
+        cmd = [sys.executable, "-m", "yukkuri_game.main"] + game_args
 
     try:
         result = subprocess.run(cmd, env=env, check=False)

@@ -2,7 +2,7 @@
 Module defining the HUD logic.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pygame
 import pygame_gui
@@ -26,6 +26,7 @@ from ..systems.navigation_debug_renderer import NavigationDebugRenderer
 from ..systems.physics_debug_renderer import PhysicsDebugRenderer
 from ..components import AIState, YukkuriStats
 from .context_menu import ContextMenu
+from .developer_console import DeveloperConsole
 from .hud_events import HudEvents
 
 # Import new components
@@ -71,6 +72,7 @@ class HUD:
         """
         self.manager = ui_manager
         self.world = world
+        self.scene: Any = None
         self.event_bus = world.services.get(EventBus)
         rm = world.services.get(ResourceManager)
 
@@ -101,6 +103,10 @@ class HUD:
         self.navigation_debug_renderer: NavigationDebugRenderer | None = None
         self.ai_debug_renderer: AIDebugRenderer | None = None
         self.physics_debug_renderer: PhysicsDebugRenderer | None = None
+        self.developer_console: DeveloperConsole | None = DeveloperConsole(
+            self.manager, self.world, self
+        )
+        self.world.services.register(self, HUD)
 
         self.log_history: list[LogMessageEvent] = [
             LogMessageEvent(
@@ -147,6 +153,11 @@ class HUD:
 
         if self.inventory_panel:
             self.inventory_panel.close()
+
+        if self.developer_console:
+            self.developer_console.close()
+
+        self.world.services.unregister(HUD)
 
     def resize(self, width: int, height: int) -> None:
         """
@@ -376,11 +387,21 @@ class HUD:
         """
         self.show_debug = not self.show_debug
         if self.show_debug:
-            self.layout.create_debug_window()
+            self.layout.create_debug_window(self.world)
         else:
             self.layout.close_debug_window()
 
         self._rebuild_log_box_content()
+
+    def toggle_console(self) -> None:
+        """
+        Toggles the visibility of the developer console.
+        """
+        if self.developer_console:
+            if self.developer_console.is_open():
+                self.developer_console.close()
+            else:
+                self.developer_console.open()
 
     def toggle_lighting_debug(self) -> None:
         """Toggles lighting debug visuals."""
@@ -438,6 +459,27 @@ class HUD:
         Args:
             event (pygame.event.Event): The Pygame event to process.
         """
+        # Handle Developer Console Events
+        if (
+            self.developer_console
+            and self.developer_console.process_event(event)
+        ):
+            return
+
+        # Handle ECS Inspector Events
+        if (
+            self.layout.ecs_inspector
+            and self.layout.ecs_inspector.process_event(event)
+        ):
+            return
+
+        # Handle System Profiler Events
+        if (
+            self.layout.system_profiler
+            and self.layout.system_profiler.process_event(event)
+        ):
+            return
+
         # Handle Context Menu Events
         if self.context_menu.process_event(event):
             return

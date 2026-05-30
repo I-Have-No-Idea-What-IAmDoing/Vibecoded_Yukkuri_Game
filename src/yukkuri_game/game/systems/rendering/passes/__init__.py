@@ -15,7 +15,7 @@ from .occluder_pass import OccluderPass
 from .ui_pass import UIPass
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.rendering.pipeline import RenderPipeline
+    from .....engine.rendering.pipeline import RenderPipeline
 
 
 __all__ = [
@@ -41,7 +41,7 @@ def create_gameplay_pipeline() -> "RenderPipeline":
     Returns:
         RenderPipeline: A fully configured pipeline for gameplay scenes.
     """
-    from yukkuri_game.engine.rendering.pipeline import RenderPipeline
+    from .....engine.rendering.pipeline import RenderPipeline
 
     return RenderPipeline(
         [

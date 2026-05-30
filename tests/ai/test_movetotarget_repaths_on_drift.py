@@ -107,8 +107,10 @@ class TestMoveToTargetDrift(unittest.TestCase):
             self.assertFalse(ai.state_data["pursuit_repath"])
         except Exception as e:
             import traceback
+            import tempfile
 
-            with open("test_fail.log", "w") as f:
+            log_path = os.path.join(tempfile.gettempdir(), "test_fail.log")
+            with open(log_path, "w") as f:
                 traceback.print_exc(file=f)
             raise e
 

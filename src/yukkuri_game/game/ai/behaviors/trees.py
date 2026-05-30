@@ -8,7 +8,7 @@ from ...components import (
     ItemStats,
     Predator,
 )
-from yukkuri_game.engine.components import Flight
+from ....engine.components import Flight
 from ..utility_selector import UtilitySelector
 from .actions.basic import Check, CheckEmotion, Idle
 from .actions.interaction import EatPrey, Interact, SocialInteract
@@ -24,7 +24,7 @@ from .actions.searching import (
 from .actions.survival import CalmAtLight, Sleep
 
 if TYPE_CHECKING:
-    from yukkuri_game.engine.ecs import World
+    from ....engine.ecs import World
 
 
 class ActionFailureTracker(py_trees.decorators.Decorator):
@@ -396,7 +396,7 @@ def build_standard_interaction_behavior(
             ai = world.try_get_component(entity_id, AIState)
             if not ai or ai.current_target_id == -1:
                 return False
-            from yukkuri_game.engine.components import Transform
+            from ....engine.components import Transform
 
             return world.has_component(ai.current_target_id, Transform)
 
@@ -476,7 +476,7 @@ def create_yukkuri_behavior_tree(
         ai = world.try_get_component(entity_id, AIState)
         if not ai or ai.current_target_id == -1:
             return False
-        from yukkuri_game.engine.components import Transform
+        from ....engine.components import Transform
 
         has_trans = world.has_component(ai.current_target_id, Transform)
         if not has_trans:

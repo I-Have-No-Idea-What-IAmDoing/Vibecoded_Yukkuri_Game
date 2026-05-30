@@ -28,12 +28,12 @@ from ..components import (
     RelationshipRegistry,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     Transform,
 )
 from ..events import SocialInteractionEvent
 from ..trait_service import TraitService
-from yukkuri_game.engine.protocols import IPhysicsService, ISpatialService
+from ...engine.protocols import IPhysicsService, ISpatialService
 
 
 class GossipSystem(System):

@@ -200,7 +200,7 @@ class GameplayScene(Scene):
         else:
             sim_dt = 0.0
         self.world.update(sim_dt)
-        self.camera.update(dt)
+        self.camera.update(dt, self.world)
         self.event_manager.process_phase(GamePhase.POST_UPDATE)
         self.renderer_manager.update(dt)
 

@@ -6,7 +6,7 @@ from the UtilitySelector, promoting separation of concerns.
 
 from typing import Any, TYPE_CHECKING
 
-from yukkuri_game.engine.services.time_service import TimeService
+from ...engine.services.time_service import TimeService
 from ..trait_service import TraitService
 from ..components import (
     Blackboard,
@@ -17,7 +17,7 @@ from ..components import (
     Skills,
     YukkuriStats,
 )
-from yukkuri_game.engine.components import Transform
+from ...engine.components import Transform
 
 
 if TYPE_CHECKING:
@@ -87,8 +87,8 @@ class UtilityContextBuilder:
 
         # 3b. Environment (Lights)
         nearby_lights = 0.0
-        from yukkuri_game.engine.components import LightSource
-        from yukkuri_game.engine.protocols import ISpatialService
+        from ...engine.components import LightSource
+        from ...engine.protocols import ISpatialService
         spatial_service = world.services.try_get(ISpatialService)
         if spatial_service and trans:
             best_light = spatial_service.get_nearest_entity(

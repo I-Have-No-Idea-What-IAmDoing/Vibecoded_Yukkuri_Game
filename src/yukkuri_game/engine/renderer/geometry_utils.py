@@ -5,7 +5,7 @@ Geometry Utilities Module.
 import math
 
 import pymunk
-from yukkuri_game.engine.components import Occluder, PhysicsBody, Sprite, Transform
+from ...engine.components import Occluder, PhysicsBody, Sprite, Transform
 
 
 class GeometryUtils:

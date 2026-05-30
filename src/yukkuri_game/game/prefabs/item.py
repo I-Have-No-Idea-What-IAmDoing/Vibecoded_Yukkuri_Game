@@ -14,7 +14,7 @@ from ..components import (
     ItemStats,
     Poop,
 )
-from yukkuri_game.engine.components import (
+from ...engine.components import (
     FlickerStyle,
     LightSource,
     Occluder,
@@ -26,7 +26,7 @@ from yukkuri_game.engine.components import (
     Transform,
     VisualTransform,
 )
-from yukkuri_game.engine.protocols import IPhysicsService
+from ...engine.protocols import IPhysicsService
 from ..utils.animation_helpers import build_animator_from_data
 
 

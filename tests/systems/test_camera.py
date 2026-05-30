@@ -420,3 +420,76 @@ class TestCameraFallback:
         system.ecs_world = object()  # mock world
         locator.register(system, MockSystem, replace=True)
         assert system.initialized_count == 1
+
+
+class TestCameraFollowing:
+    """Tests for camera tracking and entity following."""
+
+    def test_initial_tracked_entity_is_none(self) -> None:
+        """Camera starts with no tracked entity."""
+        camera = Camera()
+        assert camera.tracked_entity_id is None
+
+    def test_camera_update_centers_on_tracked_entity(self) -> None:
+        """Camera updates position smoothly to follow tracked entity."""
+        from yukkuri_game.engine.ecs import World
+        from yukkuri_game.engine.components import Transform
+
+        world = World()
+        camera = Camera()
+        camera.camera_x = 0.0
+        camera.camera_y = 0.0
+
+        # Create a mock tracked entity
+        entity = world.create_entity()
+        trans = Transform(x=100.0, y=50.0)
+        world.add_component(entity, trans)
+
+        camera.tracked_entity_id = entity
+
+        # Update camera with world
+        camera.update(0.1, world)
+
+        # Camera should have moved closer to (100.0, 50.0)
+        assert camera.camera_x > 0.0
+        assert camera.camera_y > 0.0
+        assert camera.camera_x < 100.0
+        assert camera.camera_y < 50.0
+
+    def test_camera_update_clears_tracking_on_missing_entity(self) -> None:
+        """Camera clears tracked_entity_id if entity is destroyed."""
+        from yukkuri_game.engine.ecs import World
+
+        world = World()
+        camera = Camera()
+        camera.tracked_entity_id = 9999  # Non-existent ID
+
+        camera.update(0.1, world)
+
+        assert camera.tracked_entity_id is None
+
+    def test_camera_input_clears_tracking(self) -> None:
+        """User camera keyboard input breaks the entity tracking lock."""
+        from yukkuri_game.engine.ecs import World
+        from yukkuri_game.engine.components import Transform
+
+        world = World()
+        camera = Camera()
+        entity = world.create_entity()
+        world.add_component(entity, Transform(x=100.0, y=50.0))
+
+        camera.tracked_entity_id = entity
+        camera.set_axis(1.0, 0.0)  # Keyboard input active
+
+        camera.update(0.1, world)
+
+        assert camera.tracked_entity_id is None
+
+    def test_camera_pan_clears_tracking(self) -> None:
+        """User middle mouse panning breaks the entity tracking lock."""
+        camera = Camera()
+        camera.tracked_entity_id = 1234
+        camera.pan(10, 10)
+
+        assert camera.tracked_entity_id is None
+

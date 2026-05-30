@@ -2,7 +2,11 @@
 Module handling the game camera.
 """
 
+from typing import TYPE_CHECKING
 from ..config import WorldSettings
+
+if TYPE_CHECKING:
+    from .ecs import World
 
 
 class Camera:
@@ -35,6 +39,7 @@ class Camera:
         self.camera_y = 0.0
         self.zoom = 1.0
         self.target_zoom = 1.0
+        self.tracked_entity_id: int | None = None
 
         # Previous state for interpolation
         self.prev_camera_x = 0.0
@@ -182,6 +187,7 @@ class Camera:
         self.camera_y = 0.0
         self.zoom = 1.0
         self.target_zoom = 1.0
+        self.tracked_entity_id = None
         self.prev_camera_x = 0.0
         self.prev_camera_y = 0.0
         self.prev_zoom = 1.0
@@ -189,7 +195,7 @@ class Camera:
         self.input_axis_y = 0.0
         self.zoom_axis = 0.0
 
-    def update(self, dt: float) -> None:
+    def update(self, dt: float, world: "World | None" = None) -> None:
         """
         Updates the camera state each frame.
 
@@ -199,6 +205,7 @@ class Camera:
 
         Args:
             dt (float): Delta time.
+            world (World | None): Optional active ECS World.
         """
         # Save previous state for interpolation
         self.prev_camera_x = self.camera_x
@@ -206,6 +213,18 @@ class Camera:
         self.prev_zoom = self.zoom
 
         # Apply keyboard movement from axis state
+        if self.input_axis_x != 0.0 or self.input_axis_y != 0.0:
+            self.tracked_entity_id = None
+
+        if self.tracked_entity_id is not None and world is not None:
+            from .components import Transform
+            trans = world.try_get_component(self.tracked_entity_id, Transform)
+            if trans:
+                self.camera_x += (trans.x - self.camera_x) * 5.0 * dt
+                self.camera_y += (trans.y - self.camera_y) * 5.0 * dt
+            else:
+                self.tracked_entity_id = None
+
         speed = 500.0 * dt / self.zoom
         self.camera_x += self.input_axis_x * speed
         self.camera_y += self.input_axis_y * speed
@@ -270,5 +289,6 @@ class Camera:
             dx (int): Horizontal pixel delta.
             dy (int): Vertical pixel delta.
         """
+        self.tracked_entity_id = None
         self.camera_x -= dx / self.zoom
         self.camera_y -= dy / self.zoom

@@ -1,5 +1,4 @@
 import unittest
-import time
 import sys
 import os
 import pymunk
@@ -146,7 +145,7 @@ class TestPredatorMovingTarget(unittest.TestCase):
                 # Logic Tick
                 self.visibility_system.update(self.world, dt)
 
-                status = move_action.update()
+                move_action.update()
                 try:
                     move_action.world.commands.apply_all()
                 except AttributeError:
@@ -187,8 +186,10 @@ class TestPredatorMovingTarget(unittest.TestCase):
             )
         except Exception as e:
             import traceback
+            import tempfile
 
-            with open("integration_fail.log", "w") as f:
+            log_path = os.path.join(tempfile.gettempdir(), "integration_fail.log")
+            with open(log_path, "w") as f:
                 traceback.print_exc(file=f)
             raise e
 

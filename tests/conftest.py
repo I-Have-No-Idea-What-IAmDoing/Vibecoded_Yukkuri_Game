@@ -6,6 +6,7 @@ import sys
 import os
 import gc
 import pytest
+import esper
 from unittest.mock import MagicMock
 
 # 1. Setup Path
@@ -47,7 +48,7 @@ from yukkuri_game.testing.environment import test_environment
 
 
 @pytest.fixture
-def game_driver() -> GameDriver:
+def game_driver(request) -> GameDriver:
     """
     Fixture that yields a GameDriver controlling a fresh YukkuriGame
     inside a headless environment.
@@ -71,6 +72,11 @@ def game_driver() -> GameDriver:
         driver.setup()
         yield driver
 
+        import sys
+        if sys.exc_info()[0] is not None:
+            # Test failed! Dump all diagnostics safely
+            driver.dump_failure_diagnostics(request.node.name)
+
         driver.cleanup()
         pygame.quit()
         gc.collect()
@@ -84,8 +90,25 @@ def pytest_sessionstart(session):
     os.environ["SDL_VIDEODRIVER"] = "dummy"
     os.environ["SDL_AUDIODRIVER"] = "dummy"
 
+    # Suppress verbose log spam in console during tests
+    from loguru import logger
+    import sys
 
-import esper
+    logger.remove()
+    logger.add(
+        sys.stderr,
+        level="WARNING",
+        colorize=True,
+        format=(
+            "<green>{time:HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{name}</cyan>:<cyan>{line}</cyan> — "
+            "<level>{message}</level>"
+        ),
+    )
+
+
+
 
 @pytest.fixture(autouse=True)
 def cleanup_game_state():
@@ -112,46 +135,4 @@ def cleanup_game_state():
     # 2. Force Garbage Collection to clear cyclic references (Events -> Handlers -> Entities).
     gc.collect()
 
-
-# ---------------------------------------------------------------------------
-# Shared helper utilities for system tests
-# ---------------------------------------------------------------------------
-
-def make_configured_world(
-    stat_decay_settings=None,
-    lifecycle_settings=None,
-    world_width: int = 1000,
-    world_height: int = 1000,
-):
-    """
-    Creates a World pre-loaded with mock GameConfig and EventBus services.
-
-    This is the standard setup for unit-testing systems that now fetch their
-    dependencies via initialize() rather than __init__ arguments.
-
-    Args:
-        stat_decay_settings: Optional StatDecaySettings instance.
-        lifecycle_settings: Optional LifecycleSettings instance.
-        world_width: World grid width for BehaviorSystem.
-        world_height: World grid height for BehaviorSystem.
-
-    Returns:
-        World: Configured World instance.
-    """
-    from yukkuri_game.engine.ecs import World
-    from yukkuri_game.engine.event_bus import EventBus
-    from yukkuri_game.config import GameConfig, StatDecaySettings, LifecycleSettings
-
-    world = World()
-    mock_event_bus = MagicMock(spec=EventBus)
-    world.services.register(mock_event_bus, EventBus)
-
-    config = MagicMock(spec=GameConfig)
-    config.rules.stat_decay = stat_decay_settings or StatDecaySettings()
-    config.rules.lifecycle = lifecycle_settings or LifecycleSettings()
-    config.world.width = world_width
-    config.world.height = world_height
-    world.services.register(config, GameConfig)
-
-    return world
 

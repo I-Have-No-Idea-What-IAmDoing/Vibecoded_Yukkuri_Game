@@ -5,7 +5,7 @@ from yukkuri_game.engine.application import Application
 from yukkuri_game.testing.driver import GameDriver
 
 
-def test_headless_mode(game_driver: GameDriver):
+def test_headless_mode(game_driver: GameDriver, tmp_path):
     """
     Verifies that the headless mode infrastructure works correctly.
     """
@@ -28,7 +28,7 @@ def test_headless_mode(game_driver: GameDriver):
     assert game_driver.frame_count > 0
 
     # Test Screenshot capability
-    screenshot_path = "screenshots/headless_test.png"
+    screenshot_path = str(tmp_path / "headless_test.png")
     if os.path.exists(screenshot_path):
         os.remove(screenshot_path)
 
