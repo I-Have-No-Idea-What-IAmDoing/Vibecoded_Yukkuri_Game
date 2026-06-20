@@ -108,3 +108,37 @@ def test_opinion_calculation(world, social_system):
     
     assert rel_data.base_compatibility == 100.0
     assert rel_data.affinity == 100.0 # 100 base + 0 memory
+
+
+def test_multiple_interactions_same_frame(world, social_system) -> None:
+    e1 = world.create_entity()
+    e2 = world.create_entity()
+    e3 = world.create_entity() # Target of both interactions
+    
+    world.add_component(e1, Transform(x=0, y=0))
+    world.add_component(e2, Transform(x=0, y=0))
+    world.add_component(e3, Transform(x=10, y=0))
+    
+    # Mock TraitService interaction data
+    trait_service = world.services.get(TraitService)
+    trait_service.get_interaction.return_value = {
+        "base_impact": 10.0,
+        "social_impact": {"affinity": 5.0, "trust": 2.0}
+    }
+    
+    # Process both interactions in the same frame
+    request1 = InteractionRequest(target_id=e3, action="Greet")
+    social_system.process_interaction_request(world, e1, request1)
+    
+    request2 = InteractionRequest(target_id=e3, action="Greet")
+    social_system.process_interaction_request(world, e2, request2)
+    
+    # Apply all commands
+    world.commands.apply_all()
+    
+    # Check if e3 has relationship registry and BOTH e1 and e2 are in it!
+    reg3 = world.try_get_component(e3, RelationshipRegistry)
+    assert reg3 is not None
+    assert e1 in reg3.relationships
+    assert e2 in reg3.relationships
+

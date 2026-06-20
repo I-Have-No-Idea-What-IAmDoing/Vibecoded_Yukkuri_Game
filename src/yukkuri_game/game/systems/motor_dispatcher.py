@@ -19,8 +19,9 @@ from ...engine.components import (
     MovementController,
     Animator,
     Sprite,
-    FloatingText,
+    Transform,
 )
+from ..prefabs.effects import create_floating_text
 
 
 class MotorDispatcher(System):
@@ -85,14 +86,17 @@ class MotorDispatcher(System):
             color = cmd.payload.get("color", (255, 255, 255))
             lifetime = cmd.payload.get("lifetime", 2.0)
 
-            ft = FloatingText(
-                text=text,
-                color=color,
-                lifetime=0.0,
-                max_lifetime=lifetime,
-                velocity_y=-30.0,
-            )
-            world.commands.add_component(entity_id, ft)
+            transform = world.try_get_component(entity_id, Transform)
+            if transform:
+                create_floating_text(
+                    world,
+                    x=transform.x,
+                    y=transform.y - 20,
+                    text=text,
+                    color=color,
+                    lifetime=lifetime,
+                    velocity_y=-30.0,
+                )
 
         elif cmd.type == CommandType.PLAY_ANIMATION:
             anim_name = cmd.payload.get("animation_name", "default")

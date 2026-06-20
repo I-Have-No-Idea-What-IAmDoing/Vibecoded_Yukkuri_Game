@@ -102,6 +102,7 @@ class SocialSystem(System):
         self.headline_counter = 0
         # Cached config value — GameConfig is immutable at runtime.
         self._memory_importance_threshold: float = self.MEMORY_IMPORTANCE_THRESHOLD
+        self._pending_registries: dict[int, RelationshipRegistry] = {}
 
     def initialize(self) -> None:
         """Called when the system is added to the world."""
@@ -126,16 +127,26 @@ class SocialSystem(System):
             world (World): The ECS World instance.
             dt (float): Delta time since the last frame.
         """
+        if not hasattr(self, "ecs_world"):
+            self.ecs_world = world
+
+        # Clean up pending registries that have been successfully applied or whose entity no longer exists
+        applied = [
+            eid
+            for eid in self._pending_registries
+            if not world.entity_exists(eid)
+            or world.try_get_component(eid, RelationshipRegistry) is not None
+        ]
+        for eid in applied:
+            del self._pending_registries[eid]
+
+
         if not self.trait_service:
             self.trait_service = world.services.try_get(TraitService)
         if not self.skill_service:
             self.skill_service = world.services.try_get(SkillService)
         if not self.audio:
             self.audio = world.services.try_get(IAudioProvider)
-
-        # Inject world for event handlers if not already present
-        if not hasattr(self, "ecs_world"):
-            self.ecs_world = world
 
         now = world.time
         self._process_relationships(world, now)
@@ -613,8 +624,11 @@ class SocialSystem(System):
         """Helper to get or create RelationshipRegistry component."""
         registry = world.try_get_component(entity_id, RelationshipRegistry)
         if not registry:
-            registry = RelationshipRegistry()
-            world.commands.add_component(entity_id, registry)
+            registry = self._pending_registries.get(entity_id)
+            if not registry:
+                registry = RelationshipRegistry()
+                self._pending_registries[entity_id] = registry
+                world.commands.add_component(entity_id, registry)
         return registry
 
     def _add_memory_headline(

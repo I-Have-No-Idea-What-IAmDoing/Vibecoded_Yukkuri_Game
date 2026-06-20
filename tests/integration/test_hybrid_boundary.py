@@ -7,7 +7,7 @@ the headless simulation environment and do not break existing ECS movements.
 from yukkuri_game.testing.driver import GameDriver
 from yukkuri_game.game.ai.commands import CommandQueue, CommandType, Command
 from yukkuri_game.game.components import AIState, MoveCommand, Needs
-from yukkuri_game.engine.components import MovementController, Transform
+from yukkuri_game.engine.components import MovementController, Transform, FloatingText
 
 
 def test_hybrid_boundary_command_queue_flow(game_driver: GameDriver) -> None:
@@ -97,3 +97,50 @@ def test_hybrid_boundary_command_queue_flow(game_driver: GameDriver) -> None:
     assert controller.target_velocity.x == 120.0
     assert controller.target_velocity.y == 0.0
     assert not driver.world.has_component(yukkuri_id, MoveCommand)
+
+
+def test_speak_command_flow(game_driver: GameDriver) -> None:
+    """Verify that CommandType.SPEAK spawns a separate FloatingText entity
+    and does not destroy the speaking Yukkuri.
+    """
+    driver = game_driver
+    driver.setup()
+
+    # Create a yukkuri
+    start_pos = (150, 150)
+    yukkuri_id = driver.create_yukkuri("reimu", *start_pos)
+
+    # Ensure Yukkuri does not have FloatingText initially
+    assert not driver.world.has_component(yukkuri_id, FloatingText)
+
+    command_queue = driver.world.services.get(CommandQueue)
+
+    # Push a SPEAK command
+    cmd = Command(
+        CommandType.SPEAK,
+        yukkuri_id,
+        {"text": "Hello World!", "color": (255, 0, 0), "lifetime": 1.0},
+    )
+    command_queue.push(cmd)
+
+    # Run for a frame tick
+    driver.run_for(seconds=0.02)
+
+    # The speaking Yukkuri must still exist!
+    assert driver.world.entity_exists(yukkuri_id)
+
+    # The speaking Yukkuri should NOT have the FloatingText component attached directly
+    assert not driver.world.has_component(yukkuri_id, FloatingText)
+
+    # There should be a separate FloatingText entity in the world
+    floating_texts = list(driver.world.get_components_tuple(Transform, FloatingText))
+    assert len(floating_texts) == 1
+
+    ft_entity, (ft_transform, ft_comp) = floating_texts[0]
+    assert ft_entity != yukkuri_id
+    assert ft_comp.text == "Hello World!"
+    assert ft_comp.color == (255, 0, 0)
+    assert ft_comp.max_lifetime == 1.0
+    assert 0 < ft_comp.lifetime < 1.0
+
+
