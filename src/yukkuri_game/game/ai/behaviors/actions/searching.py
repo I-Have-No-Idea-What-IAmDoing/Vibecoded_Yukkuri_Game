@@ -24,7 +24,7 @@ from ...navigation_constants import TraversalCapability
 from ...navigation_service import NavigationService
 
 if TYPE_CHECKING:
-    from .....engine.ecs import World
+    from ...base_action import World
     from .....engine.protocols import ISpatialService
 
 

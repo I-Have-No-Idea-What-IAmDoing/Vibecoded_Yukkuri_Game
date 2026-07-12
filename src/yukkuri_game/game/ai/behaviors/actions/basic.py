@@ -8,7 +8,7 @@ from .....engine.components import MovementController
 from ...base_action import Action
 
 if TYPE_CHECKING:
-    from .....engine.ecs import World
+    from ...base_action import World
 
 
 class Idle(Action):

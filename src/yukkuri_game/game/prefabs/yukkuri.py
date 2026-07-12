@@ -40,6 +40,7 @@ from ...engine.components import (
 from ..physics_utils import add_physics_body, get_yukkuri_radius
 from ..skill_service import SkillService
 from ...engine.protocols import IPhysicsService
+from ...engine.types import EntityID
 from ..trait_service import TraitService
 from ..utils.animation_helpers import build_animator_from_data
 
@@ -196,7 +197,14 @@ def create_yukkuri(
         add_comp(GossipQueue())
 
         # Personality & Relationships
-        add_comp(RelationshipRegistry())
+        registry = RelationshipRegistry()
+        if parents:
+            registry.biological_parents = [EntityID(p) for p in parents]
+            for p_id in parents:
+                p_reg = world.try_get_component(p_id, RelationshipRegistry)
+                if p_reg:
+                    p_reg.biological_children.append(entity)
+        add_comp(registry)
 
         traits = set()
         axis = PersonalityAxis()

@@ -91,7 +91,11 @@ class BehaviorSystem(System):
                     entity, world, int(self.world_w), int(self.world_h)
                 )
                 self.trees[entity] = py_trees.trees.BehaviourTree(root)
-                self.trees[entity].setup(timeout=15)
+                try:
+                    self.trees[entity].setup(timeout=15)
+                except ValueError as e:
+                    if "signal only works in main thread" not in str(e):
+                        raise
                 self.update_queue.append(entity)
                 self.last_update_times[entity] = (
                     self.total_time - self.min_tick_interval

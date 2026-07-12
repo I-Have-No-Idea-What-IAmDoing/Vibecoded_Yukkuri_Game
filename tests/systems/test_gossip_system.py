@@ -10,6 +10,7 @@ import pymunk
 from yukkuri_game.game.systems.gossip_system import GossipSystem
 from yukkuri_game.engine.event_bus import EventBus
 from yukkuri_game.engine.ecs import World
+from yukkuri_game.engine.types import EntityID
 from yukkuri_game.game.events import SocialInteractionEvent
 from yukkuri_game.game.components import (
     GossipQueue,
@@ -96,7 +97,7 @@ class TestGossipSystem:
         sender, receiver = 1, 2
         sender_queue = GossipQueue()
         packet = GossipPacket(
-            target_id=3, event_type="TestEvent", value=10.0, timestamp=100.0
+            target_id=EntityID(3), event_type="TestEvent", value=10.0, timestamp=100.0
         )
         sender_queue.add_packet(packet, max_length=10)
         receiver_queue = GossipQueue()
@@ -133,14 +134,14 @@ class TestGossipSystem:
 
         sender, receiver = 1, 2
         sender_queue = GossipQueue()
-        packet = GossipPacket(target_id=3, event_type="Test", value=10.0, timestamp=100)
+        packet = GossipPacket(target_id=EntityID(3), event_type="Test", value=10.0, timestamp=100)
         sender_queue.add_packet(packet, max_length=10)
         receiver_queue = GossipQueue()
 
         reg_a = RelationshipRegistry()
-        reg_a.family_group_id = 1
+        reg_a.family_group_id = EntityID(1)
         reg_b = RelationshipRegistry()
-        reg_b.family_group_id = 1
+        reg_b.family_group_id = EntityID(1)
 
         def get_component(eid, comp_type):
             if comp_type == GossipQueue:
@@ -199,6 +200,7 @@ class TestGossipSystem:
 
         physics = mock_world.services.try_get(PhysicsSystem)
         physics.space.segment_query_first.return_value = None
+        physics.space.segment_query.return_value = []
 
         event = SocialInteractionEvent(
             initiator_id=actor, target_id=target, interaction_type="Punch"
@@ -243,7 +245,9 @@ class TestGossipSystem:
         query_res.point = pymunk.Vec2d(50, 0)
         query_res.shape.sensor = False  # Non-sensor wall
         query_res.shape.body.userdata = None  # No userdata (level geometry)
+        query_res.shape.point_query.return_value.distance = 1.0
         physics.space.segment_query_first.return_value = query_res
+        physics.space.segment_query.return_value = [query_res]
 
         event = SocialInteractionEvent(
             initiator_id=actor, target_id=2, interaction_type="Wave"
@@ -287,7 +291,9 @@ class TestGossipSystem:
         query_res = MagicMock()
         query_res.point = pymunk.Vec2d(50, 0)
         query_res.shape.sensor = True  # ← sensor, must be ignored
+        query_res.shape.point_query.return_value.distance = 1.0
         physics.space.segment_query_first.return_value = query_res
+        physics.space.segment_query.return_value = [query_res]
 
         event = SocialInteractionEvent(
             initiator_id=actor, target_id=2, interaction_type="Wave"
@@ -358,7 +364,7 @@ class TestGossipExchangeIntegrity:
 
         # Add packet to A
         packet = GossipPacket(
-            target_id=999, event_type="Fight", value=10.0, timestamp=0.0
+            target_id=EntityID(999), event_type="Fight", value=10.0, timestamp=0.0
         )
         queue_a = world.get_component(entity_a, GossipQueue)
         queue_a.add_packet(packet)

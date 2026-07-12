@@ -13,7 +13,7 @@ from .base_action import Action
 from .utility import UtilityAIEngine
 
 if TYPE_CHECKING:
-    from ...engine.ecs import World
+    from .base_action import World
 
 
 class UtilitySelector(Action):

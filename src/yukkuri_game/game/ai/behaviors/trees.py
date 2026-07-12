@@ -24,7 +24,8 @@ from .actions.searching import (
 from .actions.survival import CalmAtLight, Sleep
 
 if TYPE_CHECKING:
-    from ....engine.ecs import World
+    from ..base_action import World
+
 
 
 class ActionFailureTracker(py_trees.decorators.Decorator):

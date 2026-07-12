@@ -32,7 +32,7 @@ from ...navigation_controller import NavigationController
 
 
 if TYPE_CHECKING:
-    from .....engine.ecs import World
+    from ...base_action import World
 
 WAYPOINT_ACCEPTANCE_RADIUS = 20.0
 LOW_ENERGY_THRESHOLD = 30.0
@@ -358,7 +358,7 @@ class Wander(Action):
         """Cleans up the delegated movement action and its movement states."""
         if self.move_action:
             self.move_action.on_cleanup()
-        if self.world is None:
+        if self.world is None or self.entity_id is None:
             return
         ai = self.world.try_get_component(self.entity_id, AIState)
         if ai and ai.state_data:

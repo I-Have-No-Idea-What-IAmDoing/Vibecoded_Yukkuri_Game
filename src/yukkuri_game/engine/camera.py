@@ -220,8 +220,11 @@ class Camera:
             from .components import Transform
             trans = world.try_get_component(self.tracked_entity_id, Transform)
             if trans:
-                self.camera_x += (trans.x - self.camera_x) * 5.0 * dt
-                self.camera_y += (trans.y - self.camera_y) * 5.0 * dt
+                import math
+                if math.isfinite(trans.x) and math.isfinite(trans.y):
+                    lerp_factor = min(1.0, 5.0 * dt)
+                    self.camera_x += (trans.x - self.camera_x) * lerp_factor
+                    self.camera_y += (trans.y - self.camera_y) * lerp_factor
             else:
                 self.tracked_entity_id = None
 
@@ -231,13 +234,22 @@ class Camera:
 
         # Apply keyboard zoom axis
         if self.zoom_axis != 0.0:
+            delta = self.zoom_axis * 0.1 * dt * 10
             self.target_zoom = max(
                 self.min_zoom,
-                min(self.max_zoom, self.target_zoom + self.zoom_axis * 0.1 * dt * 10),
+                min(self.max_zoom, self.target_zoom + delta),
             )
 
         # Smooth zoom interpolation
-        self.zoom += (self.target_zoom - self.zoom) * 5.0 * dt
+        zoom_factor = min(1.0, 5.0 * dt)
+        self.zoom += (self.target_zoom - self.zoom) * zoom_factor
+        self.zoom = max(self.min_zoom, min(self.max_zoom, self.zoom))
+
+        # Clamp camera coordinates to world boundaries
+        max_x = max(0.0, self.width)
+        max_y = max(0.0, self.height)
+        self.camera_x = max(0.0, min(max_x, self.camera_x))
+        self.camera_y = max(0.0, min(max_y, self.camera_y))
 
     # ------------------------------------------------------------------
     # Command-driven state setters
@@ -292,3 +304,9 @@ class Camera:
         self.tracked_entity_id = None
         self.camera_x -= dx / self.zoom
         self.camera_y -= dy / self.zoom
+
+        # Clamp camera coordinates to world boundaries
+        max_x = max(0.0, self.width)
+        max_y = max(0.0, self.height)
+        self.camera_x = max(0.0, min(max_x, self.camera_x))
+        self.camera_y = max(0.0, min(max_y, self.camera_y))

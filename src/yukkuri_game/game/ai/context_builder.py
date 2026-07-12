@@ -21,7 +21,7 @@ from ...engine.components import Transform
 
 
 if TYPE_CHECKING:
-    from ...engine.ecs import World
+    from .base_action import World
 
 
 class UtilityContextBuilder:

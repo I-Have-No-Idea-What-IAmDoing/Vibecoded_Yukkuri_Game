@@ -288,10 +288,10 @@ class TestCameraCommandMethods:
     def test_set_axis_moves_camera_via_update(self) -> None:
         """set_axis followed by update() moves the camera."""
         camera = Camera()
-        camera.set_axis(0.0, -1.0)  # moving up
+        camera.set_axis(0.0, 1.0)  # moving down/positive y
         camera.update(0.1)
 
-        assert camera.camera_y < 0
+        assert camera.camera_y > 0
 
     def test_set_axis_right_moves_right(self) -> None:
         """Positive x_axis moves camera right."""
@@ -305,11 +305,11 @@ class TestCameraCommandMethods:
         """Camera movement speed scales inversely with zoom."""
         cam_in = Camera()
         cam_in.zoom = 2.0
-        cam_in.set_axis(0.0, -1.0)
+        cam_in.set_axis(0.0, 1.0)
 
         cam_out = Camera()
         cam_out.zoom = 0.5
-        cam_out.set_axis(0.0, -1.0)
+        cam_out.set_axis(0.0, 1.0)
 
         cam_in.update(0.1)
         cam_out.update(0.1)
@@ -319,21 +319,24 @@ class TestCameraCommandMethods:
     def test_pan_adjusts_camera_position(self) -> None:
         """pan() moves camera_x/y by pixel delta / zoom."""
         camera = Camera()
+        camera.camera_x = 500.0
+        camera.camera_y = 500.0
         camera.zoom = 1.0
 
         camera.pan(100, 50)
 
-        assert camera.camera_x == pytest.approx(-100.0)
-        assert camera.camera_y == pytest.approx(-50.0)
+        assert camera.camera_x == pytest.approx(400.0)
+        assert camera.camera_y == pytest.approx(450.0)
 
     def test_pan_accounts_for_zoom(self) -> None:
         """pan() adjusts panning speed by zoom level."""
         camera = Camera()
+        camera.camera_x = 500.0
         camera.zoom = 2.0
 
         camera.pan(100, 0)
 
-        assert camera.camera_x == pytest.approx(-50.0)
+        assert camera.camera_x == pytest.approx(450.0)
 
     def test_set_zoom_axis_affects_target_zoom(self) -> None:
         """set_zoom_axis > 0 increases target_zoom on update."""
@@ -492,4 +495,98 @@ class TestCameraFollowing:
         camera.pan(10, 10)
 
         assert camera.tracked_entity_id is None
+
+
+class TestCameraZoomStability:
+    """Tests for camera zoom stability under large delta times and boundary conditions."""
+
+    def test_zoom_overshoot_and_instability_large_dt(self) -> None:
+        """With large dt, zoom does not overshoot or become negative/invalid."""
+        camera = Camera()
+        camera.zoom = 1.0
+        camera.target_zoom = 0.5
+
+        # dt = 0.3 -> zoom_factor = min(1.0, 5.0 * 0.3) = 1.0
+        camera.update(0.3)
+        assert camera.zoom == pytest.approx(0.5)
+
+        # dt = 0.5 -> zoom_factor = min(1.0, 5.0 * 0.5) = 1.0
+        camera.zoom = 1.0
+        camera.target_zoom = 0.5
+        camera.update(0.5)
+        assert camera.zoom == pytest.approx(0.5)
+
+    def test_zoom_zero_division_crash(self) -> None:
+        """Zoom becoming zero causes ZeroDivisionError on screen_to_world conversion."""
+        camera = Camera()
+        camera.zoom = 1.0
+        camera.target_zoom = 0.0
+        camera.min_zoom = 0.0  # allow target_zoom to be 0 for test setup
+
+        # Force zoom to be exactly 0.0
+        camera.zoom = 0.0
+        with pytest.raises(ZeroDivisionError):
+            camera.screen_to_world(400, 300, 800, 600)
+
+
+
+class TestCameraStress:
+    """Stress tests for the Camera controller."""
+
+    def test_camera_overshoot_large_dt(self) -> None:
+        """Camera does not overshoot target under large dt."""
+        from yukkuri_game.engine.ecs import World
+        from yukkuri_game.engine.components import Transform
+
+        world = World()
+        camera = Camera()
+        camera.camera_x = 0.0
+        camera.camera_y = 0.0
+
+        entity = world.create_entity()
+        world.add_component(entity, Transform(x=100.0, y=100.0))
+        camera.tracked_entity_id = entity
+
+        # dt = 0.5 leads to lerp factor min(1.0, 5.0 * 0.5) = 1.0
+        camera.update(0.5, world)
+
+        # Expected camera position: 0.0 + (100.0 - 0.0) * 1.0 = 100.0
+        assert camera.camera_x == 100.0
+        assert camera.camera_y == 100.0
+
+    def test_camera_zoom_overshoot_large_dt(self) -> None:
+        """Camera zoom does not overshoot target zoom under large dt."""
+        camera = Camera()
+        camera.zoom = 1.0
+        camera.target_zoom = 0.5  # minimum zoom
+
+        # dt = 0.5 leads to zoom lerp factor min(1.0, 5.0 * 0.5) = 1.0
+        camera.update(0.5)
+
+        # Expected zoom: 1.0 + (0.5 - 1.0) * 1.0 = 0.5
+        assert camera.zoom == 0.5
+
+    def test_camera_pan_beyond_boundaries(self) -> None:
+        """Camera panning keeps coordinates within world settings bounds."""
+        from yukkuri_game.config import WorldSettings
+        settings = WorldSettings(width=1000, height=1000)
+        camera = Camera(settings)
+        camera.camera_x = 0.0
+        camera.camera_y = 0.0
+
+        camera.pan(-200, -200)
+        # 0.0 - (-200.0) = 200.0, within boundaries
+        assert camera.camera_x == 200.0
+        assert camera.camera_y == 200.0
+
+        camera.pan(2000, 2000)
+        # 200.0 - 2000.0 = -1800.0 -> clamped to 0.0
+        assert camera.camera_x == 0.0
+        assert camera.camera_y == 0.0
+
+        camera.pan(-5000, -5000)
+        # 0.0 - (-5000.0) = 5000.0 -> clamped to 1000.0
+        assert camera.camera_x == 1000.0
+        assert camera.camera_y == 1000.0
+
 

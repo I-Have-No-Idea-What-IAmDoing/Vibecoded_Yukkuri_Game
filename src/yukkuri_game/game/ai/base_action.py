@@ -8,7 +8,10 @@ from py_trees.behaviour import Behaviour
 from py_trees.common import Status
 
 if TYPE_CHECKING:
-    from ...engine.ecs import World
+    from ...engine.ecs import World as RealWorld
+    from ..systems.behavior_ffi import BevyWorldAdapter
+
+    World = RealWorld | BevyWorldAdapter
 
 
 class Action(Behaviour):

@@ -82,3 +82,8 @@ exclude = [".venv", "**/tests/**", "**/docs/**"]
 
 [tool.ruff]
 exclude = [".venv", "**/tests/**", "**/docs/**"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["scratch", ".venv", ".git", "target", "build", "dist"]
+

@@ -1,0 +1,9 @@
+[env]
+PYO3_PYTHON = { value = ".venv/Scripts/python.exe", relative = true }
+
+# Windows: python313.dll is in the uv CPython install directory and is not on
+# PATH by default.  The runner script prepends it automatically so that
+# `cargo test` and `cargo run` work without manual shell setup.
+# Override PYTHON_DLL_DIR in your shell if using a different Python version.
+[target.x86_64-pc-windows-msvc]
+runner = ["powershell", "-NoProfile", "-File", "scripts/run_test.ps1"]

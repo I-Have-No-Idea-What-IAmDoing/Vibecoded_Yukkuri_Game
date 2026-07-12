@@ -1,0 +1,22 @@
+[prefab]
+type_id = "reimu"
+name = "Reimu Yukkuri"
+growth_stage = "Adult"
+
+[physics]
+radius = 20.0
+mass = 1.5
+friction = 0.8
+restitution = 0.2
+
+[needs]
+max_health = 100.0
+energy = 100.0
+hunger = 0.0
+max_stamina = 100.0
+
+[steering]
+max_speed = 150.0
+max_force = 500.0
+arrival_radius = 50.0
+perception_radius = 300.0

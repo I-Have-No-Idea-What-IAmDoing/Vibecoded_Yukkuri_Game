@@ -29,7 +29,7 @@ from .navigation_service import NavigationService
 from ...engine.protocols import IPhysicsService
 
 if TYPE_CHECKING:
-    from ...engine.ecs import World
+    from .base_action import World
 
 MIN_TAKEOFF_STAMINA = 20.0
 

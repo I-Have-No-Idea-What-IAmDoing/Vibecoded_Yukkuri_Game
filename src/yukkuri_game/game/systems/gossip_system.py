@@ -192,7 +192,13 @@ class GossipSystem(System):
 
             # Visual Check: Line of Sight
             if range_type == "visual":
-                if not self._check_line_of_sight(world, actor_trans, witness_trans):
+                if not self._check_line_of_sight(
+                    world,
+                    actor_trans,
+                    witness_trans,
+                    start_id=event.initiator_id,
+                    end_id=witness_id,
+                ):
                     continue
 
             # Interest Group Bonus
@@ -204,7 +210,12 @@ class GossipSystem(System):
             self._add_witness_gossip(world, witness_id, event, now, value=value)
 
     def _check_line_of_sight(
-        self, world: World, start_trans: Transform, end_trans: Transform
+        self,
+        world: World,
+        start_trans: Transform,
+        end_trans: Transform,
+        start_id: int | None = None,
+        end_id: int | None = None,
     ) -> bool:
         """
         Checks if there is a clear line of sight between two transforms.
@@ -214,6 +225,8 @@ class GossipSystem(System):
             world (World): The ECS World.
             start_trans (Transform): Origin transform.
             end_trans (Transform): Target transform.
+            start_id (int, optional): Entity ID of the start transform.
+            end_id (int, optional): Entity ID of the end transform.
 
         Returns:
             bool: True if line of sight exists, False otherwise.
@@ -227,19 +240,37 @@ class GossipSystem(System):
         start_pos = (start_trans.x, start_trans.y)
         end_pos = (end_trans.x, end_trans.y)
 
-        query = self.physics_system.space.segment_query_first(
+        queries = self.physics_system.space.segment_query(
             start_pos, end_pos, 1.0, pymunk.ShapeFilter()
         )
 
-        if query and query.shape and not query.shape.sensor:
-            # Any non-sensor hit closer than the target is an obstruction.
-            # We do NOT check body.userdata — static level walls have userdata=None
-            # but must still occlude vision.
+        total_dist = math.hypot(
+            end_pos[0] - start_pos[0], end_pos[1] - start_pos[1]
+        )
+
+        for query in queries:
+            shape = query.shape
+            if not shape or shape.sensor:
+                continue
+
+            # Exclude the start/end entities based on group ID (entity ID) if provided
+            if start_id is not None and shape.filter.group == start_id:
+                continue
+            if end_id is not None and shape.filter.group == end_id:
+                continue
+
+            # Fallback: check if the shape overlaps start or end position
+            if hasattr(shape, "point_query"):
+                info_start = shape.point_query(start_pos)
+                if info_start.distance <= 0:
+                    continue
+                info_end = shape.point_query(end_pos)
+                if info_end.distance <= 0:
+                    continue
+
+            # Any other shape is an obstruction if it is closer than the target
             hit_dist = math.hypot(
                 query.point.x - start_pos[0], query.point.y - start_pos[1]
-            )
-            total_dist = math.hypot(
-                end_pos[0] - start_pos[0], end_pos[1] - start_pos[1]
             )
 
             if hit_dist < total_dist - 5.0:

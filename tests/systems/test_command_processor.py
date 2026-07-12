@@ -230,13 +230,15 @@ class TestCameraCommands:
 
         world = _make_world()
         camera = Camera()
+        camera.camera_x = 500.0
+        camera.camera_y = 500.0
         camera.zoom = 1.0
         world.services.register(camera, Camera)
 
         CameraPanCommand(dx=100, dy=50).execute(world)
 
-        assert camera.camera_x == pytest.approx(-100.0)
-        assert camera.camera_y == pytest.approx(-50.0)
+        assert camera.camera_x == pytest.approx(400.0)
+        assert camera.camera_y == pytest.approx(450.0)
 
 
 # ---------------------------------------------------------------------------
