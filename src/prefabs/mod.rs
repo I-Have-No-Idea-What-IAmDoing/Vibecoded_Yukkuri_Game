@@ -160,6 +160,8 @@ pub fn spawn_yukkuri_prefab(
         avian2d::prelude::Restitution::new(prefab.physics.restitution),
         avian2d::prelude::LinearVelocity::default(),
         avian2d::prelude::AngularVelocity::default(),
+        avian2d::prelude::LinearDamping(8.0),
+        avian2d::prelude::AngularDamping(8.0),
     ));
 
     let parent_entity = entity_builder.id();
@@ -242,6 +244,45 @@ pub fn spawn_yukkuri_prefab(
         RelationshipRegistry::default(),
         GossipQueue::default(),
     ));
+
+    commands.queue(move |world: &mut World| {
+        let mut rng = rand::thread_rng();
+        use rand::Rng;
+        
+        let mut gauss = |std_dev: f32| -> i32 {
+            let mut sum = 0.0;
+            for _ in 0..4 {
+                sum += rng.gen_range(-1.0..1.0);
+            }
+            (sum * (std_dev / 1.15)) as i32
+        };
+        
+        let kindness = gauss(30.0).clamp(-100, 100);
+        let energy = gauss(30.0).clamp(-100, 100);
+        let bravery = gauss(30.0).clamp(-100, 100);
+        let greed = gauss(30.0).clamp(-100, 100);
+        
+        let mut traits = std::collections::HashSet::new();
+        if let Some(tr) = world.get_resource::<crate::simulation::skills::TraitRegistry>() {
+            let keys: Vec<String> = tr.traits.keys().cloned().collect();
+            if !keys.is_empty() {
+                let rand_idx = rng.gen_range(0..keys.len());
+                traits.insert(keys[rand_idx].clone());
+            }
+        }
+        
+        if let Some(mut pers) = world.get_mut::<Personality>(parent_entity) {
+            pers.kindness = kindness;
+            pers.energy = energy;
+            pers.bravery = bravery;
+            pers.greed = greed;
+            pers.base_kindness = kindness;
+            pers.base_energy = energy;
+            pers.base_bravery = bravery;
+            pers.base_greed = greed;
+            pers.traits = traits;
+        }
+    });
 
     if type_config.is_predator.unwrap_or(false) {
         let prey_tags = type_config.prey_tags.clone()

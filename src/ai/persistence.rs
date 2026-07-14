@@ -231,9 +231,45 @@ pub fn load_game(world: &mut World, filepath: &str) -> Result<(), Box<dyn std::e
         }
     }
 
+    // Reset Navigation grid
+    if let Some(nav_service) = world.get_resource_mut::<crate::simulation::hpa::NavigationService>() {
+        nav_service.reset();
+    }
+
     // 4. Load the dynamic world
     let mut entity_map = EntityHashMap::default();
     dynamic_world.write_to_world(world, &mut entity_map)?;
+
+    // Re-apply obstacles for loaded items
+    let item_registry = world.get_resource::<crate::simulation::inventory::ItemRegistry>().cloned();
+    let mut items_to_reapply = Vec::new();
+    if let Some(ref registry) = item_registry {
+        let mut query = world.query::<(Entity, &Transform, &crate::simulation::inventory::ItemStats)>();
+        for (_ent, trans, item_stats) in query.iter(world) {
+            if let Some(config) = registry.items.get(&item_stats.type_id) {
+                if let Some(ref obs_type) = config.obstacle_type {
+                    if obs_type == "HIGH" {
+                        items_to_reapply.push((trans.translation.truncate(), config.width, config.height));
+                    }
+                }
+            }
+        }
+    }
+    
+    if !items_to_reapply.is_empty() {
+        if let Some(nav_service) = world.get_resource::<crate::simulation::hpa::NavigationService>() {
+            for (pos, width, height) in items_to_reapply {
+                nav_service.grid.write().unwrap().update_obstacle_rect(
+                    pos.x,
+                    pos.y,
+                    width as f32,
+                    height as f32,
+                    true,
+                    5, // TRAVERSAL_WALK | TRAVERSAL_SWIM
+                );
+            }
+        }
+    }
 
     // Ensure all loaded persistable entities have default social components if missing
     {

@@ -8,6 +8,13 @@ fn setup_test_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.add_plugins(AssetPlugin::default());
+    app.add_plugins(bevy::state::app::StatesPlugin);
+    app.init_state::<vibecoded_yukkuri_game::GameState>();
+    app.add_plugins(bevy::gizmos::GizmoPlugin);
+    app.init_resource::<bevy::gizmos::config::GizmoConfigStore>();
+    app.init_asset::<bevy::gizmos::GizmoAsset>();
+    app.init_asset::<Mesh>();
+    app.init_asset::<bevy::render::mesh::skinning::SkinnedMeshInverseBindposes>();
     
     // Add resources and messages needed by Camera systems
     app.init_resource::<ButtonInput<KeyCode>>();
@@ -22,6 +29,9 @@ fn setup_test_app() -> App {
     });
     
     app.add_plugins(YukkuriCameraPlugin);
+    
+    // Set NextState to Gameplay immediately so the first update in the test transitions it
+    app.world_mut().resource_mut::<NextState<vibecoded_yukkuri_game::GameState>>().set(vibecoded_yukkuri_game::GameState::Gameplay);
     
     app
 }
@@ -141,10 +151,17 @@ fn test_camera_selection() {
     window.set_cursor_position(Some(Vec2::new(400.0, 300.0))); // Center clicks
     app.world_mut().spawn((window, bevy::window::PrimaryWindow));
     
-    // Inject Left Click
-    let mut mouse_input = app.world_mut().resource_mut::<ButtonInput<MouseButton>>();
-    mouse_input.press(MouseButton::Left);
+    // Inject Left Click (Press and Release)
+    {
+        let mut mouse_input = app.world_mut().resource_mut::<ButtonInput<MouseButton>>();
+        mouse_input.press(MouseButton::Left);
+    }
+    app.update();
     
+    {
+        let mut mouse_input = app.world_mut().resource_mut::<ButtonInput<MouseButton>>();
+        mouse_input.release(MouseButton::Left);
+    }
     app.update();
     
     let controller = app.world().get::<CameraController>(camera_id).unwrap();

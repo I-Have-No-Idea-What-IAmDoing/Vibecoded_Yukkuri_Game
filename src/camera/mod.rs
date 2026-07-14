@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy::input::mouse::{MouseWheel, MouseScrollUnit, MouseMotion};
 use bevy::window::PrimaryWindow;
-use avian2d::prelude::Collider;
 use crate::ai::WorldSettings;
 
 
@@ -12,6 +11,7 @@ pub struct MainCamera;
 pub struct CameraController {
     pub tracked_entity: Option<Entity>,
     pub selected_entity: Option<Entity>,
+    pub selected_entities: Vec<Entity>,
     pub lerp_speed: f32,
     pub target_zoom: f32,
     pub min_zoom: f32,
@@ -24,6 +24,7 @@ impl Default for CameraController {
         Self {
             tracked_entity: None,
             selected_entity: None,
+            selected_entities: Vec::new(),
             lerp_speed: 5.0,
             target_zoom: 1.0,
             min_zoom: 0.25,
@@ -203,45 +204,127 @@ pub fn camera_pan_system(
     }
 }
 
-pub fn camera_select_system(
-    mouse_input: Res<ButtonInput<MouseButton>>,
+#[derive(Resource, Default, Debug, Clone)]
+pub struct DragSelectionState {
+    pub start_pos: Option<Vec2>,
+    pub current_pos: Option<Vec2>,
+}
+
+pub fn drag_selection_system(
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut camera_query: Query<(&Camera, &GlobalTransform, &mut CameraController), With<MainCamera>>,
-    collider_query: Query<(Entity, &GlobalTransform, &Collider)>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    mut camera_controller_query: Query<&mut CameraController, With<MainCamera>>,
+    yukkuri_query: Query<(Entity, &GlobalTransform, &avian2d::prelude::Collider), Without<crate::ai::Dead>>,
+    mut selection_state: ResMut<DragSelectionState>,
+    mut gizmos: Gizmos,
 ) {
-    if mouse_input.just_pressed(MouseButton::Left) {
-        let Some(window) = window_query.iter().next() else { return; };
-        let Some(cursor_pos) = window.cursor_position() else { return; };
-        
-        let Some((camera, camera_transform, mut controller)) = camera_query.iter_mut().next() else { return; };
-        
-        let world_pos = match camera.viewport_to_world_2d(camera_transform, cursor_pos) {
-            Ok(pos) => pos,
-            Err(_) => return,
-        };
-        
-        let mut closest_entity = None;
-        let mut min_distance = f32::MAX;
-        
-        for (entity, transform, collider) in collider_query.iter() {
-            let entity_pos = transform.translation().truncate();
-            
-            // Check intersection using circle collider radius
-            let radius = collider.shape().as_ball().map(|b| b.radius).unwrap_or(20.0);
-            let dist = entity_pos.distance(world_pos);
-            
-            if dist <= radius && dist < min_distance {
-                closest_entity = Some(entity);
-                min_distance = dist;
+    let Some(window) = window_query.iter().next() else { return; };
+    let Some((camera, camera_transform)) = camera_query.iter().next() else { return; };
+    let Some(mut controller) = camera_controller_query.iter_mut().next() else { return; };
+
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        if let Some(cursor_pos) = window.cursor_position() {
+            let height = window.height();
+            let is_over_ui = cursor_pos.y < 40.0 || cursor_pos.y > height - 120.0;
+            if !is_over_ui {
+                selection_state.start_pos = Some(cursor_pos);
+                selection_state.current_pos = Some(cursor_pos);
             }
         }
-        
-        if let Some(target) = closest_entity {
-            controller.selected_entity = Some(target);
-            controller.tracked_entity = Some(target);
-        } else {
-            controller.selected_entity = None;
-            controller.tracked_entity = None;
+    }
+
+    if mouse_button_input.pressed(MouseButton::Left) {
+        if selection_state.start_pos.is_some() {
+            if let Some(cursor_pos) = window.cursor_position() {
+                selection_state.current_pos = Some(cursor_pos);
+                
+                if let (Some(start), Some(end)) = (selection_state.start_pos, selection_state.current_pos) {
+                    if start.distance(end) > 5.0 {
+                        let start_world = camera.viewport_to_world_2d(camera_transform, start).unwrap_or(Vec2::ZERO);
+                        let end_world = camera.viewport_to_world_2d(camera_transform, end).unwrap_or(Vec2::ZERO);
+                        
+                        let center = (start_world + end_world) / 2.0;
+                        let size = (start_world - end_world).abs();
+                        
+                        gizmos.rect_2d(
+                            center,
+                            size,
+                            Color::srgb(0.2, 0.9, 0.2),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    if mouse_button_input.just_released(MouseButton::Left) {
+        if let (Some(start), Some(end)) = (selection_state.start_pos.take(), selection_state.current_pos.take()) {
+            let start_world = camera.viewport_to_world_2d(camera_transform, start).unwrap_or(Vec2::ZERO);
+            let end_world = camera.viewport_to_world_2d(camera_transform, end).unwrap_or(Vec2::ZERO);
+            
+            let is_drag = start.distance(end) > 5.0;
+            let shift = keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight);
+            
+            if is_drag {
+                let min_x = start_world.x.min(end_world.x);
+                let max_x = start_world.x.max(end_world.x);
+                let min_y = start_world.y.min(end_world.y);
+                let max_y = start_world.y.max(end_world.y);
+                
+                let mut newly_selected = Vec::new();
+                for (entity, g_trans, _) in &yukkuri_query {
+                    let pos = g_trans.translation().truncate();
+                    if pos.x >= min_x && pos.x <= max_x && pos.y >= min_y && pos.y <= max_y {
+                        newly_selected.push(entity);
+                    }
+                }
+                
+                if shift {
+                    for ent in newly_selected {
+                        if !controller.selected_entities.contains(&ent) {
+                            controller.selected_entities.push(ent);
+                        }
+                    }
+                } else {
+                    controller.selected_entities = newly_selected;
+                }
+            } else {
+                let mut closest_entity = None;
+                let mut min_distance = f32::MAX;
+                
+                for (entity, g_trans, collider) in &yukkuri_query {
+                    let entity_pos = g_trans.translation().truncate();
+                    let radius = collider.shape().as_ball().map(|b| b.radius).unwrap_or(20.0);
+                    let dist = entity_pos.distance(start_world);
+                    
+                    if dist <= radius && dist < min_distance {
+                        closest_entity = Some(entity);
+                        min_distance = dist;
+                    }
+                }
+                
+                if let Some(target) = closest_entity {
+                    if shift {
+                        if let Some(pos) = controller.selected_entities.iter().position(|&x| x == target) {
+                            controller.selected_entities.remove(pos);
+                        } else {
+                            controller.selected_entities.push(target);
+                        }
+                    } else {
+                        controller.selected_entities = vec![target];
+                    }
+                    controller.tracked_entity = Some(target);
+                } else {
+                    if !shift {
+                        controller.selected_entities.clear();
+                        controller.tracked_entity = None;
+                    }
+                }
+            }
+            
+            controller.selected_entity = controller.selected_entities.first().copied();
         }
     }
 }
@@ -263,13 +346,14 @@ pub struct YukkuriCameraPlugin;
 
 impl Plugin for YukkuriCameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_camera)
+        app.init_resource::<DragSelectionState>()
+            .add_systems(Startup, setup_camera)
             .add_systems(Update, (
                 camera_follow_system,
                 camera_zoom_system,
                 camera_pan_system,
-                camera_select_system,
+                drag_selection_system,
                 camera_refocus_system,
-            ));
+            ).run_if(in_state(crate::GameState::Gameplay)));
     }
 }

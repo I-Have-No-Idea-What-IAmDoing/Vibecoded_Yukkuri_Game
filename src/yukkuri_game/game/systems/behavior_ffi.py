@@ -29,6 +29,84 @@ from ..components.social import Personality, PersonalityAxis
 from ..components import Skills, SkillState
 
 
+class FfiNeeds(Needs):
+    """FFI proxy for Needs to intercept mutations and queue commands."""
+
+    def __init__(self, world_adapter: Any, entity_id: int, *args: Any, **kwargs: Any) -> None:
+        object.__setattr__(self, "_initialized", False)
+        super().__init__(*args, **kwargs)
+        object.__setattr__(self, "_world_adapter", world_adapter)
+        object.__setattr__(self, "_entity_id", entity_id)
+        object.__setattr__(self, "_initialized", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if getattr(self, "_initialized", False) and name not in (
+            "_initialized",
+            "_world_adapter",
+            "_entity_id",
+        ):
+            old_val = getattr(self, name, 0.0)
+            super().__setattr__(name, value)
+            new_val = getattr(self, name, 0.0)
+            delta = new_val - old_val
+            if abs(delta) > 1e-5:
+                # If target entity is taking damage, queue Attack instead of ModifyStat
+                if (
+                    self._entity_id != self._world_adapter.blackboard.entity_id
+                    and name == "health"
+                    and delta < 0.0
+                ):
+                    self._world_adapter.command_queue.push(
+                        PyCommand(
+                            PyCommandType.ATTACK,
+                            self._world_adapter.blackboard.entity_id,
+                            {"target_id": str(self._entity_id)},
+                        )
+                    )
+                else:
+                    self._world_adapter.command_queue.push(
+                        PyCommand(
+                            PyCommandType.MODIFY_STAT,
+                            self._entity_id,
+                            {"stat_name": name, "amount": str(delta)},
+                        )
+                    )
+        else:
+            super().__setattr__(name, value)
+
+
+class FfiEmotionalState(EmotionalState):
+    """FFI proxy for EmotionalState to intercept mutations and queue commands."""
+
+    def __init__(self, world_adapter: Any, entity_id: int, *args: Any, **kwargs: Any) -> None:
+        object.__setattr__(self, "_initialized", False)
+        super().__init__(*args, **kwargs)
+        object.__setattr__(self, "_world_adapter", world_adapter)
+        object.__setattr__(self, "_entity_id", entity_id)
+        object.__setattr__(self, "_initialized", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if getattr(self, "_initialized", False) and name not in (
+            "_initialized",
+            "_world_adapter",
+            "_entity_id",
+        ):
+            old_val = getattr(self, name, 0.0)
+            super().__setattr__(name, value)
+            new_val = getattr(self, name, 0.0)
+            delta = new_val - old_val
+            if abs(delta) > 1e-5:
+                self._world_adapter.command_queue.push(
+                    PyCommand(
+                        PyCommandType.MODIFY_STAT,
+                        self._entity_id,
+                        {"stat_name": name, "amount": str(delta)},
+                    )
+                )
+        else:
+            super().__setattr__(name, value)
+
+
 try:
     import py_trees
 except ImportError:
@@ -397,12 +475,17 @@ class MockCommandBuffer:
         if "InteractionRequest" in class_name:
             target_id = getattr(component, "target_id", None)
             action = getattr(component, "action", None)
+            consume = getattr(component, "consume", False)
             if target_id is not None and action is not None:
                 self.world_adapter.command_queue.push(
                     PyCommand(
                         PyCommandType.INTERACT,
                         entity_id,
-                        {"target_id": str(target_id), "action": str(action)},
+                        {
+                            "target_id": str(target_id),
+                            "action": str(action),
+                            "consume": str(consume),
+                        },
                     )
                 )
 
@@ -537,7 +620,9 @@ class BevyWorldAdapter:
                 return Transform(x=self.blackboard.x, y=self.blackboard.y)
 
             if component_type == Needs:
-                return Needs(
+                return FfiNeeds(
+                    self,
+                    entity_id,
                     max_health=self.blackboard.stats.get("max_health", 100.0),
                     health=self.blackboard.stats.get("health", 100.0),
                     hunger=self.blackboard.stats.get("hunger", 0.0),
@@ -661,7 +746,9 @@ class BevyWorldAdapter:
                 )
 
             if component_type == EmotionalState:
-                return EmotionalState(
+                return FfiEmotionalState(
+                    self,
+                    entity_id,
                     happiness=self.blackboard.stats.get("happiness", 0.0),
                     stress=self.blackboard.stats.get("stress", 0.0),
                 )
@@ -727,7 +814,7 @@ class BevyWorldAdapter:
                         y in target.type_id.lower() for y in ["reimu", "marisa", "yukkuri"]
                     )
                     if is_yukkuri:
-                        return Needs(health=100.0, hunger=0.0, social=50.0, energy=100.0)
+                        return FfiNeeds(self, entity_id, health=100.0, hunger=0.0, social=50.0, energy=100.0)
                     return None
                 if component_type == ItemStats:
                     tags_lower = {tag.lower() for tag in target.tags}
@@ -898,4 +985,11 @@ def deserialize_ai_state(
         action_cooldowns=data.get("action_cooldowns", {}),
     )
     _ai_states[entity_id] = state
+
+
+def cleanup_entity_cache(entity_id: int) -> None:
+    """Removes cached behavior tree and world adapter for despawned entities."""
+    _behavior_trees.pop(entity_id, None)
+    _world_adapters.pop(entity_id, None)
+    _ai_states.pop(entity_id, None)
 

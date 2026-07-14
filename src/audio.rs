@@ -63,6 +63,9 @@ fn map_path(path: &str) -> String {
     }
 }
 
+#[derive(Component)]
+pub struct BgmPlayer;
+
 /// Plugin registering audio loading, preloading, and message playback systems.
 pub struct YukkuriAudioPlugin;
 
@@ -74,7 +77,8 @@ impl Plugin for YukkuriAudioPlugin {
 
         app.add_message::<PlaySoundEvent>()
             .add_systems(Startup, setup_audio_system)
-            .add_systems(Update, play_sound_event_system);
+            .add_systems(OnEnter(crate::GameState::Gameplay), play_bgm_system)
+            .add_systems(Update, (play_sound_event_system, sync_bgm_volume_system));
     }
 }
 
@@ -124,6 +128,7 @@ fn setup_audio_system(
         ("train", "audio/train.wav"),
         ("eat", "audio/eat.wav"),
         ("cry", "audio/cry.wav"),
+        ("bgm", "audio/bgm.wav"),
     ];
     for (name, fallback_path) in defaults {
         sounds_map
@@ -144,6 +149,36 @@ fn setup_audio_system(
         bgm_volume: bgm_vol,
         sfx_volume: sfx_vol,
     });
+}
+
+fn play_bgm_system(
+    mut commands: Commands,
+    audio_manager: Res<YukkuriAudioManager>,
+) {
+    if let Some(handle) = audio_manager.sounds.get("bgm") {
+        let volume = audio_manager.master_volume * audio_manager.bgm_volume;
+        commands.spawn((
+            BgmPlayer,
+            AudioPlayer::new(handle.clone()),
+            PlaybackSettings {
+                volume: bevy::audio::Volume::Linear(volume),
+                mode: bevy::audio::PlaybackMode::Loop,
+                ..default()
+            },
+        ));
+    }
+}
+
+fn sync_bgm_volume_system(
+    audio_manager: Res<YukkuriAudioManager>,
+    mut query: Query<&mut PlaybackSettings, With<BgmPlayer>>,
+) {
+    if audio_manager.is_changed() {
+        let volume = audio_manager.master_volume * audio_manager.bgm_volume;
+        for mut settings in &mut query {
+            settings.volume = bevy::audio::Volume::Linear(volume);
+        }
+    }
 }
 
 fn play_sound_event_system(

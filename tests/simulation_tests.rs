@@ -477,6 +477,23 @@ fn test_breeding_spawns_baby() {
                 stress: 0.0,
             },
             BaseColliderRadius(16.0),
+            StableId(12345),
+            RelationshipRegistry::default(),
+            Personality {
+                kindness: 80,
+                energy: 70,
+                bravery: 60,
+                greed: 50,
+                base_kindness: 80,
+                base_energy: 70,
+                base_bravery: 60,
+                base_greed: 50,
+                traits: {
+                    let mut s = std::collections::HashSet::new();
+                    s.insert("Stubborn".to_string());
+                    s
+                },
+            },
         ))
         .id();
 
@@ -498,16 +515,16 @@ fn test_breeding_spawns_baby() {
     assert_eq!(parent_needs.energy, 50.0, "Energy was not deducted; breeding did not fire");
 
     // Verify a baby reimu was spawned
-    let mut baby_query = world.query_filtered::<(&Transform, &YukkuriStats), Without<Dead>>();
+    let mut baby_query = world.query_filtered::<(Entity, &Transform, &YukkuriStats, &StableId, &RelationshipRegistry, &Personality), Without<Dead>>();
     let mut babies = Vec::new();
-    for (transform, stats) in baby_query.iter(world) {
+    for (entity, transform, stats, stable_id, rel_reg, personality) in baby_query.iter(world) {
         if stats.growth_stage == "Baby" {
-            babies.push((transform.translation, stats.clone()));
+            babies.push((entity, transform.translation, stats.clone(), stable_id.clone(), rel_reg.clone(), personality.clone()));
         }
     }
 
     assert_eq!(babies.len(), 1, "Exactly one baby should have spawned");
-    let (baby_pos, baby_stats) = &babies[0];
+    let (baby_ent, baby_pos, baby_stats, baby_stable, baby_rel, baby_pers) = &babies[0];
     assert!((baby_pos.x - 100.0).abs() < 1.0, "Baby x position wrong: {}", baby_pos.x);
     assert!((baby_pos.y - 100.0).abs() < 1.0, "Baby y position wrong: {}", baby_pos.y);
     assert_eq!(baby_stats.growth_stage, "Baby");
@@ -518,6 +535,19 @@ fn test_breeding_spawns_baby() {
         "Baby age ({}) should be below baby_age_threshold (100)",
         baby_stats.age
     );
+
+    // Verify parent-child lineage
+    let parent_reg = world.get::<RelationshipRegistry>(parent_entity).unwrap();
+    assert!(parent_reg.biological_children.contains(&baby_stable.0), "Parent must list baby in biological children");
+    assert!(baby_rel.biological_parents.contains(&12345), "Baby must list parent stable ID 12345 in biological parents");
+    assert!(parent_reg.family_group_id.is_some(), "Parent should have assigned a family group ID");
+    assert_eq!(parent_reg.family_group_id, baby_rel.family_group_id, "Family group IDs must match");
+
+    // Verify personality inheritance
+    assert!((baby_pers.kindness - 80).abs() <= 10, "Baby kindness ({}) should be close to parent's (80)", baby_pers.kindness);
+    assert!((baby_pers.energy - 70).abs() <= 10, "Baby energy ({}) should be close to parent's (70)", baby_pers.energy);
+    assert!((baby_pers.bravery - 60).abs() <= 10, "Baby bravery ({}) should be close to parent's (60)", baby_pers.bravery);
+    assert!((baby_pers.greed - 50).abs() <= 10, "Baby greed ({}) should be close to parent's (50)", baby_pers.greed);
 }
 
 #[test]
@@ -805,6 +835,10 @@ fn test_trait_decay_modifiers() {
                 energy: 0,
                 bravery: 0,
                 greed: 0,
+                base_kindness: 0,
+                base_energy: 0,
+                base_bravery: 0,
+                base_greed: 0,
                 traits,
             },
         ))
@@ -1151,7 +1185,7 @@ fn test_visual_bobbing_and_flight() {
             sprite_entity: Some(sprite_entity),
         },
         Flight {
-            flight_state: 2, // TAKEOFF
+            flight_state: 1, // TAKEOFF
             stamina: 100.0,
             vertical_speed: 100.0,
             max_altitude: 100.0,
@@ -1280,5 +1314,55 @@ fn test_time_and_environment_systems() {
 
     assert!(app.world().get_entity(ft_entity).is_err(), "Floating text did not despawn on expiration");
 }
+
+#[test]
+fn test_runtime_family_formation() {
+    let mut app = setup_test_app();
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f32(2.5)));
+
+    let elapsed = app.world().get_resource::<TimeElapsed>().map(|t| t.elapsed).unwrap_or(43200.0);
+
+    // Spawn A
+    let entity_a = app.world_mut().spawn((
+        Transform::from_xyz(0.0, 0.0, 0.0),
+        StableId(100),
+        RelationshipRegistry::default(),
+    )).id();
+
+    // Spawn B
+    let mut reg_b = RelationshipRegistry::default();
+    let mut rel_b_to_a = RelationshipData::new(elapsed);
+    rel_b_to_a.affinity = 90.0;
+    rel_b_to_a.trust = 90.0;
+    reg_b.relationships.insert(100, rel_b_to_a);
+
+    let entity_b = app.world_mut().spawn((
+        Transform::from_xyz(50.0, 0.0, 0.0),
+        StableId(200),
+        reg_b,
+    )).id();
+
+    // Add high affinity and trust from A to B (StableId 200) in A's registry
+    {
+        let mut reg_a = app.world_mut().get_mut::<RelationshipRegistry>(entity_a).unwrap();
+        let mut rel_a_to_b = RelationshipData::new(elapsed);
+        rel_a_to_b.affinity = 90.0;
+        rel_a_to_b.trust = 90.0;
+        reg_a.relationships.insert(200, rel_a_to_b);
+    }
+
+    // Update app twice (first updates time strategy, second advances time by 2.5 seconds and triggers family_formation_system)
+    app.update();
+    app.update();
+
+    // Verify family group IDs
+    let reg_a = app.world().get::<RelationshipRegistry>(entity_a).unwrap();
+    let reg_b = app.world().get::<RelationshipRegistry>(entity_b).unwrap();
+
+    assert!(reg_a.family_group_id.is_some(), "Entity A should have a family group assigned");
+    assert!(reg_b.family_group_id.is_some(), "Entity B should have a family group assigned");
+    assert_eq!(reg_a.family_group_id, reg_b.family_group_id, "Family group IDs must match");
+}
+
 
 

@@ -3,7 +3,7 @@ mod common;
 use bevy::prelude::*;
 use bevy::ecs::system::RunSystemOnce;
 use avian2d::prelude::*;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use vibecoded_yukkuri_game::audio::{PlaySoundEvent, YukkuriAudioManager};
 use vibecoded_yukkuri_game::ui::{YukkuriDragState, YukkuriUiButton, UiAction};
 use vibecoded_yukkuri_game::prefabs::{load_prefab, spawn_yukkuri_prefab};
@@ -28,31 +28,24 @@ fn spawn_one(app: &mut App, position: Vec2) -> Entity {
     let prefab = load_prefab("data/prefabs/reimu.toml")
         .expect("Failed to load reimu.toml prefab");
 
-    let slot = Arc::new(Mutex::new(None));
-    let slot_clone = slot.clone();
-    let prefab_clone = prefab.clone();
-
-    app.add_systems(
-        PostStartup,
+    let entity = app.world_mut().run_system_once(
         move |mut commands: Commands,
               asset_server: Res<AssetServer>,
               atlas_registry: Res<TextureAtlasRegistry>,
-              type_registry: Res<YukkuriTypeRegistry>| {
-            let e = spawn_yukkuri_prefab(
+              type_registry: Res<YukkuriTypeRegistry>| -> Entity {
+            spawn_yukkuri_prefab(
                 &mut commands,
-                &prefab_clone,
+                &prefab,
                 position,
                 &asset_server,
                 &atlas_registry,
                 &type_registry,
-            );
-            *slot_clone.lock().unwrap() = Some(e);
+            )
         },
-    );
+    ).expect("Failed to run spawn system");
 
-    app.update(); // fires PostStartup
-    let entity = *slot.lock().unwrap();
-    entity.expect("PostStartup spawn system did not run")
+    app.update(); // Apply spawning commands to ECS
+    entity
 }
 
 #[test]
@@ -88,6 +81,9 @@ fn test_dragging_flow() {
     init_python();
 
     let mut app = make_app();
+    app.update();
+    app.world_mut().resource_mut::<NextState<vibecoded_yukkuri_game::GameState>>().set(vibecoded_yukkuri_game::GameState::Gameplay);
+    app.update();
     
     let _camera_entity = common::spawn_test_camera(&mut app);
 
@@ -101,6 +97,11 @@ fn test_dragging_flow() {
     }
 
     let window_entity = common::spawn_test_window(&mut app);
+
+    // Set cursor position to (400, 300) so it hovers over the Yukkuri at (0,0) in world coordinates.
+    if let Some(mut window) = app.world_mut().get_mut::<Window>(window_entity) {
+        window.set_cursor_position(Some(Vec2::new(400.0, 300.0)));
+    }
 
     // Send mouse press event via MessageWriter so InputPlugin processes it in PreUpdate,
     // correctly setting just_pressed for the next Update frame.
@@ -178,6 +179,8 @@ fn test_ui_button_interaction() {
 
     let mut app = make_app();
     app.update();
+    app.world_mut().resource_mut::<NextState<vibecoded_yukkuri_game::GameState>>().set(vibecoded_yukkuri_game::GameState::Gameplay);
+    app.update();
 
     // Clear messages
     app.world_mut().resource_mut::<Messages<PlaySoundEvent>>().clear();
@@ -215,6 +218,9 @@ fn test_hover_tooltip_flow() {
     init_python();
 
     let mut app = make_app();
+    app.update();
+    app.world_mut().resource_mut::<NextState<vibecoded_yukkuri_game::GameState>>().set(vibecoded_yukkuri_game::GameState::Gameplay);
+    app.update();
     
     let camera_entity = common::spawn_test_camera(&mut app);
     app.world_mut().entity_mut(camera_entity).insert(vibecoded_yukkuri_game::camera::MainCamera);

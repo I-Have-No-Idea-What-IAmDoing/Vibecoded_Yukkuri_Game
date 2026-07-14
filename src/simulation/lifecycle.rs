@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 use rand::Rng;
-use crate::ai::{Needs, YukkuriStats, Dead, BaseColliderRadius, EmotionalState, AIState};
+use crate::ai::{Needs, YukkuriStats, Dead, BaseColliderRadius, EmotionalState, AIState, StableId, RelationshipRegistry, Personality};
 use crate::render::{YukkuriSprite, TextureAtlasRegistry, YukkuriTypeRegistry};
 use crate::simulation::needs::SimulationSettings;
 use crate::prefabs::{spawn_yukkuri_prefab, load_prefab};
@@ -20,6 +20,7 @@ impl Plugin for LifecycleSimulationPlugin {
                     lifecycle_tick_system,
                     death_system,
                     breeding_system,
+                    lifecycle_feedback_system,
                 ),
             );
     }
@@ -38,11 +39,11 @@ pub struct EntityDiedMessage {
     pub entity: Entity,
 }
 
-/// System that increments yukkuri age and handles stage transitions (Baby -> Child -> Adult).
 pub fn lifecycle_tick_system(
     mut commands: Commands,
     time: Res<Time<Virtual>>,
     settings: Res<SimulationSettings>,
+    time_elapsed: Res<crate::ai::persistence::TimeElapsed>,
     mut query: Query<
         (
             Entity,
@@ -55,7 +56,7 @@ pub fn lifecycle_tick_system(
     >,
     mut grew_writer: MessageWriter<EntityGrewMessage>,
 ) {
-    let game_dt = time.delta_secs() * settings.time_scale;
+    let game_dt = time.delta_secs() * time_elapsed.scale * time_elapsed.game_speed;
     if game_dt <= 0.0 {
         return;
     }
@@ -132,7 +133,14 @@ pub fn breeding_system(
     atlas_registry: Res<TextureAtlasRegistry>,
     type_registry: Res<YukkuriTypeRegistry>,
     mut breeding_timer: Local<Timer>,
-    mut query: Query<(&Transform, &mut Needs, &EmotionalState, &YukkuriStats), Without<Dead>>,
+    mut query: Query<(
+        Entity,
+        &Transform,
+        &mut Needs,
+        &EmotionalState,
+        &YukkuriStats,
+        &StableId,
+    ), Without<Dead>>,
 ) {
     if breeding_timer.duration() == Duration::ZERO {
         *breeding_timer = Timer::from_seconds(1.0, TimerMode::Repeating);
@@ -145,7 +153,7 @@ pub fn breeding_system(
 
     let mut rng = rand::thread_rng();
 
-    for (transform, mut needs, emotional, stats) in query.iter_mut() {
+    for (entity, transform, mut needs, emotional, stats, _stable_id) in query.iter_mut() {
         if stats.growth_stage != "Adult" {
             continue;
         }
@@ -157,7 +165,7 @@ pub fn breeding_system(
             // Deduct breeding cost
             needs.energy = (needs.energy - settings.breeding_cost).clamp(0.0, 100.0);
 
-            // Spawn baby of same type_id nearby
+             // Spawn baby of same type_id nearby
             let prefab_path = format!("data/prefabs/{}.toml", stats.type_id);
             if let Ok(prefab) = load_prefab(&prefab_path) {
                 let offset = if settings.baby_spawn_offset_range > 0.0 {
@@ -173,7 +181,7 @@ pub fn breeding_system(
                 let mut baby_prefab = prefab.clone();
                 baby_prefab.prefab.growth_stage = "Baby".to_string();
 
-                spawn_yukkuri_prefab(
+                let baby_ent = spawn_yukkuri_prefab(
                     &mut commands,
                     &baby_prefab,
                     baby_pos,
@@ -182,10 +190,141 @@ pub fn breeding_system(
                     &type_registry,
                 );
 
+                let parent_ent = entity;
+                commands.queue(move |world: &mut World| {
+                    let parent_stable_id;
+                    let parent_family_id;
+                    let parent_personality;
+                    
+                    if let Some(parent_ref) = world.get::<StableId>(parent_ent) {
+                        parent_stable_id = parent_ref.0;
+                    } else {
+                        return;
+                    }
+                    
+                    if let Some(parent_reg) = world.get::<RelationshipRegistry>(parent_ent) {
+                        parent_family_id = parent_reg.family_group_id;
+                    } else {
+                        parent_family_id = None;
+                    }
+                    
+                    if let Some(parent_pers) = world.get::<Personality>(parent_ent) {
+                        parent_personality = Some(parent_pers.clone());
+                    } else {
+                        parent_personality = None;
+                    }
+                    
+                    let child_stable_id;
+                    if let Some(child_ref) = world.get::<StableId>(baby_ent) {
+                        child_stable_id = child_ref.0;
+                    } else {
+                        return;
+                    }
+                    
+                    let fam_id = parent_family_id.unwrap_or_else(|| rand::random::<u64>());
+                    
+                    // Link parent and child relationships
+                    if let Some(mut p_reg) = world.get_mut::<RelationshipRegistry>(parent_ent) {
+                        p_reg.biological_children.push(child_stable_id);
+                        if p_reg.family_group_id.is_none() {
+                            p_reg.family_group_id = Some(fam_id);
+                        }
+                    }
+                    
+                    if let Some(mut c_reg) = world.get_mut::<RelationshipRegistry>(baby_ent) {
+                        c_reg.biological_parents.push(parent_stable_id);
+                        c_reg.family_group_id = Some(fam_id);
+                    }
+                    
+                    // Personality & Trait genetics inheritance
+                    if let Some(parent_p) = parent_personality {
+                        let mut local_rng = rand::thread_rng();
+                        use rand::Rng;
+                        
+                        let kindness = (parent_p.kindness as f32 + local_rng.gen_range(-10.0..=10.0)).clamp(-100.0, 100.0) as i32;
+                        let energy = (parent_p.energy as f32 + local_rng.gen_range(-10.0..=10.0)).clamp(-100.0, 100.0) as i32;
+                        let bravery = (parent_p.bravery as f32 + local_rng.gen_range(-10.0..=10.0)).clamp(-100.0, 100.0) as i32;
+                        let greed = (parent_p.greed as f32 + local_rng.gen_range(-10.0..=10.0)).clamp(-100.0, 100.0) as i32;
+                        
+                        let mut traits = std::collections::HashSet::new();
+                        for t in &parent_p.traits {
+                            if local_rng.gen_bool(0.5) {
+                                traits.insert(t.clone());
+                            }
+                        }
+                        
+                        let t_registry = world.get_resource::<crate::simulation::skills::TraitRegistry>();
+                        if let Some(tr) = t_registry {
+                            if local_rng.gen_bool(0.1) || traits.is_empty() {
+                                let keys: Vec<String> = tr.traits.keys().cloned().collect();
+                                if !keys.is_empty() {
+                                    let rand_idx = local_rng.gen_range(0..keys.len());
+                                    traits.insert(keys[rand_idx].clone());
+                                }
+                            }
+                        }
+                        
+                        if let Some(mut c_pers) = world.get_mut::<Personality>(baby_ent) {
+                            c_pers.kindness = kindness;
+                            c_pers.energy = energy;
+                            c_pers.bravery = bravery;
+                            c_pers.greed = greed;
+                            c_pers.traits = traits;
+                        }
+                    }
+                });
+
                 info!("Adult {} bred a new baby!", stats.name);
             } else {
                 warn!("Breeding failed: could not load prefab at {}", prefab_path);
             }
+        }
+    }
+}
+
+pub fn lifecycle_feedback_system(
+    mut commands: Commands,
+    mut grew_reader: MessageReader<EntityGrewMessage>,
+    mut died_reader: MessageReader<EntityDiedMessage>,
+    yukkuri_query: Query<(&Transform, &YukkuriStats)>,
+) {
+    for msg in grew_reader.read() {
+        if let Ok((trans, stats)) = yukkuri_query.get(msg.entity) {
+            info!("{} grew up to {}!", stats.name, msg.new_stage);
+            commands.spawn((
+                crate::simulation::needs::FloatingText {
+                    velocity: Vec2::new(0.0, 40.0),
+                    lifetime: 0.0,
+                    max_lifetime: 2.0,
+                },
+                Text::new("Level Up!"),
+                TextColor(Color::srgb(0.95, 0.95, 0.2)),
+                TextFont {
+                    font_size: FontSize::Px(22.0),
+                    ..default()
+                },
+                Transform::from_translation(trans.translation + Vec3::new(0.0, 30.0, 1.5)),
+            ));
+        }
+    }
+
+    for msg in died_reader.read() {
+        if let Ok((trans, stats)) = yukkuri_query.get(msg.entity) {
+            info!("{} has died...", stats.name);
+            commands.spawn((
+                crate::simulation::needs::FloatingText {
+                    velocity: Vec2::new(0.0, 20.0),
+                    lifetime: 0.0,
+                    max_lifetime: 2.0,
+                },
+                Text::new("Dead..."),
+                TextColor(Color::srgb(0.6, 0.6, 0.6)),
+                TextFont {
+                    font_size: FontSize::Px(20.0),
+                    ..default()
+                },
+                Transform::from_translation(trans.translation + Vec3::new(0.0, 30.0, 1.5)),
+            ));
         }
     }
 }

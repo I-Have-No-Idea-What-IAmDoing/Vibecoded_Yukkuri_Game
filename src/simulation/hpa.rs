@@ -868,6 +868,17 @@ pub struct NavigationService {
 }
 
 impl NavigationService {
+    pub fn reset(&self) {
+        if let Ok(mut grid) = self.grid.write() {
+            let default_mask = TRAVERSAL_WALK | TRAVERSAL_FLY | TRAVERSAL_SWIM;
+            for cell in &mut grid.cells {
+                cell.access_mask = default_mask;
+                cell.cost = 1.0;
+            }
+        }
+        let _ = self.request_tx.send(NavCommand::RebuildAll);
+    }
+
     pub fn new(world_width: f32, world_height: f32, grid_step_size: f32) -> Self {
         let grid = Arc::new(RwLock::new(NavigationGrid::new(world_width, world_height, grid_step_size)));
         let (request_tx, request_rx) = channel::<NavCommand>();

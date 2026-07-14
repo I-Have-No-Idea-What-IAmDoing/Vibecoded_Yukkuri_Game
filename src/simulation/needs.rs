@@ -10,6 +10,7 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 use rand::Rng;
+use serde::Deserialize;
 use crate::ai::{Needs, Dead, EmotionalState};
 use crate::audio::PlaySoundEvent;
 
@@ -65,6 +66,8 @@ pub struct SimulationSettings {
     pub happiness_decay_rate: f32,
     pub xp_base: f32,
     pub xp_exponent: f32,
+    pub personality_drift_rate: f32,
+    pub tastebud_decay: f32,
 }
 
 impl Default for SimulationSettings {
@@ -106,19 +109,105 @@ impl Default for SimulationSettings {
             happiness_decay_rate: 0.5,
             xp_base: 100.0,
             xp_exponent: 1.5,
+            personality_drift_rate: 0.1,
+            tastebud_decay: 0.001,
         }
     }
 }
+
+#[derive(Deserialize, Debug)]
+struct StatDecayToml {
+    hunger: Option<f32>,
+    happiness: Option<f32>,
+    stress: Option<f32>,
+    energy: Option<f32>,
+    cleanliness: Option<f32>,
+    social: Option<f32>,
+    age: Option<f32>,
+    starvation_damage: Option<f32>,
+    personality_drift_rate: Option<f32>,
+    tastebud_decay: Option<f32>,
+}
+
+#[derive(Deserialize, Debug)]
+struct LifecycleToml {
+    baby_age_threshold: Option<f32>,
+    child_age_threshold: Option<f32>,
+    breeding_happiness_threshold: Option<f32>,
+    breeding_energy_threshold: Option<f32>,
+    breeding_cost: Option<f32>,
+    breeding_chance: Option<f32>,
+}
+
+#[derive(Deserialize, Debug)]
+struct SkillsToml {
+    xp_base: Option<f32>,
+    xp_exponent: Option<f32>,
+}
+
+#[derive(Deserialize, Debug)]
+struct RulesToml {
+    stat_decay: Option<StatDecayToml>,
+    lifecycle: Option<LifecycleToml>,
+    skills: Option<SkillsToml>,
+}
+
+pub fn load_simulation_settings() -> SimulationSettings {
+    let mut settings = SimulationSettings::default();
+    let config_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("data")
+        .join("rules.toml");
+
+    if let Ok(contents) = std::fs::read_to_string(&config_path) {
+        match toml::from_str::<RulesToml>(&contents) {
+            Ok(rules) => {
+                if let Some(decay) = rules.stat_decay {
+                    if let Some(val) = decay.hunger { settings.hunger_decay_rate = val; }
+                    if let Some(val) = decay.happiness { settings.happiness_decay_rate = val; }
+                    if let Some(val) = decay.stress { settings.stress_decay_rate = val; }
+                    if let Some(val) = decay.energy { settings.energy_decay_rate = val; }
+                    if let Some(val) = decay.cleanliness { settings.cleanliness_decay_rate = val; }
+                    if let Some(val) = decay.social { settings.social_decay_rate = val; }
+                    if let Some(val) = decay.age { settings.age_decay_rate = val; }
+                    if let Some(val) = decay.starvation_damage { settings.starvation_damage_rate = val; }
+                    if let Some(val) = decay.personality_drift_rate { settings.personality_drift_rate = val; }
+                    if let Some(val) = decay.tastebud_decay { settings.tastebud_decay = val; }
+                }
+                if let Some(lifecycle) = rules.lifecycle {
+                    if let Some(val) = lifecycle.baby_age_threshold { settings.baby_age_threshold = val; }
+                    if let Some(val) = lifecycle.child_age_threshold { settings.child_age_threshold = val; }
+                    if let Some(val) = lifecycle.breeding_happiness_threshold { settings.breeding_happiness_threshold = val; }
+                    if let Some(val) = lifecycle.breeding_energy_threshold { settings.breeding_energy_threshold = val; }
+                    if let Some(val) = lifecycle.breeding_cost { settings.breeding_cost = val; }
+                    if let Some(val) = lifecycle.breeding_chance { settings.breeding_chance = val; }
+                }
+                if let Some(skills) = rules.skills {
+                    if let Some(val) = skills.xp_base { settings.xp_base = val; }
+                    if let Some(val) = skills.xp_exponent { settings.xp_exponent = val; }
+                }
+            }
+            Err(e) => {
+                eprintln!("[SimulationSettings] Failed to parse rules.toml: {}; using defaults", e);
+            }
+        }
+    } else {
+        eprintln!("[SimulationSettings] Could not read rules.toml; using defaults");
+    }
+
+    settings
+}
+
 
 /// Ticks hunger, energy, cleanliness, social using virtual time and applying time_scale.
 /// Applies starvation damage when hunger reaches 100.0. Clamps values appropriately.
 pub fn needs_decay_tick_system(
     time: Res<Time<Virtual>>,
     settings: Res<SimulationSettings>,
+    time_elapsed: Res<crate::ai::persistence::TimeElapsed>,
     trait_registry: Res<crate::simulation::skills::TraitRegistry>,
     mut query: Query<(&mut Needs, Option<&crate::ai::Personality>), Without<Dead>>,
 ) {
-    let game_dt = time.delta_secs() * settings.time_scale;
+    let game_dt = time.delta_secs() * time_elapsed.scale * time_elapsed.game_speed;
     if game_dt <= 0.0 {
         return;
     }
@@ -213,6 +302,7 @@ pub fn poop_spawning_system(
                 Friction::new(0.2),
                 Restitution::new(0.2),
                 Poop,
+                crate::ai::Persistable,
             ));
 
             needs.cleanliness = (needs.cleanliness - settings.spawn_cleanliness_penalty).clamp(0.0, 100.0);
@@ -283,8 +373,10 @@ pub fn clean_poop_on_click_system(
     camera_query: Query<(&Camera, &GlobalTransform), With<crate::camera::MainCamera>>,
     poop_query: Query<(Entity, &Transform), With<Poop>>,
     mut message_writer: MessageWriter<PlaySoundEvent>,
+    clean_tool_active: Option<Res<crate::ui::hud::CleanToolActive>>,
 ) {
-    if !keyboard_input.pressed(KeyCode::KeyC) {
+    let active = clean_tool_active.map(|c| c.0).unwrap_or(false) || keyboard_input.pressed(KeyCode::KeyC);
+    if !active {
         return;
     }
     if !mouse_button_input.just_pressed(MouseButton::Left) {
@@ -317,33 +409,137 @@ pub fn clean_poop_on_click_system(
     }
 }
 
-/// Ticks emotional state stress and happiness decay over game time, modifying rates by traits.
-/// Accumulates darkness stress if the entity is in darkness at night.
 pub fn emotional_decay_tick_system(
     time: Res<Time<Virtual>>,
     settings: Res<SimulationSettings>,
     trait_registry: Res<crate::simulation::skills::TraitRegistry>,
-    time_elapsed: Option<Res<crate::ai::persistence::TimeElapsed>>,
+    time_elapsed: Res<crate::ai::persistence::TimeElapsed>,
     query_lights: Query<(&GlobalTransform, &crate::render::lighting::LightSource)>,
-    mut query: Query<(Entity, &GlobalTransform, &mut EmotionalState, Option<&crate::ai::Personality>), Without<Dead>>,
+    mut query: Query<(Entity, &GlobalTransform, &mut EmotionalState, Option<&mut crate::ai::YukkuriStats>, Option<&mut crate::ai::Personality>), Without<Dead>>,
 ) {
-    let game_dt = time.delta_secs() * settings.time_scale;
+    let game_dt = time.delta_secs() * time_elapsed.scale * time_elapsed.game_speed;
     if game_dt <= 0.0 {
         return;
     }
 
-    let is_night = time_elapsed.as_ref().map(|te| te.is_night()).unwrap_or(false);
+    let is_night = time_elapsed.is_night();
 
-    for (_entity, g_trans, mut emotional_state, maybe_personality) in query.iter_mut() {
+    for (_entity, g_trans, mut emotional_state, mut maybe_ystats, mut maybe_personality) in query.iter_mut() {
         let mut happiness_mult = 1.0;
         let mut stress_mult = 1.0;
 
-        if let Some(personality) = maybe_personality {
+        if let Some(ref personality) = maybe_personality {
             for trait_id in &personality.traits {
                 if let Some(t_data) = trait_registry.traits.get(trait_id) {
                     if let Some(ref stat_mods) = t_data.stat_modifiers {
                         happiness_mult *= stat_mods.get("happiness_decay").copied().unwrap_or(1.0);
                         stress_mult *= stat_mods.get("stress_decay").copied().unwrap_or(1.0);
+                    }
+                }
+            }
+        }
+
+        // Decay tastebuds spoiled
+        if let Some(ref mut ystats) = maybe_ystats {
+            if ystats.tastebud_spoiled > 0.0 {
+                ystats.tastebud_spoiled = (ystats.tastebud_spoiled - settings.tastebud_decay * game_dt).max(0.0);
+            }
+        }
+
+        // Apply personality drift
+        if let Some(ref mut personality) = maybe_personality {
+            let drift_rate = settings.personality_drift_rate;
+            let drift_amount_float = drift_rate * game_dt;
+            let guaranteed_drift = drift_amount_float as i32;
+            let probability_drift = drift_amount_float - guaranteed_drift as f32;
+            
+            let mut rng = rand::thread_rng();
+
+            // kindness
+            {
+                let current = personality.kindness;
+                let base = personality.base_kindness;
+                if current != base {
+                    let diff = base - current;
+                    let direction = diff.signum();
+                    let mut change = guaranteed_drift;
+                    if rng.gen::<f32>() < probability_drift {
+                        change += 1;
+                    }
+                    if change > 0 {
+                        let mut new_val = current + change * direction;
+                        if direction > 0 {
+                            new_val = new_val.min(base);
+                        } else {
+                            new_val = new_val.max(base);
+                        }
+                        personality.kindness = new_val;
+                    }
+                }
+            }
+            // energy
+            {
+                let current = personality.energy;
+                let base = personality.base_energy;
+                if current != base {
+                    let diff = base - current;
+                    let direction = diff.signum();
+                    let mut change = guaranteed_drift;
+                    if rng.gen::<f32>() < probability_drift {
+                        change += 1;
+                    }
+                    if change > 0 {
+                        let mut new_val = current + change * direction;
+                        if direction > 0 {
+                            new_val = new_val.min(base);
+                        } else {
+                            new_val = new_val.max(base);
+                        }
+                        personality.energy = new_val;
+                    }
+                }
+            }
+            // bravery
+            {
+                let current = personality.bravery;
+                let base = personality.base_bravery;
+                if current != base {
+                    let diff = base - current;
+                    let direction = diff.signum();
+                    let mut change = guaranteed_drift;
+                    if rng.gen::<f32>() < probability_drift {
+                        change += 1;
+                    }
+                    if change > 0 {
+                        let mut new_val = current + change * direction;
+                        if direction > 0 {
+                            new_val = new_val.min(base);
+                        } else {
+                            new_val = new_val.max(base);
+                        }
+                        personality.bravery = new_val;
+                    }
+                }
+            }
+            // greed
+            {
+                let current = personality.greed;
+                let base = personality.base_greed;
+                if current != base {
+                    let diff = base - current;
+                    let direction = diff.signum();
+                    let mut change = guaranteed_drift;
+                    if rng.gen::<f32>() < probability_drift {
+                        change += 1;
+                    }
+                    if change > 0 {
+                        let mut new_val = current + change * direction;
+                        if direction > 0 {
+                            new_val = new_val.min(base);
+                        } else {
+                            new_val = new_val.max(base);
+                        }
+                        personality.greed = new_val;
                     }
                 }
             }
@@ -421,14 +617,14 @@ pub fn update_floating_text_system(
     }
 }
 
-/// System to tick crying audio rolls for sad/unhappy yukkuri.
 pub fn crying_feedback_system(
     time: Res<Time<Virtual>>,
-    settings: Res<SimulationSettings>,
+    _settings: Res<SimulationSettings>,
+    time_elapsed: Res<crate::ai::persistence::TimeElapsed>,
     mut message_writer: MessageWriter<PlaySoundEvent>,
     query: Query<(&Needs, &EmotionalState), Without<Dead>>,
 ) {
-    let game_dt = time.delta_secs() * settings.time_scale;
+    let game_dt = time.delta_secs() * time_elapsed.scale * time_elapsed.game_speed;
     if game_dt <= 0.0 {
         return;
     }

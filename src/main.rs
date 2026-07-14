@@ -74,6 +74,7 @@ fn main() {
     // into DefaultPlugins (window) and as resources (world settings).
     let win = load_window_settings();
     let world_settings = load_world_settings();
+    let sim_settings = vibecoded_yukkuri_game::simulation::needs::load_simulation_settings();
 
     println!(
         "Initializing Bevy Yukkuri Raised Game — world {}×{}, window {}×{}",
@@ -128,6 +129,7 @@ fn main() {
                     ..default()
                 }),
         )
+        .init_state::<vibecoded_yukkuri_game::GameState>()
 
         // ---- Physics -------------------------------------------------------
         .add_plugins(PhysicsPlugins::default())
@@ -135,6 +137,7 @@ fn main() {
         // Insert WorldSettings BEFORE AIPlugin so init_resource<WorldSettings>
         // inside AIPlugin::build() is a no-op and our loaded value is kept.
         .insert_resource(world_settings.clone())
+        .insert_resource(sim_settings)
         .insert_resource(vibecoded_yukkuri_game::simulation::hpa::NavigationService::new(
             world_settings.width,
             world_settings.height,
@@ -147,7 +150,7 @@ fn main() {
         .add_plugins(vibecoded_yukkuri_game::ui::YukkuriUiPlugin)
         .add_plugins(vibecoded_yukkuri_game::simulation::SimulationPlugin)
         // ---- Systems -------------------------------------------------------
-        .add_systems(PostStartup, spawn_initial_yukkuri)
+        .add_systems(OnEnter(vibecoded_yukkuri_game::GameState::Gameplay), spawn_initial_yukkuri)
         .run();
 }
 
@@ -166,7 +169,12 @@ fn spawn_initial_yukkuri(
     atlas_registry: Res<TextureAtlasRegistry>,
     type_registry: Res<YukkuriTypeRegistry>,
     world_settings: Res<ai::WorldSettings>,
+    existing_query: Query<Entity, With<ai::Needs>>,
 ) {
+    if !existing_query.is_empty() {
+        return; // Already loaded a save or populated game, don't spawn duplicate
+    }
+
     let prefab_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("data")
         .join("prefabs")

@@ -28,6 +28,16 @@ pub enum UiAction {
     ToggleShop,
     SelectShopTab(ShopTab),
     BuyItem { item_id: String, cost: i32 },
+    PauseResume,
+    SpeedUp,
+    SpeedDown,
+    SaveGame,
+    LoadGame,
+    ToggleSettings,
+    SelectCleanTool,
+    VolumeUp { category: String },
+    VolumeDown { category: String },
+    ToggleFullscreen,
 }
 
 #[derive(Component)]
@@ -82,6 +92,26 @@ pub struct HudHoverTooltip;
 #[derive(Component)]
 pub struct HudHoverTooltipText;
 
+#[derive(Component)]
+pub struct HudMoneyText;
+
+#[derive(Component)]
+pub struct HudTimeText;
+
+#[derive(Component)]
+pub struct HudLogContainer;
+
+#[derive(Component)]
+pub struct SettingsPopupNode;
+
+#[derive(Component)]
+pub struct SettingsVolumeText {
+    pub category: String,
+}
+
+#[derive(Resource, Default, Debug, Clone)]
+pub struct CleanToolActive(pub bool);
+
 const BUTTON_NORMAL_COLOR: Color = Color::srgba(0.18, 0.18, 0.22, 0.9);
 const BUTTON_HOVER_COLOR: Color = Color::srgba(0.25, 0.25, 0.30, 1.0);
 const BUTTON_PRESSED_COLOR: Color = Color::srgba(0.35, 0.35, 0.45, 1.0);
@@ -91,8 +121,7 @@ const BUTTON_PRESSED_COLOR: Color = Color::srgba(0.35, 0.35, 0.45, 1.0);
 // ---------------------------------------------------------------------------
 
 pub fn setup_hud_system(mut commands: Commands) {
-    // Root HUD panel — anchored to the bottom of the screen.
-    // Glassmorphic styling.
+    // 1. Root HUD panel — anchored to the bottom of the screen.
     commands
         .spawn((
             Node {
@@ -109,7 +138,7 @@ pub fn setup_hud_system(mut commands: Commands) {
             BackgroundColor(Color::srgba(0.08, 0.08, 0.1, 0.75)),
         ))
         .with_children(|parent| {
-            // Left Container: Spawn and sound buttons row
+            // Left Container: Spawn, Clean, and sound buttons row
             parent
                 .spawn((
                     Node {
@@ -128,6 +157,7 @@ pub fn setup_hud_system(mut commands: Commands) {
                 ))
                 .with_children(|inner| {
                     spawn_hud_button(inner, "Shop", UiAction::ToggleShop);
+                    spawn_hud_button(inner, "Clean", UiAction::SelectCleanTool);
                     spawn_hud_button(inner, "Spawn Reimu", UiAction::SpawnReimu);
 
                     for sound in ["click", "place", "cancel", "sell", "train", "eat", "cry"] {
@@ -238,6 +268,253 @@ pub fn setup_hud_system(mut commands: Commands) {
                         spawn_action_button(actions_col, "Punish", UiAction::PunishEntity, true);
                     });
                 });
+        });
+
+    // 2. Root Top Bar panel
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(40.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                padding: UiRect::horizontal(Val::Px(15.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.08, 0.08, 0.1, 0.85)),
+        ))
+        .with_children(|parent| {
+            // Left container: Money and Time
+            parent.spawn(Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(20.0),
+                align_items: AlignItems::Center,
+                ..default()
+            })
+            .with_children(|left| {
+                left.spawn((
+                    HudMoneyText,
+                    Text::new("Money: $0"),
+                    TextFont { font_size: FontSize::Px(14.0), ..default() },
+                    TextColor(Color::srgb(0.3, 0.85, 0.3)),
+                ));
+                left.spawn((
+                    HudTimeText,
+                    Text::new("Day 1 - 12:00"),
+                    TextFont { font_size: FontSize::Px(14.0), ..default() },
+                    TextColor(Color::srgb(0.9, 0.9, 0.95)),
+                ));
+            });
+
+            // Right container: Controls & Buttons
+            parent.spawn(Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(10.0),
+                align_items: AlignItems::Center,
+                ..default()
+            })
+            .with_children(|right| {
+                spawn_hud_button(right, "Pause", UiAction::PauseResume);
+                spawn_hud_button(right, "0.5x", UiAction::SpeedDown);
+                spawn_hud_button(right, "2x", UiAction::SpeedUp);
+                spawn_hud_button(right, "Save", UiAction::SaveGame);
+                spawn_hud_button(right, "Load", UiAction::LoadGame);
+                spawn_hud_button(right, "Settings", UiAction::ToggleSettings);
+            });
+        });
+
+    // 3. Log Panel (above bottom HUD)
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(10.0),
+                bottom: Val::Px(130.0),
+                width: Val::Px(350.0),
+                height: Val::Px(200.0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(Val::Px(10.0)),
+                border_radius: BorderRadius::all(Val::Px(8.0)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.08, 0.08, 0.1, 0.65)),
+            BorderColor::all(Color::srgba(0.4, 0.4, 0.45, 0.3)),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Activity Log"),
+                TextFont { font_size: FontSize::Px(12.0), ..default() },
+                TextColor(Color::srgb(0.7, 0.7, 0.75)),
+                Node {
+                    margin: UiRect::bottom(Val::Px(6.0)),
+                    ..default()
+                },
+            ));
+            
+            // Vertical log items list
+            parent.spawn((
+                HudLogContainer,
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    flex_grow: 1.0,
+                    max_height: Val::Px(130.0),
+                    row_gap: Val::Px(4.0),
+                    overflow: Overflow::scroll_y(),
+                    ..default()
+                },
+                ScrollPosition::default(),
+                Interaction::default(),
+            ));
+        });
+
+    // 4. Settings Volume Popup Panel (hidden by default)
+    commands
+        .spawn((
+            SettingsPopupNode,
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Px(350.0),
+                height: Val::Px(280.0),
+                left: Val::Percent(35.0),
+                top: Val::Percent(25.0),
+                display: Display::None, // Hidden initially
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(Val::Px(15.0)),
+                row_gap: Val::Px(12.0),
+                border_radius: BorderRadius::all(Val::Px(12.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.06, 0.06, 0.08, 0.95)),
+            BorderColor::all(Color::srgba(0.4, 0.4, 0.45, 0.5)),
+        ))
+        .with_children(|parent| {
+            // Header
+            parent.spawn(Node {
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            })
+            .with_children(|header| {
+                header.spawn((
+                    Text::new("Settings"),
+                    TextFont { font_size: FontSize::Px(18.0), ..default() },
+                    TextColor(Color::srgb(0.9, 0.9, 0.95)),
+                ));
+                // Close button
+                spawn_hud_button(header, "X", UiAction::ToggleSettings);
+            });
+
+            // Master Volume row
+            parent.spawn(Node {
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            })
+            .with_children(|row| {
+                row.spawn((
+                    Text::new("Master Volume:"),
+                    TextFont { font_size: FontSize::Px(13.0), ..default() },
+                    TextColor(Color::srgb(0.8, 0.8, 0.85)),
+                ));
+                row.spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(8.0),
+                    ..default()
+                })
+                .with_children(|ctrl| {
+                    spawn_volume_adjust_button(ctrl, "-", UiAction::VolumeDown { category: "master".to_string() });
+                    ctrl.spawn((
+                        SettingsVolumeText { category: "master".to_string() },
+                        Text::new("100%"),
+                        TextFont { font_size: FontSize::Px(13.0), ..default() },
+                        TextColor(Color::srgb(0.9, 0.9, 0.95)),
+                    ));
+                    spawn_volume_adjust_button(ctrl, "+", UiAction::VolumeUp { category: "master".to_string() });
+                });
+            });
+
+            // BGM Volume row
+            parent.spawn(Node {
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            })
+            .with_children(|row| {
+                row.spawn((
+                    Text::new("BGM Volume:"),
+                    TextFont { font_size: FontSize::Px(13.0), ..default() },
+                    TextColor(Color::srgb(0.8, 0.8, 0.85)),
+                ));
+                row.spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(8.0),
+                    ..default()
+                })
+                .with_children(|ctrl| {
+                    spawn_volume_adjust_button(ctrl, "-", UiAction::VolumeDown { category: "bgm".to_string() });
+                    ctrl.spawn((
+                        SettingsVolumeText { category: "bgm".to_string() },
+                        Text::new("100%"),
+                        TextFont { font_size: FontSize::Px(13.0), ..default() },
+                        TextColor(Color::srgb(0.9, 0.9, 0.95)),
+                    ));
+                    spawn_volume_adjust_button(ctrl, "+", UiAction::VolumeUp { category: "bgm".to_string() });
+                });
+            });
+
+            // SFX Volume row
+            parent.spawn(Node {
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            })
+            .with_children(|row| {
+                row.spawn((
+                    Text::new("SFX Volume:"),
+                    TextFont { font_size: FontSize::Px(13.0), ..default() },
+                    TextColor(Color::srgb(0.8, 0.8, 0.85)),
+                ));
+                row.spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(8.0),
+                    ..default()
+                })
+                .with_children(|ctrl| {
+                    spawn_volume_adjust_button(ctrl, "-", UiAction::VolumeDown { category: "sfx".to_string() });
+                    ctrl.spawn((
+                        SettingsVolumeText { category: "sfx".to_string() },
+                        Text::new("100%"),
+                        TextFont { font_size: FontSize::Px(13.0), ..default() },
+                        TextColor(Color::srgb(0.9, 0.9, 0.95)),
+                    ));
+                    spawn_volume_adjust_button(ctrl, "+", UiAction::VolumeUp { category: "sfx".to_string() });
+                });
+            });
+
+            // Fullscreen toggle row
+            parent.spawn(Node {
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            })
+            .with_children(|row| {
+                row.spawn((
+                    Text::new("Screen Mode:"),
+                    TextFont { font_size: FontSize::Px(13.0), ..default() },
+                    TextColor(Color::srgb(0.8, 0.8, 0.85)),
+                ));
+                spawn_hud_button(row, "Toggle Fullscreen", UiAction::ToggleFullscreen);
+            });
         });
 
     // Root Shop Panel - positioned above the bottom HUD bar, starts hidden (Display::None).
@@ -509,6 +786,81 @@ fn spawn_hud_button(parent: &mut ChildSpawnerCommands, label: &str, action: UiAc
         });
 }
 
+fn spawn_volume_adjust_button(parent: &mut ChildSpawnerCommands, label: &str, action: UiAction) {
+    parent
+        .spawn((
+            Button,
+            Node {
+                width: Val::Px(24.0),
+                height: Val::Px(24.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(Val::Px(4.0)),
+                ..default()
+            },
+            BackgroundColor(BUTTON_NORMAL_COLOR),
+            BorderColor::all(Color::srgba(0.3, 0.3, 0.35, 0.5)),
+            YukkuriUiButton { action },
+        ))
+        .with_children(|btn| {
+            btn.spawn((
+                Text::new(label),
+                TextFont { font_size: FontSize::Px(12.0), ..default() },
+                TextColor(Color::srgb(0.95, 0.95, 0.95)),
+            ));
+        });
+}
+
+pub fn save_user_settings(
+    audio_manager: &crate::audio::YukkuriAudioManager,
+    width: f32,
+    height: f32,
+    fullscreen: bool,
+) {
+    use serde::Serialize;
+    
+    #[derive(Serialize)]
+    struct AudioOut {
+        master_volume: f32,
+        bgm_volume: f32,
+        sfx_volume: f32,
+    }
+    
+    #[derive(Serialize)]
+    struct WindowOut {
+        width: f32,
+        height: f32,
+        fullscreen: bool,
+    }
+    
+    #[derive(Serialize)]
+    struct SettingsOut {
+        audio: AudioOut,
+        window: WindowOut,
+    }
+    
+    let out = SettingsOut {
+        audio: AudioOut {
+            master_volume: audio_manager.master_volume,
+            bgm_volume: audio_manager.bgm_volume,
+            sfx_volume: audio_manager.sfx_volume,
+        },
+        window: WindowOut {
+            width,
+            height,
+            fullscreen,
+        },
+    };
+    
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("data")
+        .join("user_settings.toml");
+        
+    if let Ok(contents) = toml::to_string(&out) {
+        let _ = std::fs::write(path, contents);
+    }
+}
+
 fn spawn_needs_progress_bar(
     parent: &mut ChildSpawnerCommands,
     label: &str,
@@ -565,24 +917,34 @@ fn spawn_needs_progress_bar(
 // HUD Interaction & Logic
 // ---------------------------------------------------------------------------
 
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct HudInteractionParams<'w, 's> {
+    pub commands: Commands<'w, 's>,
+    pub asset_server: Res<'w, AssetServer>,
+    pub atlas_registry: Res<'w, TextureAtlasRegistry>,
+    pub type_registry: Res<'w, YukkuriTypeRegistry>,
+    pub world_settings: Res<'w, WorldSettings>,
+    pub active_tab: ResMut<'w, ActiveShopTab>,
+    pub placement_state: ResMut<'w, super::placement::PlacementState>,
+    pub economy: Res<'w, crate::ai::persistence::Economy>,
+}
+
 pub fn hud_interaction_system(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor, &YukkuriUiButton),
         (Changed<Interaction>, With<Button>),
     >,
     mut message_writer: MessageWriter<PlaySoundEvent>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    atlas_registry: Res<TextureAtlasRegistry>,
-    type_registry: Res<YukkuriTypeRegistry>,
-    world_settings: Res<WorldSettings>,
+    mut params: HudInteractionParams,
     camera_controller_query: Query<&CameraController>,
     mut sell_writer: MessageWriter<crate::simulation::player_actions::SellEntityRequest>,
     mut train_writer: MessageWriter<crate::simulation::player_actions::TrainEntityRequest>,
     mut punish_writer: MessageWriter<crate::simulation::player_actions::PunishEntityRequest>,
-    mut active_tab: ResMut<ActiveShopTab>,
-    mut placement_state: ResMut<super::placement::PlacementState>,
-    economy: Res<crate::ai::persistence::Economy>,
+    mut time_elapsed: Option<ResMut<crate::ai::persistence::TimeElapsed>>,
+    mut settings_popup_query: Query<&mut Node, (With<SettingsPopupNode>, Without<HudSelectionCard>, Without<ShopPanel>)>,
+    mut clean_tool_active: Option<ResMut<CleanToolActive>>,
+    mut audio_manager: Option<ResMut<crate::audio::YukkuriAudioManager>>,
+    mut window_query: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
 ) {
     for (interaction, mut bg_color, ui_btn) in &mut interaction_query {
         match *interaction {
@@ -601,16 +963,16 @@ pub fn hud_interaction_system(
 
                         if let Ok(prefab) = crate::prefabs::load_prefab(path_str) {
                             let center = Vec2::new(
-                                world_settings.width / 2.0,
-                                world_settings.height / 2.0,
+                                params.world_settings.width / 2.0,
+                                params.world_settings.height / 2.0,
                             );
                             crate::prefabs::spawn_yukkuri_prefab(
-                                &mut commands,
+                                &mut params.commands,
                                 &prefab,
                                 center,
-                                &asset_server,
-                                &atlas_registry,
-                                &type_registry,
+                                &params.asset_server,
+                                &params.atlas_registry,
+                                &params.type_registry,
                             );
                             message_writer.write(PlaySoundEvent { name: "place".to_string() });
                         } else {
@@ -636,19 +998,139 @@ pub fn hud_interaction_system(
                         }
                     }
                     UiAction::ToggleShop => {
-                        active_tab.open = !active_tab.open;
+                        params.active_tab.open = !params.active_tab.open;
+                        if params.active_tab.open {
+                            if let Some(ref mut clean) = clean_tool_active {
+                                clean.0 = false;
+                            }
+                        }
                     }
                     UiAction::SelectShopTab(tab) => {
-                        active_tab.tab = *tab;
+                        params.active_tab.tab = *tab;
                     }
                     UiAction::BuyItem { item_id, cost } => {
-                        if economy.money >= *cost {
-                            placement_state.active = true;
-                            placement_state.current_item_id = item_id.clone();
-                            placement_state.cost = *cost;
-                            placement_state.ghost_entity = None;
+                        if params.economy.money >= *cost {
+                            params.placement_state.active = true;
+                            params.placement_state.current_item_id = item_id.clone();
+                            params.placement_state.cost = *cost;
+                            params.placement_state.ghost_entity = None;
+                            if let Some(ref mut clean) = clean_tool_active {
+                                clean.0 = false;
+                            }
                         } else {
                             message_writer.write(PlaySoundEvent { name: "cancel".to_string() });
+                        }
+                    }
+                    UiAction::PauseResume => {
+                        if let Some(ref mut time) = time_elapsed {
+                            if time.game_speed > 0.0 {
+                                time.game_speed = 0.0;
+                            } else {
+                                time.game_speed = 1.0;
+                            }
+                        }
+                    }
+                    UiAction::SpeedUp => {
+                        if let Some(ref mut time) = time_elapsed {
+                            time.game_speed = (time.game_speed * 2.0).min(8.0);
+                        }
+                    }
+                    UiAction::SpeedDown => {
+                        if let Some(ref mut time) = time_elapsed {
+                            time.game_speed = (time.game_speed / 2.0).max(0.25);
+                        }
+                    }
+                    UiAction::SaveGame => {
+                        let filepath = "saves/quicksave.sqlite";
+                        params.commands.queue(move |world: &mut World| {
+                            if let Err(e) = crate::ai::persistence::save_game(world, filepath) {
+                                error!("Failed to save game: {}", e);
+                            } else {
+                                info!("Game saved successfully.");
+                            }
+                        });
+                    }
+                    UiAction::LoadGame => {
+                        let filepath = "saves/quicksave.sqlite";
+                        if std::path::Path::new(filepath).exists() {
+                            params.commands.queue(move |world: &mut World| {
+                                if let Err(e) = crate::ai::persistence::load_game(world, filepath) {
+                                    error!("Failed to load game: {}", e);
+                                } else {
+                                    info!("Game loaded successfully.");
+                                }
+                            });
+                        }
+                    }
+                    UiAction::ToggleSettings => {
+                        for mut node in &mut settings_popup_query {
+                            node.display = match node.display {
+                                Display::None => Display::Flex,
+                                _ => Display::None,
+                            };
+                        }
+                    }
+                    UiAction::SelectCleanTool => {
+                        if let Some(ref mut clean) = clean_tool_active {
+                            clean.0 = !clean.0;
+                            if clean.0 {
+                                params.placement_state.active = false;
+                                params.active_tab.open = false;
+                            }
+                        }
+                    }
+                    UiAction::VolumeUp { category } => {
+                        if let Some(ref mut manager) = audio_manager {
+                            match category.as_str() {
+                                "master" => manager.master_volume = (manager.master_volume + 0.1).clamp(0.0, 1.0),
+                                "bgm" => manager.bgm_volume = (manager.bgm_volume + 0.1).clamp(0.0, 1.0),
+                                "sfx" => manager.sfx_volume = (manager.sfx_volume + 0.1).clamp(0.0, 1.0),
+                                _ => {}
+                            }
+                            let primary_window = window_query.iter().next();
+                            let (width, height, is_fullscreen) = if let Some(w) = primary_window {
+                                (w.width(), w.height(), w.mode != bevy::window::WindowMode::Windowed)
+                            } else {
+                                (1280.0, 720.0, false)
+                            };
+                            save_user_settings(manager, width, height, is_fullscreen);
+                        }
+                    }
+                    UiAction::VolumeDown { category } => {
+                        if let Some(ref mut manager) = audio_manager {
+                            match category.as_str() {
+                                "master" => manager.master_volume = (manager.master_volume - 0.1).clamp(0.0, 1.0),
+                                "bgm" => manager.bgm_volume = (manager.bgm_volume - 0.1).clamp(0.0, 1.0),
+                                "sfx" => manager.sfx_volume = (manager.sfx_volume - 0.1).clamp(0.0, 1.0),
+                                _ => {}
+                            }
+                            let primary_window = window_query.iter().next();
+                            let (width, height, is_fullscreen) = if let Some(w) = primary_window {
+                                (w.width(), w.height(), w.mode != bevy::window::WindowMode::Windowed)
+                            } else {
+                                (1280.0, 720.0, false)
+                            };
+                            save_user_settings(manager, width, height, is_fullscreen);
+                        }
+                    }
+                    UiAction::ToggleFullscreen => {
+                        // Avoid holding references by finding first window
+                        let is_fullscreen = if let Some(mut window) = window_query.iter_mut().next() {
+                            if window.mode == bevy::window::WindowMode::Windowed {
+                                window.mode = bevy::window::WindowMode::Fullscreen(
+                                    bevy::window::MonitorSelection::Primary,
+                                    bevy::window::VideoModeSelection::Current,
+                                );
+                                true
+                            } else {
+                                window.mode = bevy::window::WindowMode::Windowed;
+                                false
+                            }
+                        } else {
+                            false
+                        };
+                        if let Some(ref manager) = audio_manager {
+                            save_user_settings(manager, 1280.0, 720.0, is_fullscreen);
                         }
                     }
                 }
@@ -720,18 +1202,93 @@ pub fn floating_needs_bars_system(
 }
 
 /// Updates the bottom HUD selection details panel based on camera selected entity.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct HudUpdateParams<'w, 's> {
+    pub name_query: Query<'w, 's, &'static mut Text, (With<HudNameText>, Without<HudBreedText>, Without<HudStageText>, Without<HudInventoryText>, Without<HudMoneyText>, Without<HudTimeText>, Without<SettingsVolumeText>)>,
+    pub breed_query: Query<'w, 's, &'static mut Text, (With<HudBreedText>, Without<HudNameText>, Without<HudStageText>, Without<HudInventoryText>, Without<HudMoneyText>, Without<HudTimeText>, Without<SettingsVolumeText>)>,
+    pub stage_query: Query<'w, 's, &'static mut Text, (With<HudStageText>, Without<HudNameText>, Without<HudBreedText>, Without<HudInventoryText>, Without<HudMoneyText>, Without<HudTimeText>, Without<SettingsVolumeText>)>,
+    pub inventory_text_query: Query<'w, 's, &'static mut Text, (With<HudInventoryText>, Without<HudNameText>, Without<HudBreedText>, Without<HudStageText>, Without<HudMoneyText>, Without<HudTimeText>, Without<SettingsVolumeText>)>,
+    pub fills_query: Query<'w, 's, (&'static mut Node, &'static HudBarFill), (Without<HudSelectionCard>, Without<HudYukkuriOnlyAction>, Without<SettingsPopupNode>)>,
+    pub yukkuri_actions_query: Query<'w, 's, &'static mut Node, (With<HudYukkuriOnlyAction>, Without<HudSelectionCard>, Without<HudBarFill>, Without<SettingsPopupNode>)>,
+}
+
+/// Updates the bottom HUD selection details panel based on camera selected entity.
 pub fn hud_update_system(
+    mut commands: Commands,
     camera_query: Query<&CameraController>,
     yukkuri_query: Query<(&Needs, &EmotionalState, &YukkuriStats, Option<&crate::simulation::inventory::InventoryComponent>)>,
+    mut card_query: Query<&mut Node, (With<HudSelectionCard>, Without<SettingsPopupNode>)>,
+    mut text_params: HudUpdateParams,
     item_query: Query<&crate::simulation::inventory::ItemStats>,
-    mut card_query: Query<&mut Node, With<HudSelectionCard>>,
-    mut name_query: Query<&mut Text, (With<HudNameText>, Without<HudBreedText>, Without<HudStageText>, Without<HudInventoryText>)>,
-    mut breed_query: Query<&mut Text, (With<HudBreedText>, Without<HudNameText>, Without<HudStageText>, Without<HudInventoryText>)>,
-    mut stage_query: Query<&mut Text, (With<HudStageText>, Without<HudNameText>, Without<HudBreedText>, Without<HudInventoryText>)>,
-    mut inventory_text_query: Query<&mut Text, (With<HudInventoryText>, Without<HudNameText>, Without<HudBreedText>, Without<HudStageText>)>,
-    mut fills_query: Query<(&mut Node, &HudBarFill), (Without<HudSelectionCard>, Without<HudYukkuriOnlyAction>)>,
-    mut yukkuri_actions_query: Query<&mut Node, (With<HudYukkuriOnlyAction>, Without<HudSelectionCard>, Without<HudBarFill>)>,
+    
+    // New parameters
+    economy: Option<Res<crate::ai::persistence::Economy>>,
+    time_elapsed: Option<Res<crate::ai::persistence::TimeElapsed>>,
+    mut money_text_query: Query<&mut Text, (With<HudMoneyText>, Without<HudTimeText>, Without<HudNameText>, Without<SettingsVolumeText>)>,
+    mut time_text_query: Query<&mut Text, (With<HudTimeText>, Without<HudMoneyText>, Without<HudNameText>, Without<SettingsVolumeText>)>,
+    log_buffer: Option<Res<super::logging::ConsoleLogBuffer>>,
+    log_container_query: Query<Entity, With<HudLogContainer>>,
+    mut scroll_query: Query<&mut ScrollPosition, With<HudLogContainer>>,
+    audio_manager: Option<Res<crate::audio::YukkuriAudioManager>>,
+    mut settings_volume_query: Query<(&mut Text, &SettingsVolumeText), (Without<HudMoneyText>, Without<HudTimeText>, Without<HudNameText>)>,
 ) {
+    if let Some(ref econ) = economy {
+        if let Ok(mut text) = money_text_query.single_mut() {
+            text.0 = format!("Money: ${}", econ.money);
+        }
+    }
+
+    if let Some(ref t_el) = time_elapsed {
+        if let Ok(mut text) = time_text_query.single_mut() {
+            let day = t_el.day();
+            let hours = t_el.hour_of_day() as i32;
+            let minutes = ((t_el.hour_of_day() % 1.0) * 60.0) as i32;
+            let speed = t_el.game_speed;
+            let speed_str = if speed == 0.0 {
+                " (Paused)".to_string()
+            } else if speed != 1.0 {
+                format!(" ({:.1}x)", speed)
+            } else {
+                "".to_string()
+            };
+            text.0 = format!("Day {} - {:02}:{:02}{}", day, hours, minutes, speed_str);
+        }
+    }
+
+    if let Some(ref buffer) = log_buffer {
+        if buffer.was_updated {
+            if let Ok(container_ent) = log_container_query.single() {
+                commands.entity(container_ent).despawn_children();
+                let start = if buffer.logs.len() > 100 { buffer.logs.len() - 100 } else { 0 };
+                for log_msg in &buffer.logs[start..] {
+                    let clean_msg = if log_msg.len() > 60 { format!("{}...", &log_msg[..57]) } else { log_msg.clone() };
+                    commands.entity(container_ent).with_children(|c| {
+                        c.spawn((
+                            Text::new(clean_msg),
+                            TextFont { font_size: FontSize::Px(10.0), ..default() },
+                            TextColor(Color::srgb(0.85, 0.85, 0.9)),
+                        ));
+                    });
+                }
+                if let Ok(mut scroll_pos) = scroll_query.single_mut() {
+                    scroll_pos.y = f32::MAX;
+                }
+            }
+        }
+    }
+
+    if let Some(ref manager) = audio_manager {
+        for (mut text, vol_text) in &mut settings_volume_query {
+            let pct = match vol_text.category.as_str() {
+                "master" => (manager.master_volume * 100.0) as i32,
+                "bgm" => (manager.bgm_volume * 100.0) as i32,
+                "sfx" => (manager.sfx_volume * 100.0) as i32,
+                _ => 100,
+            };
+            text.0 = format!("{}%", pct);
+        }
+    }
+
     let Some(controller) = camera_query.iter().next() else { return; };
     let Ok(mut card_node) = card_query.single_mut() else { return; };
 
@@ -740,18 +1297,18 @@ pub fn hud_update_system(
             card_node.display = Display::Flex;
 
             // Identity Text Updates
-            if let Ok(mut text) = name_query.single_mut() {
+            if let Ok(mut text) = text_params.name_query.single_mut() {
                 text.0 = format!("Name: {}", stats.name);
             }
-            if let Ok(mut text) = breed_query.single_mut() {
+            if let Ok(mut text) = text_params.breed_query.single_mut() {
                 text.0 = format!("Breed: {}", stats.type_id);
             }
-            if let Ok(mut text) = stage_query.single_mut() {
+            if let Ok(mut text) = text_params.stage_query.single_mut() {
                 text.0 = format!("Stage: {}", stats.growth_stage);
             }
 
             // Inventory Text Update
-            if let Ok(mut text) = inventory_text_query.single_mut() {
+            if let Ok(mut text) = text_params.inventory_text_query.single_mut() {
                 if let Some(inventory) = maybe_inventory {
                     if inventory.items.is_empty() {
                         text.0 = "Empty".to_string();
@@ -767,12 +1324,12 @@ pub fn hud_update_system(
             }
 
             // Show Train & Punish buttons
-            for mut node in &mut yukkuri_actions_query {
+            for mut node in &mut text_params.yukkuri_actions_query {
                 node.display = Display::Flex;
             }
 
             // Stats Bars Fills Updates
-            for (mut node, fill) in fills_query.iter_mut() {
+            for (mut node, fill) in text_params.fills_query.iter_mut() {
                 let percent = match fill.need_type.as_str() {
                     "health" => (needs.health / needs.max_health).clamp(0.0, 1.0),
                     "hunger" => (needs.hunger / 100.0).clamp(0.0, 1.0),
@@ -787,28 +1344,28 @@ pub fn hud_update_system(
             card_node.display = Display::Flex;
 
             // Identity Text Updates
-            if let Ok(mut text) = name_query.single_mut() {
+            if let Ok(mut text) = text_params.name_query.single_mut() {
                 text.0 = format!("Name: {}", item_stats.name);
             }
-            if let Ok(mut text) = breed_query.single_mut() {
+            if let Ok(mut text) = text_params.breed_query.single_mut() {
                 text.0 = format!("Type: {}", item_stats.type_id);
             }
-            if let Ok(mut text) = stage_query.single_mut() {
+            if let Ok(mut text) = text_params.stage_query.single_mut() {
                 text.0 = format!("Value: ${}", item_stats.value as i32);
             }
 
             // Inventory Text Update
-            if let Ok(mut text) = inventory_text_query.single_mut() {
+            if let Ok(mut text) = text_params.inventory_text_query.single_mut() {
                 text.0 = "N/A".to_string();
             }
 
             // Hide Train & Punish buttons
-            for mut node in &mut yukkuri_actions_query {
+            for mut node in &mut text_params.yukkuri_actions_query {
                 node.display = Display::None;
             }
 
             // Reset Fills to 0
-            for (mut node, _fill) in fills_query.iter_mut() {
+            for (mut node, _fill) in text_params.fills_query.iter_mut() {
                 node.width = Val::Percent(0.0);
             }
         } else {
@@ -962,5 +1519,243 @@ pub fn hud_hover_tooltip_system(
         node.top = Val::Px(cursor_pos.y + 15.0);
     } else {
         node.display = Display::None;
+    }
+}
+
+#[derive(Component)]
+pub struct ContextMenuRoot;
+
+#[derive(Component)]
+pub struct ContextMenuButton {
+    pub action: UiAction,
+    pub target: Entity,
+}
+
+pub fn context_menu_system(
+    mut commands: Commands,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<crate::camera::MainCamera>>,
+    yukkuri_query: Query<(Entity, &Transform, &YukkuriStats), Without<crate::ai::Dead>>,
+    poop_query: Query<(Entity, &Transform), With<crate::simulation::needs::Poop>>,
+    menu_query: Query<Entity, With<ContextMenuRoot>>,
+    mut message_writer: MessageWriter<PlaySoundEvent>,
+) {
+    let mut should_close = false;
+
+    // Close on escape
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        should_close = true;
+    }
+
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        // Menu closes on left-click (buttons will trigger their interaction before this runs/completes)
+        should_close = true;
+    }
+
+    if should_close {
+        for ent in &menu_query {
+            commands.entity(ent).despawn();
+        }
+    }
+
+    if mouse_button_input.just_pressed(MouseButton::Right) {
+        // Despawn existing menu
+        for ent in &menu_query {
+            commands.entity(ent).despawn();
+        }
+
+        let Some(window) = window_query.iter().next() else { return; };
+        let Some(cursor_pos) = window.cursor_position() else { return; };
+        
+        let camera_node = camera_query.iter().next();
+        let world_pos = if let Some((cam, cam_trans)) = camera_node {
+            cam.viewport_to_world_2d(cam_trans, cursor_pos).unwrap_or(Vec2::ZERO)
+        } else {
+            Vec2::ZERO
+        };
+
+        let click_radius = 40.0;
+        let mut target_yukkuri = None;
+        let mut target_poop = None;
+
+        // Check Yukkuri
+        let mut min_dist = click_radius;
+        for (entity, transform, _) in &yukkuri_query {
+            let dist = transform.translation.truncate().distance(world_pos);
+            if dist < min_dist {
+                min_dist = dist;
+                target_yukkuri = Some(entity);
+            }
+        }
+
+        // Check Poop if no Yukkuri
+        if target_yukkuri.is_none() {
+            let mut min_dist = click_radius;
+            for (entity, transform) in &poop_query {
+                let dist = transform.translation.truncate().distance(world_pos);
+                if dist < min_dist {
+                    min_dist = dist;
+                    target_poop = Some(entity);
+                }
+            }
+        }
+
+        if let Some(target) = target_yukkuri {
+            message_writer.write(PlaySoundEvent { name: "click".to_string() });
+            spawn_context_menu(&mut commands, cursor_pos, target, vec![
+                ("Train", UiAction::TrainEntity),
+                ("Punish", UiAction::PunishEntity),
+                ("Sell", UiAction::SellEntity),
+            ]);
+        } else if let Some(target) = target_poop {
+            message_writer.write(PlaySoundEvent { name: "click".to_string() });
+            spawn_context_menu(&mut commands, cursor_pos, target, vec![
+                ("Clean Poop", UiAction::SelectCleanTool),
+            ]);
+        }
+    }
+}
+
+fn spawn_context_menu(
+    commands: &mut Commands,
+    screen_pos: Vec2,
+    target_entity: Entity,
+    options: Vec<(&str, UiAction)>,
+) {
+    commands
+        .spawn((
+            ContextMenuRoot,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(screen_pos.x),
+                top: Val::Px(screen_pos.y),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(4.0),
+                padding: UiRect::all(Val::Px(4.0)),
+                border_radius: BorderRadius::all(Val::Px(6.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                ..default()
+            },
+            GlobalZIndex(100),
+            BackgroundColor(Color::srgba(0.08, 0.08, 0.1, 0.95)),
+            BorderColor::all(Color::srgba(0.4, 0.4, 0.45, 0.5)),
+        ))
+        .with_children(|parent| {
+            for (label, action) in options {
+                parent.spawn((
+                    Button,
+                    Node {
+                        padding: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(6.0), Val::Px(6.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.18, 0.18, 0.22, 0.9)),
+                    ContextMenuButton { action, target: target_entity },
+                ))
+                .with_children(|btn| {
+                    btn.spawn((
+                        Text::new(label),
+                        TextFont { font_size: FontSize::Px(11.0), ..default() },
+                        TextColor(Color::srgb(0.9, 0.9, 0.95)),
+                    ));
+                });
+            }
+        });
+}
+
+pub fn context_menu_button_interaction_system(
+    mut interaction_query: Query<
+        (&Interaction, &mut BackgroundColor, &ContextMenuButton),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut commands: Commands,
+    mut message_writer: MessageWriter<PlaySoundEvent>,
+    mut sell_writer: MessageWriter<crate::simulation::player_actions::SellEntityRequest>,
+    mut train_writer: MessageWriter<crate::simulation::player_actions::TrainEntityRequest>,
+    mut punish_writer: MessageWriter<crate::simulation::player_actions::PunishEntityRequest>,
+    menu_query: Query<Entity, With<ContextMenuRoot>>,
+) {
+    for (interaction, mut bg_color, btn) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *bg_color = BackgroundColor(BUTTON_PRESSED_COLOR);
+                message_writer.write(PlaySoundEvent { name: "click".to_string() });
+
+                match &btn.action {
+                    UiAction::SellEntity => {
+                        sell_writer.write(crate::simulation::player_actions::SellEntityRequest { entity_id: btn.target });
+                    }
+                    UiAction::TrainEntity => {
+                        train_writer.write(crate::simulation::player_actions::TrainEntityRequest { entity_id: btn.target });
+                    }
+                    UiAction::PunishEntity => {
+                        punish_writer.write(crate::simulation::player_actions::PunishEntityRequest { entity_id: btn.target });
+                    }
+                    UiAction::SelectCleanTool => {
+                        commands.entity(btn.target).despawn();
+                    }
+                    _ => {}
+                }
+
+                // Despawn the menu
+                for ent in &menu_query {
+                    commands.entity(ent).despawn();
+                }
+            }
+            Interaction::Hovered => {
+                *bg_color = BackgroundColor(BUTTON_HOVER_COLOR);
+            }
+            Interaction::None => {
+                *bg_color = BackgroundColor(Color::srgba(0.18, 0.18, 0.22, 0.9));
+            }
+        }
+    }
+}
+
+pub fn ui_scroll_system(
+    mut mouse_wheel_reader: MessageReader<bevy::input::mouse::MouseWheel>,
+    mut scroll_query: Query<(&Interaction, &mut ScrollPosition)>,
+    children_query: Query<&bevy::prelude::ChildOf>,
+    interaction_query: Query<(Entity, &Interaction)>,
+) {
+    let mut any_scroll = false;
+    let mut scroll_delta = 0.0;
+    for event in mouse_wheel_reader.read() {
+        let mut delta = Vec2::new(event.x, event.y);
+        if event.unit == bevy::input::mouse::MouseScrollUnit::Line {
+            delta *= 21.0;
+        }
+        scroll_delta -= delta.y;
+        any_scroll = true;
+    }
+    
+    if !any_scroll {
+        return;
+    }
+    
+    // 1. Scroll directly hovered scroll containers
+    for (interaction, mut scroll_pos) in &mut scroll_query {
+        if *interaction == Interaction::Hovered {
+            scroll_pos.y += scroll_delta;
+        }
+    }
+    
+    // 2. Scroll containers when hovering over their children
+    for (entity, interaction) in &interaction_query {
+        if *interaction == Interaction::Hovered {
+            let mut curr = entity;
+            while let Ok(child_of) = children_query.get(curr) {
+                let parent_ent = child_of.parent();
+                if let Ok((_, mut scroll_pos)) = scroll_query.get_mut(parent_ent) {
+                    scroll_pos.y += scroll_delta;
+                    break;
+                }
+                curr = parent_ent;
+            }
+        }
     }
 }

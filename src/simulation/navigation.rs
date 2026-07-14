@@ -22,6 +22,10 @@ impl Plugin for NavigationSimulationPlugin {
                 collect_path_results_system,
                 path_follower_system,
             ));
+
+        if app.world().contains_resource::<bevy::gizmos::config::GizmoConfigStore>() {
+            app.add_systems(Update, draw_navigation_debug_system);
+        }
     }
 }
 
@@ -188,6 +192,64 @@ pub fn path_follower_system(
             });
         } else {
             commands.entity(entity).remove::<MovementPath>();
+        }
+    }
+}
+
+pub fn draw_navigation_debug_system(
+    nav_service: Option<Res<NavigationService>>,
+    toggle_state: Option<Res<crate::ui::UiToggleState>>,
+    camera_controller_query: Query<&crate::camera::CameraController>,
+    path_query: Query<&MovementPath>,
+    mut gizmos: Gizmos,
+) {
+    let toggle_state = match toggle_state {
+        Some(t) => t,
+        None => return,
+    };
+    if !toggle_state.inspector_open {
+        return;
+    }
+
+    if let Some(ref ns) = nav_service {
+        if let Ok(grid) = ns.grid.read() {
+            let step = grid.grid_step_size;
+            for gy in 0..grid.height {
+                for gx in 0..grid.width {
+                    if !grid.is_walkable(gx as i32, gy as i32, crate::simulation::hpa::TRAVERSAL_WALK) {
+                        let center = Vec2::new(gx as f32 * step, gy as f32 * step);
+                        gizmos.rect_2d(
+                            center,
+                            Vec2::splat(step),
+                            Color::srgba(0.9, 0.2, 0.2, 0.4),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(controller) = camera_controller_query.iter().next() {
+        for &selected_ent in &controller.selected_entities {
+            if let Ok(path) = path_query.get(selected_ent) {
+                if path.current_index < path.waypoints.len() {
+                    let mut prev_pos = None;
+                    for (i, &wp) in path.waypoints.iter().enumerate() {
+                        let color = if i < path.current_index {
+                            Color::srgba(0.5, 0.5, 0.5, 0.5)
+                        } else {
+                            Color::srgb(0.2, 0.8, 0.2)
+                        };
+                        
+                        gizmos.circle_2d(wp, 6.0, color);
+                        
+                        if let Some(prev) = prev_pos {
+                            gizmos.line_2d(prev, wp, color);
+                        }
+                        prev_pos = Some(wp);
+                    }
+                }
+            }
         }
     }
 }

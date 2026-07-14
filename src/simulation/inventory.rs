@@ -343,6 +343,7 @@ pub fn spawn_item_prefab(
             GameLayer::Item,
             LayerMask::from(GameLayer::GroundUnit) | LayerMask::from(GameLayer::HighObstacle) | LayerMask::from(GameLayer::Poop) | LayerMask::from(GameLayer::Item),
         ),
+        crate::ai::Persistable,
     ));
 
     if let Some(light_rad) = config.light_radius {

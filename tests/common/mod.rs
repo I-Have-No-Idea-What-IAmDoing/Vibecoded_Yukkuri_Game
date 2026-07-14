@@ -34,6 +34,8 @@ pub fn create_test_app() -> App {
     app.add_plugins(YukkuriRenderPlugin);
     app.add_plugins(YukkuriAudioPlugin);
     app.add_plugins(YukkuriUiPlugin);
+    app.add_plugins(bevy::state::app::StatesPlugin);
+    app.init_state::<vibecoded_yukkuri_game::GameState>();
 
     // Initialize mock resources for headless testing to satisfy system validation
     app.init_resource::<bevy::gizmos::config::GizmoConfigStore>();

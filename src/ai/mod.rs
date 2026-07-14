@@ -9,6 +9,10 @@ use std::path::Path;
 use blackboard::Blackboard;
 use commands::{Command, CommandType};
 use crate::simulation::needs::FloatingText;
+use crate::simulation::movement::{
+    FLIGHT_STATE_GROUNDED, FLIGHT_STATE_FLYING, FLIGHT_STATE_HOVERING,
+    FLIGHT_STATE_SWOOPING,
+};
 
 /// Workspace root resolved at compile time from the Cargo manifest directory.
 ///
@@ -109,6 +113,13 @@ impl PythonAISandbox {
     ) -> PyResult<()> {
         let behavior_module = self.behavior_module.bind(py);
         let _ = behavior_module.call_method1("deserialize_ai_state", (entity_id, blob, id_map))?;
+        Ok(())
+    }
+
+    /// Cleans up any cached behavior tree or state for the given entity ID.
+    pub fn cleanup_entity(&self, py: Python, entity_id: u32) -> PyResult<()> {
+        let behavior_module = self.behavior_module.bind(py);
+        let _ = behavior_module.call_method1("cleanup_entity_cache", (entity_id,))?;
         Ok(())
     }
 }
@@ -280,6 +291,10 @@ pub struct Personality {
     pub energy: i32,
     pub bravery: i32,
     pub greed: i32,
+    pub base_kindness: i32,
+    pub base_energy: i32,
+    pub base_bravery: i32,
+    pub base_greed: i32,
     pub traits: HashSet<String>,
 }
 
@@ -297,6 +312,10 @@ impl Default for Personality {
             energy,
             bravery,
             greed,
+            base_kindness: kindness,
+            base_energy: energy,
+            base_bravery: bravery,
+            base_greed: greed,
             traits: HashSet::new(),
         }
     }
@@ -1182,6 +1201,8 @@ pub fn apply_ai_commands(
             &Transform,
             Option<&mut YukkuriStats>,
             Option<&Predator>,
+            Option<&crate::simulation::navigation::MovementPath>,
+            Option<&MoveTarget>,
         )>,
         Query<(Entity, &mut crate::simulation::inventory::ItemStats, &Transform)>,
         Query<(
@@ -1192,9 +1213,12 @@ pub fn apply_ai_commands(
             &Transform,
             &StableId,
             &Personality,
+            &mut RelationshipRegistry,
+            &mut GossipQueue,
         )>,
     )>,
     item_registry: Res<crate::simulation::inventory::ItemRegistry>,
+    trait_registry: Res<crate::simulation::skills::TraitRegistry>,
     mut nav_service: Option<ResMut<crate::simulation::hpa::NavigationService>>,
     mut xp_writer: Option<MessageWriter<crate::simulation::skills::AddXpEvent>>,
     time: Res<Time>,
@@ -1223,7 +1247,7 @@ pub fn apply_ai_commands(
 
         // 1. Get a read-only snapshot of actor components (cloning them)
         let actor_snapshot = {
-            if let Ok((entity, needs, emotional, _, _, _, stable_id, personality, _, _, transform, maybe_ystats, maybe_predator)) = queries.p0().get(bevy_entity) {
+            if let Ok((entity, needs, emotional, _, _, _, stable_id, personality, _, _, transform, maybe_ystats, maybe_predator, maybe_path, maybe_target)) = queries.p0().get(bevy_entity) {
                 Some((
                     entity,
                     needs.clone(),
@@ -1233,13 +1257,15 @@ pub fn apply_ai_commands(
                     transform.translation,
                     maybe_ystats.cloned(),
                     maybe_predator.cloned(),
+                    maybe_path.cloned(),
+                    maybe_target.cloned(),
                 ))
             } else {
                 None
             }
         };
 
-        if let Some((actor_ent, a_needs, a_emotion, a_stable_id, a_pers, a_pos, a_ystats, a_pred)) = actor_snapshot {
+        if let Some((actor_ent, a_needs, a_emotion, a_stable_id, a_pers, a_pos, a_ystats, a_pred, a_path, a_target)) = actor_snapshot {
             // 2. Perform target interaction / item consumption
             let mut actor_needs_modifier = a_needs.clone();
             let mut actor_emotion_modifier = a_emotion.clone();
@@ -1251,10 +1277,29 @@ pub fn apply_ai_commands(
                 CommandType::MoveTo => {
                     if let Some((tx, bevy_ty)) = cmd.get_bevy_coordinate("target_x", "target_y", world_height) {
                         let accept = cmd.payload.get("acceptance_radius").and_then(|v| v.parse::<f32>().ok()).unwrap_or(25.0);
-                        commands.entity(actor_ent).insert(MoveTarget {
-                            position: Vec2::new(tx, bevy_ty),
-                            acceptance_radius: accept,
-                        });
+                        let new_pos = Vec2::new(tx, bevy_ty);
+
+                        // Check if we should skip inserting MoveTarget to avoid overwriting active path/waypoint following
+                        let mut skip = false;
+                        if let Some(ref path) = a_path {
+                            if let Some(&final_wp) = path.waypoints.last() {
+                                if final_wp.distance(new_pos) < 1.0 {
+                                    skip = true;
+                                }
+                            }
+                        }
+                        if let Some(ref target) = a_target {
+                            if target.position.distance(new_pos) < 1.0 {
+                                skip = true;
+                            }
+                        }
+
+                        if !skip {
+                            commands.entity(actor_ent).insert(MoveTarget {
+                                position: new_pos,
+                                acceptance_radius: accept,
+                            });
+                        }
                     }
                 }
                 CommandType::Flee => {
@@ -1287,7 +1332,7 @@ pub fn apply_ai_commands(
                     let loop_override = cmd.payload.get("loop").and_then(|v| v.parse::<bool>().ok());
                     let next_anim = cmd.payload.get("next_animation").cloned();
 
-                    if let Ok((_, _, _, _, mut maybe_animator, maybe_ai_state, _, _, _, _, _, _, _)) = queries.p0().get_mut(bevy_entity) {
+                    if let Ok((_, _, _, _, mut maybe_animator, maybe_ai_state, _, _, _, _, _, _, _, _, _)) = queries.p0().get_mut(bevy_entity) {
                         if let Some(ref mut animator) = maybe_animator {
                             if animator.animations.contains_key(&normalized) {
                                 crate::render::switch_animation(animator, &normalized);
@@ -1315,10 +1360,31 @@ pub fn apply_ai_commands(
                 CommandType::Speak => {
                     let sound_name = cmd.payload.get("sound").cloned().unwrap_or_else(|| "cry".to_string());
                     message_writer.write(crate::audio::PlaySoundEvent { name: sound_name });
+
+                    let text = cmd.payload.get("text").cloned().unwrap_or_default();
+                    if !text.is_empty() {
+                        commands.spawn((
+                            FloatingText {
+                                velocity: Vec2::new(0.0, 30.0),
+                                lifetime: 0.0,
+                                max_lifetime: 2.0,
+                            },
+                            Text::new(text),
+                            TextColor(Color::srgb(0.9, 0.9, 0.95)),
+                            TextFont {
+                                font_size: FontSize::Px(16.0),
+                                ..default()
+                            },
+                            Transform::from_translation(a_pos + Vec3::new(0.0, 30.0, 1.5)),
+                        ));
+                    }
                 }
                 CommandType::Interact => {
                     let target_id_str = cmd.payload.get("target_id").cloned().unwrap_or_default();
                     let action = cmd.payload.get("action").cloned().unwrap_or_default();
+                    let consume = cmd.payload.get("consume")
+                        .and_then(|v| v.parse::<bool>().ok())
+                        .unwrap_or(false);
 
                     if let Ok(target_u32) = target_id_str.parse::<u32>() {
                         if let Some(&target_entity) = entity_registry.0.get(&target_u32) {
@@ -1328,88 +1394,95 @@ pub fn apply_ai_commands(
                                 let dist = a_pos.truncate().distance(item_trans.translation.truncate());
                                 if dist <= 110.0 {
                                     item_consumed = true;
-                                    let initial_hunger = a_needs.hunger;
-                                    if item_stats.nutrition > 0.0 {
-                                        actor_needs_modifier.hunger = (a_needs.hunger - item_stats.nutrition).clamp(0.0, 100.0);
-                                        actor_needs_modifier.bladder = (a_needs.bladder + item_stats.nutrition * 0.5).clamp(0.0, 100.0);
+                                    if consume {
+                                        let initial_hunger = a_needs.hunger;
+                                        if item_stats.nutrition > 0.0 {
+                                            actor_needs_modifier.hunger = (a_needs.hunger - item_stats.nutrition).clamp(0.0, 100.0);
+                                            actor_needs_modifier.bladder = (a_needs.bladder + item_stats.nutrition * 0.5).clamp(0.0, 100.0);
 
-                                        let mut fun_gain = item_stats.fun;
-                                        if let Some(ref ystats) = a_ystats {
-                                            let mut tastebud_spoiled_val = ystats.tastebud_spoiled;
-                                            if tastebud_spoiled_val > 0.0 && item_stats.quality < tastebud_spoiled_val {
-                                                let base_mult = (item_stats.quality / tastebud_spoiled_val).clamp(0.0, 1.0);
-                                                let mut multiplier = base_mult;
-                                                if initial_hunger >= 50.0 {
-                                                    let hunger_factor = ((initial_hunger - 50.0) / 30.0).clamp(0.0, 1.0);
-                                                    multiplier = base_mult + (1.0 - base_mult) * hunger_factor;
-                                                }
-                                                fun_gain = item_stats.fun * multiplier;
-                                                if multiplier < 0.99 && item_stats.fun > 0.0 {
-                                                    commands.spawn((
-                                                        FloatingText {
-                                                            velocity: Vec2::new(0.0, 50.0),
-                                                            lifetime: 0.0,
-                                                            max_lifetime: 1.5,
-                                                        },
-                                                        Text::new(format!("Tastes bland... (+{} Happy)", fun_gain as i32)),
-                                                        TextColor(Color::srgb(0.78, 0.58, 0.58)),
-                                                        TextFont {
-                                                            font_size: FontSize::Px(20.0),
-                                                            ..default()
-                                                        },
-                                                        Transform::from_translation(a_pos + Vec3::new(0.0, 20.0, 1.0)),
-                                                    ));
-                                                }
-                                            }
-                                            tastebud_spoiled_val = tastebud_spoiled_val.max(item_stats.quality);
-                                            actor_tastebud_spoiled_val = Some(tastebud_spoiled_val);
-                                        }
-
-                                        if fun_gain > 0.0 {
-                                            actor_emotion_modifier.happiness = (a_emotion.happiness + fun_gain).clamp(-100.0, 100.0);
-                                        }
-                                    }
-
-                                    if item_stats.comfort > 0.0 {
-                                        actor_needs_modifier.energy = (a_needs.energy + item_stats.comfort).clamp(0.0, 100.0);
-                                    }
-
-                                    if let Some(config) = item_registry.items.get(&item_stats.type_id) {
-                                        if let Some(ref obs_type) = config.obstacle_type {
-                                            if obs_type == "HIGH" {
-                                                if let Some(ref mut ns) = nav_service {
-                                                    {
-                                                        let mut grid = ns.grid.write().unwrap();
-                                                        grid.update_obstacle_rect(
-                                                            item_trans.translation.x,
-                                                            item_trans.translation.y,
-                                                            config.width as f32,
-                                                            config.height as f32,
-                                                            false,
-                                                            5,
-                                                        );
+                                            let mut fun_gain = item_stats.fun;
+                                            if let Some(ref ystats) = a_ystats {
+                                                let mut tastebud_spoiled_val = ystats.tastebud_spoiled;
+                                                if tastebud_spoiled_val > 0.0 && item_stats.quality < tastebud_spoiled_val {
+                                                    let base_mult = (item_stats.quality / tastebud_spoiled_val).clamp(0.0, 1.0);
+                                                    let mut multiplier = base_mult;
+                                                    if initial_hunger >= 50.0 {
+                                                        let hunger_factor = ((initial_hunger - 50.0) / 30.0).clamp(0.0, 1.0);
+                                                        multiplier = base_mult + (1.0 - base_mult) * hunger_factor;
                                                     }
-                                                    let _ = ns.request_tx.send(crate::simulation::hpa::NavCommand::RebuildAll);
+                                                    fun_gain = item_stats.fun * multiplier;
+                                                    if multiplier < 0.99 && item_stats.fun > 0.0 {
+                                                        commands.spawn((
+                                                            FloatingText {
+                                                                velocity: Vec2::new(0.0, 50.0),
+                                                                lifetime: 0.0,
+                                                                max_lifetime: 1.5,
+                                                            },
+                                                            Text::new(format!("Tastes bland... (+{} Happy)", fun_gain as i32)),
+                                                            TextColor(Color::srgb(0.78, 0.58, 0.58)),
+                                                            TextFont {
+                                                                font_size: FontSize::Px(20.0),
+                                                                ..default()
+                                                            },
+                                                            Transform::from_translation(a_pos + Vec3::new(0.0, 20.0, 1.0)),
+                                                        ));
+                                                    }
+                                                }
+                                                tastebud_spoiled_val = tastebud_spoiled_val.max(item_stats.quality);
+                                                actor_tastebud_spoiled_val = Some(tastebud_spoiled_val);
+                                            }
+
+                                            if fun_gain > 0.0 {
+                                                actor_emotion_modifier.happiness = (a_emotion.happiness + fun_gain).clamp(-100.0, 100.0);
+                                            }
+                                        }
+
+                                        if item_stats.comfort > 0.0 {
+                                            actor_needs_modifier.energy = (a_needs.energy + item_stats.comfort).clamp(0.0, 100.0);
+                                        }
+
+                                        if let Some(config) = item_registry.items.get(&item_stats.type_id) {
+                                            if let Some(ref obs_type) = config.obstacle_type {
+                                                if obs_type == "HIGH" {
+                                                    if let Some(ref mut ns) = nav_service {
+                                                        {
+                                                            let mut grid = ns.grid.write().unwrap();
+                                                            grid.update_obstacle_rect(
+                                                                item_trans.translation.x,
+                                                                item_trans.translation.y,
+                                                                config.width as f32,
+                                                                config.height as f32,
+                                                                false,
+                                                                5,
+                                                            );
+                                                        }
+                                                        let _ = ns.request_tx.send(crate::simulation::hpa::NavCommand::RebuildAll);
+                                                    }
                                                 }
                                             }
                                         }
-                                    }
 
-                                    if let Some(ref mut writer) = xp_writer {
-                                        writer.write(crate::simulation::skills::AddXpEvent {
-                                            entity: actor_ent,
-                                            skill_id: "scavenging".to_string(),
-                                            amount: 5.0,
-                                        });
-                                    }
+                                        if let Some(ref mut writer) = xp_writer {
+                                            writer.write(crate::simulation::skills::AddXpEvent {
+                                                entity: actor_ent,
+                                                skill_id: "scavenging".to_string(),
+                                                amount: 5.0,
+                                            });
+                                        }
 
-                                    message_writer.write(crate::audio::PlaySoundEvent { name: "eat".to_string() });
-                                    commands.entity(item_ent).despawn();
+                                        message_writer.write(crate::audio::PlaySoundEvent { name: "eat".to_string() });
+                                        commands.entity(item_ent).despawn();
+                                    } else {
+                                        // Non-consuming interaction: apply fun (happiness)
+                                        if item_stats.fun > 0.0 {
+                                            actor_emotion_modifier.happiness = (a_emotion.happiness + item_stats.fun).clamp(-100.0, 100.0);
+                                        }
+                                    }
                                 }
                             }
 
                             if !item_consumed {
-                                if let Ok((target_ent, mut t_needs, mut t_emotion, t_stats, t_trans, t_sid, t_pers)) = queries.p2().get_mut(target_entity) {
+                                if let Ok((target_ent, mut t_needs, mut t_emotion, t_stats, t_trans, t_sid, t_pers, mut t_reg, mut t_gossip)) = queries.p2().get_mut(target_entity) {
                                     let is_predator = a_pred.is_some();
                                     if is_predator && action == "DEFAULT" {
                                         let dist = a_pos.truncate().distance(t_trans.translation.truncate());
@@ -1446,14 +1519,29 @@ pub fn apply_ai_commands(
                                         }
                                     } else {
                                         if let Some(interaction) = interaction_registry.interactions.get(&action) {
-                                            let _now = time_elapsed.elapsed;
+                                            let now = time_elapsed.elapsed;
                                             let base_compat = {
                                                 let diff_kind = (a_pers.kindness - t_pers.kindness).abs();
                                                 let diff_ener = (a_pers.energy - t_pers.energy).abs();
                                                 let diff_brav = (a_pers.bravery - t_pers.bravery).abs();
                                                 let diff_gree = (a_pers.greed - t_pers.greed).abs();
                                                 let total_diff = diff_kind + diff_ener + diff_brav + diff_gree;
-                                                100.0 - (total_diff as f32 / 4.0)
+                                                let mut compat = 100.0 - (total_diff as f32 / 4.0);
+                                                
+                                                for my_trait in &a_pers.traits {
+                                                    if let Some(td) = trait_registry.traits.get(my_trait) {
+                                                        if let Some(ref social_mods) = td.social_modifiers {
+                                                            if let Some(ref comp_map) = social_mods.compatibility {
+                                                                for other_trait in &t_pers.traits {
+                                                                    if let Some(&val) = comp_map.get(other_trait) {
+                                                                        compat += val;
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                compat
                                             };
                                             let mut a_d_affinity = interaction.social_impact.get("affinity").copied().unwrap_or(0.0);
                                             let mut a_d_trust = interaction.social_impact.get("trust").copied().unwrap_or(0.0);
@@ -1481,6 +1569,63 @@ pub fn apply_ai_commands(
                                                 a_d_fear *= a_mult;
                                             }
                                             actor_relationship_update = Some((t_sid.0, base_compat, a_d_trust, a_d_fear, a_d_familiarity, a_d_affinity, action.clone()));
+
+                                            // Target's relationship updates (bidirectional impact)
+                                            let mut t_d_affinity = interaction.social_impact.get("affinity").copied().unwrap_or(0.0);
+                                            let mut t_d_trust = interaction.social_impact.get("trust").copied().unwrap_or(0.0);
+                                            let mut t_d_fear = interaction.social_impact.get("fear").copied().unwrap_or(0.0);
+                                            let t_d_familiarity = interaction.social_impact.get("familiarity").copied().unwrap_or(0.0);
+
+                                            for trait_name in &t_pers.traits {
+                                                let mod_key = format!("trait:{}", trait_name);
+                                                if let Some(mods) = interaction.modifiers.get(&mod_key) {
+                                                    t_d_affinity += mods.get("affinity").copied().unwrap_or(0.0);
+                                                    t_d_trust += mods.get("trust").copied().unwrap_or(0.0);
+                                                    t_d_fear += mods.get("fear").copied().unwrap_or(0.0);
+                                                }
+                                            }
+                                            let t_mult = if interaction.base_impact > 0.0 {
+                                                (1.0 + (t_pers.kindness as f32 / 100.0)).max(0.1)
+                                            } else if interaction.base_impact < 0.0 {
+                                                (1.0 - (t_pers.kindness as f32 / 100.0)).max(0.1)
+                                            } else {
+                                                1.0
+                                            };
+                                            t_d_affinity *= t_mult;
+                                            t_d_trust *= t_mult;
+                                            if interaction.base_impact < 0.0 {
+                                                t_d_fear *= t_mult;
+                                            }
+
+                                            if !t_reg.relationships.contains_key(&a_stable_id) {
+                                                let mut new_rel = RelationshipData::new(now);
+                                                new_rel.base_compatibility = base_compat;
+                                                new_rel.affinity = base_compat;
+                                                t_reg.relationships.insert(a_stable_id, new_rel);
+                                            }
+                                            if let Some(rel) = t_reg.relationships.get_mut(&a_stable_id) {
+                                                rel.last_update = now;
+                                                rel.adjust_trust(t_d_trust);
+                                                rel.adjust_fear(t_d_fear);
+                                                rel.familiarity = (rel.familiarity + t_d_familiarity).clamp(0.0, 100.0);
+                                                social_counter.0 += 1;
+                                                let headline = MemoryHeadline {
+                                                    id: social_counter.0,
+                                                    timestamp: now,
+                                                    importance: 10.0,
+                                                    sentiment: t_d_affinity,
+                                                    event_type: action.clone(),
+                                                    is_locked: false,
+                                                };
+                                                rel.add_headline(headline, 50.0);
+                                            }
+                                            t_gossip.add_packet(GossipPacket {
+                                                target_id: a_stable_id,
+                                                event_type: action.clone(),
+                                                value: 10.0,
+                                                timestamp: now,
+                                            });
+
                                             if interaction.base_impact < -15.0 {
                                                 actor_emotion_modifier.happiness = (a_emotion.happiness - 20.0).clamp(-100.0, 100.0);
                                                 actor_emotion_modifier.stress = (a_emotion.stress + 20.0).clamp(0.0, 100.0);
@@ -1537,7 +1682,7 @@ pub fn apply_ai_commands(
                     let target_id_str = cmd.payload.get("target_id").cloned().unwrap_or_default();
                     if let Ok(target_u32) = target_id_str.parse::<u32>() {
                         if let Some(&target_entity) = entity_registry.0.get(&target_u32) {
-                            if let Ok((target_ent, mut t_needs, _t_emotion, t_stats, t_trans, _t_sid, _t_pers)) = queries.p2().get_mut(target_entity) {
+                            if let Ok((target_ent, mut t_needs, _t_emotion, t_stats, t_trans, _t_sid, _t_pers, _, _)) = queries.p2().get_mut(target_entity) {
                                 let dist = a_pos.truncate().distance(t_trans.translation.truncate());
                                 if dist <= 110.0 {
                                     let actor_agility = a_ystats.as_ref().map(|s| s.agility).unwrap_or(1.0);
@@ -1577,7 +1722,7 @@ pub fn apply_ai_commands(
             }
 
             // 3. Re-borrow actor mutably and apply all modifications!
-            if let Ok((_, mut mut_needs, mut mut_emotion, mut mut_velocity, _, _, _, _, mut mut_reg, mut mut_gossip, _, mut mut_ystats, _)) = queries.p0().get_mut(bevy_entity) {
+            if let Ok((_, mut mut_needs, mut mut_emotion, mut mut_velocity, _, _, _, _, mut mut_reg, mut mut_gossip, _, mut mut_ystats, _, _, _)) = queries.p0().get_mut(bevy_entity) {
                 *mut_needs = actor_needs_modifier;
                 *mut_emotion = actor_emotion_modifier;
 
@@ -1711,7 +1856,7 @@ pub fn move_target_steering_system(
         steering_force += separation_force;
 
         // 4. Obstacle Avoidance Force (Avoid static walls)
-        let is_flying = maybe_flight.map(|f| f.flight_state == 1 || f.flight_state == 4).unwrap_or(false);
+        let is_flying = maybe_flight.map(|f| f.flight_state == FLIGHT_STATE_FLYING || f.flight_state == FLIGHT_STATE_HOVERING).unwrap_or(false);
         let obstacle_mask = if is_flying {
             avian2d::prelude::LayerMask::from(crate::simulation::mount::GameLayer::HighObstacle)
         } else {
@@ -1851,8 +1996,8 @@ pub fn sync_yukkuri_animations(
         let mut target_anim = ai_state.current_action.to_lowercase();
 
         if let Some(flight) = maybe_flight {
-            if flight.flight_state != 0 {
-                if flight.flight_state == 5 { // SWOOPING
+            if flight.flight_state != FLIGHT_STATE_GROUNDED {
+                if flight.flight_state == FLIGHT_STATE_SWOOPING {
                     target_anim = "swoop".to_string();
                 } else {
                     target_anim = "fly".to_string();
@@ -1866,6 +2011,21 @@ pub fn sync_yukkuri_animations(
     }
 }
 
+pub fn cleanup_ffi_cache_system(
+    mut removed: RemovedComponents<PythonState>,
+    sandbox: Option<NonSend<PythonAISandbox>>,
+) {
+    let Some(sandbox) = sandbox else { return; };
+    Python::with_gil(|py| {
+        for entity in removed.read() {
+            let entity_id = entity.index_u32();
+            if let Err(e) = sandbox.cleanup_entity(py, entity_id) {
+                error!("Failed to cleanup Python BT cache for entity {}: {:?}", entity_id, e);
+            }
+        }
+    });
+}
+
 /// Plugin to register AI components, systems, and Python FFI resource.
 ///
 /// `WorldSettings` must be inserted **before** this plugin is added so that
@@ -1876,6 +2036,7 @@ pub struct AIPlugin;
 
 impl Plugin for AIPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Update, cleanup_ffi_cache_system);
         let sandbox = Python::with_gil(|py| {
             PythonAISandbox::new(py).expect("Failed to initialize Python AI Sandbox")
 

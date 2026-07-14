@@ -4,6 +4,7 @@ pub mod console;
 pub mod inspector;
 pub mod profiler;
 pub mod placement;
+pub mod main_menu;
 
 use bevy::prelude::*;
 
@@ -70,25 +71,36 @@ mod mod_impl {
                 .init_resource::<logging::ConsoleLogBuffer>()
                 .init_resource::<super::console::ConsoleHistory>()
                 .init_resource::<super::hud::ActiveShopTab>()
+                .init_resource::<super::hud::CleanToolActive>()
                 .init_resource::<super::placement::PlacementState>();
 
             // Setup timings budget
             app.world_mut().resource_mut::<SystemTimings>().budget_ms = 16.67;
 
+            // Add the main menu plugin
+            app.add_plugins(super::main_menu::MainMenuPlugin);
+
             // Startup systems
             app.add_systems(Startup, (
-                super::hud::setup_hud_system,
                 super::console::setup_console_system,
                 super::inspector::setup_inspector_system,
                 super::profiler::setup_profiler_system,
             ));
 
-            // Update systems
+            app.add_systems(OnEnter(crate::GameState::Gameplay), super::hud::setup_hud_system);
+
             app.add_systems(
                 Update,
                 (
                     toggle_ui_panels_system,
                     update_console_log_buffer_system,
+                    screenshot_system,
+                ),
+            );
+
+            app.add_systems(
+                Update,
+                (
                     super::hud::hud_interaction_system,
                     super::hud::hud_update_system,
                     super::hud::yukkuri_drag_system,
@@ -97,7 +109,16 @@ mod mod_impl {
                     super::hud::update_shop_ui_system,
                     super::placement::update_placement_system,
                     super::hud::hud_hover_tooltip_system,
-                ),
+                ).run_if(in_state(crate::GameState::Gameplay)),
+            );
+
+            app.add_systems(
+                Update,
+                (
+                    super::hud::context_menu_system,
+                    super::hud::context_menu_button_interaction_system,
+                    super::hud::ui_scroll_system,
+                ).run_if(in_state(crate::GameState::Gameplay)),
             );
 
             app.add_systems(
@@ -155,6 +176,23 @@ mod mod_impl {
         // F4 toggles Profiler
         if keyboard_input.just_pressed(KeyCode::F4) {
             toggle_state.profiler_open = !toggle_state.profiler_open;
+        }
+    }
+
+    fn screenshot_system(
+        mut commands: Commands,
+        keyboard_input: Res<ButtonInput<KeyCode>>,
+    ) {
+        if keyboard_input.just_pressed(KeyCode::F12) {
+            let _ = std::fs::create_dir_all("screenshots");
+            let elapsed = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            let path = format!("screenshots/screenshot_{}.png", elapsed);
+            commands.spawn(bevy::render::view::screenshot::Screenshot::primary_window())
+                .observe(bevy::render::view::screenshot::save_to_disk(path.clone()));
+            info!("Screenshot queued for disk save at: {}", path);
         }
     }
 }

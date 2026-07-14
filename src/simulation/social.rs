@@ -45,16 +45,6 @@ pub fn load_interactions_system(mut commands: Commands) {
     });
 }
 
-pub fn update_game_time_system(
-    time: Res<Time<Virtual>>,
-    settings: Res<SimulationSettings>,
-    mut time_elapsed: ResMut<TimeElapsed>,
-) {
-    let game_dt = time.delta_secs() * settings.time_scale;
-    if game_dt > 0.0 {
-        time_elapsed.elapsed += game_dt;
-    }
-}
 
 pub fn family_proximity_benefits_system(
     time: Res<Time<Virtual>>,
@@ -279,7 +269,7 @@ pub fn gossip_propagation_system(
         for (w_entity, value) in witnesses_to_update {
             if let Ok(mut comps) = query.get_mut(w_entity) {
                 comps.3.add_packet(GossipPacket {
-                    target_id: event.target_stable_id,
+                    target_id: event.initiator_stable_id,
                     event_type: event.event_type.clone(),
                     value,
                     timestamp: now,
@@ -332,6 +322,52 @@ pub fn gossip_propagation_system(
     }
 }
 
+pub fn family_formation_system(
+    time: Res<Time>,
+    mut timer: Local<f32>,
+    mut query: Query<(Entity, &StableId, &mut RelationshipRegistry)>,
+) {
+    *timer += time.delta_secs();
+    if *timer < 2.0 {
+        return;
+    }
+    *timer = 0.0;
+
+    let mut stable_map = HashMap::new();
+    for (entity, sid, reg) in query.iter() {
+        stable_map.insert(sid.0, (entity, reg.family_group_id));
+    }
+
+    let mut updates = HashMap::new();
+
+    for (entity, _sid, reg) in query.iter() {
+        for (&other_sid, rel) in &reg.relationships {
+            if rel.affinity > 80.0 && rel.trust > 80.0 {
+                if let Some(&(other_entity, other_fam_id)) = stable_map.get(&other_sid) {
+                    let a_fam = updates.get(&entity).copied().or(reg.family_group_id);
+                    let b_fam = updates.get(&other_entity).copied().or(other_fam_id);
+
+                    if a_fam.is_none() && b_fam.is_none() {
+                        let new_fam = rand::random::<u32>() as u64;
+                        updates.insert(entity, new_fam);
+                        updates.insert(other_entity, new_fam);
+                    } else if a_fam.is_some() && b_fam.is_none() {
+                        updates.insert(other_entity, a_fam.unwrap());
+                    } else if a_fam.is_none() && b_fam.is_some() {
+                        updates.insert(entity, b_fam.unwrap());
+                    }
+                }
+            }
+        }
+    }
+
+    for (entity, _, mut reg) in query.iter_mut() {
+        if let Some(&new_fam) = updates.get(&entity) {
+            reg.family_group_id = Some(new_fam);
+        }
+    }
+}
+
 pub struct SocialSimulationPlugin;
 
 impl Plugin for SocialSimulationPlugin {
@@ -342,10 +378,10 @@ impl Plugin for SocialSimulationPlugin {
             .add_systems(
                 Update,
                 (
-                    update_game_time_system,
                     family_proximity_benefits_system,
                     relationship_decay_system,
                     gossip_propagation_system,
+                    family_formation_system,
                 ),
             );
     }
