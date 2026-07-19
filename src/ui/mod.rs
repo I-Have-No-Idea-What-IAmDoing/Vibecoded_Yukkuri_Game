@@ -72,6 +72,7 @@ mod mod_impl {
                 .init_resource::<super::console::ConsoleHistory>()
                 .init_resource::<super::hud::ActiveShopTab>()
                 .init_resource::<super::hud::CleanToolActive>()
+                .init_resource::<super::hud::TeleportToolActive>()
                 .init_resource::<super::placement::PlacementState>();
 
             // Setup timings budget
@@ -96,6 +97,16 @@ mod mod_impl {
                     update_console_log_buffer_system,
                     screenshot_system,
                 ),
+            );
+
+            app.add_message::<super::hud::SpawnFloatingTextEvent>();
+
+            app.add_systems(
+                Update,
+                (
+                    super::hud::spawn_floating_text_system,
+                    super::hud::update_floating_text_system,
+                )
             );
 
             app.add_systems(

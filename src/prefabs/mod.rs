@@ -153,15 +153,16 @@ pub fn spawn_yukkuri_prefab(
         Visibility::default(),
         yukkuri_sprite,
         YukkuriShadow,
-        avian2d::prelude::RigidBody::Dynamic,
+        avian2d::prelude::RigidBody::Kinematic,
         avian2d::prelude::Collider::circle(prefab.physics.radius),
         avian2d::prelude::Mass(prefab.physics.mass),
         avian2d::prelude::Friction::new(prefab.physics.friction),
         avian2d::prelude::Restitution::new(prefab.physics.restitution),
         avian2d::prelude::LinearVelocity::default(),
         avian2d::prelude::AngularVelocity::default(),
-        avian2d::prelude::LinearDamping(8.0),
-        avian2d::prelude::AngularDamping(8.0),
+        avian2d::prelude::CustomPositionIntegration,
+        crate::simulation::kinematic_controller::KinematicVelocity::default(),
+        crate::simulation::kinematic_controller::KinematicSettings::default(),
     ));
 
     let parent_entity = entity_builder.id();
@@ -248,19 +249,14 @@ pub fn spawn_yukkuri_prefab(
     commands.queue(move |world: &mut World| {
         let mut rng = rand::thread_rng();
         use rand::Rng;
+        use rand_distr::{Normal, Distribution};
         
-        let mut gauss = |std_dev: f32| -> i32 {
-            let mut sum = 0.0;
-            for _ in 0..4 {
-                sum += rng.gen_range(-1.0..1.0);
-            }
-            (sum * (std_dev / 1.15)) as i32
-        };
+        let dist = Normal::new(0.0f32, 30.0).unwrap();
         
-        let kindness = gauss(30.0).clamp(-100, 100);
-        let energy = gauss(30.0).clamp(-100, 100);
-        let bravery = gauss(30.0).clamp(-100, 100);
-        let greed = gauss(30.0).clamp(-100, 100);
+        let kindness = (dist.sample(&mut rng) as i32).clamp(-100, 100);
+        let energy = (dist.sample(&mut rng) as i32).clamp(-100, 100);
+        let bravery = (dist.sample(&mut rng) as i32).clamp(-100, 100);
+        let greed = (dist.sample(&mut rng) as i32).clamp(-100, 100);
         
         let mut traits = std::collections::HashSet::new();
         if let Some(tr) = world.get_resource::<crate::simulation::skills::TraitRegistry>() {

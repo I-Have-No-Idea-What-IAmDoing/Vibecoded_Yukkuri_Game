@@ -1,10 +1,8 @@
 use bevy::prelude::*;
 use avian2d::prelude::*;
 use std::sync::Mutex;
-use std::fs;
-use pyo3::types::PyAnyMethods;
 use vibecoded_yukkuri_game::ai::{
-    yukkuri_rust, AIPlugin, AIState, StableId, Needs, PythonState,
+    AIPlugin, AIState, StableId, Needs,
 };
 use vibecoded_yukkuri_game::ai::persistence::{save_game, load_game, Economy, TimeElapsed};
 use vibecoded_yukkuri_game::prefabs::{load_prefab, spawn_yukkuri_prefab};
@@ -12,13 +10,7 @@ use vibecoded_yukkuri_game::render::{TextureAtlasRegistry, YukkuriTypeRegistry};
 
 static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
-fn init_python() {
-    static PYTHON_INIT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-    PYTHON_INIT.get_or_init(|| {
-        pyo3::append_to_inittab!(yukkuri_rust);
-        pyo3::prepare_freethreaded_python();
-    });
-}
+fn init_python() {}
 
 #[test]
 fn test_persistence_round_trip() {
@@ -97,17 +89,6 @@ fn test_persistence_round_trip() {
     // Tick the AI system once to populate Python-side _ai_states
     app.update();
 
-    // Now, verify that the Python side cache has our state
-    pyo3::Python::with_gil(|py| {
-        let entity_id = entity.index().index();
-        let behavior_module = py.import("yukkuri_game.game.systems.behavior_ffi").unwrap();
-        let binding = behavior_module.getattr("_ai_states").unwrap();
-        let ai_states = binding.downcast::<pyo3::types::PyDict>().unwrap();
-        assert!(ai_states.contains(entity_id).unwrap());
-        let py_state = ai_states.get_item(entity_id).unwrap();
-        py_state.setattr("current_action", "Sleeping").unwrap();
-    });
-
     // 4. Save the game
     let save_path = "test_persistence_round_trip.sqlite";
     let saved_time = app.world().resource::<TimeElapsed>().elapsed;
@@ -148,24 +129,8 @@ fn test_persistence_round_trip() {
         // StableId restored and correct
         let stable = world.get::<StableId>(restored_entity).expect("StableId missing");
         assert_eq!(stable.0, entity.to_bits());
-
-        // PythonState restored
-        let py_state = world.get::<PythonState>(restored_entity).expect("PythonState missing");
-        assert!(!py_state.serialized_blob.is_empty());
-
-        // FFI Cache restored on the Python side for the new entity ID
-        pyo3::Python::with_gil(|py| {
-            let restored_id = restored_entity.index().index();
-            let behavior_module = py.import("yukkuri_game.game.systems.behavior_ffi").unwrap();
-            let binding = behavior_module.getattr("_ai_states").unwrap();
-            let ai_states = binding.downcast::<pyo3::types::PyDict>().unwrap();
-            assert!(ai_states.contains(restored_id).unwrap(), "Python state not restored for new entity ID {}", restored_id);
-            let py_state_obj = ai_states.get_item(restored_id).unwrap();
-            let action: String = py_state_obj.getattr("current_action").unwrap().extract().unwrap();
-            assert_eq!(action, "Sleeping");
-        });
     }
 
     // Clean up temporary save file
-    let _ = fs::remove_file(save_path);
+    let _ = std::fs::remove_file(save_path);
 }

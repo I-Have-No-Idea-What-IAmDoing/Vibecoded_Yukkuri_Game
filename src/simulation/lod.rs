@@ -23,17 +23,20 @@ pub fn lod_update_system(
     let Some((_camera, camera_transform)) = camera_query.iter().next() else { return; };
     let camera_pos = camera_transform.translation().truncate();
     
-    let high_dist_sq = 800.0 * 800.0;
-    let med_dist_sq = 1500.0 * 1500.0;
+    let l1_sq = 600.0 * 600.0;
+    let l2_sq = 1200.0 * 1200.0;
+    let l3_sq = 2400.0 * 2400.0;
     
     for (transform, mut lod) in query.iter_mut() {
         let dist_sq = transform.translation.truncate().distance_squared(camera_pos);
-        if dist_sq < high_dist_sq {
+        if dist_sq < l1_sq {
             lod.level = 0;
-        } else if dist_sq < med_dist_sq {
+        } else if dist_sq < l2_sq {
             lod.level = 1;
-        } else {
+        } else if dist_sq < l3_sq {
             lod.level = 2;
+        } else {
+            lod.level = 3;
         }
     }
 }

@@ -636,7 +636,24 @@ pub fn update_shadow_system(
     }
 }
 
-// --- Plugin ---
+pub fn update_squish_stretch_system(
+    query_vel: Query<(Entity, &crate::simulation::kinematic_controller::KinematicVelocity, &YukkuriSprite)>,
+    mut query_transform: Query<&mut Transform>,
+) {
+    for (entity, vel, sprite) in query_vel.iter() {
+        let target_ent = sprite.sprite_entity.unwrap_or(entity);
+        if let Ok(mut transform) = query_transform.get_mut(target_ent) {
+            let speed = vel.current.length();
+            let stretch = (speed / 150.0).clamp(0.0, 0.25);
+            
+            let target_scale_y = 1.0 + stretch;
+            let target_scale_x = 1.0 - (stretch * 0.5);
+            
+            transform.scale.x += (target_scale_x - transform.scale.x) * 0.2;
+            transform.scale.y += (target_scale_y - transform.scale.y) * 0.2;
+        }
+    }
+}
 
 pub struct YukkuriRenderPlugin;
 
@@ -666,6 +683,7 @@ impl Plugin for YukkuriRenderPlugin {
                 update_animator_system,
                 update_yukkuri_sprite_system,
                 update_shadow_system,
+                update_squish_stretch_system,
             ).chain().after(crate::ai::sync_yukkuri_animations));
     }
 }

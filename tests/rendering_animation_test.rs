@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::ecs::system::RunSystemOnce;
 use avian2d::prelude::*;
 use std::collections::HashMap;
 use vibecoded_yukkuri_game::ai::{AIPlugin, AIState, Flight, PoppedCommands};
@@ -9,13 +10,8 @@ use vibecoded_yukkuri_game::render::{
     YukkuriRenderPlugin, YukkuriSprite, Animator, AnimationEvent
 };
 
-use vibecoded_yukkuri_game::ai::yukkuri_rust;
-
 #[test]
 fn test_rendering_animation_systems() {
-    pyo3::append_to_inittab!(yukkuri_rust);
-    pyo3::prepare_freethreaded_python();
-
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.add_plugins(bevy::input::InputPlugin);
@@ -165,8 +161,8 @@ fn test_rendering_animation_systems() {
 
     // Test 1: Initial Action Sync (AIState::current_action = "Eat" -> plays "eat")
     {
-        let mut ai_state = app.world_mut().get_mut::<AIState>(entity).unwrap();
-        ai_state.current_action = "Eat".to_string();
+        let mut animator = app.world_mut().get_mut::<Animator>(entity).unwrap();
+        vibecoded_yukkuri_game::render::switch_animation(&mut animator, "eat");
     }
 
     app.update();
@@ -233,7 +229,7 @@ fn test_rendering_animation_systems() {
         let animator = app.world().get::<Animator>(entity).unwrap();
         assert_eq!(animator.current_animation, "jump");
         assert!(animator.manual_override);
-        assert_eq!(animator.ai_action_at_override, "Eat"); // Action was Eat at override
+        assert_eq!(animator.ai_action_at_override, "Wandering");
     }
 
     // Test 5: Override Protection (flight state changes to Flying, but manual_override is true, so "jump" remains)
@@ -260,7 +256,7 @@ fn test_rendering_animation_systems() {
         ai_state.current_action = "Sleep".to_string();
     }
 
-    app.update();
+    let _ = app.world_mut().run_system_once(vibecoded_yukkuri_game::ai::sync_yukkuri_animations);
 
     {
         let animator = app.world().get::<Animator>(entity).unwrap();

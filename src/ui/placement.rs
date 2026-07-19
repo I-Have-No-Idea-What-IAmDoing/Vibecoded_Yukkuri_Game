@@ -48,6 +48,16 @@ pub fn update_placement_system(
         camera.viewport_to_world_2d(camera_transform, cursor_position).ok()
     })().unwrap_or(Vec2::ZERO);
 
+    let snap_pos = if keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight) {
+        let grid = 32.0;
+        Vec2::new(
+            (world_pos.x / grid).round() * grid,
+            (world_pos.y / grid).round() * grid,
+        )
+    } else {
+        world_pos
+    };
+
     // 1. Ensure ghost preview exists and tracks cursor
     if placement_state.ghost_entity.is_none() {
         let item_id = &placement_state.current_item_id;
@@ -60,15 +70,15 @@ pub fn update_placement_system(
                     color: Color::srgba(1.0, 1.0, 1.0, 0.5),
                     ..default()
                 },
-                Transform::from_xyz(world_pos.x, world_pos.y, 0.6),
+                Transform::from_xyz(snap_pos.x, snap_pos.y, 0.6),
                 Visibility::default(),
             )).id();
             placement_state.ghost_entity = Some(ghost);
         }
     } else if let Some(ghost) = placement_state.ghost_entity {
         if let Ok((_, mut trans)) = query_ghosts.get_mut(ghost) {
-            trans.translation.x = world_pos.x;
-            trans.translation.y = world_pos.y;
+            trans.translation.x = snap_pos.x;
+            trans.translation.y = snap_pos.y;
         }
     }
 
@@ -90,7 +100,7 @@ pub fn update_placement_system(
             spawn_item_prefab(
                 &mut commands,
                 &placement_state.current_item_id,
-                world_pos,
+                snap_pos,
                 &asset_server,
                 &item_registry,
                 nav_service.as_deref_mut(),

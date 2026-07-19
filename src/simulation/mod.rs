@@ -10,6 +10,7 @@ pub mod movement;
 pub mod time_system;
 pub mod lod;
 pub mod player_actions;
+pub mod kinematic_controller;
 
 use bevy::prelude::*;
 use needs::NeedsSimulationPlugin;
@@ -23,6 +24,7 @@ use movement::MovementSimulationPlugin;
 use time_system::TimeSystemPlugin;
 use lod::LODPlugin;
 use player_actions::PlayerActionsPlugin;
+use kinematic_controller::KinematicControllerPlugin;
 
 /// Main simulation plugin that aggregates all simulation modules.
 pub struct SimulationPlugin;
@@ -41,6 +43,7 @@ impl Plugin for SimulationPlugin {
             TimeSystemPlugin,
             LODPlugin,
             PlayerActionsPlugin,
+            KinematicControllerPlugin,
         ));
     }
 }

@@ -378,7 +378,15 @@ class MockSpatialService:
 
 class MockUtilityAIEngine:
     """Mocked UtilityAIEngine for behavior trees."""
-    pass
+
+    def select_action(
+        self,
+        context,
+        personality=None,
+        trait_service=None,
+        exclude_actions=None,
+    ):
+        return "Wander"
 
 
 class MockTraitService:
@@ -646,13 +654,13 @@ class BevyWorldAdapter:
                     _ai_states[entity_id] = AIState(
                         current_action=self.blackboard.current_action,
                         state_data={},
-                        manual_override=True,
+                        manual_override=False,
                     )
                 else:
                     _ai_states[entity_id].current_action = (
                         self.blackboard.current_action
                     )
-                    _ai_states[entity_id].manual_override = True
+                    # Let utility AI run
                 return _ai_states[entity_id]
 
             if component_type == PyBlackboard:
@@ -786,8 +794,9 @@ class BevyWorldAdapter:
 
             if component_type == Skills:
                 states = {}
-                if self.blackboard.skills:
-                    for skill_id, lvl in self.blackboard.skills.items():
+                skills = getattr(self.blackboard, "skills", None)
+                if skills:
+                    for skill_id, lvl in skills.items():
                         states[skill_id] = SkillState(level=lvl)
                 return Skills(states=states)
 

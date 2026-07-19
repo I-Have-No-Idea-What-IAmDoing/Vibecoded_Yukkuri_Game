@@ -1,12 +1,10 @@
 use bevy::prelude::*;
 use bevy::world_serialization::DynamicWorldBuilder;
-use pyo3::prelude::*;
 use rusqlite::{params, Connection};
-use std::collections::HashMap;
 use serde_json::json;
 
 use crate::ai::{
-    AIState, PythonState, PythonAISandbox, Persistable, Needs, YukkuriStats,
+    AIState, Persistable, Needs, YukkuriStats,
     EmotionalState, StableId, Flight, SteeringConfig, MoveTarget, Dead, BaseColliderRadius,
     Personality, RelationshipRegistry, GossipQueue, SocialIdCounter, Predator,
 };
@@ -52,39 +50,7 @@ impl TimeElapsed {
 
 /// Saves the game state to an SQLite database file.
 pub fn save_game(world: &mut World, filepath: &str) -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Python-side FFI serialization
-    // Find all entities with AIState and retrieve their serialized states from Python
-    let mut entities_to_serialize = Vec::new();
-    {
-        let mut query = world.query_filtered::<Entity, With<AIState>>();
-        for entity in query.iter(world) {
-            entities_to_serialize.push(entity);
-        }
-    }
-
-    // Call FFI functions to get MsgPack binary blobs for each entity
-    let python_states = Python::with_gil(|py| {
-        let sandbox = world.get_non_send::<PythonAISandbox>()
-            .expect("PythonAISandbox not found");
-        
-        let mut results = Vec::new();
-        for entity in entities_to_serialize {
-            let entity_id = entity.index().index();
-            if let Ok(bytes) = sandbox.serialize_entity(py, entity_id) {
-                results.push((entity, bytes));
-            }
-        }
-        results
-    });
-
-    // Write PythonState components back to entities
-    for (entity, bytes) in python_states {
-        world.entity_mut(entity).insert(PythonState {
-            serialized_blob: bytes,
-        });
-    }
-
-    // 2. Bevy dynamic world serialization using DynamicWorldBuilder
+    // 1. Bevy dynamic world serialization using DynamicWorldBuilder
     let persistable_entities: Vec<Entity> = {
         let mut query = world.query_filtered::<Entity, With<Persistable>>();
         query.iter(world).collect()
@@ -106,7 +72,7 @@ pub fn save_game(world: &mut World, filepath: &str) -> Result<(), Box<dyn std::e
         .allow_component::<SteeringConfig>()
         .allow_component::<MoveTarget>()
         .allow_component::<Persistable>()
-        .allow_component::<PythonState>()
+        .allow_component::<Persistable>()
         .allow_component::<Personality>()
         .allow_component::<RelationshipRegistry>()
         .allow_component::<GossipQueue>()
@@ -329,29 +295,6 @@ pub fn load_game(world: &mut World, filepath: &str) -> Result<(), Box<dyn std::e
             }
         }
     }
-
-    // 5. Python-side FFI state deserialization & remapping
-    let mut id_map = HashMap::new();
-    for (old_entity, new_entity) in entity_map.iter() {
-        id_map.insert(old_entity.index().index(), new_entity.index().index());
-    }
-
-    let mut entities_with_python_state = Vec::new();
-    let mut query = world.query::<(Entity, &PythonState)>();
-    for (entity, py_state) in query.iter(world) {
-        let new_index = entity.index().index();
-        entities_with_python_state.push((new_index, py_state.serialized_blob.clone()));
-    }
-
-    // Acquire GIL and call FFI deserialization for each entity
-    Python::with_gil(|py| {
-        let sandbox = world.get_non_send::<PythonAISandbox>()
-            .expect("PythonAISandbox not found");
-        
-        for (new_index, blob) in entities_with_python_state {
-            let _ = sandbox.deserialize_entity(py, new_index, &blob, &id_map);
-        }
-    });
 
     Ok(())
 }

@@ -41,7 +41,7 @@ pub struct EntityDiedMessage {
 
 pub fn lifecycle_tick_system(
     mut commands: Commands,
-    time: Res<Time<Virtual>>,
+    time: Res<Time>,
     settings: Res<SimulationSettings>,
     time_elapsed: Res<crate::ai::persistence::TimeElapsed>,
     mut query: Query<

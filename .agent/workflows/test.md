@@ -1,15 +1,22 @@
 ---
-description: How to run the test suite
+description: How to run the test suite (Python & Rust)
 ---
 
 // turbo-all
 
-1. Run all tests with:
+### 1. Python Simulation Tests
+Run Python integration & E2E tests:
 ```bash
 uv run scripts/test.py -x --timeout=10 -q
 ```
 
-2. To run a specific test file:
+### 2. Rust Unit & Integration Tests
+Run Rust tests using `cargo nextest` (or fallback to `cargo test`):
 ```bash
-uv run scripts/test.py tests/path/to/test_file.py -x --timeout=10 -q
+cargo nextest run
+```
+
+To run Rust doc-tests:
+```bash
+cargo test --doc
 ```

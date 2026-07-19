@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use avian2d::prelude::*;
 use std::sync::{Arc, Mutex};
 use vibecoded_yukkuri_game::ai::{
-    yukkuri_rust, AIPlugin, MoveTarget, StableId, SteeringConfig, VisibleTargets,
+    AIPlugin, MoveTarget, StableId, SteeringConfig, VisibleTargets,
     Predator, YukkuriStats, RelationshipRegistry, Personality, Flight,
 };
 use vibecoded_yukkuri_game::render::{TextureAtlasRegistry, YukkuriTypeRegistry};
@@ -12,21 +12,10 @@ use vibecoded_yukkuri_game::prefabs::{load_prefab, spawn_yukkuri_prefab};
 // Shared test infrastructure
 // ---------------------------------------------------------------------------
 
-/// Guards Python interpreter init: `append_to_inittab!` + `prepare_freethreaded_python`
-/// must run exactly once per process regardless of how many tests execute.
-static PYTHON_INIT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-
-/// Serialises test execution so no two tests hold the GIL or build a Bevy
-/// `App` concurrently.  PyO3 is not safe to use from multiple threads in a
-/// test binary.
+/// Serialises test execution so no two tests build a Bevy `App` concurrently.
 static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
-fn init_python() {
-    PYTHON_INIT.get_or_init(|| {
-        pyo3::append_to_inittab!(yukkuri_rust);
-        pyo3::prepare_freethreaded_python();
-    });
-}
+fn init_python() {}
 
 /// Creates a minimal headless Bevy app with AIPlugin and physics.
 ///
@@ -46,6 +35,7 @@ fn make_app() -> App {
     app.init_resource::<avian2d::spatial_query::SpatialQueryDiagnostics>();
     app.init_resource::<avian2d::dynamics::solver::SolverDiagnostics>();
     app.init_resource::<avian2d::collision::CollisionDiagnostics>();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f32(0.2)));
     app
 }
 
@@ -110,7 +100,7 @@ fn test_steering_config_inserted_from_prefab() {
     // Values come from data/prefabs/reimu.toml [steering]
     assert_eq!(cfg.max_speed, 150.0, "max_speed mismatch");
     assert_eq!(cfg.perception_radius, 300.0, "perception_radius mismatch");
-    assert_eq!(cfg.arrival_radius, 50.0, "arrival_radius mismatch");
+    assert_eq!(cfg.arrival_radius, 25.0, "arrival_radius mismatch");
 }
 
 // ---------------------------------------------------------------------------
@@ -278,18 +268,18 @@ fn test_steering_applies_velocity_toward_target() {
 
     let vel = app
         .world()
-        .get::<LinearVelocity>(entity)
-        .expect("LinearVelocity component missing");
+        .get::<vibecoded_yukkuri_game::simulation::kinematic_controller::KinematicVelocity>(entity)
+        .expect("KinematicVelocity component missing");
 
     assert!(
-        vel.0.x > 0.0,
-        "LinearVelocity.x should be positive when MoveTarget is to the right; got {:?}",
-        vel.0
+        vel.target.x > 0.0,
+        "KinematicVelocity.target.x should be positive when MoveTarget is to the right; got {:?}",
+        vel.target
     );
     assert!(
-        vel.0.y.abs() < 1.0,
-        "LinearVelocity.y should be near zero for purely horizontal target; got {:?}",
-        vel.0
+        vel.target.y.abs() < 1.0,
+        "KinematicVelocity.target.y should be near zero for purely horizontal target; got {:?}",
+        vel.target
     );
 }
 
@@ -339,7 +329,8 @@ fn test_perception_predator_prey_flags() {
         },
     )).id();
 
-    // Tick once to spawn and run populate_visible_targets_system
+    // Tick to run populate_visible_targets_system
+    app.update();
     app.update();
 
     let world = app.world();

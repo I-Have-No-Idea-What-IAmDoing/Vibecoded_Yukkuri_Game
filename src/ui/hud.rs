@@ -7,6 +7,72 @@ use crate::camera::CameraController;
 use super::YukkuriDragState;
 
 // ---------------------------------------------------------------------------
+// Floating Text Component & Event
+// ---------------------------------------------------------------------------
+
+#[derive(Message, Debug, Clone)]
+pub struct SpawnFloatingTextEvent {
+    pub position: Vec2,
+    pub text: String,
+    pub color: Color,
+}
+
+#[derive(Component)]
+pub struct FloatingText {
+    pub timer: f32,
+    pub duration: f32,
+    pub velocity: Vec2,
+}
+
+pub fn spawn_floating_text_system(
+    mut commands: Commands,
+    _asset_server: Res<AssetServer>,
+    mut event_reader: MessageReader<SpawnFloatingTextEvent>,
+) {
+    // In Bevy 0.15+, we can just spawn Text2d components
+    for ev in event_reader.read() {
+        commands.spawn((
+            Text2d::new(ev.text.clone()),
+            TextFont {
+                font_size: FontSize::Px(16.0),
+                ..default()
+            },
+            TextColor(ev.color),
+            Transform::from_xyz(ev.position.x, ev.position.y, 90.0),
+            FloatingText {
+                timer: 0.0,
+                duration: 2.0,
+                velocity: Vec2::new(0.0, 30.0), // move up 30px per sec
+            },
+        ));
+    }
+}
+
+pub fn update_floating_text_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut Transform, &mut TextColor, &mut FloatingText)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut transform, mut color, mut float) in query.iter_mut() {
+        float.timer += dt;
+        if float.timer >= float.duration {
+            commands.entity(entity).despawn();
+        } else {
+            transform.translation.x += float.velocity.x * dt;
+            transform.translation.y += float.velocity.y * dt;
+            
+            // Fade out in the last half of the duration
+            let fade_start = float.duration * 0.5;
+            if float.timer > fade_start {
+                let alpha = 1.0 - ((float.timer - fade_start) / (float.duration - fade_start));
+                color.0.set_alpha(alpha);
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Types & Components
 // ---------------------------------------------------------------------------
 
@@ -25,6 +91,12 @@ pub enum UiAction {
     SellEntity,
     TrainEntity,
     PunishEntity,
+    InspectEntity,
+    PickUpEntity,
+    FeedEntity,
+    PatEntity,
+    SlapEntity,
+    DeleteEntity,
     ToggleShop,
     SelectShopTab(ShopTab),
     BuyItem { item_id: String, cost: i32 },
@@ -35,6 +107,7 @@ pub enum UiAction {
     LoadGame,
     ToggleSettings,
     SelectCleanTool,
+    SelectTeleportTool,
     VolumeUp { category: String },
     VolumeDown { category: String },
     ToggleFullscreen,
@@ -112,6 +185,9 @@ pub struct SettingsVolumeText {
 #[derive(Resource, Default, Debug, Clone)]
 pub struct CleanToolActive(pub bool);
 
+#[derive(Resource, Default, Debug, Clone)]
+pub struct TeleportToolActive(pub bool);
+
 const BUTTON_NORMAL_COLOR: Color = Color::srgba(0.18, 0.18, 0.22, 0.9);
 const BUTTON_HOVER_COLOR: Color = Color::srgba(0.25, 0.25, 0.30, 1.0);
 const BUTTON_PRESSED_COLOR: Color = Color::srgba(0.35, 0.35, 0.45, 1.0);
@@ -158,6 +234,7 @@ pub fn setup_hud_system(mut commands: Commands) {
                 .with_children(|inner| {
                     spawn_hud_button(inner, "Shop", UiAction::ToggleShop);
                     spawn_hud_button(inner, "Clean", UiAction::SelectCleanTool);
+                    spawn_hud_button(inner, "Teleport", UiAction::SelectTeleportTool);
                     spawn_hud_button(inner, "Spawn Reimu", UiAction::SpawnReimu);
 
                     for sound in ["click", "place", "cancel", "sell", "train", "eat", "cry"] {
@@ -927,6 +1004,9 @@ pub struct HudInteractionParams<'w, 's> {
     pub active_tab: ResMut<'w, ActiveShopTab>,
     pub placement_state: ResMut<'w, super::placement::PlacementState>,
     pub economy: Res<'w, crate::ai::persistence::Economy>,
+    pub clean_tool_active: Option<ResMut<'w, CleanToolActive>>,
+    pub teleport_tool_active: Option<ResMut<'w, TeleportToolActive>>,
+    pub audio_manager: Option<ResMut<'w, crate::audio::YukkuriAudioManager>>,
 }
 
 pub fn hud_interaction_system(
@@ -942,8 +1022,6 @@ pub fn hud_interaction_system(
     mut punish_writer: MessageWriter<crate::simulation::player_actions::PunishEntityRequest>,
     mut time_elapsed: Option<ResMut<crate::ai::persistence::TimeElapsed>>,
     mut settings_popup_query: Query<&mut Node, (With<SettingsPopupNode>, Without<HudSelectionCard>, Without<ShopPanel>)>,
-    mut clean_tool_active: Option<ResMut<CleanToolActive>>,
-    mut audio_manager: Option<ResMut<crate::audio::YukkuriAudioManager>>,
     mut window_query: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
 ) {
     for (interaction, mut bg_color, ui_btn) in &mut interaction_query {
@@ -1000,8 +1078,11 @@ pub fn hud_interaction_system(
                     UiAction::ToggleShop => {
                         params.active_tab.open = !params.active_tab.open;
                         if params.active_tab.open {
-                            if let Some(ref mut clean) = clean_tool_active {
+                            if let Some(ref mut clean) = params.clean_tool_active {
                                 clean.0 = false;
+                            }
+                            if let Some(ref mut teleport) = params.teleport_tool_active {
+                                teleport.0 = false;
                             }
                         }
                     }
@@ -1014,8 +1095,11 @@ pub fn hud_interaction_system(
                             params.placement_state.current_item_id = item_id.clone();
                             params.placement_state.cost = *cost;
                             params.placement_state.ghost_entity = None;
-                            if let Some(ref mut clean) = clean_tool_active {
+                            if let Some(ref mut clean) = params.clean_tool_active {
                                 clean.0 = false;
+                            }
+                            if let Some(ref mut teleport) = params.teleport_tool_active {
+                                teleport.0 = false;
                             }
                         } else {
                             message_writer.write(PlaySoundEvent { name: "cancel".to_string() });
@@ -1032,12 +1116,12 @@ pub fn hud_interaction_system(
                     }
                     UiAction::SpeedUp => {
                         if let Some(ref mut time) = time_elapsed {
-                            time.game_speed = (time.game_speed * 2.0).min(8.0);
+                            time.game_speed = (time.game_speed + 0.5).min(5.0);
                         }
                     }
                     UiAction::SpeedDown => {
                         if let Some(ref mut time) = time_elapsed {
-                            time.game_speed = (time.game_speed / 2.0).max(0.25);
+                            time.game_speed = (time.game_speed - 0.5).max(0.5);
                         }
                     }
                     UiAction::SaveGame => {
@@ -1071,16 +1155,31 @@ pub fn hud_interaction_system(
                         }
                     }
                     UiAction::SelectCleanTool => {
-                        if let Some(ref mut clean) = clean_tool_active {
+                        if let Some(ref mut clean) = params.clean_tool_active {
                             clean.0 = !clean.0;
                             if clean.0 {
                                 params.placement_state.active = false;
                                 params.active_tab.open = false;
+                                if let Some(ref mut teleport) = params.teleport_tool_active {
+                                    teleport.0 = false;
+                                }
+                            }
+                        }
+                    }
+                    UiAction::SelectTeleportTool => {
+                        if let Some(ref mut teleport) = params.teleport_tool_active {
+                            teleport.0 = !teleport.0;
+                            if teleport.0 {
+                                params.placement_state.active = false;
+                                params.active_tab.open = false;
+                                if let Some(ref mut clean) = params.clean_tool_active {
+                                    clean.0 = false;
+                                }
                             }
                         }
                     }
                     UiAction::VolumeUp { category } => {
-                        if let Some(ref mut manager) = audio_manager {
+                        if let Some(ref mut manager) = params.audio_manager {
                             match category.as_str() {
                                 "master" => manager.master_volume = (manager.master_volume + 0.1).clamp(0.0, 1.0),
                                 "bgm" => manager.bgm_volume = (manager.bgm_volume + 0.1).clamp(0.0, 1.0),
@@ -1097,7 +1196,7 @@ pub fn hud_interaction_system(
                         }
                     }
                     UiAction::VolumeDown { category } => {
-                        if let Some(ref mut manager) = audio_manager {
+                        if let Some(ref mut manager) = params.audio_manager {
                             match category.as_str() {
                                 "master" => manager.master_volume = (manager.master_volume - 0.1).clamp(0.0, 1.0),
                                 "bgm" => manager.bgm_volume = (manager.bgm_volume - 0.1).clamp(0.0, 1.0),
@@ -1129,9 +1228,17 @@ pub fn hud_interaction_system(
                         } else {
                             false
                         };
-                        if let Some(ref manager) = audio_manager {
+                        if let Some(ref manager) = params.audio_manager {
                             save_user_settings(manager, 1280.0, 720.0, is_fullscreen);
                         }
+                    }
+                    UiAction::InspectEntity
+                    | UiAction::PickUpEntity
+                    | UiAction::FeedEntity
+                    | UiAction::PatEntity
+                    | UiAction::SlapEntity
+                    | UiAction::DeleteEntity => {
+                        // Handled by context menu system
                     }
                 }
             }
@@ -1381,15 +1488,17 @@ pub fn hud_update_system(
 // ---------------------------------------------------------------------------
 
 pub fn yukkuri_drag_system(
-    mut commands: Commands,
+    _commands: Commands,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     window_query: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
+    camera_controller_query: Query<&CameraController, With<crate::camera::MainCamera>>,
     mut drag_state: ResMut<YukkuriDragState>,
     mut yukkuri_queries: ParamSet<(
         Query<(Entity, &Transform), With<YukkuriStats>>,
         Query<
-            (&mut Transform, &mut LinearVelocity, &mut AngularVelocity),
+            (&mut Transform, &mut crate::simulation::kinematic_controller::KinematicVelocity),
             With<YukkuriStats>,
         >,
     )>,
@@ -1402,10 +1511,31 @@ pub fn yukkuri_drag_system(
         return;
     };
 
+    let mut world_pos_mut = world_pos;
+    if keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight) {
+        world_pos_mut.x = (world_pos_mut.x / 50.0).round() * 50.0;
+        world_pos_mut.y = (world_pos_mut.y / 50.0).round() * 50.0;
+    }
+
+    if keyboard_input.pressed(KeyCode::AltLeft) || keyboard_input.pressed(KeyCode::AltRight) {
+        if mouse_button_input.just_pressed(MouseButton::Right) {
+            if let Some(controller) = camera_controller_query.iter().next() {
+                for selected in &controller.selected_entities {
+                    if let Ok((mut transform, mut kin_vel)) = yukkuri_queries.p1().get_mut(*selected) {
+                        transform.translation.x = world_pos_mut.x;
+                        transform.translation.y = world_pos_mut.y;
+                        kin_vel.target = Vec2::ZERO;
+                        kin_vel.current = Vec2::ZERO;
+                    }
+                }
+            }
+        }
+    }
+
     if mouse_button_input.just_pressed(MouseButton::Left) {
         let mut closest: Option<(Entity, f32)> = None;
         for (entity, transform) in yukkuri_queries.p0().iter() {
-            let dist = (transform.translation.truncate() - world_pos).length();
+            let dist = (transform.translation.truncate() - world_pos_mut).length();
             if dist < 40.0 {
                 match closest {
                     Some((_, d)) if d <= dist => {}
@@ -1416,29 +1546,27 @@ pub fn yukkuri_drag_system(
 
         if let Some((entity, _)) = closest {
             drag_state.dragged_entity = Some(entity);
-            commands.entity(entity).insert(RigidBody::Kinematic);
-            if let Ok((_, mut lin_vel, mut ang_vel)) = yukkuri_queries.p1().get_mut(entity) {
-                lin_vel.0 = Vec2::ZERO;
-                ang_vel.0 = 0.0;
+            if let Ok((_, mut kin_vel)) = yukkuri_queries.p1().get_mut(entity) {
+                kin_vel.target = Vec2::ZERO;
+                kin_vel.current = Vec2::ZERO;
             }
         }
     } else if mouse_button_input.pressed(MouseButton::Left) {
         if let Some(entity) = drag_state.dragged_entity {
-            if let Ok((mut transform, mut lin_vel, mut ang_vel)) =
+            if let Ok((mut transform, mut kin_vel)) =
                 yukkuri_queries.p1().get_mut(entity)
             {
-                transform.translation.x = world_pos.x;
-                transform.translation.y = world_pos.y;
-                lin_vel.0 = Vec2::ZERO;
-                ang_vel.0 = 0.0;
+                transform.translation.x = world_pos_mut.x;
+                transform.translation.y = world_pos_mut.y;
+                kin_vel.target = Vec2::ZERO;
+                kin_vel.current = Vec2::ZERO;
             }
         }
     } else if mouse_button_input.just_released(MouseButton::Left) {
         if let Some(entity) = drag_state.dragged_entity.take() {
-            commands.entity(entity).insert(RigidBody::Dynamic);
-            if let Ok((_, mut lin_vel, mut ang_vel)) = yukkuri_queries.p1().get_mut(entity) {
-                lin_vel.0 = Vec2::ZERO;
-                ang_vel.0 = 0.0;
+            if let Ok((_, mut kin_vel)) = yukkuri_queries.p1().get_mut(entity) {
+                kin_vel.target = Vec2::ZERO;
+                kin_vel.current = Vec2::ZERO;
             }
         }
     }
@@ -1605,9 +1733,12 @@ pub fn context_menu_system(
         if let Some(target) = target_yukkuri {
             message_writer.write(PlaySoundEvent { name: "click".to_string() });
             spawn_context_menu(&mut commands, cursor_pos, target, vec![
-                ("Train", UiAction::TrainEntity),
-                ("Punish", UiAction::PunishEntity),
-                ("Sell", UiAction::SellEntity),
+                ("Inspect", UiAction::InspectEntity),
+                ("Pick up", UiAction::PickUpEntity),
+                ("Feed", UiAction::FeedEntity),
+                ("Pat", UiAction::PatEntity),
+                ("Slap", UiAction::SlapEntity),
+                ("Delete", UiAction::DeleteEntity),
             ]);
         } else if let Some(target) = target_poop {
             message_writer.write(PlaySoundEvent { name: "click".to_string() });
@@ -1696,6 +1827,24 @@ pub fn context_menu_button_interaction_system(
                         punish_writer.write(crate::simulation::player_actions::PunishEntityRequest { entity_id: btn.target });
                     }
                     UiAction::SelectCleanTool => {
+                        commands.entity(btn.target).despawn();
+                    }
+                    UiAction::InspectEntity => {
+                        // Implement select logic (could be done via event or directly manipulating CameraController)
+                    }
+                    UiAction::PickUpEntity => {
+                        // Logic implemented in drag state
+                    }
+                    UiAction::FeedEntity => {
+                        // Add food need logic via event or component query
+                    }
+                    UiAction::PatEntity => {
+                        // Add happiness logic via event or component query
+                    }
+                    UiAction::SlapEntity => {
+                        punish_writer.write(crate::simulation::player_actions::PunishEntityRequest { entity_id: btn.target });
+                    }
+                    UiAction::DeleteEntity => {
                         commands.entity(btn.target).despawn();
                     }
                     _ => {}

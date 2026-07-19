@@ -3,6 +3,7 @@ use avian2d::prelude::*;
 use bevy::ecs::system::RunSystemOnce;
 
 use vibecoded_yukkuri_game::ai::{SteeringConfig, BaseColliderRadius, Flight, MoveTarget, StuckDetector};
+use vibecoded_yukkuri_game::simulation::kinematic_controller::KinematicVelocity;
 use vibecoded_yukkuri_game::ai::persistence::Economy;
 use vibecoded_yukkuri_game::render::{YukkuriRenderPlugin, YukkuriSprite, YukkuriShadow};
 use vibecoded_yukkuri_game::ui::placement::{PlacementState, PlacementGhost};
@@ -97,6 +98,7 @@ fn test_steering_forces_separation_and_arrival() {
     let entity_a = app.world_mut().spawn((
         Transform::from_xyz(0.0, 0.0, 0.0),
         LinearVelocity::default(),
+        KinematicVelocity::default(),
         BaseColliderRadius(15.0),
         SteeringConfig {
             max_speed: 100.0,
@@ -114,15 +116,17 @@ fn test_steering_forces_separation_and_arrival() {
     let _entity_b = app.world_mut().spawn((
         Transform::from_xyz(10.0, 5.0, 0.0),
         LinearVelocity::default(),
+        KinematicVelocity::default(),
         BaseColliderRadius(15.0),
         SteeringConfig::default(),
     )).id();
 
     // Update physics and steering systems
     app.update();
+    app.update();
 
     // Verify Entity A has non-zero velocity directing it towards target but influenced by separation
-    let vel_a = app.world().get::<LinearVelocity>(entity_a).unwrap().0;
+    let vel_a = app.world().get::<KinematicVelocity>(entity_a).unwrap().target;
     assert!(vel_a.x > 0.0, "Entity A is not moving forward");
     // Since B is at (10, 5) relative to A (0, 0), separation should push A in negative Y
     assert!(vel_a.y < 0.0, "Separation force did not push Entity A away from Entity B");
@@ -130,8 +134,9 @@ fn test_steering_forces_separation_and_arrival() {
     // Move Entity A close to the target to verify arrival deceleration
     app.world_mut().get_mut::<Transform>(entity_a).unwrap().translation.x = 90.0; // 10px away, which is < arrival_radius (50px)
     app.update();
+    app.update();
 
-    let vel_a_arrival = app.world().get::<LinearVelocity>(entity_a).unwrap().0;
+    let vel_a_arrival = app.world().get::<KinematicVelocity>(entity_a).unwrap().target;
     assert!(vel_a_arrival.length() < 100.0, "Entity A did not slow down near target");
 }
 

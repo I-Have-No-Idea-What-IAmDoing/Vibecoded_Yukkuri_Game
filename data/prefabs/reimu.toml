@@ -17,6 +17,6 @@ max_stamina = 100.0
 
 [steering]
 max_speed = 150.0
-max_force = 500.0
-arrival_radius = 50.0
+max_force = 300.0
+arrival_radius = 25.0
 perception_radius = 300.0

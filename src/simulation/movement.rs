@@ -25,8 +25,8 @@ impl Default for MovementController {
     fn default() -> Self {
         Self {
             visual_bob_timer: 0.0,
-            bob_speed: 15.0,
-            bob_height: 8.0,
+            bob_speed: 5.0,
+            bob_height: 10.0,
         }
     }
 }
@@ -165,10 +165,10 @@ pub fn flight_system(
 
                     // Apply Fall damage
                     if let Some(ref mut needs) = maybe_needs {
-                        needs.health = (needs.health - 10.0 / agility).max(0.0);
+                        needs.health = (needs.health - 10.0).max(0.0);
                     }
                     if let Some(ref mut emotional) = maybe_emotional {
-                        emotional.stress = (emotional.stress + 20.0 / agility).min(100.0);
+                        emotional.stress = (emotional.stress + 20.0).min(100.0);
                     }
                 }
                 continue; // Skip interpolation for falling as it has custom drop speed

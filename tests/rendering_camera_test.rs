@@ -248,8 +248,8 @@ fn test_camera_negative_zoom_scale() {
         }),
     )).id();
     
-    // Set target_zoom to 0.25 (minimum zoom)
-    app.world_mut().get_mut::<CameraController>(camera_id).unwrap().target_zoom = 0.25;
+    // Set target_zoom to 0.1 (below minimum zoom 0.5)
+    app.world_mut().get_mut::<CameraController>(camera_id).unwrap().target_zoom = 0.1;
     
     app.update();
     
@@ -259,8 +259,8 @@ fn test_camera_negative_zoom_scale() {
     
     let projection = app.world().get::<Projection>(camera_id).unwrap();
     if let Projection::Orthographic(ref ortho) = *projection {
-        assert!(ortho.scale >= 0.25, "Scale should be clamped and not become negative");
-        assert_eq!(ortho.scale, 0.25);
+        assert!(ortho.scale >= 0.5, "Scale should be clamped and not become negative");
+        assert_eq!(ortho.scale, 0.5);
     } else {
         panic!("Expected orthographic projection");
     }

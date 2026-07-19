@@ -1,8 +1,6 @@
-use pyo3::prelude::*;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
-#[pyclass(eq, eq_int)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CommandType {
     MoveTo,
@@ -14,20 +12,14 @@ pub enum CommandType {
     ModifyStat,
 }
 
-#[pyclass]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Command {
-    #[pyo3(get, set)]
     pub cmd_type: CommandType,
-    #[pyo3(get, set)]
     pub entity_id: u32,
-    #[pyo3(get, set)]
     pub payload: HashMap<String, String>,
 }
 
-#[pymethods]
 impl Command {
-    #[new]
     pub fn new(cmd_type: CommandType, entity_id: u32, payload: HashMap<String, String>) -> Self {
         Self {
             cmd_type,

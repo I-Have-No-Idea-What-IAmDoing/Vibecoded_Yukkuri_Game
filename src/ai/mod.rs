@@ -2,11 +2,9 @@ pub mod blackboard;
 pub mod commands;
 pub mod persistence;
 
-use pyo3::prelude::*;
 use bevy::prelude::*;
+use rand::Rng;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
-use blackboard::Blackboard;
 use commands::{Command, CommandType};
 use crate::simulation::needs::FloatingText;
 use crate::simulation::movement::{
@@ -15,114 +13,6 @@ use crate::simulation::movement::{
 };
 
 /// Workspace root resolved at compile time from the Cargo manifest directory.
-///
-/// Using `env!("CARGO_MANIFEST_DIR")` bakes the absolute path of the
-/// workspace root into the binary, so paths to `./src` and `./.venv` are
-/// correct regardless of which directory the executable is invoked from.
-const WORKSPACE_ROOT: &str = env!("CARGO_MANIFEST_DIR");
-
-#[pymodule]
-pub fn yukkuri_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<blackboard::TargetInfo>()?;
-    m.add_class::<blackboard::Blackboard>()?;
-    m.add_class::<commands::CommandType>()?;
-    m.add_class::<commands::Command>()?;
-    let _ = crate::ui::console::register_console_bindings(m);
-    Ok(())
-}
-
-/// The single-threaded sandboxed Python behavior runner.
-pub struct PythonAISandbox {
-    pub behavior_module: Py<PyModule>,
-}
-
-impl PythonAISandbox {
-    /// Creates a new PythonAISandbox and imports the behavior_ffi module.
-    ///
-    /// All paths are resolved relative to [`WORKSPACE_ROOT`] (the Cargo
-    /// manifest directory baked in at compile time), so the binary works
-    /// correctly regardless of which directory it is invoked from.
-    pub fn new(py: Python) -> PyResult<Self> {
-        let sys = py.import("sys")?;
-        let path_attr = sys.getattr("path")?;
-        let path: &Bound<'_, pyo3::types::PyList> = path_attr.downcast()?;
-
-        // Add workspace /src to the Python module search path.
-        let src_path = Path::new(WORKSPACE_ROOT).join("src");
-        path.insert(0, src_path.to_str().unwrap_or("./src"))?;
-
-        // Add the virtual-environment site-packages to sys.path so that
-        // third-party packages (py_trees, pymunk, …) installed in the project
-        // venv are importable without relying on the shell's active venv.
-        let venv_root = Path::new(WORKSPACE_ROOT).join(".venv");
-        if venv_root.exists() {
-            // Windows layout:  .venv/Lib/site-packages
-            let win_path = venv_root.join("Lib").join("site-packages");
-            if win_path.exists() {
-                path.insert(0, win_path.to_str().unwrap())?;
-            } else {
-                // Unix layout:  .venv/lib/pythonX.Y/site-packages
-                if let Ok(entries) = std::fs::read_dir(venv_root.join("lib")) {
-                    for entry in entries.flatten() {
-                        let p = entry.path().join("site-packages");
-                        if p.exists() {
-                            path.insert(0, p.to_str().unwrap())?;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        let behavior_module = py
-            .import("yukkuri_game.game.systems.behavior_ffi")?
-            .unbind();
-
-        Ok(Self { behavior_module })
-    }
-
-    /// Ticks a single entity with the provided Blackboard snapshot.
-    pub fn tick_entity(
-        &self,
-        py: Python,
-        blackboard: Blackboard,
-    ) -> PyResult<Vec<Command>> {
-        let behavior_module = self.behavior_module.bind(py);
-        let result = behavior_module
-            .call_method1("tick_entity_with_blackboard", (blackboard,))?;
-
-        let commands: Vec<Command> = result.extract()?;
-        Ok(commands)
-    }
-
-    /// Serializes Python-side state for the given entity to MessagePack bytes.
-    pub fn serialize_entity(&self, py: Python, entity_id: u32) -> PyResult<Vec<u8>> {
-        let behavior_module = self.behavior_module.bind(py);
-        let result = behavior_module.call_method1("serialize_ai_state", (entity_id,))?;
-        let bytes: Vec<u8> = result.extract()?;
-        Ok(bytes)
-    }
-
-    /// Deserializes and remaps Python-side state for the given entity.
-    pub fn deserialize_entity(
-        &self,
-        py: Python,
-        entity_id: u32,
-        blob: &[u8],
-        id_map: &HashMap<u32, u32>,
-    ) -> PyResult<()> {
-        let behavior_module = self.behavior_module.bind(py);
-        let _ = behavior_module.call_method1("deserialize_ai_state", (entity_id, blob, id_map))?;
-        Ok(())
-    }
-
-    /// Cleans up any cached behavior tree or state for the given entity ID.
-    pub fn cleanup_entity(&self, py: Python, entity_id: u32) -> PyResult<()> {
-        let behavior_module = self.behavior_module.bind(py);
-        let _ = behavior_module.call_method1("cleanup_entity_cache", (entity_id,))?;
-        Ok(())
-    }
-}
 
 // Components
 #[derive(Component, Reflect, Debug, Clone)]
@@ -190,7 +80,7 @@ impl YukkuriStats {
     pub fn calculate_value(&self, needs: &Needs, emotional_state: &EmotionalState) -> i32 {
         let badge_val = 500;
         let health_penalty = 2.0;
-        let age_bonus = 10.0;
+        let age_bonus = 0.2; // Matches rules.toml
         let mut score = 100.0;
         
         score += emotional_state.happiness + 100.0;
@@ -565,10 +455,10 @@ impl Default for Flight {
             stamina: 100.0,
             max_stamina: 100.0,
             fly_cost: 5.0,
-            hover_cost: 2.0,
+            hover_cost: 1.0,
             recovery_rate: 10.0,
-            vertical_speed: 50.0,
-            max_altitude: 100.0,
+            vertical_speed: 20.0,
+            max_altitude: 60.0,
         }
     }
 }
@@ -636,9 +526,9 @@ impl Default for SteeringConfig {
     fn default() -> Self {
         Self {
             max_speed: 150.0,
-            max_force: 50.0,
-            perception_radius: 300.0,
-            arrival_radius: 50.0,
+            max_force: 300.0,
+            perception_radius: 200.0,
+            arrival_radius: 25.0,
         }
     }
 }
@@ -740,6 +630,7 @@ pub struct PoppedCommands(pub Vec<Command>);
 ///   once `RelationshipRegistry` component is ported.
 /// - TODO(deferred): Populate `short_term_memory` when entities leave perception radius.
 pub fn populate_visible_targets_system(
+    mut timer: Local<f32>,
     world_settings: Res<WorldSettings>,
     spatial_query: avian2d::prelude::SpatialQuery,
     time: Res<Time>,
@@ -762,15 +653,21 @@ pub fn populate_visible_targets_system(
             &Transform,
             &mut VisibleTargets,
             &StableId,
-            &SteeringConfig,
+            &YukkuriStats,
             &RelationshipRegistry,
             &Personality,
             Option<&Predator>,
             Option<&mut AIState>,
-            &YukkuriStats,
+            &SteeringConfig,
         )>,
     )>,
 ) {
+    *timer += time.delta_secs();
+    if *timer < 0.1 {
+        return;
+    }
+    *timer = 0.0;
+
     let world_height = world_settings.height;
     let current_time = if let Some(ref te) = time_elapsed {
         te.elapsed
@@ -811,12 +708,12 @@ pub fn populate_visible_targets_system(
         observer_transform,
         mut visible_targets,
         _observer_sid,
-        steering,
+        observer_stats,
         observer_reg,
         observer_pers,
         observer_predator,
         maybe_ai_state,
-        observer_stats,
+        steering,
     ) in queries.p1().iter_mut()
     {
         // Gather previous detection times and positions
@@ -945,17 +842,11 @@ pub fn populate_visible_targets_system(
 }
 
 
-/// Bevy system to tick all entities through Python Behavior Trees (GIL-safe).
-///
-/// Acquires the GIL once per frame, rebuilds [`EntityRegistry`] with the
-/// current live entity set (clearing any stale entries from despawned
-/// entities), then ticks every AI entity sequentially.
-pub fn tick_python_ai_system(
-    sandbox: NonSend<PythonAISandbox>,
+/// Bevy system to tick all Yukkuri entities using native Rust AI state machine logic.
+pub fn tick_native_ai_system(
     world_settings: Res<WorldSettings>,
-    time: Res<Time>,
-    nav_service: Option<Res<crate::simulation::hpa::NavigationService>>,
-    time_elapsed: Option<Res<crate::ai::persistence::TimeElapsed>>,
+    _time: Res<Time>,
+    _time_elapsed: Option<Res<crate::ai::persistence::TimeElapsed>>,
     mut query: Query<(
         Entity,
         &Transform,
@@ -966,208 +857,166 @@ pub fn tick_python_ai_system(
         Option<&VisibleTargets>,
         Option<&mut AIState>,
         Option<&Personality>,
-        Option<&crate::simulation::skills::Skills>,
-        Option<&crate::simulation::mount::Mount>,
-        Option<&crate::simulation::inventory::InventoryComponent>,
-        Option<&crate::simulation::lod::LODComponent>,
-    )>,
+    ), Without<Dead>>,
+    food_query: Query<(Entity, &Transform), With<crate::simulation::inventory::ItemStats>>,
+    yukkuri_query: Query<(Entity, &Transform), (With<Needs>, Without<Dead>)>,
     mut command_queue: ResMut<PoppedCommands>,
     mut entity_registry: ResMut<EntityRegistry>,
     mut frame_counter: Local<u32>,
 ) {
     let world_height = world_settings.height;
-
-    // Rebuild the registry from scratch each frame so despawned entities are
-    // never present when apply_ai_commands looks up a command's entity_id.
     entity_registry.0.clear();
-
     *frame_counter = frame_counter.wrapping_add(1);
 
-    // Read grid snapshot
-    let (grid_width, grid_height, grid_cells) = if let Some(ref ns) = nav_service {
-        let grid = (**ns).grid.read().unwrap();
-        let cells_mask = grid.cells.iter().map(|c| c.access_mask).collect();
-        (grid.width, grid.height, cells_mask)
-    } else {
-        (0, 0, Vec::new())
-    };
+    let mut rand_gen = rand::thread_rng();
 
-    let (day, hour_of_day, is_night, elapsed) = if let Some(ref te) = time_elapsed {
-        (te.day(), te.hour_of_day(), te.is_night(), te.elapsed)
-    } else {
-        (1, 12.0, false, 0.0)
-    };
+    for (
+        entity,
+        transform,
+        maybe_needs,
+        maybe_emotion,
+        _maybe_flight,
+        maybe_stats,
+        _maybe_visible,
+        mut maybe_ai_state,
+        _maybe_personality,
+    ) in query.iter_mut() {
+        let entity_id = entity.index().index();
+        entity_registry.0.insert(entity_id, entity);
 
-    Python::with_gil(|py| {
-        for (
-            entity,
-            transform,
-            maybe_needs,
-            maybe_emotion,
-            maybe_flight,
-            maybe_stats,
-            maybe_visible,
-            mut maybe_ai_state,
-            maybe_personality,
-            maybe_skills,
-            maybe_mount,
-            maybe_inventory,
-            maybe_lod,
-        ) in query.iter_mut() {
-            // Raw u32 index used as the Python-facing entity_id.
-            // entity.index() returns EntityIndex; EntityIndex::index() returns u32.
-            let entity_id = entity.index().index();
-            entity_registry.0.insert(entity_id, entity);
+        let pos = transform.translation.truncate();
+        let needs = match maybe_needs {
+            Some(n) => n,
+            None => continue,
+        };
+        let emotion = maybe_emotion.cloned().unwrap_or_default();
+        let stats = maybe_stats.cloned().unwrap_or_default();
 
-            let lod_level = maybe_lod.map(|l| l.level).unwrap_or(0);
-            if lod_level == 1 && *frame_counter % 2 != 0 {
-                continue;
-            }
-            if lod_level == 2 && *frame_counter % 5 != 0 {
-                continue;
-            }
+        let mut commands = Vec::new();
+        let new_action;
 
-            // Build stats HashMap
-            let mut stats = HashMap::new();
-            let (traits, kindness, energy_p, bravery, greed) = if let Some(p) = maybe_personality {
-                (p.traits.iter().cloned().collect(), p.kindness, p.energy, p.bravery, p.greed)
-            } else {
-                (Vec::new(), 0, 0, 0, 0)
-            };
-            stats.insert("kindness".to_string(), kindness as f32);
-            stats.insert("energy_personality".to_string(), energy_p as f32);
-            stats.insert("bravery".to_string(), bravery as f32);
-            stats.insert("greed".to_string(), greed as f32);
-            // Forward real frame delta-time so Python behavior trees use accurate timing
-            // instead of the hardcoded 0.1s fallback in behavior_ffi.py.
-            let dt_factor = match lod_level {
-                1 => 2.0,
-                2 => 5.0,
-                _ => 1.0,
-            };
-            stats.insert("dt".to_string(), time.delta_secs() * dt_factor);
-            if let Some(needs) = maybe_needs {
-                stats.insert("health".to_string(), needs.health);
-                stats.insert("hunger".to_string(), needs.hunger);
-                stats.insert("social".to_string(), needs.social);
-                stats.insert("energy".to_string(), needs.energy);
-                stats.insert("cleanliness".to_string(), needs.cleanliness);
-                stats.insert("bladder".to_string(), needs.bladder);
-                stats.insert("easiness".to_string(), needs.easiness);
-                stats.insert("max_health".to_string(), needs.max_health);
-            }
-            if let Some(emotion) = maybe_emotion {
-                stats.insert("happiness".to_string(), emotion.happiness);
-                stats.insert("stress".to_string(), emotion.stress);
-            }
-
-            let altitude = maybe_flight.map(|f| f.altitude).unwrap_or(0.0);
-            let flight_state = maybe_flight.map(|f| f.flight_state).unwrap_or(0);
-
-            let type_id = maybe_stats
-                .map(|s| s.type_id.clone())
-                .unwrap_or_else(|| "reimu".to_string());
-            let growth_stage = maybe_stats
-                .map(|s| s.growth_stage.clone())
-                .unwrap_or_else(|| "Adult".to_string());
-
-            let visible_targets = if let Some(visible) = maybe_visible {
-                let reaction_delay = if let Some(stats) = maybe_stats {
-                    if stats.agility > 0.0 {
-                        0.5 / stats.agility
-                    } else {
-                        0.5
-                    }
-                } else {
-                    0.5
-                };
-                visible.targets.iter()
-                    .filter(|t| (elapsed - t.detected_at) >= reaction_delay)
-                    .cloned()
-                    .collect()
-            } else {
-                Vec::new()
-            };
-
-            let current_action = maybe_ai_state
-                .as_ref()
-                .map(|s| s.current_action.clone())
-                .unwrap_or_else(|| "Idle".to_string());
-
-            let short_term_memory = maybe_ai_state
-                .as_ref()
-                .map(|s| s.short_term_memory.clone())
-                .unwrap_or_default();
-
-            let skills_map = if let Some(skills) = maybe_skills {
-                skills.states.iter().map(|(k, v)| (k.clone(), v.level)).collect()
-            } else {
-                HashMap::new()
-            };
-
-            let parent_id = maybe_mount.and_then(|m| m.parent_id.map(|p| p.index().index()));
-            let children_ids = maybe_mount.map(|m| m.children_ids.iter().map(|c| c.index().index()).collect()).unwrap_or_default();
-            let inventory = maybe_inventory.map(|inv| inv.items.iter().map(|item| (item.item_type_id.clone(), item.quantity)).collect()).unwrap_or_default();
-
-            let blackboard = Blackboard::from_bevy(
-                entity_id,
-                stats,
-                transform.translation.x,
-                transform.translation.y,
-                altitude,
-                flight_state,
-                visible_targets,
-                current_action,
-                short_term_memory,
-                world_height,
-                type_id,
-                growth_stage,
-                traits,
-                skills_map,
-                parent_id,
-                children_ids,
-                inventory,
-                grid_width,
-                grid_height,
-                grid_cells.clone(),
-                day,
-                hour_of_day,
-                is_night,
-                elapsed,
+        if emotion.stress > 70.0 {
+            new_action = "Panicking".to_string();
+            let flee_dx = rand_gen.gen_range(-150.0..150.0);
+            let flee_dy = rand_gen.gen_range(-150.0..150.0);
+            let target_pos = Vec2::new(
+                (pos.x + flee_dx).clamp(50.0, world_settings.width - 50.0),
+                (pos.y + flee_dy).clamp(50.0, world_settings.height - 50.0),
             );
 
-            match sandbox.tick_entity(py, blackboard) {
-                Ok(cmds) => {
-                    if let Some(ref mut ai_state) = maybe_ai_state {
-                        if let Ok(py_ai_dict) =
-                            sandbox.behavior_module.bind(py).getattr("_ai_states")
-                        {
-                            if let Ok(py_ai) = py_ai_dict.get_item(entity_id) {
-                                if let Ok(act) = py_ai.getattr("current_action") {
-                                    if let Ok(act_str) = act.extract::<String>() {
-                                        ai_state.current_action = act_str;
-                                    }
-                                }
-                                if let Ok(tgt) = py_ai.getattr("current_target_id") {
-                                    if let Ok(tgt_val) = tgt.extract::<i32>() {
-                                        ai_state.current_target_id = tgt_val;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    command_queue.0.extend(cmds);
-                }
-                Err(err) => {
-                    eprintln!(
-                        "Python FFI error ticking entity {}: {:?}",
-                        entity_id, err
-                    );
-                    err.print(py);
+            let mut payload = HashMap::new();
+            payload.insert("target_x".to_string(), target_pos.x.to_string());
+            payload.insert("target_y".to_string(), (world_height - target_pos.y).to_string());
+            commands.push(Command::new(CommandType::MoveTo, entity_id, payload));
+
+            if rand_gen.gen_bool(0.05) {
+                let mut speak_payload = HashMap::new();
+                speak_payload.insert("text".to_string(), "Eeeek! Scary!".to_string());
+                commands.push(Command::new(CommandType::Speak, entity_id, speak_payload));
+            }
+        } else if needs.hunger > 35.0 {
+            let mut closest_food: Option<(Entity, Vec2, f32)> = None;
+            for (food_ent, food_tf) in food_query.iter() {
+                let food_pos = food_tf.translation.truncate();
+                let dist = pos.distance(food_pos);
+                if closest_food.map_or(true, |(_, _, d)| dist < d) {
+                    closest_food = Some((food_ent, food_pos, dist));
                 }
             }
+
+            if let Some((food_ent, food_pos, dist)) = closest_food {
+                if dist < 35.0 {
+                    new_action = "Eating".to_string();
+                    let food_id = food_ent.index().index();
+                    let mut payload = HashMap::new();
+                    payload.insert("target_id".to_string(), food_id.to_string());
+                    commands.push(Command::new(CommandType::Interact, entity_id, payload));
+
+                    let mut speak_payload = HashMap::new();
+                    if stats.tastebud_spoiled > 0.5 {
+                        speak_payload.insert("text".to_string(), "Tastes bland...".to_string());
+                    } else {
+                        speak_payload.insert("text".to_string(), "Delicious!".to_string());
+                    }
+                    commands.push(Command::new(CommandType::Speak, entity_id, speak_payload));
+                } else {
+                    new_action = "Seeking Food".to_string();
+                    let mut payload = HashMap::new();
+                    payload.insert("target_x".to_string(), food_pos.x.to_string());
+                    payload.insert("target_y".to_string(), (world_height - food_pos.y).to_string());
+                    commands.push(Command::new(CommandType::MoveTo, entity_id, payload));
+                }
+            } else {
+                new_action = "Wandering".to_string();
+                if *frame_counter % 120 == 0 {
+                    let wander_dx = rand_gen.gen_range(-100.0..100.0);
+                    let wander_dy = rand_gen.gen_range(-100.0..100.0);
+                    let target_pos = Vec2::new(
+                        (pos.x + wander_dx).clamp(50.0, world_settings.width - 50.0),
+                        (pos.y + wander_dy).clamp(50.0, world_settings.height - 50.0),
+                    );
+                    let mut payload = HashMap::new();
+                    payload.insert("target_x".to_string(), target_pos.x.to_string());
+                    payload.insert("target_y".to_string(), (world_height - target_pos.y).to_string());
+                    commands.push(Command::new(CommandType::MoveTo, entity_id, payload));
+                }
+            }
+        } else if needs.bladder >= 95.0 {
+            new_action = "Pooping".to_string();
+            let mut speak_payload = HashMap::new();
+            speak_payload.insert("text".to_string(), "Sukkiri!".to_string());
+            commands.push(Command::new(CommandType::Speak, entity_id, speak_payload));
+        } else if needs.social < 40.0 {
+            let mut closest_other: Option<(Entity, Vec2, f32)> = None;
+            for (other_ent, other_tf) in yukkuri_query.iter() {
+                if other_ent == entity { continue; }
+                let other_pos = other_tf.translation.truncate();
+                let dist = pos.distance(other_pos);
+                if closest_other.map_or(true, |(_, _, d)| dist < d) {
+                    closest_other = Some((other_ent, other_pos, dist));
+                }
+            }
+
+            if let Some((_other_ent, other_pos, dist)) = closest_other {
+                if dist < 50.0 {
+                    new_action = "Socializing".to_string();
+                    if rand_gen.gen_bool(0.08) {
+                        let mut speak_payload = HashMap::new();
+                        speak_payload.insert("text".to_string(), "Yukkuri shiteitte ne!".to_string());
+                        commands.push(Command::new(CommandType::Speak, entity_id, speak_payload));
+                    }
+                } else {
+                    new_action = "Wandering".to_string();
+                    let mut payload = HashMap::new();
+                    payload.insert("target_x".to_string(), other_pos.x.to_string());
+                    payload.insert("target_y".to_string(), (world_height - other_pos.y).to_string());
+                    commands.push(Command::new(CommandType::MoveTo, entity_id, payload));
+                }
+            } else {
+                new_action = "Wandering".to_string();
+            }
+        } else {
+            new_action = "Wandering".to_string();
+            if *frame_counter % 180 == 0 {
+                let wander_dx = rand_gen.gen_range(-80.0..80.0);
+                let wander_dy = rand_gen.gen_range(-80.0..80.0);
+                let target_pos = Vec2::new(
+                    (pos.x + wander_dx).clamp(50.0, world_settings.width - 50.0),
+                    (pos.y + wander_dy).clamp(50.0, world_settings.height - 50.0),
+                );
+                let mut payload = HashMap::new();
+                payload.insert("target_x".to_string(), target_pos.x.to_string());
+                payload.insert("target_y".to_string(), (world_height - target_pos.y).to_string());
+                commands.push(Command::new(CommandType::MoveTo, entity_id, payload));
+            }
         }
-    });
+
+        if let Some(ref mut ai_state) = maybe_ai_state {
+            ai_state.current_action = new_action;
+        }
+
+        command_queue.0.extend(commands);
+    }
 }
 
 /// Bevy system to apply high-level action commands dispatched from Python.
@@ -1794,7 +1643,7 @@ pub fn move_target_steering_system(
         &MoveTarget,
         &SteeringConfig,
         &BaseColliderRadius,
-        &mut avian2d::prelude::LinearVelocity,
+        &mut crate::simulation::kinematic_controller::KinematicVelocity,
         Option<&Flight>,
         Option<&crate::simulation::navigation::MovementPath>,
         Option<&mut StuckDetector>,
@@ -1821,7 +1670,7 @@ pub fn move_target_steering_system(
         if dist <= move_target.acceptance_radius {
             // Arrived: remove MoveTarget.
             commands.entity(entity).remove::<MoveTarget>();
-            velocity.0 = Vec2::ZERO;
+            velocity.target = Vec2::ZERO;
 
             if maybe_stuck.is_some() {
                 commands.entity(entity).remove::<StuckDetector>();
@@ -1836,7 +1685,7 @@ pub fn move_target_steering_system(
         } else {
             steering.max_speed
         };
-        let mut steering_force = seek_dir * speed - velocity.0;
+        let mut steering_force = seek_dir * speed - velocity.current;
 
         // 3. Separation Force (Avoid other units)
         let mut separation_force = Vec2::ZERO;
@@ -1847,7 +1696,7 @@ pub fn move_target_steering_system(
             }
             let diff = current_pos - other_pos;
             let distance = diff.length();
-            let min_dist = self_radius + other_radius + 20.0;
+            let min_dist = self_radius + other_radius + 50.0;
             if distance < min_dist && distance > 0.0 {
                 let force_factor = (min_dist - distance) / min_dist;
                 separation_force += diff.normalize() * force_factor * steering.max_force * 1.5;
@@ -1867,8 +1716,8 @@ pub fn move_target_steering_system(
             .with_excluded_entities(vec![entity])
             .with_mask(obstacle_mask);
 
-        let look_ahead = 75.0;
-        let forward_dir = velocity.0.normalize_or_zero();
+        let look_ahead = 50.0;
+        let forward_dir = velocity.current.normalize_or_zero();
         let ray_dir = if forward_dir.length_squared() > 0.01 {
             forward_dir
         } else {
@@ -1905,8 +1754,8 @@ pub fn move_target_steering_system(
         }
 
         // Apply forces
-        let new_velocity = velocity.0 + steering_force * dt;
-        velocity.0 = new_velocity.clamp_length_max(steering.max_speed);
+        let new_velocity = velocity.current + steering_force * dt;
+        velocity.target = new_velocity.clamp_length_max(steering.max_speed);
 
         // 5. Stuck Detection and Repathing
         if let Some(mut stuck) = maybe_stuck {
@@ -1922,7 +1771,7 @@ pub fn move_target_steering_system(
                         rand::random::<f32>() - 0.5,
                         rand::random::<f32>() - 0.5,
                     ).normalize_or_zero() * steering.max_speed * 0.5;
-                    velocity.0 += jitter;
+                    velocity.target += jitter;
                     stuck.stuck_timer = 0.0;
                 }
 
@@ -2012,40 +1861,21 @@ pub fn sync_yukkuri_animations(
 }
 
 pub fn cleanup_ffi_cache_system(
-    mut removed: RemovedComponents<PythonState>,
-    sandbox: Option<NonSend<PythonAISandbox>>,
+    _removed: RemovedComponents<PythonState>,
 ) {
-    let Some(sandbox) = sandbox else { return; };
-    Python::with_gil(|py| {
-        for entity in removed.read() {
-            let entity_id = entity.index_u32();
-            if let Err(e) = sandbox.cleanup_entity(py, entity_id) {
-                error!("Failed to cleanup Python BT cache for entity {}: {:?}", entity_id, e);
-            }
-        }
-    });
+    // Native Rust AI state machine cleanup (no-op)
 }
 
-/// Plugin to register AI components, systems, and Python FFI resource.
-///
-/// `WorldSettings` must be inserted **before** this plugin is added so that
-/// the AI tick system reads the correct world dimensions.  Call
-/// [`load_world_settings`] in `main` and use `app.insert_resource(settings)`
-/// prior to `add_plugins(AIPlugin)`.
+/// Plugin to register AI components and native Rust AI systems.
 pub struct AIPlugin;
 
 impl Plugin for AIPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, cleanup_ffi_cache_system);
-        let sandbox = Python::with_gil(|py| {
-            PythonAISandbox::new(py).expect("Failed to initialize Python AI Sandbox")
-
-        });
 
         // Only insert WorldSettings default if the caller did not already
         // provide one (insert_resource would overwrite; init_resource skips).
         app
-            .insert_non_send(sandbox)
             .init_resource::<WorldSettings>()
             .init_resource::<PoppedCommands>()
             .init_resource::<EntityRegistry>()
@@ -2087,9 +1917,9 @@ impl Plugin for AIPlugin {
                 (
                     // 1. Spatial perception: populate VisibleTargets from distance checks.
                     populate_visible_targets_system,
-                    // 2. AI tick: build blackboards and dispatch Python behavior trees.
-                    tick_python_ai_system,
-                    // 3. Command apply: translate Python commands into ECS mutations.
+                    // 2. Native AI tick: evaluate goals and generate action commands in Rust ECS.
+                    tick_native_ai_system,
+                    // 3. Command apply: translate action commands into ECS mutations.
                     apply_ai_commands,
                     // 4. Steering: consume MoveTarget and set LinearVelocity.
                     move_target_steering_system,

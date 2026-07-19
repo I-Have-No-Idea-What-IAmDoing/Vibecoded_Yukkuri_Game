@@ -27,8 +27,8 @@ impl Default for CameraController {
             selected_entities: Vec::new(),
             lerp_speed: 5.0,
             target_zoom: 1.0,
-            min_zoom: 0.25,
-            max_zoom: 4.0,
+            min_zoom: 0.5,
+            max_zoom: 2.0,
             zoom_speed: 8.0,
         }
     }
@@ -44,12 +44,12 @@ pub fn setup_camera(mut commands: Commands, world_settings: Option<Res<WorldSett
     let center_y = height / 2.0;
 
     // Background clear colour — matches the world rectangle below.
-    commands.insert_resource(ClearColor(Color::srgb(0.35, 0.60, 0.25)));
+    commands.insert_resource(ClearColor(Color::BLACK));
 
     // World background rectangle (z = -100 so it renders behind everything).
     commands.spawn((
         Sprite {
-            color: Color::srgb(0.35, 0.60, 0.25),
+            color: Color::BLACK,
             custom_size: Some(Vec2::new(width, height)),
             ..default()
         },
@@ -126,6 +126,16 @@ pub fn camera_zoom_system(
     }
     if keyboard_input.pressed(KeyCode::PageDown) {
         zoom_delta += 1.0 * dt;
+    }
+    
+    let is_ctrl = keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight);
+    if is_ctrl {
+        if keyboard_input.just_pressed(KeyCode::Equal) || keyboard_input.just_pressed(KeyCode::NumpadAdd) {
+            zoom_delta -= 0.25;
+        }
+        if keyboard_input.just_pressed(KeyCode::Minus) || keyboard_input.just_pressed(KeyCode::NumpadSubtract) {
+            zoom_delta += 0.25;
+        }
     }
     
     if let Some((mut projection, mut controller)) = query.iter_mut().next() {
@@ -342,6 +352,50 @@ pub fn camera_refocus_system(
     }
 }
 
+pub fn draw_world_grid_system(
+    mut gizmos: Gizmos,
+    camera_q: Query<(&Camera, &GlobalTransform, &Projection), With<MainCamera>>,
+    world_settings: Option<Res<WorldSettings>>,
+) {
+    let Some((_camera, cam_transform, proj)) = camera_q.iter().next() else {
+        return;
+    };
+    let Projection::Orthographic(ref ortho) = *proj else { return; };
+    let (width, height) = if let Some(ref settings) = world_settings {
+        (settings.width, settings.height)
+    } else {
+        (3000.0, 3000.0)
+    };
+    
+    let grid_color = Color::srgb(0.275, 0.275, 0.275);
+    let grid_size = 100.0_f32;
+    let margin = 200.0_f32;
+    
+    let cam_pos = cam_transform.translation().truncate();
+    let half_width = ortho.area.width() / 2.0 + margin;
+    let half_height = ortho.area.height() / 2.0 + margin;
+    
+    let x_min = (cam_pos.x - half_width).max(0.0);
+    let x_max = (cam_pos.x + half_width).min(width);
+    let y_min = (cam_pos.y - half_height).max(0.0);
+    let y_max = (cam_pos.y + half_height).min(height);
+    
+    let first_x = (x_min / grid_size).floor() * grid_size;
+    let first_y = (y_min / grid_size).floor() * grid_size;
+    
+    let mut x = first_x;
+    while x <= x_max {
+        gizmos.line_2d(Vec2::new(x, y_min), Vec2::new(x, y_max), grid_color);
+        x += grid_size;
+    }
+    
+    let mut y = first_y;
+    while y <= y_max {
+        gizmos.line_2d(Vec2::new(x_min, y), Vec2::new(x_max, y), grid_color);
+        y += grid_size;
+    }
+}
+
 pub struct YukkuriCameraPlugin;
 
 impl Plugin for YukkuriCameraPlugin {
@@ -354,6 +408,7 @@ impl Plugin for YukkuriCameraPlugin {
                 camera_pan_system,
                 drag_selection_system,
                 camera_refocus_system,
+                draw_world_grid_system,
             ).run_if(in_state(crate::GameState::Gameplay)));
     }
 }

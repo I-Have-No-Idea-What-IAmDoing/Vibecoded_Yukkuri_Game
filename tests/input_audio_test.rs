@@ -9,16 +9,9 @@ use vibecoded_yukkuri_game::ui::{YukkuriDragState, YukkuriUiButton, UiAction};
 use vibecoded_yukkuri_game::prefabs::{load_prefab, spawn_yukkuri_prefab};
 use vibecoded_yukkuri_game::render::{TextureAtlasRegistry, YukkuriTypeRegistry};
 
-static PYTHON_INIT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
 static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
-fn init_python() {
-    PYTHON_INIT.get_or_init(|| {
-        use vibecoded_yukkuri_game::ai::yukkuri_rust;
-        pyo3::append_to_inittab!(yukkuri_rust);
-        pyo3::prepare_freethreaded_python();
-    });
-}
+fn init_python() {}
 
 fn make_app() -> App {
     common::create_test_app()
@@ -89,11 +82,11 @@ fn test_dragging_flow() {
 
     let entity = spawn_one(&mut app, Vec2::new(0.0, 0.0));
 
-    // Initially RigidBody should be Dynamic
+    // Initially RigidBody should be Kinematic
     {
         let world = app.world();
         let rb = world.get::<RigidBody>(entity).expect("RigidBody missing");
-        assert_eq!(*rb, RigidBody::Dynamic);
+        assert_eq!(*rb, RigidBody::Kinematic);
     }
 
     let window_entity = common::spawn_test_window(&mut app);
@@ -168,7 +161,7 @@ fn test_dragging_flow() {
         assert_eq!(drag_state.dragged_entity, None);
 
         let rb = world.get::<RigidBody>(entity).expect("RigidBody missing");
-        assert_eq!(*rb, RigidBody::Dynamic);
+        assert_eq!(*rb, RigidBody::Kinematic);
     }
 }
 

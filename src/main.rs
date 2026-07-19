@@ -8,7 +8,7 @@ use bevy::render::{
 
 
 use vibecoded_yukkuri_game::ai;
-use vibecoded_yukkuri_game::ai::{load_world_settings, yukkuri_rust};
+use vibecoded_yukkuri_game::ai::load_world_settings;
 use vibecoded_yukkuri_game::prefabs::{load_prefab, spawn_yukkuri_prefab};
 use vibecoded_yukkuri_game::render::{TextureAtlasRegistry, YukkuriTypeRegistry};
 
@@ -65,11 +65,6 @@ fn load_window_settings() -> WindowToml {
 // ---------------------------------------------------------------------------
 
 fn main() {
-    // Register the yukkuri_rust PyO3 module before the Python interpreter
-    // starts — must happen before any pyo3 call.
-    pyo3::append_to_inittab!(yukkuri_rust);
-    pyo3::prepare_freethreaded_python();
-
     // Read TOML configs before building the App so values can be injected
     // into DefaultPlugins (window) and as resources (world settings).
     let win = load_window_settings();
@@ -141,7 +136,7 @@ fn main() {
         .insert_resource(vibecoded_yukkuri_game::simulation::hpa::NavigationService::new(
             world_settings.width,
             world_settings.height,
-            25.0,
+            50.0,
         ))
         .add_plugins(ai::AIPlugin)
         .add_plugins(vibecoded_yukkuri_game::render::YukkuriRenderPlugin)
@@ -213,32 +208,4 @@ fn spawn_initial_yukkuri(
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod python_tests {
-    use pyo3::prelude::*;
-
-    #[test]
-    fn test_python_import_yukkuri_rust() {
-        use vibecoded_yukkuri_game::ai::yukkuri_rust;
-        pyo3::append_to_inittab!(yukkuri_rust);
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
-            let res = py.run(
-                std::ffi::CString::new(
-                    r#"
-from yukkuri_rust import TargetInfo, Blackboard, CommandType, Command
-import sys
-
-print("Successfully imported yukkuri_rust in Python!")
-assert CommandType.MoveTo is not None
-"#
-                ).unwrap().as_c_str(),
-                None,
-                None,
-            );
-            assert!(res.is_ok(), "Python execution failed: {:?}", res.err());
-        });
-    }
-}
 

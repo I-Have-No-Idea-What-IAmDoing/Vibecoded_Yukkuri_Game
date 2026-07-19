@@ -1,42 +1,26 @@
-use pyo3::prelude::*;
+// Removed PyO3
 use std::collections::{HashMap, HashSet};
 use serde::{Serialize, Deserialize};
 
-#[pyclass]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TargetInfo {
-    #[pyo3(get)]
     pub entity_id: u32,
-    #[pyo3(get)]
     pub stable_id: u64,
-    #[pyo3(get)]
     pub type_id: String,
-    #[pyo3(get)]
     pub growth_stage: String,
-    #[pyo3(get)]
     pub x: f32,
-    #[pyo3(get)]
     pub y: f32, // Python Y-down coordinate
-    #[pyo3(get)]
     pub distance: f32,
-    #[pyo3(get)]
     pub affinity: f32,
-    #[pyo3(get)]
     pub is_threat: bool,
-    #[pyo3(get)]
     pub is_prey: bool,
-    #[pyo3(get)]
     pub is_family: bool,
-    #[pyo3(get)]
     pub tags: HashSet<String>,
     #[serde(default)]
     pub detected_at: f32,
 }
 
-#[pymethods]
 impl TargetInfo {
-    #[new]
-    #[pyo3(signature = (entity_id, stable_id, type_id, growth_stage, x, y, distance, affinity, is_threat, is_prey, is_family, tags))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         entity_id: u32,
@@ -108,60 +92,34 @@ impl TargetInfo {
     }
 }
 
-#[pyclass]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Blackboard {
-    #[pyo3(get)]
     pub entity_id: u32,
-    #[pyo3(get)]
     pub stats: HashMap<String, f32>,
-    #[pyo3(get)]
     pub x: f32,
-    #[pyo3(get)]
-    pub y: f32, // Python Y-down coordinate
-    #[pyo3(get)]
+    pub y: f32,
     pub altitude: f32,
-    #[pyo3(get)]
     pub flight_state: u32,
-    #[pyo3(get)]
     pub visible_targets: Vec<TargetInfo>,
-    #[pyo3(get)]
     pub current_action: String,
-    #[pyo3(get)]
-    pub short_term_memory: HashMap<u32, (f32, f32, f32)>, // values are (x, y, timestamp)
-    #[pyo3(get)]
+    pub short_term_memory: HashMap<u32, (f32, f32, f32)>,
     pub type_id: String,
-    #[pyo3(get)]
     pub growth_stage: String,
-    #[pyo3(get)]
     pub traits: Vec<String>,
-    #[pyo3(get)]
     pub skills: HashMap<String, u32>,
-    #[pyo3(get)]
     pub parent_id: Option<u32>,
-    #[pyo3(get)]
     pub children_ids: Vec<u32>,
-    #[pyo3(get)]
     pub inventory: Vec<(String, u32)>,
-    #[pyo3(get)]
     pub grid_width: usize,
-    #[pyo3(get)]
     pub grid_height: usize,
     pub grid_cells: Vec<u8>,
-    #[pyo3(get)]
     pub day: u32,
-    #[pyo3(get)]
     pub hour_of_day: f32,
-    #[pyo3(get)]
     pub is_night: bool,
-    #[pyo3(get)]
     pub elapsed: f32,
 }
 
-#[pymethods]
 impl Blackboard {
-    #[new]
-    #[pyo3(signature = (entity_id, stats, x, y, altitude, flight_state, visible_targets, current_action, short_term_memory, type_id, growth_stage, traits = Vec::new(), skills = HashMap::new(), parent_id = None, children_ids = Vec::new(), inventory = Vec::new(), grid_width = 0, grid_height = 0, grid_cells = Vec::new(), day = 1, hour_of_day = 12.0, is_night = false, elapsed = 0.0))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         entity_id: u32,

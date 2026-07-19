@@ -73,11 +73,11 @@ pub struct SimulationSettings {
 impl Default for SimulationSettings {
     fn default() -> Self {
         Self {
-            hunger_decay_rate: 2.0,
-            energy_decay_rate: 0.5,
-            cleanliness_decay_rate: 0.2,
-            social_decay_rate: 0.5,
-            starvation_damage_rate: 5.0,
+            hunger_decay_rate: 0.0035,
+            energy_decay_rate: 0.002,
+            cleanliness_decay_rate: 0.0015,
+            social_decay_rate: 0.002,
+            starvation_damage_rate: 0.003,
             time_scale: 60.0,
             poop_spawn_chance: 0.01,
             bladder_full_threshold: 80.0,
@@ -105,11 +105,11 @@ impl Default for SimulationSettings {
             family_food_sharing_amount: 1.0,
             family_sleep_energy_gain: 0.5,
             family_sleep_stress_reduction: 1.0,
-            stress_decay_rate: 5.0,
-            happiness_decay_rate: 0.5,
+            stress_decay_rate: 0.02,
+            happiness_decay_rate: 0.002,
             xp_base: 100.0,
             xp_exponent: 1.5,
-            personality_drift_rate: 0.1,
+            personality_drift_rate: 0.0001,
             tastebud_decay: 0.001,
         }
     }
@@ -201,7 +201,7 @@ pub fn load_simulation_settings() -> SimulationSettings {
 /// Ticks hunger, energy, cleanliness, social using virtual time and applying time_scale.
 /// Applies starvation damage when hunger reaches 100.0. Clamps values appropriately.
 pub fn needs_decay_tick_system(
-    time: Res<Time<Virtual>>,
+    time: Res<Time>,
     settings: Res<SimulationSettings>,
     time_elapsed: Res<crate::ai::persistence::TimeElapsed>,
     trait_registry: Res<crate::simulation::skills::TraitRegistry>,
